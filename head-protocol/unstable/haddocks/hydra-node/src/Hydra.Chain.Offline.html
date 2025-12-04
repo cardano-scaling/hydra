@@ -35,52 +35,52 @@
 </span><span id="line-35"></span><span class="annot"><a href="Hydra.Chain.Offline.html#fromShelleyGenesis"><span class="hs-identifier hs-type">fromShelleyGenesis</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Shelley.ShelleyGenesis</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyEra</span></span><span>
 </span><span id="line-36"></span><span id="fromShelleyGenesis"><span class="annot"><span class="annottext">fromShelleyGenesis :: ShelleyGenesis -&gt; GenesisParameters ShelleyEra
 </span><a href="Hydra.Chain.Offline.html#fromShelleyGenesis"><span class="hs-identifier hs-var hs-var">fromShelleyGenesis</span></a></span></span><span>
-</span><span id="line-37"></span><span>  </span><span id="local-6989586621680612224"><span class="annot"><span class="annottext">sg :: ShelleyGenesis
-</span><a href="#local-6989586621680612224"><span class="hs-identifier hs-var">sg</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Shelley.ShelleyGenesis</span></span><span>
-</span><span id="line-38"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680612226"><span class="annot"><span class="annottext">UTCTime
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621680567940"><span class="annot"><span class="annottext">sg :: ShelleyGenesis
+</span><a href="#local-6989586621680567940"><span class="hs-identifier hs-var">sg</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Shelley.ShelleyGenesis</span></span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680567942"><span class="annot"><span class="annottext">UTCTime
 sgSystemStart :: UTCTime
 sgSystemStart :: ShelleyGenesis -&gt; UTCTime
-</span><a href="#local-6989586621680612226"><span class="hs-identifier hs-var hs-var">Shelley.sgSystemStart</span></a></span></span><span>
-</span><span id="line-39"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612228"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621680567942"><span class="hs-identifier hs-var hs-var">Shelley.sgSystemStart</span></a></span></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567944"><span class="annot"><span class="annottext">Word32
 sgNetworkMagic :: Word32
 sgNetworkMagic :: ShelleyGenesis -&gt; Word32
-</span><a href="#local-6989586621680612228"><span class="hs-identifier hs-var hs-var">Shelley.sgNetworkMagic</span></a></span></span><span>
-</span><span id="line-40"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612230"><span class="annot"><span class="annottext">Network
+</span><a href="#local-6989586621680567944"><span class="hs-identifier hs-var hs-var">Shelley.sgNetworkMagic</span></a></span></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567946"><span class="annot"><span class="annottext">Network
 sgNetworkId :: Network
 sgNetworkId :: ShelleyGenesis -&gt; Network
-</span><a href="#local-6989586621680612230"><span class="hs-identifier hs-var hs-var">Shelley.sgNetworkId</span></a></span></span><span>
-</span><span id="line-41"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612232"><span class="annot"><span class="annottext">PositiveUnitInterval
+</span><a href="#local-6989586621680567946"><span class="hs-identifier hs-var hs-var">Shelley.sgNetworkId</span></a></span></span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567948"><span class="annot"><span class="annottext">PositiveUnitInterval
 sgActiveSlotsCoeff :: PositiveUnitInterval
 sgActiveSlotsCoeff :: ShelleyGenesis -&gt; PositiveUnitInterval
-</span><a href="#local-6989586621680612232"><span class="hs-identifier hs-var hs-var">Shelley.sgActiveSlotsCoeff</span></a></span></span><span>
-</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612234"><span class="annot"><span class="annottext">NonZero Word64
+</span><a href="#local-6989586621680567948"><span class="hs-identifier hs-var hs-var">Shelley.sgActiveSlotsCoeff</span></a></span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567950"><span class="annot"><span class="annottext">NonZero Word64
 sgSecurityParam :: NonZero Word64
 sgSecurityParam :: ShelleyGenesis -&gt; NonZero Word64
-</span><a href="#local-6989586621680612234"><span class="hs-identifier hs-var hs-var">Shelley.sgSecurityParam</span></a></span></span><span>
-</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612236"><span class="annot"><span class="annottext">EpochSize
+</span><a href="#local-6989586621680567950"><span class="hs-identifier hs-var hs-var">Shelley.sgSecurityParam</span></a></span></span><span>
+</span><span id="line-43"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567952"><span class="annot"><span class="annottext">EpochSize
 sgEpochLength :: EpochSize
 sgEpochLength :: ShelleyGenesis -&gt; EpochSize
-</span><a href="#local-6989586621680612236"><span class="hs-identifier hs-var hs-var">Shelley.sgEpochLength</span></a></span></span><span>
-</span><span id="line-44"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612238"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680567952"><span class="hs-identifier hs-var hs-var">Shelley.sgEpochLength</span></a></span></span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567954"><span class="annot"><span class="annottext">Word64
 sgSlotsPerKESPeriod :: Word64
 sgSlotsPerKESPeriod :: ShelleyGenesis -&gt; Word64
-</span><a href="#local-6989586621680612238"><span class="hs-identifier hs-var hs-var">Shelley.sgSlotsPerKESPeriod</span></a></span></span><span>
-</span><span id="line-45"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612240"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680567954"><span class="hs-identifier hs-var hs-var">Shelley.sgSlotsPerKESPeriod</span></a></span></span><span>
+</span><span id="line-45"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567956"><span class="annot"><span class="annottext">Word64
 sgMaxKESEvolutions :: Word64
 sgMaxKESEvolutions :: ShelleyGenesis -&gt; Word64
-</span><a href="#local-6989586621680612240"><span class="hs-identifier hs-var hs-var">Shelley.sgMaxKESEvolutions</span></a></span></span><span>
-</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612242"><span class="annot"><span class="annottext">NominalDiffTimeMicro
+</span><a href="#local-6989586621680567956"><span class="hs-identifier hs-var hs-var">Shelley.sgMaxKESEvolutions</span></a></span></span><span>
+</span><span id="line-46"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567958"><span class="annot"><span class="annottext">NominalDiffTimeMicro
 sgSlotLength :: NominalDiffTimeMicro
 sgSlotLength :: ShelleyGenesis -&gt; NominalDiffTimeMicro
-</span><a href="#local-6989586621680612242"><span class="hs-identifier hs-var hs-var">Shelley.sgSlotLength</span></a></span></span><span>
-</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612244"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680567958"><span class="hs-identifier hs-var hs-var">Shelley.sgSlotLength</span></a></span></span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567960"><span class="annot"><span class="annottext">Word64
 sgUpdateQuorum :: Word64
 sgUpdateQuorum :: ShelleyGenesis -&gt; Word64
-</span><a href="#local-6989586621680612244"><span class="hs-identifier hs-var hs-var">Shelley.sgUpdateQuorum</span></a></span></span><span>
-</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612246"><span class="annot"><span class="annottext">Word64
+</span><a href="#local-6989586621680567960"><span class="hs-identifier hs-var hs-var">Shelley.sgUpdateQuorum</span></a></span></span><span>
+</span><span id="line-48"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680567962"><span class="annot"><span class="annottext">Word64
 sgMaxLovelaceSupply :: Word64
 sgMaxLovelaceSupply :: ShelleyGenesis -&gt; Word64
-</span><a href="#local-6989586621680612246"><span class="hs-identifier hs-var hs-var">Shelley.sgMaxLovelaceSupply</span></a></span></span><span>
+</span><a href="#local-6989586621680567962"><span class="hs-identifier hs-var hs-var">Shelley.sgMaxLovelaceSupply</span></a></span></span><span>
 </span><span id="line-49"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">sgGenDelegs :: ShelleyGenesis -&gt; Map (KeyHash 'Genesis) GenDelegPair
 </span><span class="hs-identifier hs-var">Shelley.sgGenDelegs</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map (KeyHash 'Genesis) GenDelegPair
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-comment">-- unused, might be of interest</span><span>
@@ -94,48 +94,48 @@ sgMaxLovelaceSupply :: ShelleyGenesis -&gt; Word64
 </span><span id="line-53"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span>
 </span><span id="line-54"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">protocolParamSystemStart :: UTCTime
 </span><span class="hs-identifier hs-var">protocolParamSystemStart</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680612226"><span class="hs-identifier hs-var">sgSystemStart</span></a></span><span>
+</span><a href="#local-6989586621680567942"><span class="hs-identifier hs-var">sgSystemStart</span></a></span><span>
 </span><span id="line-55"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamNetworkId :: NetworkId
 </span><span class="hs-identifier hs-var">protocolParamNetworkId</span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-56"></span><span>          </span><span class="annot"><span class="annottext">Network -&gt; NetworkMagic -&gt; NetworkId
 </span><span class="hs-identifier hs-var">fromShelleyNetwork</span></span><span>
 </span><span id="line-57"></span><span>            </span><span class="annot"><span class="annottext">Network
-</span><a href="#local-6989586621680612230"><span class="hs-identifier hs-var">sgNetworkId</span></a></span><span>
+</span><a href="#local-6989586621680567946"><span class="hs-identifier hs-var">sgNetworkId</span></a></span><span>
 </span><span id="line-58"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; NetworkMagic
 </span><span class="hs-identifier hs-var">NetworkMagic</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621680612228"><span class="hs-identifier hs-var">sgNetworkMagic</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680567944"><span class="hs-identifier hs-var">sgNetworkMagic</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-59"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamActiveSlotsCoefficient :: Rational
 </span><span class="hs-identifier hs-var">protocolParamActiveSlotsCoefficient</span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-60"></span><span>          </span><span class="annot"><span class="annottext">PositiveUnitInterval -&gt; Rational
 forall r. BoundedRational r =&gt; r -&gt; Rational
 </span><span class="hs-identifier hs-var">Ledger.unboundRational</span></span><span>
 </span><span id="line-61"></span><span>            </span><span class="annot"><span class="annottext">PositiveUnitInterval
-</span><a href="#local-6989586621680612232"><span class="hs-identifier hs-var">sgActiveSlotsCoeff</span></a></span><span>
+</span><a href="#local-6989586621680567948"><span class="hs-identifier hs-var">sgActiveSlotsCoeff</span></a></span><span>
 </span><span id="line-62"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamSecurity :: NonZero Word64
 </span><span class="hs-identifier hs-var">protocolParamSecurity</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonZero Word64
-</span><a href="#local-6989586621680612234"><span class="hs-identifier hs-var">sgSecurityParam</span></a></span><span>
+</span><a href="#local-6989586621680567950"><span class="hs-identifier hs-var">sgSecurityParam</span></a></span><span>
 </span><span id="line-63"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamEpochLength :: EpochSize
 </span><span class="hs-identifier hs-var">protocolParamEpochLength</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EpochSize
-</span><a href="#local-6989586621680612236"><span class="hs-identifier hs-var">sgEpochLength</span></a></span><span>
+</span><a href="#local-6989586621680567952"><span class="hs-identifier hs-var">sgEpochLength</span></a></span><span>
 </span><span id="line-64"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamSlotLength :: NominalDiffTime
 </span><span class="hs-identifier hs-var">protocolParamSlotLength</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTimeMicro -&gt; NominalDiffTime
 </span><span class="hs-identifier hs-var">Shelley.fromNominalDiffTimeMicro</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTimeMicro
-</span><a href="#local-6989586621680612242"><span class="hs-identifier hs-var">sgSlotLength</span></a></span><span>
+</span><a href="#local-6989586621680567958"><span class="hs-identifier hs-var">sgSlotLength</span></a></span><span>
 </span><span id="line-65"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamSlotsPerKESPeriod :: Int
 </span><span class="hs-identifier hs-var">protocolParamSlotsPerKESPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621680612238"><span class="hs-identifier hs-var">sgSlotsPerKESPeriod</span></a></span><span>
+</span><a href="#local-6989586621680567954"><span class="hs-identifier hs-var">sgSlotsPerKESPeriod</span></a></span><span>
 </span><span id="line-66"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamMaxKESEvolutions :: Int
 </span><span class="hs-identifier hs-var">protocolParamMaxKESEvolutions</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621680612240"><span class="hs-identifier hs-var">sgMaxKESEvolutions</span></a></span><span>
+</span><a href="#local-6989586621680567956"><span class="hs-identifier hs-var">sgMaxKESEvolutions</span></a></span><span>
 </span><span id="line-67"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamUpdateQuorum :: Int
 </span><span class="hs-identifier hs-var">protocolParamUpdateQuorum</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Int
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621680612244"><span class="hs-identifier hs-var">sgUpdateQuorum</span></a></span><span>
+</span><a href="#local-6989586621680567960"><span class="hs-identifier hs-var">sgUpdateQuorum</span></a></span><span>
 </span><span id="line-68"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolParamMaxLovelaceSupply :: Coin
 </span><span class="hs-identifier hs-var">protocolParamMaxLovelaceSupply</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Coin
 </span><span class="hs-identifier hs-var">L.Coin</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Coin) -&gt; Integer -&gt; Coin
@@ -143,28 +143,28 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; Integer
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Word64
-</span><a href="#local-6989586621680612246"><span class="hs-identifier hs-var">sgMaxLovelaceSupply</span></a></span><span>
+</span><a href="#local-6989586621680567962"><span class="hs-identifier hs-var">sgMaxLovelaceSupply</span></a></span><span>
 </span><span id="line-69"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">protocolInitialUpdateableProtocolParameters :: PParams (ShelleyLedgerEra ShelleyEra)
 </span><span class="hs-identifier hs-var">protocolInitialUpdateableProtocolParameters</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShelleyGenesis -&gt; PParams ShelleyEra
 </span><span class="hs-identifier hs-var">Shelley.sgProtocolParams</span></span><span> </span><span class="annot"><span class="annottext">ShelleyGenesis
-</span><a href="#local-6989586621680612224"><span class="hs-identifier hs-var">sg</span></a></span><span>
+</span><a href="#local-6989586621680567940"><span class="hs-identifier hs-var">sg</span></a></span><span>
 </span><span id="line-70"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-71"></span><span>
 </span><span id="line-72"></span><span class="annot"><span class="hs-comment">-- | Derived 'HeadId' of offline head from a 'HeadSeed'.</span></span><span>
 </span><span id="line-73"></span><span class="annot"><a href="Hydra.Chain.Offline.html#offlineHeadId"><span class="hs-identifier hs-type">offlineHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadSeed</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span>
 </span><span id="line-74"></span><span id="offlineHeadId"><span class="annot"><span class="annottext">offlineHeadId :: HeadSeed -&gt; HeadId
-</span><a href="Hydra.Chain.Offline.html#offlineHeadId"><span class="hs-identifier hs-var hs-var">offlineHeadId</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UnsafeHeadSeed</span></span><span> </span><span id="local-6989586621680612270"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680612270"><span class="hs-identifier hs-var">seed</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadId
+</span><a href="Hydra.Chain.Offline.html#offlineHeadId"><span class="hs-identifier hs-var hs-var">offlineHeadId</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UnsafeHeadSeed</span></span><span> </span><span id="local-6989586621680567986"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621680567986"><span class="hs-identifier hs-var">seed</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; HeadId
 </span><span class="hs-identifier hs-var">UnsafeHeadId</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; HeadId) -&gt; ByteString -&gt; HeadId
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;offline-&quot;</span></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString -&gt; ByteString
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621680612270"><span class="hs-identifier hs-var">seed</span></a></span><span>
+</span><a href="#local-6989586621680567986"><span class="hs-identifier hs-var">seed</span></a></span><span>
 </span><span id="line-75"></span><span>
 </span><span id="line-76"></span><span class="hs-keyword">newtype</span><span> </span><span id="InitialUTxOParseException"><span class="annot"><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-var">InitialUTxOParseException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="InitialUTxOParseException"><span class="annot"><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-var">InitialUTxOParseException</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
-</span><span id="line-77"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680612274"><span id="local-6989586621680612281"><span id="local-6989586621680612285"><span class="annot"><span class="annottext">Int -&gt; InitialUTxOParseException -&gt; ShowS
+</span><span id="line-77"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680567990"><span id="local-6989586621680567997"><span id="local-6989586621680568001"><span class="annot"><span class="annottext">Int -&gt; InitialUTxOParseException -&gt; ShowS
 [InitialUTxOParseException] -&gt; ShowS
 InitialUTxOParseException -&gt; String
 (Int -&gt; InitialUTxOParseException -&gt; ShowS)
@@ -181,16 +181,16 @@ $cshowList :: [InitialUTxOParseException] -&gt; ShowS
 showList :: [InitialUTxOParseException] -&gt; ShowS
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-78"></span><span>
-</span><span id="line-79"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680612294"><span id="local-6989586621680612297"><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-type">InitialUTxOParseException</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-80"></span><span>  </span><span id="local-6989586621680612310"><span class="annot"><span class="annottext">displayException :: InitialUTxOParseException -&gt; String
-</span><a href="#local-6989586621680612310"><span class="hs-identifier hs-var hs-var hs-var hs-var">displayException</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-type">InitialUTxOParseException</span></a></span><span> </span><span id="local-6989586621680612312"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612312"><span class="hs-identifier hs-var">err</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-79"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680568010"><span id="local-6989586621680568013"><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Exception.Type.html#Exception"><span class="hs-identifier hs-type">Exception</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-type">InitialUTxOParseException</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-80"></span><span>  </span><span id="local-6989586621680568026"><span class="annot"><span class="annottext">displayException :: InitialUTxOParseException -&gt; String
+</span><a href="#local-6989586621680568026"><span class="hs-identifier hs-var hs-var hs-var hs-var">displayException</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-type">InitialUTxOParseException</span></a></span><span> </span><span id="local-6989586621680568028"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680568028"><span class="hs-identifier hs-var">err</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;Failed to parse initial UTXO: &quot;</span></span><span>
 </span><span id="line-82"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612312"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><a href="#local-6989586621680568028"><span class="hs-identifier hs-var">err</span></a></span><span>
 </span><span id="line-83"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -204,8 +204,8 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span id="line-87"></span><span class="hs-comment">-- Throws: 'InitialUTxOParseException' if the initial UTXO file could not be parsed.</span><span>
 </span><span id="line-88"></span><span class="annot"><a href="Hydra.Chain.Offline.html#loadGenesisFile"><span class="hs-identifier hs-type">loadGenesisFile</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyEra</span></span><span class="hs-special">)</span><span>
 </span><span id="line-89"></span><span id="loadGenesisFile"><span class="annot"><span class="annottext">loadGenesisFile :: Maybe String -&gt; IO (GenesisParameters ShelleyEra)
-</span><a href="Hydra.Chain.Offline.html#loadGenesisFile"><span class="hs-identifier hs-var hs-var">loadGenesisFile</span></a></span></span><span> </span><span id="local-6989586621680612315"><span class="annot"><span class="annottext">Maybe String
-</span><a href="#local-6989586621680612315"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Chain.Offline.html#loadGenesisFile"><span class="hs-identifier hs-var hs-var">loadGenesisFile</span></a></span></span><span> </span><span id="local-6989586621680568031"><span class="annot"><span class="annottext">Maybe String
+</span><a href="#local-6989586621680568031"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-90"></span><span>  </span><span class="hs-comment">-- TODO: uses internal cardano-api lib</span><span>
 </span><span id="line-91"></span><span>  </span><span class="annot"><span class="annottext">ShelleyGenesis -&gt; GenesisParameters ShelleyEra
 </span><a href="Hydra.Chain.Offline.html#fromShelleyGenesis"><span class="hs-identifier hs-var">fromShelleyGenesis</span></a></span><span>
@@ -213,11 +213,11 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 -&gt; IO ShelleyGenesis -&gt; IO (GenesisParameters ShelleyEra)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe String
-</span><a href="#local-6989586621680612315"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621680568031"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-93"></span><span>      </span><span class="annot"><span class="annottext">Maybe String
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-94"></span><span>        </span><span id="local-6989586621680612317"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680612317"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><span id="line-94"></span><span>        </span><span id="local-6989586621680568033"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621680568033"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
 </span><span id="line-95"></span><span>        </span><span class="hs-comment">-- TODO: uses internal cardano-api lib</span><span>
@@ -225,14 +225,14 @@ forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">ShelleyGenesis
-</span><span class="hs-identifier hs-var">shelleyGenesisDefaults</span></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">sgSystemStart</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621680612317"><span class="hs-identifier hs-type">now</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-97"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680612319"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612319"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-98"></span><span>        </span><span id="local-6989586621680612320"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621680612320"><span class="hs-identifier hs-var">jsonVal</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Either String Value)
+</span><span class="hs-identifier hs-var">shelleyGenesisDefaults</span></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">sgSystemStart</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621680568033"><span class="hs-identifier hs-type">now</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-97"></span><span>      </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680568035"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680568035"><span class="hs-identifier hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>        </span><span id="local-6989586621680568036"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621680568036"><span class="hs-identifier hs-var">jsonVal</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (Either String Value)
 forall a. FromJSON a =&gt; String -&gt; IO (Either String a)
 </span><span class="hs-identifier hs-var">Aeson.eitherDecodeFileStrict</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612319"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either String Value)
+</span><a href="#local-6989586621680568035"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Either String Value)
 -&gt; (Either String Value -&gt; IO Value) -&gt; IO Value
 forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
@@ -251,15 +251,15 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; Parser b) -&gt; a -&gt; Either String b
 </span><span class="hs-identifier hs-var">Aeson.parseEither</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">ShelleyGenesis</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621680612320"><span class="hs-identifier hs-var">jsonVal</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-100"></span><span>          </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680612325"><span class="annot"><span class="annottext">ShelleyGenesis
-</span><a href="#local-6989586621680612325"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShelleyGenesis -&gt; IO ShelleyGenesis
+</span><a href="#local-6989586621680568036"><span class="hs-identifier hs-var">jsonVal</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-100"></span><span>          </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621680568041"><span class="annot"><span class="annottext">ShelleyGenesis
+</span><a href="#local-6989586621680568041"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ShelleyGenesis -&gt; IO ShelleyGenesis
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">ShelleyGenesis
-</span><a href="#local-6989586621680612325"><span class="hs-identifier hs-var">a</span></a></span><span>
-</span><span id="line-101"></span><span>          </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680612326"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612326"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">InitialUTxOParseException -&gt; IO ShelleyGenesis
+</span><a href="#local-6989586621680568041"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-101"></span><span>          </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621680568042"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680568042"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">InitialUTxOParseException -&gt; IO ShelleyGenesis
 forall e a. Exception e =&gt; e -&gt; IO a
 forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
 </span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">(InitialUTxOParseException -&gt; IO ShelleyGenesis)
@@ -267,34 +267,34 @@ forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; InitialUTxOParseException
 </span><a href="Hydra.Chain.Offline.html#InitialUTxOParseException"><span class="hs-identifier hs-var">InitialUTxOParseException</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612326"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><a href="#local-6989586621680568042"><span class="hs-identifier hs-var">e</span></a></span><span>
 </span><span id="line-102"></span><span>
-</span><span id="line-103"></span><span id="local-6989586621680612073"><span class="annot"><a href="Hydra.Chain.Offline.html#withOfflineChain"><span class="hs-identifier hs-type">withOfflineChain</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-103"></span><span id="local-6989586621680567789"><span class="annot"><a href="Hydra.Chain.Offline.html#withOfflineChain"><span class="hs-identifier hs-type">withOfflineChain</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-104"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#OfflineChainConfig"><span class="hs-identifier hs-type">OfflineChainConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-105"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-106"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-107"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Last known chain state as loaded from persistence.</span></span><span>
 </span><span id="line-108"></span><span>  </span><span class="annot"><a href="Hydra.Chain.html#ChainStateHistory"><span class="hs-identifier hs-type">ChainStateHistory</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-109"></span><span>  </span><span class="annot"><a href="Hydra.Chain.html#ChainComponent"><span class="hs-identifier hs-type">ChainComponent</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680612073"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-109"></span><span>  </span><span class="annot"><a href="Hydra.Chain.html#ChainComponent"><span class="hs-identifier hs-type">ChainComponent</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680567789"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-110"></span><span id="withOfflineChain"><span class="annot"><span class="annottext">withOfflineChain :: forall a.
 OfflineChainConfig
 -&gt; Party
 -&gt; [Party]
 -&gt; ChainStateHistory Tx
 -&gt; ChainComponent Tx IO a
-</span><a href="Hydra.Chain.Offline.html#withOfflineChain"><span class="hs-identifier hs-var hs-var">withOfflineChain</span></a></span></span><span> </span><span id="local-6989586621680612364"><span class="annot"><span class="annottext">OfflineChainConfig
-</span><a href="#local-6989586621680612364"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680612365"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680612365"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621680612366"><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680612366"><span class="hs-identifier hs-var">otherParties</span></a></span></span><span> </span><span id="local-6989586621680612367"><span class="annot"><span class="annottext">ChainStateHistory Tx
-</span><a href="#local-6989586621680612367"><span class="hs-identifier hs-var">chainStateHistory</span></a></span></span><span> </span><span id="local-6989586621680612368"><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612368"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680612369"><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
-</span><a href="#local-6989586621680612369"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.Chain.Offline.html#withOfflineChain"><span class="hs-identifier hs-var hs-var">withOfflineChain</span></a></span></span><span> </span><span id="local-6989586621680568080"><span class="annot"><span class="annottext">OfflineChainConfig
+</span><a href="#local-6989586621680568080"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680568081"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680568081"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621680568082"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621680568082"><span class="hs-identifier hs-var">otherParties</span></a></span></span><span> </span><span id="local-6989586621680568083"><span class="annot"><span class="annottext">ChainStateHistory Tx
+</span><a href="#local-6989586621680568083"><span class="hs-identifier hs-var">chainStateHistory</span></a></span></span><span> </span><span id="local-6989586621680568084"><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680568084"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680568085"><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
+</span><a href="#local-6989586621680568085"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-111"></span><span>  </span><span class="annot"><span class="annottext">IO ()
-</span><a href="#local-6989586621680612370"><span class="hs-identifier hs-var">initializeOfflineHead</span></a></span><span>
-</span><span id="line-112"></span><span>  </span><span id="local-6989586621680612371"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
-</span><a href="#local-6989586621680612371"><span class="hs-identifier hs-var">genesis</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; IO (GenesisParameters ShelleyEra)
+</span><a href="#local-6989586621680568086"><span class="hs-identifier hs-var">initializeOfflineHead</span></a></span><span>
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621680568087"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
+</span><a href="#local-6989586621680568087"><span class="hs-identifier hs-var">genesis</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Maybe String -&gt; IO (GenesisParameters ShelleyEra)
 </span><a href="Hydra.Chain.Offline.html#loadGenesisFile"><span class="hs-identifier hs-var">loadGenesisFile</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe String
-</span><a href="#local-6989586621680612372"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span><span>
+</span><a href="#local-6989586621680568088"><span class="hs-identifier hs-var">ledgerGenesisFile</span></a></span><span>
 </span><span id="line-113"></span><span>  </span><span class="annot"><span class="annottext">(String, IO ()) -&gt; (Async IO () -&gt; IO a) -&gt; IO a
 forall (m :: * -&gt; *) a b.
 MonadAsync m =&gt;
@@ -302,44 +302,44 @@ MonadAsync m =&gt;
 </span><span class="hs-identifier hs-var">withAsyncLabelled</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;offline-chain-tickForever&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra -&gt; ChainCallback Tx IO -&gt; IO ()
 </span><a href="Hydra.Chain.Offline.html#tickForever"><span class="hs-identifier hs-var">tickForever</span></a></span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
-</span><a href="#local-6989586621680612371"><span class="hs-identifier hs-var">genesis</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612368"><span class="hs-identifier hs-var">callback</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO a) -&gt; IO a) -&gt; (Async IO () -&gt; IO a) -&gt; IO a
+</span><a href="#local-6989586621680568087"><span class="hs-identifier hs-var">genesis</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680568084"><span class="hs-identifier hs-var">callback</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO a) -&gt; IO a) -&gt; (Async IO () -&gt; IO a) -&gt; IO a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680612375"><span class="annot"><span class="annottext">Async IO ()
-</span><a href="#local-6989586621680612375"><span class="hs-identifier hs-var">tickThread</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680568091"><span class="annot"><span class="annottext">Async IO ()
+</span><a href="#local-6989586621680568091"><span class="hs-identifier hs-var">tickThread</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-114"></span><span>    </span><span class="annot"><span class="annottext">Async IO () -&gt; IO ()
 forall (m :: * -&gt; *) a.
 (MonadAsync m, MonadFork m, MonadMask m) =&gt;
 Async m a -&gt; m ()
 </span><span class="hs-identifier hs-var">link</span></span><span> </span><span class="annot"><span class="annottext">Async IO ()
-</span><a href="#local-6989586621680612375"><span class="hs-identifier hs-var">tickThread</span></a></span><span>
+</span><a href="#local-6989586621680568091"><span class="hs-identifier hs-var">tickThread</span></a></span><span>
 </span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
-</span><a href="#local-6989586621680612369"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO
-</span><a href="#local-6989586621680612376"><span class="hs-identifier hs-var">chainHandle</span></a></span><span>
+</span><a href="#local-6989586621680568085"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO
+</span><a href="#local-6989586621680568092"><span class="hs-identifier hs-var">chainHandle</span></a></span><span>
 </span><span id="line-116"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-117"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#OfflineChainConfig"><span class="hs-identifier hs-type">OfflineChainConfig</span></a></span><span>
 </span><span id="line-118"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:offlineHeadSeed:OfflineChainConfig :: OfflineChainConfig -&gt; HeadSeed
-</span><a href="Hydra.Options.html#%24sel%3AofflineHeadSeed%3AOfflineChainConfig"><span class="hs-identifier hs-var">offlineHeadSeed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621680612379"><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621680612379"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span>
-</span><span id="line-119"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612380"><span class="annot"><span class="annottext">String
+</span><a href="Hydra.Options.html#%24sel%3AofflineHeadSeed%3AOfflineChainConfig"><span class="hs-identifier hs-var">offlineHeadSeed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621680568095"><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621680568095"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568096"><span class="annot"><span class="annottext">String
 initialUTxOFile :: String
 $sel:initialUTxOFile:OfflineChainConfig :: OfflineChainConfig -&gt; String
-</span><a href="#local-6989586621680612380"><span class="hs-identifier hs-var hs-var">initialUTxOFile</span></a></span></span><span>
-</span><span id="line-120"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612372"><span class="annot"><span class="annottext">Maybe String
+</span><a href="#local-6989586621680568096"><span class="hs-identifier hs-var hs-var">initialUTxOFile</span></a></span></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568088"><span class="annot"><span class="annottext">Maybe String
 ledgerGenesisFile :: Maybe String
 $sel:ledgerGenesisFile:OfflineChainConfig :: OfflineChainConfig -&gt; Maybe String
-</span><a href="#local-6989586621680612372"><span class="hs-identifier hs-var hs-var">ledgerGenesisFile</span></a></span></span><span>
+</span><a href="#local-6989586621680568088"><span class="hs-identifier hs-var hs-var">ledgerGenesisFile</span></a></span></span><span>
 </span><span id="line-121"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OfflineChainConfig
-</span><a href="#local-6989586621680612364"><span class="hs-identifier hs-var">config</span></a></span><span>
+</span><a href="#local-6989586621680568080"><span class="hs-identifier hs-var">config</span></a></span><span>
 </span><span id="line-122"></span><span>
-</span><span id="line-123"></span><span>  </span><span id="local-6989586621680612383"><span class="annot"><span class="annottext">headId :: HeadId
-</span><a href="#local-6989586621680612383"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadSeed -&gt; HeadId
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621680568099"><span class="annot"><span class="annottext">headId :: HeadId
+</span><a href="#local-6989586621680568099"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadSeed -&gt; HeadId
 </span><a href="Hydra.Chain.Offline.html#offlineHeadId"><span class="hs-identifier hs-var">offlineHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621680612379"><span class="hs-identifier hs-var">headSeed</span></a></span><span>
+</span><a href="#local-6989586621680568095"><span class="hs-identifier hs-var">headSeed</span></a></span><span>
 </span><span id="line-124"></span><span>
-</span><span id="line-125"></span><span>  </span><span class="annot"><a href="#local-6989586621680612376"><span class="hs-identifier hs-type">chainHandle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Chain.html#Chain"><span class="hs-identifier hs-type">Chain</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span>
-</span><span id="line-126"></span><span>  </span><span id="local-6989586621680612376"><span class="annot"><span class="annottext">chainHandle :: Chain Tx IO
-</span><a href="#local-6989586621680612376"><span class="hs-identifier hs-var hs-var">chainHandle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-125"></span><span>  </span><span class="annot"><a href="#local-6989586621680568092"><span class="hs-identifier hs-type">chainHandle</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Chain.html#Chain"><span class="hs-identifier hs-type">Chain</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span>
+</span><span id="line-126"></span><span>  </span><span id="local-6989586621680568092"><span class="annot"><span class="annottext">chainHandle :: Chain Tx IO
+</span><a href="#local-6989586621680568092"><span class="hs-identifier hs-var hs-var">chainHandle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-127"></span><span>    </span><span class="annot"><a href="Hydra.Chain.html#Chain"><span class="hs-identifier hs-type">Chain</span></a></span><span>
 </span><span id="line-128"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:mkChainState:Chain :: ChainStateType Tx
 </span><a href="Hydra.Chain.html#%24sel%3AmkChainState%3AChain"><span class="hs-identifier hs-var">mkChainState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType Tx
@@ -402,25 +402,25 @@ forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-133"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:checkNonADAAssets:Chain :: ConfirmedSnapshot Tx -&gt; Either Value ()
-</span><a href="Hydra.Chain.html#%24sel%3AcheckNonADAAssets%3AChain"><span class="hs-identifier hs-var">checkNonADAAssets</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680612415"><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
-</span><a href="#local-6989586621680612415"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-134"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span id="local-6989586621680612417"><span class="annot"><span class="annottext">UTxOType Tx
+</span><a href="Hydra.Chain.html#%24sel%3AcheckNonADAAssets%3AChain"><span class="hs-identifier hs-var">checkNonADAAssets</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680568131"><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
+</span><a href="#local-6989586621680568131"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-134"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span id="local-6989586621680568133"><span class="annot"><span class="annottext">UTxOType Tx
 utxo :: UTxOType Tx
 $sel:utxo:Snapshot :: forall tx. Snapshot tx -&gt; UTxOType tx
-</span><a href="#local-6989586621680612417"><span class="hs-identifier hs-var hs-var">utxo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612419"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
+</span><a href="#local-6989586621680568133"><span class="hs-identifier hs-var hs-var">utxo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568135"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
 utxoToCommit :: Maybe (UTxOType Tx)
 $sel:utxoToCommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
-</span><a href="#local-6989586621680612419"><span class="hs-identifier hs-var hs-var">utxoToCommit</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612421"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
+</span><a href="#local-6989586621680568135"><span class="hs-identifier hs-var hs-var">utxoToCommit</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568137"><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
 utxoToDecommit :: Maybe (UTxOType Tx)
 $sel:utxoToDecommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
-</span><a href="#local-6989586621680612421"><span class="hs-identifier hs-var hs-var">utxoToDecommit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx -&gt; Snapshot Tx
+</span><a href="#local-6989586621680568137"><span class="hs-identifier hs-var hs-var">utxoToDecommit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx -&gt; Snapshot Tx
 forall tx. ConfirmedSnapshot tx -&gt; Snapshot tx
 </span><span class="hs-identifier hs-var">getSnapshot</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
-</span><a href="#local-6989586621680612415"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span>
-</span><span id="line-135"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680612423"><span class="annot"><span class="annottext">snapshotUTxO :: UTxO
-</span><a href="#local-6989586621680612423"><span class="hs-identifier hs-var hs-var">snapshotUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType Tx
+</span><a href="#local-6989586621680568131"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span>
+</span><span id="line-135"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680568139"><span class="annot"><span class="annottext">snapshotUTxO :: UTxO
+</span><a href="#local-6989586621680568139"><span class="hs-identifier hs-var hs-var">snapshotUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType Tx
 UTxO
-</span><a href="#local-6989586621680612417"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+</span><a href="#local-6989586621680568133"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Maybe UTxO -&gt; UTxO
 forall a. a -&gt; Maybe a -&gt; a
@@ -428,7 +428,7 @@ forall a. a -&gt; Maybe a -&gt; a
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
 Maybe UTxO
-</span><a href="#local-6989586621680612419"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+</span><a href="#local-6989586621680568135"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Maybe UTxO -&gt; UTxO
 forall a. a -&gt; Maybe a -&gt; a
@@ -436,16 +436,16 @@ forall a. a -&gt; Maybe a -&gt; a
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (UTxOType Tx)
 Maybe UTxO
-</span><a href="#local-6989586621680612421"><span class="hs-identifier hs-var">utxoToDecommit</span></a></span><span>
+</span><a href="#local-6989586621680568137"><span class="hs-identifier hs-var">utxoToDecommit</span></a></span><span>
 </span><span id="line-136"></span><span>          </span><span class="annot"><span class="annottext">UTxO -&gt; Either Value ()
 </span><a href="Hydra.Node.Util.html#checkNonADAAssetsUTxO"><span class="hs-identifier hs-var">checkNonADAAssetsUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621680612423"><span class="hs-identifier hs-var">snapshotUTxO</span></a></span><span>
+</span><a href="#local-6989586621680568139"><span class="hs-identifier hs-var">snapshotUTxO</span></a></span><span>
 </span><span id="line-137"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-138"></span><span>
-</span><span id="line-139"></span><span>  </span><span id="local-6989586621680612370"><span class="annot"><span class="annottext">initializeOfflineHead :: IO ()
-</span><a href="#local-6989586621680612370"><span class="hs-identifier hs-var hs-var">initializeOfflineHead</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-140"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680612425"><span class="annot"><span class="annottext">emptyChainStateHistory :: ChainStateHistory Tx
-</span><a href="#local-6989586621680612425"><span class="hs-identifier hs-var hs-var">emptyChainStateHistory</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType Tx -&gt; ChainStateHistory Tx
+</span><span id="line-139"></span><span>  </span><span id="local-6989586621680568086"><span class="annot"><span class="annottext">initializeOfflineHead :: IO ()
+</span><a href="#local-6989586621680568086"><span class="hs-identifier hs-var hs-var">initializeOfflineHead</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-140"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680568141"><span class="annot"><span class="annottext">emptyChainStateHistory :: ChainStateHistory Tx
+</span><a href="#local-6989586621680568141"><span class="hs-identifier hs-var hs-var">emptyChainStateHistory</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType Tx -&gt; ChainStateHistory Tx
 forall tx. ChainStateType tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#initHistory"><span class="hs-identifier hs-var">initHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType Tx
 </span><a href="Hydra.Chain.Direct.State.html#initialChainState"><span class="hs-identifier hs-var">initialChainState</span></a></span><span>
@@ -454,22 +454,22 @@ forall tx. ChainStateType tx -&gt; ChainStateHistory tx
 </span><span id="line-143"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateHistory Tx
-</span><a href="#local-6989586621680612367"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx -&gt; ChainStateHistory Tx -&gt; Bool
+</span><a href="#local-6989586621680568083"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx -&gt; ChainStateHistory Tx -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx
-</span><a href="#local-6989586621680612425"><span class="hs-identifier hs-var">emptyChainStateHistory</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621680568141"><span class="hs-identifier hs-var">emptyChainStateHistory</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-144"></span><span>      </span><span id="local-6989586621680612427"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621680612427"><span class="hs-identifier hs-var">initialUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser UTxO) -&gt; String -&gt; IO UTxO
+</span><span id="line-144"></span><span>      </span><span id="local-6989586621680568143"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621680568143"><span class="hs-identifier hs-var">initialUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Parser UTxO) -&gt; String -&gt; IO UTxO
 forall a. (Value -&gt; Parser a) -&gt; String -&gt; IO a
 </span><a href="Hydra.Utils.html#readJsonFileThrow"><span class="hs-identifier hs-var">readJsonFileThrow</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Parser UTxO
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680612380"><span class="hs-identifier hs-var">initialUTxOFile</span></a></span><span>
+</span><a href="#local-6989586621680568096"><span class="hs-identifier hs-var">initialUTxOFile</span></a></span><span>
 </span><span id="line-145"></span><span>
 </span><span id="line-146"></span><span>      </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612368"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
+</span><a href="#local-6989586621680568084"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-147"></span><span>        </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span>
@@ -482,11 +482,11 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-151"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:OnInitTx :: HeadId
-</span><a href="#local-6989586621680612383"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621680568099"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
 </span><span id="line-152"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">HeadSeed
 headSeed :: HeadSeed
 $sel:headSeed:OnInitTx :: HeadSeed
-</span><a href="#local-6989586621680612379"><span class="hs-identifier hs-var hs-var">headSeed</span></a></span><span>
+</span><a href="#local-6989586621680568095"><span class="hs-identifier hs-var hs-var">headSeed</span></a></span><span>
 </span><span id="line-153"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headParameters:OnInitTx :: HeadParameters
 </span><a href="Hydra.Chain.html#%24sel%3AheadParameters%3AOnInitTx"><span class="hs-identifier hs-var">headParameters</span></a></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-154"></span><span>                    </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span>
@@ -494,10 +494,10 @@ $sel:headSeed:OnInitTx :: HeadSeed
 </span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; [Party]
 forall a. Ord a =&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#sort"><span class="hs-identifier hs-var">sort</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680612365"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
+</span><a href="#local-6989586621680568081"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680612366"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680568082"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-156"></span><span>                      </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- NOTE: This is irrelevant in offline mode.</span><span>
 </span><span id="line-157"></span><span>                        </span><span class="annot"><span class="annottext">$sel:contestationPeriod:HeadParameters :: ContestationPeriod
 </span><span class="hs-identifier hs-var">contestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
@@ -508,7 +508,7 @@ forall a. a -&gt; [a] -&gt; [a]
 </span><span id="line-160"></span><span>                </span><span class="hs-special">}</span><span>
 </span><span id="line-161"></span><span>          </span><span class="hs-special">}</span><span>
 </span><span id="line-162"></span><span>      </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612368"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
+</span><a href="#local-6989586621680568084"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-163"></span><span>        </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span>
@@ -521,15 +521,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-167"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">Party
 party :: Party
 $sel:party:OnInitTx :: Party
-</span><a href="#local-6989586621680612365"><span class="hs-identifier hs-var hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680568081"><span class="hs-identifier hs-var hs-var">party</span></a></span><span>
 </span><span id="line-168"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:committed:OnInitTx :: UTxOType Tx
 </span><a href="Hydra.Chain.html#%24sel%3Acommitted%3AOnInitTx"><span class="hs-identifier hs-var">committed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType Tx
 UTxO
-</span><a href="#local-6989586621680612427"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span>
+</span><a href="#local-6989586621680568143"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span>
 </span><span id="line-169"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:OnInitTx :: HeadId
-</span><a href="#local-6989586621680612383"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621680568099"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
 </span><span id="line-170"></span><span>                </span><span class="hs-special">}</span><span>
 </span><span id="line-171"></span><span>          </span><span class="hs-special">}</span><span>
 </span><span id="line-172"></span><span>      </span><span class="annot"><span class="annottext">[Party] -&gt; (Party -&gt; IO ()) -&gt; IO ()
@@ -537,12 +537,12 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680612366"><span class="hs-identifier hs-var">otherParties</span></a></span><span> </span><span class="annot"><span class="annottext">((Party -&gt; IO ()) -&gt; IO ()) -&gt; (Party -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621680568082"><span class="hs-identifier hs-var">otherParties</span></a></span><span> </span><span class="annot"><span class="annottext">((Party -&gt; IO ()) -&gt; IO ()) -&gt; (Party -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680612444"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680612444"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680568160"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680568160"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-173"></span><span>        </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612368"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
+</span><a href="#local-6989586621680568084"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-174"></span><span>          </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span>
@@ -554,7 +554,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-177"></span><span>                </span><span class="annot"><a href="Hydra.Chain.html#OnCommitTx"><span class="hs-identifier hs-type">OnCommitTx</span></a></span><span>
 </span><span id="line-178"></span><span>                  </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:party:OnInitTx :: Party
 </span><a href="Hydra.Chain.html#%24sel%3Aparty%3AOnInitTx"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680612444"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><a href="#local-6989586621680568160"><span class="hs-identifier hs-var">p</span></a></span><span>
 </span><span id="line-179"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:committed:OnInitTx :: UTxOType Tx
 </span><a href="Hydra.Chain.html#%24sel%3Acommitted%3AOnInitTx"><span class="hs-identifier hs-var">committed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType Tx
 UTxO
@@ -563,11 +563,11 @@ forall a. Monoid a =&gt; a
 </span><span id="line-180"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:OnInitTx :: HeadId
-</span><a href="#local-6989586621680612383"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621680568099"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
 </span><span id="line-181"></span><span>                  </span><span class="hs-special">}</span><span>
 </span><span id="line-182"></span><span>            </span><span class="hs-special">}</span><span>
 </span><span id="line-183"></span><span>      </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612368"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
+</span><a href="#local-6989586621680568084"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-184"></span><span>        </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span>
@@ -578,65 +578,70 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnCollectComTx"><span class="hs-identifier hs-type">OnCollectComTx</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:OnInitTx :: HeadId
-</span><a href="#local-6989586621680612383"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680568099"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-187"></span><span>          </span><span class="hs-special">}</span><span>
 </span><span id="line-188"></span><span>
-</span><span id="line-189"></span><span class="annot"><a href="Hydra.Chain.Offline.html#tickForever"><span class="hs-identifier hs-type">tickForever</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.html#ChainEvent"><span class="hs-identifier hs-type">ChainEvent</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-190"></span><span id="tickForever"><span class="annot"><span class="annottext">tickForever :: GenesisParameters ShelleyEra -&gt; ChainCallback Tx IO -&gt; IO ()
-</span><a href="Hydra.Chain.Offline.html#tickForever"><span class="hs-identifier hs-var hs-var">tickForever</span></a></span></span><span> </span><span id="local-6989586621680612446"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
-</span><a href="#local-6989586621680612446"><span class="hs-identifier hs-var">genesis</span></a></span></span><span> </span><span id="local-6989586621680612447"><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612447"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-191"></span><span>  </span><span id="local-6989586621680612448"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621680612448"><span class="hs-identifier hs-var">initialSlot</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
+</span><span id="line-189"></span><span class="hs-comment">-- | Continuously produces offline chain ticks according to wall-clock time.</span><span>
+</span><span id="line-190"></span><span class="hs-comment">-- Each tick is aligned with the expected slot time, ensuring the node</span><span>
+</span><span id="line-191"></span><span class="hs-comment">-- state stays synchronized with the offline chain.</span><span>
+</span><span id="line-192"></span><span class="hs-comment">-- This prevents the node from violating the `ContestationPeriod.unsyncedPolicy`</span><span>
+</span><span id="line-193"></span><span class="hs-comment">-- which guarantees that client and network inputs are always processed safely.</span><span>
+</span><span id="line-194"></span><span class="annot"><a href="Hydra.Chain.Offline.html#tickForever"><span class="hs-identifier hs-type">tickForever</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyEra</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.html#ChainEvent"><span class="hs-identifier hs-type">ChainEvent</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-195"></span><span id="tickForever"><span class="annot"><span class="annottext">tickForever :: GenesisParameters ShelleyEra -&gt; ChainCallback Tx IO -&gt; IO ()
+</span><a href="Hydra.Chain.Offline.html#tickForever"><span class="hs-identifier hs-var hs-var">tickForever</span></a></span></span><span> </span><span id="local-6989586621680568162"><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
+</span><a href="#local-6989586621680568162"><span class="hs-identifier hs-var">genesis</span></a></span></span><span> </span><span id="local-6989586621680568163"><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680568163"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-196"></span><span>  </span><span id="local-6989586621680568164"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621680568164"><span class="hs-identifier hs-var">initialSlot</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
 </span><span class="hs-identifier hs-var">slotNoFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621680612449"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621680612450"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; SlotNo) -&gt; IO UTCTime -&gt; IO SlotNo
+</span><a href="#local-6989586621680568165"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621680568166"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; SlotNo) -&gt; IO UTCTime -&gt; IO SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-192"></span><span>  </span><span class="annot"><span class="annottext">(SlotNo -&gt; IO ()) -&gt; [SlotNo] -&gt; IO ()
+</span><span id="line-197"></span><span>  </span><span class="annot"><span class="annottext">(SlotNo -&gt; IO ()) -&gt; [SlotNo] -&gt; IO ()
 forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
 (Foldable t, Applicative f) =&gt;
 (a -&gt; f b) -&gt; t a -&gt; f ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#traverse_"><span class="hs-identifier hs-var">traverse_</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; IO ()
-</span><a href="#local-6989586621680612452"><span class="hs-identifier hs-var">nextTick</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621680612448"><span class="hs-identifier hs-var">initialSlot</span></a></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span>
-</span><span id="line-193"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-194"></span><span>  </span><span id="local-6989586621680612452"><span class="annot"><span class="annottext">nextTick :: SlotNo -&gt; IO ()
-</span><a href="#local-6989586621680612452"><span class="hs-identifier hs-var hs-var">nextTick</span></a></span></span><span> </span><span id="local-6989586621680612453"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621680612453"><span class="hs-identifier hs-var">upcomingSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-195"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680612454"><span class="annot"><span class="annottext">timeToSleepUntil :: UTCTime
-</span><a href="#local-6989586621680612454"><span class="hs-identifier hs-var hs-var">timeToSleepUntil</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><a href="#local-6989586621680568168"><span class="hs-identifier hs-var">nextTick</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621680568164"><span class="hs-identifier hs-var">initialSlot</span></a></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span>
+</span><span id="line-198"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-199"></span><span>  </span><span id="local-6989586621680568168"><span class="annot"><span class="annottext">nextTick :: SlotNo -&gt; IO ()
+</span><a href="#local-6989586621680568168"><span class="hs-identifier hs-var hs-var">nextTick</span></a></span></span><span> </span><span id="local-6989586621680568169"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621680568169"><span class="hs-identifier hs-var">upcomingSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-200"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680568170"><span class="annot"><span class="annottext">timeToSleepUntil :: UTCTime
+</span><a href="#local-6989586621680568170"><span class="hs-identifier hs-var hs-var">timeToSleepUntil</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
 </span><span class="hs-identifier hs-var">slotNoToUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621680612449"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621680612450"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621680612453"><span class="hs-identifier hs-var">upcomingSlot</span></a></span><span>
-</span><span id="line-196"></span><span>    </span><span id="local-6989586621680612455"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680612455"><span class="hs-identifier hs-var">sleepDelay</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621680568165"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621680568166"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621680568169"><span class="hs-identifier hs-var">upcomingSlot</span></a></span><span>
+</span><span id="line-201"></span><span>    </span><span id="local-6989586621680568171"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680568171"><span class="hs-identifier hs-var">sleepDelay</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#diffUTCTime"><span class="hs-identifier hs-var">diffUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680612454"><span class="hs-identifier hs-var">timeToSleepUntil</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; NominalDiffTime) -&gt; IO UTCTime -&gt; IO NominalDiffTime
+</span><a href="#local-6989586621680568170"><span class="hs-identifier hs-var">timeToSleepUntil</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; NominalDiffTime) -&gt; IO UTCTime -&gt; IO NominalDiffTime
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-197"></span><span>    </span><span class="annot"><span class="annottext">DiffTime -&gt; IO ()
+</span><span id="line-202"></span><span>    </span><span class="annot"><span class="annottext">DiffTime -&gt; IO ()
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">(DiffTime -&gt; IO ()) -&gt; DiffTime -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DiffTime
 forall a b. (Real a, Fractional b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#realToFrac"><span class="hs-identifier hs-var">realToFrac</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680612455"><span class="hs-identifier hs-var">sleepDelay</span></a></span><span>
-</span><span id="line-198"></span><span>    </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680612447"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
+</span><a href="#local-6989586621680568171"><span class="hs-identifier hs-var">sleepDelay</span></a></span><span>
+</span><span id="line-203"></span><span>    </span><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680568163"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO -&gt; ChainCallback Tx IO
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-199"></span><span>      </span><span class="annot"><a href="Hydra.Chain.html#Tick"><span class="hs-identifier hs-type">Tick</span></a></span><span>
-</span><span id="line-200"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:chainTime:Observation :: UTCTime
+</span><span id="line-204"></span><span>      </span><span class="annot"><a href="Hydra.Chain.html#Tick"><span class="hs-identifier hs-type">Tick</span></a></span><span>
+</span><span id="line-205"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:chainTime:Observation :: UTCTime
 </span><a href="Hydra.Chain.html#%24sel%3AchainTime%3AObservation"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680612454"><span class="hs-identifier hs-var">timeToSleepUntil</span></a></span><span>
-</span><span id="line-201"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainSlot:Observation :: ChainSlot
+</span><a href="#local-6989586621680568170"><span class="hs-identifier hs-var">timeToSleepUntil</span></a></span><span>
+</span><span id="line-206"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainSlot:Observation :: ChainSlot
 </span><a href="Hydra.Chain.html#%24sel%3AchainSlot%3AObservation"><span class="hs-identifier hs-var">chainSlot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ChainSlot
 </span><span class="hs-identifier hs-var">ChainSlot</span></span><span> </span><span class="annot"><span class="annottext">(Natural -&gt; ChainSlot)
 -&gt; (Word64 -&gt; Natural) -&gt; Word64 -&gt; ChainSlot
@@ -647,27 +652,27 @@ forall a b. (Integral a, Num b) =&gt; a -&gt; b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; Word64
 </span><span class="hs-identifier hs-var">unSlotNo</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621680612453"><span class="hs-identifier hs-var">upcomingSlot</span></a></span><span>
-</span><span id="line-202"></span><span>        </span><span class="hs-special">}</span><span>
-</span><span id="line-203"></span><span>  </span><span id="local-6989586621680612449"><span class="annot"><span class="annottext">systemStart :: SystemStart
-</span><a href="#local-6989586621680612449"><span class="hs-identifier hs-var hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
+</span><a href="#local-6989586621680568169"><span class="hs-identifier hs-var">upcomingSlot</span></a></span><span>
+</span><span id="line-207"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-208"></span><span>  </span><span id="local-6989586621680568165"><span class="annot"><span class="annottext">systemStart :: SystemStart
+</span><a href="#local-6989586621680568165"><span class="hs-identifier hs-var hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
 </span><span class="hs-identifier hs-var">SystemStart</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680612460"><span class="hs-identifier hs-var">protocolParamSystemStart</span></a></span><span>
-</span><span id="line-204"></span><span>
-</span><span id="line-205"></span><span>  </span><span id="local-6989586621680612450"><span class="annot"><span class="annottext">slotLength :: SlotLength
-</span><a href="#local-6989586621680612450"><span class="hs-identifier hs-var hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; SlotLength
+</span><a href="#local-6989586621680568176"><span class="hs-identifier hs-var">protocolParamSystemStart</span></a></span><span>
+</span><span id="line-209"></span><span>
+</span><span id="line-210"></span><span>  </span><span id="local-6989586621680568166"><span class="annot"><span class="annottext">slotLength :: SlotLength
+</span><a href="#local-6989586621680568166"><span class="hs-identifier hs-var hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; SlotLength
 </span><span class="hs-identifier hs-var">mkSlotLength</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680612461"><span class="hs-identifier hs-var">protocolParamSlotLength</span></a></span><span>
-</span><span id="line-206"></span><span>
-</span><span id="line-207"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span>
-</span><span id="line-208"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680612461"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680568177"><span class="hs-identifier hs-var">protocolParamSlotLength</span></a></span><span>
+</span><span id="line-211"></span><span>
+</span><span id="line-212"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">GenesisParameters</span></span><span>
+</span><span id="line-213"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680568177"><span class="annot"><span class="annottext">NominalDiffTime
 protocolParamSlotLength :: forall era. GenesisParameters era -&gt; NominalDiffTime
 protocolParamSlotLength :: NominalDiffTime
 </span><span class="hs-identifier hs-var hs-var">protocolParamSlotLength</span></span></span><span>
-</span><span id="line-209"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680612460"><span class="annot"><span class="annottext">UTCTime
+</span><span id="line-214"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680568176"><span class="annot"><span class="annottext">UTCTime
 protocolParamSystemStart :: forall era. GenesisParameters era -&gt; UTCTime
 protocolParamSystemStart :: UTCTime
 </span><span class="hs-identifier hs-var hs-var">protocolParamSystemStart</span></span></span><span>
-</span><span id="line-210"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
-</span><a href="#local-6989586621680612446"><span class="hs-identifier hs-var">genesis</span></a></span><span>
-</span><span id="line-211"></span></pre></body></html>
+</span><span id="line-215"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">GenesisParameters ShelleyEra
+</span><a href="#local-6989586621680568162"><span class="hs-identifier hs-var">genesis</span></a></span><span>
+</span><span id="line-216"></span></pre></body></html>

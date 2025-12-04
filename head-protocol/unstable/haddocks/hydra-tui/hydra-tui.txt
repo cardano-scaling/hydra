@@ -150,15 +150,21 @@ Identified :: Party -> IdentifiedState
 data NetworkState
 NetworkConnected :: NetworkState
 NetworkDisconnected :: NetworkState
+
+-- | Synchronization status of the hydra node to the cardano chain.
+data ChainSyncedStatus
+InSync :: ChainSyncedStatus
+CatchingUp :: ChainSyncedStatus
 data PeerStatus
 PeerIsConnected :: PeerStatus
 PeerIsDisconnected :: PeerStatus
 PeerIsUnknown :: PeerStatus
 data Connection
-Connection :: IdentifiedState -> [(Host, PeerStatus)] -> Maybe NetworkState -> HeadState -> Connection
+Connection :: IdentifiedState -> [(Host, PeerStatus)] -> Maybe NetworkState -> ChainSyncedStatus -> HeadState -> Connection
 [$sel:me:Connection] :: Connection -> IdentifiedState
 [$sel:peers:Connection] :: Connection -> [(Host, PeerStatus)]
 [$sel:networkState:Connection] :: Connection -> Maybe NetworkState
+[$sel:chainSyncedStatus:Connection] :: Connection -> ChainSyncedStatus
 [$sel:headState:Connection] :: Connection -> HeadState
 type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
@@ -256,6 +262,7 @@ peersL :: Lens' Connection [(Host, PeerStatus)]
 networkStateL :: Lens' Connection (Maybe NetworkState)
 meL :: Lens' Connection IdentifiedState
 headStateL :: Lens' Connection HeadState
+chainSyncedStatusL :: Lens' Connection ChainSyncedStatus
 remainingPartiesL :: Lens' InitializingState [Party]
 initializingScreenL :: Lens' InitializingState InitializingScreen
 activeLinkL :: Traversal' HeadState ActiveLink
@@ -324,6 +331,7 @@ drawHeadParticipants :: IdentifiedState -> [Party] -> Widget n
 drawIfConnected :: (Connection -> Widget n) -> ConnectedState -> Widget n
 drawIfActive :: (ActiveLink -> Widget n) -> HeadState -> Widget n
 drawNetworkState :: ConnectedState -> Widget n
+drawChainSyncedState :: ConnectedState -> Widget n
 drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
 drawHeadId :: HeadId -> Widget n
 drawMyAddress :: AddressInEra -> Widget n

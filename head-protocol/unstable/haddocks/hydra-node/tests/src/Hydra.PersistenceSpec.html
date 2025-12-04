@@ -41,32 +41,32 @@ FilePath -&gt; (FilePath -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;hydra-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((FilePath -&gt; IO ()) -&gt; IO ()) -&gt; (FilePath -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632376"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632376"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-24"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679632377"><span class="annot"><span class="annottext">fp :: FilePath
-</span><a href="#local-6989586621679632377"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632376"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635862"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635862"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-24"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679635863"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621679635863"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635862"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;/data&quot;</span></span><span>
 </span><span id="line-25"></span><span>        </span><span class="annot"><span class="annottext">FilePath -&gt; ByteString -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; FilePath -&gt; ByteString -&gt; m ()
 </span><span class="hs-identifier hs-var">writeFileBS</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632377"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679635863"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;&quot;</span></span><span>
-</span><span id="line-26"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Persistence</span></span><span class="hs-special">{</span><span id="local-6989586621679632380"><span class="annot"><span class="annottext">FromJSON Value =&gt; IO (Maybe Value)
+</span><span id="line-26"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Persistence</span></span><span class="hs-special">{</span><span id="local-6989586621679635866"><span class="annot"><span class="annottext">FromJSON Value =&gt; IO (Maybe Value)
 load :: FromJSON Value =&gt; IO (Maybe Value)
 $sel:load:Persistence :: forall a (m :: * -&gt; *).
 Persistence a m -&gt; FromJSON a =&gt; m (Maybe a)
-</span><a href="#local-6989586621679632380"><span class="hs-identifier hs-var hs-var">load</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (Persistence Value IO)
+</span><a href="#local-6989586621679635866"><span class="hs-identifier hs-var hs-var">load</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (Persistence Value IO)
 forall (m :: * -&gt; *) a.
 (MonadIO m, MonadThrow m) =&gt;
 FilePath -&gt; m (Persistence a m)
 </span><span class="hs-identifier hs-var">createPersistence</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632377"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><a href="#local-6989586621679635863"><span class="hs-identifier hs-var">fp</span></a></span><span>
 </span><span id="line-27"></span><span>        </span><span class="annot"><span class="annottext">IO (Maybe Value)
 FromJSON Value =&gt; IO (Maybe Value)
-</span><a href="#local-6989586621679632380"><span class="hs-identifier hs-var">load</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Maybe Value) -&gt; Maybe Value -&gt; IO ()
+</span><a href="#local-6989586621679635866"><span class="hs-identifier hs-var">load</span></a></span><span> </span><span class="annot"><span class="annottext">IO (Maybe Value) -&gt; Maybe Value -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe Value
 forall a. Maybe a
@@ -92,13 +92,13 @@ forall a. Testable a =&gt; PropertyM IO a -&gt; Property
 -&gt; PropertyM IO Property -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-32"></span><span>          </span><span id="local-6989586621679632383"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632383"><span class="hs-identifier hs-var">item</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value -&gt; PropertyM IO Value
+</span><span id="line-32"></span><span>          </span><span id="local-6989586621679635869"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679635869"><span class="hs-identifier hs-var">item</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value -&gt; PropertyM IO Value
 forall (m :: * -&gt; *) a. (Monad m, Show a) =&gt; Gen a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">pick</span></span><span> </span><span class="annot"><span class="annottext">Gen Value
 </span><a href="Hydra.PersistenceSpec.html#genPersistenceItem"><span class="hs-identifier hs-var">genPersistenceItem</span></a></span><span>
-</span><span id="line-33"></span><span>          </span><span id="local-6989586621679632385"><span class="annot"><span class="annottext">Maybe Value
-</span><a href="#local-6989586621679632385"><span class="hs-identifier hs-var">actualResult</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Maybe Value) -&gt; PropertyM IO (Maybe Value)
+</span><span id="line-33"></span><span>          </span><span id="local-6989586621679635871"><span class="annot"><span class="annottext">Maybe Value
+</span><a href="#local-6989586621679635871"><span class="hs-identifier hs-var">actualResult</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Maybe Value) -&gt; PropertyM IO (Maybe Value)
 forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO (Maybe Value) -&gt; PropertyM IO (Maybe Value))
 -&gt; IO (Maybe Value) -&gt; PropertyM IO (Maybe Value)
@@ -112,12 +112,12 @@ FilePath -&gt; (FilePath -&gt; m r) -&gt; m r
 </span><span class="hs-string">&quot;hydra-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((FilePath -&gt; IO (Maybe Value)) -&gt; IO (Maybe Value))
 -&gt; (FilePath -&gt; IO (Maybe Value)) -&gt; IO (Maybe Value)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632386"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632386"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-35"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Persistence</span></span><span class="hs-special">{</span><span id="local-6989586621679632387"><span class="annot"><span class="annottext">ToJSON Value =&gt; Value -&gt; IO ()
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635872"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635872"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-35"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Persistence</span></span><span class="hs-special">{</span><span id="local-6989586621679635873"><span class="annot"><span class="annottext">ToJSON Value =&gt; Value -&gt; IO ()
 save :: ToJSON Value =&gt; Value -&gt; IO ()
 $sel:save:Persistence :: forall a (m :: * -&gt; *). Persistence a m -&gt; ToJSON a =&gt; a -&gt; m ()
-</span><a href="#local-6989586621679632387"><span class="hs-identifier hs-var hs-var">save</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632389"><span class="annot"><span class="annottext">FromJSON Value =&gt; IO (Maybe Value)
+</span><a href="#local-6989586621679635873"><span class="hs-identifier hs-var hs-var">save</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679635875"><span class="annot"><span class="annottext">FromJSON Value =&gt; IO (Maybe Value)
 $sel:load:Persistence :: forall a (m :: * -&gt; *).
 Persistence a m -&gt; FromJSON a =&gt; m (Maybe a)
 load :: FromJSON Value =&gt; IO (Maybe Value)
@@ -129,17 +129,17 @@ FilePath -&gt; m (Persistence a m)
 -&gt; FilePath -&gt; IO (Persistence Value IO)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632386"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><a href="#local-6989586621679635872"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;/data&quot;</span></span><span>
 </span><span id="line-36"></span><span>              </span><span class="annot"><span class="annottext">ToJSON Value =&gt; Value -&gt; IO ()
 Value -&gt; IO ()
-</span><a href="#local-6989586621679632387"><span class="hs-identifier hs-var">save</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632383"><span class="hs-identifier hs-var">item</span></a></span><span>
+</span><a href="#local-6989586621679635873"><span class="hs-identifier hs-var">save</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679635869"><span class="hs-identifier hs-var">item</span></a></span><span>
 </span><span id="line-37"></span><span>              </span><span class="annot"><span class="annottext">IO (Maybe Value)
 FromJSON Value =&gt; IO (Maybe Value)
-</span><a href="#local-6989586621679632389"><span class="hs-identifier hs-var">load</span></a></span><span>
+</span><a href="#local-6989586621679635875"><span class="hs-identifier hs-var">load</span></a></span><span>
 </span><span id="line-38"></span><span>          </span><span class="annot"><span class="annottext">Property -&gt; PropertyM IO Property
 forall a. a -&gt; PropertyM IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -147,12 +147,12 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; Property -&gt; PropertyM IO Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Value
-</span><a href="#local-6989586621679632385"><span class="hs-identifier hs-var">actualResult</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Value -&gt; Maybe Value -&gt; Property
+</span><a href="#local-6989586621679635871"><span class="hs-identifier hs-var">actualResult</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Value -&gt; Maybe Value -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Maybe Value
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632383"><span class="hs-identifier hs-var">item</span></a></span><span>
+</span><a href="#local-6989586621679635869"><span class="hs-identifier hs-var">item</span></a></span><span>
 </span><span id="line-39"></span><span>
 </span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">FilePath -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; FilePath -&gt; SpecWith a -&gt; SpecWith a
@@ -176,61 +176,61 @@ FilePath -&gt; (FilePath -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;hydra-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((FilePath -&gt; IO ()) -&gt; IO ()) -&gt; (FilePath -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632390"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632390"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-43"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679632391"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632391"><span class="hs-identifier hs-var">tracer</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632392"><span class="annot"><span class="annottext">IO [Envelope PersistenceLog]
-</span><a href="#local-6989586621679632392"><span class="hs-identifier hs-var">getTraces</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO (Tracer IO PersistenceLog, IO [Envelope PersistenceLog])
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635876"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635876"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-43"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679635877"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><a href="#local-6989586621679635877"><span class="hs-identifier hs-var">tracer</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679635878"><span class="annot"><span class="annottext">IO [Envelope PersistenceLog]
+</span><a href="#local-6989586621679635878"><span class="hs-identifier hs-var">getTraces</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO (Tracer IO PersistenceLog, IO [Envelope PersistenceLog])
 forall a. Text -&gt; IO (Tracer IO a, IO [Envelope a])
 </span><a href="Test.Util.html#captureTracer"><span class="hs-identifier hs-var">captureTracer</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;persistence-incremental&quot;</span></span><span>
-</span><span id="line-44"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679632393"><span class="annot"><span class="annottext">fp :: FilePath
-</span><a href="#local-6989586621679632393"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632390"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><span id="line-44"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679635879"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621679635879"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635876"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;/data&quot;</span></span><span>
 </span><span id="line-45"></span><span>        </span><span class="annot"><span class="annottext">FilePath -&gt; ByteString -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; FilePath -&gt; ByteString -&gt; m ()
 </span><span class="hs-identifier hs-var">writeFileBS</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632393"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679635879"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;\&quot;abc\&quot;\n{\&quot;xyz\&quot;: &quot;</span></span><span>
-</span><span id="line-46"></span><span>        </span><span id="local-6989586621679632394"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632394"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><span id="line-46"></span><span>        </span><span id="local-6989586621679635880"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
+</span><a href="#local-6989586621679635880"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
 -&gt; FilePath -&gt; IO (PersistenceIncremental Value IO)
 forall a (m :: * -&gt; *).
 (MonadUnliftIO m, MonadThrow m, FromJSON a) =&gt;
 Tracer IO PersistenceLog
 -&gt; FilePath -&gt; m (PersistenceIncremental a m)
 </span><span class="hs-identifier hs-var">createPersistenceIncremental</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632391"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632393"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><a href="#local-6989586621679635877"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635879"><span class="hs-identifier hs-var">fp</span></a></span><span>
 </span><span id="line-47"></span><span>        </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; IO [Value]
 forall a (m :: * -&gt; *).
 (FromJSON a, MonadUnliftIO m) =&gt;
 PersistenceIncremental a m -&gt; m [a]
 </span><span class="hs-identifier hs-var">loadAll</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632394"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; [Value] -&gt; IO ()
+</span><a href="#local-6989586621679635880"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; [Value] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">Aeson.String</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;abc&quot;</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><span id="line-48"></span><span>        </span><span id="local-6989586621679632396"><span class="annot"><span class="annottext">[Envelope PersistenceLog]
-</span><a href="#local-6989586621679632396"><span class="hs-identifier hs-var">traces</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [Envelope PersistenceLog]
-</span><a href="#local-6989586621679632392"><span class="hs-identifier hs-var">getTraces</span></a></span><span>
-</span><span id="line-49"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679632397"><span class="annot"><span class="annottext">rightMsg :: [Envelope PersistenceLog] -&gt; Bool
-</span><a href="#local-6989586621679632397"><span class="hs-identifier hs-var hs-var">rightMsg</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Envelope</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:message:Envelope :: forall a. Envelope a -&gt; a
+</span><span id="line-48"></span><span>        </span><span id="local-6989586621679635882"><span class="annot"><span class="annottext">[Envelope PersistenceLog]
+</span><a href="#local-6989586621679635882"><span class="hs-identifier hs-var">traces</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [Envelope PersistenceLog]
+</span><a href="#local-6989586621679635878"><span class="hs-identifier hs-var">getTraces</span></a></span><span>
+</span><span id="line-49"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679635883"><span class="annot"><span class="annottext">rightMsg :: [Envelope PersistenceLog] -&gt; Bool
+</span><a href="#local-6989586621679635883"><span class="hs-identifier hs-var hs-var">rightMsg</span></a></span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Envelope</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:message:Envelope :: forall a. Envelope a -&gt; a
 </span><span class="hs-identifier hs-var">message</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FailedToDecodeJson</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-50"></span><span>            </span><span class="annot"><a href="#local-6989586621679632397"><span class="hs-identifier hs-var">rightMsg</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope PersistenceLog]
+</span><span id="line-50"></span><span>            </span><span class="annot"><a href="#local-6989586621679635883"><span class="hs-identifier hs-var">rightMsg</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope PersistenceLog]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-51"></span><span>        </span><span class="annot"><span class="annottext">[Envelope PersistenceLog]
-</span><a href="#local-6989586621679632396"><span class="hs-identifier hs-var">traces</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope PersistenceLog]
+</span><a href="#local-6989586621679635882"><span class="hs-identifier hs-var">traces</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope PersistenceLog]
 -&gt; ([Envelope PersistenceLog] -&gt; Bool) -&gt; IO ()
 forall a. (HasCallStack, Show a) =&gt; a -&gt; (a -&gt; Bool) -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldSatisfy`</span></span><span> </span><span class="annot"><span class="annottext">[Envelope PersistenceLog] -&gt; Bool
-</span><a href="#local-6989586621679632397"><span class="hs-identifier hs-var">rightMsg</span></a></span><span>
+</span><a href="#local-6989586621679635883"><span class="hs-identifier hs-var">rightMsg</span></a></span><span>
 </span><span id="line-52"></span><span>
 </span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">FilePath -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -250,8 +250,8 @@ Verbosity -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-string">&quot;persistence-incremental&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Tracer IO PersistenceLog -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO PersistenceLog -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632402"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632402"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635888"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><a href="#local-6989586621679635888"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-55"></span><span>        </span><span class="annot"><span class="annottext">FilePath -&gt; (FilePath -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) r.
 MonadIO m =&gt;
@@ -259,35 +259,35 @@ FilePath -&gt; (FilePath -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;hydra-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((FilePath -&gt; IO ()) -&gt; IO ()) -&gt; (FilePath -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632403"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632403"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-56"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679632404"><span class="annot"><span class="annottext">fp :: FilePath
-</span><a href="#local-6989586621679632404"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632403"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635889"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635889"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-56"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679635890"><span class="annot"><span class="annottext">fp :: FilePath
+</span><a href="#local-6989586621679635890"><span class="hs-identifier hs-var hs-var">fp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635889"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;/data&quot;</span></span><span>
 </span><span id="line-57"></span><span>          </span><span class="annot"><span class="annottext">FilePath -&gt; ByteString -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; FilePath -&gt; ByteString -&gt; m ()
 </span><span class="hs-identifier hs-var">writeFileBS</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632404"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679635890"><span class="hs-identifier hs-var">fp</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;&quot;</span></span><span>
-</span><span id="line-58"></span><span>          </span><span id="local-6989586621679632405"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632405"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><span id="line-58"></span><span>          </span><span id="local-6989586621679635891"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
+</span><a href="#local-6989586621679635891"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
 -&gt; FilePath -&gt; IO (PersistenceIncremental Value IO)
 forall a (m :: * -&gt; *).
 (MonadUnliftIO m, MonadThrow m, FromJSON a) =&gt;
 Tracer IO PersistenceLog
 -&gt; FilePath -&gt; m (PersistenceIncremental a m)
 </span><span class="hs-identifier hs-var">createPersistenceIncremental</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632402"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632404"><span class="hs-identifier hs-var">fp</span></a></span><span>
+</span><a href="#local-6989586621679635888"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635890"><span class="hs-identifier hs-var">fp</span></a></span><span>
 </span><span id="line-59"></span><span>          </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; IO [Value]
 forall a (m :: * -&gt; *).
 (FromJSON a, MonadUnliftIO m) =&gt;
 PersistenceIncremental a m -&gt; m [a]
 </span><span class="hs-identifier hs-var">loadAll</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632405"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; [Value] -&gt; IO ()
+</span><a href="#local-6989586621679635891"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; [Value] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-60"></span><span>
@@ -311,8 +311,8 @@ forall a. Testable a =&gt; PropertyM IO a -&gt; Property
 -&gt; PropertyM IO Property -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-64"></span><span>          </span><span id="local-6989586621679632406"><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632406"><span class="hs-identifier hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Value] -&gt; PropertyM IO [Value]
+</span><span id="line-64"></span><span>          </span><span id="local-6989586621679635892"><span class="annot"><span class="annottext">[Value]
+</span><a href="#local-6989586621679635892"><span class="hs-identifier hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Value] -&gt; PropertyM IO [Value]
 forall (m :: * -&gt; *) a. (Monad m, Show a) =&gt; Gen a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">pick</span></span><span> </span><span class="annot"><span class="annottext">(Gen [Value] -&gt; PropertyM IO [Value])
 -&gt; Gen [Value] -&gt; PropertyM IO [Value]
@@ -334,7 +334,7 @@ Double -&gt; Bool -&gt; FilePath -&gt; prop -&gt; Property
 forall a. [a] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632406"><span class="hs-identifier hs-var">items</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635892"><span class="hs-identifier hs-var">items</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;no items stored&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-66"></span><span>          </span><span class="annot"><span class="annottext">(Property -&gt; Property) -&gt; PropertyM IO ()
 forall (m :: * -&gt; *).
@@ -347,11 +347,11 @@ Double -&gt; Bool -&gt; FilePath -&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">cover</span></span><span> </span><span class="annot"><span class="annottext">Double
 </span><span class="hs-number">10</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Value] -&gt; Bool
 </span><a href="Hydra.PersistenceSpec.html#containsNewLine"><span class="hs-identifier hs-var">containsNewLine</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632406"><span class="hs-identifier hs-var">items</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635892"><span class="hs-identifier hs-var">items</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;some item contains a new line&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-67"></span><span>
-</span><span id="line-68"></span><span>          </span><span id="local-6989586621679632409"><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632409"><span class="hs-identifier hs-var">actualResult</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; PropertyM IO [Value]
+</span><span id="line-68"></span><span>          </span><span id="local-6989586621679635895"><span class="annot"><span class="annottext">[Value]
+</span><a href="#local-6989586621679635895"><span class="hs-identifier hs-var">actualResult</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; PropertyM IO [Value]
 forall (m :: * -&gt; *) a. Monad m =&gt; m a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">(IO [Value] -&gt; PropertyM IO [Value])
 -&gt; IO [Value] -&gt; PropertyM IO [Value]
@@ -366,8 +366,8 @@ Verbosity -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-string">&quot;persistence-incremental&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Tracer IO PersistenceLog -&gt; IO [Value]) -&gt; IO [Value])
 -&gt; (Tracer IO PersistenceLog -&gt; IO [Value]) -&gt; IO [Value]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632410"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632410"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635896"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><a href="#local-6989586621679635896"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-70"></span><span>              </span><span class="annot"><span class="annottext">FilePath -&gt; (FilePath -&gt; IO [Value]) -&gt; IO [Value]
 forall (m :: * -&gt; *) r.
 MonadIO m =&gt;
@@ -376,21 +376,21 @@ FilePath -&gt; (FilePath -&gt; m r) -&gt; m r
 </span><span class="hs-string">&quot;hydra-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((FilePath -&gt; IO [Value]) -&gt; IO [Value])
 -&gt; (FilePath -&gt; IO [Value]) -&gt; IO [Value]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632411"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632411"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-71"></span><span>                </span><span id="local-6989586621679632412"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632412"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635897"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635897"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-71"></span><span>                </span><span id="local-6989586621679635898"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
+</span><a href="#local-6989586621679635898"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
 -&gt; FilePath -&gt; IO (PersistenceIncremental Value IO)
 forall a (m :: * -&gt; *).
 (MonadUnliftIO m, MonadThrow m, FromJSON a) =&gt;
 Tracer IO PersistenceLog
 -&gt; FilePath -&gt; m (PersistenceIncremental a m)
 </span><span class="hs-identifier hs-var">createPersistenceIncremental</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632410"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO (PersistenceIncremental Value IO))
+</span><a href="#local-6989586621679635896"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO (PersistenceIncremental Value IO))
 -&gt; FilePath -&gt; IO (PersistenceIncremental Value IO)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632411"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><a href="#local-6989586621679635897"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;/data&quot;</span></span><span>
@@ -399,19 +399,19 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632406"><span class="hs-identifier hs-var">items</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; IO ()) -&gt; IO ()) -&gt; (Value -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679635892"><span class="hs-identifier hs-var">items</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; IO ()) -&gt; IO ()) -&gt; (Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; ToJSON Value =&gt; Value -&gt; IO ()
 forall a (m :: * -&gt; *).
 PersistenceIncremental a m -&gt; ToJSON a =&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">append</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632412"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><a href="#local-6989586621679635898"><span class="hs-identifier hs-var">p</span></a></span><span>
 </span><span id="line-73"></span><span>                </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; IO [Value]
 forall a (m :: * -&gt; *).
 (FromJSON a, MonadUnliftIO m) =&gt;
 PersistenceIncremental a m -&gt; m [a]
 </span><span class="hs-identifier hs-var">loadAll</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632412"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><a href="#local-6989586621679635898"><span class="hs-identifier hs-var">p</span></a></span><span>
 </span><span id="line-74"></span><span>          </span><span class="annot"><span class="annottext">Property -&gt; PropertyM IO Property
 forall a. a -&gt; PropertyM IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -419,10 +419,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; Property -&gt; PropertyM IO Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632409"><span class="hs-identifier hs-var">actualResult</span></a></span><span> </span><span class="annot"><span class="annottext">[Value] -&gt; [Value] -&gt; Property
+</span><a href="#local-6989586621679635895"><span class="hs-identifier hs-var">actualResult</span></a></span><span> </span><span class="annot"><span class="annottext">[Value] -&gt; [Value] -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632406"><span class="hs-identifier hs-var">items</span></a></span><span>
+</span><a href="#local-6989586621679635892"><span class="hs-identifier hs-var">items</span></a></span><span>
 </span><span id="line-75"></span><span>
 </span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">FilePath -&gt; Property -&gt; SpecWith (Arg Property)
 forall a.
@@ -439,8 +439,8 @@ forall a. Testable a =&gt; PropertyM IO a -&gt; Property
 -&gt; PropertyM IO (IO ()) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-78"></span><span>        </span><span id="local-6989586621679632415"><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632415"><span class="hs-identifier hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Value] -&gt; PropertyM IO [Value]
+</span><span id="line-78"></span><span>        </span><span id="local-6989586621679635901"><span class="annot"><span class="annottext">[Value]
+</span><a href="#local-6989586621679635901"><span class="hs-identifier hs-var">items</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Value] -&gt; PropertyM IO [Value]
 forall (m :: * -&gt; *) a. (Monad m, Show a) =&gt; Gen a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">pick</span></span><span> </span><span class="annot"><span class="annottext">(Gen [Value] -&gt; PropertyM IO [Value])
 -&gt; Gen [Value] -&gt; PropertyM IO [Value]
@@ -449,8 +449,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. Gen a -&gt; Gen [a]
 </span><span class="hs-identifier hs-var">listOf</span></span><span> </span><span class="annot"><span class="annottext">Gen Value
 </span><a href="Hydra.PersistenceSpec.html#genPersistenceItem"><span class="hs-identifier hs-var">genPersistenceItem</span></a></span><span>
-</span><span id="line-79"></span><span>        </span><span id="local-6989586621679632416"><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632416"><span class="hs-identifier hs-var">moreItems</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Value] -&gt; PropertyM IO [Value]
+</span><span id="line-79"></span><span>        </span><span id="local-6989586621679635902"><span class="annot"><span class="annottext">[Value]
+</span><a href="#local-6989586621679635902"><span class="hs-identifier hs-var">moreItems</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [Value] -&gt; PropertyM IO [Value]
 forall (m :: * -&gt; *) a. (Monad m, Show a) =&gt; Gen a -&gt; PropertyM m a
 </span><span class="hs-identifier hs-var">pick</span></span><span> </span><span class="annot"><span class="annottext">(Gen [Value] -&gt; PropertyM IO [Value])
 -&gt; Gen [Value] -&gt; PropertyM IO [Value]
@@ -484,8 +484,8 @@ Verbosity -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-string">&quot;persistence-incremental&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Tracer IO PersistenceLog -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO PersistenceLog -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632420"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632420"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635906"><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><a href="#local-6989586621679635906"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-82"></span><span>            </span><span class="annot"><span class="annottext">FilePath -&gt; (FilePath -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) r.
 MonadIO m =&gt;
@@ -493,21 +493,21 @@ FilePath -&gt; (FilePath -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;hydra-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((FilePath -&gt; IO ()) -&gt; IO ()) -&gt; (FilePath -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632421"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632421"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-83"></span><span>              </span><span id="local-6989586621679632422"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632422"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635907"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679635907"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>              </span><span id="local-6989586621679635908"><span class="annot"><span class="annottext">PersistenceIncremental Value IO
+</span><a href="#local-6989586621679635908"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
 -&gt; FilePath -&gt; IO (PersistenceIncremental Value IO)
 forall a (m :: * -&gt; *).
 (MonadUnliftIO m, MonadThrow m, FromJSON a) =&gt;
 Tracer IO PersistenceLog
 -&gt; FilePath -&gt; m (PersistenceIncremental a m)
 </span><span class="hs-identifier hs-var">createPersistenceIncremental</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO PersistenceLog
-</span><a href="#local-6989586621679632420"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO (PersistenceIncremental Value IO))
+</span><a href="#local-6989586621679635906"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">(FilePath -&gt; IO (PersistenceIncremental Value IO))
 -&gt; FilePath -&gt; IO (PersistenceIncremental Value IO)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632421"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
+</span><a href="#local-6989586621679635907"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;/data&quot;</span></span><span>
@@ -516,22 +516,22 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632415"><span class="hs-identifier hs-var">items</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; IO ()) -&gt; IO ()) -&gt; (Value -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679635901"><span class="hs-identifier hs-var">items</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; IO ()) -&gt; IO ()) -&gt; (Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; ToJSON Value =&gt; Value -&gt; IO ()
 forall a (m :: * -&gt; *).
 PersistenceIncremental a m -&gt; ToJSON a =&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">append</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632422"><span class="hs-identifier hs-var">p</span></a></span><span>
+</span><a href="#local-6989586621679635908"><span class="hs-identifier hs-var">p</span></a></span><span>
 </span><span id="line-85"></span><span>              </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; IO [Value]
 forall a (m :: * -&gt; *).
 (FromJSON a, MonadUnliftIO m) =&gt;
 PersistenceIncremental a m -&gt; m [a]
 </span><span class="hs-identifier hs-var">loadAll</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632422"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; [Value] -&gt; IO ()
+</span><a href="#local-6989586621679635908"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">IO [Value] -&gt; [Value] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632415"><span class="hs-identifier hs-var">items</span></a></span><span>
+</span><a href="#local-6989586621679635901"><span class="hs-identifier hs-var">items</span></a></span><span>
 </span><span id="line-86"></span><span>              </span><span class="annot"><span class="annottext">(FilePath, IO Any) -&gt; (FilePath, IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) a b.
 (MonadThread m, MonadAsync m) =&gt;
@@ -553,22 +553,22 @@ forall a (m :: * -&gt; *).
 (FromJSON a, MonadUnliftIO m) =&gt;
 PersistenceIncremental a m -&gt; m [a]
 </span><span class="hs-identifier hs-var">loadAll</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632422"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679635908"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-88"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;append-more-items&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Value] -&gt; (Value -&gt; IO ()) -&gt; IO ()
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632416"><span class="hs-identifier hs-var">moreItems</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; IO ()) -&gt; IO ()) -&gt; (Value -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679635902"><span class="hs-identifier hs-var">moreItems</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; IO ()) -&gt; IO ()) -&gt; (Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632426"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632426"><span class="hs-identifier hs-var">item</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; ToJSON Value =&gt; Value -&gt; IO ()
+</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679635912"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679635912"><span class="hs-identifier hs-var">item</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO -&gt; ToJSON Value =&gt; Value -&gt; IO ()
 forall a (m :: * -&gt; *).
 PersistenceIncremental a m -&gt; ToJSON a =&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">append</span></span><span> </span><span class="annot"><span class="annottext">PersistenceIncremental Value IO
-</span><a href="#local-6989586621679632422"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632426"><span class="hs-identifier hs-var">item</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621679635908"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679635912"><span class="hs-identifier hs-var">item</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
 forall a b. IO a -&gt; IO b -&gt; IO b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DiffTime -&gt; IO ()
@@ -597,8 +597,8 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span id="line-97"></span><span class="annot"><a href="Hydra.PersistenceSpec.html#genSomeText"><span class="hs-identifier hs-type">genSomeText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
 </span><span id="line-98"></span><span id="genSomeText"><span class="annot"><span class="annottext">genSomeText :: Gen Text
 </span><a href="Hydra.PersistenceSpec.html#genSomeText"><span class="hs-identifier hs-var hs-var">genSomeText</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-99"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679632433"><span class="annot"><span class="annottext">t :: FilePath
-</span><a href="#local-6989586621679632433"><span class="hs-identifier hs-var hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Char
+</span><span id="line-99"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679635919"><span class="annot"><span class="annottext">t :: FilePath
+</span><a href="#local-6989586621679635919"><span class="hs-identifier hs-var hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'A'</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">'z'</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; FilePath -&gt; FilePath
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
@@ -614,25 +614,25 @@ forall a. Gen a -&gt; Gen [a]
 </span><span class="hs-identifier hs-var">listOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath -&gt; Gen Char
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679632433"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679635919"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-101"></span><span>
 </span><span id="line-102"></span><span class="annot"><a href="Hydra.PersistenceSpec.html#containsNewLine"><span class="hs-identifier hs-type">containsNewLine</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-103"></span><span id="containsNewLine"><span class="annot"><span class="annottext">containsNewLine :: [Value] -&gt; Bool
 </span><a href="Hydra.PersistenceSpec.html#containsNewLine"><span class="hs-identifier hs-var hs-var">containsNewLine</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-105"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679632435"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632435"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621679632436"><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632436"><span class="hs-identifier hs-var">is</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679632435"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span id="local-6989586621679632437"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679632437"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span id="line-105"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679635921"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679635921"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621679635922"><span class="annot"><span class="annottext">[Value]
+</span><a href="#local-6989586621679635922"><span class="hs-identifier hs-var">is</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679635921"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-106"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">String</span></span><span> </span><span id="local-6989586621679635923"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679635923"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;\n&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.html#isInfixOf"><span class="hs-operator hs-var">`Text.isInfixOf`</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679632437"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679635923"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
 </span><span id="line-107"></span><span>    </span><span class="annot"><span class="annottext">Value
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Value] -&gt; Bool
 </span><a href="Hydra.PersistenceSpec.html#containsNewLine"><span class="hs-identifier hs-var">containsNewLine</span></a></span><span> </span><span class="annot"><span class="annottext">[Value]
-</span><a href="#local-6989586621679632436"><span class="hs-identifier hs-var">is</span></a></span><span>
+</span><a href="#local-6989586621679635922"><span class="hs-identifier hs-var">is</span></a></span><span>
 </span><span id="line-108"></span></pre></body></html>

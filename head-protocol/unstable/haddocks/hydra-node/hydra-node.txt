@@ -300,7 +300,8 @@ data ChainEvent tx
 Observation :: OnChainTx tx -> ChainStateType tx -> ChainEvent tx
 [$sel:observedTx:Observation] :: ChainEvent tx -> OnChainTx tx
 [$sel:newChainState:Observation] :: ChainEvent tx -> ChainStateType tx
-Rollback :: ChainStateType tx -> ChainEvent tx
+Rollback :: UTCTime -> ChainStateType tx -> ChainEvent tx
+[$sel:chainTime:Observation] :: ChainEvent tx -> UTCTime
 [$sel:rolledBackChainState:Observation] :: ChainEvent tx -> ChainStateType tx
 
 -- | Indicate time has advanced on the chain.
@@ -2161,14 +2162,31 @@ instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
 module Hydra.Node.State
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 data NodeState tx
-NodeState :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
-[$sel:headState:NodeState] :: NodeState tx -> HeadState tx
+
+-- | Normal operation of the node where it is connected and has a recent
+--   view of the chain.
+NodeInSync :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
+[$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
 -- | Pending deposits as observed on chain. TODO: could even move the chain
 --   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeState] :: NodeState tx -> PendingDeposits tx
-[$sel:currentSlot:NodeState] :: NodeState tx -> ChainSlot
+[$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
+[$sel:currentSlot:NodeInSync] :: NodeState tx -> ChainSlot
+
+-- | Node is catching up on its view of the chain and should behave
+--   differently.
+NodeCatchingUp :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
+[$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
+
+-- | Pending deposits as observed on chain. TODO: could even move the chain
+--   state here (also see todo below) , chainState :: ChainStateType tx
+[$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
+[$sel:currentSlot:NodeInSync] :: NodeState tx -> ChainSlot
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
+data SyncedStatus
+InSync :: SyncedStatus
+CatchingUp :: SyncedStatus
+syncedStatus :: NodeState tx -> SyncedStatus
 
 -- | A deposit tracked by the protocol. The <a>DepositStatus</a> determines
 --   whether it may be used for an incremental commit or not.
@@ -2184,6 +2202,11 @@ Inactive :: DepositStatus
 Active :: DepositStatus
 Expired :: DepositStatus
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.State.SyncedStatus
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.State.SyncedStatus
+instance GHC.Show.Show Hydra.Node.State.SyncedStatus
+instance GHC.Classes.Eq Hydra.Node.State.SyncedStatus
+instance GHC.Generics.Generic Hydra.Node.State.SyncedStatus
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.State.DepositStatus
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.State.DepositStatus
 instance GHC.Show.Show Hydra.Node.State.DepositStatus
@@ -2202,6 +2225,7 @@ instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node
 instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.NodeState tx)
 instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.Deposit tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.DepositStatus
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.SyncedStatus
 
 module Hydra.API.ServerOutput
 
@@ -2227,6 +2251,9 @@ CommandFailed :: ClientInput tx -> HeadState tx -> ClientMessage tx
 PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 [$sel:postChainTx:CommandFailed] :: ClientMessage tx -> PostChainTx tx
 [$sel:postTxError:CommandFailed] :: ClientMessage tx -> PostTxError tx
+RejectedInput :: ClientInput tx -> Text -> ClientMessage tx
+[$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
+[$sel:reason:CommandFailed] :: ClientMessage tx -> Text
 
 -- | A friendly welcome message which tells a client something about the
 --   node. Currently used for knowing what signing key the server uses (it
@@ -2234,7 +2261,7 @@ PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 --   <a>HeadIsOpen</a> or <a>SnapshotConfirmed</a> message is emitted)
 --   UTxO's present in the Hydra Head.
 data Greetings tx
-Greetings :: Party -> HeadStatus -> Maybe HeadId -> Maybe (UTxOType tx) -> String -> Environment -> NetworkInfo -> Greetings tx
+Greetings :: Party -> HeadStatus -> Maybe HeadId -> Maybe (UTxOType tx) -> String -> Environment -> NetworkInfo -> SyncedStatus -> Greetings tx
 [$sel:me:Greetings] :: Greetings tx -> Party
 [$sel:headStatus:Greetings] :: Greetings tx -> HeadStatus
 [$sel:hydraHeadId:Greetings] :: Greetings tx -> Maybe HeadId
@@ -2242,6 +2269,7 @@ Greetings :: Party -> HeadStatus -> Maybe HeadId -> Maybe (UTxOType tx) -> Strin
 [$sel:hydraNodeVersion:Greetings] :: Greetings tx -> String
 [$sel:env:Greetings] :: Greetings tx -> Environment
 [$sel:networkInfo:Greetings] :: Greetings tx -> NetworkInfo
+[$sel:chainSyncedStatus:Greetings] :: Greetings tx -> SyncedStatus
 data InvalidInput
 InvalidInput :: String -> Text -> InvalidInput
 [$sel:reason:InvalidInput] :: InvalidInput -> String
@@ -2373,6 +2401,8 @@ SnapshotSideLoaded :: HeadId -> SnapshotNumber -> ServerOutput tx
 [$sel:snapshotNumber:NetworkConnected] :: ServerOutput tx -> SnapshotNumber
 EventLogRotated :: NodeState tx -> ServerOutput tx
 [$sel:checkpoint:NetworkConnected] :: ServerOutput tx -> NodeState tx
+NodeUnsynced :: ServerOutput tx
+NodeSynced :: ServerOutput tx
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO
@@ -2645,6 +2675,8 @@ LocalStateCleared :: HeadId -> SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
+NodeUnsynced :: StateChanged tx
+NodeSynced :: StateChanged tx
 genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
 data Outcome tx
 
@@ -2688,6 +2720,8 @@ WaitOnDepositObserved :: TxIdType tx -> WaitReason tx
 [$sel:depositTxId:WaitOnNotApplicableTx] :: WaitReason tx -> TxIdType tx
 WaitOnDepositActivation :: TxIdType tx -> WaitReason tx
 [$sel:depositTxId:WaitOnNotApplicableTx] :: WaitReason tx -> TxIdType tx
+WaitOnNodeInSync :: ChainSlot -> WaitReason tx
+[$sel:currentSlot:WaitOnNotApplicableTx] :: WaitReason tx -> ChainSlot
 instance GHC.Generics.Generic (Hydra.HeadLogic.Outcome.Effect tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.Outcome.StateChanged tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.Outcome.WaitReason tx)
@@ -2750,7 +2784,7 @@ module Hydra.HeadLogic
 --   with <a>Effect</a>s, in case it is processed successfully. Later, the
 --   Node will <a>aggregate</a> the events, resulting in a new
 --   <a>HeadState</a>.
-update :: IsChainState tx => Environment -> Ledger tx -> NodeState tx -> Input tx -> Outcome tx
+update :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> NodeState tx -> Input tx -> Outcome tx
 
 -- | Reflect <a>StateChanged</a> events onto the <a>NodeState</a>
 --   aggregateNodeState.
@@ -2891,7 +2925,7 @@ onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> Op
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
 --   and remove the increment UTxO from
---   <a>$sel:pendingDeposits:NodeState</a> from the local state.
+--   <a>$sel:pendingDeposits:NodeInSync</a> from the local state.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenChainIncrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> Outcome tx
@@ -2953,6 +2987,15 @@ onClosedClientFanout :: ClosedState tx -> Outcome tx
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>IdleState</a>
 onClosedChainFanoutTx :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> Outcome tx
+
+-- | Detect our view of the chain going out of sync and issue a
+--   <a>NodeUnsynced</a> event when this is the case.
+handleOutOfSync :: Environment -> UTCTime -> UTCTime -> SyncedStatus -> Outcome tx
+updateUnsyncedHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
+updateSyncedHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
+handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
+handleClientInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
+handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
@@ -3347,6 +3390,8 @@ LocalStateCleared :: HeadId -> SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
+NodeUnsynced :: StateChanged tx
+NodeSynced :: StateChanged tx
 data WaitReason tx
 WaitOnNotApplicableTx :: ValidationError -> WaitReason tx
 [$sel:validationError:WaitOnNotApplicableTx] :: WaitReason tx -> ValidationError
@@ -3368,6 +3413,8 @@ WaitOnDepositObserved :: TxIdType tx -> WaitReason tx
 [$sel:depositTxId:WaitOnNotApplicableTx] :: WaitReason tx -> TxIdType tx
 WaitOnDepositActivation :: TxIdType tx -> WaitReason tx
 [$sel:depositTxId:WaitOnNotApplicableTx] :: WaitReason tx -> TxIdType tx
+WaitOnNodeInSync :: ChainSlot -> WaitReason tx
+[$sel:currentSlot:WaitOnNotApplicableTx] :: WaitReason tx -> ChainSlot
 cause :: Effect tx -> Outcome tx
 causes :: [Effect tx] -> Outcome tx
 changes :: [StateChanged tx] -> Outcome tx
@@ -3415,6 +3462,9 @@ SubmitTxConfirmed :: Integer -> SubmitL2TxResponse
 
 -- | Transaction was rejected due to validation errors
 SubmitTxInvalidResponse :: Text -> SubmitL2TxResponse
+
+-- | Transaction was rejected due to node out of sync
+SubmitTxRejectedResponse :: Text -> SubmitL2TxResponse
 
 -- | Transaction was accepted but not yet confirmed
 SubmitTxSubmitted :: SubmitL2TxResponse
@@ -3840,6 +3890,12 @@ InitialUTxOParseException :: String -> InitialUTxOParseException
 --   file could not be parsed.
 loadGenesisFile :: Maybe FilePath -> IO (GenesisParameters ShelleyEra)
 withOfflineChain :: OfflineChainConfig -> Party -> [Party] -> ChainStateHistory Tx -> ChainComponent Tx IO a
+
+-- | Continuously produces offline chain ticks according to wall-clock
+--   time. Each tick is aligned with the expected slot time, ensuring the
+--   node state stays synchronized with the offline chain. This prevents
+--   the node from violating the <a>unsyncedPolicy</a> which guarantees
+--   that client and network inputs are always processed safely.
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 instance GHC.Show.Show Hydra.Chain.Offline.InitialUTxOParseException
 instance GHC.Exception.Type.Exception Hydra.Chain.Offline.InitialUTxOParseException
@@ -4085,6 +4141,7 @@ TimeHandleParams :: SystemStart -> EraHistory -> SlotNo -> SlotNo -> TimeHandleP
 [$sel:eraHistory:TimeHandleParams] :: TimeHandleParams -> EraHistory
 [$sel:horizonSlot:TimeHandleParams] :: TimeHandleParams -> SlotNo
 [$sel:currentSlot:TimeHandleParams] :: TimeHandleParams -> SlotNo
+safeZone :: Pico
 
 -- | Generate consistent values for <a>SystemStart</a> and
 --   <a>EraHistory</a> which has a horizon at the returned SlotNo as well
@@ -4415,7 +4472,7 @@ defaultTxTTL :: TTL
 waitDelay :: DiffTime
 
 -- | Monadic interface around <a>update</a>.
-processNextInput :: IsChainState tx => HydraNode tx m -> Input tx -> STM m (Outcome tx)
+processNextInput :: IsChainState tx => HydraNode tx m -> Input tx -> UTCTime -> STM m (Outcome tx)
 processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
 processEffects :: (MonadAsync m, MonadCatch m, IsChainState tx) => HydraNode tx m -> Tracer m (HydraNodeLog tx) -> Word64 -> [Effect tx] -> m ()
 

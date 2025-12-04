@@ -336,6 +336,10 @@ withBlockfrostBackend :: Tracer IO NodeLog -> FilePath -> (NominalDiffTime -> Bl
 --   the specified file exists there. If not found, it recursively checks
 --   the parent directories up to the given maximum depth.
 findFileStartingAtDirectory :: Int -> FilePath -> IO FilePath
+data HydraBackend
+DirectBackendType :: HydraBackend
+BlockfrostBackendType :: HydraBackend
+getHydraBackend :: IO HydraBackend
 withBackend :: forall a. Tracer IO NodeLog -> FilePath -> (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) -> IO a
 
 -- | Run a cardano-node as normal network participant on a known network.
@@ -395,6 +399,9 @@ instance GHC.Show.Show CardanoNode.PortsConfig
 instance GHC.Generics.Generic CardanoNode.DevnetConfig
 instance GHC.Show.Show CardanoNode.DevnetConfig
 instance GHC.Classes.Eq CardanoNode.DevnetConfig
+instance GHC.Read.Read CardanoNode.HydraBackend
+instance GHC.Show.Show CardanoNode.HydraBackend
+instance GHC.Classes.Eq CardanoNode.HydraBackend
 instance GHC.Show.Show CardanoNode.ProcessHasExited
 
 module HydraNode
@@ -472,16 +479,25 @@ preparePParams :: ChainConfig -> FilePath -> (Value -> Value) -> IO FilePath
 --   <a>ChainConfig</a> and using the config from config/.
 prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (Value -> Value) -> IO RunOptions
 
+-- | Run a hydra-node with given <a>RunOptions</a> and in sync with chain
+--   backend.
+withPreparedHydraNodeInSync :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
+
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config/.
 withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+
+-- | Run a hydra-node with given <a>ChainConfig</a> and using the config
+--   from config and catching up with chain backend/.
+withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
 waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog
 [$sel:cmd:HydraNodeCommandSpec] :: HydraNodeLog -> Text
@@ -612,6 +628,7 @@ canDecommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> back
 --   online with healthy configuration
 canSideLoadSnapshot :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 canResumeOnMemberAlreadyBootstrapped :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+waitsForChainInSyncAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
 -- | Three hydra nodes open a head and we assert that none of them sees
 --   errors if a party is duplicated.
