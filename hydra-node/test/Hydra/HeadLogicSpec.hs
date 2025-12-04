@@ -812,7 +812,7 @@ spec =
 
               nodeOutOfSync <- run $ do
                 let delta = CP.unsyncedPolicy bobEnv.contestationPeriod
-                    -- make chain time too old
+                    -- make chain time too old: beyond unsynced threshold
                     oldChainTime = addUTCTime (negate (delta + 1)) now
                 runHeadLogic bobEnv ledger nodeInSync $ do
                   step $ ChainInput Tick{chainTime = oldChainTime, chainSlot = ChainSlot 100}
@@ -821,6 +821,43 @@ spec =
               assert $ case nodeOutOfSync of
                 NodeCatchingUp{} -> True
                 _ -> False
+
+      -- safety: cannot stay in-sync beyond the contestation window
+      prop "node must be out of sync after full contestation period" $
+        forAllShrink arbitrary shrink $ \headState ->
+          monadicIO $ do
+            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+
+            now <- run getCurrentTime
+            let delta = bobEnv.contestationPeriod
+            -- make chain time too old: elapsed time >= full contestation period
+            let oldChainTime = addUTCTime (negate $ CP.toNominalDiffTime delta) now
+
+            nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
+              step $ ChainInput Tick{chainTime = oldChainTime, chainSlot = ChainSlot 1}
+              getState
+
+            assert $ case nodeAfter of
+              NodeCatchingUp{} -> True
+              _ -> False
+
+      -- liveness: cannot drop out of sync under normal block timing
+      prop "node remains in sync under normal block cadence" $
+        forAllShrink arbitrary shrink $ \headState ->
+          monadicIO $ do
+            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+
+            now <- run getCurrentTime
+            let normalBlockInterval = 20
+            let nextTime = addUTCTime normalBlockInterval now
+
+            nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
+              step $ ChainInput Tick{chainTime = nextTime, chainSlot = ChainSlot 1}
+              getState
+
+            assert $ case nodeAfter of
+              NodeInSync{} -> True
+              _ -> False
 
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, nodeState) -> do
