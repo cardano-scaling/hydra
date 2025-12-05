@@ -23,14 +23,14 @@
 </span><span id="line-23"></span><span class="annot"><span class="hs-comment">-- | Identifies a party in a Hydra head by it's 'VerificationKey'.</span></span><span>
 </span><span id="line-24"></span><span class="hs-keyword">newtype</span><span> </span><span id="Party"><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-var">Party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Party"><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-var">Party</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3Avkey%3AParty"><span class="annot"><span class="annottext">Party -&gt; VerificationKey HydraKey
 </span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var hs-var">vkey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Crypto.html#HydraKey"><span class="hs-identifier hs-type">HydraKey</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438022"><span id="local-6989586621679438026"><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438010"><span id="local-6989586621679438014"><span class="annot"><span class="annottext">Party -&gt; Party -&gt; Bool
 (Party -&gt; Party -&gt; Bool) -&gt; (Party -&gt; Party -&gt; Bool) -&gt; Eq Party
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Party -&gt; Party -&gt; Bool
 == :: Party -&gt; Party -&gt; Bool
 $c/= :: Party -&gt; Party -&gt; Bool
 /= :: Party -&gt; Party -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438031"><span id="local-6989586621679438037"><span id="local-6989586621679438041"><span class="annot"><span class="annottext">Int -&gt; Party -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438019"><span id="local-6989586621679438025"><span id="local-6989586621679438029"><span class="annot"><span class="annottext">Int -&gt; Party -&gt; ShowS
 [Party] -&gt; ShowS
 Party -&gt; String
 (Int -&gt; Party -&gt; ShowS)
@@ -43,7 +43,7 @@ $cshow :: Party -&gt; String
 show :: Party -&gt; String
 $cshowList :: [Party] -&gt; ShowS
 showList :: [Party] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438045"><span id="local-6989586621679438047"><span class="annot"><span class="annottext">(forall x. Party -&gt; Rep Party x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438033"><span id="local-6989586621679438035"><span class="annot"><span class="annottext">(forall x. Party -&gt; Rep Party x)
 -&gt; (forall x. Rep Party x -&gt; Party) -&gt; Generic Party
 forall x. Rep Party x -&gt; Party
 forall x. Party -&gt; Rep Party x
@@ -53,8 +53,8 @@ $cfrom :: forall x. Party -&gt; Rep Party x
 from :: forall x. Party -&gt; Rep Party x
 $cto :: forall x. Rep Party x -&gt; Party
 to :: forall x. Rep Party x -&gt; Party
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-26"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438051"><span id="local-6989586621679438058"><span id="local-6989586621679438061"><span id="local-6989586621679438064"><span id="local-6989586621679438067"><span class="annot"><span class="annottext">[Party] -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438039"><span id="local-6989586621679438046"><span id="local-6989586621679438049"><span id="local-6989586621679438052"><span id="local-6989586621679438055"><span class="annot"><span class="annottext">[Party] -&gt; Value
 [Party] -&gt; Encoding
 Party -&gt; Bool
 Party -&gt; Value
@@ -82,7 +82,7 @@ $ctoEncodingList :: [Party] -&gt; Encoding
 toEncodingList :: [Party] -&gt; Encoding
 $comitField :: Party -&gt; Bool
 omitField :: Party -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438142"><span id="local-6989586621679438149"><span id="local-6989586621679438152"><span class="annot"><span class="annottext">Maybe Party
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438130"><span id="local-6989586621679438137"><span id="local-6989586621679438140"><span class="annot"><span class="annottext">Maybe Party
 Value -&gt; Parser [Party]
 Value -&gt; Parser Party
 (Value -&gt; Parser Party)
@@ -97,7 +97,7 @@ parseJSONList :: Value -&gt; Parser [Party]
 $comittedField :: Maybe Party
 omittedField :: Maybe Party
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-27"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438208"><span id="local-6989586621679438213"><span class="annot"><span class="annottext">Gen Party
+</span><span id="line-27"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438196"><span id="local-6989586621679438201"><span class="annot"><span class="annottext">Gen Party
 Gen Party -&gt; (Party -&gt; [Party]) -&gt; Arbitrary Party
 Party -&gt; [Party]
 forall a. Gen a -&gt; (a -&gt; [a]) -&gt; Arbitrary a
@@ -107,30 +107,30 @@ $cshrink :: Party -&gt; [Party]
 shrink :: Party -&gt; [Party]
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Arbitrary</span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-28"></span><span>
-</span><span id="line-29"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438220"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-30"></span><span>  </span><span id="local-6989586621679438226"><span class="annot"><span class="annottext">toJSONKey :: ToJSONKeyFunction Party
-</span><a href="#local-6989586621679438226"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Party -&gt; Text) -&gt; ToJSONKeyFunction Party
+</span><span id="line-29"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438208"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679438214"><span class="annot"><span class="annottext">toJSONKey :: ToJSONKeyFunction Party
+</span><a href="#local-6989586621679438214"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Party -&gt; Text) -&gt; ToJSONKeyFunction Party
 forall a. (a -&gt; Text) -&gt; ToJSONKeyFunction a
 </span><span class="hs-identifier hs-var">toJSONKeyText</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Text
 forall a. SerialiseAsRawBytes a =&gt; a -&gt; Text
 </span><span class="hs-identifier hs-var">serialiseToRawBytesHexText</span></span><span> </span><span class="annot"><span class="annottext">(VerificationKey HydraKey -&gt; Text)
 -&gt; (Party -&gt; VerificationKey HydraKey) -&gt; Party -&gt; Text
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; VerificationKey HydraKey
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; VerificationKey HydraKey
 </span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var">vkey</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-31"></span><span>
-</span><span id="line-32"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438231"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-33"></span><span>  </span><span id="local-6989586621679438238"><span class="annot"><span class="annottext">fromJSONKey :: FromJSONKeyFunction Party
-</span><a href="#local-6989586621679438238"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser Party) -&gt; FromJSONKeyFunction Party
+</span><span id="line-32"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438219"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621679438226"><span class="annot"><span class="annottext">fromJSONKey :: FromJSONKeyFunction Party
+</span><a href="#local-6989586621679438226"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser Party) -&gt; FromJSONKeyFunction Party
 forall a. (Text -&gt; Parser a) -&gt; FromJSONKeyFunction a
 </span><span class="hs-identifier hs-var">FromJSONKeyTextParser</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Parser Party
 forall (m :: * -&gt; *). MonadFail m =&gt; Text -&gt; m Party
-</span><a href="#local-6989586621679438240"><span class="hs-identifier hs-var">partyFromHexText</span></a></span><span>
+</span><a href="#local-6989586621679438228"><span class="hs-identifier hs-var">partyFromHexText</span></a></span><span>
 </span><span id="line-34"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-35"></span><span>    </span><span id="local-6989586621679437955"><span class="annot"><a href="#local-6989586621679438240"><span class="hs-identifier hs-type">partyFromHexText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679437955"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679437955"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span>
-</span><span id="line-36"></span><span>    </span><span id="local-6989586621679438240"><span class="annot"><span class="annottext">partyFromHexText :: forall (m :: * -&gt; *). MonadFail m =&gt; Text -&gt; m Party
-</span><a href="#local-6989586621679438240"><span class="hs-identifier hs-var hs-var">partyFromHexText</span></a></span></span><span> </span><span id="local-6989586621679438259"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679438259"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-35"></span><span>    </span><span id="local-6989586621679437943"><span class="annot"><a href="#local-6989586621679438228"><span class="hs-identifier hs-type">partyFromHexText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679437943"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679437943"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span>
+</span><span id="line-36"></span><span>    </span><span id="local-6989586621679438228"><span class="annot"><span class="annottext">partyFromHexText :: forall (m :: * -&gt; *). MonadFail m =&gt; Text -&gt; m Party
+</span><a href="#local-6989586621679438228"><span class="hs-identifier hs-var hs-var">partyFromHexText</span></a></span></span><span> </span><span id="local-6989586621679438247"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679438247"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-37"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either RawBytesHexError (VerificationKey HydraKey)
 forall a.
 SerialiseAsRawBytes a =&gt;
@@ -138,74 +138,74 @@ ByteString -&gt; Either RawBytesHexError a
 </span><span class="hs-identifier hs-var">deserialiseFromRawBytesHex</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
 forall a b. ConvertUtf8 a b =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679438259"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-38"></span><span>        </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679438261"><span class="annot"><span class="annottext">RawBytesHexError
-</span><a href="#local-6989586621679438261"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m Party
+</span><a href="#local-6989586621679438247"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-38"></span><span>        </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679438249"><span class="annot"><span class="annottext">RawBytesHexError
+</span><a href="#local-6989586621679438249"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m Party
 forall a. String -&gt; m a
 forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m Party) -&gt; String -&gt; m Party
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m Party) -&gt; String -&gt; m Party
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;failed to decode Party: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">RawBytesHexError -&gt; String
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">RawBytesHexError -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">RawBytesHexError
-</span><a href="#local-6989586621679438261"><span class="hs-identifier hs-var">err</span></a></span><span>
-</span><span id="line-39"></span><span>        </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679438263"><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438263"><span class="hs-identifier hs-var">vkey</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Party -&gt; m Party
+</span><a href="#local-6989586621679438249"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-39"></span><span>        </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679438251"><span class="annot"><span class="annottext">VerificationKey HydraKey
+</span><a href="#local-6989586621679438251"><span class="hs-identifier hs-var">vkey</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Party -&gt; m Party
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; m Party) -&gt; Party -&gt; m Party
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; m Party) -&gt; Party -&gt; m Party
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">VerificationKey HydraKey
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">VerificationKey HydraKey
 $sel:vkey:Party :: VerificationKey HydraKey
 vkey :: VerificationKey HydraKey
 </span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var hs-var">vkey</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-40"></span><span>
 </span><span id="line-41"></span><span class="hs-comment">-- REVIEW: Do we really want to define Ord or also use unordered-containers</span><span>
 </span><span id="line-42"></span><span class="hs-comment">-- based on Hashable?</span><span>
-</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438267"><span id="local-6989586621679438271"><span id="local-6989586621679438275"><span id="local-6989586621679438278"><span id="local-6989586621679438281"><span id="local-6989586621679438284"><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438255"><span id="local-6989586621679438259"><span id="local-6989586621679438263"><span id="local-6989586621679438266"><span id="local-6989586621679438269"><span id="local-6989586621679438272"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:vkey:Party :: Party -&gt; VerificationKey HydraKey
-</span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var">vkey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679438291"><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438291"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679438292"><span class="annot"><span class="annottext">&lt;= :: Party -&gt; Party -&gt; Bool
-</span><a href="#local-6989586621679438292"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;=</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:vkey:Party :: Party -&gt; VerificationKey HydraKey
-</span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var">vkey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679438294"><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438294"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var">vkey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679438279"><span class="annot"><span class="annottext">VerificationKey HydraKey
+</span><a href="#local-6989586621679438279"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679438280"><span class="annot"><span class="annottext">&lt;= :: Party -&gt; Party -&gt; Bool
+</span><a href="#local-6989586621679438280"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;=</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:vkey:Party :: Party -&gt; VerificationKey HydraKey
+</span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var">vkey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679438282"><span class="annot"><span class="annottext">VerificationKey HydraKey
+</span><a href="#local-6989586621679438282"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-45"></span><span>    </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Hash HydraKey
 forall keyrole.
 Key keyrole =&gt;
 VerificationKey keyrole -&gt; Hash keyrole
 </span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438291"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Hash HydraKey -&gt; Hash HydraKey -&gt; Bool
+</span><a href="#local-6989586621679438279"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Hash HydraKey -&gt; Hash HydraKey -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Hash HydraKey
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Hash HydraKey
 forall keyrole.
 Key keyrole =&gt;
 VerificationKey keyrole -&gt; Hash keyrole
 </span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438294"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><a href="#local-6989586621679438282"><span class="hs-identifier hs-var">b</span></a></span><span>
 </span><span id="line-46"></span><span>
-</span><span id="line-47"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438299"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-48"></span><span>  </span><span id="local-6989586621679438307"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Party
-</span><a href="#local-6989586621679438307"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Party
+</span><span id="line-47"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438287"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-48"></span><span>  </span><span id="local-6989586621679438295"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Party
+</span><a href="#local-6989586621679438295"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Party
 </span><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-var">Party</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey HydraKey -&gt; Party)
 -&gt; Decoder s (VerificationKey HydraKey) -&gt; Decoder s Party
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (VerificationKey HydraKey)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (VerificationKey HydraKey)
 forall s. Decoder s (VerificationKey HydraKey)
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
 </span><span id="line-49"></span><span>
-</span><span id="line-50"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438314"><span id="local-6989586621679438318"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-51"></span><span>  </span><span id="local-6989586621679438323"><span class="annot"><span class="annottext">toCBOR :: Party -&gt; Encoding
-</span><a href="#local-6989586621679438323"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span id="local-6989586621679438325"><span class="annot"><span class="annottext">VerificationKey HydraKey
+</span><span id="line-50"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438302"><span id="local-6989586621679438306"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>  </span><span id="local-6989586621679438311"><span class="annot"><span class="annottext">toCBOR :: Party -&gt; Encoding
+</span><a href="#local-6989586621679438311"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span id="local-6989586621679438313"><span class="annot"><span class="annottext">VerificationKey HydraKey
 $sel:vkey:Party :: Party -&gt; VerificationKey HydraKey
 vkey :: VerificationKey HydraKey
 </span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var hs-var">vkey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438325"><span class="hs-identifier hs-var">vkey</span></a></span><span>
+</span><a href="#local-6989586621679438313"><span class="hs-identifier hs-var">vkey</span></a></span><span>
 </span><span id="line-52"></span><span>
 </span><span id="line-53"></span><span class="annot"><span class="hs-comment">-- | Get the 'Party' given some Hydra 'SigningKey'.</span></span><span>
 </span><span id="line-54"></span><span class="annot"><a href="Hydra.Tx.Party.html#deriveParty"><span class="hs-identifier hs-type">deriveParty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Crypto.html#HydraKey"><span class="hs-identifier hs-type">HydraKey</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span>
@@ -216,7 +216,7 @@ forall a. ToCBOR a =&gt; a -&gt; Encoding
 -&gt; SigningKey HydraKey
 -&gt; Party
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; VerificationKey HydraKey
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey -&gt; VerificationKey HydraKey
 forall keyrole.
 (Key keyrole, HasTypeProxy keyrole) =&gt;
 SigningKey keyrole -&gt; VerificationKey keyrole
@@ -227,23 +227,23 @@ SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span id="line-59"></span><span class="hs-comment">-- distinct type.</span><span>
 </span><span id="line-60"></span><span class="annot"><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-type">partyToChain</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.Party</span></span><span>
 </span><span id="line-61"></span><span id="partyToChain"><span class="annot"><span class="annottext">partyToChain :: Party -&gt; Party
-</span><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-var hs-var">partyToChain</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span id="local-6989586621679438328"><span class="annot"><span class="annottext">VerificationKey HydraKey
+</span><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-var hs-var">partyToChain</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">{</span><span id="local-6989586621679438316"><span class="annot"><span class="annottext">VerificationKey HydraKey
 $sel:vkey:Party :: Party -&gt; VerificationKey HydraKey
 vkey :: VerificationKey HydraKey
 </span><a href="Hydra.Tx.Party.html#%24sel%3Avkey%3AParty"><span class="hs-identifier hs-var hs-var">vkey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; Party
 </span><span class="hs-identifier hs-var">OnChain.partyFromVerificationKeyBytes</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Party) -&gt; ByteString -&gt; Party
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; ByteString
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; ByteString
 forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialiseToRawBytes</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey
-</span><a href="#local-6989586621679438328"><span class="hs-identifier hs-var">vkey</span></a></span><span>
+</span><a href="#local-6989586621679438316"><span class="hs-identifier hs-var">vkey</span></a></span><span>
 </span><span id="line-63"></span><span>
 </span><span id="line-64"></span><span class="hs-comment">-- | Retrieve the &quot;high-level&quot; 'Party from the &quot;low-level&quot; on-chain</span><span>
 </span><span id="line-65"></span><span class="hs-comment">-- representation. This can fail because of the lower type-safety used on-chain</span><span>
 </span><span id="line-66"></span><span class="hs-comment">-- and a non-guaranteed verification key length. See 'Hydra.Data.Party.Party'</span><span>
 </span><span id="line-67"></span><span class="hs-comment">-- for an explanation why this is a distinct type.</span><span>
-</span><span id="line-68"></span><span id="local-6989586621679437997"><span class="annot"><a href="Hydra.Tx.Party.html#partyFromChain"><span class="hs-identifier hs-type">partyFromChain</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679437997"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679437997"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span>
+</span><span id="line-68"></span><span id="local-6989586621679437985"><span class="annot"><a href="Hydra.Tx.Party.html#partyFromChain"><span class="hs-identifier hs-type">partyFromChain</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679437985"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OnChain.Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679437985"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span></span><span>
 </span><span id="line-69"></span><span id="partyFromChain"><span class="annot"><span class="annottext">partyFromChain :: forall (m :: * -&gt; *). MonadFail m =&gt; Party -&gt; m Party
 </span><a href="Hydra.Tx.Party.html#partyFromChain"><span class="hs-identifier hs-var hs-var">partyFromChain</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-70"></span><span>  </span><span class="annot"><span class="annottext">(SerialiseAsRawBytesError -&gt; m Party)
@@ -251,27 +251,27 @@ forall a. SerialiseAsRawBytes a =&gt; a -&gt; ByteString
 -&gt; Either SerialiseAsRawBytesError (VerificationKey HydraKey)
 -&gt; m Party
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679438345"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679438345"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m Party
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679438333"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679438333"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m Party
 forall a. String -&gt; m a
 forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m Party) -&gt; String -&gt; m Party
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; m Party) -&gt; String -&gt; m Party
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;partyFromChain failed: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; String
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679438345"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party -&gt; m Party
+</span><a href="#local-6989586621679438333"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party -&gt; m Party
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; m Party)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; m Party)
 -&gt; (VerificationKey HydraKey -&gt; Party)
 -&gt; VerificationKey HydraKey
 -&gt; m Party
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Party
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey HydraKey -&gt; Party
 </span><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-var">Party</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">(Either SerialiseAsRawBytesError (VerificationKey HydraKey)
  -&gt; m Party)
@@ -280,7 +280,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; Party
 -&gt; m Party
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">AsType (VerificationKey HydraKey)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">AsType (VerificationKey HydraKey)
 -&gt; ByteString
 -&gt; Either SerialiseAsRawBytesError (VerificationKey HydraKey)
 forall a.
@@ -296,10 +296,10 @@ forall a. AsType a -&gt; AsType (VerificationKey a)
 -&gt; Party
 -&gt; Either SerialiseAsRawBytesError (VerificationKey HydraKey)
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; ByteString
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; ByteString
 </span><span class="hs-identifier hs-var">OnChain.partyToVerificationKeyBytes</span></span><span>
 </span><span id="line-73"></span><span>
 </span><span id="line-74"></span><span class="annot"><span class="hs-comment">-- | Type class to retrieve the 'Party' from some type.</span></span><span>
-</span><span id="line-75"></span><span class="hs-keyword">class</span><span> </span><span id="HasParty"><span class="annot"><a href="Hydra.Tx.Party.html#HasParty"><span class="hs-identifier hs-var">HasParty</span></a></span></span><span> </span><span id="local-6989586621679438349"><span class="annot"><a href="#local-6989586621679438349"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-76"></span><span>  </span><span id="getParty"><span class="annot"><a href="Hydra.Tx.Party.html#getParty"><span class="hs-identifier hs-type">getParty</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679438349"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span>
+</span><span id="line-75"></span><span class="hs-keyword">class</span><span> </span><span id="HasParty"><span class="annot"><a href="Hydra.Tx.Party.html#HasParty"><span class="hs-identifier hs-var">HasParty</span></a></span></span><span> </span><span id="local-6989586621679438337"><span class="annot"><a href="#local-6989586621679438337"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-76"></span><span>  </span><span id="getParty"><span class="annot"><a href="Hydra.Tx.Party.html#getParty"><span class="hs-identifier hs-type">getParty</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621679438337"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span>
 </span><span id="line-77"></span></pre></body></html>

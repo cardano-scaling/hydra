@@ -9,7 +9,7 @@
 </span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Babbage.TxInfo</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
 </span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.BaseTypes</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
 </span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Credential</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
-</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">List</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">List</span></span><span>
 </span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html"><span class="hs-identifier">Hydra.Cardano.Api.AddressInEra</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.AddressInEra.html#fromPlutusAddress"><span class="hs-identifier">fromPlutusAddress</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Hash.html"><span class="hs-identifier">Hydra.Cardano.Api.Hash</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.Hash.html#unsafeScriptDataHashFromBytes"><span class="hs-identifier">unsafeScriptDataHashFromBytes</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.ScriptData.html"><span class="hs-identifier">Hydra.Cardano.Api.ScriptData</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.ScriptData.html#toScriptData"><span class="hs-identifier">toScriptData</span></a></span><span class="hs-special">)</span><span>
@@ -26,7 +26,7 @@ forall era. TxBody era -&gt; TxBodyContent ViewTx era
 </span><span class="hs-identifier hs-var">getTxBodyContent</span></span><span> </span><span class="annot"><span class="annottext">(TxBody era -&gt; TxBodyContent ViewTx era)
 -&gt; (Tx era -&gt; TxBody era) -&gt; Tx era -&gt; TxBodyContent ViewTx era
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; TxBody era
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; TxBody era
 forall era. Tx era -&gt; TxBody era
 </span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span id="local-6989586621679284751"><span class="annot"><span class="annottext">TxBodyContent ViewTx era
 </span><a href="#local-6989586621679284751"><span class="hs-identifier hs-var">txBody</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
@@ -58,7 +58,7 @@ TxOut (ShelleyLedgerEra era) -&gt; TxOut ctx era
 -&gt; TxOut CtxUTxO Era
 -&gt; TxOut ctx Era
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; TxOut ConwayEra -&gt; TxOut ConwayEra
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; TxOut ConwayEra -&gt; TxOut ConwayEra
 forall era. EraTxOut era =&gt; PParams era -&gt; TxOut era -&gt; TxOut era
 </span><span class="hs-identifier hs-var">Ledger.setMinCoinTxOut</span></span><span> </span><span class="annot"><span class="annottext">PParams (ShelleyLedgerEra Era)
 PParams ConwayEra
@@ -67,7 +67,7 @@ PParams ConwayEra
 -&gt; TxOut CtxUTxO Era
 -&gt; BabbageTxOut ConwayEra
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOut (ShelleyLedgerEra Era)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOut (ShelleyLedgerEra Era)
 TxOut CtxUTxO Era -&gt; TxOut ConwayEra
 forall era.
 IsShelleyBasedEra era =&gt;
@@ -136,7 +136,7 @@ IsMaryBasedEra era =&gt;
 (Value -&gt; Value) -&gt; TxOut ctx era -&gt; TxOut ctx era
 </span><a href="Hydra.Cardano.Api.TxOut.html#modifyTxOutValue"><span class="hs-identifier hs-var">modifyTxOutValue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a b. a -&gt; b -&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">Value
 </span><a href="#local-6989586621679284777"><span class="hs-identifier hs-var">minValue</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
 </span><a href="#local-6989586621679284772"><span class="hs-identifier hs-var">out</span></a></span><span>
 </span><span id="line-49"></span><span>
@@ -203,10 +203,10 @@ AddressInEra era
 forall era. IsMaryBasedEra era =&gt; Value -&gt; TxOutValue era
 </span><a href="Hydra.Cardano.Api.TxOutValue.html#mkTxOutValue"><span class="hs-identifier hs-var">mkTxOutValue</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; TxOutValue era) -&gt; Value -&gt; TxOutValue era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value
 </span><a href="#local-6989586621679284788"><span class="hs-identifier hs-var">fn</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; Value -&gt; Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutValue era -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutValue era -&gt; Value
 forall era. TxOutValue era -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValueToValue</span></span><span> </span><span class="annot"><span class="annottext">TxOutValue era
 </span><a href="#local-6989586621679284790"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOutDatum ctx era
@@ -250,7 +250,7 @@ AddressInEra era
 </span><span id="line-77"></span><span id="local-6989586621679284582"><span class="annot"><a href="Hydra.Cardano.Api.TxOut.html#findTxOutByAddress"><span class="hs-identifier hs-type">findTxOutByAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-78"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679284582"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-79"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679284582"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-80"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679284582"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679284582"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-81"></span><span id="findTxOutByAddress"><span class="annot"><span class="annottext">findTxOutByAddress :: forall era.
 AddressInEra era -&gt; Tx era -&gt; Maybe (TxIn, TxOut CtxTx era)
 </span><a href="Hydra.Cardano.Api.TxOut.html#findTxOutByAddress"><span class="hs-identifier hs-var hs-var">findTxOutByAddress</span></a></span></span><span> </span><span id="local-6989586621679284810"><span class="annot"><span class="annottext">AddressInEra era
@@ -262,16 +262,16 @@ AddressInEra era -&gt; Tx era -&gt; Maybe (TxIn, TxOut CtxTx era)
 -&gt; ((TxIn, TxOut CtxTx era) -&gt; Bool)
 -&gt; Maybe (TxIn, TxOut CtxTx era)
 forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxTx era) -&gt; Bool)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxTx era) -&gt; Bool)
 -&gt; [(TxIn, TxOut CtxTx era)] -&gt; Maybe (TxIn, TxOut CtxTx era)
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Maybe a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#find"><span class="hs-identifier hs-var">List.find</span></a></span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxTx era)]
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#find"><span class="hs-identifier hs-var">List.find</span></a></span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxTx era)]
 </span><a href="#local-6989586621679284814"><span class="hs-identifier hs-var">indexedOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">(((TxIn, TxOut CtxTx era) -&gt; Bool)
  -&gt; Maybe (TxIn, TxOut CtxTx era))
 -&gt; ((TxIn, TxOut CtxTx era) -&gt; Bool)
 -&gt; Maybe (TxIn, TxOut CtxTx era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span id="local-6989586621679284815"><span class="annot"><span class="annottext">AddressInEra era
 </span><a href="#local-6989586621679284815"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxOutValue era
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx era
@@ -279,13 +279,13 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AddressInEra era
 </span><a href="#local-6989586621679284815"><span class="hs-identifier hs-var">addr</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra era -&gt; AddressInEra era -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra era
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra era
 </span><a href="#local-6989586621679284810"><span class="hs-identifier hs-var">address</span></a></span><span>
 </span><span id="line-83"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-84"></span><span>  </span><span id="local-6989586621679284814"><span class="annot"><span class="annottext">indexedOutputs :: [(TxIn, TxOut CtxTx era)]
 </span><a href="#local-6989586621679284814"><span class="hs-identifier hs-var hs-var">indexedOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TxIn] -&gt; [TxOut CtxTx era] -&gt; [(TxIn, TxOut CtxTx era)]
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Tx era -&gt; Word -&gt; TxIn
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Tx era -&gt; Word -&gt; TxIn
 forall era. Tx era -&gt; Word -&gt; TxIn
 </span><a href="Hydra.Cardano.Api.TxIn.html#mkTxIn"><span class="hs-identifier hs-var">mkTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
 </span><a href="#local-6989586621679284811"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Word
@@ -302,7 +302,7 @@ forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span id="line-89"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679284595"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-90"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-91"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679284595"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-92"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-93"></span><span id="findTxOutByScript"><span class="annot"><span class="annottext">findTxOutByScript :: forall lang.
 IsPlutusScriptLanguage lang =&gt;
 UTxO Era -&gt; PlutusScript lang -&gt; Maybe (TxIn, TxOut CtxUTxO Era)
@@ -312,7 +312,7 @@ UTxO Era -&gt; PlutusScript lang -&gt; Maybe (TxIn, TxOut CtxUTxO Era)
 </span><span id="line-94"></span><span>  </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxUTxO Era) -&gt; Bool)
 -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; Maybe (TxIn, TxOut CtxUTxO Era)
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Maybe a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#find"><span class="hs-identifier hs-var">List.find</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#find"><span class="hs-identifier hs-var">List.find</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; Bool
 </span><a href="#local-6989586621679284824"><span class="hs-identifier hs-var">matchScript</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO Era -&gt; [(TxIn, TxOut CtxUTxO Era)]
 forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
 </span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO Era
@@ -338,11 +338,11 @@ PlutusScriptVersion lang
 </span><a href="#local-6989586621679284836"><span class="hs-identifier hs-var hs-var">scriptHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash
 </span><span class="hs-identifier hs-var">toShelleyScriptHash</span></span><span> </span><span class="annot"><span class="annottext">(ScriptHash -&gt; ScriptHash) -&gt; ScriptHash -&gt; ScriptHash
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptHash
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptHash
 forall lang. Script lang -&gt; ScriptHash
 </span><span class="hs-identifier hs-var">hashScript</span></span><span> </span><span class="annot"><span class="annottext">(Script lang -&gt; ScriptHash) -&gt; Script lang -&gt; ScriptHash
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
 forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
@@ -352,12 +352,12 @@ PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
 </span><span id="line-100"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">ScriptHash
 </span><a href="#local-6989586621679284836"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash
 </span><a href="#local-6989586621679284835"><span class="hs-identifier hs-var">scriptHash'</span></a></span><span>
 </span><span id="line-101"></span><span>    </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-102"></span><span>      </span><span class="annot"><span class="annottext">Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-103"></span><span>
 </span><span id="line-104"></span><span class="hs-comment">-- | Predicate to find or filter 'TxOut' owned by a key. This</span><span>
 </span><span id="line-105"></span><span class="hs-comment">-- is better than comparing the full address as it does not require a network</span><span>
@@ -366,7 +366,7 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span id="line-108"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679284618"><span class="annot"><a href="#local-6989586621679284618"><span class="hs-identifier hs-type">ctx</span></a></span></span><span> </span><span id="local-6989586621679284619"><span class="annot"><a href="#local-6989586621679284619"><span class="hs-identifier hs-type">era</span></a></span></span><span class="hs-operator">.</span><span>
 </span><span id="line-109"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-110"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><a href="#local-6989586621679284618"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284619"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-111"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-112"></span><span id="isVkTxOut"><span class="annot"><span class="annottext">isVkTxOut :: forall ctx era. VerificationKey PaymentKey -&gt; TxOut ctx era -&gt; Bool
 </span><a href="Hydra.Cardano.Api.TxOut.html#isVkTxOut"><span class="hs-identifier hs-var hs-var">isVkTxOut</span></a></span></span><span> </span><span id="local-6989586621679284843"><span class="annot"><span class="annottext">VerificationKey PaymentKey
 </span><a href="#local-6989586621679284843"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span id="local-6989586621679284844"><span class="annot"><span class="annottext">TxOut ctx era
@@ -381,11 +381,11 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span id="line-115"></span><span>      </span><span class="annot"><span class="annottext">KeyHash 'Payment
 </span><a href="#local-6989586621679284853"><span class="hs-identifier hs-var">keyHash</span></a></span><span> </span><span class="annot"><span class="annottext">KeyHash 'Payment -&gt; KeyHash 'Payment -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">KeyHash 'Payment
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">KeyHash 'Payment
 </span><a href="#local-6989586621679284852"><span class="hs-identifier hs-var">kh</span></a></span><span>
 </span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra era
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-117"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-118"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PaymentKeyHash</span></span><span> </span><span id="local-6989586621679284853"><span class="annot"><span class="annottext">KeyHash 'Payment
 </span><a href="#local-6989586621679284853"><span class="hs-identifier hs-var">keyHash</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
@@ -410,7 +410,7 @@ VerificationKey keyrole -&gt; Hash keyrole
 </span><span id="line-127"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679284630"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-128"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679284630"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-129"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><a href="#local-6989586621679284631"><span class="hs-identifier hs-type">ctx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284632"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-130"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-130"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-131"></span><span id="isScriptTxOut"><span class="annot"><span class="annottext">isScriptTxOut :: forall lang ctx era.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScript lang -&gt; TxOut ctx era -&gt; Bool
@@ -427,21 +427,21 @@ PlutusScript lang -&gt; TxOut ctx era -&gt; Bool
 </span><span id="line-134"></span><span>      </span><span class="annot"><span class="annottext">ScriptHash
 </span><a href="#local-6989586621679284867"><span class="hs-identifier hs-var">scriptHash</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash
 </span><a href="#local-6989586621679284866"><span class="hs-identifier hs-var">sh</span></a></span><span>
 </span><span id="line-135"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra era
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-136"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-137"></span><span>  </span><span id="local-6989586621679284867"><span class="annot"><span class="annottext">scriptHash :: ScriptHash
 </span><a href="#local-6989586621679284867"><span class="hs-identifier hs-var hs-var">scriptHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; ScriptHash
 </span><span class="hs-identifier hs-var">toShelleyScriptHash</span></span><span> </span><span class="annot"><span class="annottext">(ScriptHash -&gt; ScriptHash) -&gt; ScriptHash -&gt; ScriptHash
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptHash
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Script lang -&gt; ScriptHash
 forall lang. Script lang -&gt; ScriptHash
 </span><span class="hs-identifier hs-var">hashScript</span></span><span> </span><span class="annot"><span class="annottext">(Script lang -&gt; ScriptHash) -&gt; Script lang -&gt; ScriptHash
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
 forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
@@ -503,7 +503,7 @@ forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
 </span><span id="line-161"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsBabbageBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679284648"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-162"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Network</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-163"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TxOut</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-164"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="#local-6989586621679284648"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-164"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="#local-6989586621679284648"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-165"></span><span id="fromPlutusTxOut"><span class="annot"><span class="annottext">fromPlutusTxOut :: forall era.
 IsBabbageBasedEra era =&gt;
 Network -&gt; TxOut -&gt; Maybe (TxOut CtxUTxO era)
@@ -530,22 +530,22 @@ ShelleyBasedEra era
 -&gt; Value
 -&gt; TxOutValue era
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">MaryEraOnwards era -&gt; Value -&gt; Value (ShelleyLedgerEra era)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">MaryEraOnwards era -&gt; Value -&gt; Value (ShelleyLedgerEra era)
 forall era.
 MaryEraOnwards era -&gt; Value -&gt; Value (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. IsMaryBasedEra era =&gt; MaryEraOnwards era
 </span><span class="hs-identifier hs-var">maryBasedEra</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679284648"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; TxOutValue era) -&gt; Maybe Value -&gt; Maybe (TxOutValue era)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Maybe Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Maybe Value
 </span><a href="Hydra.Cardano.Api.Value.html#fromPlutusValue"><span class="hs-identifier hs-var">fromPlutusValue</span></a></span><span> </span><span class="annot"><span class="annottext">Value
 </span><a href="#local-6989586621679284921"><span class="hs-identifier hs-var">plutusValue</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-167"></span><span>  </span><span class="annot"><span class="annottext">TxOut CtxUTxO era -&gt; Maybe (TxOut CtxUTxO era)
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO era -&gt; Maybe (TxOut CtxUTxO era))
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO era -&gt; Maybe (TxOut CtxUTxO era))
 -&gt; TxOut CtxUTxO era -&gt; Maybe (TxOut CtxUTxO era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra era
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra era
 -&gt; TxOutValue era
 -&gt; TxOutDatum CtxUTxO era
 -&gt; ReferenceScript era
@@ -591,12 +591,12 @@ forall era. IsAlonzoBasedEra era =&gt; AlonzoEraOnwards era
 -&gt; ByteString
 -&gt; TxOutDatum CtxUTxO era
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ByteString -&gt; Hash ScriptData
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; ByteString -&gt; Hash ScriptData
 ByteString -&gt; Hash ScriptData
 </span><a href="Hydra.Cardano.Api.Hash.html#unsafeScriptDataHashFromBytes"><span class="hs-identifier hs-var">unsafeScriptDataHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; TxOutDatum CtxUTxO era)
 -&gt; ByteString -&gt; TxOutDatum CtxUTxO era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; FromBuiltin BuiltinByteString
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString -&gt; FromBuiltin BuiltinByteString
 forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
 </span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">BuiltinByteString
 </span><a href="#local-6989586621679284931"><span class="hs-identifier hs-var">hashBytes</span></a></span><span>
@@ -611,7 +611,7 @@ forall era. IsBabbageBasedEra era =&gt; BabbageEraOnwards era
 </span><span class="hs-identifier hs-var">babbageBasedEra</span></span><span> </span><span class="annot"><span class="annottext">(HashableScriptData -&gt; TxOutDatum CtxUTxO era)
 -&gt; HashableScriptData -&gt; TxOutDatum CtxUTxO era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; HashableScriptData
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinData -&gt; HashableScriptData
 forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><a href="Hydra.Cardano.Api.ScriptData.html#toScriptData"><span class="hs-identifier hs-var">toScriptData</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinData
 </span><a href="#local-6989586621679284936"><span class="hs-identifier hs-var">datumData</span></a></span><span>
@@ -625,7 +625,7 @@ forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span id="line-179"></span><span>
 </span><span id="line-180"></span><span class="hs-comment">-- | Convert a cardano-api 'TxOut' into a plutus 'TxOut'. Returns 'Nothing'</span><span>
 </span><span id="line-181"></span><span class="hs-comment">-- if a byron address is used in the given 'TxOut'.</span><span>
-</span><span id="line-182"></span><span class="annot"><a href="Hydra.Cardano.Api.TxOut.html#toPlutusTxOut"><span class="hs-identifier hs-type">toPlutusTxOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TxOut</span></span><span>
+</span><span id="line-182"></span><span class="annot"><a href="Hydra.Cardano.Api.TxOut.html#toPlutusTxOut"><span class="hs-identifier hs-type">toPlutusTxOut</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.TxOut</span></span><span>
 </span><span id="line-183"></span><span id="toPlutusTxOut"><span class="annot"><span class="annottext">toPlutusTxOut :: HasCallStack =&gt; TxOut CtxUTxO Era -&gt; Maybe TxOut
 </span><a href="Hydra.Cardano.Api.TxOut.html#toPlutusTxOut"><span class="hs-identifier hs-var hs-var">toPlutusTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-184"></span><span>  </span><span class="hs-comment">-- NOTE: The transTxOutV2 conversion does take this 'TxOutSource' to report</span><span>
@@ -639,7 +639,7 @@ forall a b. Either a b -&gt; Maybe b
 -&gt; TxOut CtxUTxO Era
 -&gt; Maybe TxOut
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutSource
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutSource
 -&gt; TxOut ConwayEra -&gt; Either (ContextError ConwayEra) TxOut
 forall era.
 (Inject (BabbageContextError era) (ContextError era),
@@ -647,29 +647,29 @@ forall era.
 TxOutSource -&gt; TxOut era -&gt; Either (ContextError era) TxOut
 </span><span class="hs-identifier hs-var">Ledger.transTxOutV2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Char] -&gt; TxOutSource
 forall a. HasCallStack =&gt; [Char] -&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Err.html#error"><span class="hs-identifier hs-var">error</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Err.html#error"><span class="hs-identifier hs-var">error</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;TxOutSource used unexpectedly&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxOut ConwayEra -&gt; Either (ContextError ConwayEra) TxOut)
 -&gt; (TxOut CtxUTxO Era -&gt; TxOut ConwayEra)
 -&gt; TxOut CtxUTxO Era
 -&gt; Either (ContextError ConwayEra) TxOut
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOut (ShelleyLedgerEra Era)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOut (ShelleyLedgerEra Era)
 TxOut CtxUTxO Era -&gt; TxOut ConwayEra
 forall era.
 IsShelleyBasedEra era =&gt;
 TxOut CtxUTxO era -&gt; TxOut (ShelleyLedgerEra era)
 </span><a href="Hydra.Cardano.Api.TxOut.html#toLedgerTxOut"><span class="hs-identifier hs-var">toLedgerTxOut</span></a></span><span>
 </span><span id="line-189"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-190"></span><span>  </span><span id="local-6989586621679284720"><span id="local-6989586621679284721"><span class="annot"><a href="#local-6989586621679284951"><span class="hs-identifier hs-type">eitherToMaybe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284720"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284721"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284721"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-190"></span><span>  </span><span id="local-6989586621679284720"><span id="local-6989586621679284721"><span class="annot"><a href="#local-6989586621679284951"><span class="hs-identifier hs-type">eitherToMaybe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284720"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284721"><span class="hs-identifier hs-type">b</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679284721"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
 </span><span id="line-191"></span><span>  </span><span id="local-6989586621679284951"><span class="annot"><span class="annottext">eitherToMaybe :: forall a b. Either a b -&gt; Maybe b
 </span><a href="#local-6989586621679284951"><span class="hs-identifier hs-var hs-var">eitherToMaybe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-192"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="annot"><span class="annottext">a
+</span><span id="line-192"></span><span>    </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="annot"><span class="annottext">a
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe b
 forall a. Maybe a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-193"></span><span>    </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679284954"><span class="annot"><span class="annottext">b
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-193"></span><span>    </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679284954"><span class="annot"><span class="annottext">b
 </span><a href="#local-6989586621679284954"><span class="hs-identifier hs-var">x</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">b -&gt; Maybe b
 forall a. a -&gt; Maybe a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">b
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">b
 </span><a href="#local-6989586621679284954"><span class="hs-identifier hs-var">x</span></a></span><span>
 </span><span id="line-194"></span></pre></body></html>

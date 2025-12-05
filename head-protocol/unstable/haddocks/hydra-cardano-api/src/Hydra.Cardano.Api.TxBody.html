@@ -12,7 +12,7 @@
 </span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Babbage.Core</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">redeemerPointer</span></span><span class="hs-special">)</span><span>
 </span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.BaseTypes</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">strictMaybeToMaybe</span></span><span class="hs-special">)</span><span>
 </span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Plutus.Data</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
-</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.html"><span class="hs-identifier">Data.Map</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.html"><span class="hs-identifier">Data.Map</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
 </span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html"><span class="hs-identifier">Hydra.Cardano.Api.TxIn</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier">toLedgerTxIn</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Plutus</span></span><span>
 </span><span id="line-18"></span><span>
@@ -22,7 +22,7 @@
 </span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Plutus.FromData</span></span><span> </span><span class="annot"><a href="#local-6989586621679283770"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-25"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679283770"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679283770"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-26"></span><span id="findRedeemerSpending"><span class="annot"><span class="annottext">findRedeemerSpending :: forall a. FromData a =&gt; Tx Era -&gt; TxIn -&gt; Maybe a
 </span><a href="Hydra.Cardano.Api.TxBody.html#findRedeemerSpending"><span class="hs-identifier hs-var hs-var">findRedeemerSpending</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; TxBody Era
 forall era. Tx era -&gt; TxBody era
@@ -43,7 +43,7 @@ forall a. StrictMaybe a -&gt; Maybe a
 -&gt; StrictMaybe (PlutusPurpose AsIx ConwayEra)
 -&gt; Maybe (PlutusPurpose AsIx ConwayEra)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody ConwayEra
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody ConwayEra
 -&gt; PlutusPurpose AsItem ConwayEra
 -&gt; StrictMaybe (PlutusPurpose AsIx ConwayEra)
 forall era.
@@ -61,12 +61,12 @@ f Word32 TxIn -&gt; ConwayPlutusPurpose f era
 -&gt; TxIn
 -&gt; PlutusPurpose AsItem ConwayEra
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; AsItem Word32 TxIn
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; AsItem Word32 TxIn
 forall ix it. it -&gt; AsItem ix it
 </span><span class="hs-identifier hs-var">AsItem</span></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; PlutusPurpose AsItem ConwayEra)
 -&gt; TxIn -&gt; PlutusPurpose AsItem ConwayEra
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxIn
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxIn
 </span><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier hs-var">toLedgerTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
 </span><a href="#local-6989586621679283874"><span class="hs-identifier hs-var">txIn</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-28"></span><span>  </span><span class="annot"><span class="annottext">PlutusPurpose AsIx (ShelleyLedgerEra Era)
@@ -88,7 +88,7 @@ PlutusPurpose AsIx ConwayEra
 </span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Plutus.FromData</span></span><span> </span><span class="annot"><a href="#local-6989586621679283805"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#LedgerEra"><span class="hs-identifier hs-type">LedgerEra</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxBodyScriptData</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-38"></span><span>  </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679283805"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679283805"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-39"></span><span id="lookupRedeemer"><span class="annot"><span class="annottext">lookupRedeemer :: forall a.
 FromData a =&gt;
 PlutusPurpose AsIx (ShelleyLedgerEra Era)
@@ -103,7 +103,7 @@ PlutusPurpose AsIx (ShelleyLedgerEra Era)
      (ConwayPlutusPurpose AsIx ConwayEra) (Data ConwayEra, ExUnits)
 -&gt; Maybe (Data ConwayEra, ExUnits)
 forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusPurpose AsIx (ShelleyLedgerEra Era)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusPurpose AsIx (ShelleyLedgerEra Era)
 ConwayPlutusPurpose AsIx ConwayEra
 </span><a href="#local-6989586621679283889"><span class="hs-identifier hs-var">ptr</span></a></span><span> </span><span class="annot"><span class="annottext">Map (ConwayPlutusPurpose AsIx ConwayEra) (Data ConwayEra, ExUnits)
 </span><a href="#local-6989586621679283894"><span class="hs-identifier hs-var">redeemers</span></a></span><span>
@@ -111,7 +111,7 @@ ConwayPlutusPurpose AsIx ConwayEra
 forall a. FromData a =&gt; Data -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Plutus.fromData</span></span><span> </span><span class="annot"><span class="annottext">(Data -&gt; Maybe a) -&gt; Data -&gt; Maybe a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Data ConwayEra -&gt; Data
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Data ConwayEra -&gt; Data
 forall era. Data era -&gt; Data
 </span><span class="hs-identifier hs-var">Ledger.getPlutusData</span></span><span> </span><span class="annot"><span class="annottext">Data ConwayEra
 </span><a href="#local-6989586621679283891"><span class="hs-identifier hs-var">d</span></a></span><span>
@@ -123,7 +123,7 @@ forall era. Data era -&gt; Data
 </span><span class="hs-identifier hs-var">TxBodyNoScriptData</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">Map (ConwayPlutusPurpose AsIx ConwayEra) (Data ConwayEra, ExUnits)
 forall a. Monoid a =&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
 </span><span id="line-46"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxBodyScriptData</span></span><span> </span><span class="annot"><span class="annottext">AlonzoEraOnwards Era
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxDats (ShelleyLedgerEra Era)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.Redeemers</span></span><span> </span><span id="local-6989586621679283906"><span class="annot"><span class="annottext">Map (PlutusPurpose AsIx ConwayEra) (Data ConwayEra, ExUnits)

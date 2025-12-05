@@ -16,10 +16,10 @@
 </span><span id="line-16"></span><span>  </span><span class="annot"><span class="hs-identifier">mkBasicTxBody</span></span><span class="hs-special">,</span><span>
 </span><span id="line-17"></span><span> </span><span class="hs-special">)</span><span>
 </span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Ledger.Api</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Ledger</span></span><span>
-</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator">(&amp;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.~)</span></span><span class="hs-special">)</span><span>
-</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html"><span class="hs-identifier">Data.Bifunctor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#bimap"><span class="hs-identifier">bimap</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html"><span class="hs-identifier">Data.Functor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator">(&lt;&amp;&gt;)</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.html"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Lens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator">(&amp;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.~)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html"><span class="hs-identifier">Data.Bifunctor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#bimap"><span class="hs-identifier">bimap</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html"><span class="hs-identifier">Data.Functor</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator">(&lt;&amp;&gt;)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.html"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
 </span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html"><span class="hs-identifier">Hydra.Cardano.Api.TxIn</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html#mkTxIn"><span class="hs-identifier">mkTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier">toLedgerTxIn</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-24"></span><span>
 </span><span id="line-25"></span><span class="annot"><span class="hs-comment">-- * Extras</span></span><span>
@@ -44,7 +44,7 @@ forall era. [KeyWitness era] -&gt; TxBody era -&gt; Tx era
 </span><span class="hs-identifier hs-var">makeSignedTransaction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeyWitness era
 </span><a href="#local-6989586621679284014"><span class="hs-identifier hs-var">witness</span></a></span><span> </span><span class="annot"><span class="annottext">KeyWitness era -&gt; [KeyWitness era] -&gt; [KeyWitness era]
 forall a. a -&gt; [a] -&gt; [a]
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[KeyWitness era]
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[KeyWitness era]
 </span><a href="#local-6989586621679284012"><span class="hs-identifier hs-var">wits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxBody era
 </span><a href="#local-6989586621679284011"><span class="hs-identifier hs-var">body</span></a></span><span>
 </span><span id="line-37"></span><span> </span><span class="hs-keyword">where</span><span>
@@ -73,7 +73,7 @@ Tx (ShelleyLedgerEra era) -&gt; Tx era
 </span><a href="Hydra.Cardano.Api.Tx.html#fromLedgerTx"><span class="hs-identifier hs-var">fromLedgerTx</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx (ShelleyLedgerEra Era) -&gt; Tx Era)
 -&gt; Tx (ShelleyLedgerEra Era) -&gt; Tx Era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">TxBody ConwayEra -&gt; Tx ConwayEra
 forall era. EraTx era =&gt; TxBody era -&gt; Tx era
 </span><span class="hs-identifier hs-var">mkBasicTx</span></span><span>
@@ -84,7 +84,7 @@ forall era. EraTxBody era =&gt; TxBody era
 -&gt; (TxBody ConwayEra -&gt; ConwayTxBody ConwayEra)
 -&gt; ConwayTxBody ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set TxIn -&gt; Identity (Set TxIn))
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Set TxIn -&gt; Identity (Set TxIn))
 -&gt; TxBody ConwayEra -&gt; Identity (TxBody ConwayEra)
 (Set TxIn -&gt; Identity (Set TxIn))
 -&gt; TxBody ConwayEra -&gt; Identity (ConwayTxBody ConwayEra)
@@ -97,7 +97,7 @@ forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
 </span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; TxIn
 </span><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier hs-var">toLedgerTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; TxIn) -&gt; Set TxIn -&gt; Set TxIn
 forall b a. Ord b =&gt; (a -&gt; b) -&gt; Set a -&gt; Set b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#map"><span class="hs-operator hs-var">`Set.map`</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#map"><span class="hs-operator hs-var">`Set.map`</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn
 </span><a href="#local-6989586621679284023"><span class="hs-identifier hs-var">inputs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-47"></span><span>      </span><span class="hs-special">)</span><span>
 </span><span id="line-48"></span><span> </span><span class="hs-keyword">where</span><span>
@@ -118,10 +118,10 @@ forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO Era)
 -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO Era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-56"></span><span>    </span><span class="annot"><span class="annottext">[Word] -&gt; [TxOut CtxTx Era] -&gt; [(Word, TxOut CtxTx Era)]
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxBodyContent ViewTx Era -&gt; [TxOut CtxTx Era]
 forall build era. TxBodyContent build era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx Era
@@ -130,7 +130,7 @@ forall build era. TxBodyContent build era -&gt; [TxOut CtxTx era]
 -&gt; ((Word, TxOut CtxTx Era) -&gt; (TxIn, TxOut CtxUTxO Era))
 -&gt; [(TxIn, TxOut CtxUTxO Era)]
 forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; (a -&gt; b) -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator hs-var">&lt;&amp;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Word -&gt; TxIn)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%26%3E"><span class="hs-operator hs-var">&lt;&amp;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Word -&gt; TxIn)
 -&gt; (TxOut CtxTx Era -&gt; TxOut CtxUTxO Era)
 -&gt; (Word, TxOut CtxTx Era)
 -&gt; (TxIn, TxOut CtxUTxO Era)
@@ -138,7 +138,7 @@ forall a b c d. (a -&gt; b) -&gt; (c -&gt; d) -&gt; (a, c) -&gt; (b, d)
 forall (p :: * -&gt; * -&gt; *) a b c d.
 Bifunctor p =&gt;
 (a -&gt; b) -&gt; (c -&gt; d) -&gt; p a c -&gt; p b d
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#bimap"><span class="hs-identifier hs-var">bimap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; Word -&gt; TxIn
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#bimap"><span class="hs-identifier hs-var">bimap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; Word -&gt; TxIn
 forall era. Tx era -&gt; Word -&gt; TxIn
 </span><a href="Hydra.Cardano.Api.TxIn.html#mkTxIn"><span class="hs-identifier hs-var">mkTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era
 </span><a href="#local-6989586621679284026"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
@@ -151,7 +151,7 @@ forall era. TxBody era -&gt; TxBodyContent ViewTx era
 </span><span class="hs-identifier hs-var">getTxBodyContent</span></span><span> </span><span class="annot"><span class="annottext">(TxBody Era -&gt; TxBodyContent ViewTx Era)
 -&gt; TxBody Era -&gt; TxBodyContent ViewTx Era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; TxBody Era
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; TxBody Era
 forall era. Tx era -&gt; TxBody era
 </span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
 </span><a href="#local-6989586621679284026"><span class="hs-identifier hs-var">tx</span></a></span><span>

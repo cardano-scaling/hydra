@@ -2,7 +2,7 @@
 </span><span id="line-2"></span><span>
 </span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
 </span><span id="line-4"></span><span>
-</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#nub"><span class="hs-identifier">nub</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#nub"><span class="hs-identifier">nub</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.ContestationPeriod.html#ContestationPeriod"><span class="hs-identifier">ContestationPeriod</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html"><span class="hs-identifier">Hydra.Tx.Party</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier">Party</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-8"></span><span>
@@ -13,7 +13,7 @@
 </span><span id="line-12"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparties%3AHeadParameters"><span class="annot"><span class="annottext">HeadParameters -&gt; [Party]
 </span><a href="Hydra.Tx.HeadParameters.html#%24sel%3Aparties%3AHeadParameters"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-comment">-- NOTE(SN): The order of this list is important for leader selection.</span><span>
 </span><span id="line-13"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-14"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438620"><span id="local-6989586621679438627"><span class="annot"><span class="annottext">HeadParameters -&gt; HeadParameters -&gt; Bool
+</span><span id="line-14"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438608"><span id="local-6989586621679438615"><span class="annot"><span class="annottext">HeadParameters -&gt; HeadParameters -&gt; Bool
 (HeadParameters -&gt; HeadParameters -&gt; Bool)
 -&gt; (HeadParameters -&gt; HeadParameters -&gt; Bool) -&gt; Eq HeadParameters
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -21,7 +21,7 @@ $c== :: HeadParameters -&gt; HeadParameters -&gt; Bool
 == :: HeadParameters -&gt; HeadParameters -&gt; Bool
 $c/= :: HeadParameters -&gt; HeadParameters -&gt; Bool
 /= :: HeadParameters -&gt; HeadParameters -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438633"><span id="local-6989586621679438642"><span id="local-6989586621679438646"><span class="annot"><span class="annottext">Int -&gt; HeadParameters -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438621"><span id="local-6989586621679438630"><span id="local-6989586621679438634"><span class="annot"><span class="annottext">Int -&gt; HeadParameters -&gt; ShowS
 [HeadParameters] -&gt; ShowS
 HeadParameters -&gt; String
 (Int -&gt; HeadParameters -&gt; ShowS)
@@ -36,7 +36,7 @@ $cshow :: HeadParameters -&gt; String
 show :: HeadParameters -&gt; String
 $cshowList :: [HeadParameters] -&gt; ShowS
 showList :: [HeadParameters] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438651"><span id="local-6989586621679438653"><span class="annot"><span class="annottext">(forall x. HeadParameters -&gt; Rep HeadParameters x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438639"><span id="local-6989586621679438641"><span class="annot"><span class="annottext">(forall x. HeadParameters -&gt; Rep HeadParameters x)
 -&gt; (forall x. Rep HeadParameters x -&gt; HeadParameters)
 -&gt; Generic HeadParameters
 forall x. Rep HeadParameters x -&gt; HeadParameters
@@ -47,8 +47,8 @@ $cfrom :: forall x. HeadParameters -&gt; Rep HeadParameters x
 from :: forall x. HeadParameters -&gt; Rep HeadParameters x
 $cto :: forall x. Rep HeadParameters x -&gt; HeadParameters
 to :: forall x. Rep HeadParameters x -&gt; HeadParameters
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-15"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438657"><span id="local-6989586621679438664"><span id="local-6989586621679438667"><span id="local-6989586621679438670"><span id="local-6989586621679438673"><span class="annot"><span class="annottext">[HeadParameters] -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679438645"><span id="local-6989586621679438652"><span id="local-6989586621679438655"><span id="local-6989586621679438658"><span id="local-6989586621679438661"><span class="annot"><span class="annottext">[HeadParameters] -&gt; Value
 [HeadParameters] -&gt; Encoding
 HeadParameters -&gt; Bool
 HeadParameters -&gt; Value
@@ -76,7 +76,7 @@ $ctoEncodingList :: [HeadParameters] -&gt; Encoding
 toEncodingList :: [HeadParameters] -&gt; Encoding
 $comitField :: HeadParameters -&gt; Bool
 omitField :: HeadParameters -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438776"><span id="local-6989586621679438783"><span id="local-6989586621679438786"><span class="annot"><span class="annottext">Maybe HeadParameters
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438764"><span id="local-6989586621679438771"><span id="local-6989586621679438774"><span class="annot"><span class="annottext">Maybe HeadParameters
 Value -&gt; Parser [HeadParameters]
 Value -&gt; Parser HeadParameters
 (Value -&gt; Parser HeadParameters)
@@ -94,24 +94,24 @@ $comittedField :: Maybe HeadParameters
 omittedField :: Maybe HeadParameters
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-16"></span><span>
-</span><span id="line-17"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438858"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-18"></span><span>  </span><span id="local-6989586621679438903"><span class="annot"><span class="annottext">arbitrary :: Gen HeadParameters
-</span><a href="#local-6989586621679438903"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadParameters -&gt; HeadParameters
-</span><a href="#local-6989586621679438905"><span class="hs-identifier hs-var">dedupParties</span></a></span><span> </span><span class="annot"><span class="annottext">(HeadParameters -&gt; HeadParameters)
+</span><span id="line-17"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679438846"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-18"></span><span>  </span><span id="local-6989586621679438891"><span class="annot"><span class="annottext">arbitrary :: Gen HeadParameters
+</span><a href="#local-6989586621679438891"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadParameters -&gt; HeadParameters
+</span><a href="#local-6989586621679438893"><span class="hs-identifier hs-var">dedupParties</span></a></span><span> </span><span class="annot"><span class="annottext">(HeadParameters -&gt; HeadParameters)
 -&gt; Gen HeadParameters -&gt; Gen HeadParameters
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen HeadParameters
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen HeadParameters
 forall a.
 (Generic a, GA UnsizedOpts (Rep a),
  UniformWeight (Weights_ (Rep a))) =&gt;
 Gen a
 </span><span class="hs-identifier hs-var">genericArbitrary</span></span><span>
 </span><span id="line-19"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-20"></span><span>    </span><span id="local-6989586621679438905"><span class="annot"><span class="annottext">dedupParties :: HeadParameters -&gt; HeadParameters
-</span><a href="#local-6989586621679438905"><span class="hs-identifier hs-var hs-var">dedupParties</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span class="hs-special">{</span><span id="local-6989586621679438909"><span class="annot"><span class="annottext">ContestationPeriod
+</span><span id="line-20"></span><span>    </span><span id="local-6989586621679438893"><span class="annot"><span class="annottext">dedupParties :: HeadParameters -&gt; HeadParameters
+</span><a href="#local-6989586621679438893"><span class="hs-identifier hs-var hs-var">dedupParties</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span class="hs-special">{</span><span id="local-6989586621679438897"><span class="annot"><span class="annottext">ContestationPeriod
 $sel:contestationPeriod:HeadParameters :: HeadParameters -&gt; ContestationPeriod
 contestationPeriod :: ContestationPeriod
-</span><a href="Hydra.Tx.HeadParameters.html#%24sel%3AcontestationPeriod%3AHeadParameters"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438910"><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Tx.HeadParameters.html#%24sel%3AcontestationPeriod%3AHeadParameters"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679438898"><span class="annot"><span class="annottext">[Party]
 $sel:parties:HeadParameters :: HeadParameters -&gt; [Party]
 parties :: [Party]
 </span><a href="Hydra.Tx.HeadParameters.html#%24sel%3Aparties%3AHeadParameters"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -121,6 +121,6 @@ contestationPeriod :: ContestationPeriod
 </span><a href="Hydra.Tx.HeadParameters.html#%24sel%3AcontestationPeriod%3AHeadParameters"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:HeadParameters :: [Party]
 </span><a href="Hydra.Tx.HeadParameters.html#%24sel%3Aparties%3AHeadParameters"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; [Party]
 forall a. Eq a =&gt; [a] -&gt; [a]
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#nub"><span class="hs-identifier hs-var">nub</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679438910"><span class="hs-identifier hs-var">parties</span></a></span><span class="hs-special">}</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#nub"><span class="hs-identifier hs-var">nub</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679438898"><span class="hs-identifier hs-var">parties</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-22"></span></pre></body></html>

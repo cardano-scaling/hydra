@@ -4,8 +4,8 @@
 </span><span id="line-4"></span><span>
 </span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Slotting.Slot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SlotNo</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Slotting.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SlotLength</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SystemStart</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">slotLengthFromMillisec</span></span><span class="hs-special">)</span><span>
-</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html"><span class="hs-identifier">Data.Fixed</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html#Milli"><span class="hs-identifier">Milli</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html"><span class="hs-identifier">Data.Time.Clock.POSIX</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier">posixSecondsToUTCTime</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html"><span class="hs-identifier">Data.Fixed</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html#Milli"><span class="hs-identifier">Milli</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html"><span class="hs-identifier">Data.Time.Clock.POSIX</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier">posixSecondsToUTCTime</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Cardano.Time</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">slotNoFromUTCTime</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">slotNoToUTCTime</span></span><span class="hs-special">)</span><span>
 </span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Spec</span></span><span class="hs-special">)</span><span>
 </span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hspec.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">prop</span></span><span class="hs-special">)</span><span>
@@ -21,7 +21,7 @@ String -&gt; prop -&gt; Spec
 </span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;roundtrip slotNoToUTCTime and slotNoFromUTCTime&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Spec) -&gt; Property -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-17"></span><span>    </span><span class="annot"><span class="annottext">Gen SystemStart -&gt; (SystemStart -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -30,8 +30,8 @@ Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genSystemStart"><span class="hs-identifier hs-var">genSystemStart</span></a></span><span> </span><span class="annot"><span class="annottext">((SystemStart -&gt; Property) -&gt; Property)
 -&gt; (SystemStart -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624709"><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624709"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624697"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621679624697"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-18"></span><span>      </span><span class="annot"><span class="annottext">Gen SlotLength -&gt; (SlotLength -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -40,8 +40,8 @@ Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genSlotLength"><span class="hs-identifier hs-var">genSlotLength</span></a></span><span> </span><span class="annot"><span class="annottext">((SlotLength -&gt; Property) -&gt; Property)
 -&gt; (SlotLength -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624711"><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621679624711"><span class="hs-identifier hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624699"><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621679624699"><span class="hs-identifier hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-19"></span><span>        </span><span class="annot"><span class="annottext">Gen SlotNo -&gt; (SlotNo -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -50,28 +50,28 @@ Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">(Word64 -&gt; SlotNo)
 -&gt; (Positive Word64 -&gt; Word64) -&gt; Positive Word64 -&gt; SlotNo
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Word64 -&gt; Word64
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Word64 -&gt; Word64
 forall a. Positive a -&gt; a
 </span><span class="hs-identifier hs-var">getPositive</span></span><span> </span><span class="annot"><span class="annottext">(Positive Word64 -&gt; SlotNo) -&gt; Gen (Positive Word64) -&gt; Gen SlotNo
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (Positive Word64)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (Positive Word64)
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((SlotNo -&gt; Property) -&gt; Property)
 -&gt; (SlotNo -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624716"><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679624716"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624704"><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679624704"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-20"></span><span>          </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
 </span><span class="hs-identifier hs-var">slotNoFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624709"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621679624711"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
+</span><a href="#local-6989586621679624697"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621679624699"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; SlotNo -&gt; UTCTime
 </span><span class="hs-identifier hs-var">slotNoToUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624709"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621679624711"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679624716"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; Property
+</span><a href="#local-6989586621679624697"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621679624699"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="#local-6989586621679624704"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">SlotNo
-</span><a href="#local-6989586621679624716"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><a href="#local-6989586621679624704"><span class="hs-identifier hs-var">slot</span></a></span><span>
 </span><span id="line-21"></span><span>
 </span><span id="line-22"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
@@ -80,7 +80,7 @@ String -&gt; prop -&gt; Spec
 </span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;slotNoFromUTCTime works for any time&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Spec) -&gt; Property -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-23"></span><span>    </span><span class="annot"><span class="annottext">Gen SystemStart -&gt; (SystemStart -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -89,8 +89,8 @@ Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genSystemStart"><span class="hs-identifier hs-var">genSystemStart</span></a></span><span> </span><span class="annot"><span class="annottext">((SystemStart -&gt; Property) -&gt; Property)
 -&gt; (SystemStart -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624717"><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624717"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624705"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621679624705"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-24"></span><span>      </span><span class="annot"><span class="annottext">Gen SlotLength -&gt; (SlotLength -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -99,8 +99,8 @@ Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genSlotLength"><span class="hs-identifier hs-var">genSlotLength</span></a></span><span> </span><span class="annot"><span class="annottext">((SlotLength -&gt; Property) -&gt; Property)
 -&gt; (SlotLength -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624718"><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621679624718"><span class="hs-identifier hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624706"><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621679624706"><span class="hs-identifier hs-var">slotLength</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-25"></span><span>        </span><span class="annot"><span class="annottext">Gen UTCTime -&gt; (UTCTime -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
@@ -109,65 +109,65 @@ Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genUTCTime"><span class="hs-identifier hs-var">genUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">((UTCTime -&gt; Property) -&gt; Property)
 -&gt; (UTCTime -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624720"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679624720"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679624708"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679624708"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-26"></span><span>          </span><span class="annot"><span class="annottext">SystemStart -&gt; SlotLength -&gt; UTCTime -&gt; SlotNo
 </span><span class="hs-identifier hs-var">slotNoFromUTCTime</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624717"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
-</span><a href="#local-6989586621679624718"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679624720"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; Bool
+</span><a href="#local-6989586621679624705"><span class="hs-identifier hs-var">systemStart</span></a></span><span> </span><span class="annot"><span class="annottext">SlotLength
+</span><a href="#local-6989586621679624706"><span class="hs-identifier hs-var">slotLength</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679624708"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">SlotNo -&gt; SlotNo -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Word64 -&gt; SlotNo
 </span><span class="hs-identifier hs-var">SlotNo</span></span><span> </span><span class="annot"><span class="annottext">Word64
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-27"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; (Bool -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; String -&gt; Bool -&gt; Property
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; String -&gt; Bool -&gt; Property
 forall prop. Testable prop =&gt; Bool -&gt; String -&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">classify</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679624720"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
+</span><a href="#local-6989586621679624708"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; UTCTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; UTCTime
 </span><span class="hs-identifier hs-var">getSystemStart</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624717"><span class="hs-identifier hs-var">systemStart</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679624705"><span class="hs-identifier hs-var">systemStart</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;after system start&quot;</span></span><span>
 </span><span id="line-28"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; String -&gt; Property -&gt; Property
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; String -&gt; Property -&gt; Property
 forall prop. Testable prop =&gt; Bool -&gt; String -&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">classify</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679624720"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
+</span><a href="#local-6989586621679624708"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; UTCTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; UTCTime
 </span><span class="hs-identifier hs-var">getSystemStart</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624717"><span class="hs-identifier hs-var">systemStart</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679624705"><span class="hs-identifier hs-var">systemStart</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;equal to system start&quot;</span></span><span>
 </span><span id="line-29"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; String -&gt; Property -&gt; Property
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; String -&gt; Property -&gt; Property
 forall prop. Testable prop =&gt; Bool -&gt; String -&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">classify</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679624720"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
+</span><a href="#local-6989586621679624708"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C"><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; UTCTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C"><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">SystemStart -&gt; UTCTime
 </span><span class="hs-identifier hs-var">getSystemStart</span></span><span> </span><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621679624717"><span class="hs-identifier hs-var">systemStart</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679624705"><span class="hs-identifier hs-var">systemStart</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;before system start&quot;</span></span><span>
 </span><span id="line-30"></span><span>
 </span><span id="line-31"></span><span class="annot"><span class="hs-comment">-- | Generate a UTCTime using millisecond precision time since epoch.</span></span><span>
-</span><span id="line-32"></span><span class="annot"><a href="Hydra.Ledger.Cardano.TimeSpec.html#genUTCTime"><span class="hs-identifier hs-type">genUTCTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><span id="line-32"></span><span class="annot"><a href="Hydra.Ledger.Cardano.TimeSpec.html#genUTCTime"><span class="hs-identifier hs-type">genUTCTime</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
 </span><span id="line-33"></span><span id="genUTCTime"><span class="annot"><span class="annottext">genUTCTime :: Gen UTCTime
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genUTCTime"><span class="hs-identifier hs-var hs-var">genUTCTime</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">POSIXTime -&gt; UTCTime
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier hs-var">posixSecondsToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">(POSIXTime -&gt; UTCTime) -&gt; (Milli -&gt; POSIXTime) -&gt; Milli -&gt; UTCTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.POSIX.html#posixSecondsToUTCTime"><span class="hs-identifier hs-var">posixSecondsToUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">(POSIXTime -&gt; UTCTime) -&gt; (Milli -&gt; POSIXTime) -&gt; Milli -&gt; UTCTime
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Milli -&gt; POSIXTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Milli -&gt; POSIXTime
 forall a b. (Real a, Fractional b) =&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#realToFrac"><span class="hs-identifier hs-var">realToFrac</span></a></span><span> </span><span class="annot"><span class="annottext">(Milli -&gt; UTCTime) -&gt; Gen Milli -&gt; Gen UTCTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#realToFrac"><span class="hs-identifier hs-var">realToFrac</span></a></span><span> </span><span class="annot"><span class="annottext">(Milli -&gt; UTCTime) -&gt; Gen Milli -&gt; Gen UTCTime
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Gen Milli
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Gen Milli
 forall a. Arbitrary a =&gt; Gen a
-</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html#Milli"><span class="hs-identifier hs-type">Milli</span></a></span><span class="hs-special">)</span><span>
+</span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Fixed.html#Milli"><span class="hs-identifier hs-type">Milli</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-35"></span><span>
 </span><span id="line-36"></span><span class="annot"><a href="Hydra.Ledger.Cardano.TimeSpec.html#genSlotLength"><span class="hs-identifier hs-type">genSlotLength</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SlotLength</span></span><span>
 </span><span id="line-37"></span><span id="genSlotLength"><span class="annot"><span class="annottext">genSlotLength :: Gen SlotLength
@@ -176,12 +176,12 @@ forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">slotLengthFromMillisec</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; SlotLength)
 -&gt; (Positive Integer -&gt; Integer) -&gt; Positive Integer -&gt; SlotLength
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Integer -&gt; Integer
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Positive Integer -&gt; Integer
 forall a. Positive a -&gt; a
 </span><span class="hs-identifier hs-var">getPositive</span></span><span> </span><span class="annot"><span class="annottext">(Positive Integer -&gt; SlotLength)
 -&gt; Gen (Positive Integer) -&gt; Gen SlotLength
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (Positive Integer)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen (Positive Integer)
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-39"></span><span>
@@ -191,6 +191,6 @@ forall a. Arbitrary a =&gt; Gen a
 </span><span id="line-42"></span><span>  </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
 </span><span class="hs-identifier hs-var">SystemStart</span></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; SystemStart) -&gt; Gen UTCTime -&gt; Gen SystemStart
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen UTCTime
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen UTCTime
 </span><a href="Hydra.Ledger.Cardano.TimeSpec.html#genUTCTime"><span class="hs-identifier hs-var">genUTCTime</span></a></span><span>
 </span><span id="line-43"></span></pre></body></html>

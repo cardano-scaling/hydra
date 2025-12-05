@@ -19,7 +19,7 @@
 </span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-operator">(.:)</span></span><span class="hs-special">,</span><span>
 </span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-operator">(.=)</span></span><span class="hs-special">,</span><span>
 </span><span id="line-21"></span><span> </span><span class="hs-special">)</span><span>
-</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.html"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.html"><span class="hs-identifier">Data.Set</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Set</span></span><span>
 </span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ChainSlot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">ChainStateType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.html"><span class="hs-identifier">Hydra.Ledger</span></a></span><span> </span><span class="hs-special">(</span><span>
 </span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier">Ledger</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
@@ -29,7 +29,7 @@
 </span><span id="line-29"></span><span>
 </span><span id="line-30"></span><span class="annot"><span class="hs-comment">-- * Simple transactions</span></span><span>
 </span><span id="line-31"></span><span>
-</span><span id="line-32"></span><span class="hs-keyword">type</span><span> </span><span id="SimpleId"><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleId"><span class="hs-identifier hs-var">SimpleId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">type</span><span> </span><span id="SimpleId"><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleId"><span class="hs-identifier hs-var">SimpleId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
 </span><span id="line-33"></span><span>
 </span><span id="line-34"></span><span class="hs-comment">-- | Simple transaction.</span><span>
 </span><span id="line-35"></span><span class="hs-comment">-- A transaction is a 'SimpleId', a list of inputs and a list of outputs,</span><span>
@@ -42,7 +42,7 @@
 </span><span id="line-40"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtxOutputs%3ASimpleTx"><span class="annot"><span class="annottext">SimpleTx -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxOutputs%3ASimpleTx"><span class="hs-identifier hs-var hs-var">txOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
 </span><span id="line-41"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-42"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521363"><span id="local-6989586621680521371"><span class="annot"><span class="annottext">SimpleTx -&gt; SimpleTx -&gt; Bool
+</span><span id="line-42"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521351"><span id="local-6989586621680521359"><span class="annot"><span class="annottext">SimpleTx -&gt; SimpleTx -&gt; Bool
 (SimpleTx -&gt; SimpleTx -&gt; Bool)
 -&gt; (SimpleTx -&gt; SimpleTx -&gt; Bool) -&gt; Eq SimpleTx
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -50,7 +50,7 @@ $c== :: SimpleTx -&gt; SimpleTx -&gt; Bool
 == :: SimpleTx -&gt; SimpleTx -&gt; Bool
 $c/= :: SimpleTx -&gt; SimpleTx -&gt; Bool
 /= :: SimpleTx -&gt; SimpleTx -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521379"><span id="local-6989586621680521386"><span id="local-6989586621680521391"><span id="local-6989586621680521395"><span id="local-6989586621680521398"><span id="local-6989586621680521401"><span id="local-6989586621680521404"><span class="annot"><span class="annottext">Eq SimpleTx
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521367"><span id="local-6989586621680521374"><span id="local-6989586621680521379"><span id="local-6989586621680521383"><span id="local-6989586621680521386"><span id="local-6989586621680521389"><span id="local-6989586621680521392"><span class="annot"><span class="annottext">Eq SimpleTx
 Eq SimpleTx =&gt;
 (SimpleTx -&gt; SimpleTx -&gt; Ordering)
 -&gt; (SimpleTx -&gt; SimpleTx -&gt; Bool)
@@ -87,7 +87,7 @@ $cmax :: SimpleTx -&gt; SimpleTx -&gt; SimpleTx
 max :: SimpleTx -&gt; SimpleTx -&gt; SimpleTx
 $cmin :: SimpleTx -&gt; SimpleTx -&gt; SimpleTx
 min :: SimpleTx -&gt; SimpleTx -&gt; SimpleTx
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521408"><span id="local-6989586621680521410"><span class="annot"><span class="annottext">(forall x. SimpleTx -&gt; Rep SimpleTx x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521396"><span id="local-6989586621680521398"><span class="annot"><span class="annottext">(forall x. SimpleTx -&gt; Rep SimpleTx x)
 -&gt; (forall x. Rep SimpleTx x -&gt; SimpleTx) -&gt; Generic SimpleTx
 forall x. Rep SimpleTx x -&gt; SimpleTx
 forall x. SimpleTx -&gt; Rep SimpleTx x
@@ -97,7 +97,7 @@ $cfrom :: forall x. SimpleTx -&gt; Rep SimpleTx x
 from :: forall x. SimpleTx -&gt; Rep SimpleTx x
 $cto :: forall x. Rep SimpleTx x -&gt; SimpleTx
 to :: forall x. Rep SimpleTx x -&gt; SimpleTx
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521414"><span id="local-6989586621680521424"><span id="local-6989586621680521428"><span class="annot"><span class="annottext">Int -&gt; SimpleTx -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521402"><span id="local-6989586621680521412"><span id="local-6989586621680521416"><span class="annot"><span class="annottext">Int -&gt; SimpleTx -&gt; ShowS
 [SimpleTx] -&gt; ShowS
 SimpleTx -&gt; String
 (Int -&gt; SimpleTx -&gt; ShowS)
@@ -110,12 +110,12 @@ $cshow :: SimpleTx -&gt; String
 show :: SimpleTx -&gt; String
 $cshowList :: [SimpleTx] -&gt; ShowS
 showList :: [SimpleTx] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-43"></span><span>
-</span><span id="line-44"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521434"><span id="local-6989586621680521438"><span id="local-6989586621680521441"><span id="local-6989586621680521444"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-45"></span><span>  </span><span id="local-6989586621680521466"><span class="annot"><span class="annottext">toJSON :: SimpleTx -&gt; Value
-</span><a href="#local-6989586621680521466"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span id="local-6989586621680521468"><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621680521468"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-44"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521422"><span id="local-6989586621680521426"><span id="local-6989586621680521429"><span id="local-6989586621680521432"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-45"></span><span>  </span><span id="local-6989586621680521454"><span class="annot"><span class="annottext">toJSON :: SimpleTx -&gt; Value
+</span><a href="#local-6989586621680521454"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span id="local-6989586621680521456"><span class="annot"><span class="annottext">SimpleTx
+</span><a href="#local-6989586621680521456"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span>
 </span><span id="line-47"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Key
@@ -125,33 +125,33 @@ forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; TxIdType SimpleTx
 forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
 </span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621680521468"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621680521456"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-48"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;inputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Set SimpleTxOut -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxInputs%3ASimpleTx"><span class="hs-identifier hs-var">txInputs</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621680521468"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621680521456"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-49"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;outputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Set SimpleTxOut -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxOutputs%3ASimpleTx"><span class="hs-identifier hs-var">txOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621680521468"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621680521456"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-50"></span><span>      </span><span class="hs-special">]</span><span>
 </span><span id="line-51"></span><span>
-</span><span id="line-52"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521472"><span id="local-6989586621680521476"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-53"></span><span>  </span><span id="local-6989586621680521494"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser SimpleTx
-</span><a href="#local-6989586621680521494"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser SimpleTx) -&gt; Value -&gt; Parser SimpleTx
+</span><span id="line-52"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521460"><span id="local-6989586621680521464"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621680521482"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser SimpleTx
+</span><a href="#local-6989586621680521482"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; (Object -&gt; Parser SimpleTx) -&gt; Value -&gt; Parser SimpleTx
 forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;SimpleTx&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Object -&gt; Parser SimpleTx) -&gt; Value -&gt; Parser SimpleTx)
 -&gt; (Object -&gt; Parser SimpleTx) -&gt; Value -&gt; Parser SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680521496"><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680521496"><span class="hs-identifier hs-var">obj</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680521484"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621680521484"><span class="hs-identifier hs-var">obj</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">SimpleId -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; SimpleTx
 SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-var">SimpleTx</span></a></span><span>
@@ -159,8 +159,8 @@ SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
 -&gt; Parser SimpleId
 -&gt; Parser (Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; SimpleTx)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680521496"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser SimpleId
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621680521484"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser SimpleId
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;id&quot;</span></span><span class="hs-special">)</span><span>
@@ -168,8 +168,8 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 -&gt; Parser (Set SimpleTxOut) -&gt; Parser (Set SimpleTxOut -&gt; SimpleTx)
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680521496"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser (Set SimpleTxOut)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621680521484"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser (Set SimpleTxOut)
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;inputs&quot;</span></span><span class="hs-special">)</span><span>
@@ -177,38 +177,38 @@ forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 -&gt; Parser (Set SimpleTxOut) -&gt; Parser SimpleTx
 forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621680521496"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser (Set SimpleTxOut)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621680521484"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser (Set SimpleTxOut)
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;outputs&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-58"></span><span>
-</span><span id="line-59"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521502"><span id="local-6989586621680521506"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-60"></span><span>  </span><span id="local-6989586621680521519"><span class="annot"><span class="annottext">toCBOR :: SimpleTx -&gt; Encoding
-</span><a href="#local-6989586621680521519"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span id="local-6989586621680521521"><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680521521"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span id="local-6989586621680521522"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621680521522"><span class="hs-identifier hs-var">inputs</span></a></span></span><span> </span><span id="local-6989586621680521523"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621680521523"><span class="hs-identifier hs-var">outputs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-59"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521490"><span id="local-6989586621680521494"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621680521507"><span class="annot"><span class="annottext">toCBOR :: SimpleTx -&gt; Encoding
+</span><a href="#local-6989586621680521507"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span id="local-6989586621680521509"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621680521509"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span id="local-6989586621680521510"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621680521510"><span class="hs-identifier hs-var">inputs</span></a></span></span><span> </span><span id="local-6989586621680521511"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621680521511"><span class="hs-identifier hs-var">outputs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">SimpleId -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680521521"><span class="hs-identifier hs-var">txid</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+</span><a href="#local-6989586621680521509"><span class="hs-identifier hs-var">txid</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Encoding
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621680521522"><span class="hs-identifier hs-var">inputs</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+</span><a href="#local-6989586621680521510"><span class="hs-identifier hs-var">inputs</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Encoding
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621680521523"><span class="hs-identifier hs-var">outputs</span></a></span><span>
+</span><a href="#local-6989586621680521511"><span class="hs-identifier hs-var">outputs</span></a></span><span>
 </span><span id="line-62"></span><span>
-</span><span id="line-63"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521528"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-64"></span><span>  </span><span id="local-6989586621680521544"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s SimpleTx
-</span><a href="#local-6989586621680521544"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521516"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-64"></span><span>  </span><span id="local-6989586621680521532"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s SimpleTx
+</span><a href="#local-6989586621680521532"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">SimpleId -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; SimpleTx
 SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-var">SimpleTx</span></a></span><span>
@@ -216,7 +216,7 @@ SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
 -&gt; Decoder s SimpleId
 -&gt; Decoder s (Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; SimpleTx)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SimpleId
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SimpleId
 forall s. Decoder s SimpleId
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
@@ -225,7 +225,7 @@ forall a s. FromCBOR a =&gt; Decoder s a
 -&gt; Decoder s (Set SimpleTxOut -&gt; SimpleTx)
 forall a b. Decoder s (a -&gt; b) -&gt; Decoder s a -&gt; Decoder s b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (Set SimpleTxOut)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (Set SimpleTxOut)
 forall s. Decoder s (Set SimpleTxOut)
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
@@ -233,14 +233,14 @@ forall a s. FromCBOR a =&gt; Decoder s a
 -&gt; Decoder s (Set SimpleTxOut) -&gt; Decoder s SimpleTx
 forall a b. Decoder s (a -&gt; b) -&gt; Decoder s a -&gt; Decoder s b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (Set SimpleTxOut)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s (Set SimpleTxOut)
 forall s. Decoder s (Set SimpleTxOut)
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
 </span><span id="line-69"></span><span>
-</span><span id="line-70"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521548"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-71"></span><span>  </span><span id="local-6989586621680521600"><span class="annot"><span class="annottext">arbitrary :: Gen SimpleTx
-</span><a href="#local-6989586621680521600"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen SimpleTx
+</span><span id="line-70"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521536"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621680521588"><span class="annot"><span class="annottext">arbitrary :: Gen SimpleTx
+</span><a href="#local-6989586621680521588"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen SimpleTx
 forall a.
 (Generic a, GA UnsizedOpts (Rep a),
  UniformWeight (Weights_ (Rep a))) =&gt;
@@ -249,8 +249,8 @@ Gen a
 </span><span id="line-72"></span><span>
 </span><span id="line-73"></span><span class="annot"><span class="hs-comment">-- | A single output of a 'SimpleTx' having an integer identity and sole value.</span></span><span>
 </span><span id="line-74"></span><span class="hs-keyword">newtype</span><span> </span><span id="SimpleTxOut"><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-var">SimpleTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SimpleTxOut"><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-var">SimpleTxOut</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AunSimpleTxOut%3ASimpleTxOut"><span class="annot"><span class="annottext">SimpleTxOut -&gt; SimpleId
-</span><a href="Hydra.Ledger.Simple.html#%24sel%3AunSimpleTxOut%3ASimpleTxOut"><span class="hs-identifier hs-var hs-var">unSimpleTxOut</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-75"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521606"><span id="local-6989586621680521608"><span class="annot"><span class="annottext">(forall x. SimpleTxOut -&gt; Rep SimpleTxOut x)
+</span><a href="Hydra.Ledger.Simple.html#%24sel%3AunSimpleTxOut%3ASimpleTxOut"><span class="hs-identifier hs-var hs-var">unSimpleTxOut</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-75"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521594"><span id="local-6989586621680521596"><span class="annot"><span class="annottext">(forall x. SimpleTxOut -&gt; Rep SimpleTxOut x)
 -&gt; (forall x. Rep SimpleTxOut x -&gt; SimpleTxOut)
 -&gt; Generic SimpleTxOut
 forall x. Rep SimpleTxOut x -&gt; SimpleTxOut
@@ -261,8 +261,8 @@ $cfrom :: forall x. SimpleTxOut -&gt; Rep SimpleTxOut x
 from :: forall x. SimpleTxOut -&gt; Rep SimpleTxOut x
 $cto :: forall x. Rep SimpleTxOut x -&gt; SimpleTxOut
 to :: forall x. Rep SimpleTxOut x -&gt; SimpleTxOut
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-76"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521611"><span id="local-6989586621680521615"><span class="annot"><span class="annottext">SimpleTxOut -&gt; SimpleTxOut -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521599"><span id="local-6989586621680521603"><span class="annot"><span class="annottext">SimpleTxOut -&gt; SimpleTxOut -&gt; Bool
 (SimpleTxOut -&gt; SimpleTxOut -&gt; Bool)
 -&gt; (SimpleTxOut -&gt; SimpleTxOut -&gt; Bool) -&gt; Eq SimpleTxOut
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -270,7 +270,7 @@ $c== :: SimpleTxOut -&gt; SimpleTxOut -&gt; Bool
 == :: SimpleTxOut -&gt; SimpleTxOut -&gt; Bool
 $c/= :: SimpleTxOut -&gt; SimpleTxOut -&gt; Bool
 /= :: SimpleTxOut -&gt; SimpleTxOut -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521621"><span id="local-6989586621680521625"><span id="local-6989586621680521629"><span id="local-6989586621680521633"><span id="local-6989586621680521637"><span id="local-6989586621680521641"><span id="local-6989586621680521645"><span class="annot"><span class="annottext">Eq SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521609"><span id="local-6989586621680521613"><span id="local-6989586621680521617"><span id="local-6989586621680521621"><span id="local-6989586621680521625"><span id="local-6989586621680521629"><span id="local-6989586621680521633"><span class="annot"><span class="annottext">Eq SimpleTxOut
 Eq SimpleTxOut =&gt;
 (SimpleTxOut -&gt; SimpleTxOut -&gt; Ordering)
 -&gt; (SimpleTxOut -&gt; SimpleTxOut -&gt; Bool)
@@ -307,7 +307,7 @@ $cmax :: SimpleTxOut -&gt; SimpleTxOut -&gt; SimpleTxOut
 max :: SimpleTxOut -&gt; SimpleTxOut -&gt; SimpleTxOut
 $cmin :: SimpleTxOut -&gt; SimpleTxOut -&gt; SimpleTxOut
 min :: SimpleTxOut -&gt; SimpleTxOut -&gt; SimpleTxOut
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521649"><span id="local-6989586621680521653"><span id="local-6989586621680521657"><span class="annot"><span class="annottext">Int -&gt; SimpleTxOut -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521637"><span id="local-6989586621680521641"><span id="local-6989586621680521645"><span class="annot"><span class="annottext">Int -&gt; SimpleTxOut -&gt; ShowS
 [SimpleTxOut] -&gt; ShowS
 SimpleTxOut -&gt; String
 (Int -&gt; SimpleTxOut -&gt; ShowS)
@@ -322,7 +322,7 @@ $cshow :: SimpleTxOut -&gt; String
 show :: SimpleTxOut -&gt; String
 $cshowList :: [SimpleTxOut] -&gt; ShowS
 showList :: [SimpleTxOut] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521661"><span id="local-6989586621680521666"><span id="local-6989586621680521670"><span id="local-6989586621680521674"><span id="local-6989586621680521678"><span id="local-6989586621680521682"><span id="local-6989586621680521686"><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521649"><span id="local-6989586621680521654"><span id="local-6989586621680521658"><span id="local-6989586621680521662"><span id="local-6989586621680521666"><span id="local-6989586621680521670"><span id="local-6989586621680521674"><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
 SimpleTxOut -&gt; SimpleTxOut
 SimpleTxOut -&gt; SimpleTxOut -&gt; SimpleTxOut
 (SimpleTxOut -&gt; SimpleTxOut -&gt; SimpleTxOut)
@@ -356,7 +356,7 @@ $csignum :: SimpleTxOut -&gt; SimpleTxOut
 signum :: SimpleTxOut -&gt; SimpleTxOut
 $cfromInteger :: SimpleId -&gt; SimpleTxOut
 fromInteger :: SimpleId -&gt; SimpleTxOut
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521692"><span id="local-6989586621680521696"><span id="local-6989586621680521700"><span id="local-6989586621680521704"><span id="local-6989586621680521708"><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521680"><span id="local-6989586621680521684"><span id="local-6989586621680521688"><span id="local-6989586621680521692"><span id="local-6989586621680521696"><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Value
 [SimpleTxOut] -&gt; Encoding
 SimpleTxOut -&gt; Bool
 SimpleTxOut -&gt; Value
@@ -384,7 +384,7 @@ $ctoEncodingList :: [SimpleTxOut] -&gt; Encoding
 toEncodingList :: [SimpleTxOut] -&gt; Encoding
 $comitField :: SimpleTxOut -&gt; Bool
 omitField :: SimpleTxOut -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521712"><span id="local-6989586621680521716"><span id="local-6989586621680521720"><span class="annot"><span class="annottext">Maybe SimpleTxOut
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521700"><span id="local-6989586621680521704"><span id="local-6989586621680521708"><span class="annot"><span class="annottext">Maybe SimpleTxOut
 Value -&gt; Parser [SimpleTxOut]
 Value -&gt; Parser SimpleTxOut
 (Value -&gt; Parser SimpleTxOut)
@@ -400,7 +400,7 @@ $cparseJSONList :: Value -&gt; Parser [SimpleTxOut]
 parseJSONList :: Value -&gt; Parser [SimpleTxOut]
 $comittedField :: Maybe SimpleTxOut
 omittedField :: Maybe SimpleTxOut
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521724"><span id="local-6989586621680521728"><span class="annot"><span class="annottext">Gen SimpleTxOut
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521712"><span id="local-6989586621680521716"><span class="annot"><span class="annottext">Gen SimpleTxOut
 Gen SimpleTxOut
 -&gt; (SimpleTxOut -&gt; [SimpleTxOut]) -&gt; Arbitrary SimpleTxOut
 SimpleTxOut -&gt; [SimpleTxOut]
@@ -411,21 +411,21 @@ $cshrink :: SimpleTxOut -&gt; [SimpleTxOut]
 shrink :: SimpleTxOut -&gt; [SimpleTxOut]
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Arbitrary</span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>
-</span><span id="line-78"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521735"><span id="local-6989586621680521738"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-79"></span><span>  </span><span id="local-6989586621680521741"><span class="annot"><span class="annottext">toCBOR :: SimpleTxOut -&gt; Encoding
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span> </span><span id="local-6989586621680521742"><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680521742"><span class="hs-identifier hs-var">inId</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Encoding
+</span><span id="line-78"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521723"><span id="local-6989586621680521726"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621680521729"><span class="annot"><span class="annottext">toCBOR :: SimpleTxOut -&gt; Encoding
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span> </span><span id="local-6989586621680521730"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621680521730"><span class="hs-identifier hs-var">inId</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680521742"><span class="hs-identifier hs-var">inId</span></a></span><span>
+</span><a href="#local-6989586621680521730"><span class="hs-identifier hs-var">inId</span></a></span><span>
 </span><span id="line-80"></span><span>
-</span><span id="line-81"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521747"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621680521751"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s SimpleTxOut
+</span><span id="line-81"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680521735"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621680521739"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s SimpleTxOut
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
 </span><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-var">SimpleTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleId -&gt; SimpleTxOut)
 -&gt; Decoder s SimpleId -&gt; Decoder s SimpleTxOut
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SimpleId
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Decoder s SimpleId
 forall s. Decoder s SimpleId
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
@@ -433,76 +433,76 @@ forall a s. FromCBOR a =&gt; Decoder s a
 </span><span id="line-84"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-85"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="TxIdType"><span class="annot"><span class="hs-identifier hs-var">TxIdType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleId"><span class="hs-identifier hs-type">SimpleId</span></a></span><span>
 </span><span id="line-86"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="TxOutType"><span class="annot"><span class="hs-identifier hs-var">TxOutType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span>
-</span><span id="line-87"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="UTxOType"><span class="annot"><span class="hs-identifier hs-var">UTxOType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span>
-</span><span id="line-88"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="ValueType"><span class="annot"><span class="hs-identifier hs-var">ValueType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="UTxOType"><span class="annot"><span class="hs-identifier hs-var">UTxOType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="ValueType"><span class="annot"><span class="hs-identifier hs-var">ValueType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
 </span><span id="line-89"></span><span>
-</span><span id="line-90"></span><span>  </span><span id="local-6989586621680521844"><span class="annot"><span class="annottext">txId :: SimpleTx -&gt; TxIdType SimpleTx
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var">txId</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span id="local-6989586621680521845"><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680521845"><span class="hs-identifier hs-var">tid</span></a></span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621680521832"><span class="annot"><span class="annottext">txId :: SimpleTx -&gt; TxIdType SimpleTx
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var">txId</span></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span id="local-6989586621680521833"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621680521833"><span class="hs-identifier hs-var">tid</span></a></span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId
 TxIdType SimpleTx
-</span><a href="#local-6989586621680521845"><span class="hs-identifier hs-var">tid</span></a></span><span>
-</span><span id="line-91"></span><span>  </span><span id="local-6989586621680521846"><span class="annot"><span class="annottext">balance :: UTxOType SimpleTx -&gt; ValueType SimpleTx
-</span><a href="#local-6989586621680521846"><span class="hs-identifier hs-var hs-var hs-var hs-var">balance</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Int
+</span><a href="#local-6989586621680521833"><span class="hs-identifier hs-var">tid</span></a></span><span>
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621680521834"><span class="annot"><span class="annottext">balance :: UTxOType SimpleTx -&gt; ValueType SimpleTx
+</span><a href="#local-6989586621680521834"><span class="hs-identifier hs-var hs-var hs-var hs-var">balance</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Int
 UTxOType SimpleTx -&gt; ValueType SimpleTx
 forall a. Set a -&gt; Int
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#size"><span class="hs-identifier hs-var">Set.size</span></a></span><span>
-</span><span id="line-92"></span><span>  </span><span id="local-6989586621680521857"><span class="annot"><span class="annottext">hashUTxO :: UTxOType SimpleTx -&gt; ByteString
-</span><a href="#local-6989586621680521857"><span class="hs-identifier hs-var hs-var hs-var hs-var">hashUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#size"><span class="hs-identifier hs-var">Set.size</span></a></span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621680521845"><span class="annot"><span class="annottext">hashUTxO :: UTxOType SimpleTx -&gt; ByteString
+</span><a href="#local-6989586621680521845"><span class="hs-identifier hs-var hs-var hs-var hs-var">hashUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
 forall l s. LazyStrict l s =&gt; l -&gt; s
 </span><span class="hs-identifier hs-var">toStrict</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString)
 -&gt; (Set SimpleTxOut -&gt; ByteString) -&gt; Set SimpleTxOut -&gt; ByteString
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleTxOut -&gt; ByteString) -&gt; Set SimpleTxOut -&gt; ByteString
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleTxOut -&gt; ByteString) -&gt; Set SimpleTxOut -&gt; ByteString
 forall m a. Monoid m =&gt; (a -&gt; m) -&gt; Set a -&gt; m
 forall (t :: * -&gt; *) m a.
 (Foldable t, Monoid m) =&gt;
 (a -&gt; m) -&gt; t a -&gt; m
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldMap"><span class="hs-identifier hs-var">foldMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; ByteString
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldMap"><span class="hs-identifier hs-var">foldMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; ByteString
 forall a. Serialise a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialise</span></span><span> </span><span class="annot"><span class="annottext">(SimpleId -&gt; ByteString)
 -&gt; (SimpleTxOut -&gt; SimpleId) -&gt; SimpleTxOut -&gt; ByteString
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTxOut -&gt; SimpleId
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTxOut -&gt; SimpleId
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AunSimpleTxOut%3ASimpleTxOut"><span class="hs-identifier hs-var">unSimpleTxOut</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-93"></span><span>  </span><span id="local-6989586621680521862"><span class="annot"><span class="annottext">utxoFromTx :: SimpleTx -&gt; UTxOType SimpleTx
-</span><a href="#local-6989586621680521862"><span class="hs-identifier hs-var hs-var hs-var hs-var">utxoFromTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; UTxOType SimpleTx
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621680521850"><span class="annot"><span class="annottext">utxoFromTx :: SimpleTx -&gt; UTxOType SimpleTx
+</span><a href="#local-6989586621680521850"><span class="hs-identifier hs-var hs-var hs-var hs-var">utxoFromTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxOutputs%3ASimpleTx"><span class="hs-identifier hs-var">txOutputs</span></a></span><span>
-</span><span id="line-94"></span><span>  </span><span id="local-6989586621680521865"><span class="annot"><span class="annottext">outputsOfUTxO :: UTxOType SimpleTx -&gt; [TxOutType SimpleTx]
-</span><a href="#local-6989586621680521865"><span class="hs-identifier hs-var hs-var hs-var hs-var">outputsOfUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; [SimpleTxOut]
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621680521853"><span class="annot"><span class="annottext">outputsOfUTxO :: UTxOType SimpleTx -&gt; [TxOutType SimpleTx]
+</span><a href="#local-6989586621680521853"><span class="hs-identifier hs-var hs-var hs-var hs-var">outputsOfUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; [SimpleTxOut]
 UTxOType SimpleTx -&gt; [TxOutType SimpleTx]
 forall a. Set a -&gt; [a]
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span>
-</span><span id="line-95"></span><span>  </span><span id="local-6989586621680521869"><span class="annot"><span class="annottext">withoutUTxO :: UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx
-</span><a href="#local-6989586621680521869"><span class="hs-identifier hs-var hs-var hs-var hs-var">withoutUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span>
+</span><span id="line-95"></span><span>  </span><span id="local-6989586621680521857"><span class="annot"><span class="annottext">withoutUTxO :: UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx
+</span><a href="#local-6989586621680521857"><span class="hs-identifier hs-var hs-var hs-var hs-var">withoutUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
 UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#difference"><span class="hs-identifier hs-var">Set.difference</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#difference"><span class="hs-identifier hs-var">Set.difference</span></a></span><span>
 </span><span id="line-96"></span><span>
-</span><span id="line-97"></span><span>  </span><span id="local-6989586621680521873"><span class="annot"><span class="annottext">txSpendingUTxO :: UTxOType SimpleTx -&gt; SimpleTx
-</span><a href="#local-6989586621680521873"><span class="hs-identifier hs-var hs-var hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span id="local-6989586621680521875"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621680521875"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621680521861"><span class="annot"><span class="annottext">txSpendingUTxO :: UTxOType SimpleTx -&gt; SimpleTx
+</span><a href="#local-6989586621680521861"><span class="hs-identifier hs-var hs-var hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span id="local-6989586621680521863"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621680521863"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-98"></span><span>    </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
 </span><span id="line-99"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:txSimpleId:SimpleTx :: SimpleId
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxSimpleId%3ASimpleTx"><span class="hs-identifier hs-var">txSimpleId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-100"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:txInputs:SimpleTx :: UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxInputs%3ASimpleTx"><span class="hs-identifier hs-var">txInputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621680521875"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621680521863"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-101"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:txOutputs:SimpleTx :: UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3AtxOutputs%3ASimpleTx"><span class="hs-identifier hs-var">txOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
 forall a. Monoid a =&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
 </span><span id="line-102"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-103"></span><span>
 </span><span id="line-104"></span><span class="annot"><span class="hs-comment">-- * Simple chain state</span></span><span>
 </span><span id="line-105"></span><span>
 </span><span id="line-106"></span><span class="hs-keyword">newtype</span><span> </span><span id="SimpleChainState"><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleChainState"><span class="hs-identifier hs-var">SimpleChainState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SimpleChainState"><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleChainState"><span class="hs-identifier hs-var">SimpleChainState</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3Aslot%3ASimpleChainState"><span class="annot"><span class="annottext">SimpleChainState -&gt; ChainSlot
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3Aslot%3ASimpleChainState"><span class="hs-identifier hs-var hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span class="hs-special">}</span><span>
-</span><span id="line-107"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521879"><span id="local-6989586621680521883"><span class="annot"><span class="annottext">SimpleChainState -&gt; SimpleChainState -&gt; Bool
+</span><span id="line-107"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521867"><span id="local-6989586621680521871"><span class="annot"><span class="annottext">SimpleChainState -&gt; SimpleChainState -&gt; Bool
 (SimpleChainState -&gt; SimpleChainState -&gt; Bool)
 -&gt; (SimpleChainState -&gt; SimpleChainState -&gt; Bool)
 -&gt; Eq SimpleChainState
@@ -511,7 +511,7 @@ $c== :: SimpleChainState -&gt; SimpleChainState -&gt; Bool
 == :: SimpleChainState -&gt; SimpleChainState -&gt; Bool
 $c/= :: SimpleChainState -&gt; SimpleChainState -&gt; Bool
 /= :: SimpleChainState -&gt; SimpleChainState -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521887"><span id="local-6989586621680521892"><span id="local-6989586621680521896"><span class="annot"><span class="annottext">Int -&gt; SimpleChainState -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521875"><span id="local-6989586621680521880"><span id="local-6989586621680521884"><span class="annot"><span class="annottext">Int -&gt; SimpleChainState -&gt; ShowS
 [SimpleChainState] -&gt; ShowS
 SimpleChainState -&gt; String
 (Int -&gt; SimpleChainState -&gt; ShowS)
@@ -526,7 +526,7 @@ $cshow :: SimpleChainState -&gt; String
 show :: SimpleChainState -&gt; String
 $cshowList :: [SimpleChainState] -&gt; ShowS
 showList :: [SimpleChainState] -&gt; ShowS
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521899"><span id="local-6989586621680521901"><span class="annot"><span class="annottext">(forall x. SimpleChainState -&gt; Rep SimpleChainState x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521887"><span id="local-6989586621680521889"><span class="annot"><span class="annottext">(forall x. SimpleChainState -&gt; Rep SimpleChainState x)
 -&gt; (forall x. Rep SimpleChainState x -&gt; SimpleChainState)
 -&gt; Generic SimpleChainState
 forall x. Rep SimpleChainState x -&gt; SimpleChainState
@@ -537,8 +537,8 @@ $cfrom :: forall x. SimpleChainState -&gt; Rep SimpleChainState x
 from :: forall x. SimpleChainState -&gt; Rep SimpleChainState x
 $cto :: forall x. Rep SimpleChainState x -&gt; SimpleChainState
 to :: forall x. Rep SimpleChainState x -&gt; SimpleChainState
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-108"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521904"><span id="local-6989586621680521911"><span id="local-6989586621680521914"><span id="local-6989586621680521917"><span id="local-6989586621680521920"><span class="annot"><span class="annottext">[SimpleChainState] -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680521892"><span id="local-6989586621680521899"><span id="local-6989586621680521902"><span id="local-6989586621680521905"><span id="local-6989586621680521908"><span class="annot"><span class="annottext">[SimpleChainState] -&gt; Value
 [SimpleChainState] -&gt; Encoding
 SimpleChainState -&gt; Bool
 SimpleChainState -&gt; Value
@@ -566,7 +566,7 @@ $ctoEncodingList :: [SimpleChainState] -&gt; Encoding
 toEncodingList :: [SimpleChainState] -&gt; Encoding
 $comitField :: SimpleChainState -&gt; Bool
 omitField :: SimpleChainState -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521994"><span id="local-6989586621680522001"><span id="local-6989586621680522004"><span class="annot"><span class="annottext">Maybe SimpleChainState
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680521982"><span id="local-6989586621680521989"><span id="local-6989586621680521992"><span class="annot"><span class="annottext">Maybe SimpleChainState
 Value -&gt; Parser [SimpleChainState]
 Value -&gt; Parser SimpleChainState
 (Value -&gt; Parser SimpleChainState)
@@ -583,7 +583,7 @@ parseJSONList :: Value -&gt; Parser [SimpleChainState]
 $comittedField :: Maybe SimpleChainState
 omittedField :: Maybe SimpleChainState
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-109"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680522059"><span id="local-6989586621680522064"><span class="annot"><span class="annottext">Gen SimpleChainState
+</span><span id="line-109"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680522047"><span id="local-6989586621680522052"><span class="annot"><span class="annottext">Gen SimpleChainState
 Gen SimpleChainState
 -&gt; (SimpleChainState -&gt; [SimpleChainState])
 -&gt; Arbitrary SimpleChainState
@@ -598,12 +598,12 @@ shrink :: SimpleChainState -&gt; [SimpleChainState]
 </span><span id="line-111"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-112"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="ChainStateType"><span class="annot"><span class="hs-identifier hs-var">ChainStateType</span></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleChainState"><span class="hs-identifier hs-type">SimpleChainState</span></a></span><span>
 </span><span id="line-113"></span><span>
-</span><span id="line-114"></span><span>  </span><span id="local-6989586621680522088"><span class="annot"><span class="annottext">chainStateSlot :: ChainStateType SimpleTx -&gt; ChainSlot
-</span><a href="#local-6989586621680522088"><span class="hs-identifier hs-var hs-var hs-var hs-var">chainStateSlot</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleChainState"><span class="hs-identifier hs-type">SimpleChainState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680522090"><span class="annot"><span class="annottext">ChainSlot
+</span><span id="line-114"></span><span>  </span><span id="local-6989586621680522076"><span class="annot"><span class="annottext">chainStateSlot :: ChainStateType SimpleTx -&gt; ChainSlot
+</span><a href="#local-6989586621680522076"><span class="hs-identifier hs-var hs-var hs-var hs-var">chainStateSlot</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleChainState"><span class="hs-identifier hs-type">SimpleChainState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680522078"><span class="annot"><span class="annottext">ChainSlot
 $sel:slot:SimpleChainState :: SimpleChainState -&gt; ChainSlot
 slot :: ChainSlot
 </span><a href="Hydra.Ledger.Simple.html#%24sel%3Aslot%3ASimpleChainState"><span class="hs-identifier hs-var hs-var">slot</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621680522090"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><a href="#local-6989586621680522078"><span class="hs-identifier hs-var">slot</span></a></span><span>
 </span><span id="line-115"></span><span>
 </span><span id="line-116"></span><span class="annot"><span class="hs-comment">-- * A simple ledger</span></span><span>
 </span><span id="line-117"></span><span>
@@ -634,18 +634,18 @@ $sel:applyTransactions:Ledger :: ChainSlot
 -&gt; UTxOType SimpleTx
 -&gt; [SimpleTx]
 -&gt; Either (SimpleTx, ValidationError) (UTxOType SimpleTx)
-</span><a href="#local-6989586621680522093"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680522081"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-121"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-122"></span><span>  </span><span class="hs-comment">-- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.</span><span>
-</span><span id="line-123"></span><span>  </span><span id="local-6989586621680521327"><span id="local-6989586621680521328"><span class="annot"><a href="#local-6989586621680522093"><span class="hs-identifier hs-type">applyTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#Foldable"><span class="hs-identifier hs-type">Foldable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680521327"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680521328"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680521327"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span class="hs-special">)</span></span></span><span>
-</span><span id="line-124"></span><span>  </span><span id="local-6989586621680522093"><span class="annot"><span class="annottext">applyTransactions :: forall (t :: * -&gt; *) p.
+</span><span id="line-123"></span><span>  </span><span id="local-6989586621680521315"><span id="local-6989586621680521316"><span class="annot"><a href="#local-6989586621680522081"><span class="hs-identifier hs-type">applyTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#Foldable"><span class="hs-identifier hs-type">Foldable</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680521315"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680521316"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680521315"><span class="hs-identifier hs-type">t</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-type">SimpleTxOut</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-124"></span><span>  </span><span id="local-6989586621680522081"><span class="annot"><span class="annottext">applyTransactions :: forall (t :: * -&gt; *) p.
 Foldable t =&gt;
 p
 -&gt; Set SimpleTxOut
 -&gt; t SimpleTx
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
-</span><a href="#local-6989586621680522093"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span></span><span> </span><span id="local-6989586621680522105"><span class="annot"><span class="annottext">p
-</span><a href="#local-6989586621680522105"><span class="hs-identifier hs-var">_slot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621680522081"><span class="hs-identifier hs-var hs-var">applyTransactions</span></a></span></span><span> </span><span id="local-6989586621680522093"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621680522093"><span class="hs-identifier hs-var">_slot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-125"></span><span>    </span><span class="annot"><span class="annottext">(Set SimpleTxOut
  -&gt; SimpleTx
  -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut))
@@ -655,7 +655,7 @@ p
 forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
 (Foldable t, Monad m) =&gt;
 (b -&gt; a -&gt; m b) -&gt; b -&gt; t a -&gt; m b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldlM"><span class="hs-identifier hs-var">foldlM</span></a></span><span> </span><span class="annot"><span class="annottext">((Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldlM"><span class="hs-identifier hs-var">foldlM</span></a></span><span> </span><span class="annot"><span class="annottext">((Set SimpleTxOut
   -&gt; SimpleTx
   -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut))
  -&gt; Set SimpleTxOut
@@ -668,84 +668,84 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
 -&gt; t SimpleTx
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680522107"><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621680522107"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621680522108"><span class="annot"><span class="annottext">tx :: SimpleTx
-</span><a href="#local-6989586621680522108"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680522109"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621680522109"><span class="hs-identifier hs-var">ins</span></a></span></span><span> </span><span id="local-6989586621680522110"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621680522110"><span class="hs-identifier hs-var">outs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621680522095"><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621680522095"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621680522096"><span class="annot"><span class="annottext">tx :: SimpleTx
+</span><a href="#local-6989586621680522096"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680522097"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621680522097"><span class="hs-identifier hs-var">ins</span></a></span></span><span> </span><span id="local-6989586621680522098"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621680522098"><span class="hs-identifier hs-var">outs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-126"></span><span>      </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621680522109"><span class="hs-identifier hs-var">ins</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Bool
+</span><a href="#local-6989586621680522097"><span class="hs-identifier hs-var">ins</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Bool
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#isSubsetOf"><span class="hs-operator hs-var">`Set.isSubsetOf`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621680522107"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621680522107"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#isSubsetOf"><span class="hs-operator hs-var">`Set.isSubsetOf`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621680522095"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621680522095"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Bool
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Bool
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#disjoint"><span class="hs-operator hs-var">`Set.disjoint`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#disjoint"><span class="hs-operator hs-var">`Set.disjoint`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621680522110"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><a href="#local-6989586621680522098"><span class="hs-identifier hs-var">outs</span></a></span><span>
 </span><span id="line-127"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. b -&gt; Either a b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(Set SimpleTxOut
  -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut))
 -&gt; Set SimpleTxOut
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621680522107"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621680522095"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#%5C%5C"><span class="hs-operator hs-var">Set.\\</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#%5C%5C"><span class="hs-operator hs-var">Set.\\</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621680522109"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
+</span><a href="#local-6989586621680522097"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#union"><span class="hs-operator hs-var">`Set.union`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#union"><span class="hs-operator hs-var">`Set.union`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621680522110"><span class="hs-identifier hs-var">outs</span></a></span><span>
+</span><a href="#local-6989586621680522098"><span class="hs-identifier hs-var">outs</span></a></span><span>
 </span><span id="line-128"></span><span>        </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">(SimpleTx, ValidationError)
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. a -&gt; Either a b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleTx
-</span><a href="#local-6989586621680522108"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ValidationError
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleTx
+</span><a href="#local-6989586621680522096"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ValidationError
 </span><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-var">ValidationError</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;cannot apply transaction&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-129"></span><span>
 </span><span id="line-130"></span><span class="annot"><span class="hs-comment">-- * Builders</span></span><span>
 </span><span id="line-131"></span><span>
-</span><span id="line-132"></span><span class="annot"><a href="Hydra.Ledger.Simple.html#utxoRef"><span class="hs-identifier hs-type">utxoRef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
+</span><span id="line-132"></span><span class="annot"><a href="Hydra.Ledger.Simple.html#utxoRef"><span class="hs-identifier hs-type">utxoRef</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
 </span><span id="line-133"></span><span id="utxoRef"><span class="annot"><span class="annottext">utxoRef :: SimpleId -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#utxoRef"><span class="hs-identifier hs-var hs-var">utxoRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleTxOut -&gt; Set SimpleTxOut
 forall a. a -&gt; Set a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleTxOut -&gt; Set SimpleTxOut)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleTxOut -&gt; Set SimpleTxOut)
 -&gt; (SimpleId -&gt; SimpleTxOut) -&gt; SimpleId -&gt; Set SimpleTxOut
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
 </span><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-var">SimpleTxOut</span></a></span><span>
 </span><span id="line-134"></span><span>
-</span><span id="line-135"></span><span class="annot"><a href="Hydra.Ledger.Simple.html#utxoRefs"><span class="hs-identifier hs-type">utxoRefs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
+</span><span id="line-135"></span><span class="annot"><a href="Hydra.Ledger.Simple.html#utxoRefs"><span class="hs-identifier hs-type">utxoRefs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
 </span><span id="line-136"></span><span id="utxoRefs"><span class="annot"><span class="annottext">utxoRefs :: [SimpleId] -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#utxoRefs"><span class="hs-identifier hs-var hs-var">utxoRefs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; [a] -&gt; Set a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([SimpleTxOut] -&gt; Set SimpleTxOut)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([SimpleTxOut] -&gt; Set SimpleTxOut)
 -&gt; ([SimpleId] -&gt; [SimpleTxOut]) -&gt; [SimpleId] -&gt; Set SimpleTxOut
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleId -&gt; SimpleTxOut) -&gt; [SimpleId] -&gt; [SimpleTxOut]
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleId -&gt; SimpleTxOut) -&gt; [SimpleId] -&gt; [SimpleTxOut]
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; SimpleTxOut
 </span><a href="Hydra.Ledger.Simple.html#SimpleTxOut"><span class="hs-identifier hs-var">SimpleTxOut</span></a></span><span>
 </span><span id="line-137"></span><span>
-</span><span id="line-138"></span><span class="annot"><a href="Hydra.Ledger.Simple.html#aValidTx"><span class="hs-identifier hs-type">aValidTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
+</span><span id="line-138"></span><span class="annot"><a href="Hydra.Ledger.Simple.html#aValidTx"><span class="hs-identifier hs-type">aValidTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-type">SimpleTx</span></a></span><span>
 </span><span id="line-139"></span><span id="aValidTx"><span class="annot"><span class="annottext">aValidTx :: SimpleId -&gt; SimpleTx
-</span><a href="Hydra.Ledger.Simple.html#aValidTx"><span class="hs-identifier hs-var hs-var">aValidTx</span></a></span></span><span> </span><span id="local-6989586621680522121"><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680522121"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
+</span><a href="Hydra.Ledger.Simple.html#aValidTx"><span class="hs-identifier hs-var hs-var">aValidTx</span></a></span></span><span> </span><span id="local-6989586621680522109"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621680522109"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#SimpleTx"><span class="hs-identifier hs-var">SimpleTx</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680522121"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621680522109"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
 forall a. Monoid a =&gt; a
-</span><a href="file:///nix/store/6yqv51fa4w5nds6fi2vvj8v5ww7f1h5g-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
 </span><a href="Hydra.Ledger.Simple.html#utxoRef"><span class="hs-identifier hs-var">utxoRef</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
-</span><a href="#local-6989586621680522121"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680522109"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-140"></span></pre></body></html>
