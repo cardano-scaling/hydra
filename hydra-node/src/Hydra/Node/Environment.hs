@@ -6,6 +6,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Test.QuickCheck.Instances.Text ()
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party)
 
