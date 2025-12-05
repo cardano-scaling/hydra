@@ -135,6 +135,8 @@ library testlib
     , cborg
     , containers
     , directory
+    , hedgehog
+    , hedgehog-quickcheck
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
