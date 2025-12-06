@@ -2,6 +2,7 @@
     "samples": [
         {
             "state": {
+                "currentChainTime": null,
                 "currentSlot": 1,
                 "headState": {
                     "contents": {

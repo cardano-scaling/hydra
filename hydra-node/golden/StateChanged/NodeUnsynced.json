@@ -1,6 +1,7 @@
 {
     "samples": [
         {
+            "chainTime": "1864-05-09T09:22:49.038495324908Z",
             "tag": "NodeUnsynced"
         }
     ],

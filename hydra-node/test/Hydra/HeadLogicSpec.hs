@@ -1157,7 +1157,7 @@ spec =
             )
             shrink
             $ \noTickInputs -> monadicIO $ do
-              let catchingUp = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+              let catchingUp = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing}
 
               stillCatchingUp <-
                 run $
@@ -1200,7 +1200,7 @@ spec =
       prop "node must be out of sync after full contestation period" $
         forAllShrink arbitrary shrink $ \headState ->
           monadicIO $ do
-            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing}
 
             now <- run getCurrentTime
             let delta = bobEnv.contestationPeriod
@@ -1219,7 +1219,7 @@ spec =
       prop "node remains in sync under normal block cadence" $
         forAllShrink arbitrary shrink $ \headState ->
           monadicIO $ do
-            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0}
+            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing}
 
             now <- run getCurrentTime
             let normalBlockInterval = 20
@@ -1519,6 +1519,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = 0
+                , currentChainTime = Nothing
                 }
         -- deposit txs
         (deposited1, depositTx1) <- pick mkDepositTx
@@ -1593,6 +1594,7 @@ spec =
             & \case
               Left _ -> Prelude.error "cannot generate expired tx"
               Right tx -> pure (utxo, tx)
+        chainTime <- run getCurrentTime
         let st0 =
               NodeInSync
                 { headState =
@@ -1616,6 +1618,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
+                , currentChainTime = Just chainTime
                 }
 
         st <-
@@ -1633,6 +1636,7 @@ spec =
           _ -> False
 
     prop "empty inputs in decommit tx are prevented" $ \tx -> do
+      chainTime <- getCurrentTime
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
       let st =
             NodeInSync
@@ -1657,6 +1661,7 @@ spec =
                       }
               , pendingDeposits = mempty
               , currentSlot = ChainSlot 1
+              , currentChainTime = Just chainTime
               }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
@@ -1743,6 +1748,7 @@ genClosedState = do
       { headState = Closed $ closedState{headId = testHeadId}
       , pendingDeposits = mempty
       , currentSlot = ChainSlot 0
+      , currentChainTime = Nothing
       }
 
 -- * Utilities
@@ -1795,6 +1801,7 @@ inUnsyncedIdleState =
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
+    , currentChainTime = Nothing
     }
  where
   chainState = 0
@@ -1815,6 +1822,7 @@ inInitialState parties =
             }
     , pendingDeposits = mempty
     , currentSlot = 0
+    , currentChainTime = Nothing
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1856,6 +1864,7 @@ inOpenState' parties coordinatedHeadState =
             }
     , pendingDeposits = mempty
     , currentSlot = 0
+    , currentChainTime = Nothing
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1884,6 +1893,7 @@ inClosedState' parties confirmedSnapshot =
             }
     , pendingDeposits = mempty
     , currentSlot = 0
+    , currentChainTime = Nothing
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties

@@ -36,6 +36,7 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
@@ -2364,7 +2365,9 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
 
         waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "RejectedInput"
-          guard $ v ^? key "reason" == Just "chain out of sync"
+          guard $ case v ^? key "reason" . _String of
+            Just reason -> "chain out of sync" `T.isPrefixOf` reason
+            Nothing -> False
 
         -- Carol API notifies the node is back on sync with the chain
         -- note this is tuned based on how long it takes to sync

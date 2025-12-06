@@ -378,7 +378,7 @@ apiServerSpec = do
                   testEnvironment
                   dummyStatePath
                   defaultPParams
-                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -596,7 +596,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -631,7 +631,7 @@ apiServerSpec = do
               testEnvironment
               dummyStatePath
               defaultPParams
-              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -679,7 +679,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -727,7 +727,7 @@ apiServerSpec = do
               ]
           let statePath = tmpDir </> "state"
           writeFileText statePath (unlines stateLines)
-
+          chainTime <- getCurrentTime
           withApplication
             ( httpApp @Tx
                 nullTracer
@@ -735,7 +735,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
+                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152, currentChainTime = Just chainTime})
                 getHeadId
                 getPendingDeposits
                 putClientInput
