@@ -2038,12 +2038,15 @@ components:
       type: object
       required:
         - tag
+        - chainTime
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeUnsynced"]
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2057,12 +2060,15 @@ components:
       type: object
       required:
         - tag
+        - chainTime
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeSynced"]
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -3744,6 +3750,10 @@ components:
                 $ref: "api.yaml#/components/schemas/Deposit"
             currentSlot:
               $ref: "api.yaml#/components/schemas/ChainSlot"
+            currentChainTime:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTCTime"
+                - type: "null"
         - title: NodeCatchingUp
           type: object
           additionalProperties: false
@@ -3766,6 +3776,10 @@ components:
                 $ref: "api.yaml#/components/schemas/Deposit"
             currentSlot:
               $ref: "api.yaml#/components/schemas/ChainSlot"
+            currentChainTime:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTCTime"
+                - type: "null"
 
     SubmitL2TxResponse:
       oneOf:

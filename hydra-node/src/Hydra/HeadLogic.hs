@@ -1343,12 +1343,12 @@ handleOutOfSync Environment{unsyncedPeriod} now chainTime syncStatus
   -- falls behind the current system time.
   | chainTime `plus` unsyncedPeriodToNominalDiffTime unsyncedPeriod < now =
       case syncStatus of
-        InSync -> newState NodeUnsynced
+        InSync -> newState (NodeUnsynced chainTime)
         CatchingUp -> noop
   | otherwise =
       case syncStatus of
         InSync -> noop
-        CatchingUp -> newState NodeSynced
+        CatchingUp -> newState (NodeSynced chainTime)
  where
   plus = flip addUTCTime
 
@@ -1368,8 +1368,8 @@ update ::
   Outcome tx
 update env ledger now nodeState ev =
   case nodeState of
-    NodeCatchingUp{headState, pendingDeposits, currentSlot} ->
-      updateUnsyncedHead env ledger now currentSlot pendingDeposits headState ev (syncedStatus nodeState)
+    NodeCatchingUp{headState, pendingDeposits, currentSlot, currentChainTime} ->
+      updateUnsyncedHead env ledger now currentSlot currentChainTime pendingDeposits headState ev (syncedStatus nodeState)
     NodeInSync{headState, pendingDeposits, currentSlot} ->
       updateSyncedHead env ledger now currentSlot pendingDeposits headState ev (syncedStatus nodeState)
 
@@ -1380,6 +1380,7 @@ updateUnsyncedHead ::
   -- | Current system time.
   UTCTime ->
   ChainSlot ->
+  Maybe UTCTime ->
   PendingDeposits tx ->
   -- | Current HeadState to validate the command against.
   HeadState tx ->
@@ -1387,14 +1388,16 @@ updateUnsyncedHead ::
   Input tx ->
   SyncedStatus ->
   Outcome tx
-updateUnsyncedHead env ledger now currentSlot pendingDeposits st ev syncStatus =
+updateUnsyncedHead env ledger now currentSlot currentChainTime pendingDeposits st ev syncStatus =
   case ev of
     ChainInput{} ->
       handleChainInput env ledger now currentSlot pendingDeposits st ev syncStatus
     ClientInput{clientInput} ->
-      cause . ClientEffect $ ServerOutput.RejectedInput clientInput "chain out of sync"
+      cause . ClientEffect $ ServerOutput.RejectedInput clientInput $ "chain out of sync, drift: " <> show drift
     NetworkInput{} ->
       wait WaitOnNodeInSync{currentSlot}
+ where
+  drift = now `diffUTCTime` fromMaybe now currentChainTime
 
 updateSyncedHead ::
   IsChainState tx =>
@@ -1666,10 +1669,10 @@ aggregateNodeState nodeState sc =
           nodeState{headState = st, currentSlot = chainPointSlot chainPoint}
         ChainRolledBack{chainState} ->
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
-        NodeUnsynced ->
-          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = nodeState.currentSlot}
-        NodeSynced ->
-          NodeInSync{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = nodeState.currentSlot}
+        NodeUnsynced{chainTime} ->
+          NodeCatchingUp{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = nodeState.currentSlot, currentChainTime = Just chainTime}
+        NodeSynced{chainTime} ->
+          NodeInSync{headState = st, pendingDeposits = currentPendingDeposits, currentSlot = nodeState.currentSlot, currentChainTime = Just chainTime}
         _ ->
           nodeState{headState = st}
 
@@ -1956,8 +1959,8 @@ aggregate st = \case
       Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
     _otherState -> st
   Checkpoint nodeState -> headState nodeState
-  NodeSynced -> st
-  NodeUnsynced -> st
+  NodeSynced{} -> st
+  NodeUnsynced{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -2012,5 +2015,5 @@ aggregateChainStateHistory history = \case
   LocalStateCleared{} -> history
   -- FIXME: This makes chain sync starting after rollbacks past the chain state impossible
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
-  NodeUnsynced -> history
-  NodeSynced -> history
+  NodeUnsynced{} -> history
+  NodeSynced{} -> history

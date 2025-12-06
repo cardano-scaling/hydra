@@ -24,6 +24,7 @@ data NodeState tx
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
       , currentSlot :: ChainSlot
+      , currentChainTime :: Maybe UTCTime
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
@@ -31,6 +32,7 @@ data NodeState tx
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
       , currentSlot :: ChainSlot
+      , currentChainTime :: Maybe UTCTime
       }
   deriving stock (Generic)
 
@@ -45,6 +47,7 @@ initNodeState chainState =
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
+    , currentChainTime = Nothing
     }
 
 data SyncedStatus = InSync | CatchingUp
