@@ -142,14 +142,67 @@ data StateChanged tx
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | Checkpoint {state :: NodeState tx}
-  | NodeUnsynced
-  | NodeSynced
+  | NodeUnsynced {chainTime :: UTCTime}
+  | NodeSynced {chainTime :: UTCTime}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
 deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
+
+instance
+  ( ArbitraryIsTx tx
+  , Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  , IsChainState tx
+  ) =>
+  Arbitrary (StateChanged tx)
+  where
+  arbitrary = arbitrary >>= genStateChanged
+
+instance
+  ( ArbitraryIsTx tx
+  , Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  , IsChainState tx
+  ) =>
+  ToADTArbitrary (StateChanged tx)
+
+-- REVIEW: why are we missing Checkpoint and other events ?
+genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
+genStateChanged env =
+  oneof
+    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
+    , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
+    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
+    , TransactionReceived <$> arbitrary
+    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
+    , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
+    , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , CommitApproved <$> arbitrary <*> arbitrary
+    , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitInvalid <$> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , HeadIsReadyToFanout <$> arbitrary
+    , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+    , LocalStateCleared <$> arbitrary <*> arbitrary
+    , NodeUnsynced <$> arbitrary
+    , NodeSynced <$> arbitrary
+    ]
+ where
+  Environment{party} = env
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
