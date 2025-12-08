@@ -23,7 +23,6 @@ common project-config
     DeriveAnyClass
     DerivingStrategies
     FunctionalDependencies
-    GADTs
     LambdaCase
     MultiWayIf
     NoImplicitPrelude
