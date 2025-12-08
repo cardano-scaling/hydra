@@ -33,6 +33,7 @@ common project-config
     LambdaCase
     MultiWayIf
     NoImplicitPrelude
+    PackageImports
     OverloadedStrings
     PartialTypeSignatures
     PatternSynonyms

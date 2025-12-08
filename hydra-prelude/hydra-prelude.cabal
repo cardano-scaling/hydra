@@ -41,6 +41,7 @@ library
     DerivingStrategies
     LambdaCase
     NoImplicitPrelude
+    PackageImports
 
   ghc-options:
     -Wall -Wcompat -Wunused-packages -Wmissing-deriving-strategies

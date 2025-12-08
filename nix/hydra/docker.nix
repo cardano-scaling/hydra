@@ -34,7 +34,7 @@
             ];
           };
           config = {
-            Entrypoint = [ "${self'.packages.hydra-node-static}/bin/hydra-node" ];
+            Entrypoint = [ "${self'.packages.hydra-node}/bin/hydra-node" ];
           };
         };
 
