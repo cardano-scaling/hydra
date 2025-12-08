@@ -14,8 +14,9 @@ import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
-import Cardano.Ledger.Core (Tx, Value)
+import Cardano.Ledger.Conway.Tx (Tx (MkConwayTx))
+import Cardano.Ledger.Conway.TxBody (TxBody (..))
+import Cardano.Ledger.Core (Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
 import Cardano.Ledger.Shelley.API qualified as Ledger
@@ -273,7 +274,7 @@ isBalanced utxo originalTx balancedTx =
   let inp' = knownInputBalance utxo balancedTx
       out' = outputBalance balancedTx
       out = outputBalance originalTx
-      fee = view (bodyTxL . feeTxBodyL) balancedTx
+      fee = (view $ bodyTxL @LedgerEra . feeTxBodyL) balancedTx
    in coin (deltaValue out' inp') == fee
         & counterexample ("Fee:             " <> show fee)
         & counterexample ("Delta value:     " <> show (coin $ deltaValue out' inp'))
@@ -324,7 +325,7 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
           , (1, pure genBodyFromUTxO)
           ]
     body <- genBody
-    lift $
+    lift . fmap MkConwayTx $
       AlonzoTx body
         <$> arbitrary
         <*> arbitrary
@@ -333,7 +334,7 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
   -- Generate a TxBody by consuming a UTXO from the state, and generating a new
   -- one. The number of UTXO in the state after calling this function remains
   -- identical.
-  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (ConwayTxBody LedgerEra)
+  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (TxBody LedgerEra)
   genBodyFromUTxO = do
     base <- lift arbitrary
     (input, output) <- gets Map.findMax
@@ -347,9 +348,9 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUTxO :: Gen (Map TxIn TxOut)
 genUTxO = do
-  tx <- arbitrary `suchThat` (Prelude.not . Prelude.null . view (bodyTxL . outputsTxBodyL))
+  tx <- arbitrary `suchThat` (Prelude.not . Prelude.null . view (bodyTxL @LedgerEra . outputsTxBodyL @LedgerEra))
   txIn <- toLedgerTxIn <$> genTxIn
-  let txOut = scaleAda $ Prelude.head $ toList $ tx ^. (bodyTxL . outputsTxBodyL)
+  let txOut = scaleAda $ Prelude.head $ toList $ tx ^. bodyTxL . outputsTxBodyL
   pure $ Map.singleton txIn txOut
  where
   scaleAda :: TxOut -> TxOut
@@ -359,9 +360,10 @@ genUTxO = do
 
 genOutputsForInputs :: Tx LedgerEra -> Gen (Map TxIn TxOut)
 genOutputsForInputs tx = do
-  let n = Set.size (view (bodyTxL . inputsTxBodyL) tx)
+  let ins = view (bodyTxL @LedgerEra . inputsTxBodyL @LedgerEra) tx
+  let n = Set.size ins
   outs <- vectorOf n arbitrary
-  pure $ Map.fromList $ zip (toList (view (bodyTxL . inputsTxBodyL) tx)) outs
+  pure $ Map.fromList $ zip (toList ins) outs
 
 genLedgerTx :: Gen (Tx LedgerEra)
 genLedgerTx = do
@@ -374,11 +376,11 @@ genLedgerTx = do
 
 allTxIns :: [Tx LedgerEra] -> Set TxIn
 allTxIns txs =
-  Set.unions (view (bodyTxL . inputsTxBodyL) <$> txs)
+  Set.unions (view (bodyTxL @LedgerEra . inputsTxBodyL @LedgerEra) <$> txs)
 
 allTxOuts :: [Tx LedgerEra] -> [TxOut]
 allTxOuts txs =
-  toList $ mconcat (view (bodyTxL . outputsTxBodyL) <$> txs)
+  toList $ mconcat (view (bodyTxL @LedgerEra . outputsTxBodyL @LedgerEra) <$> txs)
 
 isOurs :: Map TxIn TxOut -> Address -> Bool
 isOurs utxo addr =
@@ -406,7 +408,7 @@ deltaValue a b
 
 -- | NOTE: This does not account for withdrawals
 knownInputBalance :: Map TxIn TxOut -> Tx LedgerEra -> Value LedgerEra
-knownInputBalance utxo = foldMap resolve . toList . view (bodyTxL . inputsTxBodyL)
+knownInputBalance utxo = foldMap resolve . toList . view (bodyTxL @LedgerEra . inputsTxBodyL @LedgerEra)
  where
   resolve :: TxIn -> Value LedgerEra
   resolve k = maybe zero getValue (Map.lookup k utxo)
@@ -414,7 +416,7 @@ knownInputBalance utxo = foldMap resolve . toList . view (bodyTxL . inputsTxBody
 -- | NOTE: This does not account for deposits
 outputBalance :: Tx LedgerEra -> Value LedgerEra
 outputBalance =
-  foldMap getValue . view (bodyTxL . outputsTxBodyL)
+  foldMap getValue . view (bodyTxL @LedgerEra . outputsTxBodyL @LedgerEra)
 
 -- | Test that coverFee detects missing script witnesses.
 -- Generates transactions that spend from script-locked UTxOs but omit the script witness.

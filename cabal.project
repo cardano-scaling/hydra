@@ -17,6 +17,13 @@ index-state:
 
 packages: **/*.cabal
 
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/cardano-api.git
+  tag: 4b0d0399ba84d6da420e0f602c4af9060b2bd0f0
+  subdir:
+    cardano-api
+
 -- Compile more things in parallel
 package *
   ghc-options: -j8

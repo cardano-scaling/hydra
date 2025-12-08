@@ -75,7 +75,6 @@ import Cardano.Api as X hiding (
   red,
   scriptLanguageSupportedInEra,
   signShelleyTransaction,
-  toLedgerUTxO,
   toLedgerValue,
   (<+>),
  )
