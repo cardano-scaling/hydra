@@ -183,6 +183,7 @@ test-suite tests
     , base
     , base16-bytestring
     , cardano-api
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -190,6 +191,7 @@ test-suite tests
     , cardano-ledger-babbage
     , cardano-ledger-core
     , containers
+    , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
     , hydra-cardano-api

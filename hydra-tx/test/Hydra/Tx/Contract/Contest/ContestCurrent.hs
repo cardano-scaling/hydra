@@ -38,6 +38,7 @@ import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
+import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
@@ -64,6 +65,7 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances ()
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
@@ -226,7 +228,7 @@ genContestMutation (tx, _utxo) =
         pure $
           healthyClosedState & replaceParties mutatedParties
     , SomeMutation (pure $ toErrorCode UpperBoundBeyondContestationDeadline) MutateValidityPastDeadline . ChangeValidityInterval <$> do
-        lb <- arbitrary
+        lb <- hedgehog $ genTxValidityLowerBound cardanoEra
         ub <- TxValidityUpperBound <$> arbitrary `suchThat` slotOverContestationDeadline
         pure (lb, ub)
     , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
