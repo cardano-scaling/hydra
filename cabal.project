@@ -22,7 +22,6 @@ packages: **/*.cabal
 allow-newer:
   servant-multipart-client:random
 
-
 -- Compile more things in parallel
 package *
   ghc-options: -j8
