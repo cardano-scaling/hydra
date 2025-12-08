@@ -7,17 +7,17 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity, mkScriptIntegrity)
 import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
-import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
-import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams)
+import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, rdmrsTxWitsL, witsTxL)
 import Cardano.Ledger.Api.Tx qualified as Ledger
 import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
 import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
 import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
 import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Plutus (ExUnits (..))
-import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
+import Cardano.Ledger.State (EraUTxO, getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -47,6 +47,7 @@ import Hydra.Cardano.Api (
   File (File),
   Key (SigningKey),
   KeyWitnessInCtx (..),
+  LedgerEra,
   LedgerProtocolParameters (..),
   PaymentKey,
   PolicyId (..),
@@ -730,7 +731,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
             txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
 
             let spendTx' = makeSignedTransaction [] txBody
-                spendTx = fromLedgerTx $ recomputeIntegrityHash pparams [PlutusV3] (toLedgerTx spendTx')
+                spendTx = fromLedgerTx $ recomputeIntegrityHash pparams utxoToCommit (toLedgerTx spendTx')
             let signedTx = signTx walletSk spendTx
 
             send n1 $ input "NewTx" ["transaction" .= signedTx]
@@ -792,11 +793,11 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
           let redeemer = toLedgerData $ toScriptData ()
               exUnits = toLedgerExUnits maxTxExecutionUnits
               rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
-              scriptHash = hashScript script
               script = toLedgerScript @_ @Era dummyRewardingScript
+              scriptHash = hashScript script
           let tx' =
                 fromLedgerTx $
-                  recomputeIntegrityHash pparams [PlutusV3] $
+                  recomputeIntegrityHash pparams utxoToCommit $
                     toLedgerTx tx
                       & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToCommit)
                       & bodyTxL . totalCollateralTxBodyL .~ SJust (UTxO.totalLovelace utxoToCommit)
@@ -813,21 +814,21 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
               toJSON signedL2tx
                 `elem` (v ^.. key "snapshot" . key "confirmed" . values)
 
--- | Compute the integrity hash of a transaction using a list of plutus languages.
+-- | Re-compute the integrity hash of a transaction.
 recomputeIntegrityHash ::
-  (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
+  (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera, txera ~ ppera, EraUTxO ppera, ppera ~ LedgerEra) =>
   PParams ppera ->
-  [Language] ->
+  UTxO ->
   Ledger.Tx txera ->
   Ledger.Tx txera
-recomputeIntegrityHash pp languages tx = do
+recomputeIntegrityHash pp utxo tx = do
   tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
  where
   integrityHash =
-    hashScriptIntegrity
-      (Set.fromList $ getLanguageView pp <$> languages)
-      (tx ^. witsTxL . rdmrsTxWitsL)
-      (tx ^. witsTxL . datsTxWitsL)
+    let ledgerUTxO = CAPI.toLedgerUTxO CAPI.ShelleyBasedEraConway utxo
+        scriptsProvided = getScriptsProvided ledgerUTxO tx
+        scriptsNeeded = getScriptsHashesNeeded . getScriptsNeeded ledgerUTxO $ tx ^. bodyTxL
+     in hashScriptIntegrity <$> mkScriptIntegrity pp tx scriptsProvided scriptsNeeded
 
 singlePartyCommitsScriptBlueprint ::
   ChainBackend backend =>
