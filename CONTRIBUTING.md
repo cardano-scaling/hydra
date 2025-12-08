@@ -125,6 +125,10 @@ This policy aims to increase the [bus factor](https://en.wikipedia.org/wiki/Bus_
 
 ### Updating dependencies
 
+#### Update Early And Often
+
+Update dependencies as part of routine maintenance because It's stressful to have to do it under time pressure. Updating frequently reveals blockers and incompatibilities early as well as prepares the build cache.
+
 #### From Hackage
 
 Updating package dependencies from Hackage should work like normal in a Haskell project. It’s important to note that we pin the `index-state` of the Hackage package index in `cabal.project`. This ensures that Cabal always sees Hackage 'as if' it were at that specific time, providing reproducibility. However, if you need a package version released *after* that time, you must update the `index-state` and run `cabal update` locally.
