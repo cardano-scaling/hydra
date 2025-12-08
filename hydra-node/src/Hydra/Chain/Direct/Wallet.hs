@@ -14,15 +14,15 @@ import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
   plutusScriptLanguage,
+  ExUnits (ExUnits),
+  unAsIx,
  )
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
-  datsTxWitsL,
  )
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
-  BabbageEraTxBody,
   ConwayEra,
   PParams,
   TransactionScriptFailure (..),
@@ -38,24 +38,23 @@ import Cardano.Ledger.Api (
   outputsTxBodyL,
   rdmrsTxWitsL,
   referenceInputsTxBodyL,
+  reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
-  scriptTxWitsL,
   witsTxL,
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
 import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
+import Cardano.Ledger.Babbage.Tx (hashScriptIntegrity)
+import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
-import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (
-  TxUpgradeError,
- )
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.State (getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
@@ -203,9 +202,10 @@ applyTxs txs isOurs utxo =
       -- XXX: Use cardano-api types instead here
       let tx = toLedgerTx apiTx
       let txId = Ledger.txIdTx tx
-      modify (`Map.withoutKeys` view (bodyTxL . inputsTxBodyL) tx)
+      let inputs = view (bodyTxL . inputsTxBodyL) tx
+      modify (`Map.withoutKeys` inputs)
       let indexedOutputs =
-            let outs = toList $ view (bodyTxL . outputsTxBodyL) tx
+            let outs = toList $ tx ^. bodyTxL . outputsTxBodyL
                 maxIx = fromIntegral $ length outs
              in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
       forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
@@ -218,7 +218,6 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
-  | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
   | ErrMissingScript {scriptHash :: Text, purpose :: Text}
   deriving stock (Show)
 
@@ -237,7 +236,7 @@ coverFee_ ::
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
-  , BabbageEraTxBody era
+  , Ledger.AtMostEra "Conway" era
   ) =>
   PParams era ->
   SystemStart ->
@@ -278,18 +277,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let adjustedRedeemers =
         applyEstimatedCosts estimatedScriptCosts redeemersWithAdjustedIndices
 
-  -- Compute script integrity hash from adjusted redeemers
-  let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
-      langs =
-        [ getLanguageView pparams l
-        | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
-        , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
-        ]
-      scriptIntegrityHash =
-        hashScriptIntegrity
-          (Set.fromList langs)
-          adjustedRedeemers
-          (wits ^. datsTxWitsL)
+  -- Compute the script integrity hash.
+  let scriptIntegrityHash =
+        let ledgerUTxO = Ledger.UTxO utxo
+            scriptsProvided = getScriptsProvided ledgerUTxO partialTx
+            scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO body
+         in hashScriptIntegrity <$> Babbage.mkScriptIntegrity pparams partialTx scriptsProvided scriptsNeeded
+
   let
     unbalancedBody =
       body

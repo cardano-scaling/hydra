@@ -349,6 +349,7 @@ chainSyncClient handler wallet prefix =
               -- Observe Hydra transactions
               onRollForward handler header txs
               pure clientStIdle
+            BlockInMode era@DijkstraEra _ -> throwIO $ EraNotSupportedYet{otherEraName = show era}
             BlockInMode era@BabbageEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AlonzoEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}
             BlockInMode era@AllegraEra _ -> throwIO $ EraNotSupportedAnymore{otherEraName = show era}

@@ -13,7 +13,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
-import PlutusTx.Builtins (bls12_381_G1_uncompress, bls12_381_G2_uncompress, toBuiltin)
+import PlutusTx.Builtins (bls12_381_G2_uncompress, toBuiltin)
 
 -- * Creation
 
@@ -46,7 +46,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
  where
-  crs = bls12_381_G1_uncompress . toBuiltin . blsSerialize <$> Accumulator.defaultCRS
+  crs = bls12_381_G2_uncompress . toBuiltin . blsSerialize <$> Accumulator.defaultCRS
 
   headWitness =
     BuildTxWith $

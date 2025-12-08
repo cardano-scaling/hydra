@@ -25,12 +25,13 @@ library
     , aeson-pretty
     , base
     , base16-bytestring
-    , cardano-binary     >=1.7.0   && <1.8
+    , cardano-binary            >=1.7.0 && <1.8
+    , generic-random
     , gitrev
-    , io-classes         >=1.0.0.0
+    , io-classes                >=1.5   && <1.9.0
+    , io-classes:si-timers
     , pretty-simple
     , relude
-    , si-timers          >=1.0.0.0
     , transformers
 
   default-language:   GHC2021
