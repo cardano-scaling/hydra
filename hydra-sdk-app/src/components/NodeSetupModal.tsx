@@ -45,7 +45,7 @@ export const NodeSetupModal: React.FC<NodeSetupModalProps> = ({ isOpen, onClose 
       <div className="bg-accent/10 border-l-[3px] border-accent rounded-r-md p-4 mb-4 text-sm text-slate-400">
         <strong className="text-slate-200">Prerequisites:</strong>
         <ul className="mt-2 ml-4 space-y-1 list-disc">
-          <li><code className="bg-dark-bg px-1.5 py-0.5 rounded text-xs">hydra.sk</code> — Generate with <code className="bg-dark-bg px-1.5 py-0.5 rounded text-xs">hydra-node gen-hydra-key</code></li>
+          <li><code className="bg-dark-bg px-1.5 py-0.5 rounded text-xs">hydra.sk</code> — Click <strong>"🔑 Generate Hydra Keys"</strong> above, then export</li>
           <li><code className="bg-dark-bg px-1.5 py-0.5 rounded text-xs">blockfrost-project.txt</code> — Your Blockfrost API key</li>
           <li><code className="bg-dark-bg px-1.5 py-0.5 rounded text-xs">protocol-parameters.json</code> — Fetch from Blockfrost or cardano-cli</li>
           <li><code className="bg-dark-bg px-1.5 py-0.5 rounded text-xs">cardano.sk</code> — Export from wallet above (needs ~2 ADA for fuel)</li>

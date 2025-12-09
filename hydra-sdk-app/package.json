@@ -18,10 +18,10 @@
     "vite-plugin-wasm": "^3.5.0"
   },
   "dependencies": {
-    "@hydra-sdk/bridge": "^1.1.3",
+    "@hydra-sdk/bridge": "^1.1.5",
     "@hydra-sdk/cardano-wasm": "^0.0.5",
-    "@hydra-sdk/core": "^1.1.3",
-    "@hydra-sdk/transaction": "^1.1.3",
+    "@hydra-sdk/core": "^1.1.5",
+    "@hydra-sdk/transaction": "^1.1.5",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",

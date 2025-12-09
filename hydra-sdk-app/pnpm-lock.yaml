@@ -9,17 +9,17 @@ importers:
   .:
     dependencies:
       '@hydra-sdk/bridge':
-        specifier: ^1.1.3
-        version: 1.1.3
+        specifier: ^1.1.5
+        version: 1.1.5
       '@hydra-sdk/cardano-wasm':
         specifier: ^0.0.5
         version: 0.0.5
       '@hydra-sdk/core':
-        specifier: ^1.1.3
-        version: 1.1.3
+        specifier: ^1.1.5
+        version: 1.1.5
       '@hydra-sdk/transaction':
-        specifier: ^1.1.3
-        version: 1.1.3
+        specifier: ^1.1.5
+        version: 1.1.5
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.7
@@ -315,20 +315,20 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@hydra-sdk/bridge@1.1.3':
-    resolution: {integrity: sha512-yjQvCUC5PHW4wF7e/XGRRLsfLk9CP614d1LzTWqMy4DcCmvfSYjNS7HKSL5Bv0h/oGkTc0Hq9RHcZxlUmGXgzA==}
+  '@hydra-sdk/bridge@1.1.5':
+    resolution: {integrity: sha512-eJ7XSfmjPXEdARkXj5LLlSh4f3hfkc7IrFYUXK3XsZyJd3kZQBr0LjqS8Qak5TdPMkbOynH6JA1a75E+tJ+nSg==}
     engines: {node: '>=10'}
 
   '@hydra-sdk/cardano-wasm@0.0.5':
     resolution: {integrity: sha512-UeNKoug4elkpjniu8WnaXIzH/Kc3Paap6EHVSABM0/AK3l1ByckB9U5dURUEfBdfc8wajjOm2KxQ4d/0CWH+tA==}
     engines: {node: '>=18'}
 
-  '@hydra-sdk/core@1.1.3':
-    resolution: {integrity: sha512-mlNyBY9IVWHnXGl4gPTMRQNqosjGPl40uKIw3270NeATcluP9xFTCNPRDgmteZ+XiuEqaG6ORntDf6MRzTJYkQ==}
+  '@hydra-sdk/core@1.1.5':
+    resolution: {integrity: sha512-ywnX6PYKtvUtUKsoOa1exBwItTPT1GGLSw0cj8+rE7m4TvfbeVM2mSioNGfw/tDfAIgl1oBg6Z7fD0+9+LtLcA==}
     engines: {node: '>=10'}
 
-  '@hydra-sdk/transaction@1.1.3':
-    resolution: {integrity: sha512-EOXBWYPIt4iJ2KtZ0NyKKrgfclvopGRVdpJ7VDREaJwYChBLxXy3exkAiA1TXhLe9EqwwmOOKpz5jl6BapMNfQ==}
+  '@hydra-sdk/transaction@1.1.5':
+    resolution: {integrity: sha512-omszuKmeflYsTe/nfJNm3vhIdOgDSIqVmuyW3VDRD8BZrlCDgYzxdmEK9MJo9ckqEvRnNyOVk6L4aBFJy+XilQ==}
     engines: {node: '>=10'}
 
   '@jridgewell/gen-mapping@0.3.13':
@@ -1391,10 +1391,10 @@ snapshots:
   '@esbuild/win32-x64@0.25.12':
     optional: true
 
-  '@hydra-sdk/bridge@1.1.3':
+  '@hydra-sdk/bridge@1.1.5':
     dependencies:
       '@hydra-sdk/cardano-wasm': 0.0.5
-      '@hydra-sdk/core': 1.1.3
+      '@hydra-sdk/core': 1.1.5
       axios: 1.9.0
       bip39: 3.1.0
       mitt: 3.0.1
@@ -1410,7 +1410,7 @@ snapshots:
       '@emurgo/cardano-serialization-lib-browser': 14.1.2
       '@emurgo/cardano-serialization-lib-nodejs': 14.1.2
 
-  '@hydra-sdk/core@1.1.3':
+  '@hydra-sdk/core@1.1.5':
     dependencies:
       '@hydra-sdk/cardano-wasm': 0.0.5
       '@scure/base': 1.2.6
@@ -1419,10 +1419,10 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  '@hydra-sdk/transaction@1.1.3':
+  '@hydra-sdk/transaction@1.1.5':
     dependencies:
       '@hydra-sdk/cardano-wasm': 0.0.5
-      '@hydra-sdk/core': 1.1.3
+      '@hydra-sdk/core': 1.1.5
       '@scure/base': 1.2.6
       bip39: 3.1.0
       json-bigint: 1.0.0

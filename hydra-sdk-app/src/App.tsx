@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ProviderUtils, CardanoCliWallet, NETWORK_ID } from '@hydra-sdk/core';
+import { ProviderUtils, CardanoCliWallet, NETWORK_ID, KeysUtils } from '@hydra-sdk/core';
 import { CardanoWASM } from '@hydra-sdk/cardano-wasm';
 import { TxBuilder } from '@hydra-sdk/transaction';
 import { Buffer } from 'buffer';
@@ -64,6 +64,10 @@ const App = () => {
 
     // Split UTxO - tracks which UTxO is currently being split (txHash#outputIndex)
     const [splittingUtxo, setSplittingUtxo] = useState<string | null>(null);
+
+    // Hydra Keys State
+    const [hydraSkeyHex, setHydraSkeyHex] = useState<string | null>(null);
+    const [hydraVkeyHex, setHydraVkeyHex] = useState<string | null>(null);
 
     // Hydra Hook
     const {
@@ -305,6 +309,52 @@ const App = () => {
         const a = document.createElement('a');
         a.href = url;
         a.download = 'cardano.vk';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // Generate Hydra keys using SDK's KeysUtils
+    const handleGenerateHydraKeys = () => {
+        try {
+            const keyPair = KeysUtils.hydraCliKeygen();
+            setHydraSkeyHex(keyPair.sk.cborHex);
+            setHydraVkeyHex(keyPair.vk.cborHex);
+            setError(null);
+        } catch (e) {
+            setError(`Failed to generate Hydra keys: ${e instanceof Error ? e.message : String(e)}`);
+        }
+    };
+
+    // Export Hydra signing key
+    const handleExportHydraSk = () => {
+        if (!hydraSkeyHex) return;
+        const keyFile = {
+            type: "HydraSigningKey_ed25519",
+            description: "Hydra Signing Key",
+            cborHex: hydraSkeyHex
+        };
+        const blob = new Blob([JSON.stringify(keyFile, null, 4)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'hydra.sk';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    // Export Hydra verification key
+    const handleExportHydraVk = () => {
+        if (!hydraVkeyHex) return;
+        const keyFile = {
+            type: "HydraVerificationKey_ed25519",
+            description: "Hydra Verification Key",
+            cborHex: hydraVkeyHex
+        };
+        const blob = new Blob([JSON.stringify(keyFile, null, 4)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'hydra.vk';
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -566,6 +616,7 @@ const App = () => {
                                 mnemonic={mnemonic}
                                 showMnemonic={showMnemonic}
                                 splittingUtxo={splittingUtxo}
+                                hydraKeysGenerated={!!(hydraSkeyHex && hydraVkeyHex)}
                                 onRefresh={fetchL1Utxos}
                                 onExportSk={handleExportSk}
                                 onExportVk={handleExportVk}
@@ -573,6 +624,9 @@ const App = () => {
                                 onSplitUtxo={handleSplitUtxo}
                                 onHideMnemonic={() => setShowMnemonic(false)}
                                 onShowNodeSetup={() => setShowNodeSetupModal(true)}
+                                onGenerateHydraKeys={handleGenerateHydraKeys}
+                                onExportHydraSk={handleExportHydraSk}
+                                onExportHydraVk={handleExportHydraVk}
                             />
                         )}
                     </Card>

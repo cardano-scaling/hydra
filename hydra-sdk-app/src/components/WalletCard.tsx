@@ -16,6 +16,7 @@ interface WalletCardProps {
   mnemonic: string | null;
   showMnemonic: boolean;
   splittingUtxo: string | null; // txHash#outputIndex of currently splitting UTxO
+  hydraKeysGenerated: boolean;
   onRefresh: () => void;
   onExportSk: () => void;
   onExportVk: () => void;
@@ -23,6 +24,9 @@ interface WalletCardProps {
   onSplitUtxo: (utxo: UTxO) => void;
   onHideMnemonic: () => void;
   onShowNodeSetup: () => void;
+  onGenerateHydraKeys: () => void;
+  onExportHydraSk: () => void;
+  onExportHydraVk: () => void;
 }
 
 const formatAda = (lovelace: string | number) => {
@@ -40,6 +44,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   mnemonic,
   showMnemonic,
   splittingUtxo,
+  hydraKeysGenerated,
   onRefresh,
   onExportSk,
   onExportVk,
@@ -47,6 +52,9 @@ export const WalletCard: React.FC<WalletCardProps> = ({
   onSplitUtxo,
   onHideMnemonic,
   onShowNodeSetup,
+  onGenerateHydraKeys,
+  onExportHydraSk,
+  onExportHydraVk,
 }) => {
   const [showUtxoDropdown, setShowUtxoDropdown] = useState(false);
 
@@ -170,11 +178,31 @@ export const WalletCard: React.FC<WalletCardProps> = ({
         </div>
       )}
 
-      {/* Actions */}
+      {/* Cardano Key Actions */}
       <div className="flex flex-wrap gap-2 pt-3 border-t border-border">
-        <Button variant="secondary" size="sm" onClick={onExportSk}>💾 Export .sk</Button>
-        <Button variant="secondary" size="sm" onClick={onExportVk}>📤 Export .vk</Button>
+        <Button variant="secondary" size="sm" onClick={onExportSk}>💾 Export cardano.sk</Button>
+        <Button variant="secondary" size="sm" onClick={onExportVk}>📤 Export cardano.vk</Button>
         <Button variant="secondary" size="sm" onClick={onDisconnect}>🔓 Disconnect</Button>
+      </div>
+
+      {/* Hydra Keys Section */}
+      <div className="pt-3 border-t border-border">
+        <div className="text-xs text-slate-500 mb-2">Hydra Keys</div>
+        {!hydraKeysGenerated ? (
+          <Button variant="primary" fullWidth onClick={onGenerateHydraKeys}>
+            🔑 Generate Hydra Keys
+          </Button>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-success text-sm">✅ Hydra keys generated</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="secondary" size="sm" onClick={onExportHydraSk}>💾 Export hydra.sk</Button>
+              <Button variant="secondary" size="sm" onClick={onExportHydraVk}>📤 Export hydra.vk</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       <Button variant="secondary" fullWidth onClick={onShowNodeSetup}>

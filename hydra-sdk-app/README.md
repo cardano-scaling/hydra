@@ -62,14 +62,18 @@ Your wallet needs test ADA to pay for L1 transactions ("fuel").
 
 ### Step 4: Generate Hydra Keys
 
-In a terminal, generate a Hydra signing key pair:
+You can generate Hydra keys directly in the web app:
 
-```bash
-cd /path/to/hydra
-cabal run hydra-node -- gen-hydra-key --output-file hydra
-```
+1. After connecting your wallet, click **"🔑 Generate Hydra Keys"**
+2. Click **"💾 Export hydra.sk"** and **"📤 Export hydra.vk"** to download the key files
 
-This creates `hydra.sk` and `hydra.vk` files.
+This creates `hydra.sk` and `hydra.vk` files using the SDK's `KeysUtils.hydraCliKeygen()` method.
+
+> **Alternative:** You can also generate keys via CLI:
+> ```bash
+> cd /path/to/hydra
+> cabal run hydra-node -- gen-hydra-key --output-file hydra
+> ```
 
 ### Step 5: Prepare Files
 
@@ -78,8 +82,8 @@ Make sure you have these files in your hydra repo root:
 | File | Description | How to get it |
 |------|-------------|---------------|
 | `blockfrost-project.txt` | Your Blockfrost API key | `echo "previewXXXXXX" > blockfrost-project.txt` |
-| `hydra.sk` | Hydra signing key | `cabal run hydra-node -- gen-hydra-key --output-file hydra` |
-| `cardano.sk` | Cardano signing key | Export from web app or create manually |
+| `hydra.sk` | Hydra signing key | Export from web app ("🔑 Generate Hydra Keys") |
+| `cardano.sk` | Cardano signing key | Export from web app ("💾 Export cardano.sk") |
 | `protocol-parameters.json` | Protocol parameters | `cp demo/devnet/protocol-parameters.json .` |
 
 ### Step 6: Start Hydra Node
