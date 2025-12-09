@@ -12,6 +12,7 @@
 module Hydra.Chain where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))

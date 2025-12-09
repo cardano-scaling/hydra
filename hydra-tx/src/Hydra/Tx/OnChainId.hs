@@ -6,7 +6,7 @@ module Hydra.Tx.OnChainId where
 
 import Hydra.Prelude
 
-import Test.QuickCheck (vectorOf)
+import Test.QuickCheck (Arbitrary (..), Gen, vectorOf)
 
 import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (

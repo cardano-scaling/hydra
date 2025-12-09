@@ -1,14 +1,13 @@
 module Hydra.Ledger.Cardano.TimeSpec where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (..))
 import Cardano.Slotting.Time (SlotLength, SystemStart (..), slotLengthFromMillisec)
 import Data.Fixed (Milli)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Test.Hspec (Spec)
-import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (classify, forAll, getPositive, (===))
 
 spec :: Spec

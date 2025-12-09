@@ -49,6 +49,7 @@ library
     , hydra-node
     , hydra-plutus
     , hydra-prelude
+    , hydra-test-utils
     , hydra-tx
     , io-classes
     , network-uri

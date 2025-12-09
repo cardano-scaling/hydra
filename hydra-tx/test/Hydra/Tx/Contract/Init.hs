@@ -6,6 +6,7 @@ module Hydra.Tx.Contract.Init where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
@@ -27,7 +28,7 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
   replaceHeadId,
  )
-import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (Gen, choose, elements, oneof, suchThat, vectorOf)
 import Prelude qualified
 
 --

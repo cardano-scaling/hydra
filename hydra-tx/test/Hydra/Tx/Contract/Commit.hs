@@ -4,6 +4,7 @@ module Hydra.Tx.Contract.Commit where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL)

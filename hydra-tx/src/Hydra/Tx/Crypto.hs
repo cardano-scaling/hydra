@@ -73,7 +73,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.HeadState qualified as OnChain
 import PlutusLedgerApi.V3 qualified as Plutus
-import Test.QuickCheck (vectorOf)
+import Test.QuickCheck (Arbitrary (..), vectorOf)
 import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 

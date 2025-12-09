@@ -24,6 +24,7 @@ import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
 import PlutusLedgerApi.V3 (fromBuiltin)
+import Test.QuickCheck (Arbitrary (..))
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what

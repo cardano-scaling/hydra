@@ -1,6 +1,7 @@
 module Hydra.Node.Environment where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)

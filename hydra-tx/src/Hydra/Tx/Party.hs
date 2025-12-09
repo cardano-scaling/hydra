@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
+import Test.QuickCheck (Arbitrary)
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}

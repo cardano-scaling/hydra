@@ -11,6 +11,7 @@ import Data.Time (nominalDiffTimeToSeconds, secondsToNominalDiffTime)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds, fromMilliSeconds)
 import PlutusLedgerApi.V3 (POSIXTime (..))
 import PlutusTx qualified
+import Test.QuickCheck (Arbitrary (..))
 
 newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilliSeconds}
   deriving stock (Generic, Eq, Ord, Show)

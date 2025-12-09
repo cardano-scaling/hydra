@@ -5,6 +5,8 @@ import Hydra.Prelude
 import Data.List (nub)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Party (Party (..))
+import Test.Hydra.Prelude (genericArbitrary)
+import Test.QuickCheck (Arbitrary (..))
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
