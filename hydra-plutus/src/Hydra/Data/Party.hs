@@ -7,7 +7,7 @@ import PlutusTx qualified
 import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
 import PlutusTx.IsData
 import PlutusTx.Prelude qualified as PlutusTx
-import Test.QuickCheck (vector)
+import Test.QuickCheck (Arbitrary (..), vector)
 
 -- | On-chain representation of a Hydra party.
 --

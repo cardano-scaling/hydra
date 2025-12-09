@@ -4,6 +4,7 @@
 module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)

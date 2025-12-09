@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (
   fromPlutusCurrencySymbol,
  )
 import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
-import Test.QuickCheck (vectorOf)
+import Test.QuickCheck (Arbitrary (..), vectorOf)
 import Test.QuickCheck.Instances.Semigroup ()
 import Test.QuickCheck.Instances.Time ()
 

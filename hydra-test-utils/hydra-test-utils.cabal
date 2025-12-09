@@ -40,6 +40,7 @@ library
     , base
     , directory
     , filepath
+    , generic-random
     , hspec
     , HUnit
     , hydra-prelude
@@ -47,5 +48,6 @@ library
     , port-utils
     , process
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , relude
     , temporary

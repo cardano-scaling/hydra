@@ -5,6 +5,7 @@ module Test.Hydra.Tx.Gen where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC

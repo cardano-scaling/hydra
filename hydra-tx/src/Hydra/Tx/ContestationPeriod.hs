@@ -6,7 +6,7 @@ import Data.Fixed (Pico)
 import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
 import Hydra.Data.ContestationPeriod qualified as OnChain
-import Test.QuickCheck (choose, oneof)
+import Test.QuickCheck (Arbitrary (..), choose, oneof)
 import Text.Show (Show (..))
 
 -- | A positive, non-zero number of seconds. Use 'fromInteger' on positive

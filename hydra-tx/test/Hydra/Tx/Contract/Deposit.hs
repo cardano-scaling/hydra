@@ -5,6 +5,7 @@ module Hydra.Tx.Contract.Deposit where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import GHC.IsList qualified as GHC

@@ -23,6 +23,7 @@ module Hydra.Logging (
 ) where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (

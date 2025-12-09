@@ -3,6 +3,7 @@
 module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Conduit (

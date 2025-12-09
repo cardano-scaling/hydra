@@ -2,6 +2,7 @@ module Hydra.Tx.Contract.Recover where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Fixed (Milli)

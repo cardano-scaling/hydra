@@ -15,6 +15,7 @@ module Hydra.Network (
 ) where
 
 import Hydra.Prelude hiding (show)
+import Test.Hydra.Prelude
 
 import Cardano.Ledger.Orphans ()
 import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
