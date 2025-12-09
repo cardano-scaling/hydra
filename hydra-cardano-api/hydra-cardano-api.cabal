@@ -41,7 +41,6 @@ library
   ghc-options:     -haddock
   exposed-modules:
     Hydra.Cardano.Api
-    Hydra.Cardano.Api.Address
     Hydra.Cardano.Api.AddressInEra
     Hydra.Cardano.Api.ChainPoint
     Hydra.Cardano.Api.ExecutionUnits
@@ -76,7 +75,6 @@ library
     , base                    >=4.14
     , bytestring
     , cardano-api             ^>=10.17
-    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
@@ -88,8 +86,23 @@ library
     , cardano-ledger-mary
     , cardano-ledger-shelley
     , containers
-    , hedgehog-quickcheck
     , lens
     , plutus-ledger-api
-    , QuickCheck
     , text                    >=2
+
+library testlib
+  import:          project-config
+  hs-source-dirs:  testlib
+  ghc-options:     -haddock
+  visibility:      public
+  exposed-modules: Hydra.Cardano.Api.Gen
+  build-depends:
+    , base
+    , bytestring
+    , cardano-api
+    , cardano-api:gen
+    , cardano-ledger-binary
+    , cardano-ledger-core
+    , hedgehog-quickcheck
+    , hydra-cardano-api
+    , QuickCheck

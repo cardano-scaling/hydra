@@ -19,7 +19,6 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   findRedeemerSpending,
-  genTxIn,
   getTxBody,
   getTxId,
   hashScript,
@@ -39,6 +38,7 @@ import Hydra.Cardano.Api (
   valueSize,
   pattern PlutusScript,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
 import Hydra.Chain.Direct.State (

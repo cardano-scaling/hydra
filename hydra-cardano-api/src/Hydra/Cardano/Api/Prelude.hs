@@ -17,8 +17,6 @@ module Hydra.Cardano.Api.Prelude (
   Map,
   Set,
   unsafeHashFromBytes,
-  Arbitrary (..),
-  Gen,
 ) where
 
 import Cardano.Api hiding (
@@ -39,7 +37,6 @@ import Data.Text (Text)
 import Data.Text.Encoding (decodeUtf8, encodeUtf8)
 import Data.Typeable (Typeable)
 import GHC.Stack (HasCallStack)
-import Test.QuickCheck (Arbitrary (..), Gen)
 
 type Era = ConwayEra
 

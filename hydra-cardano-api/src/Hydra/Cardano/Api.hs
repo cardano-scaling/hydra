@@ -89,7 +89,6 @@ import Hydra.Cardano.Api.Prelude (
   ledgerEraVersion,
  )
 
-import Hydra.Cardano.Api.Address ()
 import Hydra.Cardano.Api.AddressInEra as Extras
 import Hydra.Cardano.Api.ChainPoint as Extras
 import Hydra.Cardano.Api.ExecutionUnits as Extras

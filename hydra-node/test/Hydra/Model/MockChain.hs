@@ -24,6 +24,7 @@ import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (userError)
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),

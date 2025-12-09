@@ -8,13 +8,6 @@ import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Hydra.Cardano.Api.ScriptHash ()
 import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
-import Test.Gen.Cardano.Api.Typed (genPolicyId)
-import Test.QuickCheck.Hedgehog (hedgehog)
-
--- * Orphans
-
-instance Arbitrary PolicyId where
-  arbitrary = hedgehog genPolicyId
 
 -- * Type conversions
 
