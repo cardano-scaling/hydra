@@ -27,7 +27,7 @@
           inputs.nix-npm-buildpackage.overlays.default
           # Specific versions of tools we require
           (final: _prev: {
-            # NOTE: Using nixpkgs aiken instead of flake input due to broken v1.1.9 Nix packaging
+            # Use aiken from nixpkgs (the aiken flake has broken Nix packaging for macOS)
             inherit ((import inputs.nixpkgs-2411 { inherit (final) system; })) aiken;
             apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
             cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
