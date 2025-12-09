@@ -9,6 +9,7 @@ module Test.Hydra.Tx.Fixture (
   epochInfo,
 ) where
 
+import Hydra.Cardano.Api.Gen
 import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
@@ -26,7 +27,6 @@ import Hydra.Cardano.Api (
   SigningKey,
   TxIn,
   deserialiseFromRawBytes,
-  genTxIn,
   serialiseToRawBytes,
   verificationKeyHash,
  )

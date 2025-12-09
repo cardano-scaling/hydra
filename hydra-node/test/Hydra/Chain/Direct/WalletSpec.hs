@@ -2,6 +2,7 @@
 
 module Hydra.Chain.Direct.WalletSpec where
 
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
@@ -30,7 +31,6 @@ import Hydra.Cardano.Api (
   VerificationKey,
   fromLedgerTx,
   fromLedgerTxOut,
-  genTxIn,
   selectLovelace,
   shelleyBasedEra,
   toLedgerTxIn,

@@ -91,6 +91,7 @@ library
     , data-default
     , formatting
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
@@ -137,6 +138,7 @@ library testlib
     , containers
     , directory
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
@@ -196,6 +198,7 @@ test-suite tests
     , hspec
     , hspec-golden-aeson
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude

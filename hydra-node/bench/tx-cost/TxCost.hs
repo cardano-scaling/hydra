@@ -15,8 +15,8 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Tx,
   UTxO,
-  genTxIn,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ClosedState (..),

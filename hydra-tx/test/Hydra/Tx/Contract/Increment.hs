@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.DepositError (DepositError (..))

@@ -19,6 +19,7 @@ import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
