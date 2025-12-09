@@ -29,6 +29,7 @@ import Hydra.Tx.Crypto (HydraKey)
 import Network.Socket (PortNumber)
 import Test.QuickCheck (elements, listOf, suchThat)
 import Test.QuickCheck.Instances.Natural ()
+import Test.QuickCheck.Instances.Text ()
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
