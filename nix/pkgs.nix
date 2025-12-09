@@ -26,8 +26,9 @@
           self.overlays.static-libs
           inputs.nix-npm-buildpackage.overlays.default
           # Specific versions of tools we require
-          (_final: _prev: {
-            inherit (inputs.aiken.packages.${system}) aiken;
+          (final: _prev: {
+            # NOTE: Using nixpkgs aiken instead of flake input due to broken v1.1.9 Nix packaging
+            inherit ((import inputs.nixpkgs-2411 { inherit (final) system; })) aiken;
             apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
             cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
             cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" { version = "0.7.5.0"; cabalProjectLocal = "package cabal-plan\nflags: +exe"; };
