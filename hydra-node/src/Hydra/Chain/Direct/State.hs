@@ -9,6 +9,7 @@
 module Hydra.Chain.Direct.State where
 
 import Hydra.Prelude hiding (init)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List

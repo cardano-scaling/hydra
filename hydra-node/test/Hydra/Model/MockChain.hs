@@ -5,6 +5,7 @@ module Hydra.Model.MockChain where
 
 import Hydra.Cardano.Api hiding (Network)
 import Hydra.Prelude hiding (Any, label)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (

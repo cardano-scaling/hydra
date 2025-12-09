@@ -15,7 +15,8 @@ import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
 import PlutusLedgerApi.V3 (toBuiltin, toData)
-import Test.QuickCheck (frequency, suchThat)
+import Test.Hydra.Prelude (genericArbitrary)
+import Test.QuickCheck (Arbitrary (..), Gen, frequency, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 
 -- * SnapshotNumber and SnapshotVersion

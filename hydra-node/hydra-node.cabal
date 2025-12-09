@@ -144,6 +144,7 @@ library
     , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
+    , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
     , io-classes                      >=0.3.0.0
@@ -267,6 +268,7 @@ benchmark tx-cost
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
     , optparse-applicative

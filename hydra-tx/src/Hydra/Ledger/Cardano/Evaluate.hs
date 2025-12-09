@@ -73,7 +73,7 @@ import Ouroboros.Consensus.HardFork.History (
 import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
-import Test.QuickCheck (Property, choose, counterexample, property)
+import Test.QuickCheck (Arbitrary (..), Gen, Property, choose, counterexample, property)
 import Test.QuickCheck.Gen (chooseWord64)
 
 -- * Evaluate transactions

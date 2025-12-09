@@ -94,6 +94,7 @@ library
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-test-utils
     , lens
     , lens-aeson
     , mono-traversable

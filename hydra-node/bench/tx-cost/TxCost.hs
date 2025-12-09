@@ -4,6 +4,7 @@
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)

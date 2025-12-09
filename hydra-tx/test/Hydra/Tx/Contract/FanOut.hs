@@ -5,6 +5,7 @@ module Hydra.Tx.Contract.FanOut where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))

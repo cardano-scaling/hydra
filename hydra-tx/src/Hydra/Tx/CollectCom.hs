@@ -23,7 +23,7 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.Common (fromBuiltin)
 import PlutusLedgerApi.V3 (toBuiltin)
-import Test.QuickCheck (vectorOf)
+import Test.QuickCheck (Arbitrary (..), vectorOf)
 
 -- * Construction
 
