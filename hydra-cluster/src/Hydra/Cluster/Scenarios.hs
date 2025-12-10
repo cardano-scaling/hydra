@@ -42,6 +42,7 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
+  ChainPoint,
   Coin (..),
   Era,
   File (File),
@@ -106,6 +107,7 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Direct.State (chainSlotFromPoint)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -292,6 +294,38 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
     withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
       waitFor hydraTracer 10 [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
+
+resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
+  networkId <- Backend.queryNetworkId backend
+  let contestationPeriod = 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+      <&> setNetworkId networkId
+
+  chainPoint :: ChainPoint <-
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        point <- v ^? key "atChainPoint"
+        parseMaybe parseJSON point
+
+  let chainSlot = chainSlotFromPoint chainPoint
+
+  chainPoint' :: ChainPoint <-
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        point <- v ^? key "atChainPoint"
+        parseMaybe parseJSON point
+
+  let chainSlot' = chainSlotFromPoint chainPoint'
+
+  chainSlot `shouldSatisfy` (< chainSlot')
+ where
+  hydraTracer = contramap FromHydraNode tracer
 
 restartedNodeCanAbort :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 restartedNodeCanAbort tracer workDir backend hydraScriptsTxId = do
