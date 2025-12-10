@@ -15,10 +15,10 @@ import Hydra.Cardano.Api (
   Tx,
   VerificationKey,
   fromLedgerTx,
-  genTxIn,
   getChainPoint,
   toLedgerTx,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
 

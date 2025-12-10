@@ -94,6 +94,7 @@ library
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-test-utils
     , lens
     , lens-aeson
     , mono-traversable
@@ -101,8 +102,6 @@ library
     , ouroboros-consensus-cardano
     , plutus-ledger-api
     , prettyprinter
-    , QuickCheck
-    , quickcheck-instances
     , serialise
     , sop-extras
     , text
@@ -136,6 +135,7 @@ library testlib
     , containers
     , directory
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
@@ -183,6 +183,7 @@ test-suite tests
     , base
     , base16-bytestring
     , cardano-api
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
@@ -190,10 +191,13 @@ test-suite tests
     , cardano-ledger-babbage
     , cardano-ledger-core
     , containers
+    , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-plutus
+    , hydra-plutus:testlib
     , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils

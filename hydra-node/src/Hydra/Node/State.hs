@@ -3,6 +3,7 @@
 module Hydra.Node.State where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Data.Map qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))

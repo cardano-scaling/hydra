@@ -10,6 +10,7 @@ module Hydra.Ledger.Cardano (
 ) where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder

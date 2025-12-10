@@ -52,6 +52,7 @@ library
     , base16-bytestring
     , cardano-api
     , hydra-prelude
+    , hydra-test-utils
     , plutus-ledger-api     >=1.1.1.0
     , plutus-tx             >=1.1.1.0
     , quickcheck-instances

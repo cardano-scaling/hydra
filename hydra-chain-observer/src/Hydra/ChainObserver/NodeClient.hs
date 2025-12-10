@@ -3,6 +3,7 @@
 module Hydra.ChainObserver.NodeClient where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (
   BlockNo,

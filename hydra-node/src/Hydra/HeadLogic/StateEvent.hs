@@ -9,6 +9,7 @@ import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Node.State (NodeState)
 import Hydra.Prelude
 import Hydra.Tx (ArbitraryIsTx)
+import Test.Hydra.Prelude
 
 -- * State change events as used by Hydra.Node
 
