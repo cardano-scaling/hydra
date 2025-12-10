@@ -20,6 +20,7 @@ import Hydra.Cardano.Api (
   Address,
   AddressInEra,
   ByronAddr,
+  ChainPoint (..),
   Coin (..),
   LedgerEra,
   PolicyAssets,
@@ -229,7 +230,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => A
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
   , defaultChainState :: ChainStateType tx
-  , latestKnownChainPoint :: ChainPointType tx
+  , latestKnownChainPoint :: ChainPoint
   }
   deriving stock (Generic)
 
@@ -253,27 +254,14 @@ rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChai
 
   latestKnownChainPoint =
     case rolledBack of
-      [] -> genesisPoint
+      [] -> ChainPointAtGenesis
       (cs : _) -> chainStatePoint cs
 
-deriving stock instance
-  ( Eq (ChainStateType tx)
-  , Eq (ChainPointType tx)
-  ) =>
-  Eq (ChainStateHistory tx)
+deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
 
-deriving stock instance
-  ( Show (ChainStateType tx)
-  , Show (ChainPointType tx)
-  ) =>
-  Show (ChainStateHistory tx)
+deriving stock instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
 
-instance
-  ( Arbitrary (ChainStateType tx)
-  , Arbitrary (ChainPointType tx)
-  ) =>
-  Arbitrary (ChainStateHistory tx)
-  where
+instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
@@ -336,7 +324,7 @@ data ChainEvent tx
     -- another round trip / state to keep there.
     Tick
       { chainTime :: UTCTime
-      , chainPoint :: ChainPointType tx
+      , chainPoint :: ChainPoint
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
