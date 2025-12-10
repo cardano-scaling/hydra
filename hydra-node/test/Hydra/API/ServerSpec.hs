@@ -27,6 +27,7 @@ import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
 import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
+import Hydra.Cardano.Api (ChainPoint (ChainPointAtGenesis), Tx)
 import Hydra.Chain (
   Chain (Chain),
   checkNonADAAssets,
@@ -36,10 +37,12 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
+import Hydra.Chain.ChainState (ChainStateType)
+import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
-import Hydra.Ledger.Simple (SimpleTx (..))
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
@@ -330,7 +333,7 @@ spec =
                     , tlsKeyPath = Just "test/tls/key.pem"
                     , apiTransactionTimeout = 1000000
                     }
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer dummySimpleChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -374,16 +377,25 @@ testClient queue semaphore cnx = do
       atomically (writeTQueue queue value)
       testClient queue semaphore cnx
 
-dummyChainHandle :: Chain tx IO
-dummyChainHandle =
+dummyBaseChainHandle :: ChainStateType tx -> Chain tx IO
+dummyBaseChainHandle chainStateType =
   Chain
-    { mkChainState = error "unexpected call to mkChainState"
+    { mkChainState = chainStateType
     , postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
     , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
     }
+
+dummySimpleChainHandle :: Chain SimpleTx IO
+dummySimpleChainHandle = dummyBaseChainHandle SimpleChainState{point = ChainPointAtGenesis}
+
+dummyChainHandle :: Chain Tx IO
+dummyChainHandle = dummyBaseChainHandle initialChainState
+
+dummyUnsafeChainHandle :: Chain tx IO
+dummyUnsafeChainHandle = dummyBaseChainHandle (error "unexpected call to mkChainState")
 
 allowEverythingServerOutputFilter :: ServerOutputFilter tx
 allowEverythingServerOutputFilter =
@@ -402,7 +414,7 @@ withTestAPIServer ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer port actor eventSource tracer action = do
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer dummySimpleChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
