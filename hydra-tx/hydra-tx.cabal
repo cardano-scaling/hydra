@@ -200,6 +200,7 @@ test-suite tests
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-plutus
+    , hydra-plutus:testlib
     , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
