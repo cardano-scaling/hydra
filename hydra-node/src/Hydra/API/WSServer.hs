@@ -41,6 +41,7 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (
   IsChainState,
+  chainStatePoint,
  )
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
@@ -117,6 +118,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
             , env
             , networkInfo
             , chainSyncedStatus
+            , atChainPoint = chainStatePoint (HeadState.getChainState headState)
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP
