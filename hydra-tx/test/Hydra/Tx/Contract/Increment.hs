@@ -5,6 +5,7 @@ module Hydra.Tx.Contract.Increment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
+import Hydra.Plutus.Gen ()
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
