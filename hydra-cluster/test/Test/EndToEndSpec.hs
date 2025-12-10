@@ -71,6 +71,7 @@ import Hydra.Cluster.Scenarios (
   rejectCommit,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
+  resumeFromLatestKnownPoint,
   singlePartyCommitsFromExternal,
   singlePartyCommitsFromExternalTxBlueprint,
   singlePartyCommitsScriptBlueprint,
@@ -579,6 +580,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   `shouldThrow` \(e :: SomeException) -> "HeadIsFinalized" `isInfixOf` show e
 
     describe "restarting nodes" $ do
+      it "resume from latest observed point" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= resumeFromLatestKnownPoint tracer tmpDir backend
+
       it "can abort head after restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
