@@ -26,7 +26,7 @@ import Hydra.Cardano.Api (
   PolicyId,
   Value,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.Tx (
   CommitBlueprintTx,
   ConfirmedSnapshot,
@@ -229,31 +229,51 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => A
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
   , defaultChainState :: ChainStateType tx
+  , latestKnownChainPoint :: ChainPointType tx
   }
   deriving stock (Generic)
 
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
-pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
+pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history, latestKnownChainPoint = chainStatePoint cs}
 
-initHistory :: ChainStateType tx -> ChainStateHistory tx
-initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs}
+initHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx
+initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs, latestKnownChainPoint = chainStatePoint cs}
 
 rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
 rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
-  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
+  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack), latestKnownChainPoint}
  where
   rolledBack =
     dropWhile
       (\cs -> chainStateSlot cs > rollbackChainSlot)
       (toList history)
 
-deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
-deriving stock instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
+  latestKnownChainPoint =
+    case rolledBack of
+      [] -> genesisPoint
+      (cs : _) -> chainStatePoint cs
 
-instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
+deriving stock instance
+  ( Eq (ChainStateType tx)
+  , Eq (ChainPointType tx)
+  ) =>
+  Eq (ChainStateHistory tx)
+
+deriving stock instance
+  ( Show (ChainStateType tx)
+  , Show (ChainPointType tx)
+  ) =>
+  Show (ChainStateHistory tx)
+
+instance
+  ( Arbitrary (ChainStateType tx)
+  , Arbitrary (ChainPointType tx)
+  ) =>
+  Arbitrary (ChainStateHistory tx)
+  where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
