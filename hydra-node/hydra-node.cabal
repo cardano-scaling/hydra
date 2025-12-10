@@ -146,6 +146,8 @@ library
     , hydra-prelude
     , hydra-tx
     , hydra-tx:testlib
+    , cardano-api:gen
+    , hedgehog-quickcheck
     , io-classes                      >=0.3.0.0
     , iohk-monitoring
     , iproute

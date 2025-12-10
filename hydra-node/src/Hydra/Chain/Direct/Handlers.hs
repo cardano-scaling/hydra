@@ -352,8 +352,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
-            let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
-            callback (Tick{chainTime = utcTime, chainSlot})
+            callback (Tick{chainTime = utcTime, chainPoint = point})
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case
