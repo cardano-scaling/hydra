@@ -70,12 +70,12 @@
       rec {
         release =
           asZip
-            { name = "hydra-${pkgs.hostPlatform.system}"; }
+            { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
             [ hydra-node hydra-tui ];
 
         release-static =
           asZip
-            { name = "hydra-${pkgs.hostPlatform.system}"; }
+            { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
             [ hydra-node-static hydra-tui-static ];
 
         hydra-node =

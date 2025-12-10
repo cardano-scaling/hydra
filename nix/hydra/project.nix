@@ -1,8 +1,5 @@
 { self, ... }: {
-
   perSystem = { compiler, inputMap, pkgs, ... }:
-
-
     let
       hsPkgs = pkgs.haskell-nix.project {
         src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
@@ -54,7 +51,7 @@
           }
           # Use different static libs on darwin
           # TODO: Always use these?
-          (pkgs.lib.mkIf pkgs.hostPlatform.isDarwin {
+          (pkgs.lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
             packages.hydra-node.ghcOptions = with pkgs; [
               "-L${lib.getLib static-gmp}/lib"
               "-L${lib.getLib static-libsodium-vrf}/lib"
