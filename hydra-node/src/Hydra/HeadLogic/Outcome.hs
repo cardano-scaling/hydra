@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, ChainPointType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -137,7 +137,7 @@ data StateChanged tx
   | HeadIsReadyToFanout {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot}
+  | TickObserved {chainPoint :: ChainPointType tx}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
