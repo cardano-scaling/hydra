@@ -4,9 +4,9 @@
 module Hydra.Tx.Contract.Contest.ContestCurrent where
 
 import Hydra.Cardano.Api
+import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
-import Hydra.Plutus.Gen ()
 
 import Data.Maybe (fromJust)
 

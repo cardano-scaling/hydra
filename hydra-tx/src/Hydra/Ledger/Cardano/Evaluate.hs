@@ -55,9 +55,6 @@ import Hydra.Cardano.Api (
   prettyError,
   toLedgerExUnits,
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -73,8 +70,6 @@ import Ouroboros.Consensus.HardFork.History (
 import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
-import Test.QuickCheck (Arbitrary (..), Gen, Property, choose, counterexample, property)
-import Test.QuickCheck.Gen (chooseWord64)
 
 -- * Evaluate transactions
 
@@ -320,53 +315,6 @@ slotLength = mkSlotLength 1
 
 systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
-
--- * Properties
-
--- | Expect a given 'Tx' and 'UTxO' to pass evaluation.
-propTransactionEvaluates :: (Tx, UTxO) -> Property
-propTransactionEvaluates (tx, lookupUTxO) =
-  case evaluateTx tx lookupUTxO of
-    Left err ->
-      property False
-        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Phase-1 validation failed: " <> show err)
-    Right redeemerReport ->
-      all isRight (Map.elems redeemerReport)
-        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Redeemer report:\n  " <> toString (renderEvaluationReport redeemerReport))
-        & counterexample "Phase-2 validation failed"
-
--- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
-propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
-propTransactionFailsEvaluation (tx, lookupUTxO) =
-  case evaluateTx tx lookupUTxO of
-    Left _ -> property True
-    Right redeemerReport ->
-      any isLeft redeemerReport
-        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
-        & counterexample ("Redeemer report: " <> show redeemerReport)
-        & counterexample "Phase-2 validation should have failed"
-
--- * Generators
-
--- | Parameter here is the contestation period (cp) so we need to generate
--- start (tMin) and end (tMax) tx validity bound such that their difference
--- is not higher than the cp.
--- Returned slots are tx validity bounds
-genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
-genValidityBoundsFromContestationPeriod cpSeconds = do
-  startSlot@(SlotNo start) <- SlotNo <$> arbitrary
-  let end = start + fromIntegral cpSeconds
-  endSlot <- SlotNo <$> chooseWord64 (start, end)
-  let time = slotNoToUTCTime systemStart slotLength endSlot
-  pure (startSlot, (endSlot, time))
-
-genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
-genPointInTimeBefore deadline = do
-  let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
-  slot <- SlotNo <$> choose (0, slotDeadline)
-  pure (slot, slotNoToUTCTime systemStart slotLength slot)
 
 -- ** Plutus cost model fixtures
 

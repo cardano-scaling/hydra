@@ -17,7 +17,7 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.Crypto (Signature)
-import Hydra.Tx.IsTx (ArbitraryIsTx)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data NetworkEvent msg

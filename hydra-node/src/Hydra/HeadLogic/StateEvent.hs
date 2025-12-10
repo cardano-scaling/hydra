@@ -3,13 +3,13 @@
 
 module Hydra.HeadLogic.StateEvent where
 
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Events (EventId, HasEventId (..))
 import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Node.State (NodeState)
 import Hydra.Prelude
-import Hydra.Tx (ArbitraryIsTx)
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- * State change events as used by Hydra.Node
 
@@ -30,7 +30,7 @@ deriving instance IsChainState tx => Eq (StateEvent tx)
 deriving instance IsChainState tx => ToJSON (StateEvent tx)
 deriving instance IsChainState tx => FromJSON (StateEvent tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateEvent tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (StateEvent tx) where
   arbitrary = arbitrary >>= genStateEvent
   shrink = genericShrink
 
