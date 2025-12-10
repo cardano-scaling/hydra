@@ -10,7 +10,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api (SigningKey, ChainPoint)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
@@ -59,6 +59,9 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
+import Test.QuickCheck.Gen (generate)
+import Test.QuickCheck.Hedgehog (hedgehog)
+import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 
 spec :: Spec
 spec = parallel $ do
@@ -339,11 +342,12 @@ spec = parallel $ do
 -- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
 -- to advance the chain slot and ensure the 'NodeState' is in sync. This is
 -- returning the node to allow for chaining with 'runToCompletion'.
-primeWith :: (MonadSTM m, MonadTime m) => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+primeWith :: (MonadSTM m, MonadTime m, MonadIO m) => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
   now <- getCurrentTime
   chainSlot <- currentSlot <$> atomically queryNodeState
-  let tick = ChainInput $ Tick now (chainSlot + 1)
+  blockHash <- liftIO $ generate (hedgehog genBlockHeaderHash)
+  let tick = ChainInput $ Tick now (ChainPoint (unSlotNo chainSlot + 1) blockHash)
   forM_ (tick : inputs) enqueue
   pure node
 

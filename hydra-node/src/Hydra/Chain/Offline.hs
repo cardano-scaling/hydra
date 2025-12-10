@@ -11,7 +11,17 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
+import Hydra.Cardano.Api (
+  GenesisParameters (..),
+  NetworkMagic (..),
+  ShelleyEra,
+  ShelleyGenesis (..),
+  Tx,
+  fromShelleyNetwork,
+ )
+import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
+import Test.QuickCheck.Hedgehog (hedgehog)
+import Hydra.Cardano.Api (ChainPoint (..))
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -19,17 +29,17 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostTxError (..),
-  chainSlot,
+  chainPoint,
   chainTime,
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
+import Test.QuickCheck (generate)
 
 -- Upstreamed in cardano-api 10.18
 fromShelleyGenesis :: Shelley.ShelleyGenesis -> GenesisParameters ShelleyEra
@@ -200,10 +210,12 @@ tickForever genesis callback = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
+    now <- getCurrentTime
+    blockHash <- generate (hedgehog genBlockHeaderHash)
     callback $
       Tick
         { chainTime = timeToSleepUntil
-        , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
+        , chainPoint = ChainPoint upcomingSlot blockHash
         }
   systemStart = SystemStart protocolParamSystemStart
 
