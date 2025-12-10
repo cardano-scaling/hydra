@@ -115,6 +115,7 @@ library
     , blockfrost-client               >=0.11.0.0
     , bytestring
     , cardano-api
+    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-crypto-wrapper
@@ -141,6 +142,7 @@ library
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
+    , hedgehog-quickcheck
     , http-types
     , hydra-cardano-api
     , hydra-cardano-api:testlib
@@ -149,8 +151,6 @@ library
     , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
-    , cardano-api:gen
-    , hedgehog-quickcheck
     , io-classes                      >=0.3.0.0
     , iohk-monitoring
     , iproute
@@ -409,6 +409,7 @@ test-suite tests
     , QuickCheck
     , quickcheck-dynamic              >=3.4     && <3.5
     , quickcheck-instances
+    , random
     , regex-tdfa
     , req
     , resourcet

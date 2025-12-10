@@ -22,7 +22,7 @@ import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
+import Hydra.Cardano.Api (ChainPoint (..), SigningKey)
 import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
@@ -30,13 +30,13 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
 import Hydra.HeadLogicSpec (testSnapshot)
-import Hydra.Ledger (Ledger, nextChainSlot)
+import Hydra.Ledger (Ledger, nextChainPoint)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
@@ -69,6 +69,7 @@ import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import System.Random (split)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -79,6 +80,8 @@ import Test.Hydra.Tx.Fixture (
   testHeadSeed,
  )
 import Test.QuickCheck (chooseEnum, counterexample, forAll, getNegative, ioProperty)
+import Test.QuickCheck.Gen (unGen)
+import Test.QuickCheck.Random (QCGen, mkQCGen)
 import Test.Util (
   propRunInSim,
   shouldBe,
@@ -889,8 +892,8 @@ spec = parallel $ do
               -- XXX: This is a bit cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject an
               -- 'OnChainTx' without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{point = ChainPointAtGenesis}}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{point = ChainPointAtGenesis}}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
@@ -1065,7 +1068,7 @@ withSimulatedChainAndNetwork ::
   m a
 withSimulatedChainAndNetwork =
   bracket
-    (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
+    (simulatedChainAndNetwork SimpleChainState{point = ChainPointAtGenesis})
     (cancel . tickThread)
 
 -- | Creates a simulated chain and network to which 'HydraNode's can be
@@ -1083,6 +1086,7 @@ simulatedChainAndNetwork initialChainState = do
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
   localChainState <- newLocalChainState (initHistory initialChainState)
   tickThread <- asyncLabelled "sim-chain-tick" $ simulateTicks nodes localChainState
+  rngVar <- newLabelledTVarIO "run-gen-stm" $ mkQCGen 42
   pure $
     SimulatedChainNetwork
       { connectNode = \draftNode -> do
@@ -1094,7 +1098,7 @@ simulatedChainAndNetwork initialChainState = do
                       -- Only observe "after one block"
                       void . asyncLabelled "sim-chain-post-tx" $ do
                         threadDelay blockTime
-                        createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
+                        createAndYieldEvent rngVar nodes history localChainState $ toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
@@ -1109,11 +1113,11 @@ simulatedChainAndNetwork initialChainState = do
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history localChainState
       , simulateCommit = \headId party toCommit ->
-          createAndYieldEvent nodes history localChainState $ OnCommitTx{headId, party, committed = toCommit}
+          createAndYieldEvent rngVar nodes history localChainState $ OnCommitTx{headId, party, committed = toCommit}
       , simulateDeposit = \headId toDeposit deadline -> do
           created <- getCurrentTime
           depositTxId <- atomically $ stateTVar nextTxId (\i -> (i, i + 1))
-          createAndYieldEvent nodes history localChainState $
+          createAndYieldEvent rngVar nodes history localChainState $
             OnDepositTx{headId, deposited = toDeposit, created, deadline, depositTxId}
           pure depositTxId
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
@@ -1127,14 +1131,14 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- getLatest localChainState
-      let chainSlot = chainStateSlot cs
-      pure $ Tick now chainSlot
+      let chainPoint = chainStatePoint cs
+      pure $ Tick now chainPoint
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
-  createAndYieldEvent nodes history localChainState tx = do
+  createAndYieldEvent rngVar nodes history localChainState tx = do
     chainEvent <- atomically $ do
       cs <- getLatest localChainState
-      let cs' = advanceSlot cs
+      cs' <- advancePoint rngVar cs
       pushNew localChainState cs'
       pure $
         Observation
@@ -1143,7 +1147,13 @@ simulatedChainAndNetwork initialChainState = do
           }
     recordAndYieldEvent nodes history chainEvent
 
-  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
+  advancePoint ::
+    TVar m QCGen ->
+    SimpleChainState ->
+    STM m SimpleChainState
+  advancePoint rngVar SimpleChainState{point} = do
+    nextPoint <- runGenSTM rngVar (nextChainPoint point)
+    pure SimpleChainState{point = nextPoint}
 
   recordAndYieldEvent ::
     TVar m [HydraNode tx m] ->
@@ -1187,6 +1197,15 @@ simulatedChainAndNetwork initialChainState = do
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
+
+runGenSTM :: MonadSTM m => TVar m QCGen -> Gen a -> STM m a
+runGenSTM genVar gen = do
+  g <- readTVar genVar
+  let (g1, g2) = split g
+  -- 30 is a common default QC "size"
+  let x = unGen gen g1 30
+  writeTVar genVar g2
+  pure x
 
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
@@ -1281,7 +1300,7 @@ withHydraNode' dp signingKey otherParties chain action = do
   outputs <- newLabelledTQueueIO "hydra-node-outputs"
   messages <- newLabelledTQueueIO "hydra-node-messages"
   outputHistory <- newLabelledTVarIO "hydra-node-output-history" mempty
-  let initialChainState = SimpleChainState{slot = ChainSlot 0}
+  let initialChainState = SimpleChainState{point = ChainPointAtGenesis}
   node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
     createHydraNode
       traceInIOSim
