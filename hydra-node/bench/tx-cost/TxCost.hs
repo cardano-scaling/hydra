@@ -52,8 +52,6 @@ import Hydra.Chain.Direct.State (
 import Hydra.Ledger.Cardano.Evaluate (
   estimateMinFee,
   evaluateTx,
-  genPointInTimeBefore,
-  genValidityBoundsFromContestationPeriod,
   maxTxSize,
   slotLength,
   systemStart,
@@ -61,10 +59,9 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
-import Test.Hydra.Tx.Gen (genOutputFor, genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]

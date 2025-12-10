@@ -71,7 +71,7 @@ import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (adjustUTxO)
-import Hydra.Ledger.Cardano.Evaluate (genPointInTimeBefore, genValidityBoundsFromContestationPeriod, slotLength, systemStart)
+import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import Hydra.Tx (
@@ -119,15 +119,17 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (
+  genConfirmedSnapshot,
   genOneUTxOFor,
+  genPointInTimeBefore,
   genScriptRegistry,
   genTxOut,
   genUTxO1,
   genUTxOAdaOnlyOfSize,
+  genValidityBoundsFromContestationPeriod,
   genVerificationKey,
  )
 import Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)

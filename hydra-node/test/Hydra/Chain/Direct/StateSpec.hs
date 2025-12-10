@@ -90,10 +90,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Evaluate (
   evaluateTx,
-  genValidityBoundsFromContestationPeriod,
   maxTxSize,
-  propTransactionEvaluates,
-  propTransactionFailsEvaluation,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
@@ -123,7 +120,7 @@ import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -550,7 +547,7 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
       -- We rely here on a fact that eventually this property will generate
       -- UTxO which would be wrongly picked up by the increment observation.
       let utxo = getKnownUTxO st <> utxoFromTx txDeposit <> utxoFromTx txDeposit2
-      snapshot <- pickBlind $ Snapshot.genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
+      snapshot <- pickBlind $ genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
       let txIncrement = unsafeIncrement cctx utxo headId (ctxHeadParameters ctx) snapshot depositedTxId slotNo
       case observeIncrementTx utxo txIncrement of
         Nothing -> assertWith False "Increment not observed"

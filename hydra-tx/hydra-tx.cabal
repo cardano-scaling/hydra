@@ -91,11 +91,9 @@ library
     , data-default
     , formatting
     , hydra-cardano-api
-    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
-    , hydra-test-utils
     , lens
     , lens-aeson
     , mono-traversable
@@ -103,8 +101,6 @@ library
     , ouroboros-consensus-cardano
     , plutus-ledger-api
     , prettyprinter
-    , QuickCheck
-    , quickcheck-instances
     , serialise
     , sop-extras
     , text
@@ -200,8 +196,8 @@ test-suite tests
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-plutus
-    , hydra-plutus:testlib
     , hydra-plutus-extras
+    , hydra-plutus:testlib
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx

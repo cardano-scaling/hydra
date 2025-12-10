@@ -5,7 +5,6 @@ module Hydra.Tx.HeadId where
 import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   HasTypeProxy (..),
   PolicyId,
@@ -15,9 +14,6 @@ import Hydra.Cardano.Api (
   fromPlutusCurrencySymbol,
  )
 import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
-import Test.QuickCheck (Arbitrary (..), vectorOf)
-import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Instances.Time ()
 
 -- * HeadId
 
@@ -33,9 +29,6 @@ instance SerialiseAsRawBytes HeadId where
 instance HasTypeProxy HeadId where
   data AsType HeadId = AsHeadId
   proxyToAsType _ = AsHeadId
-
-instance Arbitrary HeadId where
-  arbitrary = UnsafeHeadId . BS.pack <$> vectorOf 16 arbitrary
 
 currencySymbolToHeadId :: MonadFail m => CurrencySymbol -> m HeadId
 currencySymbolToHeadId = fmap mkHeadId . fromPlutusCurrencySymbol
@@ -71,9 +64,6 @@ instance SerialiseAsRawBytes HeadSeed where
 instance HasTypeProxy HeadSeed where
   data AsType HeadSeed = AsHeadSeed
   proxyToAsType _ = AsHeadSeed
-
-instance Arbitrary HeadSeed where
-  arbitrary = UnsafeHeadSeed . BS.pack <$> vectorOf 16 arbitrary
 
 headSeedToTxIn :: MonadFail m => HeadSeed -> m TxIn
 headSeedToTxIn (UnsafeHeadSeed bytes) =

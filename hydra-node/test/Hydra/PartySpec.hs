@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 import Hydra.Tx.Party (Party (..))
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Fixture (alice, bob, carol)
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck ((==>))
 
 spec :: Spec

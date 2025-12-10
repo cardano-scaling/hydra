@@ -8,7 +8,6 @@ import Hydra.Prelude hiding (label)
 
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Evaluate (genValidityBoundsFromContestationPeriod)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   ConfirmedSnapshot (..),
@@ -27,7 +26,7 @@ import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genValidityBoundsFromContestationPeriod, genVerificationKey)
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (elements)
 import Test.QuickCheck.Instances ()

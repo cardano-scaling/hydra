@@ -84,16 +84,15 @@ library
     , time
 
 library testlib
-  import: project-config
-  visibility: public
-  hs-source-dirs: testlib
-  exposed-modules:
-    Hydra.Plutus.Gen
+  import:          project-config
+  visibility:      public
+  hs-source-dirs:  testlib
+  exposed-modules: Hydra.Plutus.Gen
   build-depends:
     , base
     , bytestring
-    , hydra-prelude
     , hydra-plutus
+    , hydra-prelude
     , QuickCheck
 
 test-suite tests

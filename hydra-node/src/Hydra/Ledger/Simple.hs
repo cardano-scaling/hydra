@@ -27,6 +27,7 @@ import Hydra.Ledger (
   ValidationError (ValidationError),
  )
 import Hydra.Tx (IsTx (..))
+import Test.Hydra.Tx.Gen ()
 
 -- * Simple transactions
 

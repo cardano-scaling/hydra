@@ -16,6 +16,7 @@ import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
 import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Gen ()
 
 -- | Represents a signed message over the network.
 -- Becomes valid once its receivers verify it against its other peers

@@ -9,6 +9,7 @@ import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party)
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck.Instances.Text ()
 
 data Environment = Environment
