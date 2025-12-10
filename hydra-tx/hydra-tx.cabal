@@ -91,7 +91,6 @@ library
     , data-default
     , formatting
     , hydra-cardano-api
-    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
@@ -103,8 +102,6 @@ library
     , ouroboros-consensus-cardano
     , plutus-ledger-api
     , prettyprinter
-    , QuickCheck
-    , quickcheck-instances
     , serialise
     , sop-extras
     , text

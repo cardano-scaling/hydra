@@ -19,13 +19,11 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
-import Test.QuickCheck (Arbitrary)
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-  deriving newtype (Arbitrary)
 
 instance ToJSONKey Party where
   toJSONKey = toJSONKeyText (serialiseToRawBytesHexText . vkey)

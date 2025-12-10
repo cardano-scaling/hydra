@@ -2,11 +2,8 @@ module Hydra.Tx.HeadParameters where
 
 import Hydra.Prelude
 
-import Data.List (nub)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Party (Party (..))
-import Test.Hydra.Prelude (genericArbitrary)
-import Test.QuickCheck (Arbitrary (..))
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters
@@ -15,9 +12,3 @@ data HeadParameters = HeadParameters
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary HeadParameters where
-  arbitrary = dedupParties <$> genericArbitrary
-   where
-    dedupParties HeadParameters{contestationPeriod, parties} =
-      HeadParameters{contestationPeriod, parties = nub parties}
