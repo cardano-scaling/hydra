@@ -157,14 +157,9 @@ instance Arbitrary ChainStateAt where
 
 instance IsChainState Tx where
   type ChainStateType Tx = ChainStateAt
-  type ChainPointType Tx = ChainPoint
 
   chainStatePoint ChainStateAt{recordedAt} =
     fromMaybe ChainPointAtGenesis recordedAt
-
-  chainPointSlot = chainSlotFromPoint
-
-  genesisPoint = ChainPointAtGenesis
 
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.

@@ -6,15 +6,21 @@ module Hydra.Ledger where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..))
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
+import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
+import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 
--- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
--- instances to 'ChainSlot'.
-nextChainSlot :: ChainSlot -> ChainSlot
-nextChainSlot (ChainSlot n) = ChainSlot (n + 1)
+-- | Get the next chain point.
+nextChainPoint :: ChainPoint -> Gen ChainPoint
+nextChainPoint point = do
+  blockHash <- hedgehog genBlockHeaderHash
+  pure $ case point of
+    ChainPointAtGenesis -> ChainPoint 0 blockHash
+    ChainPoint (SlotNo n) _ -> ChainPoint (fromIntegral n + 1) blockHash
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
