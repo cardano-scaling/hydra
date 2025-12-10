@@ -97,7 +97,7 @@ cardanoLedger globals ledgerEnv =
             -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
             -- action. It only re-evaluates the script and does not have any
             -- side-effects.
-            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing)
+            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) 0 $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing False)
       _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
