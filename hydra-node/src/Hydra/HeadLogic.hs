@@ -1459,11 +1459,11 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
   -- another party likely opened the head before us and it's okay to ignore.
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
-  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainSlot}) ->
+  (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainPoint}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainSlot}
+    newState TickObserved{chainPoint}
       <> handleOutOfSync env now chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
@@ -1484,9 +1484,9 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainSlot})
+  (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainPoint})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainSlot}
+        newState TickObserved{chainPoint}
           <> handleOutOfSync env now chainTime syncStatus
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
@@ -1504,8 +1504,8 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
       <> handleOutOfSync env now chainTime syncStatus
-  (_, ChainInput Tick{chainTime, chainSlot}) ->
-    newState TickObserved{chainSlot}
+  (_, ChainInput Tick{chainTime, chainPoint}) ->
+    newState TickObserved{chainPoint}
       <> handleOutOfSync env now chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
@@ -1647,8 +1647,8 @@ aggregateNodeState nodeState sc =
                 { headState = st
                 , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                 }
-        TickObserved{chainSlot} ->
-          nodeState{headState = st, currentSlot = chainSlot}
+        TickObserved{chainPoint} ->
+          nodeState{headState = st, currentSlot = chainPointSlot chainPoint}
         ChainRolledBack{chainState} ->
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->
