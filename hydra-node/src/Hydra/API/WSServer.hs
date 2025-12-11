@@ -38,11 +38,8 @@ import Hydra.API.ServerOutput (
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
-import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (
-  IsChainState,
-  chainStatePoint,
- )
+import Hydra.Chain (Chain (..), ChainStateHistory, latestKnownChainPoint)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -67,6 +64,7 @@ wsApp ::
   Environment ->
   Party ->
   Tracer IO APIServerLog ->
+  ChainStateHistory tx ->
   Chain tx IO ->
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
@@ -78,7 +76,7 @@ wsApp ::
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chainStateHistory chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -118,7 +116,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
             , env
             , networkInfo
             , chainSyncedStatus
-            , atChainPoint = chainStatePoint (HeadState.getChainState headState)
+            , atChainPoint = latestKnownChainPoint chainStateHistory
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP
