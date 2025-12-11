@@ -20,7 +20,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytes,
  )
-import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), currentState)
+import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), latestKnownChainPoint)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Direct.Handlers (
@@ -30,7 +30,7 @@ import Hydra.Chain.Direct.Handlers (
   mkChain,
   newLocalChainState,
  )
-import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -123,7 +123,7 @@ withBlockfrostChain ::
   ChainComponent Tx IO a
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
-  let persistedPoint = recordedAt (currentState chainStateHistory)
+  let persistedPoint = Just (latestKnownChainPoint chainStateHistory)
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   -- Select a chain point from which to start synchronizing
   chainPoint <- maybe (queryTip backend) pure $ do
