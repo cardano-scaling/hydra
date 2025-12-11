@@ -539,7 +539,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
   connectedOnce <- newIORef False
   (retries, delay) <-
     getHydraBackend >>= \case
-      DirectBackendType -> pure (200, 1)
+      DirectBackendType -> pure (200, 0.1)
       BlockfrostBackendType -> pure (300, 1)
   tryConnect connectedOnce (retries :: Int) delay
  where
