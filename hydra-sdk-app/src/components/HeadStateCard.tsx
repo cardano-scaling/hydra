@@ -133,7 +133,7 @@ export const HeadStateCard: React.FC<HeadStateCardProps> = ({
               type="number"
               value={txAmount}
               onChange={(e) => onTxAmountChange(e.target.value)}
-              placeholder="Amount (lovelace)"
+              placeholder="Amount (ADA)"
               className="flex-1 min-w-[100px] max-w-[140px] bg-dark-input border border-border rounded-md px-2.5 py-2 text-sm text-slate-200 focus:outline-none focus:border-accent"
             />
             <Button

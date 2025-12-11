@@ -28,20 +28,37 @@ export default defineConfig({
     },
     server: {
         // Proxy requests to hydra-node to avoid CORS issues
+        // Supports dynamic ports: /hydra-api/4001/commit -> http://localhost:4001/commit
         proxy: {
             '/hydra-api': {
-                target: 'http://localhost:4001',
+                target: 'http://localhost:4001', // Fallback, router overrides this
                 changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/hydra-api/, ''),
+                router: (req) => {
+                    // Extract port from path: /hydra-api/4001/commit -> 4001
+                    const match = req.url?.match(/^\/hydra-api\/(\d+)/);
+                    if (match) {
+                        const port = match[1];
+                        const target = `http://localhost:${port}`;
+                        console.log(`[Router] Detected port ${port} in URL, routing to ${target}`);
+                        return target;
+                    }
+                    console.log(`[Router] No port in URL "${req.url}", using default 4001`);
+                    return 'http://localhost:4001';
+                },
+                rewrite: (path) => {
+                    const rewritten = path.replace(/^\/hydra-api\/\d+/, '');
+                    console.log(`[Rewrite] ${path} -> ${rewritten}`);
+                    return rewritten;
+                },
                 configure: (proxy, _options) => {
                     proxy.on('error', (err, _req, _res) => {
-                        console.log('Proxy error:', err);
+                        console.log('[Proxy Error]:', err.message);
                     });
                     proxy.on('proxyReq', (proxyReq, req, _res) => {
-                        console.log('Proxying:', req.method, req.url, '->', proxyReq.path);
+                        console.log(`[Proxy] ${req.method} ${req.url} -> ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
                     });
                     proxy.on('proxyRes', (proxyRes, req, _res) => {
-                        console.log('Proxy response:', proxyRes.statusCode, req.url);
+                        console.log(`[Proxy Response] ${proxyRes.statusCode} for ${req.url}`);
                     });
                 },
             }

@@ -35,6 +35,18 @@ export const CommitModal: React.FC<CommitModalProps> = ({
     const [selectedUtxos, setSelectedUtxos] = useState<Set<string>>(new Set());
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Clear selection when modal opens/closes or when UTxO list changes
+    React.useEffect(() => {
+        if (!isOpen) {
+            setSelectedUtxos(new Set());
+        }
+    }, [isOpen]);
+
+    // Also clear selection when l1Utxos change (after commit, UTxOs will be different)
+    React.useEffect(() => {
+        setSelectedUtxos(new Set());
+    }, [l1Utxos]);
+
     const handleToggleUtxo = (utxoId: string) => {
         const newSelection = new Set(selectedUtxos);
         if (newSelection.has(utxoId)) {

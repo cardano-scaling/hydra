@@ -113,6 +113,28 @@ export const useHydra = () => {
                     setHeadId(greetingsHeadId);
                 }
 
+                // Extract current snapshot from Greetings (when head is Open)
+                // Always create a snapshot entry if we have UTxOs, even if we don't know the exact number
+                if (payload.snapshotUtxo && Object.keys(payload.snapshotUtxo).length > 0) {
+                    const snapshotNum = payload.snapshotNumber
+                        ?? payload.snapshot?.number
+                        ?? payload.snapshot?.snapshotNumber
+                        ?? payload.confirmedSnapshot?.number
+                        ?? payload.confirmedSnapshot?.snapshotNumber
+                        ?? 0;
+                    console.log('[Hydra] Greetings snapshot info:', {
+                        snapshotNumber: payload.snapshotNumber,
+                        snapshot: payload.snapshot,
+                        confirmedSnapshot: payload.confirmedSnapshot,
+                        utxoCount: Object.keys(payload.snapshotUtxo).length
+                    });
+                    setSnapshots([{
+                        number: snapshotNum,
+                        utxo: payload.snapshotUtxo,
+                        confirmedAt: new Date().toISOString()
+                    }]);
+                }
+
                 // Extract party/peer info from Greetings
                 // Structure: me.vkey, env.party.vkey, env.otherParties[].vkey, env.participants[]
                 const myVk = payload.me?.vkey;
@@ -170,6 +192,10 @@ export const useHydra = () => {
                 break;
 
             case 'Committed':
+                // Update headUtxos with newly committed UTxOs
+                if (payload.utxo) {
+                    setHeadUtxos(prev => ({ ...prev, ...payload.utxo }));
+                }
                 const utxoCount = Object.keys(payload.utxo || {}).length;
                 const totalLovelace = Object.values(payload.utxo || {}).reduce((sum: number, u: any) => {
                     return sum + (u.value?.lovelace || 0);
@@ -187,6 +213,12 @@ export const useHydra = () => {
                 setHeadId(payload.headId);
                 if (payload.utxo) {
                     setHeadUtxos(payload.utxo);
+                    // Initialize with snapshot 0 when head opens
+                    setSnapshots([{
+                        number: 0,
+                        utxo: payload.utxo,
+                        confirmedAt: new Date().toISOString()
+                    }]);
                 }
                 const openUtxoCount = Object.keys(payload.utxo || {}).length;
                 addLog(
@@ -214,6 +246,7 @@ export const useHydra = () => {
             case 'HeadIsFinalized':
                 setHeadState('Final');
                 setHeadUtxos({});
+                setSnapshots([]);
                 addLog('Head is finalized', 'success', 'HeadIsFinalized');
                 break;
 
@@ -221,6 +254,7 @@ export const useHydra = () => {
                 setHeadState('Idle');
                 setHeadId(null);
                 setHeadUtxos({});
+                setSnapshots([]);
                 addLog('Head aborted', 'warning', 'HeadIsAborted');
                 break;
 
@@ -260,6 +294,21 @@ export const useHydra = () => {
             case 'GetUTxOResponse':
                 if (payload.utxo) {
                     setHeadUtxos(payload.utxo);
+                    // If we have UTxOs but no snapshots, create an initial snapshot entry
+                    // This handles reconnecting to an already-open head
+                    const utxoCount = Object.keys(payload.utxo).length;
+                    if (utxoCount > 0) {
+                        setSnapshots(prev => {
+                            if (prev.length === 0) {
+                                return [{
+                                    number: payload.snapshotNumber ?? 0,
+                                    utxo: payload.utxo,
+                                    confirmedAt: new Date().toISOString()
+                                }];
+                            }
+                            return prev;
+                        });
+                    }
                 }
                 addLog(
                     'UTxO response received',
@@ -383,6 +432,20 @@ export const useHydra = () => {
                 setStatus('connected');
                 setConnectionError(null);
                 addLog('WebSocket connected', 'success', 'Connection');
+
+                // Request current UTxO state after connecting
+                // This ensures we have the latest state even when reconnecting to an open head
+                setTimeout(() => {
+                    if (bridge.connected()) {
+                        try {
+                            // Send GetUTxO command to get current state
+                            (bridge as any).ws?.send(JSON.stringify({ tag: 'GetUTxO' }));
+                            addLog('Requesting current UTxO state...', 'info', 'GetUTxO');
+                        } catch (e) {
+                            console.warn('Failed to request UTxO:', e);
+                        }
+                    }
+                }, 500);
             });
 
             bridge.events.on('onDisconnected', () => {

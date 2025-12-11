@@ -49,10 +49,18 @@ const App = () => {
     const [l1Utxos, setL1Utxos] = useState<UTxO[]>([]);
     const [l1Loading, setL1Loading] = useState(false);
 
-    // Hydra Connection
-    const [nodeUrl, setNodeUrl] = useState('ws://localhost:4001');
+    // Hydra Connection - persist last used node URL
+    const [nodeUrl, setNodeUrl] = useState(() => {
+        const saved = localStorage.getItem('hydra_node_url');
+        return saved || 'ws://localhost:4001';
+    });
     const [showNodeSetupModal, setShowNodeSetupModal] = useState(false);
     const [showCommitModal, setShowCommitModal] = useState(false);
+
+    // Save nodeUrl to localStorage when it changes
+    useEffect(() => {
+        localStorage.setItem('hydra_node_url', nodeUrl);
+    }, [nodeUrl]);
 
     // UI State
     const [error, setError] = useState<string | null>(null);
@@ -148,7 +156,18 @@ const App = () => {
                 address: u.output?.address || u.address || address,
                 amount: u.output?.amount || u.amount || [{ unit: 'lovelace', quantity: String(u.output?.value?.lovelace || 0) }]
             }));
-            setL1Utxos(mappedUtxos);
+            // Filter out UTxOs that:
+            // 1. Contain native assets (like Hydra participation tokens)
+            // 2. Are at script addresses (not the wallet's payment address)
+            // These are script-locked and shouldn't be manually committed
+            const simpleUtxos = mappedUtxos.filter((utxo: UTxO) => {
+                // Only include UTxOs that have just lovelace (no native assets)
+                const hasOnlyLovelace = utxo.amount.every(a => a.unit === 'lovelace');
+                // Only include UTxOs at our own address (not script addresses)
+                const isOwnAddress = utxo.address === address;
+                return hasOnlyLovelace && isOwnAddress;
+            });
+            setL1Utxos(simpleUtxos);
         } catch (e: any) {
             console.error('Failed to fetch L1 UTxOs:', e);
             // Handle "not found" case (empty address)
@@ -436,7 +455,12 @@ const App = () => {
                 };
             }
 
-            const response = await fetch('/hydra-api/commit', {
+            // Extract port from the WebSocket URL to route to the correct hydra-node
+            // ws://localhost:4001 -> port 4001
+            const urlMatch = nodeUrl.match(/:(\d+)\/?$/);
+            const port = urlMatch ? urlMatch[1] : '4001';
+
+            const response = await fetch(`/hydra-api/${port}/commit`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(utxoMap)
@@ -485,7 +509,10 @@ const App = () => {
             const [txIn, txOut] = myUtxo;
             const [inputTxHash, inputIndex] = txIn.split('#');
             const inputLovelace = parseInt(txOut.value?.lovelace || txOut.value || '0');
-            const sendAmount = parseInt(txAmount);
+            // Convert ADA to lovelace (user enters ADA, we convert to lovelace)
+            const sendAmountAda = parseFloat(txAmount);
+            const sendAmount = Math.floor(sendAmountAda * 1_000_000);
+            if (sendAmount < 1_000_000) throw new Error('Minimum send amount is 1 ADA');
             if (sendAmount >= inputLovelace) throw new Error('Amount exceeds available balance');
 
             const changeAmount = inputLovelace - sendAmount;
@@ -546,7 +573,7 @@ const App = () => {
         }, 0);
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-5">
+        <div className="max-w-7xl mx-auto px-2 py-1">
             <Header />
 
             {/* Error Banners */}
