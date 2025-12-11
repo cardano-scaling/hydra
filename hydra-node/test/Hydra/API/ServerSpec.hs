@@ -33,6 +33,7 @@ import Hydra.Chain (
   checkNonADAAssets,
   draftCommitTx,
   draftDepositTx,
+  initHistory,
   mkChainState,
   postTx,
   submitTx,
@@ -333,7 +334,8 @@ spec =
                     , tlsKeyPath = Just "test/tls/key.pem"
                     , apiTransactionTimeout = 1000000
                     }
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer dummySimpleChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+                chainStateHistory = initHistory SimpleChainState{point = ChainPointAtGenesis}
+            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer chainStateHistory dummySimpleChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -414,9 +416,11 @@ withTestAPIServer ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer port actor eventSource tracer action = do
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer dummySimpleChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer chainStateHistory dummySimpleChainHandle defaultPParams allowEverythingServerOutputFilter noop action
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
+
+  chainStateHistory = initHistory SimpleChainState{point = ChainPointAtGenesis}
 
 -- | Connect to a websocket server running at given path. Fails if not connected
 -- within 2 seconds.

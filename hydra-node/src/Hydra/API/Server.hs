@@ -29,7 +29,7 @@ import Hydra.API.ServerOutputFilter (
  )
 import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
-import Hydra.Chain (Chain (..))
+import Hydra.Chain (Chain (..), ChainStateHistory)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
@@ -88,13 +88,14 @@ withAPIServer ::
   Party ->
   EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
+  ChainStateHistory tx ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env stateFile party eventSource tracer chain pparams serverOutputFilter callback action =
+withAPIServer config env stateFile party eventSource tracer chainStateHistory chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -135,7 +136,7 @@ withAPIServer config env stateFile party eventSource tracer chain pparams server
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer chain historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
+              (wsApp env party tracer chainStateHistory chain historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
