@@ -23,6 +23,11 @@ changes.
 - Add `--unsynced-period` CLI option to configure when the node considers itself
   out of sync with the chain. Defaults to half the contestation period.
 
+- **BREAKING** Resume node from the latest observed tick when `--start-chain-from` is not set.
+  - `TickObserved` event schema has changed: the `chainSlot` field has been replaced with `chainPoint`
+  - `Greetings` message now also contains a new field `atChainPoint` that represents the last known chain point observed by the chain backend.
+  - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407)
+
 ## [1.2.0] - 2025.11.28
 
 - There is a new `SafeClose` client command which prevents closing the Head in case there are non-ADA assets in the confirmed snapshot UTxO [#2330](https://github.com/cardano-scaling/hydra/issues/2330).
