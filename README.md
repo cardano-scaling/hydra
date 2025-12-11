@@ -1,7 +1,7 @@
 # <p align="center">Hydra :dragon_face:</p>
 
 <div align="center">
-  <p>Implementation of the Hydra scalability protocols.</p>
+  <p>Implementation of the Hydra scalability protocols</p>
   <a href='https://github.com/cardano-scaling/hydra/actions'><img src="https://img.shields.io/github/actions/workflow/status/cardano-scaling/hydra/ci-nix.yaml?branch=master&label=Tests&style=for-the-badge" /></a>
   <a href='https://github.com/cardano-scaling/hydra/pkgs/container/hydra-node'><img src="https://img.shields.io/github/actions/workflow/status/cardano-scaling/hydra/docker.yaml?branch=master&label=Docker&style=for-the-badge" /></a>
 </div>
