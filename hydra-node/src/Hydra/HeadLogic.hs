@@ -37,6 +37,7 @@ import Hydra.Chain (
   initHistory,
   pushNewState,
   rollbackHistory,
+  trackLatestKnownChainPoint,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainPointSlot, chainStateSlot)
 import Hydra.HeadLogic.Error (
@@ -1989,7 +1990,7 @@ aggregateChainStateHistory history = \case
   HeadFannedOut{chainState} -> pushNewState chainState history
   ChainRolledBack{chainState} ->
     rollbackHistory (chainStateSlot chainState) history
-  TickObserved{} -> history
+  TickObserved{chainPoint} -> trackLatestKnownChainPoint chainPoint history
   CommitApproved{} -> history
   DecommitApproved{} -> history
   DecommitInvalid{} -> history

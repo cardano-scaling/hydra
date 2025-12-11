@@ -240,6 +240,9 @@ currentState UnsafeChainStateHistory{history} = head history
 pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
 pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history, latestKnownChainPoint = chainStatePoint cs}
 
+trackLatestKnownChainPoint :: ChainPoint -> ChainStateHistory tx -> ChainStateHistory tx
+trackLatestKnownChainPoint point h = h{latestKnownChainPoint = point}
+
 initHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx
 initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs, latestKnownChainPoint = chainStatePoint cs}
 
