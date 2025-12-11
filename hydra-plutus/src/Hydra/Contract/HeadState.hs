@@ -59,6 +59,9 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: C
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
+  , accumulatorHash :: Hash
+  -- ^ Spec: ηA. Digest of the accumulator
+  , proof :: BuiltinBLS12_381_G2_Element
   }
   deriving stock (Generic, Show)
 
@@ -84,7 +87,8 @@ data CloseRedeemer
     CloseInitial
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny
-      {signature :: [Signature]}
+      { signature :: [Signature]
+      }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
@@ -154,6 +158,7 @@ data IncrementRedeemer = IncrementRedeemer
   { signature :: [Signature]
   , snapshotNumber :: SnapshotNumber
   , increment :: TxOutRef
+  , accumulatorHash :: Hash
   }
   deriving stock (Show, Generic)
 
@@ -167,6 +172,7 @@ data DecrementRedeemer = DecrementRedeemer
   -- ^ Spec: s
   , numberOfDecommitOutputs :: Integer
   -- ^ Spec: m
+  , accumulatorHash :: Hash
   }
   deriving stock (Show, Generic)
 
@@ -183,6 +189,7 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
+      , crs :: [BuiltinBLS12_381_G2_Element]
       }
   deriving stock (Generic, Show)
 
