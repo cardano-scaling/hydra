@@ -305,11 +305,15 @@ resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
 
   chainPoint :: ChainPoint <-
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-      waitMatch 20 n1 $ \v -> do
+      point <- waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
         point <- v ^? key "atChainPoint"
         parseMaybe parseJSON point
+
+      -- wait for some blocks to roll forward
+      threadDelay 5
+      pure point
 
   let chainSlot = chainSlotFromPoint chainPoint
 
