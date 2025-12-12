@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐉</text></svg>" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hydra Lightweight Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+  <!-- Buffer polyfill for browser -->
+  <script>
+    if (typeof window !== 'undefined' && !window.Buffer) {
+      window.Buffer = {
+        from: function (data, encoding) {
+          if (typeof data === 'string') {
+            if (encoding === 'hex') {
+              const bytes = new Uint8Array(data.length / 2);
+              for (let i = 0; i < data.length; i += 2) {
+                bytes[i / 2] = parseInt(data.substr(i, 2), 16);
+              }
+              return bytes;
+            }
+            return new TextEncoder().encode(data);
+          }
+          return new Uint8Array(data);
+        },
+        alloc: function (size) {
+          return new Uint8Array(size);
+        },
+        isBuffer: function (obj) {
+          return obj instanceof Uint8Array;
+        }
+      };
+    }
+  </script>
+</head>
+
+<body class="bg-[#0a0e14] text-slate-200 font-mono min-h-screen">
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
