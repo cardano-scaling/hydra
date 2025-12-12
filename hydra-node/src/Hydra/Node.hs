@@ -8,18 +8,18 @@
 -- for some details about the overall architecture of the `Node`.
 module Hydra.Node where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
-import Control.Concurrent.Class.MonadSTM (
+import "conduit" Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
+import "io-classes" Control.Concurrent.Class.MonadSTM (
   stateTVar,
   writeTVar,
  )
-import Control.Monad.Trans.Writer (execWriter, tell)
-import Data.Text (pack)
+import "transformers" Control.Monad.Trans.Writer (execWriter, tell)
+import "text" Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
-import Hydra.Cardano.Api (
+import "hydra-cardano-api" Hydra.Cardano.Api (
   getVerificationKey,
  )
 import Hydra.Chain (
