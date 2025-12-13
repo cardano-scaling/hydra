@@ -23,13 +23,23 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, genTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (
+  ChainPoint (..),
+  SlotNo (..),
+  fromLedgerTx,
+  genTxIn,
+  mkVkAddress,
+  toLedgerTx,
+  txOutValue,
+  unSlotNo,
+  pattern TxValidityUpperBound,
+ )
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx),
  )
-import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainPointSlot, chainStateSlot)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
@@ -178,7 +188,8 @@ spec =
               -- open state with pending deposits from another head
               party = [alice]
               openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
-          let input = ChainInput $ Tick{chainTime = depositTime 3, chainSlot = ChainSlot 3}
+          blockHash <- generate (hedgehog genBlockHeaderHash)
+          let input = ChainInput $ Tick{chainTime = depositTime 3, chainPoint = ChainPoint 3 blockHash}
 
           let outcome = update aliceEnv ledger now openState input
 
@@ -212,15 +223,19 @@ spec =
               deposit3 = OnDepositTx{headId = testHeadId, depositTxId = 3, deposited = utxoRef 3, created = depositTime 3, deadline}
 
           nodeState <- runHeadLogic aliceEnv ledger (inOpenState party) $ do
-            step (observeTxAtSlot 1 deposit1)
-            step (observeTxAtSlot 2 deposit2)
-            step (observeTxAtSlot 3 deposit3)
+            blockHash1 <- liftIO $ generate (hedgehog genBlockHeaderHash)
+            step (observeTxAtPoint (ChainPoint 1 blockHash1) deposit1)
+            blockHash2 <- liftIO $ generate (hedgehog genBlockHeaderHash)
+            step (observeTxAtPoint (ChainPoint 2 blockHash2) deposit2)
+            blockHash3 <- liftIO $ generate (hedgehog genBlockHeaderHash)
+            step (observeTxAtPoint (ChainPoint 3 blockHash3) deposit3)
             getState
 
           -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
           -- so deposits are considered Active
           let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-          let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+          blockHash <- generate (hedgehog genBlockHeaderHash)
+          let input = ChainInput $ Tick{chainTime, chainPoint = ChainPoint 4 blockHash}
 
           let outcome = update aliceEnv ledger now nodeState input
 
@@ -673,13 +688,16 @@ spec =
             carolCommit = OnCommitTx testHeadId carol (utxoRef 3)
         waitingForLastCommit <-
           runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
-            step (observeTxAtSlot 1 aliceCommit)
-            step (observeTxAtSlot 2 bobCommit)
+            blockHash1 <- liftIO $ generate (hedgehog genBlockHeaderHash)
+            step (observeTxAtPoint (ChainPoint 1 blockHash1) aliceCommit)
+            blockHash2 <- liftIO $ generate (hedgehog genBlockHeaderHash)
+            step (observeTxAtPoint (ChainPoint 2 blockHash2) bobCommit)
             getState
 
         now <- nowFromSlot waitingForLastCommit.currentSlot
         -- Bob is not the last party, but still does post a collect
-        update bobEnv ledger now waitingForLastCommit (observeTxAtSlot 3 carolCommit)
+        blockHash <- generate (hedgehog genBlockHeaderHash)
+        update bobEnv ledger now waitingForLastCommit (observeTxAtPoint (ChainPoint 3 blockHash) carolCommit)
           `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = CollectComTx{}} -> True
             _ -> False
@@ -801,21 +819,23 @@ spec =
                 _ -> False
 
               now <- run getCurrentTime
+              blockHash <- pick (hedgehog genBlockHeaderHash)
               nodeInSync <- run $ do
                 runHeadLogic bobEnv ledger stillCatchingUp $ do
-                  step $ ChainInput Tick{chainTime = now, chainSlot = ChainSlot 10}
+                  step $ ChainInput Tick{chainTime = now, chainPoint = ChainPoint 10 blockHash}
                   getState
 
               assert $ case nodeInSync of
                 NodeInSync{} -> True
                 _ -> False
 
+              blockHash' <- pick (hedgehog genBlockHeaderHash)
               nodeOutOfSync <- run $ do
                 let delta = CP.unsyncedPolicy bobEnv.contestationPeriod
                     -- make chain time too old: beyond unsynced threshold
                     oldChainTime = addUTCTime (negate (delta + 1)) now
                 runHeadLogic bobEnv ledger nodeInSync $ do
-                  step $ ChainInput Tick{chainTime = oldChainTime, chainSlot = ChainSlot 100}
+                  step $ ChainInput Tick{chainTime = oldChainTime, chainPoint = ChainPoint 100 blockHash'}
                   getState
 
               assert $ case nodeOutOfSync of
@@ -833,8 +853,9 @@ spec =
             -- make chain time too old: elapsed time >= full contestation period
             let oldChainTime = addUTCTime (negate $ CP.toNominalDiffTime delta) now
 
+            blockHash <- pick (hedgehog genBlockHeaderHash)
             nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
-              step $ ChainInput Tick{chainTime = oldChainTime, chainSlot = ChainSlot 1}
+              step $ ChainInput Tick{chainTime = oldChainTime, chainPoint = ChainPoint 1 blockHash}
               getState
 
             assert $ case nodeAfter of
@@ -851,8 +872,9 @@ spec =
             let normalBlockInterval = 20
             let nextTime = addUTCTime normalBlockInterval now
 
+            blockHash <- pick (hedgehog genBlockHeaderHash)
             nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
-              step $ ChainInput Tick{chainTime = nextTime, chainSlot = ChainSlot 1}
+              step $ ChainInput Tick{chainTime = nextTime, chainPoint = ChainPoint 1 blockHash}
               getState
 
             assert $ case nodeAfter of
@@ -1166,7 +1188,8 @@ spec =
         -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
         -- so deposits are considered Active
         let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-        let input = ChainInput $ Tick{chainTime, chainSlot = ChainSlot 4}
+        blockHash' <- pick (hedgehog genBlockHeaderHash)
+        let input = ChainInput $ Tick{chainTime, chainPoint = ChainPoint 4 blockHash'}
 
         let outcome = update aliceEnv ledger now nodeState input
 
@@ -1377,20 +1400,20 @@ chainEffect postChainTx =
     { postChainTx
     }
 
--- | Create an observation chain input with chain state at given slot.
-observeTxAtSlot :: Natural -> OnChainTx SimpleTx -> Input SimpleTx
-observeTxAtSlot slot observedTx =
+-- | Create an observation chain input with chain state at given point.
+observeTxAtPoint :: ChainPoint -> OnChainTx SimpleTx -> Input SimpleTx
+observeTxAtPoint point observedTx =
   ChainInput
     { chainEvent =
         Observation
           { observedTx
-          , newChainState = SimpleChainState{slot = ChainSlot slot}
+          , newChainState = SimpleChainState{point}
           }
     }
 
 -- | Create an observation chain input with fixed chain state and slot.
 observeTx :: OnChainTx SimpleTx -> Input SimpleTx
-observeTx = observeTxAtSlot 0
+observeTx = observeTxAtPoint ChainPointAtGenesis
 
 connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
 connectivityChanged ttl connectivityMessage =
@@ -1400,7 +1423,9 @@ connectivityChanged ttl connectivityMessage =
     }
 
 inIdleState :: NodeState SimpleTx
-inIdleState = initNodeState SimpleChainState{slot = ChainSlot 0}
+inIdleState = initNodeState SimpleChainState{point}
+ where
+  point = ChainPointAtGenesis
 
 inUnsyncedIdleState :: NodeState SimpleTx
 inUnsyncedIdleState =
@@ -1410,7 +1435,9 @@ inUnsyncedIdleState =
     , currentSlot = chainStateSlot chainState
     }
  where
-  chainState = SimpleChainState{slot = ChainSlot 0}
+  chainState = SimpleChainState{point}
+
+  point = ChainPointAtGenesis
 
 -- XXX: This is always called with threeParties and simpleLedger
 inInitialState :: [Party] -> NodeState SimpleTx
@@ -1422,7 +1449,7 @@ inInitialState parties =
             { parameters
             , pendingCommits = Set.fromList parties
             , committed = mempty
-            , chainState = SimpleChainState{slot = ChainSlot 0}
+            , chainState = SimpleChainState{point}
             , headId = testHeadId
             , headSeed = testHeadSeed
             }
@@ -1431,6 +1458,8 @@ inInitialState parties =
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
+
+  point = ChainPointAtGenesis
 
 -- XXX: This is always called with threeParties and simpleLedger
 inOpenState ::
@@ -1463,17 +1492,17 @@ inOpenState' parties coordinatedHeadState =
           OpenState
             { parameters
             , coordinatedHeadState
-            , chainState = SimpleChainState{slot = chainSlot}
+            , chainState = SimpleChainState{point}
             , headId = testHeadId
             , headSeed = testHeadSeed
             }
     , pendingDeposits = mempty
-    , currentSlot = chainSlot
+    , currentSlot = chainPointSlot point
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
-  chainSlot = ChainSlot 0
+  point = ChainPointAtGenesis
 
 -- XXX: This is always called with 'threeParties'
 inClosedState :: [Party] -> NodeState SimpleTx
@@ -1492,7 +1521,7 @@ inClosedState' parties confirmedSnapshot =
             , confirmedSnapshot
             , contestationDeadline
             , readyToFanoutSent = False
-            , chainState = SimpleChainState{slot = ChainSlot 0}
+            , chainState = SimpleChainState{point}
             , headId = testHeadId
             , headSeed = testHeadSeed
             , version = 0
@@ -1504,6 +1533,8 @@ inClosedState' parties confirmedSnapshot =
   parameters = HeadParameters defaultContestationPeriod parties
 
   contestationDeadline = arbitrary `generateWith` 42
+
+  point = ChainPointAtGenesis
 
 getConfirmedSnapshot :: NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
