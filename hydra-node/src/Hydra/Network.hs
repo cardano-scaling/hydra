@@ -30,6 +30,7 @@ import Test.QuickCheck (elements, listOf, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
+import Test.QuickCheck.Instances.Text ()
 
 -- * Hydra network interface
 
