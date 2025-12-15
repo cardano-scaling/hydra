@@ -9,7 +9,9 @@ module Hydra.Tx.Accumulator (
 
   -- * CRS (Common Reference String)
   generateCRS,
+  generateCRSG1,
   defaultCRS,
+  defaultCRSG1,
 
   -- * Membership proofs for partial fanout
   createMembershipProof,
@@ -21,9 +23,8 @@ import Hydra.Prelude
 import Accumulator (Accumulator, Element)
 import Accumulator qualified
 import Bindings (getPolyCommitOverG2)
-import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point2, blsCompress, blsGenerator, blsMult)
+import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
 import Codec.Serialise (serialise)
-import Data.ByteString.Base16 qualified as Base16
 import Field qualified as F
 import Hydra.Tx.IsTx (IsTx (..))
 
@@ -133,12 +134,34 @@ generateCRS setSize =
    in
     crsG2
 
+generateCRSG1 :: Int -> [Point1]
+generateCRSG1 setSize =
+  let
+    -- Define a tau (a large secret value for testing)
+    -- In production, this should come from a trusted setup ceremony
+    tau = F.Scalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
+
+    -- Define powers of tau (tau^0, tau^1, ..., tau^setSize over the field)
+    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral setSize]
+    powerOfTauInt = map F.unScalar powerOfTauField
+
+    -- Define the generator of G1
+    g1 = blsGenerator :: Point1
+
+    -- Map the power of tau over G1
+    crsG1 = map (blsMult g1) powerOfTauInt :: [Point1]
+   in
+    crsG1
+
 -- | Default CRS for testing (supports up to 1000 elements)
 --
 -- This is a pre-generated CRS using the powers of tau approach.
 -- For production, replace with a secure CRS from perpetual powers of tau ceremony.
 defaultCRS :: [Point2]
 defaultCRS = generateCRS 1000
+
+defaultCRSG1 :: [Point1]
+defaultCRSG1 = generateCRSG1 1000
 
 -- * Cryptographic Proofs for partial fanout
 
@@ -175,9 +198,7 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
   case getPolyCommitOverG2 subsetElements fullAcc crs of
     Left err -> "Error: " <> encodeUtf8 (toText err)
     Right proof ->
-      -- Compress the Point2 to a ByteString and encode as hex
-      let proofBytes = blsCompress proof
-       in Base16.encode proofBytes
+      blsCompress proof
 
 -- | Create a membership proof from a UTxO subset.
 --
