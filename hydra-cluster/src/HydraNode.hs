@@ -447,7 +447,9 @@ withPreparedHydraNodeInSync tracer workDir hydraNodeId runOptions action =
   withPreparedHydraNode tracer workDir hydraNodeId runOptions action'
  where
   action' client = do
-    waitForNodesSynced tracer 1 $ client :| []
+    getHydraBackend >>= \case
+      DirectBackendType -> waitForNodesSynced tracer 1 $ client :| []
+      BlockfrostBackendType -> waitForNodesSynced tracer 5 $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
