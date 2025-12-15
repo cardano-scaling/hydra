@@ -3,6 +3,7 @@
 module Hydra.Network.Message where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)

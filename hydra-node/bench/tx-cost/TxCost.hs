@@ -4,6 +4,7 @@
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
@@ -14,8 +15,8 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Tx,
   UTxO,
-  genTxIn,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ClosedState (..),

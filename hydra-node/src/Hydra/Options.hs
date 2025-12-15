@@ -9,6 +9,7 @@ module Hydra.Options (
 ) where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Control.Arrow (left)
 import Control.Lens ((?~))

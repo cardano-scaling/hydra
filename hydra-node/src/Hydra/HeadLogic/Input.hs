@@ -3,6 +3,7 @@
 module Hydra.HeadLogic.Input where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (ChainEvent)

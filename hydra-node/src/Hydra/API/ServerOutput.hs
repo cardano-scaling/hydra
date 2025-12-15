@@ -27,6 +27,7 @@ import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
+import Test.Hydra.Prelude
 import Test.QuickCheck (recursivelyShrink)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 

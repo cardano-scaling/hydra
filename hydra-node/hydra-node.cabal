@@ -142,8 +142,10 @@ library
     , grapesy-etcd                    >=0.3
     , http-types
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-prelude
+    , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
     , io-classes                      >=0.3.0.0
@@ -263,10 +265,12 @@ benchmark tx-cost
     , directory
     , filepath
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-node
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude
+    , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
     , optparse-applicative
@@ -382,6 +386,7 @@ test-suite tests
     , hspec-wai
     , HUnit
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-node
     , hydra-node:examples
     , hydra-node:testlib

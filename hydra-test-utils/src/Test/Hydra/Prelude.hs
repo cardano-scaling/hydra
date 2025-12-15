@@ -16,6 +16,13 @@ module Test.Hydra.Prelude (
   exceptionContaining,
   withClearedPATH,
   onlyNightly,
+  Gen,
+  Arbitrary (..),
+  genericArbitrary,
+  genericShrink,
+  generateWith,
+  shrinkListAggressively,
+  MinimumSized (..),
 ) where
 
 import Hydra.Prelude
@@ -27,7 +34,10 @@ import Data.Ratio ((%))
 import Data.Text.IO (hGetContents)
 import Data.Typeable (typeRep)
 import GHC.Exception (SrcLoc (..))
+import GHC.Generics (Rep)
 import GHC.IO.Exception (IOErrorType (..), IOException (..))
+import Generic.Random qualified as Random
+import Generic.Random.Internal.Generic qualified as Random
 import System.Directory (createDirectoryIfMissing, removePathForcibly)
 import System.Environment (getEnv, setEnv)
 import System.Exit (ExitCode (..))
@@ -36,8 +46,11 @@ import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import System.Info (os)
 import System.Process (ProcessHandle, waitForProcess)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
-import Test.QuickCheck (Property, Testable, coverTable, forAllBlind, tabulate)
+import Test.QuickCheck (Arbitrary (..), Property, Testable, coverTable, forAllBlind, genericShrink, scale, tabulate)
+import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ADTArbitrarySingleton (..), ConstructorArbitraryPair (..), ToADTArbitrary (..))
+import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
+import Test.QuickCheck.Random (mkQCGen)
 
 -- | Create a unique directory in the caonical, system-specific temporary path,
 -- e.g. in /tmp.
@@ -221,3 +234,79 @@ onlyNightly action = do
   lookupEnv "CI_NIGHTLY" >>= \case
     Nothing -> pendingWith "Only runs nightly"
     Just _ -> action
+
+-- | Provides a sensible way of automatically deriving generic 'Arbitrary'
+-- instances for data-types. In the case where more advanced or tailored
+-- generators are needed, custom hand-written generators should be used with
+-- functions such as `forAll` or `forAllShrink`.
+genericArbitrary ::
+  ( Generic a
+  , Random.GA Random.UnsizedOpts (Rep a)
+  , Random.UniformWeight (Random.Weights_ (Rep a))
+  ) =>
+  Gen a
+genericArbitrary =
+  Random.genericArbitrary Random.uniform
+
+-- | A seeded, deterministic, generator
+generateWith :: Gen a -> Int -> a
+generateWith (MkGen runGen) seed =
+  runGen (mkQCGen seed) 30
+
+-- | Like 'shrinkList', but more aggressive :)
+--
+-- Useful for shrinking large nested Map or Lists where the shrinker "don't have
+-- time" to go through many cases.
+shrinkListAggressively :: [a] -> [[a]]
+shrinkListAggressively = \case
+  [] -> []
+  xs -> [[], take (length xs `div` 2) xs, drop 1 xs]
+
+-- | Resize a generator to grow with the size parameter, but remains reasonably
+-- sized. That is handy when testing on data-structures that can be arbitrarily
+-- large and, when large entities don't really bring any value to the test
+-- itself.
+--
+-- It uses a square root function which makes the size parameter grows
+-- quadratically slower than normal. That is,
+--
+--     +-------------+------------------+
+--     | Normal Size | Reasonable Size  |
+--     | ----------- + ---------------- +
+--     | 0           | 0                |
+--     | 1           | 1                |
+--     | 10          | 3                |
+--     | 100         | 10               |
+--     | 1000        | 31               |
+--     +-------------+------------------+
+reasonablySized :: Gen a -> Gen a
+reasonablySized = scale (ceiling . sqrt @Double . fromIntegral)
+
+-- | A QuickCheck modifier to make use of `reasonablySized` on existing types.
+newtype ReasonablySized a = ReasonablySized a
+  deriving newtype (Show, ToJSON, FromJSON)
+
+instance Arbitrary a => Arbitrary (ReasonablySized a) where
+  arbitrary = ReasonablySized <$> reasonablySized arbitrary
+
+-- | Reszie gneratator to size = 1.
+minimumSized :: Gen a -> Gen a
+minimumSized = scale (const 1)
+
+-- | A QuickCheck modifier that only generates values with size = 1.
+newtype MinimumSized a = MinimumSized a
+  deriving newtype (Show, Eq, ToJSON, FromJSON, Generic)
+
+instance Arbitrary a => Arbitrary (MinimumSized a) where
+  arbitrary = MinimumSized <$> minimumSized arbitrary
+
+instance ToADTArbitrary a => ToADTArbitrary (MinimumSized a) where
+  toADTArbitrarySingleton _ = do
+    adt <- minimumSized $ toADTArbitrarySingleton (Proxy @a)
+    let mappedCAP = adtasCAP adt & \cap -> cap{capArbitrary = MinimumSized $ capArbitrary cap}
+    pure adt{adtasCAP = mappedCAP}
+
+  toADTArbitrary _ = do
+    adt <- minimumSized $ toADTArbitrary (Proxy @a)
+    let mappedCAPs = adtCAPs adt <&> \adtPair -> adtPair{capArbitrary = MinimumSized $ capArbitrary adtPair}
+    pure adt{adtCAPs = mappedCAPs}

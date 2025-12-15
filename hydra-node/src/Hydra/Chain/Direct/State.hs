@@ -8,7 +8,9 @@
 -- layer and it's constituents.
 module Hydra.Chain.Direct.State where
 
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Prelude hiding (init)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
@@ -37,7 +39,6 @@ import Hydra.Cardano.Api (
   chainPointToSlotNo,
   fromCtxUTxOTxOut,
   fromScriptData,
-  genTxIn,
   getTxBody,
   getTxId,
   isScriptTxOut,

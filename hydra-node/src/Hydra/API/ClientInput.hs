@@ -3,6 +3,7 @@
 module Hydra.API.ClientInput where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)

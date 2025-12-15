@@ -11,6 +11,7 @@
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Codec.Serialise (serialise)
 import Data.Aeson (

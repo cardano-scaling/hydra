@@ -9,21 +9,19 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
 import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Cardano.Api (SerialiseAsRawBytes (..), SigningKey)
+import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
 import PlutusLedgerApi.V3 (toBuiltin, toData)
-import Test.QuickCheck (frequency, suchThat)
-import Test.QuickCheck.Instances.Natural ()
 
 -- * SnapshotNumber and SnapshotVersion
 
 newtype SnapshotNumber
   = UnsafeSnapshotNumber Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral, Arbitrary)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
 
 -- NOTE: On-chain scripts ensure snapshot number does not become negative.
 fromChainSnapshotNumber :: Onchain.SnapshotNumber -> SnapshotNumber
@@ -33,7 +31,7 @@ fromChainSnapshotNumber =
 newtype SnapshotVersion
   = UnsafeSnapshotVersion Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral, Arbitrary)
+  deriving newtype (Show, ToJSON, FromJSON, ToCBOR, FromCBOR, Real, Num, Enum, Integral)
 
 -- NOTE: On-chain scripts ensure snapshot version does not become negative.
 fromChainSnapshotVersion :: Onchain.SnapshotVersion -> SnapshotVersion
@@ -113,18 +111,6 @@ instance IsTx tx => FromJSON (Snapshot tx) where
               (Just utxo) -> pure utxo
           )
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
-  arbitrary = genericArbitrary
-
-  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
-    | confirmed' <- shrink confirmed
-    , utxo' <- shrink utxo
-    , utxoToCommit' <- shrink utxoToCommit
-    , utxoToDecommit' <- shrink utxoToDecommit
-    ]
-
 -- * ConfirmedSnapshot
 
 -- | A snapshot that can be used to close a head with. Either the initial one,
@@ -162,50 +148,3 @@ getSnapshot = \case
       , utxoToDecommit = Nothing
       }
   ConfirmedSnapshot{snapshot} -> snapshot
-
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
-  arbitrary = do
-    ks <- arbitrary
-    utxo <- arbitrary
-    utxoToCommit <- arbitrary
-    utxoToDecommit <- arbitrary
-    headId <- arbitrary
-    genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
-
-  shrink = \case
-    InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
-    ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
-
-genConfirmedSnapshot ::
-  IsTx tx =>
-  HeadId ->
-  -- | Exact snapshot version to generate.
-  SnapshotVersion ->
-  -- | The lower bound on snapshot number to generate.
-  -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
-  -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
-  -- this lower bound.
-  SnapshotNumber ->
-  UTxOType tx ->
-  Maybe (UTxOType tx) ->
-  Maybe (UTxOType tx) ->
-  [SigningKey HydraKey] ->
-  Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
-  | minSn > 0 = confirmedSnapshot
-  | otherwise =
-      frequency
-        [ (1, initialSnapshot)
-        , (9, confirmedSnapshot)
-        ]
- where
-  initialSnapshot =
-    InitialSnapshot <$> arbitrary <*> pure utxo
-
-  confirmedSnapshot = do
-    -- FIXME: This is another nail in the coffin to our current modeling of
-    -- snapshots
-    number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
-    let signatures = aggregate $ fmap (`sign` snapshot) sks
-    pure $ ConfirmedSnapshot{snapshot, signatures}

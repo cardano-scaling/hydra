@@ -5,12 +5,15 @@ module Hydra.Tx.Contract.CollectCom where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
+import Test.Hydra.Prelude
+import Hydra.Plutus.Gen ()
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
