@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.bcd74a8b.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.7d178a5f.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.1b4369e1.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.e6c13247.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -29,7 +29,7 @@
 </ul>
 <p>Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being committed or created while the head is open:</p>
 <ul>
-<li>The Hydra head cannot be <em>finalized</em> if it holds more than approximately 80 assets (see <a href="https://hydra.family/head-protocol/benchmarks/transaction-cost#fanout-transaction-costs" target="_blank" rel="noopener noreferrer">the cost of FanOut transaction</a> for latest numbers), although it can be <em>closed</em></li>
+<li>The Hydra head cannot be <em>finalized</em> if it holds more than approximately 40 UTxOs (see <a href="https://github.com/cardano-scaling/hydra/blob/master/hydra-node/test/Hydra/ModelSpec.hs#L162" target="_blank" rel="noopener noreferrer">the cost of FanOut transaction</a> for latest numbers), although it can be <em>closed</em></li>
 <li>Tokens that are minted and not burned within an open Hydra head will prevent the head from being <em>finalized</em></li>
 <li>If one or more participants commit UTXOs that are too large to be processed together in a <code>CollectCom</code> or  <code>Abort</code> transaction, the Hydra head will remain stuck in the <em>initialising</em> stage.</li>
 </ul>
