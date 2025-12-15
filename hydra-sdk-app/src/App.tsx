@@ -513,7 +513,7 @@ const App = () => {
             const sendAmountAda = parseFloat(txAmount);
             const sendAmount = Math.floor(sendAmountAda * 1_000_000);
             if (sendAmount < 1_000_000) throw new Error('Minimum send amount is 1 ADA');
-            if (sendAmount >= inputLovelace) throw new Error('Amount exceeds available balance');
+            if (sendAmount > inputLovelace) throw new Error('Amount exceeds available balance');
 
             const changeAmount = inputLovelace - sendAmount;
 
