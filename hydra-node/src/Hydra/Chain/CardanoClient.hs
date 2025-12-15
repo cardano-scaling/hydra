@@ -187,7 +187,8 @@ queryProtocolParameters networkId socket queryPoint =
       MaryEra -> encodeToEra MaryEra pparams
       AlonzoEra -> encodeToEra AlonzoEra pparams
       BabbageEra -> encodeToEra BabbageEra pparams
-      ConwayEra -> pure pparams
+      ConwayEra -> pure  pparams
+      DijkstraEra -> encodeToEra DijkstraEra pparams
 
 -- | Query 'GenesisParameters' at a given point.
 --
@@ -215,6 +216,7 @@ queryUTxO networkId socket queryPoint addresses =
 queryUTxOExpr :: ConwayEraOnwards era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
 queryUTxOExpr ceo addresses = case ceo of
   ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) $ QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
+  ConwayEraOnwardsDijkstra -> error "Query in Dijkstra era not supported."
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -232,6 +234,7 @@ queryUTxOByTxIn networkId socket queryPoint inputs =
     queryForCurrentEraInConwayEraOnwardsExpr
       ( \(ceo :: ConwayEraOnwards era) -> case ceo of
           ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
+          ConwayEraOnwardsDijkstra -> error "Query in Dijkstra era not supported."
       )
 
 queryForCurrentEraInEonExpr ::
@@ -270,6 +273,7 @@ queryUTxOWhole networkId socket queryPoint = do
     queryForCurrentEraInConwayEraOnwardsExpr
       ( \(ceo :: ConwayEraOnwards era) -> case ceo of
           ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) (QueryUTxO QueryUTxOWhole)
+          ConwayEraOnwardsDijkstra -> error "Query in Dijkstra era not supported."
       )
 
 -- | Query UTxO for the address of given verification key at point.
