@@ -24,8 +24,6 @@ import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
 import PlutusLedgerApi.V3 (fromBuiltin)
-import PlutusTx.Builtins qualified as Builtins
-import PlutusTx.IsData (toBuiltinData)
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what
@@ -191,5 +189,5 @@ instance IsTx Tx where
   -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization
   utxoToElement txOut =
     case toPlutusTxOut txOut of
-      Just plutusTxOut -> fromBuiltin (Builtins.serialiseData (toBuiltinData plutusTxOut))
+      Just plutusTxOut -> fromBuiltin (Util.hashTxOuts [plutusTxOut])
       Nothing -> mempty -- Should not happen for valid UTxO
