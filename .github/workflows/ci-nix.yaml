@@ -147,7 +147,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v7
       with:
         path: artifact
         pattern: benchmarks-*
