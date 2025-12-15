@@ -29,7 +29,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusTx.Builtins (bls12_381_G2_uncompress, toBuiltin)
+import PlutusTx.Builtins (bls12_381_G2_uncompress)
 
 -- * Construction
 
