@@ -29,6 +29,7 @@ import Hydra.Tx.Utils (
   splitUTxO,
  )
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+import PlutusTx.Builtins (bls12_381_G2_uncompress)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genForParty,
@@ -133,6 +134,10 @@ healthyClosedState =
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
       , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO healthyClosedUTxO)
+      , proof =
+          bls12_381_G2_uncompress $
+            toBuiltin $
+              Accumulator.createMembershipProofFromUTxO @Tx (splitUTxOInHead <> splitUTxOToDecommit) (accumulator healthyContestSnapshot) Accumulator.defaultCRS
       }
 
 healthyContestUTxOHash :: BuiltinByteString
