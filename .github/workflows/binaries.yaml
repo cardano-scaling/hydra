@@ -57,7 +57,7 @@ jobs:
         unzip result/*.zip -d out
 
     - name: 💾 Upload executables
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: hydra-${{ matrix.os.arch }}-${{ env.VERSION }} # automatically zips
         path: out/*
@@ -93,7 +93,7 @@ jobs:
         unzip result/*.zip -d out
 
     - name: 💾 Upload executables
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: hydra-aarch64-darwin-${{ env.VERSION }} # automatically zips
         path: out/*
