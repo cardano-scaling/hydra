@@ -74,10 +74,11 @@ library
     , hydra-prelude
     , lens
     , lens-aeson
-    , plutus-core          >=1.30
-    , plutus-ledger-api    >=1.30
-    , plutus-tx            >=1.30
-    , plutus-tx-plugin     >=1.30
+    , plutus-core          >=1.53
+    , plutus-ledger-api    >=1.53
+    , plutus-tx            >=1.53
+    , plutus-tx-plugin     >=1.53
+    , QuickCheck
     , serialise
     , template-haskell
     , time
