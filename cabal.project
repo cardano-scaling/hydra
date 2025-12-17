@@ -17,6 +17,15 @@ index-state:
 
 packages: **/*.cabal
 
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/cardano-api.git
+  tag: 9978bdb49433a45217996fa98edce8b11d5d5926
+  subdir:
+    cardano-api
+    cardano-api-gen
+  --sha256: 0jwxf79rmv1srp3nky4g4w05pwd64mmmyi0wp6wgn6gjmkkwivxl
+
 -- Compile more things in parallel
 package *
   ghc-options: -j8
