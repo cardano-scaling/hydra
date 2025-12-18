@@ -24,7 +24,15 @@ source-repository-package
   subdir:
     cardano-api
     cardano-api-gen
-  --sha256: 0jwxf79rmv1srp3nky4g4w05pwd64mmmyi0wp6wgn6gjmkkwivxl
+  --sha256: 10y84r3mim40j8f7ykfab0f94jav28wk7bihl67jccjk9ka5ij9y
+
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/plutus-accumulator.git
+  tag: c3667fa975c1408fd27854490dab62b0b0c3b7e1
+  subdir:
+    plutus-accumulator
+  --sha256: 10y84r3mim40j8f7ykfab0f94jav28wk7bihl67jccjk9ka5ij9y
 
 -- Compile more things in parallel
 package *

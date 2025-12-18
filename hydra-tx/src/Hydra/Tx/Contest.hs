@@ -162,9 +162,11 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , version = toInteger openVersion
           , accumulatorHash = toBuiltin contestAccumulatorHash
           , proof
+          , accumulatorCommitment
           }
    where
     contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
 
 -- * Observation
 

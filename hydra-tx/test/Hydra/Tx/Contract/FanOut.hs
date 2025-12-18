@@ -107,6 +107,9 @@ healthyFanoutDatum =
            in bls12_381_G2_uncompress $
                 toBuiltin $
                   Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator Accumulator.defaultCRS
+      , accumulatorCommitment =
+          Accumulator.getAccumulatorCommitment $
+            Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) mempty (Just $ snd healthyFanoutSnapshotUTxO)
       }
  where
   healthyContestationPeriodSeconds = 10
