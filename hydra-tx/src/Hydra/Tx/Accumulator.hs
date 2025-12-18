@@ -3,6 +3,7 @@
 module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
   getAccumulatorHash,
+  getAccumulatorCommitment,
   build,
   buildFromUTxO,
   buildFromSnapshotUTxOs,
@@ -25,8 +26,20 @@ import Accumulator qualified
 import Bindings (getPolyCommitOverG2)
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
 import Codec.Serialise (serialise)
+import Data.Map.Strict qualified as Map
 import Field qualified as F
+import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Tx.IsTx (IsTx (..))
+import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar, unScalar)
+import PlutusTx.Builtins (
+  BuiltinBLS12_381_G2_Element,
+  bls12_381_G2_compressed_generator,
+  bls12_381_G2_scalarMul,
+  bls12_381_G2_uncompress,
+  byteStringToInteger,
+  toBuiltin,
+ )
+import PlutusTx.Prelude (scale)
 
 -- * HydraAccumulator
 
@@ -103,6 +116,16 @@ getAccumulatorHash (HydraAccumulator acc) =
   -- Simple serialization-based hash of the accumulator map
   toStrict . serialise $ acc
 
+getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G2_Element
+getAccumulatorCommitment (HydraAccumulator acc) =
+  let g2 = bls12_381_G2_uncompress bls12_381_G2_compressed_generator
+      tau = mkScalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
+      k = 1024
+      crsG2 = map (\x -> bls12_381_G2_scalarMul (unScalar (scale x tau)) g2) [0 .. k + 10]
+   in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
+        Map.elems
+          acc
+
 -- * CRS (Common Reference String)
 
 -- | Generate a CRS using the "powers of tau" approach.
@@ -158,10 +181,10 @@ generateCRSG1 setSize =
 -- This is a pre-generated CRS using the powers of tau approach.
 -- For production, replace with a secure CRS from perpetual powers of tau ceremony.
 defaultCRS :: [Point2]
-defaultCRS = generateCRS 1000
+defaultCRS = generateCRS 50
 
 defaultCRSG1 :: [Point1]
-defaultCRSG1 = generateCRSG1 1000
+defaultCRSG1 = generateCRSG1 50
 
 -- * Cryptographic Proofs for partial fanout
 

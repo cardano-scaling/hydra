@@ -128,16 +128,16 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  snapshot = getSnapshot confirmedSnapshot
+  snapshot@Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
 
   proof =
     let snapshotUTxO =
-          utxo snapshot
+          utxo
             <> case closeRedeemer of
               Head.CloseUsedInc{} ->
-                fromMaybe mempty (utxoToCommit snapshot)
+                fromMaybe mempty utxoToCommit
               Head.CloseUnusedDec{} ->
-                fromMaybe mempty (utxoToDecommit snapshot)
+                fromMaybe mempty utxoToDecommit
               _ -> mempty
      in bls12_381_G2_uncompress $
           toBuiltin $
@@ -154,12 +154,12 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , alphaUTxOHash =
               case closeRedeemer of
                 Head.CloseUsedInc{} ->
-                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToCommit $ getSnapshot confirmedSnapshot
+                  toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToCommit)
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , omegaUTxOHash =
               case closeRedeemer of
                 Head.CloseUnusedDec{} ->
-                  toBuiltin . hashUTxO @Tx . fromMaybe mempty . utxoToDecommit $ getSnapshot confirmedSnapshot
+                  toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
                 _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = openParties
           , contestationDeadline
@@ -168,10 +168,12 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , contesters = []
           , version = fromIntegral openVersion
           , accumulatorHash = toBuiltin closedAccumulatorHash
+          , accumulatorCommitment
           , proof
           }
    where
     closedAccumulatorHash = Accumulator.getAccumulatorHash $ accumulator $ getSnapshot confirmedSnapshot
+    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod

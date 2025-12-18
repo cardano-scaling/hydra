@@ -44,8 +44,8 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Instances.Time ()
 import Test.QuickCheck.Instances.Text ()
+import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Coin
