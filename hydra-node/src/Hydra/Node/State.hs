@@ -5,7 +5,7 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
   HeadId,

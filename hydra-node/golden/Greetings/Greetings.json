@@ -1,7 +1,12 @@
 {
     "samples": [
         {
-            "chainSyncedStatus": "CatchingUp",
+            "atChainPoint": {
+                "blockHash": "0000000100000100000001000001000001000000000000000100010001000001",
+                "slot": 1,
+                "tag": "ChainPoint"
+            },
+            "chainSyncedStatus": "InSync",
             "env": {
                 "configuredPeers": "",
                 "contestationPeriod": 43200,
