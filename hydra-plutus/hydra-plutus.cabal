@@ -68,16 +68,19 @@ library
     , base
     , base16-bytestring
     , bytestring
+    , cardano-crypto-class
     , file-embed
+    , haskell-accumulator
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
     , lens
     , lens-aeson
-    , plutus-core          >=1.55
-    , plutus-ledger-api    >=1.55
-    , plutus-tx            >=1.53
-    , plutus-tx-plugin     >=1.53
+    , plutus-accumulator
+    , plutus-core           >=1.55
+    , plutus-ledger-api     >=1.55
+    , plutus-tx             >=1.53
+    , plutus-tx-plugin      >=1.53
     , QuickCheck
     , serialise
     , template-haskell
