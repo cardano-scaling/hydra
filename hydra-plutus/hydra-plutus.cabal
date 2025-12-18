@@ -74,8 +74,8 @@ library
     , hydra-prelude
     , lens
     , lens-aeson
-    , plutus-core          >=1.53
-    , plutus-ledger-api    >=1.53
+    , plutus-core          >=1.55
+    , plutus-ledger-api    >=1.55
     , plutus-tx            >=1.53
     , plutus-tx-plugin     >=1.53
     , QuickCheck
