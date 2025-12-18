@@ -187,7 +187,7 @@ queryProtocolParameters networkId socket queryPoint =
       MaryEra -> encodeToEra MaryEra pparams
       AlonzoEra -> encodeToEra AlonzoEra pparams
       BabbageEra -> encodeToEra BabbageEra pparams
-      ConwayEra -> pure  pparams
+      ConwayEra -> pure pparams
       DijkstraEra -> encodeToEra DijkstraEra pparams
 
 -- | Query 'GenesisParameters' at a given point.
