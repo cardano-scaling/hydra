@@ -19,9 +19,11 @@
                                 "0001010001010101010101000101000101000000000101010000010100000100#79": {
                                     "address": "addr_test1zzaf83cnwyq5q4vnq82s03g8e76gazvvfp3xkfxzw5kjk0z5thr0d99jcxkg7e8wu2vnn85vytmjsv20jeu4k4xruytqme4vfc",
                                     "datum": null,
-                                    "datumhash": null,
-                                    "inlineDatum": null,
-                                    "inlineDatumRaw": null,
+                                    "inlineDatum": {
+                                        "int": 1
+                                    },
+                                    "inlineDatumRaw": "01",
+                                    "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
                                     "referenceScript": null,
                                     "value": {
                                         "432e365393f1aa7e9ff7200bac67dc1fd57d1654902f943055928622": {

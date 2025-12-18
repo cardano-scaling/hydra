@@ -36,6 +36,8 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+
+-- import Plutus.Crypto.Accumulator (checkMembership)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V3 (
@@ -88,8 +90,8 @@ headValidator oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
-      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, crs}) ->
+      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crs
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -313,7 +315,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash')
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash' :: Hash)
               signature
       CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
@@ -321,7 +323,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' /= emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash')
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash' :: Hash)
               signature
       CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
@@ -329,7 +331,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash')
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash' :: Hash)
               signature
       CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
@@ -337,7 +339,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash') -- TODO:
+              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash' :: Hash)
               signature
       CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
@@ -345,7 +347,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash')
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash' :: Hash)
               signature
 
   checkDeadline =
@@ -505,14 +507,17 @@ headIsFinalizedWith ::
   Integer ->
   -- | Number of delta outputs to fanout
   Integer ->
+  [BuiltinBLS12_381_G1_Element] ->
   Bool
-headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs _crs =
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
  where
+  -- && checkMembership crs accumulatorCommitment [] proof
+
   minted = txInfoMint txInfo
 
   hasSameUTxOHash =
@@ -533,8 +538,7 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
 
   decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorHash, proof} = closedDatum
-
+  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum -- ,accumulatorHash, proof, accumulatorCommitment
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =

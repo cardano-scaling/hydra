@@ -64,6 +64,7 @@ data ClosedDatum = ClosedDatum
   , accumulatorHash :: Hash
   -- ^ Spec: ηA. Digest of the accumulator
   , proof :: BuiltinBLS12_381_G2_Element
+  , accumulatorCommitment :: BuiltinBLS12_381_G2_Element
   }
   deriving stock (Generic, Show)
 
