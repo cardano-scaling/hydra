@@ -97,6 +97,7 @@ library
     , lens
     , lens-aeson
     , mono-traversable
+    , plutus-accumulator
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter
