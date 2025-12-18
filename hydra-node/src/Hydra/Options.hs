@@ -187,7 +187,7 @@ defaultBlockfrostOptions =
     }
 
 defaultBFQueryTimeout :: Int
-defaultBFQueryTimeout = 20
+defaultBFQueryTimeout = 30
 
 defaultBFRetryTimeout :: Int
 defaultBFRetryTimeout = 300
