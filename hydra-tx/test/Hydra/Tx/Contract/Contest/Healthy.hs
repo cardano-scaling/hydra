@@ -138,6 +138,7 @@ healthyClosedState =
           bls12_381_G2_uncompress $
             toBuiltin $
               Accumulator.createMembershipProofFromUTxO @Tx (splitUTxOInHead <> splitUTxOToDecommit) (accumulator healthyContestSnapshot) Accumulator.defaultCRS
+      , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
       }
 
 healthyContestUTxOHash :: BuiltinByteString
