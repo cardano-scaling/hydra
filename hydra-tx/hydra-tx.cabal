@@ -101,6 +101,7 @@ library
     , lens-aeson
     , mono-traversable
     , ouroboros-consensus-cardano
+    , plutus-accumulator
     , plutus-ledger-api
     , plutus-tx
     , prettyprinter
