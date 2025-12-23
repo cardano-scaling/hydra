@@ -8,7 +8,7 @@ This tutorial explains how to profile Hydra scripts and is intended for contribu
 
 ## Overview
 
-For every pull request and the latest `master` branch, we compute typical transaction costs in terms of size, memory, and CPU usage of the Hydra protocol transactions on Cardano. You can view the latest results [here](https://hydra.family/head-protocol/benchmarks/transaction-cost/).
+For every pull request and the latest `master` branch, we compute typical transaction costs in terms of size, memory, and CPU usage of the Hydra protocol transactions on Cardano. You can view the latest results [here](https://hydra.family/head-protocol/benchmarks/transaction-cost).
 
 Such benchmarks provide a comprehensive overview of the constraints for a given transaction, including maximum transaction size and percent of maximum memory and CPU budget. For a detailed assessment, we analyze _all_ scripts that run within a given transaction.
 
