@@ -23,9 +23,9 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
  )
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.CRS qualified as CRS
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import System.Process.Typed (runProcess_, shell)
