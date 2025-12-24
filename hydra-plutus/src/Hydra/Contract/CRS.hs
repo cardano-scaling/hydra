@@ -5,15 +5,15 @@
 
 module Hydra.Contract.CRS where
 
-import Hydra.Prelude hiding (foldMap, (<$>), (==), filter, map, isJust)
+import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
-import Hydra.Plutus.Extras (wrapValidator, ValidatorType)
+import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusLedgerApi.V3 (
   ScriptContext (..),
   serialiseCompiledCode,
  )
-import PlutusTx (compile, unstableMakeIsData, CompiledCode)
+import PlutusTx (CompiledCode, compile, unstableMakeIsData)
 import PlutusTx.Prelude (BuiltinBLS12_381_G1_Element)
 
 newtype CRSDatum = CRSDatum
@@ -33,13 +33,11 @@ crsValidator _ _ _ = True
 
 crsValidatorScript :: CompiledCode ValidatorType
 crsValidatorScript =
-      $$( PlutusTx.compile
-            [||wrap crsValidator||]
-        )
+  $$( PlutusTx.compile
+        [||wrap crsValidator||]
+    )
  where
   wrap = wrapValidator @CRSDatum @()
 
-
 validatorScript :: PlutusScript
 validatorScript = PlutusScriptSerialised $ serialiseCompiledCode crsValidatorScript
-

@@ -18,6 +18,7 @@ import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
@@ -337,6 +338,10 @@ genScriptRegistry = do
       , headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      , crsReference =
+          ( TxIn txId' (TxIx 3)
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript}
           )
       }
 
