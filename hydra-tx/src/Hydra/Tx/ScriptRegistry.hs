@@ -20,9 +20,10 @@ import Hydra.Cardano.Api (
 import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
-newtype ScriptRegistry = ScriptRegistry
+data ScriptRegistry = ScriptRegistry
   { headReference :: (TxIn, TxOut CtxUTxO)
-  -- TODO: why is here no deposit script reference?
+  , crsReference :: (TxIn, TxOut CtxUTxO)
+    -- TODO: why is here no deposit script reference?
   }
   deriving stock (Eq, Show, Generic)
 
@@ -56,7 +57,8 @@ newScriptRegistry =
     Either NewScriptRegistryException ScriptRegistry
   resolve m = do
     headReference <- lookupScriptHash "νHead" headScriptHash m
-    pure $ ScriptRegistry{headReference}
+    crsReference <- lookupScriptHash "νCRS" crsScriptHash m
+    pure $ ScriptRegistry{headReference, crsReference}
 
   lookupScriptHash :: Text -> ScriptHash -> Map ScriptHash (TxIn, TxOut CtxUTxO) -> Either NewScriptRegistryException (TxIn, TxOut CtxUTxO)
   lookupScriptHash name sh m =
@@ -64,7 +66,7 @@ newScriptRegistry =
       Nothing -> Left $ MissingScript name sh (Map.keysSet m)
       Just s -> Right s
 
-  HydraScriptCatalogue{headScriptHash} = hydraScriptCatalogue
+  HydraScriptCatalogue{headScriptHash, crsScriptHash} = hydraScriptCatalogue
 
 -- | Get the UTxO that corresponds to a script registry.
 --
@@ -73,6 +75,6 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromList [headReference]
+  UTxO.fromList [headReference, crsReference]
  where
-  ScriptRegistry{headReference} = scriptRegistry
+  ScriptRegistry{headReference, crsReference} = scriptRegistry
