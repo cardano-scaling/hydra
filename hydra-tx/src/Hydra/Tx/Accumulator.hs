@@ -13,10 +13,12 @@ module Hydra.Tx.Accumulator (
   generateCRSG1,
   defaultCRS,
   defaultCRSG1,
+  defaultItems,
 
   -- * Membership proofs for partial fanout
   createMembershipProof,
   createMembershipProofFromUTxO,
+  createCRSG1Datum,
 ) where
 
 import Hydra.Prelude
@@ -24,15 +26,19 @@ import Hydra.Prelude
 import Accumulator (Accumulator, Element)
 import Accumulator qualified
 import Bindings (getPolyCommitOverG2)
+import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
 import Codec.Serialise (serialise)
 import Data.Map.Strict qualified as Map
 import Field qualified as F
 import GHC.ByteOrder (ByteOrder (BigEndian))
+import Hydra.Cardano.Api qualified as HApi
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Tx.IsTx (IsTx (..))
 import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar, unScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G2_Element,
+  bls12_381_G1_uncompress,
   bls12_381_G2_compressed_generator,
   bls12_381_G2_scalarMul,
   bls12_381_G2_uncompress,
@@ -181,10 +187,13 @@ generateCRSG1 setSize =
 -- This is a pre-generated CRS using the powers of tau approach.
 -- For production, replace with a secure CRS from perpetual powers of tau ceremony.
 defaultCRS :: [Point2]
-defaultCRS = generateCRS 50
+defaultCRS = generateCRS defaultItems
 
 defaultCRSG1 :: [Point1]
-defaultCRSG1 = generateCRSG1 50
+defaultCRSG1 = generateCRSG1 defaultItems
+
+defaultItems :: Int
+defaultItems = 50
 
 -- * Cryptographic Proofs for partial fanout
 
@@ -262,3 +271,9 @@ createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
   let subsetElements = utxoToElement @tx <$> toPairList @tx subsetUTxO
   -- Use the element-based proof function
   createMembershipProof subsetElements fullAcc crs
+
+createCRSG1Datum :: Int -> HApi.TxOutDatum ctx
+createCRSG1Datum n =
+  TxOutDatumInline BabbageEraOnwardsConway $
+    HApi.toScriptData $
+      CRS.CRSDatum (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> generateCRSG1 n)
