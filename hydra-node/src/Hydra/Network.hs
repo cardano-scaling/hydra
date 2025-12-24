@@ -29,6 +29,7 @@ import Network.Socket (PortNumber)
 import Test.QuickCheck (elements, listOf, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 import Text.Read (Read (readsPrec))
+import Test.QuickCheck.Instances.Text ()
 import Text.Show (Show (show))
 
 -- * Hydra network interface
