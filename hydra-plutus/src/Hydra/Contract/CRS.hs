@@ -10,18 +10,18 @@ import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusLedgerApi.V3 (
+  BuiltinByteString,
+  Datum (..),
   ScriptContext (..),
   serialiseCompiledCode,
+  toBuiltinData,
  )
-import PlutusTx (CompiledCode, compile, unstableMakeIsData)
-import PlutusTx.Prelude (BuiltinBLS12_381_G1_Element)
+import PlutusTx (CompiledCode, compile)
 
-newtype CRSDatum = CRSDatum
-  { crs :: [BuiltinBLS12_381_G1_Element]
-  }
-  deriving stock (Show, Generic)
+type CRSDatum = [BuiltinByteString]
 
-unstableMakeIsData ''CRSDatum
+datum :: CRSDatum -> Datum
+datum a = Datum (toBuiltinData a)
 
 {-# INLINEABLE crsValidator #-}
 crsValidator ::
