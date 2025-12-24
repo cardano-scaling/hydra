@@ -11,8 +11,8 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Codec.Serialise (serialise)
-import Criterion.Main (bench, bgroup, defaultMain, nf, nfIO, whnf, whnfIO)
-import Hydra.Cardano.Api (Tx, UTxO)
+import Criterion.Main (bench, bgroup, defaultMain, nf, whnf)
+import Hydra.Cardano.Api
 import Hydra.Tx.Accumulator (
   buildFromUTxO,
   createMembershipProof,
@@ -55,12 +55,12 @@ main = do
 
   -- Generate subsets for membership proofs
   -- Testing realistic scenarios: proving 10-20% of UTxOs
-  subset5_from50 <- generateSubset utxo50 5
-  subset10_from100 <- generateSubset utxo100 10
-  subset50_from500 <- generateSubset utxo500 50
-  subset100_from1000 <- generateSubset utxo1000 100
-  subset500_from5000 <- generateSubset utxo5000 500
-  subset1000_from10000 <- generateSubset utxo10000 1000
+  let subset5_from50 = generateSubset utxo50 5
+  let subset10_from100 = generateSubset utxo100 10
+  let subset50_from500 = generateSubset utxo500 50
+  let subset100_from1000 = generateSubset utxo1000 100
+  let subset500_from5000 = generateSubset utxo5000 500
+  let subset1000_from10000 = generateSubset utxo10000 1000
 
   putTextLn "Generated subsets for membership proofs"
 
@@ -94,18 +94,18 @@ main = do
         ]
     , bgroup
         "3. Create Membership Proofs"
-        [ bench "5 from 50" $ whnfIO $ createMembershipProofFromUTxO @Tx subset5_from50 acc50 defaultCRS
-        , bench "10 from 100" $ whnfIO $ createMembershipProofFromUTxO @Tx subset10_from100 acc100 defaultCRS
-        , bench "50 from 500" $ whnfIO $ createMembershipProofFromUTxO @Tx subset50_from500 acc500 defaultCRS
-        , bench "100 from 1000" $ whnfIO $ createMembershipProofFromUTxO @Tx subset100_from1000 acc1000 defaultCRS
-        , bench "500 from 5000" $ whnfIO $ createMembershipProofFromUTxO @Tx subset500_from5000 acc5000 defaultCRS
-        , bench "1000 from 10000" $ whnfIO $ createMembershipProofFromUTxO @Tx subset1000_from10000 acc10000 defaultCRS
+        [ bench "5 from 50" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset5_from50 acc50 defaultCRS
+        , bench "10 from 100" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset10_from100 acc100 defaultCRS
+        , bench "50 from 500" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset50_from500 acc500 defaultCRS
+        , bench "100 from 1000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset100_from1000 acc1000 defaultCRS
+        , bench "500 from 5000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset500_from5000 acc5000 defaultCRS
+        , bench "1000 from 10000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset1000_from10000 acc10000 defaultCRS
         ]
     , bgroup
         "4. Create Membership Proofs (Low-level)"
-        [ bench "5 elements from 10" $ whnfIO $ createMembershipProof (take 5 serialized10) acc10 defaultCRS
-        , bench "10 elements from 100" $ whnfIO $ createMembershipProof (take 10 serialized100) acc100 defaultCRS
-        , bench "50 elements from 100" $ whnfIO $ createMembershipProof (take 50 serialized100) acc100 defaultCRS
+        [ bench "5 elements from 10" $ whnf rnf $ createMembershipProof (take 5 serialized10) acc10 defaultCRS
+        , bench "10 elements from 100" $ whnf rnf $ createMembershipProof (take 10 serialized100) acc100 defaultCRS
+        , bench "50 elements from 100" $ whnf rnf $ createMembershipProof (take 50 serialized100) acc100 defaultCRS
         ]
     , bgroup
         "5. Accumulator Hashing"
@@ -131,9 +131,9 @@ main = do
         ]
     , bgroup
         "8. End-to-End Snapshot Simulation"
-        [ bench "Full cycle: 100 UTxOs" $ nfIO (fullSnapshotCycle utxo100)
-        , bench "Full cycle: 1000 UTxOs" $ nfIO (fullSnapshotCycle utxo1000)
-        , bench "Partial fanout: 100 from 1000" $ nfIO (partialFanoutCycle utxo1000 subset100_from1000)
+        [ bench "Full cycle: 100 UTxOs" $ nf rnf (fullSnapshotCycle utxo100)
+        , bench "Full cycle: 1000 UTxOs" $ nf rnf (fullSnapshotCycle utxo1000)
+        , bench "Partial fanout: 100 from 1000" $ nf rnf (partialFanoutCycle utxo1000 subset100_from1000)
         ]
     ]
 
@@ -143,30 +143,29 @@ generateUTxO n = generate $ genUTxOAdaOnlyOfSize n
 
 -- | Generate a subset of a given UTxO.
 -- This simulates selecting UTxOs for partial fanout.
-generateSubset :: UTxO -> Int -> IO UTxO
-generateSubset utxo n = do
+generateSubset :: UTxO -> Int -> UTxO
+generateSubset utxo n =
   let allPairs = UTxO.toList utxo
-  if n >= length allPairs
-    then pure utxo
-    else do
-      let subsetPairs = take n allPairs
-      pure $ UTxO.fromList subsetPairs
+   in if n >= length allPairs
+        then utxo
+        else
+          let subsetPairs = take n allPairs
+           in UTxO.fromList subsetPairs
 
 -- | Simulate the full snapshot creation cycle:
 -- 1. Build accumulator from UTxO
 -- 2. Hash the accumulator
 -- 3. Serialize for signing
-fullSnapshotCycle :: UTxO -> IO ByteString
-fullSnapshotCycle utxo = do
+fullSnapshotCycle :: UTxO -> ByteString
+fullSnapshotCycle utxo =
   let accumulator = buildFromUTxO @Tx utxo
-      hash = getAccumulatorHash accumulator
-  pure hash
+   in getAccumulatorHash accumulator
 
 -- | Simulate a partial fanout operation:
 -- 1. Build accumulator from full UTxO
 -- 2. Create membership proof for subset
 -- 3. Return the proof
-partialFanoutCycle :: UTxO -> UTxO -> IO Text
-partialFanoutCycle fullUtxo subsetUtxo = do
+partialFanoutCycle :: UTxO -> UTxO -> ByteString
+partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
-  createMembershipProofFromUTxO @Tx subsetUtxo accumulator defaultCRS
+   in createMembershipProofFromUTxO @Tx subsetUtxo accumulator defaultCRS
