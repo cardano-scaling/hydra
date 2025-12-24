@@ -24,6 +24,7 @@ import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano.Evaluate
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -347,6 +348,10 @@ genScriptRegistry = do
       , headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      , crsReference =
+          ( TxIn txId' (TxIx 3)
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript}
           )
       }
 
