@@ -4,16 +4,13 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Crypto.EllipticCurve.BLS12_381 (blsCompress)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
-import PlutusTx.Builtins (bls12_381_G1_uncompress, toBuiltin)
 
 -- * Creation
 
@@ -46,7 +43,6 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
  where
-  crs = bls12_381_G1_uncompress . toBuiltin . blsCompress <$> Accumulator.generateCRSG1 (utxoLength + toCommitLength + toDecommitLength)
 
   headWitness =
     BuildTxWith $
@@ -68,7 +64,6 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
         { numberOfFanoutOutputs = fromIntegral utxoLength
         , numberOfCommitOutputs = fromIntegral toCommitLength
         , numberOfDecommitOutputs = fromIntegral toDecommitLength
-        , crs
         }
 
   headTokens =
