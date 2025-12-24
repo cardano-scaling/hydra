@@ -25,6 +25,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import System.Process.Typed (runProcess_, shell)
@@ -50,6 +51,8 @@ spec = do
     goldenScript "vHead" Head.validatorScript
   it "Head minting policy script" $
     goldenScript "mHead" (PlutusScriptSerialised $ serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
+  it "CRS script" $
+    goldenScript "vCRS" CRS.validatorScript
 
 -- | Write a golden script on first run and ensure it stays the same on
 -- subsequent runs.

@@ -45,6 +45,7 @@ library
     Hydra.Contract
     Hydra.Contract.Commit
     Hydra.Contract.CommitError
+    Hydra.Contract.CRS
     Hydra.Contract.Deposit
     Hydra.Contract.DepositError
     Hydra.Contract.Dummy
