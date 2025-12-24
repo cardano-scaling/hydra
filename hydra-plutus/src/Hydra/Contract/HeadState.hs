@@ -186,7 +186,6 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
-      , crs :: [BuiltinBLS12_381_G1_Element]
       }
   deriving stock (Generic, Show)
 
