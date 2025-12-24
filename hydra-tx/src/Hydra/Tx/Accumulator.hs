@@ -33,12 +33,10 @@ import Data.Map.Strict qualified as Map
 import Field qualified as F
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
-import Hydra.Contract.CRS qualified as CRS
 import Hydra.Tx.IsTx (IsTx (..))
 import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar, unScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G2_Element,
-  bls12_381_G1_uncompress,
   bls12_381_G2_compressed_generator,
   bls12_381_G2_scalarMul,
   bls12_381_G2_uncompress,
@@ -275,5 +273,5 @@ createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
 createCRSG1Datum :: Int -> HApi.TxOutDatum ctx
 createCRSG1Datum n =
   TxOutDatumInline BabbageEraOnwardsConway $
-    HApi.toScriptData $
-      CRS.CRSDatum (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> generateCRSG1 n)
+    HApi.toScriptData
+      (toBuiltin . blsCompress <$> generateCRSG1 n)

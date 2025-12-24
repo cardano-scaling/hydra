@@ -190,6 +190,7 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
+      , crsRef :: TxOutRef
       }
   deriving stock (Generic, Show)
 

@@ -14,6 +14,7 @@ import Hydra.Cardano.Api (
   PlutusScript,
   pattern PlutusScriptSerialised,
  )
+import Hydra.Contract.CRS (CRSDatum)
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
@@ -36,8 +37,7 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-
--- import Plutus.Crypto.Accumulator (checkMembership)
+import Plutus.Crypto.Accumulator (checkMembership)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V1.Value (lovelaceValue)
@@ -56,6 +56,7 @@ import PlutusLedgerApi.V3 (
   TxInInfo (..),
   TxInfo (..),
   TxOut (..),
+  TxOutRef,
   UpperBound (..),
   Value (Value),
  )
@@ -94,8 +95,8 @@ headValidator oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
-      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, crsRef}) ->
+      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -644,16 +645,18 @@ checkFanout ::
   Integer ->
   -- | Number of delta outputs to fanout
   Integer ->
+  -- | Reference input containing crs
+  TxOutRef ->
   Bool
-checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+checkFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef =
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
+    && crsRefExists
+    && checkMembership crsUncompressed accumulatorCommitment [] proof
  where
-  -- && checkMembership crs accumulatorCommitment [] proof
-
   minted = txInfoMint txInfo
 
   hasSameUTxOHash =
@@ -674,7 +677,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
 
   decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum -- ,accumulatorHash, proof, accumulatorCommitment
+  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, proof, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =
@@ -683,6 +686,20 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
         traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
           time > contestationDeadline
       _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
+
+  crsRefExists = traceIfFalse "Missing CRS reference input" (isJust crsRefTxOut)
+
+  crsCompressed = decodeCRSReferenceDatum ctx crsRef
+
+  -- Find the reference input at the known CRS TxOutRef
+  crsRefTxOut :: Maybe TxInInfo
+  crsRefTxOut =
+    L.find
+      (\txin -> txInInfoOutRef txin == crsRef)
+      (txInfoReferenceInputs txInfo)
+
+  crsUncompressed :: [BuiltinBLS12_381_G1_Element]
+  crsUncompressed = L.map bls12_381_G1_uncompress crsCompressed
 {-# INLINEABLE checkFanout #-}
 
 --------------------------------------------------------------------------------
@@ -762,6 +779,17 @@ headOutputDatum ctx =
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE headOutputDatum #-}
 
+crsReferenceDatum :: ScriptContext -> TxOutRef -> Datum
+crsReferenceDatum ctx crsRef =
+  case L.find
+    (\txin -> txInInfoOutRef txin == crsRef)
+    (txInfoReferenceInputs txInfo) of
+    Nothing -> traceError $(errorCode MissingCRSDatum)
+    Just txInInfo -> getTxOutDatum (txInInfoResolved txInInfo)
+ where
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+{-# INLINEABLE crsReferenceDatum #-}
+
 getTxOutDatum :: TxOut -> Datum
 getTxOutDatum o =
   case txOutDatum o of
@@ -827,6 +855,14 @@ decodeHeadOutputOpenDatum ctx =
     Just (Open openDatum) -> openDatum
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputOpenDatum #-}
+
+decodeCRSReferenceDatum :: ScriptContext -> TxOutRef -> CRSDatum
+decodeCRSReferenceDatum ctx crsRef =
+  -- XXX: fromBuiltinData is super big (and also expensive?)
+  case fromBuiltinData @CRSDatum $ getDatum (crsReferenceDatum ctx crsRef) of
+    Just d -> d
+    _ -> traceError $(errorCode MissingCRSDatum)
+{-# INLINEABLE decodeCRSReferenceDatum #-}
 
 emptyHash :: Hash
 emptyHash = hashTxOuts []

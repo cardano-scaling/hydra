@@ -37,13 +37,12 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
+      & addTxInsReference [headScriptRef, crsScriptRef] mempty
       & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
  where
-
   headWitness =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
@@ -51,6 +50,9 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
 
   headScriptRef =
     fst (headReference scriptRegistry)
+
+  crsScriptRef =
+    fst (crsReference scriptRegistry)
 
   utxoLength = UTxO.size utxo
 
@@ -64,6 +66,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
         { numberOfFanoutOutputs = fromIntegral utxoLength
         , numberOfCommitOutputs = fromIntegral toCommitLength
         , numberOfDecommitOutputs = fromIntegral toDecommitLength
+        , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
   headTokens =
