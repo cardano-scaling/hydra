@@ -33,8 +33,8 @@ data-files:
   config/devnet/genesis-alonzo.json
   config/devnet/genesis-byron.json
   config/devnet/genesis-conway.json
-  config/devnet/genesis-dijkstra.json
   config/devnet/genesis-shelley.json
+  config/devnet/genesis-dijkstra.json
   config/devnet/kes.skey
   config/devnet/opcert.cert
   config/devnet/vrf.skey
