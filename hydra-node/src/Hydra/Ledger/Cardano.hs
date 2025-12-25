@@ -19,7 +19,7 @@ import Cardano.Ledger.Alonzo.Rules (
  )
 import Cardano.Ledger.Api (bodyTxL, raCredential, unWithdrawals, withdrawalsTxBodyL)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Compactable (toCompact)
+import Cardano.Ledger.Compactible (toCompact)
 import Cardano.Ledger.Conway.Rules (
   ConwayLedgerPredFailure (ConwayUtxowFailure),
   ConwayUtxoPredFailure (UtxosFailure),

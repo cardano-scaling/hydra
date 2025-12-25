@@ -31,7 +31,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
-import Hydra.Tx.Accumulator (createCRSG1Datum)
+import Hydra.Tx.Accumulator (createCRSG1Datum, defaultItems)
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.CollectCom
 import Hydra.Tx.ContestationPeriod
@@ -66,7 +66,7 @@ genTxOut =
   gen =
     oneof
       [ fromLedgerTxOut <$> arbitrary
-      , notMultiAsset . fromLedgerTxOut <$> arbitrary
+      , noDatum . notMultiAsset . fromLedgerTxOut <$> arbitrary
       ]
 
 notMultiAsset :: TxOut ctx -> TxOut ctx
@@ -109,6 +109,10 @@ noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
 noRefScripts :: TxOut ctx -> TxOut ctx
 noRefScripts out =
   out{txOutReferenceScript = ReferenceScriptNone}
+
+noDatum :: TxOut ctx -> TxOut ctx
+noDatum out =
+  out{txOutDatum = TxOutDatumNone}
 
 -- | Adjusts a transaction output to remove any policy asset groups that contain
 -- non-positive quantities, while preserving the ADA amount. If a 'PolicyId' is
@@ -352,7 +356,7 @@ genScriptRegistry = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum 50}
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum defaultItems}
           )
       }
 
