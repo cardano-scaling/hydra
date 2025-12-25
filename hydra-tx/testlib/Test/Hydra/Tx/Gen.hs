@@ -23,6 +23,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (ScriptRegistry (..))
+import Hydra.Tx.Accumulator (createCRSG1Datum)
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.Crypto (Hash (..))
 import Hydra.Tx.Observe (AbortObservation, CollectComObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
@@ -341,7 +342,7 @@ genScriptRegistry = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum 50}
           )
       }
 
