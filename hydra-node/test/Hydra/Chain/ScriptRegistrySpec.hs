@@ -48,7 +48,7 @@ spec = describe "publishHydraScripts" $ do
                 ReferenceScriptNone
             )
     txIds <- runSuccessfulBackend (vk, utxo) $ publishHydraScripts sk
-    length txIds `shouldBe` 1
+    length txIds `shouldBe` 2
 
   it "throws PublishingFundsMissing error if no UTxO is found for the given address" $ do
     (vk, sk) <- generate genKeyPair
