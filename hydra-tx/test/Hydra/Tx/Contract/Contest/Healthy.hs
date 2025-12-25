@@ -13,6 +13,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
@@ -27,6 +28,7 @@ import Hydra.Tx.Utils (
   splitUTxO,
  )
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+import PlutusTx.Builtins (bls12_381_G2_uncompress)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genForParty,
@@ -113,6 +115,7 @@ healthyContestSnapshot =
     , utxoToCommit = Nothing
     , utxoToDecommit = Just splitUTxOToDecommit
     , version = healthyCloseSnapshotVersion
+    , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead Nothing (Just splitUTxOToDecommit)
     }
 
 healthyClosedState :: Head.State
@@ -129,6 +132,12 @@ healthyClosedState =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO healthyClosedUTxO)
+      , proof =
+          bls12_381_G2_uncompress $
+            toBuiltin $
+              Accumulator.createMembershipProofFromUTxO @Tx (splitUTxOInHead <> splitUTxOToDecommit) (accumulator healthyContestSnapshot) Accumulator.defaultCRS
+      , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
       }
 
 healthyContestUTxOHash :: BuiltinByteString

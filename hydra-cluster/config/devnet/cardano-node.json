@@ -5,6 +5,7 @@
   "ShelleyGenesisFile": "genesis-shelley.json",
   "AlonzoGenesisFile": "genesis-alonzo.json",
   "ConwayGenesisFile": "genesis-conway.json",
+  "DijkstraGenesisFile": "genesis-dijkstra.json",
 
   "ApplicationName": "cardano-sl",
   "ApplicationVersion": 1,

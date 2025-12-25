@@ -17,12 +17,13 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusTx.Builtins (toBuiltin)
+import PlutusTx.Builtins (bls12_381_G2_uncompress, toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
@@ -80,6 +81,9 @@ healthyContestationDeadline =
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
+accumulator :: Accumulator.HydraAccumulator
+accumulator = Accumulator.buildFromUTxO @Tx (uncurry (<>) healthyFanoutSnapshotUTxO)
+
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
@@ -95,6 +99,16 @@ healthyFanoutDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = 0
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+      , proof =
+          let snapshotUTxO =
+                uncurry (<>) healthyFanoutSnapshotUTxO
+           in bls12_381_G2_uncompress $
+                toBuiltin $
+                  Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator Accumulator.defaultCRS
+      , accumulatorCommitment =
+          Accumulator.getAccumulatorCommitment $
+            Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) mempty (Just $ snd healthyFanoutSnapshotUTxO)
       }
  where
   healthyContestationPeriodSeconds = 10
