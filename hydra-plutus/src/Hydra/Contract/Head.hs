@@ -552,7 +552,7 @@ headIsFinalizedWith ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum 
 
   crsRefExists = traceIfFalse "Missing CRS reference input" (isJust crsRefTxOut)
 
-  crsCompressed = decodeCRSReferenceDatum ctx crsRef
+  crsUncompressed = decodeCRSReferenceDatum ctx crsRef
 
   -- Find the reference input at the known CRS TxOutRef
   crsRefTxOut :: Maybe TxInInfo
@@ -560,9 +560,6 @@ headIsFinalizedWith ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum 
     L.find
       (\txin -> txInInfoOutRef txin == crsRef)
       (txInfoReferenceInputs txInfo)
-
-  crsUncompressed :: [BuiltinBLS12_381_G1_Element]
-  crsUncompressed = L.map bls12_381_G1_uncompress crsCompressed
 {-# INLINEABLE headIsFinalizedWith #-}
 
 --------------------------------------------------------------------------------
