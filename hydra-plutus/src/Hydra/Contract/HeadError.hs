@@ -61,6 +61,7 @@ data HeadError
   | FailedCloseUnusedInc
   | FailedCloseUsedInc
   | MissingCRSDatum
+  | MissingCRSRefInput
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -126,3 +127,4 @@ instance ToErrorCode HeadError where
     FailedCloseUsedInc -> "H53"
     FanoutUTxOToCommitHashMismatch -> "H54"
     MissingCRSDatum -> "H55"
+    MissingCRSRefInput -> "H56"
