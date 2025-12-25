@@ -32,6 +32,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Accumulator (createCRSG1Datum)
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
@@ -302,7 +303,7 @@ genScriptRegistry = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript}
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum 50}
           )
       }
 
