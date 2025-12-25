@@ -192,7 +192,7 @@ defaultCRSG1 :: [Point1]
 defaultCRSG1 = generateCRSG1 defaultItems
 
 defaultItems :: Int
-defaultItems = 50
+defaultItems = 10
 
 -- * Cryptographic Proofs for partial fanout
 
@@ -227,7 +227,7 @@ createMembershipProof ::
 createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
   -- Use getPolyCommitOverG2 to generate the proof
   case getPolyCommitOverG2 subsetElements fullAcc crs of
-    Left err -> "Error: " <> encodeUtf8 (toText err)
+    Left err -> error (toText err) -- FIXME: return Either?
     Right proof ->
       blsCompress proof
 
@@ -262,7 +262,7 @@ createMembershipProofFromUTxO ::
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
   [Point2] ->
-  -- | Returns a string: "Success: 0x..." or "Error: ..."
+  -- | Returns a proof
   ByteString
 createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
   -- Extract individual TxOut elements from the subset
