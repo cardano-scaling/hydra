@@ -37,6 +37,7 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+
 -- import Plutus.Crypto.Accumulator (checkMembership)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
@@ -518,8 +519,9 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
     && crsRefExists
-    -- && checkMembership crs accumulatorCommitment [] proof
  where
+  -- && checkMembership crs accumulatorCommitment [] proof
+
   minted = txInfoMint txInfo
 
   hasSameUTxOHash =
