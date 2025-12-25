@@ -37,6 +37,7 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar, unScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G2_Element,
+  bls12_381_G1_uncompress,
   bls12_381_G2_compressed_generator,
   bls12_381_G2_scalarMul,
   bls12_381_G2_uncompress,
@@ -274,4 +275,4 @@ createCRSG1Datum :: Int -> HApi.TxOutDatum ctx
 createCRSG1Datum n =
   TxOutDatumInline BabbageEraOnwardsConway $
     HApi.toScriptData
-      (toBuiltin . blsCompress <$> generateCRSG1 n)
+      (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> generateCRSG1 n)
