@@ -37,8 +37,7 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-
--- import Plutus.Crypto.Accumulator (checkMembership)
+import Plutus.Crypto.Accumulator (checkMembership)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V3 (
@@ -512,16 +511,15 @@ headIsFinalizedWith ::
   -- | Reference input containing crs
   TxOutRef ->
   Bool
-headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef =
+headIsFinalizedWith ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef =
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
     && crsRefExists
+    && checkMembership crs accumulatorCommitment [] proof
  where
-  -- && checkMembership crs accumulatorCommitment [] proof
-
   minted = txInfoMint txInfo
 
   hasSameUTxOHash =
@@ -542,7 +540,7 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
 
   decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum -- , proof, accumulatorCommitment
+  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, proof, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =
@@ -554,7 +552,7 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
 
   crsRefExists = traceIfFalse $(errorCode MissingCRSRefInput) (isJust crsRefTxOut)
 
-  -- crs = decodeCRSReferenceDatum ctx crsRef
+  crs = decodeCRSReferenceDatum ctx crsRef
 
   -- Find the reference input at the known CRS TxOutRef
   crsRefTxOut :: Maybe TxInInfo
