@@ -94,18 +94,18 @@ main = do
         ]
     , bgroup
         "3. Create Membership Proofs"
-        [ bench "5 from 50" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset5_from50 acc50 defaultCRS
-        , bench "10 from 100" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset10_from100 acc100 defaultCRS
-        , bench "50 from 500" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset50_from500 acc500 defaultCRS
-        , bench "100 from 1000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset100_from1000 acc1000 defaultCRS
-        , bench "500 from 5000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset500_from5000 acc5000 defaultCRS
-        , bench "1000 from 10000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset1000_from10000 acc10000 defaultCRS
+        [ bench "5 from 50" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset5_from50 acc50 (generateCRS 50)
+        , bench "10 from 100" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset10_from100 acc100 (generateCRS 100)
+        , bench "50 from 500" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset50_from500 acc500 (generateCRS 500)
+        , bench "100 from 1000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset100_from1000 acc1000 (generateCRS 1000)
+        , bench "500 from 5000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset500_from5000 acc5000 (generateCRS 5000)
+        , bench "1000 from 10000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset1000_from10000 acc10000 (generateCRS 10000)
         ]
     , bgroup
         "4. Create Membership Proofs (Low-level)"
-        [ bench "5 elements from 10" $ whnf rnf $ createMembershipProof (take 5 serialized10) acc10 defaultCRS
-        , bench "10 elements from 100" $ whnf rnf $ createMembershipProof (take 10 serialized100) acc100 defaultCRS
-        , bench "50 elements from 100" $ whnf rnf $ createMembershipProof (take 50 serialized100) acc100 defaultCRS
+        [ bench "5 elements from 10" $ whnf rnf $ createMembershipProof (take 5 serialized10) acc10 (generateCRS 10)
+        , bench "10 elements from 100" $ whnf rnf $ createMembershipProof (take 10 serialized100) acc100 (generateCRS 100)
+        , bench "50 elements from 100" $ whnf rnf $ createMembershipProof (take 50 serialized100) acc100 (generateCRS 100)
         ]
     , bgroup
         "5. Accumulator Hashing"
