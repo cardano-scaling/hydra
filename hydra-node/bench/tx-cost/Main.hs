@@ -160,6 +160,7 @@ scriptSizes =
   , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
   , "| " <> "μHead" <> " | " <> serialiseToRawBytesHexText mintingScriptHash <> "* | " <> show mintingScriptSize <> " | "
   , "| " <> "νDeposit" <> " | " <> serialiseToRawBytesHexText depositScriptHash <> " | " <> show depositScriptSize <> " | "
+  , "| " <> "νCRS" <> " | " <> serialiseToRawBytesHexText crsScriptHash <> " | " <> show crsScriptSize <> " | "
   , ""
   , "* The minting policy hash is only usable for comparison. As the script is parameterized, the actual script is unique per head."
   , ""
@@ -176,6 +177,8 @@ scriptSizes =
     , headScriptSize
     , depositScriptHash
     , depositScriptSize
+    , crsScriptHash
+    , crsScriptSize
     } = hydraScriptCatalogue
 
 genFromSeed :: Gen a -> Int -> a
