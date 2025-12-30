@@ -137,7 +137,7 @@ healthyClosedState =
       , proof =
           bls12_381_G2_uncompress $
             toBuiltin $
-              Accumulator.createMembershipProofFromUTxO @Tx (splitUTxOInHead <> splitUTxOToDecommit) (accumulator healthyContestSnapshot) Accumulator.defaultCRS
+              Accumulator.createMembershipProofFromUTxO @Tx (splitUTxOInHead <> splitUTxOToDecommit) (accumulator healthyContestSnapshot) (Accumulator.generateCRS $ UTxO.size (splitUTxOInHead <> splitUTxOToDecommit) + 1)
       , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
       }
 
