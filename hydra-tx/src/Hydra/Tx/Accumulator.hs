@@ -216,6 +216,7 @@ defaultItems = 10
 -- > result <- createMembershipProof subset fullAcc defaultCRS
 -- > -- Prints: "Success: 0x..." or "Error: ..."
 createMembershipProof ::
+  HasCallStack =>
   -- | The subset of elements to prove membership of (e.g., UTxOs being fanned out)
   [Element] ->
   -- | The full accumulator from the confirmed snapshot
@@ -255,7 +256,7 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
 -- The proof can then be verified on-chain using pairing checks.
 createMembershipProofFromUTxO ::
   forall tx.
-  IsTx tx =>
+  (IsTx tx, HasCallStack) =>
   -- | The subset of UTxO to prove membership of (e.g., UTxOs being fanned out)
   UTxOType tx ->
   -- | The full accumulator from the confirmed snapshot (built with buildFromUTxO)

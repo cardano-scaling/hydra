@@ -106,7 +106,7 @@ healthyFanoutDatum =
                 uncurry (<>) healthyFanoutSnapshotUTxO
            in bls12_381_G2_uncompress $
                 toBuiltin $
-                  Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator Accumulator.defaultCRS
+                  Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator (Accumulator.generateCRS (UTxO.size snapshotUTxO) + 1)
       , accumulatorCommitment =
           Accumulator.getAccumulatorCommitment $
             Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) mempty (Just $ snd healthyFanoutSnapshotUTxO)

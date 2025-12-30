@@ -168,4 +168,4 @@ fullSnapshotCycle utxo =
 partialFanoutCycle :: UTxO -> UTxO -> ByteString
 partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
-   in createMembershipProofFromUTxO @Tx subsetUtxo accumulator defaultCRS
+   in createMembershipProofFromUTxO @Tx subsetUtxo accumulator (generateCRS $ UTxO.size fullUtxo + 1)

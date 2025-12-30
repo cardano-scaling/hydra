@@ -5,6 +5,7 @@ module Hydra.Tx.Close where
 import Hydra.Cardano.Api hiding (utxo)
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
@@ -128,10 +129,10 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  snapshot@Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
+  Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator} = getSnapshot confirmedSnapshot
 
   proof =
-    let snapshotUTxO =
+    let utxoToCloseWith =
           utxo
             <> case closeRedeemer of
               Head.CloseUsedInc{} ->
@@ -139,18 +140,20 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               Head.CloseUnusedDec{} ->
                 fromMaybe mempty utxoToDecommit
               _ -> mempty
+        snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
      in bls12_381_G2_uncompress $
           toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO (accumulator snapshot) Accumulator.defaultCRS
+            Accumulator.createMembershipProofFromUTxO @Tx
+              utxoToCloseWith
+              accumulator
+              (Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1)
 
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Closed
         Head.ClosedDatum
-          { snapshotNumber =
-              fromIntegral . number $ getSnapshot confirmedSnapshot
-          , utxoHash =
-              toBuiltin . hashUTxO $ Hydra.Tx.utxo (getSnapshot confirmedSnapshot)
+          { snapshotNumber = fromIntegral number
+          , utxoHash = toBuiltin $ hashUTxO utxo
           , alphaUTxOHash =
               case closeRedeemer of
                 Head.CloseUsedInc{} ->
@@ -172,8 +175,8 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , proof
           }
    where
-    closedAccumulatorHash = Accumulator.getAccumulatorHash $ accumulator $ getSnapshot confirmedSnapshot
-    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
+    closedAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+    accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
