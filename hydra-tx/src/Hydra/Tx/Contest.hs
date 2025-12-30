@@ -3,6 +3,7 @@ module Hydra.Tx.Contest where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
@@ -136,7 +137,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
               _ -> mempty
      in bls12_381_G2_uncompress $
           toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator Accumulator.defaultCRS
+            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator (Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1)
 
   headDatumAfter =
     mkTxOutDatumInline $
