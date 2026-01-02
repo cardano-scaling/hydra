@@ -2274,11 +2274,11 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
     chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
+  withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
     waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
       waitMatch (20 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
@@ -2287,13 +2287,13 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
     callProcess "rm" ["-rf", workDir </> "state-2"]
     threadDelay 1
 
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ threadDelay 1)
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ threadDelay 1)
       `shouldThrow` \(e :: SomeException) ->
         "hydra-node" `isInfixOf` show e
           && "etcd" `isInfixOf` show e
 
     setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
     unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
  where
   hydraTracer = contramap FromHydraNode tracer
