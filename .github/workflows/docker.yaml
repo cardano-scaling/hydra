@@ -13,6 +13,8 @@ on:
   push:
     branches: [ "master" ]
     tags: [ "*.*.*" ]
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
     inputs:
       ref_name:
@@ -72,6 +74,12 @@ jobs:
         IMAGE_LABEL=unstable
         # And the version as the git commit.
         VERSION=${{github.sha}}
+
+        # For PRs, tag as pr-<number>
+        if [[ "${{github.event_name}}" == "pull_request" ]]; then
+          IMAGE_LABEL=pr-${{github.event.pull_request.number}}
+          VERSION=${{github.event.pull_request.head.sha}}
+        fi
 
         # Determine whether we are building a tag and if yes, set the label
         # name to be the tag name, and the version to be the tag.
