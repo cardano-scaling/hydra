@@ -35,6 +35,7 @@ import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainSta
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
+import Hydra.HeadLogic.Input (MessagePriority (..), inputPriority)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -1188,7 +1189,7 @@ simulatedChainAndNetwork initialChainState = do
       recordAndYieldEvent nodes history ev
 
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
+handleChainEvent HydraNode{inputQueue} = enqueue inputQueue HighPriority . ChainInput
 
 createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 createMockNetwork node nodes =
@@ -1199,7 +1200,8 @@ createMockNetwork node nodes =
     mapM_ (`handleMessage` msg) allNodes
 
   handleMessage HydraNode{inputQueue} msg =
-    enqueue inputQueue $ mkNetworkInput sender msg
+    let input = mkNetworkInput sender msg
+     in enqueue inputQueue (inputPriority input) input
 
   sender = getParty node
 
@@ -1312,10 +1314,10 @@ createTestHydraClient ::
   TestHydraClient tx m
 createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeStateHandler} =
   TestHydraClient
-    { send = enqueue inputQueue . ClientInput
+    { send = enqueue inputQueue HighPriority . ClientInput
     , waitForNext = atomically (readTQueue outputs)
     , waitForNextMessage = atomically (readTQueue messages)
-    , injectChainEvent = enqueue inputQueue . ChainInput
+    , injectChainEvent = enqueue inputQueue HighPriority . ChainInput
     , serverOutputs = reverse <$> readTVarIO outputHistory
     , queryState = atomically (queryNodeState nodeStateHandler)
     }

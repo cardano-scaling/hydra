@@ -3,6 +3,7 @@ module Hydra.Node.InputQueueSpec where
 import Hydra.Prelude
 
 import Control.Monad.IOSim (IOSim, runSimOrThrow)
+import Hydra.HeadLogic.Input (MessagePriority (..))
 import Hydra.Node.InputQueue (Queued (queuedId), createInputQueue, dequeue, enqueue)
 import Test.Hspec (Spec)
 import Test.Hspec.QuickCheck (prop)
@@ -22,7 +23,7 @@ prop_identify_enqueued_items (NonEmpty inputs) =
       test = do
         q <- createInputQueue
         forM inputs $ \i -> do
-          enqueue q i
+          enqueue q HighPriority i
           queuedId <$> dequeue q
       ids = runSimOrThrow test
    in isContinuous ids
