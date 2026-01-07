@@ -41,7 +41,7 @@ For demonstration purposes, we also provide demo key pairs (`alice.{vk,sk}`, `bo
 The contestation period (CP) is an important protocol parameter, defined in seconds:
 
 ```
-hydra-node --contestation-period 1200s
+hydra-node --contestation-period 43200s
 ```
 
 The contestation period is used to set the **contestation deadline**. That is, after `Close`, all participants have at minimum `CP` to submit a `Contest` transaction. The `hydra-node` does that automatically if it sees a closed state not be the latest it knows.
@@ -52,7 +52,11 @@ Being a protocol parameter, all participants in a head must configure the same `
 
 :::
 
-The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates. A good rule of thumb is the maximum time you would expect an attacker to launch a withholding attack onto the cardano network you are on. Also, consider the time it takes to propagate a transaction to the network and the time it takes for a block to be produced, and the contestation period should be long enough to accommodate any downtime of the `hydra-node`.
+The default contestation period is **12 hours (43200 seconds)**, aligned with Cardano's **safe zone** (~12 hours, derived from `3 * k / f`). This ensures that L1 transactions have enough time to settle and participants can reliably dispute when needed. On testnets, you can use shorter periods (e.g., `--contestation-period 600s`) to speed up testing.
+
+:::danger Mainnet safety
+On mainnet, the contestation period should be **at least 12 hours**. Shorter periods may not provide sufficient time for dispute resolution due to Cardano's consensus security parameters. See [#2389](https://github.com/cardano-scaling/hydra/issues/2389) for details.
+:::
 
 The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
 

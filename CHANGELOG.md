@@ -16,6 +16,9 @@ changes.
   - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
   - `Greetings` message now also contains the hydra-node synced status to the chain backend.
   - See [Issue #2286](https://github.com/cardano-scaling/hydra/issues/2286) and [PR #2290](https://github.com/cardano-scaling/hydra/pull/2290).
+- **BREAKING** Changed `defaultContestationPeriod` from 10 minutes to 12 hours
+  (43200 seconds) to align with Cardano's safe zone for mainnet safety. See
+  [#2389](https://github.com/cardano-scaling/hydra/issues/2389).
 - Fix the `cabalOnly` development environment to allow for `cabal build hydra-node` without `haskell.nix`.
 
 ## [1.2.0] - 2025.11.28
