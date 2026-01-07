@@ -11,7 +11,6 @@
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Codec.Serialise (serialise)
 import Data.Aeson (
@@ -27,7 +26,6 @@ import Hydra.Ledger (
   ValidationError (ValidationError),
  )
 import Hydra.Tx (IsTx (..))
-import Test.Hydra.Tx.Gen ()
 
 -- * Simple transactions
 
@@ -69,13 +67,10 @@ instance FromCBOR SimpleTx where
       <*> fromCBOR
       <*> fromCBOR
 
-instance Arbitrary SimpleTx where
-  arbitrary = genericArbitrary
-
 -- | A single output of a 'SimpleTx' having an integer identity and sole value.
 newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
   deriving stock (Generic)
-  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON, Arbitrary)
+  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
 instance ToCBOR SimpleTxOut where
   toCBOR (SimpleTxOut inId) = toCBOR inId
@@ -108,7 +103,6 @@ instance IsTx SimpleTx where
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-  deriving newtype (Arbitrary)
 
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState

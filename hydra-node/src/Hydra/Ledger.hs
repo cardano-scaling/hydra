@@ -4,12 +4,9 @@
 module Hydra.Ledger where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
-import Test.QuickCheck.Instances.Natural ()
-import Test.QuickCheck.Instances.Text ()
 
 -- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
 -- instances to 'ChainSlot'.
@@ -51,6 +48,3 @@ data ValidationResult
 newtype ValidationError = ValidationError {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ValidationError where
-  arbitrary = genericArbitrary

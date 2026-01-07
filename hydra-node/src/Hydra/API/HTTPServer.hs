@@ -3,7 +3,6 @@
 module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Conduit (
@@ -58,12 +57,6 @@ instance IsTx tx => ToJSON (DraftCommitTxResponse tx) where
 instance IsTx tx => FromJSON (DraftCommitTxResponse tx) where
   parseJSON v = DraftCommitTxResponse <$> parseJSON v
 
-instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
-
 data DraftCommitTxRequest tx
   = SimpleCommitRequest
       { utxoToCommit :: UTxOType tx
@@ -107,17 +100,10 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     simpleDirectVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
     simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
-    FullCommitRequest a b c -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c
-
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
   }
-  deriving newtype (Eq, Show, Arbitrary)
+  deriving newtype (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
 
 data TransactionSubmitted = TransactionSubmitted
@@ -137,8 +123,6 @@ instance FromJSON TransactionSubmitted where
         pure TransactionSubmitted
       _ -> fail "Expected tag to be TransactionSubmitted"
 
-instance Arbitrary TransactionSubmitted where
-  arbitrary = genericArbitrary
 
 newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
   { snapshot :: ConfirmedSnapshot tx
@@ -146,17 +130,11 @@ newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
   deriving newtype (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
-
 -- | Request to submit a transaction to the head
 newtype SubmitL2TxRequest tx = SubmitL2TxRequest
   { submitL2Tx :: tx
   }
-  deriving newtype (Eq, Show, Arbitrary)
+  deriving newtype (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
 
 -- | Response for transaction submission
@@ -200,8 +178,6 @@ instance FromJSON SubmitL2TxResponse where
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
       _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, SubmitTxRejected, or SubmitTxSubmitted"
 
-instance Arbitrary SubmitL2TxResponse where
-  arbitrary = genericArbitrary
 
 data HeadInitializationDetails
   = HeadInitializationDetails

@@ -12,7 +12,6 @@
 module Hydra.Chain where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
@@ -40,10 +39,6 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.OnChainId (OnChainId)
-import Test.Cardano.Ledger.Core.Arbitrary ()
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Coin
@@ -98,21 +93,6 @@ deriving stock instance IsTx tx => Eq (PostChainTx tx)
 deriving stock instance IsTx tx => Show (PostChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
-
-instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
-  arbitrary = genericArbitrary
-  shrink = \case
-    InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
-    AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
-    CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} ->
-      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositTxId
-    RecoverTx{headId, recoverTxId, deadline, recoverUTxO} ->
-      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline <*> shrink recoverUTxO
-    DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
-    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
-    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
-    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -170,9 +150,6 @@ deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
-  arbitrary = genericArbitrary
-
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = NoSeedInput
@@ -220,9 +197,6 @@ deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (PostTxError tx) where
-  arbitrary = genericArbitrary
-
 -- | A non empty sequence of chain states that can be rolled back.
 -- This is expected to be constructed by using the smart constructor
 -- 'initHistory'.
@@ -252,9 +226,6 @@ rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChai
 
 deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
 deriving stock instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
-
-instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
-  arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
@@ -326,9 +297,6 @@ deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)
 deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (ChainEvent tx) where
-  arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
 -- 'Observation' of a relevant Hydra transaction.

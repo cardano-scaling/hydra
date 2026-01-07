@@ -120,13 +120,10 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage
-    , cardano-ledger-babbage:testlib
     , cardano-ledger-binary
     , cardano-ledger-byron
     , cardano-ledger-conway
-    , cardano-ledger-conway:testlib
     , cardano-ledger-core
-    , cardano-ledger-core:testlib
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
@@ -142,12 +139,9 @@ library
     , grapesy-etcd                    >=0.3
     , http-types
     , hydra-cardano-api
-    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-prelude
-    , hydra-test-utils
     , hydra-tx
-    , hydra-tx:testlib
     , io-classes                      >=0.3.0.0
     , iohk-monitoring
     , iproute
@@ -161,9 +155,7 @@ library
     , ouroboros-network-protocols     >=0.8
     , process
     , prometheus
-    , QuickCheck
-    , quickcheck-arbitrary-adt
-    , quickcheck-instances
+    , refined
     , resourcet
     , retry
     , safe-money

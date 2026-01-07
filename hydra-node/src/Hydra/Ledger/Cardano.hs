@@ -10,7 +10,6 @@ module Hydra.Ledger.Cardano (
 ) where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
@@ -36,8 +35,6 @@ import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
 import Cardano.Ledger.Shelley.Rules qualified as Ledger
 import Cardano.Ledger.UMap qualified as UM
 import Control.Lens ((%~), (.~), (^.))
-import Control.Monad (foldM)
-import Data.ByteString qualified as BS
 import Data.Default (def)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -45,14 +42,6 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
 import System.IO.Unsafe (unsafeDupablePerformIO)
-import Test.Cardano.Ledger.Babbage.Arbitrary ()
-import Test.Cardano.Ledger.Conway.Arbitrary ()
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
-import Test.QuickCheck (
-  choose,
-  getSize,
-  vectorOf,
- )
 
 -- * Ledger
 
@@ -244,33 +233,3 @@ adjustUTxO tx utxo =
       produced = UTxO.fromList ((\(txout, ix) -> (TxIn txid (TxIx ix), toCtxUTxOTxOut txout)) <$> zip (txOuts' tx) [0 ..])
       utxo' = UTxO.fromList $ filter (\(txin, _) -> txin `notElem` consumed) $ UTxO.toList utxo
    in utxo' <> produced
-
--- * Generators
-
--- | Generates a sequence of simple "transfer" transactions for a single key.
-genSequenceOfSimplePaymentTransactions :: Gen (UTxO, [Tx])
-genSequenceOfSimplePaymentTransactions = do
-  n <- getSize
-  numTxs <- choose (1, n)
-  genFixedSizeSequenceOfSimplePaymentTransactions numTxs
-
-genFixedSizeSequenceOfSimplePaymentTransactions :: Int -> Gen (UTxO, [Tx])
-genFixedSizeSequenceOfSimplePaymentTransactions numTxs = do
-  (vk, sk) <- genKeyPair
-  utxo <- genOneUTxOFor vk
-  (_, txs) <- foldM (go sk) (utxo, []) [1 .. numTxs]
-  pure (utxo, reverse txs)
- where
-  -- Magic number is irrelevant.
-  testNetworkId = Testnet $ NetworkMagic 42
-
-  go :: SigningKey PaymentKey -> (UTxO, [Tx]) -> Int -> Gen (UTxO, [Tx])
-  go sk (utxo, txs) _ = do
-    case mkTransferTx testNetworkId utxo sk (getVerificationKey sk) of
-      Left err -> error $ "mkTransferTx failed: " <> err
-      Right tx -> pure (utxoFromTx tx, tx : txs)
-
--- * Orphans
-
-instance Arbitrary (Hash PaymentKey) where
-  arbitrary = unsafePaymentKeyHashFromBytes . BS.pack <$> vectorOf 28 arbitrary

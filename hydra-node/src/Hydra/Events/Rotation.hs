@@ -5,12 +5,13 @@ import Hydra.Prelude
 import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
 import Data.Conduit.Combinators qualified as C
+import Refined (Refined, Positive, unrefine)
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..))
-import Test.QuickCheck (Positive (..))
 
-newtype RotationConfig = RotateAfter (Positive Natural)
+newtype RotationConfig = RotateAfter (Refined Positive Natural)
 
 type LogId = EventId
+
 
 -- | An EventSource and EventSink combined
 data EventStore e m
@@ -33,7 +34,7 @@ newRotatedEventStore ::
   (s -> EventId -> UTCTime -> e) ->
   EventStore e m ->
   m (EventStore e m)
-newRotatedEventStore config s0 aggregator checkpointer eventStore = do
+newRotatedEventStore (RotateAfter config) s0 aggregator checkpointer eventStore = do
   (currentNumberOfEvents, lastEventId, currentAggregateState) <-
     runResourceT . runConduit $
       sourceEvents eventSource .| C.foldl aggregateEvents (0, 0, s0)
@@ -53,7 +54,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
         rotate = const . const $ pure ()
       }
  where
-  RotateAfter (Positive rotateAfterX) = config
+  rotateAfterX = unrefine config
 
   aggregateEvents (!n, !_evId, !acc) e = (n + 1, getEventId e, aggregator acc e)
 

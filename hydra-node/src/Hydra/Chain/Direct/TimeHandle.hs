@@ -4,7 +4,6 @@
 module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)
@@ -18,7 +17,6 @@ import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Hydra.Tx.Close (PointInTime)
 import Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
-import Test.QuickCheck (getPositive)
 
 data TimeHandle = TimeHandle
   { currentPointInTime :: Either Text PointInTime
@@ -41,29 +39,6 @@ data TimeHandleParams = TimeHandleParams
 -- formula: 3 * k / f where k = securityParam and f = slotLength from the genesis config
 safeZone :: Pico
 safeZone = 3 * 2160 / 0.05
-
--- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
--- a horizon at the returned SlotNo as well as some UTCTime before that
-genTimeParams :: Gen TimeHandleParams
-genTimeParams = do
-  startSeconds <- getPositive <$> arbitrary
-  let startTime = posixSecondsToUTCTime $ secondsToNominalDiffTime startSeconds
-  uptimeSeconds <- getPositive <$> arbitrary
-  -- it is ok to construct a slot from seconds here since on the devnet slot = 1s
-  let currentSlotNo = SlotNo $ truncate $ uptimeSeconds + startSeconds
-      horizonSlot = SlotNo $ truncate $ uptimeSeconds + safeZone
-  pure $
-    TimeHandleParams
-      { systemStart = SystemStart startTime
-      , eraHistory = eraHistoryWithHorizonAt horizonSlot
-      , horizonSlot = horizonSlot
-      , currentSlot = currentSlotNo
-      }
-
-instance Arbitrary TimeHandle where
-  arbitrary = do
-    TimeHandleParams{systemStart, eraHistory, currentSlot} <- genTimeParams
-    pure $ mkTimeHandle currentSlot systemStart eraHistory
 
 -- | Construct a time handle using current slot and given chain parameters. See
 -- 'queryTimeHandle' to create one by querying a cardano-node.

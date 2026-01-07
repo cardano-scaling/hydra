@@ -15,8 +15,6 @@ import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), Networ
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
 import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
-import Test.Hydra.Prelude
-import Test.Hydra.Tx.Gen ()
 
 -- | Represents a signed message over the network.
 -- Becomes valid once its receivers verify it against its other peers
@@ -35,10 +33,6 @@ data Authenticated msg = Authenticated
   , party :: Party
   }
   deriving stock (Eq, Show, Generic)
-
-instance (Arbitrary msg, SignableRepresentation msg) => Arbitrary (Signed msg) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 instance ToCBOR msg => ToCBOR (Signed msg) where
   toCBOR (Signed msg sig party) = toCBOR msg <> toCBOR sig <> toCBOR party
@@ -102,6 +96,3 @@ data AuthLog = MessageDropped {message :: Text, signature :: Text, party :: Part
 instance ToJSON AuthLog where
   toJSON = genericToJSON defaultOptions{tagSingleConstructors = True}
 
-instance Arbitrary AuthLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

@@ -5,7 +5,6 @@
 module Hydra.HeadLogic.State where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Data.Map qualified as Map
 import Hydra.Chain.ChainState (IsChainState (..))
@@ -23,7 +22,6 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
   SnapshotVersion,
  )
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
@@ -44,9 +42,6 @@ data HeadState tx
   | Open (OpenState tx)
   | Closed (ClosedState tx)
   deriving stock (Generic)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
-  arbitrary = genericArbitrary
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
@@ -96,9 +91,6 @@ deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
 
-instance Arbitrary (ChainStateType tx) => Arbitrary (IdleState tx) where
-  arbitrary = genericArbitrary
-
 -- ** Initial
 
 -- | An 'Initial' head which already has an identity and is collecting commits.
@@ -116,16 +108,6 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (InitialState tx
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (InitialState tx) where
-  arbitrary = do
-    InitialState
-      <$> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
 
 type PendingCommits = Set Party
 
@@ -148,15 +130,6 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
-  arbitrary =
-    OpenState
-      <$> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -189,9 +162,6 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
-instance ArbitraryIsTx tx => Arbitrary (CoordinatedHeadState tx) where
-  arbitrary = genericArbitrary
-
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
 data SeenSnapshot tx
@@ -211,9 +181,6 @@ data SeenSnapshot tx
       -- ^ Collected signatures and so far.
       }
   deriving stock (Generic)
-
-instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
-  arbitrary = genericArbitrary
 
 deriving stock instance IsTx tx => Eq (SeenSnapshot tx)
 deriving stock instance IsTx tx => Show (SeenSnapshot tx)
@@ -250,15 +217,3 @@ deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (ClosedState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
-  arbitrary =
-    ClosedState
-      <$> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
-      <*> arbitrary
