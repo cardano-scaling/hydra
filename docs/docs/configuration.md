@@ -10,14 +10,14 @@ Below, we document selected aspects of the configuration. For a comprehensive gu
 
 ### Cardano keys
 
-In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
+In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--fuel-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
 
 Generate a Cardano key pair using the `cardano-cli`:
 
 ```shell
 cardano-cli address key-gen \
-  --verification-key-file cardano.vk \
-  --signing-key-file cardano.sk
+  --verification-key-file fuel.vk \
+  --signing-key-file fuel.sk
 ```
 
 These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, aborting an initialized head). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
@@ -150,7 +150,7 @@ To publish scripts yourself, use the `publish-scripts` command:
 hydra-node publish-scripts \
   --testnet-magic 42 \
   --node-socket /path/to/node.socket \
-  --cardano-signing-key cardano.sk
+  --fuel-signing-key fuel.sk
 ```
 
 This command outputs a transaction ID upon success. The provided key should hold sufficient funds (> 50 ada) to create multiple **UNSPENDABLE** UTXO entries on-chain, each carrying a script referenced by the Hydra node.
@@ -159,7 +159,7 @@ This command outputs a transaction ID upon success. The provided key should hold
 hydra-node publish-scripts \
   --testnet-magic 42 \
   --node-socket /path/to/node.socket \
-  --cardano-signing-key cardano.sk
+  --fuel-signing-key fuel.sk
 ```
 
 You can also use blockfrost for script publishing. On top of providing cardano signing key you need to provide a path to the file containing the blockfrost (project id)[https://blockfrost.dev/overview/getting-started#creating-first-project].
@@ -167,7 +167,7 @@ You can also use blockfrost for script publishing. On top of providing cardano s
 ```shell
 hydra-node publish-scripts \
   --blockfrost /path/to/blockfrost-project.txt \
-  --cardano-signing-key cardano.sk
+  --fuel-signing-key fuel.sk
 ```
 
 ### Ledger parameters
@@ -184,7 +184,7 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel vs funds
 
-Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--fuel-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
