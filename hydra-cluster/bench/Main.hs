@@ -11,7 +11,7 @@ import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, t
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset)
+import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset)
 import Options.Applicative (execParser)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import System.Environment (withArgs)
@@ -29,7 +29,9 @@ main = do
       putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
       dataset <- generate $ do
         numberOfTxs <- scale (* scalingFactor) getSize
-        generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+        -- FIXME: make this configurable
+        -- generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+        generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
       -- XXX: Using the --output-directory for both dataset storage and as a
       -- state directory for the cluster is weird. However, the 'scenario'
       -- contains the writing of the 'results.csv' file right now and we can't
