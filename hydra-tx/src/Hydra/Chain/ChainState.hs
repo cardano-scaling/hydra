@@ -20,7 +20,6 @@ class
   , Show (ChainStateType tx)
   , FromJSON (ChainStateType tx)
   , ToJSON (ChainStateType tx)
-  , Arbitrary (ChainStateType tx)
   ) =>
   IsChainState tx
   where
