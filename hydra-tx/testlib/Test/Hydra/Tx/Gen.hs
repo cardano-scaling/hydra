@@ -3,33 +3,43 @@
 
 module Test.Hydra.Tx.Gen where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (generateSigningKey)
 import Hydra.Prelude hiding (toList)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
+import Cardano.Crypto.Util (SignableRepresentation)
 import Cardano.Ledger.Api (ensureMinCoinTxOut, setMinCoinTxOut)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Codec.CBOR.Magic (uintegerFromBytes)
 import Data.ByteString qualified as BS
+import Data.List (nub)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import Hydra.Chain.ChainState
 import Hydra.Contract.Head qualified as Head
+import Hydra.Ledger.Cardano.Evaluate
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (ScriptRegistry (..))
+import Hydra.Tx
 import Hydra.Tx.Close (CloseObservation)
-import Hydra.Tx.Crypto (Hash (..))
-import Hydra.Tx.Observe (AbortObservation, CollectComObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
-import Hydra.Tx.Party (Party (..))
+import Hydra.Tx.CollectCom
+import Hydra.Tx.ContestationPeriod
+import Hydra.Tx.Crypto
+import Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
+import Hydra.Tx.OnChainId
 import Test.Cardano.Ledger.Conway.Arbitrary ()
-import Test.Hydra.Tx.Fixture (pparams)
-import Test.QuickCheck (listOf, listOf1, oneof, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
+import Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
+import Test.QuickCheck.Gen (chooseWord64)
 
 -- * TxOut
 
@@ -402,3 +412,178 @@ instance Arbitrary ContestObservation where
 instance Arbitrary FanoutObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+instance Arbitrary HeadSeed where
+  arbitrary = UnsafeHeadSeed . BS.pack <$> vectorOf 16 arbitrary
+
+instance Arbitrary HeadId where
+  arbitrary = UnsafeHeadId . BS.pack <$> vectorOf 16 arbitrary
+
+instance Arbitrary ContestationPeriod where
+  arbitrary = do
+    UnsafeContestationPeriod
+      . fromInteger
+      <$> oneof
+        [ choose (1, confirmedHorizon)
+        , pure confirmedHorizon
+        , choose (confirmedHorizon, oneDay)
+        , pure oneDay
+        , pure oneWeek
+        , pure oneMonth
+        , pure oneYear
+        ]
+   where
+    confirmedHorizon = 2160 * 20 -- k blocks on mainnet
+    oneDay = 3600 * 24
+    oneWeek = oneDay * 7
+    oneMonth = oneDay * 30
+    oneYear = oneDay * 365
+
+-- | Parameter here is the contestation period (cp) so we need to generate
+-- start (tMin) and end (tMax) tx validity bound such that their difference
+-- is not higher than the cp.
+-- Returned slots are tx validity bounds
+genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
+genValidityBoundsFromContestationPeriod cpSeconds = do
+  startSlot@(SlotNo start) <- SlotNo <$> arbitrary
+  let end = start + fromIntegral cpSeconds
+  endSlot <- SlotNo <$> chooseWord64 (start, end)
+  let time = slotNoToUTCTime systemStart slotLength endSlot
+  pure (startSlot, (endSlot, time))
+
+genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
+genPointInTimeBefore deadline = do
+  let SlotNo slotDeadline = slotNoFromUTCTime systemStart slotLength deadline
+  slot <- SlotNo <$> choose (0, slotDeadline)
+  pure (slot, slotNoToUTCTime systemStart slotLength slot)
+
+-- | Expect a given 'Tx' and 'UTxO' to pass evaluation.
+propTransactionEvaluates :: (Tx, UTxO) -> Property
+propTransactionEvaluates (tx, lookupUTxO) =
+  case evaluateTx tx lookupUTxO of
+    Left err ->
+      property False
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Phase-1 validation failed: " <> show err)
+    Right redeemerReport ->
+      all isRight (Map.elems redeemerReport)
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Redeemer report:\n  " <> toString (renderEvaluationReport redeemerReport))
+        & counterexample "Phase-2 validation failed"
+
+-- | Expect a given 'Tx' and 'UTxO' to fail phase 1 or phase 2 evaluation.
+propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
+propTransactionFailsEvaluation (tx, lookupUTxO) =
+  case evaluateTx tx lookupUTxO of
+    Left _ -> property True
+    Right redeemerReport ->
+      any isLeft redeemerReport
+        & counterexample ("Transaction: " <> renderTxWithUTxO lookupUTxO tx)
+        & counterexample ("Redeemer report: " <> show redeemerReport)
+        & counterexample "Phase-2 validation should have failed"
+
+instance Arbitrary (SigningKey HydraKey) where
+  arbitrary = generateSigningKey . BS.pack <$> vectorOf 32 arbitrary
+
+instance Arbitrary (VerificationKey HydraKey) where
+  arbitrary = getVerificationKey <$> arbitrary
+
+instance (Arbitrary a, SignableRepresentation a) => Arbitrary (Signature a) where
+  arbitrary = sign <$> arbitrary <*> arbitrary
+
+instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
+  arbitrary = HydraMultiSignature <$> arbitrary
+
+type ArbitraryIsTx tx =
+  ( IsTx tx
+  , Arbitrary tx
+  , Arbitrary (UTxOType tx)
+  , Arbitrary (TxIdType tx)
+  , Arbitrary (TxOutType tx)
+  )
+
+genOnChainId :: Gen OnChainId
+genOnChainId = UnsafeOnChainId . BS.pack <$> vectorOf 28 arbitrary
+
+instance Arbitrary OnChainId where
+  arbitrary = genOnChainId
+
+instance Arbitrary Party where
+  arbitrary = genericArbitrary
+
+instance Arbitrary HeadParameters where
+  arbitrary = dedupParties <$> genericArbitrary
+   where
+    dedupParties HeadParameters{contestationPeriod, parties} =
+      HeadParameters{contestationPeriod, parties = nub parties}
+
+instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
+  arbitrary = genericArbitrary
+
+  -- NOTE: See note on 'Arbitrary (ClientInput tx)'
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
+    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
+    | confirmed' <- shrink confirmed
+    , utxo' <- shrink utxo
+    , utxoToCommit' <- shrink utxoToCommit
+    , utxoToDecommit' <- shrink utxoToDecommit
+    ]
+
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
+  arbitrary = do
+    ks <- arbitrary
+    utxo <- arbitrary
+    utxoToCommit <- arbitrary
+    utxoToDecommit <- arbitrary
+    headId <- arbitrary
+    genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
+
+  shrink = \case
+    InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
+    ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
+
+genConfirmedSnapshot ::
+  IsTx tx =>
+  HeadId ->
+  -- | Exact snapshot version to generate.
+  SnapshotVersion ->
+  -- | The lower bound on snapshot number to generate.
+  -- If this is 0, then we can generate an `InitialSnapshot` or a `ConfirmedSnapshot`.
+  -- Otherwise we generate only `ConfirmedSnapshot` with a number strictly superior to
+  -- this lower bound.
+  SnapshotNumber ->
+  UTxOType tx ->
+  Maybe (UTxOType tx) ->
+  Maybe (UTxOType tx) ->
+  [SigningKey HydraKey] ->
+  Gen (ConfirmedSnapshot tx)
+genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
+  | minSn > 0 = confirmedSnapshot
+  | otherwise =
+      frequency
+        [ (1, initialSnapshot)
+        , (9, confirmedSnapshot)
+        ]
+ where
+  initialSnapshot =
+    InitialSnapshot <$> arbitrary <*> pure utxo
+
+  confirmedSnapshot = do
+    -- FIXME: This is another nail in the coffin to our current modeling of
+    -- snapshots
+    number <- arbitrary `suchThat` (> minSn)
+    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
+    let signatures = aggregate $ fmap (`sign` snapshot) sks
+    pure $ ConfirmedSnapshot{snapshot, signatures}
+
+instance Arbitrary SnapshotNumber where
+  arbitrary = genericArbitrary
+
+instance Arbitrary SnapshotVersion where
+  arbitrary = genericArbitrary
+
+instance Arbitrary ChainSlot where
+  arbitrary = genericArbitrary
+
+instance Arbitrary UTxOHash where
+  arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary

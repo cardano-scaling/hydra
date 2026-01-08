@@ -9,7 +9,7 @@ import Hydra.Tx (IsTx (..))
 -- | A generic description for a chain slot all implementations need to use.
 newtype ChainSlot = ChainSlot Natural
   deriving stock (Ord, Eq, Show, Generic)
-  deriving newtype (Num, ToJSON, FromJSON, Arbitrary)
+  deriving newtype (Num, ToJSON, FromJSON)
 
 -- | Types that can be used on-chain by the Hydra protocol.
 -- XXX: Find a better name for this. Maybe IsChainTx or IsL1Tx?
@@ -19,7 +19,6 @@ class
   , Show (ChainStateType tx)
   , FromJSON (ChainStateType tx)
   , ToJSON (ChainStateType tx)
-  , Arbitrary (ChainStateType tx)
   ) =>
   IsChainState tx
   where

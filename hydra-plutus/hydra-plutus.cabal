@@ -1,4 +1,4 @@
-cabal-version:      2.2
+cabal-version:      3.0
 name:               hydra-plutus
 version:            1.2.0
 synopsis:           Hydra Plutus Contracts
@@ -79,10 +79,21 @@ library
     , plutus-ledger-api    >=1.30
     , plutus-tx            >=1.30
     , plutus-tx-plugin     >=1.30
-    , QuickCheck
     , serialise
     , template-haskell
     , time
+
+library testlib
+  import:          project-config
+  visibility:      public
+  hs-source-dirs:  testlib
+  exposed-modules: Hydra.Plutus.Gen
+  build-depends:
+    , base
+    , bytestring
+    , hydra-plutus
+    , hydra-prelude
+    , QuickCheck
 
 test-suite tests
   import:             project-config
@@ -104,6 +115,7 @@ test-suite tests
     , hspec-golden
     , hydra-cardano-api
     , hydra-plutus
+    , hydra-plutus:testlib
     , hydra-prelude
     , hydra-test-utils
     , lens

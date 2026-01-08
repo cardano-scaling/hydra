@@ -4,6 +4,7 @@
 module Hydra.Chain.Direct.TimeHandle where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Cardano.Slotting.Slot (SlotNo (SlotNo))
 import Cardano.Slotting.Time (SystemStart (SystemStart), fromRelativeTime, toRelativeTime)

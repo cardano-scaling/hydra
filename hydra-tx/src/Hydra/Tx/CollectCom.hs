@@ -8,7 +8,6 @@ import Data.Map qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Data.ByteString qualified as BS
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -23,7 +22,6 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.Common (fromBuiltin)
 import PlutusLedgerApi.V3 (toBuiltin)
-import Test.QuickCheck (vectorOf)
 
 -- * Construction
 
@@ -109,9 +107,6 @@ instance HasTypeProxy UTxOHash where
 instance SerialiseAsRawBytes UTxOHash where
   serialiseToRawBytes (UTxOHash bytes) = bytes
   deserialiseFromRawBytes _ = Right . UTxOHash
-
-instance Arbitrary UTxOHash where
-  arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
 
 data CollectComObservation = CollectComObservation
   { headId :: HeadId

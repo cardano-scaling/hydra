@@ -42,7 +42,6 @@ import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO),
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
-import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.HeadId (mkHeadId)
@@ -51,7 +50,7 @@ import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
-import Test.Gen.Cardano.Api.Typed (genHashableScriptData)
+import Test.Gen.Cardano.Api.Typed qualified as Gen
 import Test.Hydra.Tx.Fixture (
   pparams,
   testNetworkId,
@@ -63,6 +62,7 @@ import Test.Hydra.Tx.Gen (
   genUTxO1,
   genUTxOAdaOnlyOfSize,
   genValue,
+  propTransactionEvaluates,
  )
 import Test.QuickCheck (
   Property,
@@ -266,7 +266,8 @@ genBlueprintTxWithUTxO =
 
   addValidityRange :: (UTxO, TxBodyContent BuildTx) -> Gen (UTxO, TxBodyContent BuildTx)
   addValidityRange (utxo, txbody) = do
-    (start, end) <- arbitrary
+    start <- hedgehog $ Gen.genTxValidityLowerBound cardanoEra
+    end <- hedgehog $ Gen.genTxValidityUpperBound shelleyBasedEra
     pure
       ( utxo
       , txbody{txValidityLowerBound = start, txValidityUpperBound = end}
@@ -291,7 +292,7 @@ genBlueprintTxWithUTxO =
       [ pure (utxo, txbody)
       , do
           lovelace <- arbitrary
-          let redeemer = hedgehog genHashableScriptData `generateWith` 42
+          let redeemer = hedgehog Gen.genHashableScriptData `generateWith` 42
               script = dummyRewardingScript
               scriptWitness = mkScriptWitness script NoScriptDatumForStake redeemer
               stakeAddress = mkScriptStakeAddress testNetworkId script

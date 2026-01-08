@@ -4,6 +4,7 @@
 module Hydra.Ledger where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))

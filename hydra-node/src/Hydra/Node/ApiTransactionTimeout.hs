@@ -1,6 +1,7 @@
 module Hydra.Node.ApiTransactionTimeout where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Test.QuickCheck (choose)
 

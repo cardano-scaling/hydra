@@ -4,6 +4,7 @@
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
@@ -14,8 +15,8 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Tx,
   UTxO,
-  genTxIn,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ClosedState (..),
@@ -51,8 +52,6 @@ import Hydra.Chain.Direct.State (
 import Hydra.Ledger.Cardano.Evaluate (
   estimateMinFee,
   evaluateTx,
-  genPointInTimeBefore,
-  genValidityBoundsFromContestationPeriod,
   maxTxSize,
   slotLength,
   systemStart,
@@ -60,10 +59,9 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx.Snapshot (genConfirmedSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
-import Test.Hydra.Tx.Gen (genOutputFor, genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]

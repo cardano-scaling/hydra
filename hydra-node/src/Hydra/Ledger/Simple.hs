@@ -11,6 +11,7 @@
 module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Codec.Serialise (serialise)
 import Data.Aeson (
@@ -26,6 +27,7 @@ import Hydra.Ledger (
   ValidationError (ValidationError),
  )
 import Hydra.Tx (IsTx (..))
+import Test.Hydra.Tx.Gen ()
 
 -- * Simple transactions
 

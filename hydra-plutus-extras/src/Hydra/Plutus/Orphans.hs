@@ -5,6 +5,7 @@
 module Hydra.Plutus.Orphans where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Aeson qualified as Aeson

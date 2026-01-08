@@ -52,7 +52,6 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
 import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BSC
 import Data.Map qualified as Map
@@ -73,8 +72,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.HeadState qualified as OnChain
 import PlutusLedgerApi.V3 qualified as Plutus
-import Test.QuickCheck (vectorOf)
-import Test.QuickCheck.Instances.ByteString ()
 import Text.Show (Show (..))
 
 -- * Hydra keys
@@ -155,9 +152,6 @@ instance Key HydraKey where
   verificationKeyHash (HydraVerificationKey vk) =
     HydraKeyHash . castHash $ hashVerKeyDSIGN vk
 
-instance Arbitrary (SigningKey HydraKey) where
-  arbitrary = generateSigningKey . BS.pack <$> vectorOf 32 arbitrary
-
 instance HasTextEnvelope (SigningKey HydraKey) where
   textEnvelopeType _ =
     "HydraSigningKey_"
@@ -172,9 +166,6 @@ instance SerialiseAsRawBytes (SigningKey HydraKey) where
       (Left (SerialiseAsRawBytesError "invalid length when deserializing SigningKey HydraKey"))
       (Right . HydraSigningKey)
       (rawDeserialiseSignKeyDSIGN bs)
-
-instance Arbitrary (VerificationKey HydraKey) where
-  arbitrary = getVerificationKey <$> arbitrary
 
 instance SerialiseAsRawBytes (VerificationKey HydraKey) where
   serialiseToRawBytes (HydraVerificationKey vk) =
@@ -248,9 +239,6 @@ instance Hashable (Signature a) where
   hashWithSalt salt (HydraSignature sig) =
     hashWithSalt salt (rawSerialiseSigDSIGN sig)
 
-instance (Arbitrary a, SignableRepresentation a) => Arbitrary (Signature a) where
-  arbitrary = sign <$> arbitrary <*> arbitrary
-
 instance ToJSON a => ToJSON (Signature a) where
   toJSON (HydraSignature sig) = Aeson.String $ decodeUtf8 hexBytes
    where
@@ -296,9 +284,6 @@ newtype MultiSignature a = HydraMultiSignature {multiSignature :: [Signature a]}
 
 deriving anyclass instance ToJSON a => ToJSON (MultiSignature a)
 deriving anyclass instance FromJSON a => FromJSON (MultiSignature a)
-
-instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
-  arbitrary = HydraMultiSignature <$> arbitrary
 
 -- | Combine multiple signatures of 'a' into a 'MultiSignature a'.
 aggregate :: [Signature a] -> MultiSignature a

@@ -4,7 +4,9 @@
 module Hydra.Tx.Contract.Close.CloseUsed where
 
 import Hydra.Cardano.Api
+import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)

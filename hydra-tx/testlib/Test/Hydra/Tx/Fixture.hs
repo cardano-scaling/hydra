@@ -9,6 +9,7 @@ module Test.Hydra.Tx.Fixture (
   epochInfo,
 ) where
 
+import Hydra.Cardano.Api.Gen
 import Hydra.Prelude
 
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
@@ -26,7 +27,6 @@ import Hydra.Cardano.Api (
   SigningKey,
   TxIn,
   deserialiseFromRawBytes,
-  genTxIn,
   serialiseToRawBytes,
   verificationKeyHash,
  )
@@ -38,6 +38,7 @@ import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
+import Test.Hydra.Prelude
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party

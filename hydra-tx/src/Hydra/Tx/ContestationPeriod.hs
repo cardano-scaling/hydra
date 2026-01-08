@@ -6,7 +6,6 @@ import Data.Fixed (Pico)
 import Data.Ratio ((%))
 import Data.Time (secondsToNominalDiffTime)
 import Hydra.Data.ContestationPeriod qualified as OnChain
-import Test.QuickCheck (choose, oneof)
 import Text.Show (Show (..))
 
 -- | A positive, non-zero number of seconds. Use 'fromInteger' on positive
@@ -37,26 +36,6 @@ instance Num ContestationPeriod where
   negate (UnsafeContestationPeriod a) = UnsafeContestationPeriod (negate a)
   abs (UnsafeContestationPeriod a) = UnsafeContestationPeriod (abs a)
   signum (UnsafeContestationPeriod a) = UnsafeContestationPeriod (signum a)
-
-instance Arbitrary ContestationPeriod where
-  arbitrary = do
-    UnsafeContestationPeriod
-      . fromInteger
-      <$> oneof
-        [ choose (1, confirmedHorizon)
-        , pure confirmedHorizon
-        , choose (confirmedHorizon, oneDay)
-        , pure oneDay
-        , pure oneWeek
-        , pure oneMonth
-        , pure oneYear
-        ]
-   where
-    confirmedHorizon = 2160 * 20 -- k blocks on mainnet
-    oneDay = 3600 * 24
-    oneWeek = oneDay * 7
-    oneMonth = oneDay * 30
-    oneYear = oneDay * 365
 
 -- | Create a 'ContestationPeriod' from a 'NominalDiffTime'. This will fail if a
 -- negative NominalDiffTime is provided and truncates to 1s if values < 1s are given.

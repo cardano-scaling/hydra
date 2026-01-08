@@ -18,9 +18,6 @@ newtype ContestationPeriod = UnsafeContestationPeriod {milliseconds :: DiffMilli
 
 PlutusTx.unstableMakeIsData ''ContestationPeriod
 
-instance Arbitrary ContestationPeriod where
-  arbitrary = fromInteger <$> arbitrary
-
 contestationPeriodFromDiffTime :: NominalDiffTime -> ContestationPeriod
 contestationPeriodFromDiffTime = UnsafeContestationPeriod . truncate . (* 1000) . nominalDiffTimeToSeconds
 

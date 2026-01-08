@@ -3,6 +3,7 @@
 module Hydra.Node.State where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Data.Map qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
@@ -11,7 +12,7 @@ import Hydra.Tx (
   HeadId,
   IsTx (..),
  )
-import Hydra.Tx.IsTx (ArbitraryIsTx)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (recursivelyShrink)
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)

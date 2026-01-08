@@ -5,6 +5,7 @@
 module Hydra.HeadLogic.State where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Data.Map qualified as Map
 import Hydra.Chain.ChainState (IsChainState (..))
@@ -16,13 +17,13 @@ import Hydra.Tx (
   Party,
  )
 import Hydra.Tx.Crypto (Signature)
-import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
  )
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.

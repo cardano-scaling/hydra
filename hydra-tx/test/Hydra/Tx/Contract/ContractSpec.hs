@@ -25,7 +25,6 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
 import Hydra.Contract.Util qualified as OnChain
-import Hydra.Ledger.Cardano.Evaluate (propTransactionEvaluates)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
   Snapshot (..),
@@ -56,6 +55,7 @@ import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
+  propTransactionEvaluates,
   shrinkUTxO,
  )
 import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)

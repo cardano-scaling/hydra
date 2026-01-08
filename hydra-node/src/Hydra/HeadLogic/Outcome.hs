@@ -4,6 +4,7 @@
 module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
@@ -28,8 +29,8 @@ import Hydra.Tx (
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
-import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
@@ -155,13 +156,13 @@ deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (Ch
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (StateChanged tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
 
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
 -- REVIEW: why are we missing Checkpoint and other events ?
-genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
+genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
