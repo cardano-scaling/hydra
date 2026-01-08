@@ -177,6 +177,12 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "contestationDeadline" . _JSON
 
+  -- Write the results already in case we cannot finalize
+  let res = mapMaybe analyze . Map.toList $ processedTransactions
+      aggregates = movingAverage res
+
+  writeResultsCsv (workDir </> "results.csv") aggregates
+
   -- Expect to see ReadyToFanout within 3 seconds after deadline
   remainingTime <- diffUTCTime deadline <$> getCurrentTime
   waitFor hydraTracer (remainingTime + 3) [leader] $
@@ -187,11 +193,6 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
   waitMatch 100 leader $ \v -> do
     guard (v ^? key "tag" == Just "HeadIsFinalized")
     guard $ v ^? key "headId" == Just (toJSON headId)
-
-  let res = mapMaybe analyze . Map.toList $ processedTransactions
-      aggregates = movingAverage res
-
-  writeResultsCsv (workDir </> "results.csv") aggregates
 
   let confTimes = map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes
