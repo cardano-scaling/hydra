@@ -352,12 +352,12 @@ instance (Hydra.Tx.IsTx.IsTx tx, Hydra.Chain.ChainState.IsChainState tx) => GHC.
 instance (Hydra.Tx.IsTx.IsTx tx, Hydra.Chain.ChainState.IsChainState tx) => GHC.Show.Show (Hydra.Chain.ChainEvent tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainEvent tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainEvent tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainEvent tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainEvent tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainStateHistory tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Exception.Type.Exception (Hydra.Chain.PostTxError tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.PostTxError tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.OnChainTx tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.PostChainTx tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.PostTxError tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.OnChainTx tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.PostChainTx tx)
 
 
 -- | A basic cardano-node client that can talk to a local cardano-node.
@@ -724,12 +724,12 @@ instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainSta
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.ClosedState tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.HeadState tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.ClosedState tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.OpenState tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.CoordinatedHeadState tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.SeenSnapshot tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.InitialState tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.HeadState tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.ClosedState tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.OpenState tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.SeenSnapshot tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.InitialState tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.State.IdleState tx)
 
 module Hydra.Ledger
@@ -1688,8 +1688,8 @@ instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Network.Message.Message 
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Network.Message.Message tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Network.Message.Message tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Network.Message.Message tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Network.Message.Message tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Network.Message.Message tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Network.Message.Message tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Network.Message.Message tx)
 instance (Cardano.Binary.ToCBOR.ToCBOR tx, Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.IsTx.UTxOType tx), Cardano.Binary.ToCBOR.ToCBOR (Hydra.Tx.IsTx.TxIdType tx)) => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Network.Message.Message tx)
 instance (Cardano.Binary.FromCBOR.FromCBOR tx, Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.IsTx.UTxOType tx), Cardano.Binary.FromCBOR.FromCBOR (Hydra.Tx.IsTx.TxIdType tx)) => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Network.Message.Message tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Crypto.Util.SignableRepresentation (Hydra.Network.Message.Message tx)
@@ -1726,7 +1726,7 @@ instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLog
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogic.Input.Input tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Input.Input tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Input.Input tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.Input.Input tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.Input.Input tx)
 
 
 -- | Error types used in the Hydra.HeadLogic module.
@@ -2222,8 +2222,8 @@ instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.Deposit tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.NodeState tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.Deposit tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.NodeState tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.Deposit tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.DepositStatus
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.SyncedStatus
 
@@ -2495,21 +2495,21 @@ instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.Fro
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.ServerOutput.ServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.ServerOutput.Greetings tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.ServerOutput.Greetings tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.Greetings tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.Greetings tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.Greetings tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.Greetings tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.API.ServerOutput.NetworkInfo
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.API.ServerOutput.HeadStatus
 instance Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.ServerOutput tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.TimedServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.ServerOutput.TimedServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.ServerOutput.TimedServerOutput tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.ServerOutput tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.ServerOutput tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.ServerOutput tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.API.ServerOutput.ServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.ServerOutput.ClientMessage tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.ServerOutput.ClientMessage tx)
-instance (Hydra.Chain.ChainState.IsChainState tx, Hydra.Tx.IsTx.ArbitraryIsTx tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.ClientMessage tx)
+instance (Hydra.Chain.ChainState.IsChainState tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Test.Hydra.Tx.Gen.ArbitraryIsTx tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.ClientMessage tx)
 instance (Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.TxIdType tx), Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.UTxOType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.ServerOutput.DecommitInvalidReason tx)
 instance (Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.TxIdType tx), Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.UTxOType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.ServerOutput.DecommitInvalidReason tx)
-instance Hydra.Tx.IsTx.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.DecommitInvalidReason tx)
+instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.ServerOutput.DecommitInvalidReason tx)
 
 module Hydra.HeadLogic.Outcome
 
@@ -2677,7 +2677,7 @@ Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
 NodeUnsynced :: StateChanged tx
 NodeSynced :: StateChanged tx
-genStateChanged :: (ArbitraryIsTx tx, IsChainState tx) => Environment -> Gen (StateChanged tx)
+genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
 data Outcome tx
 
 -- | Continue with the given state updates and side effects.
@@ -2743,8 +2743,8 @@ instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.Outcome.WaitRea
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.Outcome.WaitReason tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.Outcome.WaitReason tx)
 instance GHC.Base.Semigroup (Hydra.HeadLogic.Outcome.Outcome tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.Outcome.StateChanged tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Outcome.StateChanged tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.Outcome.StateChanged tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Outcome.StateChanged tx)
 
 module Hydra.HeadLogic.StateEvent
 
@@ -2763,7 +2763,7 @@ instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLog
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Events.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance (Hydra.Tx.IsTx.ArbitraryIsTx tx, Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.StateEvent.StateEvent tx)
 
 
 -- | Implements the Head Protocol's <i>state machine</i> as <i>pure

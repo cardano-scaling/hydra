@@ -9,7 +9,6 @@
 module Hydra.Cardano.Api.NetworkMagic
 instance Data.Aeson.Types.ToJSON.ToJSON Ouroboros.Network.Magic.NetworkMagic
 instance Data.Aeson.Types.FromJSON.FromJSON Ouroboros.Network.Magic.NetworkMagic
-instance Test.QuickCheck.Arbitrary.Arbitrary Ouroboros.Network.Magic.NetworkMagic
 
 module Hydra.Cardano.Api.Prelude
 
@@ -312,9 +311,6 @@ data () => TxValidityUpperBound era
 data () => Witness witctx era
 [KeyWitness] :: forall witctx era. KeyWitnessInCtx witctx -> Witness witctx era
 [ScriptWitness] :: forall witctx era. ScriptWitnessInCtx witctx -> ScriptWitness witctx era -> Witness witctx era
-data () => Address addrtype
-[ByronAddress] :: Address -> Address ByronAddr
-[ShelleyAddress] :: Network -> PaymentCredential -> StakeReference -> Address ShelleyAddr
 data () => ChainPoint
 ChainPointAtGenesis :: ChainPoint
 ChainPoint :: !SlotNo -> !Hash BlockHeader -> ChainPoint
@@ -357,7 +353,9 @@ data () => TxOutValue era
 [TxOutValueByron] :: Coin -> TxOutValue ByronEra
 [TxOutValueShelleyBased] :: forall era. (Eq (Value (ShelleyLedgerEra era)), Show (Value (ShelleyLedgerEra era))) => ShelleyBasedEra era -> Value (ShelleyLedgerEra era) -> TxOutValue era
 data () => Value
-data () => ByronAddr
+data () => Address addrtype
+[ByronAddress] :: Address -> Address ByronAddr
+[ShelleyAddress] :: Network -> PaymentCredential -> StakeReference -> Address ShelleyAddr
 class () => FromJSON a
 parseJSON :: FromJSON a => Value -> Parser a
 parseJSONList :: FromJSON a => Value -> Parser [a]
@@ -375,6 +373,7 @@ encodedListSizeExpr :: ToCBOR a => (forall t. ToCBOR t => Proxy t -> Size) -> Pr
 data () => AddressAny
 AddressByron :: !Address ByronAddr -> AddressAny
 AddressShelley :: !Address ShelleyAddr -> AddressAny
+data () => ByronAddr
 data () => PaymentCredential
 PaymentCredentialByKey :: Hash PaymentKey -> PaymentCredential
 PaymentCredentialByScript :: ScriptHash -> PaymentCredential
@@ -2525,10 +2524,6 @@ data () => Set a
 --   NOTE: This throws if byte string has a length different that the
 --   expected target digest length.
 unsafeHashFromBytes :: (HasCallStack, HashAlgorithm hash) => ByteString -> Hash hash a
-class () => Arbitrary a
-arbitrary :: Arbitrary a => Gen a
-shrink :: Arbitrary a => a -> [a]
-data () => Gen a
 
 module Hydra.Cardano.Api.PolicyAssets
 instance Data.Aeson.Types.ToJSON.ToJSON Cardano.Api.Value.Internal.PolicyAssets
@@ -2537,7 +2532,6 @@ instance Data.Aeson.Types.FromJSON.FromJSON Cardano.Api.Value.Internal.PolicyAss
 module Hydra.Cardano.Api.NetworkId
 instance Data.Aeson.Types.ToJSON.ToJSON Cardano.Api.Network.Internal.NetworkId.NetworkId
 instance Data.Aeson.Types.FromJSON.FromJSON Cardano.Api.Network.Internal.NetworkId.NetworkId
-instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Network.Internal.NetworkId.NetworkId
 
 module Hydra.Cardano.Api.Hash
 
@@ -2571,7 +2565,6 @@ module Hydra.Cardano.Api.ChainPoint
 
 -- | Get the chain point corresponding to a given <a>BlockHeader</a>.
 getChainPoint :: BlockHeader -> ChainPoint
-instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Block.ChainPoint
 
 module Hydra.Cardano.Api.AddressInEra
 
@@ -2602,9 +2595,6 @@ toLedgerAddr :: AddressInEra era -> Addr
 --   Requires the <tt>Network</tt> discriminator (Testnet or Mainnet)
 --   because Plutus addresses are stripped off it.
 fromPlutusAddress :: IsShelleyBasedEra era => Network -> Address -> AddressInEra era
-
-module Hydra.Cardano.Api.Address
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Address.Address Cardano.Api.Address.ByronAddr)
 
 module Hydra.Cardano.Api.ReferenceScript
 
@@ -2662,7 +2652,6 @@ toPlutusCurrencySymbol :: PolicyId -> CurrencySymbol
 -- | Convert a plutus <a>CurrencySymbol</a> into a cardano-api
 --   <a>PolicyId</a>.
 fromPlutusCurrencySymbol :: MonadFail m => CurrencySymbol -> m PolicyId
-instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Value.Internal.PolicyId
 
 module Hydra.Cardano.Api.StakeAddress
 
@@ -2698,12 +2687,6 @@ fromPlutusTxOutRef :: TxOutRef -> TxIn
 
 -- | Convert a cardano-api <a>TxIn</a> into a plutus <tt>TxOutRef</tt>.
 toPlutusTxOutRef :: TxIn -> TxOutRef
-
--- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
---   NOTE: This is using the Cardano ledger's deserialization framework
---   using the latest protocol version via <a>maxBound</a>.
-genTxIn :: Gen TxIn
-instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Tx.Internal.TxIn.TxIn
 
 module Hydra.Cardano.Api.TxBody
 
@@ -2761,8 +2744,6 @@ resolveInputsUTxO :: UTxO Era -> Tx Era -> UTxO Era
 module Hydra.Cardano.Api.ValidityInterval
 toLedgerValidityInterval :: (TxValidityLowerBound era, TxValidityUpperBound era) -> ValidityInterval
 fromLedgerValidityInterval :: ValidityInterval -> (TxValidityLowerBound Era, TxValidityUpperBound Era)
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Tx.Internal.Body.TxValidityLowerBound Hydra.Cardano.Api.Prelude.Era)
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Tx.Internal.Body.TxValidityUpperBound Hydra.Cardano.Api.Prelude.Era)
 
 module Hydra.Cardano.Api.Value
 
@@ -3065,6 +3046,10 @@ toLedgerExUnits :: ExecutionUnits -> ExUnits
 -- | Convert a cardano-api <a>Hash</a> into a plutus <tt>PubKeyHash</tt>
 toPlutusKeyHash :: Hash PaymentKey -> PubKeyHash
 
+-- | Convert Cardano api <a>PolicyId</a> to Cardano ledger
+--   <tt>PolicyID</tt>.
+toLedgerPolicyID :: PolicyId -> PolicyID
+
 -- | Convert a cardano-ledger script <tt>Data</tt> into a cardano-api
 --   <a>ScriptDatum</a>.
 fromLedgerData :: Data era -> HashableScriptData
@@ -3154,11 +3139,6 @@ toLedgerKeyHash :: Hash PaymentKey -> KeyHash 'Witness
 unsafePaymentKeyHashFromBytes :: HasCallStack => ByteString -> Hash PaymentKey
 unsafeCastHash :: (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b), HasCallStack) => Hash a -> Hash b
 
--- | A more random generator than the 'Arbitrary TxIn' from cardano-ledger.
---   NOTE: This is using the Cardano ledger's deserialization framework
---   using the latest protocol version via <a>maxBound</a>.
-genTxIn :: Gen TxIn
-
 -- | Construct a Shelley-style address from a Plutus script. This address
 --   has no stake rights.
 mkScriptAddress :: forall lang era. (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) => NetworkId -> PlutusScript lang -> AddressInEra era
@@ -3180,10 +3160,6 @@ txOutScriptData :: TxOut CtxTx era -> Maybe HashableScriptData
 --   <tt>Data</tt>. XXX: This is a partial function. Ideally it would fall
 --   back to the <a>Data</a> portion in <a>HashableScriptData</a>.
 toLedgerData :: Era era => HashableScriptData -> Data era
-
--- | Convert Cardano api <a>PolicyId</a> to Cardano ledger
---   <tt>PolicyID</tt>.
-toLedgerPolicyID :: PolicyId -> PolicyID
 
 -- | Convert Cardano api <a>PolicyId</a> to Plutus <a>CurrencySymbol</a>.
 toPlutusCurrencySymbol :: PolicyId -> CurrencySymbol
@@ -3490,9 +3466,6 @@ newtype () => LedgerProtocolParameters era
 LedgerProtocolParameters :: PParams (ShelleyLedgerEra era) -> LedgerProtocolParameters era
 [unLedgerProtocolParameters] :: LedgerProtocolParameters era -> PParams (ShelleyLedgerEra era)
 data () => PParams era
-data () => Address addrtype
-[ByronAddress] :: Address -> Address ByronAddr
-[ShelleyAddress] :: Network -> PaymentCredential -> StakeReference -> Address ShelleyAddr
 data () => ChainPoint
 ChainPointAtGenesis :: ChainPoint
 ChainPoint :: !SlotNo -> !Hash BlockHeader -> ChainPoint
@@ -3536,7 +3509,9 @@ data () => TxOutValue era
 [TxOutValueShelleyBased] :: forall era. (Eq (Value (ShelleyLedgerEra era)), Show (Value (ShelleyLedgerEra era))) => ShelleyBasedEra era -> Value (ShelleyLedgerEra era) -> TxOutValue era
 data () => Value
 data () => Network
-data () => ByronAddr
+data () => Address addrtype
+[ByronAddress] :: Address -> Address ByronAddr
+[ShelleyAddress] :: Network -> PaymentCredential -> StakeReference -> Address ShelleyAddr
 class () => FromJSON a
 parseJSON :: FromJSON a => Value -> Parser a
 parseJSONList :: FromJSON a => Value -> Parser [a]
@@ -3554,6 +3529,7 @@ encodedListSizeExpr :: ToCBOR a => (forall t. ToCBOR t => Proxy t -> Size) -> Pr
 data () => AddressAny
 AddressByron :: !Address ByronAddr -> AddressAny
 AddressShelley :: !Address ShelleyAddr -> AddressAny
+data () => ByronAddr
 data () => PaymentCredential
 PaymentCredentialByKey :: Hash PaymentKey -> PaymentCredential
 PaymentCredentialByScript :: ScriptHash -> PaymentCredential

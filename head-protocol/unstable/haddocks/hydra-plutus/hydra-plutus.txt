@@ -237,7 +237,6 @@ addContestationPeriod :: POSIXTime -> ContestationPeriod -> POSIXTime
 instance PlutusTx.IsData.Class.ToData Hydra.Data.ContestationPeriod.ContestationPeriod
 instance PlutusTx.IsData.Class.FromData Hydra.Data.ContestationPeriod.ContestationPeriod
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Data.ContestationPeriod.ContestationPeriod
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Data.ContestationPeriod.ContestationPeriod
 instance PlutusTx.Eq.Eq Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Num.Num Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Show.Show Hydra.Data.ContestationPeriod.ContestationPeriod
@@ -272,7 +271,6 @@ instance PlutusTx.Eq.Eq Hydra.Data.Party.Party
 instance GHC.Show.Show Hydra.Data.Party.Party
 instance GHC.Generics.Generic Hydra.Data.Party.Party
 instance GHC.Classes.Eq Hydra.Data.Party.Party
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Data.Party.Party
 instance PlutusTx.IsData.Class.ToData Hydra.Data.Party.Party
 instance PlutusTx.IsData.Class.FromData Hydra.Data.Party.Party
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Data.Party.Party

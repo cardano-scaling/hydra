@@ -7436,47 +7436,6 @@ toJSONList :: ToJSON a => [a] -> Value
 toEncodingList :: ToJSON a => [a] -> Encoding
 omitField :: ToJSON a => a -> Bool
 encodePretty :: ToJSON a => a -> ByteString
-data () => Gen a
-class () => Arbitrary a
-arbitrary :: Arbitrary a => Gen a
-shrink :: Arbitrary a => a -> [a]
-
--- | Provides a sensible way of automatically deriving generic
---   <a>Arbitrary</a> instances for data-types. In the case where more
---   advanced or tailored generators are needed, custom hand-written
---   generators should be used with functions such as <tt>forAll</tt> or
---   <tt>forAllShrink</tt>.
-genericArbitrary :: (Generic a, GA UnsizedOpts (Rep a), UniformWeight (Weights_ (Rep a))) => Gen a
-genericShrink :: (Generic a, RecursivelyShrink (Rep a), GSubterms (Rep a) a) => a -> [a]
-
--- | A seeded, deterministic, generator
-generateWith :: Gen a -> Int -> a
-
--- | Like <tt>shrinkList</tt>, but more aggressive :)
---   
---   Useful for shrinking large nested Map or Lists where the shrinker
---   "don't have time" to go through many cases.
-shrinkListAggressively :: [a] -> [[a]]
-
--- | Resize a generator to grow with the size parameter, but remains
---   reasonably sized. That is handy when testing on data-structures that
---   can be arbitrarily large and, when large entities don't really bring
---   any value to the test itself.
---   
---   It uses a square root function which makes the size parameter grows
---   quadratically slower than normal. That is,
---   
---   TODO: table
-reasonablySized :: Gen a -> Gen a
-
--- | A QuickCheck modifier to make use of <a>reasonablySized</a> on
---   existing types.
-newtype ReasonablySized a
-ReasonablySized :: a -> ReasonablySized a
-
--- | A QuickCheck modifier that only generates values with size = 1.
-newtype MinimumSized a
-MinimumSized :: a -> MinimumSized a
 
 -- | Pad a text-string to right with the given character until it reaches
 --   the given length.
@@ -7544,17 +7503,6 @@ withAsyncLabelled :: MonadAsync m => (String, m a) -> (Async m a -> m b) -> m b
 newLabelledTQueue :: MonadLabelledSTM m => String -> STM m (TQueue m a)
 newLabelledTBQueue :: MonadLabelledSTM m => String -> Natural -> STM m (TBQueue m a)
 newLabelledTBQueueIO :: MonadLabelledSTM m => String -> Natural -> m (TBQueue m a)
-instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Prelude.ReasonablySized a)
-instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Prelude.ReasonablySized a)
-instance GHC.Show.Show a => GHC.Show.Show (Hydra.Prelude.ReasonablySized a)
-instance GHC.Generics.Generic a => GHC.Generics.Generic (Hydra.Prelude.MinimumSized a)
-instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Prelude.MinimumSized a)
-instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Prelude.MinimumSized a)
-instance GHC.Classes.Eq a => GHC.Classes.Eq (Hydra.Prelude.MinimumSized a)
-instance GHC.Show.Show a => GHC.Show.Show (Hydra.Prelude.MinimumSized a)
-instance Test.QuickCheck.Arbitrary.Arbitrary a => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Prelude.MinimumSized a)
-instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary a => Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Prelude.MinimumSized a)
-instance Test.QuickCheck.Arbitrary.Arbitrary a => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Prelude.ReasonablySized a)
 
 
 -- | Provides version numbers from calling git on build time or from an

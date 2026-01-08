@@ -1,15 +1,16 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Node.ApiTransactionTimeout</span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-2"></span><span>
 </span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
-</span><span id="line-4"></span><span>
-</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">choose</span></span><span class="hs-special">)</span><span>
-</span><span id="line-6"></span><span>
-</span><span id="line-7"></span><span class="annot"><span class="hs-comment">-- | A new type wrapped period of time to be used in API transaction timeout.</span></span><span>
-</span><span id="line-8"></span><span class="hs-keyword">newtype</span><span> </span><span id="ApiTransactionTimeout"><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ApiTransactionTimeout"><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span></span><span>
-</span><span id="line-9"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AapiTransactionTimeoutNominalDiffTime%3AApiTransactionTimeout"><span class="annot"><span class="annottext">ApiTransactionTimeout -&gt; NominalDiffTime
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">choose</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="annot"><span class="hs-comment">-- | A new type wrapped period of time to be used in API transaction timeout.</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">newtype</span><span> </span><span id="ApiTransactionTimeout"><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ApiTransactionTimeout"><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span></span><span>
+</span><span id="line-10"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AapiTransactionTimeoutNominalDiffTime%3AApiTransactionTimeout"><span class="annot"><span class="annottext">ApiTransactionTimeout -&gt; NominalDiffTime
 </span><a href="Hydra.Node.ApiTransactionTimeout.html#%24sel%3AapiTransactionTimeoutNominalDiffTime%3AApiTransactionTimeout"><span class="hs-identifier hs-var hs-var">apiTransactionTimeoutNominalDiffTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier hs-type">NominalDiffTime</span></a></span><span>
-</span><span id="line-10"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-11"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680535363"><span id="local-6989586621680535367"><span class="annot"><span class="annottext">ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool
+</span><span id="line-11"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680535058"><span id="local-6989586621680535062"><span class="annot"><span class="annottext">ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool
 (ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool)
 -&gt; (ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool)
 -&gt; Eq ApiTransactionTimeout
@@ -18,7 +19,7 @@ $c== :: ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool
 == :: ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool
 $c/= :: ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool
 /= :: ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535374"><span id="local-6989586621680535378"><span id="local-6989586621680535381"><span id="local-6989586621680535385"><span id="local-6989586621680535388"><span id="local-6989586621680535391"><span id="local-6989586621680535394"><span class="annot"><span class="annottext">Eq ApiTransactionTimeout
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535069"><span id="local-6989586621680535073"><span id="local-6989586621680535076"><span id="local-6989586621680535080"><span id="local-6989586621680535083"><span id="local-6989586621680535086"><span id="local-6989586621680535089"><span class="annot"><span class="annottext">Eq ApiTransactionTimeout
 Eq ApiTransactionTimeout =&gt;
 (ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Ordering)
 -&gt; (ApiTransactionTimeout -&gt; ApiTransactionTimeout -&gt; Bool)
@@ -63,7 +64,7 @@ $cmin :: ApiTransactionTimeout
 min :: ApiTransactionTimeout
 -&gt; ApiTransactionTimeout -&gt; ApiTransactionTimeout
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680535398"><span id="local-6989586621680535403"><span id="local-6989586621680535407"><span class="annot"><span class="annottext">Int -&gt; ApiTransactionTimeout -&gt; ShowS
+</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680535093"><span id="local-6989586621680535098"><span id="local-6989586621680535102"><span class="annot"><span class="annottext">Int -&gt; ApiTransactionTimeout -&gt; ShowS
 [ApiTransactionTimeout] -&gt; ShowS
 ApiTransactionTimeout -&gt; String
 (Int -&gt; ApiTransactionTimeout -&gt; ShowS)
@@ -78,7 +79,7 @@ $cshow :: ApiTransactionTimeout -&gt; String
 show :: ApiTransactionTimeout -&gt; String
 $cshowList :: [ApiTransactionTimeout] -&gt; ShowS
 showList :: [ApiTransactionTimeout] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535413"><span id="local-6989586621680535418"><span id="local-6989586621680535422"><span id="local-6989586621680535426"><span class="annot"><span class="annottext">ReadPrec [ApiTransactionTimeout]
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535108"><span id="local-6989586621680535113"><span id="local-6989586621680535117"><span id="local-6989586621680535121"><span class="annot"><span class="annottext">ReadPrec [ApiTransactionTimeout]
 ReadPrec ApiTransactionTimeout
 Int -&gt; ReadS ApiTransactionTimeout
 ReadS [ApiTransactionTimeout]
@@ -98,7 +99,7 @@ $creadPrec :: ReadPrec ApiTransactionTimeout
 readPrec :: ReadPrec ApiTransactionTimeout
 $creadListPrec :: ReadPrec [ApiTransactionTimeout]
 readListPrec :: ReadPrec [ApiTransactionTimeout]
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535432"><span id="local-6989586621680535437"><span id="local-6989586621680535441"><span id="local-6989586621680535445"><span id="local-6989586621680535449"><span id="local-6989586621680535453"><span id="local-6989586621680535457"><span class="annot"><span class="annottext">Integer -&gt; ApiTransactionTimeout
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535127"><span id="local-6989586621680535132"><span id="local-6989586621680535136"><span id="local-6989586621680535140"><span id="local-6989586621680535144"><span id="local-6989586621680535148"><span id="local-6989586621680535152"><span class="annot"><span class="annottext">Integer -&gt; ApiTransactionTimeout
 ApiTransactionTimeout -&gt; ApiTransactionTimeout
 ApiTransactionTimeout
 -&gt; ApiTransactionTimeout -&gt; ApiTransactionTimeout
@@ -142,7 +143,7 @@ $csignum :: ApiTransactionTimeout -&gt; ApiTransactionTimeout
 signum :: ApiTransactionTimeout -&gt; ApiTransactionTimeout
 $cfromInteger :: Integer -&gt; ApiTransactionTimeout
 fromInteger :: Integer -&gt; ApiTransactionTimeout
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535463"><span id="local-6989586621680535468"><span id="local-6989586621680535472"><span id="local-6989586621680535476"><span id="local-6989586621680535480"><span id="local-6989586621680535484"><span id="local-6989586621680535488"><span id="local-6989586621680535492"><span class="annot"><span class="annottext">Int -&gt; ApiTransactionTimeout
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535158"><span id="local-6989586621680535163"><span id="local-6989586621680535167"><span id="local-6989586621680535171"><span id="local-6989586621680535175"><span id="local-6989586621680535179"><span id="local-6989586621680535183"><span id="local-6989586621680535187"><span class="annot"><span class="annottext">Int -&gt; ApiTransactionTimeout
 ApiTransactionTimeout -&gt; Int
 ApiTransactionTimeout -&gt; [ApiTransactionTimeout]
 ApiTransactionTimeout -&gt; ApiTransactionTimeout
@@ -202,7 +203,7 @@ enumFromThenTo :: ApiTransactionTimeout
 -&gt; ApiTransactionTimeout
 -&gt; ApiTransactionTimeout
 -&gt; [ApiTransactionTimeout]
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535502"><span class="annot"><span class="annottext">Num ApiTransactionTimeout
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535197"><span class="annot"><span class="annottext">Num ApiTransactionTimeout
 Ord ApiTransactionTimeout
 (Num ApiTransactionTimeout, Ord ApiTransactionTimeout) =&gt;
 (ApiTransactionTimeout -&gt; Rational) -&gt; Real ApiTransactionTimeout
@@ -210,7 +211,7 @@ ApiTransactionTimeout -&gt; Rational
 forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
 $ctoRational :: ApiTransactionTimeout -&gt; Rational
 toRational :: ApiTransactionTimeout -&gt; Rational
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535509"><span id="local-6989586621680535514"><span id="local-6989586621680535518"><span id="local-6989586621680535522"><span id="local-6989586621680535526"><span class="annot"><span class="annottext">[ApiTransactionTimeout] -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535204"><span id="local-6989586621680535209"><span id="local-6989586621680535213"><span id="local-6989586621680535217"><span id="local-6989586621680535221"><span class="annot"><span class="annottext">[ApiTransactionTimeout] -&gt; Value
 [ApiTransactionTimeout] -&gt; Encoding
 ApiTransactionTimeout -&gt; Bool
 ApiTransactionTimeout -&gt; Value
@@ -238,7 +239,7 @@ $ctoEncodingList :: [ApiTransactionTimeout] -&gt; Encoding
 toEncodingList :: [ApiTransactionTimeout] -&gt; Encoding
 $comitField :: ApiTransactionTimeout -&gt; Bool
 omitField :: ApiTransactionTimeout -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535532"><span id="local-6989586621680535537"><span id="local-6989586621680535541"><span class="annot"><span class="annottext">Maybe ApiTransactionTimeout
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535227"><span id="local-6989586621680535232"><span id="local-6989586621680535236"><span class="annot"><span class="annottext">Maybe ApiTransactionTimeout
 Value -&gt; Parser [ApiTransactionTimeout]
 Value -&gt; Parser ApiTransactionTimeout
 (Value -&gt; Parser ApiTransactionTimeout)
@@ -255,47 +256,47 @@ parseJSONList :: Value -&gt; Parser [ApiTransactionTimeout]
 $comittedField :: Maybe ApiTransactionTimeout
 omittedField :: Maybe ApiTransactionTimeout
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-13"></span><span>
-</span><span id="line-14"></span><span class="annot"><span class="hs-comment">-- | Truncates to whole seconds.</span></span><span>
-</span><span id="line-15"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680535551"><span id="local-6989586621680535555"><span id="local-6989586621680535558"><span id="local-6989586621680535561"><span id="local-6989586621680535565"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-type">Integral</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-16"></span><span>  </span><span id="local-6989586621680535576"><span class="annot"><span class="annottext">quotRem :: ApiTransactionTimeout
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- | Truncates to whole seconds.</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680535246"><span id="local-6989586621680535250"><span id="local-6989586621680535253"><span id="local-6989586621680535256"><span id="local-6989586621680535260"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-type">Integral</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-17"></span><span>  </span><span id="local-6989586621680535271"><span class="annot"><span class="annottext">quotRem :: ApiTransactionTimeout
 -&gt; ApiTransactionTimeout
 -&gt; (ApiTransactionTimeout, ApiTransactionTimeout)
-</span><a href="#local-6989586621680535576"><span class="hs-identifier hs-var hs-var hs-var hs-var">quotRem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span><span> </span><span id="local-6989586621680535578"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535578"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span><span> </span><span id="local-6989586621680535579"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535579"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ApiTransactionTimeout
+</span><a href="#local-6989586621680535271"><span class="hs-identifier hs-var hs-var hs-var hs-var">quotRem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span><span> </span><span id="local-6989586621680535273"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680535273"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span><span> </span><span id="local-6989586621680535274"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680535274"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ApiTransactionTimeout
 </span><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; ApiTransactionTimeout)
 -&gt; NominalDiffTime -&gt; ApiTransactionTimeout
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; NominalDiffTime
 forall a. Num a =&gt; Integer -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680535580"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ApiTransactionTimeout
+</span><a href="#local-6989586621680535275"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ApiTransactionTimeout
 </span><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535581"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-17"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-18"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680535580"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680535580"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535581"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535581"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; (Integer, NominalDiffTime)
+</span><a href="#local-6989586621680535276"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>   </span><span class="hs-keyword">where</span><span>
+</span><span id="line-19"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680535275"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621680535275"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680535276"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680535276"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; (Integer, NominalDiffTime)
 forall b. Integral b =&gt; NominalDiffTime -&gt; (b, NominalDiffTime)
 forall a b. (RealFrac a, Integral b) =&gt; a -&gt; (b, a)
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#properFraction"><span class="hs-identifier hs-var">properFraction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535578"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621680535273"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Fractional a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%2F"><span class="hs-operator hs-var">/</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535579"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-19"></span><span>
-</span><span id="line-20"></span><span>  </span><span id="local-6989586621680535586"><span class="annot"><span class="annottext">toInteger :: ApiTransactionTimeout -&gt; Integer
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">toInteger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span><span> </span><span id="local-6989586621680535587"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535587"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Integer
+</span><a href="#local-6989586621680535274"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621680535281"><span class="annot"><span class="annottext">toInteger :: ApiTransactionTimeout -&gt; Integer
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">toInteger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span><span> </span><span id="local-6989586621680535282"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680535282"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Integer
 forall b. Integral b =&gt; NominalDiffTime -&gt; b
 forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#round"><span class="hs-identifier hs-var">round</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680535587"><span class="hs-identifier hs-var">a</span></a></span><span>
-</span><span id="line-21"></span><span>
-</span><span id="line-22"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680535591"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-23"></span><span>  </span><span id="local-6989586621680535603"><span class="annot"><span class="annottext">arbitrary :: Gen ApiTransactionTimeout
-</span><a href="#local-6989586621680535603"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ApiTransactionTimeout
+</span><a href="#local-6989586621680535282"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680535286"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-type">ApiTransactionTimeout</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-24"></span><span>  </span><span id="local-6989586621680535298"><span class="annot"><span class="annottext">arbitrary :: Gen ApiTransactionTimeout
+</span><a href="#local-6989586621680535298"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ApiTransactionTimeout
 </span><a href="Hydra.Node.ApiTransactionTimeout.html#ApiTransactionTimeout"><span class="hs-identifier hs-var">ApiTransactionTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; ApiTransactionTimeout)
 -&gt; (Integer -&gt; NominalDiffTime) -&gt; Integer -&gt; ApiTransactionTimeout
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
@@ -309,4 +310,4 @@ forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">86400</span></span><span class="hs-special">)</span><span>
-</span><span id="line-24"></span></pre></body></html>
+</span><span id="line-25"></span></pre></body></html>

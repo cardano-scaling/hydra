@@ -1,4 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679430626"><span id="local-6989586621679430627"><span id="local-6989586621679430628"><span id="local-6989586621679430629"></span></span></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621679431840"><span id="local-6989586621679431841"><span id="local-6989586621679431842"><span id="local-6989586621679431843"></span></span></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
 </span><span id="line-2"></span><span>
 </span><span id="line-3"></span><span class="hs-comment">-- | Mutation-based script validator tests for the init transaction where a</span><span>
 </span><span id="line-4"></span><span class="hs-comment">-- 'healthyInitTx' gets mutated by an arbitrary 'InitMutation'.</span><span>
@@ -6,58 +6,59 @@
 </span><span id="line-6"></span><span>
 </span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
 </span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
-</span><span id="line-9"></span><span>
-</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
-</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html"><span class="hs-identifier">Data.Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromJust"><span class="hs-identifier">fromJust</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toErrorCode</span></span><span class="hs-special">)</span><span>
-</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">State</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadTokensError</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadTokensError</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Init</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">initTx</span></span><span class="hs-special">)</span><span>
-</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.OnChainId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">OnChainId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genOnChainId</span></span><span class="hs-special">)</span><span>
-</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">)</span><span>
-</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.Test.Examples</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Plutus</span></span><span>
-</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">testNetworkId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testPolicyId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testSeedInput</span></span><span class="hs-special">)</span><span>
-</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genForParty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genOneUTxOFor</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genValue</span></span><span class="hs-special">)</span><span>
-</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Mutation</span></span><span> </span><span class="hs-special">(</span><span>
-</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier">Mutation</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
-</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-identifier">SomeMutation</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
-</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">addPTWithQuantity</span></span><span class="hs-special">,</span><span>
-</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">changeMintedValueQuantityFrom</span></span><span class="hs-special">,</span><span>
-</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">modifyInlineDatum</span></span><span class="hs-special">,</span><span>
-</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">replaceHeadId</span></span><span class="hs-special">,</span><span>
-</span><span id="line-29"></span><span> </span><span class="hs-special">)</span><span>
-</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">choose</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">elements</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">oneof</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">suchThat</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">vectorOf</span></span><span class="hs-special">)</span><span>
-</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Prelude.html"><span class="hs-identifier">Prelude</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
-</span><span id="line-32"></span><span>
-</span><span id="line-33"></span><span class="hs-comment">--</span><span>
-</span><span id="line-34"></span><span class="hs-comment">-- InitTx</span><span>
-</span><span id="line-35"></span><span class="hs-comment">--</span><span>
-</span><span id="line-36"></span><span>
-</span><span id="line-37"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyInitTx"><span class="hs-identifier hs-type">healthyInitTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
-</span><span id="line-38"></span><span id="healthyInitTx"><span class="annot"><span class="annottext">healthyInitTx :: (Tx, UTxO)
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html"><span class="hs-identifier">Data.Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromJust"><span class="hs-identifier">fromJust</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.Error</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toErrorCode</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">State</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadTokensError</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadTokensError</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Init</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">initTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.OnChainId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">OnChainId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.Test.Examples</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Plutus</span></span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">testNetworkId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testPolicyId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testSeedInput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">genForParty</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genOnChainId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genOneUTxOFor</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">genValue</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Mutation</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-identifier">Mutation</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">SomeMutation</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">addPTWithQuantity</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">changeMintedValueQuantityFrom</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">modifyInlineDatum</span></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier">replaceHeadId</span></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">choose</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">elements</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">oneof</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">suchThat</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">vectorOf</span></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Prelude.html"><span class="hs-identifier">Prelude</span></a></span><span> </span><span class="hs-keyword">qualified</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- InitTx</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyInitTx"><span class="hs-identifier hs-type">healthyInitTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span id="healthyInitTx"><span class="annot"><span class="annottext">healthyInitTx :: (Tx, UTxO)
 </span><a href="Hydra.Tx.Contract.Init.html#healthyInitTx"><span class="hs-identifier hs-var hs-var">healthyInitTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-39"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430795"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><span id="line-40"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679432009"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
 </span><a href="Hydra.Tx.Contract.Init.html#healthyLookupUTxO"><span class="hs-identifier hs-var">healthyLookupUTxO</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-40"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-41"></span><span>  </span><span id="local-6989586621679430795"><span class="annot"><span class="annottext">tx :: Tx
-</span><a href="#local-6989586621679430795"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; TxIn -&gt; [OnChainId] -&gt; HeadParameters -&gt; Tx
+</span><span id="line-41"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-42"></span><span>  </span><span id="local-6989586621679432009"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679432009"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; TxIn -&gt; [OnChainId] -&gt; HeadParameters -&gt; Tx
 </span><span class="hs-identifier hs-var">initTx</span></span><span>
-</span><span id="line-43"></span><span>      </span><span class="annot"><span class="annottext">NetworkId
+</span><span id="line-44"></span><span>      </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">testNetworkId</span></span><span>
-</span><span id="line-44"></span><span>      </span><span class="annot"><span class="annottext">TxIn
+</span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">TxIn
 </span><a href="Hydra.Tx.Contract.Init.html#healthySeedInput"><span class="hs-identifier hs-var">healthySeedInput</span></a></span><span>
-</span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">[OnChainId]
+</span><span id="line-46"></span><span>      </span><span class="annot"><span class="annottext">[OnChainId]
 </span><a href="Hydra.Tx.Contract.Init.html#healthyParticipants"><span class="hs-identifier hs-var">healthyParticipants</span></a></span><span>
-</span><span id="line-46"></span><span>      </span><span class="annot"><span class="annottext">HeadParameters
+</span><span id="line-47"></span><span>      </span><span class="annot"><span class="annottext">HeadParameters
 </span><a href="Hydra.Tx.Contract.Init.html#healthyHeadParameters"><span class="hs-identifier hs-var">healthyHeadParameters</span></a></span><span>
-</span><span id="line-47"></span><span>
-</span><span id="line-48"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyHeadParameters"><span class="hs-identifier hs-type">healthyHeadParameters</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span>
-</span><span id="line-49"></span><span id="healthyHeadParameters"><span class="annot"><span class="annottext">healthyHeadParameters :: HeadParameters
+</span><span id="line-48"></span><span>
+</span><span id="line-49"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyHeadParameters"><span class="hs-identifier hs-type">healthyHeadParameters</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span>
+</span><span id="line-50"></span><span id="healthyHeadParameters"><span class="annot"><span class="annottext">healthyHeadParameters :: HeadParameters
 </span><a href="Hydra.Tx.Contract.Init.html#healthyHeadParameters"><span class="hs-identifier hs-var hs-var">healthyHeadParameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-50"></span><span>  </span><span class="annot"><span class="annottext">(Gen HeadParameters -&gt; Int -&gt; HeadParameters)
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="annottext">(Gen HeadParameters -&gt; Int -&gt; HeadParameters)
 -&gt; Int -&gt; Gen HeadParameters -&gt; HeadParameters
 forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">Gen HeadParameters -&gt; Int -&gt; HeadParameters
@@ -67,15 +68,15 @@ forall a. Gen a -&gt; Int -&gt; a
 -&gt; Gen HeadParameters -&gt; HeadParameters
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; [Party] -&gt; HeadParameters
+</span><span id="line-52"></span><span>    </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; [Party] -&gt; HeadParameters
 </span><span class="hs-identifier hs-var">HeadParameters</span></span><span>
-</span><span id="line-52"></span><span>      </span><span class="annot"><span class="annottext">(ContestationPeriod -&gt; [Party] -&gt; HeadParameters)
+</span><span id="line-53"></span><span>      </span><span class="annot"><span class="annottext">(ContestationPeriod -&gt; [Party] -&gt; HeadParameters)
 -&gt; Gen ContestationPeriod -&gt; Gen ([Party] -&gt; HeadParameters)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen ContestationPeriod
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
-</span><span id="line-53"></span><span>      </span><span class="annot"><span class="annottext">Gen ([Party] -&gt; HeadParameters)
+</span><span id="line-54"></span><span>      </span><span class="annot"><span class="annottext">Gen ([Party] -&gt; HeadParameters)
 -&gt; Gen [Party] -&gt; Gen HeadParameters
 forall a b. Gen (a -&gt; b) -&gt; Gen a -&gt; Gen b
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
@@ -88,11 +89,11 @@ forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="Hydra.Tx.Contract.Init.html#healthyParties"><span class="hs-identifier hs-var">healthyParties</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Gen Party
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
-</span><span id="line-54"></span><span>
-</span><span id="line-55"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthySeedInput"><span class="hs-identifier hs-type">healthySeedInput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>
-</span><span id="line-56"></span><span id="healthySeedInput"><span class="annot"><span class="annottext">healthySeedInput :: TxIn
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthySeedInput"><span class="hs-identifier hs-type">healthySeedInput</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span>
+</span><span id="line-57"></span><span id="healthySeedInput"><span class="annot"><span class="annottext">healthySeedInput :: TxIn
 </span><a href="Hydra.Tx.Contract.Init.html#healthySeedInput"><span class="hs-identifier hs-var hs-var">healthySeedInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-57"></span><span>  </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; TxIn
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; TxIn
 forall a b. (a, b) -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxUTxO Era) -&gt; TxIn)
 -&gt; ([(TxIn, TxOut CtxUTxO Era)] -&gt; (TxIn, TxOut CtxUTxO Era))
@@ -108,11 +109,11 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
 </span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO
 </span><a href="Hydra.Tx.Contract.Init.html#healthyLookupUTxO"><span class="hs-identifier hs-var">healthyLookupUTxO</span></a></span><span>
-</span><span id="line-58"></span><span>
-</span><span id="line-59"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyParties"><span class="hs-identifier hs-type">healthyParties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span>
-</span><span id="line-60"></span><span id="healthyParties"><span class="annot"><span class="annottext">healthyParties :: [Party]
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyParties"><span class="hs-identifier hs-type">healthyParties</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span>
+</span><span id="line-61"></span><span id="healthyParties"><span class="annot"><span class="annottext">healthyParties :: [Party]
 </span><a href="Hydra.Tx.Contract.Init.html#healthyParties"><span class="hs-identifier hs-var hs-var">healthyParties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-61"></span><span>  </span><span class="annot"><span class="annottext">Gen [Party] -&gt; Int -&gt; [Party]
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="annottext">Gen [Party] -&gt; Int -&gt; [Party]
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Gen Party -&gt; Gen [Party]
 forall a. Int -&gt; Gen a -&gt; Gen [a]
@@ -121,23 +122,23 @@ forall a. Int -&gt; Gen a -&gt; Gen [a]
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span>
-</span><span id="line-62"></span><span>
-</span><span id="line-63"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyParticipants"><span class="hs-identifier hs-type">healthyParticipants</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">OnChainId</span></span><span class="hs-special">]</span><span>
-</span><span id="line-64"></span><span id="healthyParticipants"><span class="annot"><span class="annottext">healthyParticipants :: [OnChainId]
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyParticipants"><span class="hs-identifier hs-type">healthyParticipants</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">OnChainId</span></span><span class="hs-special">]</span><span>
+</span><span id="line-65"></span><span id="healthyParticipants"><span class="annot"><span class="annottext">healthyParticipants :: [OnChainId]
 </span><a href="Hydra.Tx.Contract.Init.html#healthyParticipants"><span class="hs-identifier hs-var hs-var">healthyParticipants</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-65"></span><span>  </span><span class="annot"><span class="annottext">Gen OnChainId -&gt; Party -&gt; OnChainId
+</span><span id="line-66"></span><span>  </span><span class="annot"><span class="annottext">Gen OnChainId -&gt; Party -&gt; OnChainId
 forall a. Gen a -&gt; Party -&gt; a
 </span><span class="hs-identifier hs-var">genForParty</span></span><span> </span><span class="annot"><span class="annottext">Gen OnChainId
 </span><span class="hs-identifier hs-var">genOnChainId</span></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; OnChainId) -&gt; [Party] -&gt; [OnChainId]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
 </span><a href="Hydra.Tx.Contract.Init.html#healthyParties"><span class="hs-identifier hs-var">healthyParties</span></a></span><span>
-</span><span id="line-66"></span><span>
-</span><span id="line-67"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyLookupUTxO"><span class="hs-identifier hs-type">healthyLookupUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
-</span><span id="line-68"></span><span id="healthyLookupUTxO"><span class="annot"><span class="annottext">healthyLookupUTxO :: UTxO
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#healthyLookupUTxO"><span class="hs-identifier hs-type">healthyLookupUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-69"></span><span id="healthyLookupUTxO"><span class="annot"><span class="annottext">healthyLookupUTxO :: UTxO
 </span><a href="Hydra.Tx.Contract.Init.html#healthyLookupUTxO"><span class="hs-identifier hs-var hs-var">healthyLookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-69"></span><span>  </span><span class="hs-comment">-- REVIEW: Was this checked by the ledger?</span><span>
-</span><span id="line-70"></span><span>  </span><span class="annot"><span class="annottext">Gen UTxO -&gt; Int -&gt; UTxO
+</span><span id="line-70"></span><span>  </span><span class="hs-comment">-- REVIEW: Was this checked by the ledger?</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="annottext">Gen UTxO -&gt; Int -&gt; UTxO
 forall a. Gen a -&gt; Int -&gt; a
 </span><span class="hs-identifier hs-var">generateWith</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Gen UTxO
 </span><span class="hs-identifier hs-var">genOneUTxOFor</span></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey -&gt; Gen UTxO)
@@ -147,18 +148,18 @@ forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">42</span></span><span>
-</span><span id="line-71"></span><span>
-</span><span id="line-72"></span><span class="hs-keyword">data</span><span> </span><span id="InitMutation"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#InitMutation"><span class="hs-identifier hs-var">InitMutation</span></a></span></span><span>
-</span><span id="line-73"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | Mint more than one ST and PTs.</span></span><span>
-</span><span id="line-74"></span><span>    </span><span id="MintTooManyTokens"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MintTooManyTokens"><span class="hs-identifier hs-var">MintTooManyTokens</span></a></span></span><span>
-</span><span id="line-75"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateAddAnotherPT"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateAddAnotherPT"><span class="hs-identifier hs-var">MutateAddAnotherPT</span></a></span></span><span>
-</span><span id="line-76"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateDropInitialOutput"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateDropInitialOutput"><span class="hs-identifier hs-var">MutateDropInitialOutput</span></a></span></span><span>
-</span><span id="line-77"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateDropSeedInput"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateDropSeedInput"><span class="hs-identifier hs-var">MutateDropSeedInput</span></a></span></span><span>
-</span><span id="line-78"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateInitialOutputValue"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateInitialOutputValue"><span class="hs-identifier hs-var">MutateInitialOutputValue</span></a></span></span><span>
-</span><span id="line-79"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateHeadIdInDatum"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateHeadIdInDatum"><span class="hs-identifier hs-var">MutateHeadIdInDatum</span></a></span></span><span>
-</span><span id="line-80"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateHeadIdInInitialDatum"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateHeadIdInInitialDatum"><span class="hs-identifier hs-var">MutateHeadIdInInitialDatum</span></a></span></span><span>
-</span><span id="line-81"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateSeedInDatum"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateSeedInDatum"><span class="hs-identifier hs-var">MutateSeedInDatum</span></a></span></span><span>
-</span><span id="line-82"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679430821"><span id="local-6989586621679430823"><span class="annot"><span class="annottext">(forall x. InitMutation -&gt; Rep InitMutation x)
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="hs-keyword">data</span><span> </span><span id="InitMutation"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#InitMutation"><span class="hs-identifier hs-var">InitMutation</span></a></span></span><span>
+</span><span id="line-74"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | Mint more than one ST and PTs.</span></span><span>
+</span><span id="line-75"></span><span>    </span><span id="MintTooManyTokens"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MintTooManyTokens"><span class="hs-identifier hs-var">MintTooManyTokens</span></a></span></span><span>
+</span><span id="line-76"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateAddAnotherPT"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateAddAnotherPT"><span class="hs-identifier hs-var">MutateAddAnotherPT</span></a></span></span><span>
+</span><span id="line-77"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateDropInitialOutput"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateDropInitialOutput"><span class="hs-identifier hs-var">MutateDropInitialOutput</span></a></span></span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateDropSeedInput"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateDropSeedInput"><span class="hs-identifier hs-var">MutateDropSeedInput</span></a></span></span><span>
+</span><span id="line-79"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateInitialOutputValue"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateInitialOutputValue"><span class="hs-identifier hs-var">MutateInitialOutputValue</span></a></span></span><span>
+</span><span id="line-80"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateHeadIdInDatum"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateHeadIdInDatum"><span class="hs-identifier hs-var">MutateHeadIdInDatum</span></a></span></span><span>
+</span><span id="line-81"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateHeadIdInInitialDatum"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateHeadIdInInitialDatum"><span class="hs-identifier hs-var">MutateHeadIdInInitialDatum</span></a></span></span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="MutateSeedInDatum"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateSeedInDatum"><span class="hs-identifier hs-var">MutateSeedInDatum</span></a></span></span><span>
+</span><span id="line-83"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679432035"><span id="local-6989586621679432037"><span class="annot"><span class="annottext">(forall x. InitMutation -&gt; Rep InitMutation x)
 -&gt; (forall x. Rep InitMutation x -&gt; InitMutation)
 -&gt; Generic InitMutation
 forall x. Rep InitMutation x -&gt; InitMutation
@@ -169,7 +170,7 @@ $cfrom :: forall x. InitMutation -&gt; Rep InitMutation x
 from :: forall x. InitMutation -&gt; Rep InitMutation x
 $cto :: forall x. Rep InitMutation x -&gt; InitMutation
 to :: forall x. Rep InitMutation x -&gt; InitMutation
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430827"><span id="local-6989586621679430829"><span id="local-6989586621679430832"><span class="annot"><span class="annottext">Int -&gt; InitMutation -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432041"><span id="local-6989586621679432043"><span id="local-6989586621679432046"><span class="annot"><span class="annottext">Int -&gt; InitMutation -&gt; ShowS
 [InitMutation] -&gt; ShowS
 InitMutation -&gt; String
 (Int -&gt; InitMutation -&gt; ShowS)
@@ -184,7 +185,7 @@ $cshow :: InitMutation -&gt; String
 show :: InitMutation -&gt; String
 $cshowList :: [InitMutation] -&gt; ShowS
 showList :: [InitMutation] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430836"><span id="local-6989586621679430843"><span id="local-6989586621679430849"><span id="local-6989586621679430863"><span id="local-6989586621679430865"><span id="local-6989586621679430868"><span id="local-6989586621679430872"><span id="local-6989586621679430875"><span class="annot"><span class="annottext">Int -&gt; InitMutation
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432050"><span id="local-6989586621679432057"><span id="local-6989586621679432063"><span id="local-6989586621679432077"><span id="local-6989586621679432079"><span id="local-6989586621679432082"><span id="local-6989586621679432086"><span id="local-6989586621679432089"><span class="annot"><span class="annottext">Int -&gt; InitMutation
 InitMutation -&gt; Int
 InitMutation -&gt; [InitMutation]
 InitMutation -&gt; InitMutation
@@ -225,7 +226,7 @@ $cenumFromTo :: InitMutation -&gt; InitMutation -&gt; [InitMutation]
 enumFromTo :: InitMutation -&gt; InitMutation -&gt; [InitMutation]
 $cenumFromThenTo :: InitMutation -&gt; InitMutation -&gt; InitMutation -&gt; [InitMutation]
 enumFromThenTo :: InitMutation -&gt; InitMutation -&gt; InitMutation -&gt; [InitMutation]
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430879"><span id="local-6989586621679430881"><span class="annot"><span class="annottext">InitMutation
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432093"><span id="local-6989586621679432095"><span class="annot"><span class="annottext">InitMutation
 InitMutation -&gt; InitMutation -&gt; Bounded InitMutation
 forall a. a -&gt; a -&gt; Bounded a
 $cminBound :: InitMutation
@@ -233,10 +234,10 @@ minBound :: InitMutation
 $cmaxBound :: InitMutation
 maxBound :: InitMutation
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-83"></span><span>
-</span><span id="line-84"></span><span class="hs-keyword">data</span><span> </span><span id="ObserveInitMutation"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#ObserveInitMutation"><span class="hs-identifier hs-var">ObserveInitMutation</span></a></span></span><span>
-</span><span id="line-85"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="MutateSomePT"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateSomePT"><span class="hs-identifier hs-var">MutateSomePT</span></a></span></span><span>
-</span><span id="line-86"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679430885"><span id="local-6989586621679430887"><span class="annot"><span class="annottext">(forall x. ObserveInitMutation -&gt; Rep ObserveInitMutation x)
+</span><span id="line-84"></span><span>
+</span><span id="line-85"></span><span class="hs-keyword">data</span><span> </span><span id="ObserveInitMutation"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#ObserveInitMutation"><span class="hs-identifier hs-var">ObserveInitMutation</span></a></span></span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="MutateSomePT"><span class="annot"><a href="Hydra.Tx.Contract.Init.html#MutateSomePT"><span class="hs-identifier hs-var">MutateSomePT</span></a></span></span><span>
+</span><span id="line-87"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679432099"><span id="local-6989586621679432101"><span class="annot"><span class="annottext">(forall x. ObserveInitMutation -&gt; Rep ObserveInitMutation x)
 -&gt; (forall x. Rep ObserveInitMutation x -&gt; ObserveInitMutation)
 -&gt; Generic ObserveInitMutation
 forall x. Rep ObserveInitMutation x -&gt; ObserveInitMutation
@@ -247,7 +248,7 @@ $cfrom :: forall x. ObserveInitMutation -&gt; Rep ObserveInitMutation x
 from :: forall x. ObserveInitMutation -&gt; Rep ObserveInitMutation x
 $cto :: forall x. Rep ObserveInitMutation x -&gt; ObserveInitMutation
 to :: forall x. Rep ObserveInitMutation x -&gt; ObserveInitMutation
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430890"><span id="local-6989586621679430892"><span id="local-6989586621679430896"><span class="annot"><span class="annottext">Int -&gt; ObserveInitMutation -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432104"><span id="local-6989586621679432106"><span id="local-6989586621679432110"><span class="annot"><span class="annottext">Int -&gt; ObserveInitMutation -&gt; ShowS
 [ObserveInitMutation] -&gt; ShowS
 ObserveInitMutation -&gt; String
 (Int -&gt; ObserveInitMutation -&gt; ShowS)
@@ -262,7 +263,7 @@ $cshow :: ObserveInitMutation -&gt; String
 show :: ObserveInitMutation -&gt; String
 $cshowList :: [ObserveInitMutation] -&gt; ShowS
 showList :: [ObserveInitMutation] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430899"><span id="local-6989586621679430905"><span id="local-6989586621679430911"><span id="local-6989586621679430922"><span id="local-6989586621679430924"><span id="local-6989586621679430927"><span id="local-6989586621679430931"><span id="local-6989586621679430935"><span class="annot"><span class="annottext">Int -&gt; ObserveInitMutation
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432113"><span id="local-6989586621679432119"><span id="local-6989586621679432125"><span id="local-6989586621679432136"><span id="local-6989586621679432138"><span id="local-6989586621679432141"><span id="local-6989586621679432145"><span id="local-6989586621679432149"><span class="annot"><span class="annottext">Int -&gt; ObserveInitMutation
 ObserveInitMutation -&gt; Int
 ObserveInitMutation -&gt; [ObserveInitMutation]
 ObserveInitMutation -&gt; ObserveInitMutation
@@ -317,7 +318,7 @@ enumFromThenTo :: ObserveInitMutation
 -&gt; ObserveInitMutation
 -&gt; ObserveInitMutation
 -&gt; [ObserveInitMutation]
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430938"><span id="local-6989586621679430940"><span class="annot"><span class="annottext">ObserveInitMutation
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432152"><span id="local-6989586621679432154"><span class="annot"><span class="annottext">ObserveInitMutation
 ObserveInitMutation
 -&gt; ObserveInitMutation -&gt; Bounded ObserveInitMutation
 forall a. a -&gt; a -&gt; Bounded a
@@ -326,16 +327,16 @@ minBound :: ObserveInitMutation
 $cmaxBound :: ObserveInitMutation
 maxBound :: ObserveInitMutation
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Bounded</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-87"></span><span>
-</span><span id="line-88"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#genInitMutation"><span class="hs-identifier hs-type">genInitMutation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeMutation</span></span><span>
-</span><span id="line-89"></span><span id="genInitMutation"><span class="annot"><span class="annottext">genInitMutation :: (Tx, UTxO) -&gt; Gen SomeMutation
-</span><a href="Hydra.Tx.Contract.Init.html#genInitMutation"><span class="hs-identifier hs-var hs-var">genInitMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679430943"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430944"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679430944"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-90"></span><span>  </span><span class="annot"><span class="annottext">[Gen SomeMutation] -&gt; Gen SomeMutation
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Hydra.Tx.Contract.Init.html#genInitMutation"><span class="hs-identifier hs-type">genInitMutation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SomeMutation</span></span><span>
+</span><span id="line-90"></span><span id="genInitMutation"><span class="annot"><span class="annottext">genInitMutation :: (Tx, UTxO) -&gt; Gen SomeMutation
+</span><a href="Hydra.Tx.Contract.Init.html#genInitMutation"><span class="hs-identifier hs-var hs-var">genInitMutation</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679432157"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432158"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679432158"><span class="hs-identifier hs-var">_utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="annottext">[Gen SomeMutation] -&gt; Gen SomeMutation
 forall a. HasCallStack =&gt; [Gen a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">oneof</span></span><span>
-</span><span id="line-91"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><span id="line-92"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -352,9 +353,9 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; Integer -&gt; Gen Mutation
 </span><span class="hs-identifier hs-var">changeMintedValueQuantityFrom</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-92"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><span id="line-93"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -371,9 +372,9 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; Quantity -&gt; Gen Mutation
 </span><span class="hs-identifier hs-var">addPTWithQuantity</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Quantity
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-93"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><span id="line-94"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -389,14 +390,14 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Init.html#MutateInitialOutputValue"><span class="hs-identifier hs-var">MutateInitialOutputValue</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-94"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430948"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx Era]
-</span><a href="#local-6989586621679430948"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
+</span><span id="line-95"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679432162"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx Era]
+</span><a href="#local-6989586621679432162"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-95"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679430950"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679430950"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430951"><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430951"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Int, TxOut CtxTx Era)] -&gt; Gen (Int, TxOut CtxTx Era)
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-96"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679432164"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679432164"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432165"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432165"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Int, TxOut CtxTx Era)] -&gt; Gen (Int, TxOut CtxTx Era)
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [(Int, TxOut CtxTx Era)] -&gt; [(Int, TxOut CtxTx Era)]
 forall a. Int -&gt; [a] -&gt; [a]
@@ -408,9 +409,9 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era]
-</span><a href="#local-6989586621679430948"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-96"></span><span>        </span><span id="local-6989586621679430953"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679430953"><span class="hs-identifier hs-var">value'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value
+</span><a href="#local-6989586621679432162"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span>        </span><span id="local-6989586621679432167"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679432167"><span class="hs-identifier hs-var">value'</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen Value
 </span><span class="hs-identifier hs-var">genValue</span></span><span> </span><span class="annot"><span class="annottext">Gen Value -&gt; (Value -&gt; Bool) -&gt; Gen Value
 forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
 </span><span class="hs-operator hs-var">`suchThat`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Bool
@@ -418,8 +419,8 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430951"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-97"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
+</span><a href="#local-6989586621679432165"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-98"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; Gen Mutation) -&gt; Mutation -&gt; Gen Mutation
@@ -428,16 +429,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Word
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679430950"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
+</span><a href="#local-6989586621679432164"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
 forall era ctx.
 IsMaryBasedEra era =&gt;
 (Value -&gt; Value) -&gt; TxOut ctx era -&gt; TxOut ctx era
 </span><span class="hs-identifier hs-var">modifyTxOutValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a b. a -&gt; b -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679430953"><span class="hs-identifier hs-var">value'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430951"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-98"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><a href="#local-6989586621679432167"><span class="hs-identifier hs-var">value'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432165"><span class="hs-identifier hs-var">out</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -453,8 +454,8 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Init.html#MutateDropInitialOutput"><span class="hs-identifier hs-var">MutateDropInitialOutput</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-99"></span><span>        </span><span id="local-6989586621679430960"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679430960"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Int, Int) -&gt; Gen Int
+</span><span id="line-100"></span><span>        </span><span id="local-6989586621679432174"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679432174"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Int, Int) -&gt; Gen Int
 forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era] -&gt; Int
@@ -463,11 +464,11 @@ forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
-</span><span id="line-100"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
+</span><span id="line-101"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; Gen Mutation) -&gt; Mutation -&gt; Gen Mutation
@@ -476,8 +477,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">RemoveOutput</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Word
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679430960"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-101"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><a href="#local-6989586621679432174"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -493,7 +494,7 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Init.html#MutateDropSeedInput"><span class="hs-identifier hs-var">MutateDropSeedInput</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-102"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
+</span><span id="line-103"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; Gen Mutation) -&gt; Mutation -&gt; Gen Mutation
@@ -501,7 +502,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; Mutation
 </span><span class="hs-identifier hs-var">RemoveInput</span></span><span> </span><span class="annot"><span class="annottext">TxIn
 </span><a href="Hydra.Tx.Contract.Init.html#healthySeedInput"><span class="hs-identifier hs-var">healthySeedInput</span></a></span><span>
-</span><span id="line-103"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><span id="line-104"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -517,8 +518,8 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Init.html#MutateHeadIdInDatum"><span class="hs-identifier hs-var">MutateHeadIdInDatum</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-104"></span><span>        </span><span id="local-6989586621679430965"><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679430965"><span class="hs-identifier hs-var">mutatedHeadId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen CurrencySymbol
+</span><span id="line-105"></span><span>        </span><span id="local-6989586621679432179"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679432179"><span class="hs-identifier hs-var">mutatedHeadId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen CurrencySymbol
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="annot"><span class="annottext">Gen CurrencySymbol
 -&gt; (CurrencySymbol -&gt; Bool) -&gt; Gen CurrencySymbol
@@ -528,7 +529,7 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
 </span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
 </span><span class="hs-identifier hs-var">testPolicyId</span></span><span class="hs-special">)</span><span>
-</span><span id="line-105"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
+</span><span id="line-106"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; Gen Mutation) -&gt; Mutation -&gt; Gen Mutation
@@ -543,9 +544,9 @@ forall a.
 (a -&gt; a) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
 </span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CurrencySymbol -&gt; State -&gt; State
 </span><span class="hs-identifier hs-var">replaceHeadId</span></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679430965"><span class="hs-identifier hs-var">mutatedHeadId</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430967"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
-</span><span id="line-106"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><a href="#local-6989586621679432179"><span class="hs-identifier hs-var">mutatedHeadId</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432181"><span class="hs-identifier hs-var">headTxOut</span></a></span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -561,14 +562,14 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Init.html#MutateHeadIdInInitialDatum"><span class="hs-identifier hs-var">MutateHeadIdInInitialDatum</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-107"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679430969"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx Era]
-</span><a href="#local-6989586621679430969"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
+</span><span id="line-108"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679432183"><span class="annot"><span class="annottext">outs :: [TxOut CtxTx Era]
+</span><a href="#local-6989586621679432183"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-108"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679430970"><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679430970"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430971"><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430971"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)] -&gt; Gen (Word, TxOut CtxTx Era)
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-109"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679432184"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432184"><span class="hs-identifier hs-var">ix</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432185"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432185"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)] -&gt; Gen (Word, TxOut CtxTx Era)
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; [(Word, TxOut CtxTx Era)] -&gt; [(Word, TxOut CtxTx Era)]
 forall a. Int -&gt; [a] -&gt; [a]
@@ -580,24 +581,24 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Word
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era]
-</span><a href="#local-6989586621679430969"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-109"></span><span>        </span><span class="annot"><span class="annottext">[Mutation] -&gt; Gen Mutation
+</span><a href="#local-6989586621679432183"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>        </span><span class="annot"><span class="annottext">[Mutation] -&gt; Gen Mutation
 forall a. HasCallStack =&gt; [a] -&gt; Gen a
 </span><span class="hs-identifier hs-var">elements</span></span><span>
-</span><span id="line-110"></span><span>          </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
-</span><a href="#local-6989586621679430972"><span class="hs-identifier hs-var">changeInitialOutputToFakeId</span></a></span><span> </span><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679430970"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430971"><span class="hs-identifier hs-var">out</span></a></span><span>
-</span><span id="line-111"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
-</span><a href="#local-6989586621679430973"><span class="hs-identifier hs-var">removeInitialOutputDatum</span></a></span><span> </span><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679430970"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430971"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-111"></span><span>          </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432186"><span class="hs-identifier hs-var">changeInitialOutputToFakeId</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432184"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432185"><span class="hs-identifier hs-var">out</span></a></span><span>
 </span><span id="line-112"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
-</span><a href="#local-6989586621679430974"><span class="hs-identifier hs-var">changeInitialOutputToNotAHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679430970"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430971"><span class="hs-identifier hs-var">out</span></a></span><span>
-</span><span id="line-113"></span><span>          </span><span class="hs-special">]</span><span>
-</span><span id="line-114"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
+</span><a href="#local-6989586621679432187"><span class="hs-identifier hs-var">removeInitialOutputDatum</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432184"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432185"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-113"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432188"><span class="hs-identifier hs-var">changeInitialOutputToNotAHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432184"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432185"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-114"></span><span>          </span><span class="hs-special">]</span><span>
+</span><span id="line-115"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; InitMutation -&gt; Mutation -&gt; SomeMutation
 forall lbl.
 (Typeable lbl, Enum lbl, Bounded lbl, Show lbl) =&gt;
 [Text] -&gt; lbl -&gt; Mutation -&gt; SomeMutation
@@ -613,8 +614,8 @@ forall a. ToErrorCode a =&gt; a -&gt; Text
 </span><a href="Hydra.Tx.Contract.Init.html#MutateSeedInDatum"><span class="hs-identifier hs-var">MutateSeedInDatum</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; SomeMutation) -&gt; Gen Mutation -&gt; Gen SomeMutation
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-115"></span><span>        </span><span id="local-6989586621679430975"><span class="annot"><span class="annottext">TxOutRef
-</span><a href="#local-6989586621679430975"><span class="hs-identifier hs-var">mutatedSeed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOutRef
+</span><span id="line-116"></span><span>        </span><span id="local-6989586621679432189"><span class="annot"><span class="annottext">TxOutRef
+</span><a href="#local-6989586621679432189"><span class="hs-identifier hs-var">mutatedSeed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOutRef
 </span><span class="hs-identifier hs-var">toPlutusTxOutRef</span></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; TxOutRef) -&gt; Gen TxIn -&gt; Gen TxOutRef
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen TxIn
@@ -625,18 +626,18 @@ forall a. Gen a -&gt; (a -&gt; Bool) -&gt; Gen a
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
 </span><span class="hs-identifier hs-var">testSeedInput</span></span><span class="hs-special">)</span><span>
-</span><span id="line-116"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
+</span><span id="line-117"></span><span>        </span><span class="annot"><span class="annottext">Mutation -&gt; Gen Mutation
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Mutation -&gt; Gen Mutation) -&gt; Mutation -&gt; Gen Mutation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-117"></span><span>          </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><span id="line-118"></span><span>          </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="annot"><span class="annottext">Word
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-118"></span><span>            </span><span class="annot"><span class="annottext">((State -&gt; State) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era)
+</span><span id="line-119"></span><span>            </span><span class="annot"><span class="annottext">((State -&gt; State) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era)
 -&gt; TxOut CtxTx Era -&gt; (State -&gt; State) -&gt; TxOut CtxTx Era
 forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">(State -&gt; State) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
@@ -644,39 +645,39 @@ forall a.
 (FromScriptData a, ToScriptData a) =&gt;
 (a -&gt; a) -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
 </span><span class="hs-identifier hs-var">modifyInlineDatum</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430967"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">((State -&gt; State) -&gt; TxOut CtxTx Era)
+</span><a href="#local-6989586621679432181"><span class="hs-identifier hs-var">headTxOut</span></a></span><span> </span><span class="annot"><span class="annottext">((State -&gt; State) -&gt; TxOut CtxTx Era)
 -&gt; (State -&gt; State) -&gt; TxOut CtxTx Era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-119"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Initial</span></span><span class="hs-special">{</span><span id="local-6989586621679430978"><span class="annot"><span class="annottext">ContestationPeriod
+</span><span id="line-120"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Initial</span></span><span class="hs-special">{</span><span id="local-6989586621679432192"><span class="annot"><span class="annottext">ContestationPeriod
 contestationPeriod :: ContestationPeriod
 $sel:contestationPeriod:Initial :: State -&gt; ContestationPeriod
-</span><a href="#local-6989586621679430978"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430980"><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679432192"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432194"><span class="annot"><span class="annottext">[Party]
 parties :: [Party]
 $sel:parties:Initial :: State -&gt; [Party]
-</span><a href="#local-6989586621679430980"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679430982"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679432194"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679432196"><span class="annot"><span class="annottext">CurrencySymbol
 headId :: CurrencySymbol
 $sel:headId:Initial :: State -&gt; CurrencySymbol
-</span><a href="#local-6989586621679430982"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-120"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">Initial</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679432196"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-121"></span><span>                </span><span class="annot"><span class="hs-identifier hs-type">Initial</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ContestationPeriod
 contestationPeriod :: ContestationPeriod
 $sel:contestationPeriod:Initial :: ContestationPeriod
-</span><a href="#local-6989586621679430978"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679432192"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Party]
 parties :: [Party]
 $sel:parties:Initial :: [Party]
-</span><a href="#local-6989586621679430980"><span class="hs-identifier hs-var hs-var">parties</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679432194"><span class="hs-identifier hs-var hs-var">parties</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
 headId :: CurrencySymbol
 $sel:headId:Initial :: CurrencySymbol
-</span><a href="#local-6989586621679430982"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seed:Initial :: TxOutRef
-</span><a href="#local-6989586621679430984"><span class="hs-identifier hs-var">seed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxOutRef
-</span><a href="#local-6989586621679430975"><span class="hs-identifier hs-var">mutatedSeed</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-121"></span><span>              </span><span id="local-6989586621679430985"><span class="annot"><span class="annottext">State
-</span><a href="#local-6989586621679430985"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State
-</span><a href="#local-6989586621679430985"><span class="hs-identifier hs-var">s</span></a></span><span>
-</span><span id="line-122"></span><span>    </span><span class="hs-special">]</span><span>
-</span><span id="line-123"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-124"></span><span>  </span><span id="local-6989586621679430967"><span class="annot"><span class="annottext">headTxOut :: TxOut CtxTx Era
-</span><a href="#local-6989586621679430967"><span class="hs-identifier hs-var hs-var">headTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (TxOut CtxTx Era) -&gt; TxOut CtxTx Era
+</span><a href="#local-6989586621679432196"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seed:Initial :: TxOutRef
+</span><a href="#local-6989586621679432198"><span class="hs-identifier hs-var">seed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxOutRef
+</span><a href="#local-6989586621679432189"><span class="hs-identifier hs-var">mutatedSeed</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-122"></span><span>              </span><span id="local-6989586621679432199"><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679432199"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679432199"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-124"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>  </span><span id="local-6989586621679432181"><span class="annot"><span class="annottext">headTxOut :: TxOut CtxTx Era
+</span><a href="#local-6989586621679432181"><span class="hs-identifier hs-var hs-var">headTxOut</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (TxOut CtxTx Era) -&gt; TxOut CtxTx Era
 forall a. HasCallStack =&gt; Maybe a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromJust"><span class="hs-identifier hs-var">fromJust</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (TxOut CtxTx Era) -&gt; TxOut CtxTx Era)
 -&gt; Maybe (TxOut CtxTx Era) -&gt; TxOut CtxTx Era
@@ -684,45 +685,45 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
 forall era. Tx era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679430943"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era] -&gt; Int -&gt; Maybe (TxOut CtxTx Era)
+</span><a href="#local-6989586621679432157"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era] -&gt; Int -&gt; Maybe (TxOut CtxTx Era)
 forall a. [a] -&gt; Int -&gt; Maybe a
 </span><span class="hs-operator hs-var">!!?</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span>
-</span><span id="line-125"></span><span>  </span><span id="local-6989586621679430989"><span class="annot"><span class="annottext">alwaysSucceedsV2 :: PlutusScript
-</span><a href="#local-6989586621679430989"><span class="hs-identifier hs-var hs-var">alwaysSucceedsV2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; PlutusScript
+</span><span id="line-126"></span><span>  </span><span id="local-6989586621679432203"><span class="annot"><span class="annottext">alwaysSucceedsV2 :: PlutusScript
+</span><a href="#local-6989586621679432203"><span class="hs-identifier hs-var hs-var">alwaysSucceedsV2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; PlutusScript
 </span><span class="hs-identifier hs-var">PlutusScriptSerialised</span></span><span> </span><span class="annot"><span class="annottext">(ShortByteString -&gt; PlutusScript)
 -&gt; ShortByteString -&gt; PlutusScript
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; ShortByteString
 </span><span class="hs-identifier hs-var">Plutus.alwaysSucceedingNAryFunction</span></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">2</span></span><span>
-</span><span id="line-126"></span><span>  </span><span id="local-6989586621679430992"><span class="annot"><span class="annottext">fakePolicyId :: PolicyId
-</span><a href="#local-6989586621679430992"><span class="hs-identifier hs-var hs-var">fakePolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Script PlutusScriptV3 -&gt; PolicyId
+</span><span id="line-127"></span><span>  </span><span id="local-6989586621679432206"><span class="annot"><span class="annottext">fakePolicyId :: PolicyId
+</span><a href="#local-6989586621679432206"><span class="hs-identifier hs-var hs-var">fakePolicyId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Script PlutusScriptV3 -&gt; PolicyId
 forall lang. Script lang -&gt; PolicyId
 </span><span class="hs-identifier hs-var">scriptPolicyId</span></span><span> </span><span class="annot"><span class="annottext">(Script PlutusScriptV3 -&gt; PolicyId)
 -&gt; Script PlutusScriptV3 -&gt; PolicyId
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript -&gt; Script PlutusScriptV3
 </span><span class="hs-identifier hs-var">PlutusScript</span></span><span> </span><span class="annot"><span class="annottext">PlutusScript
-</span><a href="#local-6989586621679430989"><span class="hs-identifier hs-var">alwaysSucceedsV2</span></a></span><span>
-</span><span id="line-127"></span><span>
-</span><span id="line-128"></span><span>  </span><span class="annot"><a href="#local-6989586621679430972"><span class="hs-identifier hs-type">changeInitialOutputToFakeId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Word"><span class="hs-identifier hs-type">Word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Mutation</span></span><span>
-</span><span id="line-129"></span><span>  </span><span id="local-6989586621679430972"><span class="annot"><span class="annottext">changeInitialOutputToFakeId :: Word -&gt; TxOut CtxTx Era -&gt; Mutation
-</span><a href="#local-6989586621679430972"><span class="hs-identifier hs-var hs-var">changeInitialOutputToFakeId</span></a></span></span><span> </span><span id="local-6989586621679430995"><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679430995"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span id="local-6989586621679430996"><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430996"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-130"></span><span>    </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432203"><span class="hs-identifier hs-var">alwaysSucceedsV2</span></a></span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><a href="#local-6989586621679432186"><span class="hs-identifier hs-type">changeInitialOutputToFakeId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Word"><span class="hs-identifier hs-type">Word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Mutation</span></span><span>
+</span><span id="line-130"></span><span>  </span><span id="local-6989586621679432186"><span class="annot"><span class="annottext">changeInitialOutputToFakeId :: Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432186"><span class="hs-identifier hs-var hs-var">changeInitialOutputToFakeId</span></a></span></span><span> </span><span id="local-6989586621679432209"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432209"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span id="local-6989586621679432210"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432210"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-131"></span><span>    </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679430995"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432209"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-131"></span><span>      </span><span class="annot"><span class="annottext">(TxOutDatum CtxTx Era -&gt; TxOutDatum CtxTx Era)
+</span><span id="line-132"></span><span>      </span><span class="annot"><span class="annottext">(TxOutDatum CtxTx Era -&gt; TxOutDatum CtxTx Era)
 -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
 forall ctx0 era ctx1.
 (TxOutDatum ctx0 era -&gt; TxOutDatum ctx1 era)
 -&gt; TxOut ctx0 era -&gt; TxOut ctx1 era
 </span><span class="hs-identifier hs-var">modifyTxOutDatum</span></span><span>
-</span><span id="line-132"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
+</span><span id="line-133"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
 -&gt; TxOutDatum CtxTx Era -&gt; TxOutDatum CtxTx Era
 forall a b. a -&gt; b -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOutDatum CtxTx Era
@@ -732,33 +733,33 @@ forall a b. a -&gt; b -&gt; a
 -&gt; TxOutDatum CtxTx Era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-133"></span><span>            </span><span class="annot"><span class="annottext">HashableScriptData -&gt; TxOutDatum CtxTx Era
+</span><span id="line-134"></span><span>            </span><span class="annot"><span class="annottext">HashableScriptData -&gt; TxOutDatum CtxTx Era
 forall ctx. HashableScriptData -&gt; TxOutDatum ctx
 </span><span class="hs-identifier hs-var">TxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">(HashableScriptData -&gt; TxOutDatum CtxTx Era)
 -&gt; HashableScriptData -&gt; TxOutDatum CtxTx Era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-134"></span><span>              </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; HashableScriptData
+</span><span id="line-135"></span><span>              </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; HashableScriptData
 forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span class="hs-identifier hs-var">toScriptData</span></span><span> </span><span class="annot"><span class="annottext">(CurrencySymbol -&gt; HashableScriptData)
 -&gt; CurrencySymbol -&gt; HashableScriptData
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-135"></span><span>                </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
+</span><span id="line-136"></span><span>                </span><span class="annot"><span class="annottext">PolicyId -&gt; CurrencySymbol
 </span><span class="hs-identifier hs-var">toPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
-</span><a href="#local-6989586621679430992"><span class="hs-identifier hs-var">fakePolicyId</span></a></span><span>
-</span><span id="line-136"></span><span>        </span><span class="hs-special">)</span><span>
-</span><span id="line-137"></span><span>        </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679430996"><span class="hs-identifier hs-var">out</span></a></span><span>
-</span><span id="line-138"></span><span>
-</span><span id="line-139"></span><span>  </span><span class="annot"><a href="#local-6989586621679430973"><span class="hs-identifier hs-type">removeInitialOutputDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Word"><span class="hs-identifier hs-type">Word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Mutation</span></span><span>
-</span><span id="line-140"></span><span>  </span><span id="local-6989586621679430973"><span class="annot"><span class="annottext">removeInitialOutputDatum :: Word -&gt; TxOut CtxTx Era -&gt; Mutation
-</span><a href="#local-6989586621679430973"><span class="hs-identifier hs-var hs-var">removeInitialOutputDatum</span></a></span></span><span> </span><span id="local-6989586621679431000"><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679431000"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span id="local-6989586621679431001"><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679431001"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-141"></span><span>    </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432206"><span class="hs-identifier hs-var">fakePolicyId</span></a></span><span>
+</span><span id="line-137"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>        </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432210"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-139"></span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><a href="#local-6989586621679432187"><span class="hs-identifier hs-type">removeInitialOutputDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Word"><span class="hs-identifier hs-type">Word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Mutation</span></span><span>
+</span><span id="line-141"></span><span>  </span><span id="local-6989586621679432187"><span class="annot"><span class="annottext">removeInitialOutputDatum :: Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432187"><span class="hs-identifier hs-var hs-var">removeInitialOutputDatum</span></a></span></span><span> </span><span id="local-6989586621679432214"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432214"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span id="local-6989586621679432215"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432215"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679431000"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432214"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOutDatum CtxTx Era -&gt; TxOutDatum CtxTx Era)
 -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
@@ -771,16 +772,16 @@ forall a b. a -&gt; b -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxTx Era
 forall ctx. TxOutDatum ctx
 </span><span class="hs-identifier hs-var">TxOutDatumNone</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679431001"><span class="hs-identifier hs-var">out</span></a></span><span>
-</span><span id="line-142"></span><span>
-</span><span id="line-143"></span><span>  </span><span class="annot"><a href="#local-6989586621679430974"><span class="hs-identifier hs-type">changeInitialOutputToNotAHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Word"><span class="hs-identifier hs-type">Word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Mutation</span></span><span>
-</span><span id="line-144"></span><span>  </span><span id="local-6989586621679430974"><span class="annot"><span class="annottext">changeInitialOutputToNotAHeadId :: Word -&gt; TxOut CtxTx Era -&gt; Mutation
-</span><a href="#local-6989586621679430974"><span class="hs-identifier hs-var hs-var">changeInitialOutputToNotAHeadId</span></a></span></span><span> </span><span id="local-6989586621679431003"><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679431003"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span id="local-6989586621679431004"><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679431004"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-145"></span><span>    </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432215"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-143"></span><span>
+</span><span id="line-144"></span><span>  </span><span class="annot"><a href="#local-6989586621679432188"><span class="hs-identifier hs-type">changeInitialOutputToNotAHeadId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Word"><span class="hs-identifier hs-type">Word</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Mutation</span></span><span>
+</span><span id="line-145"></span><span>  </span><span id="local-6989586621679432188"><span class="annot"><span class="annottext">changeInitialOutputToNotAHeadId :: Word -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432188"><span class="hs-identifier hs-var hs-var">changeInitialOutputToNotAHeadId</span></a></span></span><span> </span><span id="local-6989586621679432217"><span class="annot"><span class="annottext">Word
+</span><a href="#local-6989586621679432217"><span class="hs-identifier hs-var">ix</span></a></span></span><span> </span><span id="local-6989586621679432218"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679432218"><span class="hs-identifier hs-var">out</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-146"></span><span>    </span><span class="annot"><span class="annottext">Word -&gt; TxOut CtxTx Era -&gt; Mutation
 </span><span class="hs-identifier hs-var">ChangeOutput</span></span><span> </span><span class="annot"><span class="annottext">Word
-</span><a href="#local-6989586621679431003"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
+</span><a href="#local-6989586621679432217"><span class="hs-identifier hs-var">ix</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Mutation) -&gt; TxOut CtxTx Era -&gt; Mutation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOutDatum CtxTx Era -&gt; TxOutDatum CtxTx Era)
 -&gt; TxOut CtxTx Era -&gt; TxOut CtxTx Era
@@ -805,5 +806,5 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span class="hs-identifier hs-var">toScriptData</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679431004"><span class="hs-identifier hs-var">out</span></a></span><span>
-</span><span id="line-146"></span></pre></body></html>
+</span><a href="#local-6989586621679432218"><span class="hs-identifier hs-var">out</span></a></span><span>
+</span><span id="line-147"></span></pre></body></html>
