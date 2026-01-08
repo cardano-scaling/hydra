@@ -1989,7 +1989,7 @@ aggregateChainStateHistory history = \case
   HeadIsReadyToFanout{} -> history
   HeadFannedOut{chainState} -> pushNewState chainState history
   ChainRolledBack{chainState} ->
-    rollbackHistory (chainStateSlot chainState) history
+    rollbackHistory chainState history
   TickObserved{chainState} -> trackLatestKnown chainState history
   CommitApproved{} -> history
   DecommitApproved{} -> history

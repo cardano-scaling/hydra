@@ -245,19 +245,18 @@ trackLatestKnown cs h = h{lastKnown = cs}
 initHistory :: ChainStateType tx -> ChainStateHistory tx
 initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs, lastKnown = cs}
 
-rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
-rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
+rollbackHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+rollbackHistory rollbackChainState h@UnsafeChainStateHistory{history, defaultChainState} =
   h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack), lastKnown}
  where
+  rollbackChainSlot = chainStateSlot rollbackChainState
+
   rolledBack =
     dropWhile
       (\cs -> chainStateSlot cs > rollbackChainSlot)
       (toList history)
 
-  lastKnown =
-    case rolledBack of
-      [] -> defaultChainState
-      (cs : _) -> cs
+  lastKnown = rollbackChainState
 
 deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
 
