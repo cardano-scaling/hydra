@@ -941,10 +941,12 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.hydraScriptCatalogue)
       (long "hydra-script-catalogue" <> help "Dump Hydra script catalogue as JSON")
 
--- FIXME: this is quite low, as it is now used to detect the Node going out of sync
--- with the chain by half of this time.
+-- | Default contestation period of 12 hours, aligned with Cardano's safe zone
+-- on mainnet. The safe zone is approximately 3 * k / f where k = 2160 (security
+-- parameter) and f = 0.05 (active slot coefficient), ensuring finality guarantees.
+-- See: https://github.com/cardano-scaling/hydra/issues/2389
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = 600
+defaultContestationPeriod = 43200 -- 12 hours in seconds
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
@@ -954,11 +956,13 @@ contestationPeriodParser =
         <> metavar "SECONDS"
         <> value defaultContestationPeriod
         <> showDefault
-        <> completer (listCompleter ["60", "180", "300"])
+        <> completer (listCompleter ["3600", "43200", "86400"])
         <> help
           "Contestation period for close transaction in seconds. \
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
-          \ Additionally, this value needs to make sense compared to the current network we are running."
+          \ WARNING: On mainnet, this value should be at least 12 hours (43200s) to ensure safety\
+          \ against long chain forks. Shorter periods may not provide sufficient time for dispute\
+          \ resolution. See https://github.com/cardano-scaling/hydra/issues/2389 for details."
     )
 
 defaultDepositPeriod :: DepositPeriod
