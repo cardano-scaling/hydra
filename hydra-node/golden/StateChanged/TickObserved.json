@@ -1,10 +1,25 @@
 {
     "samples": [
         {
-            "chainPoint": {
-                "blockHash": "0100000000000000010101000100010100000100000000000001000000000000",
-                "slot": 0,
-                "tag": "ChainPoint"
+            "chainState": {
+                "recordedAt": {
+                    "blockHash": "0001010000000101010001010000000001010100010001010100010101010101",
+                    "slot": 0,
+                    "tag": "ChainPoint"
+                },
+                "spendableUTxO": {
+                    "0101000000010001000100010100000100000100000101010001000000000001#22": {
+                        "address": "addr_test1qrqw77m9vx9cddyaftnmm8qehunn3zmc69w6fv7yg392vpmfhh6mmpcjjxrdjrxdp2y4tac6t3649jaszvfys63mdreqhsdwwn",
+                        "datum": null,
+                        "datumhash": "cdd489f58d031b607c3580a5a75de1031d216051b0b820da4e8e7c1a0f4802be",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 1116290
+                        }
+                    }
+                }
             },
             "tag": "TickObserved"
         }

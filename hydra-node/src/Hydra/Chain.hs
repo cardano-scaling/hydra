@@ -20,7 +20,6 @@ import Hydra.Cardano.Api (
   Address,
   AddressInEra,
   ByronAddr,
-  ChainPoint (..),
   Coin (..),
   LedgerEra,
   PolicyAssets,
@@ -230,35 +229,35 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => A
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
   , defaultChainState :: ChainStateType tx
-  , latestKnownChainPoint :: ChainPoint
+  , lastKnown :: ChainStateType tx
   }
   deriving stock (Generic)
 
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
-pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history, latestKnownChainPoint = chainStatePoint cs}
+pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history, lastKnown = cs}
 
-trackLatestKnownChainPoint :: ChainPoint -> ChainStateHistory tx -> ChainStateHistory tx
-trackLatestKnownChainPoint point h = h{latestKnownChainPoint = point}
+trackLatestKnown :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+trackLatestKnown cs h = h{lastKnown = cs}
 
-initHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx
-initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs, latestKnownChainPoint = chainStatePoint cs}
+initHistory :: ChainStateType tx -> ChainStateHistory tx
+initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs, lastKnown = cs}
 
 rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
 rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
-  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack), latestKnownChainPoint}
+  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack), lastKnown}
  where
   rolledBack =
     dropWhile
       (\cs -> chainStateSlot cs > rollbackChainSlot)
       (toList history)
 
-  latestKnownChainPoint =
+  lastKnown =
     case rolledBack of
-      [] -> ChainPointAtGenesis
-      (cs : _) -> chainStatePoint cs
+      [] -> defaultChainState
+      (cs : _) -> cs
 
 deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
 
@@ -327,7 +326,7 @@ data ChainEvent tx
     -- another round trip / state to keep there.
     Tick
       { chainTime :: UTCTime
-      , chainPoint :: ChainPoint
+      , chainState :: ChainStateType tx
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}

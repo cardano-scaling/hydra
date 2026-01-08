@@ -342,12 +342,15 @@ spec = parallel $ do
 -- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
 -- to advance the chain slot and ensure the 'NodeState' is in sync. This is
 -- returning the node to allow for chaining with 'runToCompletion'.
-primeWith :: (MonadSTM m, MonadTime m, MonadIO m) => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+primeWith :: (MonadSTM m, MonadTime m, MonadIO m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
   now <- getCurrentTime
-  (ChainSlot chainSlot) <- currentSlot <$> atomically queryNodeState
+  nodeState <- atomically queryNodeState
+  let ChainSlot chainSlot = currentSlot nodeState
   blockHash <- liftIO $ generate (hedgehog genBlockHeaderHash)
-  let tick = ChainInput $ Tick now (ChainPoint (fromIntegral (chainSlot + 1)) blockHash)
+  let point = ChainPoint (fromIntegral (chainSlot + 1)) blockHash
+  let lastKnown = SimpleChainState point
+  let tick = ChainInput $ Tick now lastKnown
   forM_ (tick : inputs) enqueue
   pure node
 

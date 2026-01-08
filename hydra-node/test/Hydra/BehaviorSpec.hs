@@ -1132,7 +1132,8 @@ simulatedChainAndNetwork initialChainState = do
     event <- atomically $ do
       cs <- getLatest localChainState
       let chainPoint = chainStatePoint cs
-      pure $ Tick now chainPoint
+      let lastKnown = SimpleChainState chainPoint
+      pure $ Tick now lastKnown
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent rngVar nodes history localChainState tx = do
