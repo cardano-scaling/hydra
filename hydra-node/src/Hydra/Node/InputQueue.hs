@@ -4,14 +4,13 @@ module Hydra.Node.InputQueue where
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
-  isEmptyTQueue,
+  isEmptyTBQueue,
   modifyTVar',
-  readTQueue,
-  writeTQueue,
+  readTBQueue,
+  writeTBQueue,
  )
 
 -- | The single, required queue in the system from which a hydra head is "fed".
--- NOTE(SN): this probably should be bounded and include proper logging
 -- NOTE(SN): handle pattern, but likely not required as there is no need for an
 -- alternative implementation
 data InputQueue m e = InputQueue
@@ -32,13 +31,13 @@ createInputQueue ::
 createInputQueue = do
   numThreads <- newLabelledTVarIO "num-threads" (0 :: Integer)
   nextId <- newLabelledTVarIO "nex-id" 0
-  q <- newLabelledTQueueIO "input-queue"
+  q <- newLabelledTBQueueIO "input-queue" 100
   pure
     InputQueue
       { enqueue = \queuedItem ->
           atomically $ do
             queuedId <- readTVar nextId
-            writeTQueue q Queued{queuedId, queuedItem}
+            writeTBQueue q Queued{queuedId, queuedItem}
             modifyTVar' nextId succ
       , reenqueue = \delay e -> do
           atomically $ modifyTVar' numThreads succ
@@ -46,12 +45,12 @@ createInputQueue = do
             threadDelay delay
             atomically $ do
               modifyTVar' numThreads pred
-              writeTQueue q e
+              writeTBQueue q e
       , dequeue =
-          atomically $ readTQueue q
+          atomically $ readTBQueue q
       , isEmpty = do
           atomically $ do
             n <- readTVar numThreads
-            isEmpty' <- isEmptyTQueue q
+            isEmpty' <- isEmptyTBQueue q
             pure (isEmpty' && n == 0)
       }
