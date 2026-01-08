@@ -30,7 +30,7 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState, chainStatePoint)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
@@ -1169,7 +1169,6 @@ simulatedChainAndNetwork initialChainState = do
       handleChainEvent n chainEvent
 
   rollbackAndForward ::
-    IsChainState tx =>
     TVar m [HydraNode tx m] ->
     TVar m [ChainEvent tx] ->
     LocalChainState m tx ->
@@ -1182,15 +1181,15 @@ simulatedChainAndNetwork initialChainState = do
       writeTVar history kept
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
-    let chainSlot =
+    let chainState =
           List.head $
             map
               ( \case
-                  Observation{newChainState} -> chainStateSlot newChainState
+                  Observation{newChainState} -> newChainState
                   _NoObservation -> error "unexpected non-observation ChainEvent"
               )
               kept
-    rolledBackChainState <- atomically $ rollback localChainState chainSlot
+    rolledBackChainState <- atomically $ rollback localChainState chainState
     -- Yield rollback events
     ns <- readTVarIO nodes
     chainTime <- getCurrentTime
