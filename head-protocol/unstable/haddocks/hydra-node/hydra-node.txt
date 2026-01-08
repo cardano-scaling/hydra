@@ -3725,6 +3725,12 @@ BlockfrostChainConfig :: FilePath -> FilePath -> [TxId] -> BlockfrostChainConfig
 --   define <tt>Options</tt>, providing some measure of type safety,
 --   without having to juggle with strings.
 toArgs :: RunOptions -> [String]
+
+-- | Default contestation period of 12 hours, aligned with Cardano's safe
+--   zone on mainnet. The safe zone is approximately 3 * k / f where k =
+--   2160 (security parameter) and f = 0.05 (active slot coefficient),
+--   ensuring finality guarantees. See:
+--   <a>https://github.com/cardano-scaling/hydra/issues/2389</a>
 defaultContestationPeriod :: ContestationPeriod
 defaultDepositPeriod :: DepositPeriod
 
