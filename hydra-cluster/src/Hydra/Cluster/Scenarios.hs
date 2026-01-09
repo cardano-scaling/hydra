@@ -119,7 +119,7 @@ import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (SyncedStatus (..))
-import Hydra.Node.UnsyncedPeriod (unsyncedPeriodToNominalDiffTime)
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -2313,7 +2313,9 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Wait for some blocks to roll forward
-      let Cardano CardanoChainConfig{unsyncedPeriod} = carolChainConfig
+      let unsyncedPeriod = case carolChainConfig of
+            Cardano CardanoChainConfig{unsyncedPeriod = up} -> up
+            Offline{} -> defaultUnsyncedPeriodFor contestationPeriod
       threadDelay $ realToFrac (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 50 * blockTime)
 
       -- Alice closes the head while Carol offline

@@ -1,6 +1,7 @@
 module Hydra.Node.UnsyncedPeriod where
 
 import Hydra.Prelude
+import Test.Hydra.Prelude
 
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Test.QuickCheck (choose)
