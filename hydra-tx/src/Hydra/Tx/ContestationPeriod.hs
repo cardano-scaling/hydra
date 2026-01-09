@@ -65,12 +65,3 @@ fromChain cp =
   UnsafeContestationPeriod
     . truncate
     $ toInteger (OnChain.milliseconds cp) % 1000
-
--- | Period of time after which we consider the node becoming unsynced with the chain.
--- Beyond this period the node will refuse to process new transactions and signing snapshots.
---
--- Deprecated: Use 'Hydra.Node.UnsyncedPeriod.defaultUnsyncedPeriodFor' instead or configure
--- the unsynced period via the CLI option @--unsynced-period@.
-{-# DEPRECATED unsyncedPolicy "Use CLI option --unsynced-period or Hydra.Node.UnsyncedPeriod.defaultUnsyncedPeriodFor instead" #-}
-unsyncedPolicy :: ContestationPeriod -> NominalDiffTime
-unsyncedPolicy cp = toNominalDiffTime cp * 0.5

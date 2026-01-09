@@ -20,6 +20,8 @@ changes.
   (43200 seconds) to align with Cardano's safe zone for mainnet safety. See
   [#2389](https://github.com/cardano-scaling/hydra/issues/2389).
 - Fix the `cabalOnly` development environment to allow for `cabal build hydra-node` without `haskell.nix`.
+- Add `--unsynced-period` CLI option to configure when the node considers itself
+  out of sync with the chain. Defaults to half the contestation period.
 
 ## [1.2.0] - 2025.11.28
 
