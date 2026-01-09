@@ -11,7 +11,8 @@
                 "party": {
                     "vkey": "5802383116b8d8cfad0561849f98fa19652316ba794b06a4e2f74ac3f8d570b8"
                 },
-                "signingKey": "9e018c699d771741dc68d7d877a67520b68eacc6a76725f8be4034d18cd285d6"
+                "signingKey": "9e018c699d771741dc68d7d877a67520b68eacc6a76725f8be4034d18cd285d6",
+                "unsyncedPeriod": 21600
             },
             "headStatus": "Open",
             "hydraNodeVersion": "\u000c",
