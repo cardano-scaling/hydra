@@ -119,7 +119,8 @@ import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (SyncedStatus (..))
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
+import Hydra.Node.UnsyncedPeriod (unsyncedPeriodToNominalDiffTime)
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (constructDepositUTxO)
@@ -2312,7 +2313,8 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Wait for some blocks to roll forward
-      threadDelay $ realToFrac (CP.unsyncedPolicy contestationPeriod + 50 * blockTime)
+      let Cardano CardanoChainConfig{unsyncedPeriod} = carolChainConfig
+      threadDelay $ realToFrac (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 50 * blockTime)
 
       -- Alice closes the head while Carol offline
       send n1 $ input "Close" []
@@ -2342,7 +2344,7 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
 
         -- Carol API notifies the node is back on sync with the chain
         -- note this is tuned based on how long it takes to sync
-        waitMatch (CP.unsyncedPolicy contestationPeriod + 5 * blockTime) n3 $ \v -> do
+        waitMatch (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 5 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "NodeSynced"
 
         -- Finally, Carol observes the head getting closed

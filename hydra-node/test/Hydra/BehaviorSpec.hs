@@ -59,6 +59,7 @@ import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
@@ -1377,8 +1378,9 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , signingKey
       , otherParties
       , contestationPeriod = cp
-      , participants
       , depositPeriod = dp
+      , unsyncedPeriod = defaultUnsyncedPeriodFor cp
+      , participants
       , configuredPeers = ""
       }
   party = deriveParty signingKey

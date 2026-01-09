@@ -74,7 +74,7 @@ Currently, the `hydra-node` does not handle this situation. Each client applicat
 In addition to governing on-chain disputes, the contestation period is also used to determine when a Hydra node is considered **in sync** with the Cardano chain.
 
 :::important
-If a node has not observed a new block for **_half the contestation period_**, it is considered **out of sync** and transitions to a **catching up** state.
+By default, if a node has not observed a new block for **_half the contestation period_**, it is considered **out of sync** and transitions to a **catching up** state.
 Beyond this period, the node will reject client inputs and refuse to process new transactions or sign snapshots. This ensures that nodes process inputs only when their view of the chain is recent enough to safely enforce L2 interactions on L1, preserving head safety.
 :::
 
@@ -112,6 +112,26 @@ As a rule of thumb:
 
 :::info
 The API server notifies clients whenever the node falls out of sync or returns to a synchronized state.
+:::
+
+#### Custom unsynced period
+
+If the default behavior (half the contestation period) does not fit your use case, you can explicitly configure the unsynced period using the `--unsynced-period` option:
+
+```
+hydra-node --unsynced-period 3600
+```
+
+This sets the period (in seconds) after which the node considers itself out of sync with the chain. For example, with `--unsynced-period 3600`, if no new block is observed for 1 hour, the node will transition to the "catching up" state.
+
+:::warning
+The unsynced period should generally be shorter than the contestation period to ensure safety. Setting it too large may cause the node to continue processing L2 transactions when it can no longer safely enforce them on L1.
+:::
+
+If not provided, the unsynced period defaults to half the contestation period, maintaining the safety property that an in-sync node always has sufficient time to react to on-chain events.
+
+:::info
+This option only applies when connected to a Cardano chain. In [offline mode](#offline-mode), there is no real chain to sync with, so the node is always considered in sync.
 :::
 
 ### Deposit period

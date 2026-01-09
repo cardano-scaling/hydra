@@ -42,6 +42,7 @@ import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), re
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
 import Options.Applicative (
@@ -443,6 +444,9 @@ data CardanoChainConfig = CardanoChainConfig
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , unsyncedPeriod :: UnsyncedPeriod
+  -- ^ Period of time after which we consider the node becoming unsynced with the chain.
+  -- Defaults to half of the contestation period if not specified via CLI.
   , chainBackendOptions :: ChainBackendOptions
   }
   deriving stock (Eq, Show, Generic)
@@ -457,6 +461,7 @@ defaultCardanoChainConfig =
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositPeriod = defaultDepositPeriod
+    , unsyncedPeriod = defaultUnsyncedPeriod
     , chainBackendOptions = Direct defaultDirectOptions
     }
 
@@ -484,6 +489,7 @@ instance Arbitrary ChainConfig where
       startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
       contestationPeriod <- arbitrary
       depositPeriod <- arbitrary
+      unsyncedPeriod <- arbitrary
       chainBackendOptions <-
         oneof
           [ pure $ Direct defaultDirectOptions
@@ -497,6 +503,7 @@ instance Arbitrary ChainConfig where
           , startChainFrom
           , contestationPeriod
           , depositPeriod
+          , unsyncedPeriod
           , chainBackendOptions
           }
 
@@ -551,14 +558,27 @@ ledgerGenesisFileParser =
 
 cardanoChainConfigParser :: Parser CardanoChainConfig
 cardanoChainConfigParser =
-  CardanoChainConfig
+  mkCardanoChainConfig
     <$> ((hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser) <|> hydraScriptsDefaultParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
     <*> contestationPeriodParser
     <*> depositPeriodParser
+    <*> optional unsyncedPeriodParser
     <*> chainBackendOptionsParser
+ where
+  mkCardanoChainConfig hydraScriptsTxId cardanoSigningKey cardanoVerificationKeys startChainFrom contestationPeriod depositPeriod maybeUnsyncedPeriod chainBackendOptions =
+    CardanoChainConfig
+      { hydraScriptsTxId
+      , cardanoSigningKey
+      , cardanoVerificationKeys
+      , startChainFrom
+      , contestationPeriod
+      , depositPeriod
+      , unsyncedPeriod = fromMaybe (defaultUnsyncedPeriodFor contestationPeriod) maybeUnsyncedPeriod
+      , chainBackendOptions
+      }
 
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
@@ -949,6 +969,10 @@ hydraNodeCommand =
 defaultContestationPeriod :: ContestationPeriod
 defaultContestationPeriod = 43200 -- 12 hours in seconds
 
+-- | Default unsynced period, computed as half of the default contestation period.
+defaultUnsyncedPeriod :: UnsyncedPeriod
+defaultUnsyncedPeriod = defaultUnsyncedPeriodFor defaultContestationPeriod
+
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
   option
@@ -981,6 +1005,20 @@ depositPeriodParser =
         <> help
           "Minimum time before deadline to consider deposits. 2 x deposit-period \
           \is used to set the deadline on any drafted deposit transactions."
+    )
+
+unsyncedPeriodParser :: Parser UnsyncedPeriod
+unsyncedPeriodParser =
+  option
+    (UnsyncedPeriod <$> auto)
+    ( long "unsynced-period"
+        <> metavar "SECONDS"
+        <> completer (listCompleter ["1800", "3600", "21600"])
+        <> help
+          "Period of time after which we consider the node becoming unsynced \
+          \with the chain. Beyond this period the node will refuse to process \
+          \new transactions and signing snapshots. If not provided, defaults to \
+          \half of the contestation period."
     )
 
 data InvalidOptions
@@ -1101,6 +1139,7 @@ toArgs
           , startChainFrom
           , contestationPeriod
           , depositPeriod
+          , unsyncedPeriod
           , chainBackendOptions
           } ->
           ( case chainBackendOptions of
@@ -1116,6 +1155,7 @@ toArgs
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> ["--deposit-period", show depositPeriod]
+            <> ["--unsynced-period", show unsyncedPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
 
