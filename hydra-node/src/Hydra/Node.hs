@@ -55,6 +55,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
@@ -76,6 +77,7 @@ initEnvironment options = do
       , participants
       , contestationPeriod
       , depositPeriod
+      , unsyncedPeriod
       , configuredPeers
       }
  where
@@ -99,6 +101,11 @@ initEnvironment options = do
   depositPeriod = case chainConfig of
     Offline{} -> defaultDepositPeriod
     Cardano CardanoChainConfig{depositPeriod = dp} -> dp
+  -- In offline mode, there's no real chain to sync with, so we use a very large
+  -- unsynced period to effectively disable the unsynced check.
+  unsyncedPeriod = case chainConfig of
+    Offline{} -> UnsyncedPeriod (fromIntegral (maxBound :: Int))
+    Cardano CardanoChainConfig{unsyncedPeriod = up} -> up
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p

@@ -16,6 +16,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host (Host))
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
@@ -209,10 +210,15 @@ spec = parallel $
       ["--persistence-rotate-after", "1"] `shouldParse` defaultWithRotateAfter (Positive 1)
 
     it "parses --contestation-period option as a number of seconds" $ do
-      let defaultWithContestationPeriod contestationPeriod =
+      let defaultWithContestationPeriod cp =
             Run
               defaultRunOptions
-                { chainConfig = Cardano defaultCardanoChainConfig{contestationPeriod}
+                { chainConfig =
+                    Cardano
+                      defaultCardanoChainConfig
+                        { contestationPeriod = cp
+                        , unsyncedPeriod = defaultUnsyncedPeriodFor cp
+                        }
                 }
       shouldNotParse ["--contestation-period", "3"]
       shouldNotParse ["--contestation-period", "abc"]

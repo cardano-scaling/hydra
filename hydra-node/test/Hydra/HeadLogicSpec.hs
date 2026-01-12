@@ -46,7 +46,8 @@ import Hydra.Node (mkNetworkInput)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initNodeState)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -76,6 +77,7 @@ spec =
             , otherParties = [alice, carol]
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
             }
@@ -86,6 +88,7 @@ spec =
             , otherParties = [bob, carol]
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
             }
@@ -812,7 +815,7 @@ spec =
                 _ -> False
 
               nodeOutOfSync <- run $ do
-                let delta = CP.unsyncedPolicy bobEnv.contestationPeriod
+                let delta = unsyncedPeriodToNominalDiffTime bobEnv.unsyncedPeriod
                     -- make chain time too old: beyond unsynced threshold
                     oldChainTime = addUTCTime (negate (delta + 1)) now
                 runHeadLogic bobEnv ledger nodeInSync $ do

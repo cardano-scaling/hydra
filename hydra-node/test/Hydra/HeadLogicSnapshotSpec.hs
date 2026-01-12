@@ -14,7 +14,7 @@ import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (headState), currentSlot)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
@@ -47,6 +47,7 @@ spec = do
                 , otherParties
                 , contestationPeriod = defaultContestationPeriod
                 , depositPeriod = defaultDepositPeriod
+                , unsyncedPeriod = defaultUnsyncedPeriod
                 , participants = deriveOnChainId <$> threeParties
                 , configuredPeers = ""
                 }
@@ -203,6 +204,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
             , otherParties = []
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
+            , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = [deriveOnChainId party]
             , configuredPeers = ""
             }

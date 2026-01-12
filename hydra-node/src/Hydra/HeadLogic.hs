@@ -77,6 +77,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), depositsForHead, syncedStatus)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Tx (
   HeadId,
   HeadSeed,
@@ -87,7 +88,6 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
-import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
@@ -1337,11 +1337,11 @@ handleOutOfSync ::
   UTCTime ->
   SyncedStatus ->
   Outcome tx
-handleOutOfSync Environment{contestationPeriod} now chainTime syncStatus
+handleOutOfSync Environment{unsyncedPeriod} now chainTime syncStatus
   -- We consider the node out of sync when:
-  -- the last observed chainTime plus the delta allowed by the unsyncedPolicy
+  -- the last observed chainTime plus the delta allowed by the unsyncedPeriod
   -- falls behind the current system time.
-  | chainTime `plus` CP.unsyncedPolicy contestationPeriod < now =
+  | chainTime `plus` unsyncedPeriodToNominalDiffTime unsyncedPeriod < now =
       case syncStatus of
         InSync -> newState NodeUnsynced
         CatchingUp -> noop

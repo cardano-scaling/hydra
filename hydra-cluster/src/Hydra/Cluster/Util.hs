@@ -19,6 +19,7 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
@@ -110,6 +111,7 @@ chainConfigFor' me targetDir backend hydraScriptsTxId them contestationPeriod de
         , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
         , contestationPeriod
         , depositPeriod
+        , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
         , chainBackendOptions = Backend.getOptions backend
         }
  where

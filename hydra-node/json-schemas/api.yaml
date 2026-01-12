@@ -3102,6 +3102,13 @@ components:
         A length of time, measured in whole seconds, to be used in deposit validity.
       example: 60
 
+    UnsyncedPeriod:
+      type: number
+      description: |
+        A length of time, measured in whole seconds, after which we consider the node
+        out of sync with the chain.
+      example: 21600
+
     Environment:
       type: object
       description: |
@@ -3113,6 +3120,7 @@ components:
       - participants
       - contestationPeriod
       - depositPeriod
+      - unsyncedPeriod
       - configuredPeers
       additionalProperties: false
       properties:
@@ -3132,6 +3140,8 @@ components:
           $ref: "api.yaml#/components/schemas/ContestationPeriod"
         depositPeriod:
           $ref: "api.yaml#/components/schemas/DepositPeriod"
+        unsyncedPeriod:
+          $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
         configuredPeers:
           type: string
 
