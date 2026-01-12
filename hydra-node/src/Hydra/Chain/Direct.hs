@@ -16,6 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
+import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
@@ -42,12 +43,12 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainComponent,
-  ChainStateHistory,
+  ChainStateHistory (..),
   PostTxError (..),
-  lastKnown,
  )
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient qualified as CardanoClient
+import Hydra.Chain.ChainState (chainStatePoint)
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler,
@@ -146,7 +147,16 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
-
+  -- Select all chain points from which to find intersection during synchronization
+  let historyPoints = fmap chainStatePoint (history chainStateHistory)
+      -- Identify the set of candidate intersection points.
+      startingPoints =
+        if chainPoint == head historyPoints
+          then historyPoints
+          -- XXX: if 'chainPoint' is far in future compared to historyPoints,
+          -- and the chain backend experienced a re-org in between,
+          -- then we expect to find intersection at one of the 'historyPoints'.
+          else chainPoint :| toList historyPoints
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle =
@@ -165,7 +175,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , handle onIOException $ do
           connectToLocalNode
             (connectInfo networkId nodeSocket)
-            (clientProtocols chainPoint queue handler)
+            (clientProtocols startingPoints queue handler)
       )
       ("direct-chain-chain-handle", action chainHandle)
   case res of
@@ -185,9 +195,9 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , localNodeSocketPath = nodeSocket'
       }
 
-  clientProtocols point queue handler =
+  clientProtocols startingPoints queue handler =
     LocalNodeClientProtocols
-      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet point
+      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet startingPoints
       , localTxSubmissionClient = Just $ txSubmissionClient tracer queue
       , localStateQueryClient = Nothing
       , localTxMonitoringClient = Nothing
@@ -220,24 +230,29 @@ data DirectConnectException = DirectConnectException
 
 instance Exception DirectConnectException
 
--- | Thrown when the user-provided custom point of intersection is unknown to
+-- | Thrown when the user-provided custom points of intersection are unknown to
 -- the local node. This may happen if users shut down their node quickly after
--- starting them and hold on a not-so-stable point of the chain. When they turn
--- the node back on, that point may no longer exist on the network if a fork
+-- starting them and hold on not-so-stable points of the chain. When they turn
+-- the node back on, those points may no longer exist on the network if a fork
 -- with deeper roots has been adopted in the meantime.
 newtype IntersectionNotFoundException = IntersectionNotFound
-  { requestedPoint :: ChainPoint
+  { requestedPoints :: NonEmpty ChainPoint
   }
   deriving newtype (Show)
 
 instance Exception IntersectionNotFoundException where
-  displayException (IntersectionNotFound point) =
+  displayException (IntersectionNotFound points) =
     printf
-      "The requested intersection point %s was not found on the local node. \
-      \This may happen if the point is too recent and the node has not yet \
-      \synchronized that far, or if the point is too old and has been pruned \
-      \from the local node. Please try again with a different point."
-      (show point :: String)
+      "None of the requested intersection points %s were found on the local node.\n\
+      \Requested points (newest first):\n\
+      \%s\n\
+      \This may happen if the points are too recent and the node has not yet \
+      \synchronized that far, or if they are too old and have been pruned \
+      \from the local node. Please try again with a different points."
+      requestedPoints
+   where
+    requestedPoints :: String
+    requestedPoints = T.unpack $ T.unlines (fmap show (toList points))
 
 data EraNotSupportedException
   = EraNotSupportedAnymore {otherEraName :: Text}
@@ -265,15 +280,15 @@ chainSyncClient ::
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
   TinyWallet m ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient handler wallet startingPoint =
+chainSyncClient handler wallet startingPoints =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect
-        [startingPoint]
+        (toList startingPoints)
         ( clientStIntersect
-            (\_ -> throwIO (IntersectionNotFound startingPoint))
+            (\_ -> throwIO (IntersectionNotFound startingPoints))
         )
  where
   clientStIntersect ::

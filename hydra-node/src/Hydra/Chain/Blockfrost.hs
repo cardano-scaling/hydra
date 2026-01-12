@@ -130,7 +130,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
     (max <$> startChainFrom <*> persistedPoint)
       <|> persistedPoint
       <|> startChainFrom
-
+  let startingPoints = chainPoint :| []
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
   let chainHandle =
@@ -148,7 +148,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
       ( "blockfrost-chain-connection"
       , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
-          blockfrostChain tracer queue prj chainPoint handler wallet
+          blockfrostChain tracer queue prj startingPoints handler wallet
       )
       ("blockfrost-chain-handle", action chainHandle)
   case res of
@@ -186,14 +186,14 @@ blockfrostChain ::
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChain tracer queue prj chainPoint handler wallet = do
+blockfrostChain tracer queue prj startingPoints handler wallet = do
   forever $
     raceLabelled_
-      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj chainPoint handler wallet)
+      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj startingPoints handler wallet)
       ("blockfrost-submission", blockfrostSubmissionClient prj tracer queue)
 
 blockfrostChainFollow ::
@@ -201,17 +201,17 @@ blockfrostChainFollow ::
   (MonadIO m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChainFollow tracer prj chainPoint handler wallet = do
+blockfrostChainFollow tracer prj startingPoints handler wallet = do
   Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
     Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-  blockHash <- case chainPoint of
+  blockHash <- case head startingPoints of
     ChainPointAtGenesis -> do
       result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
       case result of
