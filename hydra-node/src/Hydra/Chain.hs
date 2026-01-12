@@ -228,17 +228,24 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => A
 -- 'initHistory'.
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
+  -- ^ The sequence of known chain states, ordered from most recent to oldest.
   , defaultChainState :: ChainStateType tx
+  -- ^ The default chain state to fall back to when rolling back beyond known history.
   , lastKnown :: ChainStateType tx
+  -- ^ The last known chain state, which may be in a more recent chain point than the head of the history.
   }
   deriving stock (Generic)
 
+-- Fetches the last updated chain state from history.
+-- Note: it could be behind the 'lastKnown'.
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
+-- Tracks the last updated chain state that modify history (e.g., tx observations)
 pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
 pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history, lastKnown = cs}
 
+-- Tracks the last updated chain state that do not modify history (e.g., ticks)
 trackLatestKnown :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
 trackLatestKnown cs h = h{lastKnown = cs}
 

@@ -59,7 +59,7 @@ ouroborusClient tracer nodeSocket networkId =
         traceWith tracer StartObservingFrom{chainPoint}
         connectToLocalNode
           (connectInfo nodeSocket networkId)
-          (clientProtocols tracer networkId chainPoint observerHandler)
+          (clientProtocols tracer networkId (chainPoint :| []) observerHandler)
     , networkId
     }
 
@@ -80,24 +80,24 @@ connectInfo nodeSocket networkId =
 clientProtocols ::
   Tracer IO ChainObserverLog ->
   NetworkId ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ObserverHandler IO ->
   LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
-clientProtocols tracer networkId startingPoint observerHandler =
+clientProtocols tracer networkId startingPoints observerHandler =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoint observerHandler
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoints observerHandler
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
     }
 
--- | Thrown when the user-provided custom point of intersection is unknown to
+-- | Thrown when the user-provided custom points of intersection are unknown to
 -- the local node. This may happen if users shut down their node quickly after
--- starting them and hold on a not-so-stable point of the chain. When they turn
--- the node back on, that point may no longer exist on the network if a fork
+-- starting them and hold on not-so-stable points of the chain. When they turn
+-- the node back on, those points may no longer exist on the network if a fork
 -- with deeper roots has been adopted in the meantime.
 type IntersectionNotFoundException :: Type
-newtype IntersectionNotFoundException = IntersectionNotFound {requestedPoint :: ChainPoint}
+newtype IntersectionNotFoundException = IntersectionNotFound {requestedPoints :: NonEmpty ChainPoint}
   deriving stock (Show)
 
 instance Exception IntersectionNotFoundException
@@ -108,13 +108,13 @@ chainSyncClient ::
   MonadThrow m =>
   Tracer m ChainObserverLog ->
   NetworkId ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ObserverHandler m ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient tracer networkId startingPoint observerHandler =
+chainSyncClient tracer networkId startingPoints observerHandler =
   ChainSyncClient $
     pure $
-      SendMsgFindIntersect [startingPoint] clientStIntersect
+      SendMsgFindIntersect (toList startingPoints) clientStIntersect
  where
   clientStIntersect :: ClientStIntersect BlockType ChainPoint ChainTip m ()
   clientStIntersect =
@@ -122,7 +122,7 @@ chainSyncClient tracer networkId startingPoint observerHandler =
       { recvMsgIntersectFound = \_ _ ->
           ChainSyncClient (pure $ clientStIdle mempty)
       , recvMsgIntersectNotFound = \_ ->
-          ChainSyncClient $ throwIO (IntersectionNotFound startingPoint)
+          ChainSyncClient $ throwIO (IntersectionNotFound startingPoints)
       }
 
   clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint ChainTip m ()
