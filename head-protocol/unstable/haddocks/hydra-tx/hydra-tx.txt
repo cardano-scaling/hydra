@@ -185,12 +185,6 @@ toChain :: ContestationPeriod -> ContestationPeriod
 -- | Convert an on-chain contestation period to its off-chain
 --   representation. NOTE: Does truncate to whole seconds.
 fromChain :: ContestationPeriod -> ContestationPeriod
-
--- | Period of time after which we consider the node becoming unsynced with
---   the chain. Beyond this period the node will refuse to process new
---   transactions and signing snapshots. FIXME: this is implicit, consider
---   making it configurable.
-unsyncedPolicy :: ContestationPeriod -> NominalDiffTime
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Real.Integral Hydra.Tx.ContestationPeriod.ContestationPeriod

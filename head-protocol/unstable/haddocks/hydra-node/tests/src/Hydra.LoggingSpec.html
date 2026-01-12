@@ -19,8 +19,8 @@ forall a.
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-13"></span><span>    </span><span id="local-6989586621679631881"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679631881"><span class="hs-identifier hs-var">captured</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO [Char]
+</span><span id="line-13"></span><span>    </span><span id="local-6989586621679632028"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679632028"><span class="hs-identifier hs-var">captured</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO [Char]
 forall a. IO a -&gt; IO [Char]
 </span><span class="hs-identifier hs-var">capture_</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO [Char]) -&gt; IO () -&gt; IO [Char]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -34,12 +34,12 @@ Verbosity -&gt; (Tracer m msg -&gt; IO a) -&gt; IO a
 </span><span class="hs-string">&quot;test&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Tracer IO Value -&gt; IO ()) -&gt; IO ())
 -&gt; (Tracer IO Value -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679631882"><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679631882"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632029"><span class="annot"><span class="annottext">Tracer IO Value
+</span><a href="#local-6989586621679632029"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-15"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO Value -&gt; Value -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO Value
-</span><a href="#local-6989586621679631882"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
+</span><a href="#local-6989586621679632029"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Pair] -&gt; Value
 </span><span class="hs-identifier hs-var">object</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;foo&quot;</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Int -&gt; Pair
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
@@ -59,7 +59,7 @@ forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-number">5</span></span><span>
 </span><span id="line-19"></span><span>
 </span><span id="line-20"></span><span>    </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679631881"><span class="hs-identifier hs-var">captured</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
+</span><a href="#local-6989586621679632028"><span class="hs-identifier hs-var">captured</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;{\&quot;foo\&quot;:42}&quot;</span></span><span>

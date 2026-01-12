@@ -2002,33 +2002,6 @@ instance GHC.Generics.Generic Hydra.Network.Etcd.EtcdLog
 instance GHC.Show.Show Hydra.Network.Etcd.EtcdLog
 instance GHC.Classes.Eq Hydra.Network.Etcd.EtcdLog
 
-module Hydra.Node.Environment
-data Environment
-Environment :: Party -> SigningKey HydraKey -> [Party] -> [OnChainId] -> ContestationPeriod -> DepositPeriod -> Text -> Environment
-
--- | This is the p_i from the paper
-[$sel:party:Environment] :: Environment -> Party
-[$sel:signingKey:Environment] :: Environment -> SigningKey HydraKey
-[$sel:otherParties:Environment] :: Environment -> [Party]
-[$sel:participants:Environment] :: Environment -> [OnChainId]
-[$sel:contestationPeriod:Environment] :: Environment -> ContestationPeriod
-[$sel:depositPeriod:Environment] :: Environment -> DepositPeriod
-
--- | Configured peers for the network layer, used for comparison on etcd
---   errors.
-[$sel:configuredPeers:Environment] :: Environment -> Text
-
--- | Make <a>HeadParameters</a> that are consistent with the given
---   <a>Environment</a>.
-mkHeadParameters :: Environment -> HeadParameters
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Environment.Environment
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Environment.Environment
-instance GHC.Classes.Eq Hydra.Node.Environment.Environment
-instance GHC.Show.Show Hydra.Node.Environment.Environment
-instance GHC.Generics.Generic Hydra.Node.Environment.Environment
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.Environment.Environment
-instance Hydra.Tx.Party.HasParty Hydra.Node.Environment.Environment
-
 
 -- | The general input queue from which the Hydra head is fed with inputs.
 module Hydra.Node.InputQueue
@@ -2226,6 +2199,63 @@ instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrar
 instance Test.Hydra.Tx.Gen.ArbitraryIsTx tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Node.State.Deposit tx)
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.DepositStatus
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.State.SyncedStatus
+
+module Hydra.Node.UnsyncedPeriod
+
+-- | Period of time after which we consider the node becoming unsynced with
+--   the chain. Beyond this period the node will refuse to process new
+--   transactions and signing snapshots.
+newtype UnsyncedPeriod
+UnsyncedPeriod :: NominalDiffTime -> UnsyncedPeriod
+[$sel:unsyncedPeriodToNominalDiffTime:UnsyncedPeriod] :: UnsyncedPeriod -> NominalDiffTime
+
+-- | Compute a default <a>UnsyncedPeriod</a> based on the
+--   <a>ContestationPeriod</a>. This is the legacy behavior: half of the
+--   contestation period.
+defaultUnsyncedPeriodFor :: ContestationPeriod -> UnsyncedPeriod
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Real.Real Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Enum.Enum Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Num.Num Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Read.Read Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Show.Show Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Classes.Ord Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Classes.Eq Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance GHC.Real.Integral Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.UnsyncedPeriod.UnsyncedPeriod
+
+module Hydra.Node.Environment
+data Environment
+Environment :: Party -> SigningKey HydraKey -> [Party] -> [OnChainId] -> ContestationPeriod -> DepositPeriod -> UnsyncedPeriod -> Text -> Environment
+
+-- | This is the p_i from the paper
+[$sel:party:Environment] :: Environment -> Party
+[$sel:signingKey:Environment] :: Environment -> SigningKey HydraKey
+[$sel:otherParties:Environment] :: Environment -> [Party]
+[$sel:participants:Environment] :: Environment -> [OnChainId]
+[$sel:contestationPeriod:Environment] :: Environment -> ContestationPeriod
+[$sel:depositPeriod:Environment] :: Environment -> DepositPeriod
+
+-- | Period of time after which we consider the node becoming unsynced with
+--   the chain. Beyond this period the node will refuse to process new
+--   transactions and signing snapshots.
+[$sel:unsyncedPeriod:Environment] :: Environment -> UnsyncedPeriod
+
+-- | Configured peers for the network layer, used for comparison on etcd
+--   errors.
+[$sel:configuredPeers:Environment] :: Environment -> Text
+
+-- | Make <a>HeadParameters</a> that are consistent with the given
+--   <a>Environment</a>.
+mkHeadParameters :: Environment -> HeadParameters
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.Environment.Environment
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Environment.Environment
+instance GHC.Classes.Eq Hydra.Node.Environment.Environment
+instance GHC.Show.Show Hydra.Node.Environment.Environment
+instance GHC.Generics.Generic Hydra.Node.Environment.Environment
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Node.Environment.Environment
+instance Hydra.Tx.Party.HasParty Hydra.Node.Environment.Environment
 
 module Hydra.API.ServerOutput
 
@@ -2764,6 +2794,123 @@ instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSO
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Events.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance (Test.Hydra.Tx.Gen.ArbitraryIsTx tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Chain.ChainState.ChainStateType tx), Hydra.Chain.ChainState.IsChainState tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.HeadLogic.StateEvent.StateEvent tx)
+
+module Hydra.API.ServerOutputFilter
+newtype ServerOutputFilter tx
+ServerOutputFilter :: (TimedServerOutput tx -> Text -> Bool) -> ServerOutputFilter tx
+[$sel:txContainsAddr:ServerOutputFilter] :: ServerOutputFilter tx -> TimedServerOutput tx -> Text -> Bool
+serverOutputFilter :: ServerOutputFilter Tx
+matchingAddr :: Text -> Tx -> Bool
+
+module Hydra.API.HTTPServer
+newtype DraftCommitTxResponse tx
+DraftCommitTxResponse :: tx -> DraftCommitTxResponse tx
+[$sel:commitTx:DraftCommitTxResponse] :: DraftCommitTxResponse tx -> tx
+data DraftCommitTxRequest tx
+SimpleCommitRequest :: UTxOType tx -> DraftCommitTxRequest tx
+[$sel:utxoToCommit:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
+FullCommitRequest :: tx -> UTxOType tx -> Maybe AddressInEra -> DraftCommitTxRequest tx
+[$sel:blueprintTx:SimpleCommitRequest] :: DraftCommitTxRequest tx -> tx
+[$sel:utxo:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
+[$sel:changeAddress:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe AddressInEra
+newtype SubmitTxRequest tx
+SubmitTxRequest :: tx -> SubmitTxRequest tx
+[$sel:txToSubmit:SubmitTxRequest] :: SubmitTxRequest tx -> tx
+data TransactionSubmitted
+TransactionSubmitted :: TransactionSubmitted
+newtype SideLoadSnapshotRequest tx
+SideLoadSnapshotRequest :: ConfirmedSnapshot tx -> SideLoadSnapshotRequest tx
+[$sel:snapshot:SideLoadSnapshotRequest] :: SideLoadSnapshotRequest tx -> ConfirmedSnapshot tx
+
+-- | Request to submit a transaction to the head
+newtype SubmitL2TxRequest tx
+SubmitL2TxRequest :: tx -> SubmitL2TxRequest tx
+[$sel:submitL2Tx:SubmitL2TxRequest] :: SubmitL2TxRequest tx -> tx
+
+-- | Response for transaction submission
+data SubmitL2TxResponse
+
+-- | Transaction was included in a confirmed snapshot
+SubmitTxConfirmed :: Integer -> SubmitL2TxResponse
+
+-- | Transaction was rejected due to validation errors
+SubmitTxInvalidResponse :: Text -> SubmitL2TxResponse
+
+-- | Transaction was rejected due to node out of sync
+SubmitTxRejectedResponse :: Text -> SubmitL2TxResponse
+
+-- | Transaction was accepted but not yet confirmed
+SubmitTxSubmitted :: SubmitL2TxResponse
+data HeadInitializationDetails
+HeadInitializationDetails :: UTCTime -> SlotNo -> HeadInitializationDetails
+[$sel:time:HeadInitializationDetails] :: HeadInitializationDetails -> UTCTime
+[$sel:slot:HeadInitializationDetails] :: HeadInitializationDetails -> SlotNo
+jsonContent :: ResponseHeaders
+
+-- | Hydra HTTP server
+httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> FilePath -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
+
+-- | Handle request to obtain a draft commit tx.
+handleDraftCommitUtxo :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
+
+-- | Handle request to recover a pending deposit.
+handleRecoverCommitUtxo :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Text -> ByteString -> IO Response
+
+-- | Handle request to submit a cardano transaction.
+handleSubmitUserTx :: forall tx. FromJSON tx => Chain tx IO -> ByteString -> IO Response
+handleDecommit :: forall tx. FromJSON tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
+
+-- | Handle request to side load confirmed snapshot.
+handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
+
+-- | Handle request to submit a transaction to the head.
+handleSubmitL2Tx :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
+handleHeadInitializationTime :: MonadUnliftIO m => FilePath -> m Response
+parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
+badRequest :: IsChainState tx => PostTxError tx -> Response
+notFound :: Response
+okJSON :: ToJSON a => a -> Response
+instance GHC.Generics.Generic (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
+instance GHC.Generics.Generic (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
+instance Data.Aeson.Types.FromJSON.FromJSON tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SubmitTxRequest tx)
+instance Data.Aeson.Types.ToJSON.ToJSON tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.SubmitTxRequest tx)
+instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.SubmitTxRequest tx)
+instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.SubmitTxRequest tx)
+instance GHC.Classes.Eq tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SubmitTxRequest tx)
+instance GHC.Generics.Generic Hydra.API.HTTPServer.TransactionSubmitted
+instance GHC.Show.Show Hydra.API.HTTPServer.TransactionSubmitted
+instance GHC.Classes.Eq Hydra.API.HTTPServer.TransactionSubmitted
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
+instance GHC.Generics.Generic (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
+instance Data.Aeson.Types.FromJSON.FromJSON tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
+instance Data.Aeson.Types.ToJSON.ToJSON tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
+instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
+instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
+instance GHC.Classes.Eq tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
+instance GHC.Generics.Generic Hydra.API.HTTPServer.SubmitL2TxResponse
+instance GHC.Show.Show Hydra.API.HTTPServer.SubmitL2TxResponse
+instance GHC.Classes.Eq Hydra.API.HTTPServer.SubmitL2TxResponse
+instance GHC.Show.Show Hydra.API.HTTPServer.HeadInitializationDetails
+instance GHC.Classes.Eq Hydra.API.HTTPServer.HeadInitializationDetails
+instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
+instance (GHC.Classes.Eq tx, GHC.Classes.Eq (Hydra.Tx.IsTx.UTxOType tx)) => GHC.Classes.Eq (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
+instance (GHC.Show.Show tx, GHC.Show.Show (Hydra.Tx.IsTx.UTxOType tx)) => GHC.Show.Show (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.HTTPServer.SubmitL2TxResponse
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.HTTPServer.SubmitL2TxResponse
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.API.HTTPServer.SubmitL2TxResponse
+instance (Test.QuickCheck.Arbitrary.Arbitrary tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.IsTx.UTxOType tx), Hydra.Tx.IsTx.IsTx tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.HTTPServer.TransactionSubmitted
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.HTTPServer.TransactionSubmitted
+instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.API.HTTPServer.TransactionSubmitted
+instance (Data.Aeson.Types.ToJSON.ToJSON tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.UTxOType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
+instance (Data.Aeson.Types.FromJSON.FromJSON tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.UTxOType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
+instance (Test.QuickCheck.Arbitrary.Arbitrary tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.IsTx.UTxOType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
+instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
 
 
 -- | Implements the Head Protocol's <i>state machine</i> as <i>pure
@@ -3422,123 +3569,6 @@ newState :: StateChanged tx -> Outcome tx
 noop :: Outcome tx
 wait :: WaitReason tx -> Outcome tx
 
-module Hydra.API.ServerOutputFilter
-newtype ServerOutputFilter tx
-ServerOutputFilter :: (TimedServerOutput tx -> Text -> Bool) -> ServerOutputFilter tx
-[$sel:txContainsAddr:ServerOutputFilter] :: ServerOutputFilter tx -> TimedServerOutput tx -> Text -> Bool
-serverOutputFilter :: ServerOutputFilter Tx
-matchingAddr :: Text -> Tx -> Bool
-
-module Hydra.API.HTTPServer
-newtype DraftCommitTxResponse tx
-DraftCommitTxResponse :: tx -> DraftCommitTxResponse tx
-[$sel:commitTx:DraftCommitTxResponse] :: DraftCommitTxResponse tx -> tx
-data DraftCommitTxRequest tx
-SimpleCommitRequest :: UTxOType tx -> DraftCommitTxRequest tx
-[$sel:utxoToCommit:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
-FullCommitRequest :: tx -> UTxOType tx -> Maybe AddressInEra -> DraftCommitTxRequest tx
-[$sel:blueprintTx:SimpleCommitRequest] :: DraftCommitTxRequest tx -> tx
-[$sel:utxo:SimpleCommitRequest] :: DraftCommitTxRequest tx -> UTxOType tx
-[$sel:changeAddress:SimpleCommitRequest] :: DraftCommitTxRequest tx -> Maybe AddressInEra
-newtype SubmitTxRequest tx
-SubmitTxRequest :: tx -> SubmitTxRequest tx
-[$sel:txToSubmit:SubmitTxRequest] :: SubmitTxRequest tx -> tx
-data TransactionSubmitted
-TransactionSubmitted :: TransactionSubmitted
-newtype SideLoadSnapshotRequest tx
-SideLoadSnapshotRequest :: ConfirmedSnapshot tx -> SideLoadSnapshotRequest tx
-[$sel:snapshot:SideLoadSnapshotRequest] :: SideLoadSnapshotRequest tx -> ConfirmedSnapshot tx
-
--- | Request to submit a transaction to the head
-newtype SubmitL2TxRequest tx
-SubmitL2TxRequest :: tx -> SubmitL2TxRequest tx
-[$sel:submitL2Tx:SubmitL2TxRequest] :: SubmitL2TxRequest tx -> tx
-
--- | Response for transaction submission
-data SubmitL2TxResponse
-
--- | Transaction was included in a confirmed snapshot
-SubmitTxConfirmed :: Integer -> SubmitL2TxResponse
-
--- | Transaction was rejected due to validation errors
-SubmitTxInvalidResponse :: Text -> SubmitL2TxResponse
-
--- | Transaction was rejected due to node out of sync
-SubmitTxRejectedResponse :: Text -> SubmitL2TxResponse
-
--- | Transaction was accepted but not yet confirmed
-SubmitTxSubmitted :: SubmitL2TxResponse
-data HeadInitializationDetails
-HeadInitializationDetails :: UTCTime -> SlotNo -> HeadInitializationDetails
-[$sel:time:HeadInitializationDetails] :: HeadInitializationDetails -> UTCTime
-[$sel:slot:HeadInitializationDetails] :: HeadInitializationDetails -> SlotNo
-jsonContent :: ResponseHeaders
-
--- | Hydra HTTP server
-httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> FilePath -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
-
--- | Handle request to obtain a draft commit tx.
-handleDraftCommitUtxo :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
-
--- | Handle request to recover a pending deposit.
-handleRecoverCommitUtxo :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Text -> ByteString -> IO Response
-
--- | Handle request to submit a cardano transaction.
-handleSubmitUserTx :: forall tx. FromJSON tx => Chain tx IO -> ByteString -> IO Response
-handleDecommit :: forall tx. FromJSON tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
-
--- | Handle request to side load confirmed snapshot.
-handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
-
--- | Handle request to submit a transaction to the head.
-handleSubmitL2Tx :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
-handleHeadInitializationTime :: MonadUnliftIO m => FilePath -> m Response
-parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
-badRequest :: IsChainState tx => PostTxError tx -> Response
-notFound :: Response
-okJSON :: ToJSON a => a -> Response
-instance GHC.Generics.Generic (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
-instance GHC.Generics.Generic (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
-instance Data.Aeson.Types.FromJSON.FromJSON tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SubmitTxRequest tx)
-instance Data.Aeson.Types.ToJSON.ToJSON tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.SubmitTxRequest tx)
-instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.SubmitTxRequest tx)
-instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.SubmitTxRequest tx)
-instance GHC.Classes.Eq tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SubmitTxRequest tx)
-instance GHC.Generics.Generic Hydra.API.HTTPServer.TransactionSubmitted
-instance GHC.Show.Show Hydra.API.HTTPServer.TransactionSubmitted
-instance GHC.Classes.Eq Hydra.API.HTTPServer.TransactionSubmitted
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
-instance GHC.Generics.Generic (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
-instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
-instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
-instance Data.Aeson.Types.FromJSON.FromJSON tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
-instance Data.Aeson.Types.ToJSON.ToJSON tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
-instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
-instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
-instance GHC.Classes.Eq tx => GHC.Classes.Eq (Hydra.API.HTTPServer.SubmitL2TxRequest tx)
-instance GHC.Generics.Generic Hydra.API.HTTPServer.SubmitL2TxResponse
-instance GHC.Show.Show Hydra.API.HTTPServer.SubmitL2TxResponse
-instance GHC.Classes.Eq Hydra.API.HTTPServer.SubmitL2TxResponse
-instance GHC.Show.Show Hydra.API.HTTPServer.HeadInitializationDetails
-instance GHC.Classes.Eq Hydra.API.HTTPServer.HeadInitializationDetails
-instance GHC.Show.Show tx => GHC.Show.Show (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
-instance (GHC.Classes.Eq tx, GHC.Classes.Eq (Hydra.Tx.IsTx.UTxOType tx)) => GHC.Classes.Eq (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
-instance (GHC.Show.Show tx, GHC.Show.Show (Hydra.Tx.IsTx.UTxOType tx)) => GHC.Show.Show (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.HTTPServer.SubmitL2TxResponse
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.HTTPServer.SubmitL2TxResponse
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.API.HTTPServer.SubmitL2TxResponse
-instance (Test.QuickCheck.Arbitrary.Arbitrary tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.IsTx.UTxOType tx), Hydra.Tx.IsTx.IsTx tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.SideLoadSnapshotRequest tx)
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.HTTPServer.TransactionSubmitted
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.HTTPServer.TransactionSubmitted
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.API.HTTPServer.TransactionSubmitted
-instance (Data.Aeson.Types.ToJSON.ToJSON tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.IsTx.UTxOType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
-instance (Data.Aeson.Types.FromJSON.FromJSON tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.IsTx.UTxOType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
-instance (Test.QuickCheck.Arbitrary.Arbitrary tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.IsTx.UTxOType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
-instance Test.QuickCheck.Arbitrary.Arbitrary tx => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
-
 module Hydra.Node.Util
 readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 readFileTextEnvelopeThrow :: HasTextEnvelope a => FilePath -> IO a
@@ -3633,7 +3663,7 @@ BlockfrostOptions :: FilePath -> Int -> Int -> BlockfrostOptions
 [$sel:queryTimeout:BlockfrostOptions] :: BlockfrostOptions -> Int
 [$sel:retryTimeout:BlockfrostOptions] :: BlockfrostOptions -> Int
 data CardanoChainConfig
-CardanoChainConfig :: [TxId] -> FilePath -> [FilePath] -> Maybe ChainPoint -> ContestationPeriod -> DepositPeriod -> ChainBackendOptions -> CardanoChainConfig
+CardanoChainConfig :: [TxId] -> FilePath -> [FilePath] -> Maybe ChainPoint -> ContestationPeriod -> DepositPeriod -> UnsyncedPeriod -> ChainBackendOptions -> CardanoChainConfig
 
 -- | Identifier of transaction holding the hydra scripts to use.
 [$sel:hydraScriptsTxId:CardanoChainConfig] :: CardanoChainConfig -> [TxId]
@@ -3648,6 +3678,11 @@ CardanoChainConfig :: [TxId] -> FilePath -> [FilePath] -> Maybe ChainPoint -> Co
 [$sel:startChainFrom:CardanoChainConfig] :: CardanoChainConfig -> Maybe ChainPoint
 [$sel:contestationPeriod:CardanoChainConfig] :: CardanoChainConfig -> ContestationPeriod
 [$sel:depositPeriod:CardanoChainConfig] :: CardanoChainConfig -> DepositPeriod
+
+-- | Period of time after which we consider the node becoming unsynced with
+--   the chain. Defaults to half of the contestation period if not
+--   specified via CLI.
+[$sel:unsyncedPeriod:CardanoChainConfig] :: CardanoChainConfig -> UnsyncedPeriod
 [$sel:chainBackendOptions:CardanoChainConfig] :: CardanoChainConfig -> ChainBackendOptions
 data DirectOptions
 DirectOptions :: NetworkId -> SocketPath -> DirectOptions
@@ -3793,6 +3828,10 @@ blockfrostProjectPathParser :: Parser FilePath
 blockfrostQueryTimeoutParser :: Parser Int
 blockfrostRetryTimeoutParser :: Parser Int
 cardanoLedgerProtocolParametersParser :: Parser FilePath
+
+-- | Default unsynced period, computed as half of the default contestation
+--   period.
+defaultUnsyncedPeriod :: UnsyncedPeriod
 offlineHeadSeedParser :: Parser HeadSeed
 initialUTxOFileParser :: Parser FilePath
 ledgerGenesisFileParser :: Parser (Maybe FilePath)
@@ -3803,6 +3842,7 @@ cardanoVerificationKeyFileParser :: Parser FilePath
 startChainFromParser :: Parser ChainPoint
 contestationPeriodParser :: Parser ContestationPeriod
 depositPeriodParser :: Parser DepositPeriod
+unsyncedPeriodParser :: Parser UnsyncedPeriod
 defaultApiTransactionTimeout :: ApiTransactionTimeout
 hydraNodeCommand :: ParserInfo Command
 
@@ -3900,8 +3940,8 @@ withOfflineChain :: OfflineChainConfig -> Party -> [Party] -> ChainStateHistory 
 -- | Continuously produces offline chain ticks according to wall-clock
 --   time. Each tick is aligned with the expected slot time, ensuring the
 --   node state stays synchronized with the offline chain. This prevents
---   the node from violating the <a>unsyncedPolicy</a> which guarantees
---   that client and network inputs are always processed safely.
+--   the node from violating the configured unsynced period which
+--   guarantees that client and network inputs are always processed safely.
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 instance GHC.Show.Show Hydra.Chain.Offline.InitialUTxOParseException
 instance GHC.Exception.Type.Exception Hydra.Chain.Offline.InitialUTxOParseException
