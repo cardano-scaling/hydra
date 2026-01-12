@@ -104,7 +104,7 @@ initEnvironment options = do
   -- In offline mode, there's no real chain to sync with, so we use a very large
   -- unsynced period to effectively disable the unsynced check.
   unsyncedPeriod = case chainConfig of
-    Offline{} -> UnsyncedPeriod (365 * 24 * 60 * 60) -- 1 year
+    Offline{} -> UnsyncedPeriod (fromIntegral (maxBound :: Int))
     Cardano CardanoChainConfig{unsyncedPeriod = up} -> up
 
   loadParty p =
