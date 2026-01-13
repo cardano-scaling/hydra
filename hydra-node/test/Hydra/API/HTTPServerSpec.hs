@@ -666,6 +666,7 @@ apiServerSpec = do
 
       it "gives information on when the Head was initialized" $
         withTempDir "http-server-spec" $ \tmpDir -> do
+          -- FIXME: this can't be correct anymore
           let stateLines =
                 [ "{\"eventId\":163,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
                 , "{\"eventId\":164,\"stateChanged\":{\"chainSlot\":235,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T09:33:02.30814188Z\"}"

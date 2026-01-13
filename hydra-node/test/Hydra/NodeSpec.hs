@@ -10,9 +10,9 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (ChainPoint (..), SigningKey)
+import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), TTL)
@@ -44,7 +44,6 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
-import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (
   alice,
@@ -59,8 +58,6 @@ import Test.Hydra.Tx.Fixture (
   testHeadSeed,
  )
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
-import Test.QuickCheck.Gen (generate)
-import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
@@ -76,7 +73,7 @@ spec = parallel $ do
         IO ()
       setupHydrate action =
         showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{point = ChainPointAtGenesis}
+          let testHydrate = hydrate tracer testEnvironment simpleLedger 0
           action testHydrate
 
   describe "hydrate" $ do
@@ -342,15 +339,11 @@ spec = parallel $ do
 -- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
 -- to advance the chain slot and ensure the 'NodeState' is in sync. This is
 -- returning the node to allow for chaining with 'runToCompletion'.
-primeWith :: (MonadSTM m, MonadTime m, MonadIO m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWith :: (MonadSTM m, MonadTime m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
   now <- getCurrentTime
-  nodeState <- atomically queryNodeState
-  let ChainSlot chainSlot = currentSlot nodeState
-  blockHash <- liftIO $ generate (hedgehog genBlockHeaderHash)
-  let point = ChainPoint (fromIntegral (chainSlot + 1)) blockHash
-  let lastKnown = SimpleChainState point
-  let tick = ChainInput $ Tick now lastKnown
+  chainSlot <- currentSlot <$> atomically queryNodeState
+  let tick = ChainInput $ Tick now (SimpleChainState $ chainSlot + 1)
   forM_ (tick : inputs) enqueue
   pure node
 
@@ -442,7 +435,7 @@ observationInput observedTx =
     { chainEvent =
         Observation
           { observedTx
-          , newChainState = SimpleChainState{point = ChainPointAtGenesis}
+          , newChainState = 0
           }
     }
 
@@ -469,7 +462,7 @@ testHydraNode ::
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   let eventStore :: Monad m => EventStore (StateEvent SimpleTx) m
       eventStore = mockEventStore []
-  hydrate tracer env simpleLedger SimpleChainState{point = ChainPointAtGenesis} eventStore []
+  hydrate tracer env simpleLedger 0 eventStore []
     >>= notConnect
     >>= primeWith inputs
  where

@@ -161,8 +161,10 @@ instance IsChainState Tx where
 
   type ChainStateType Tx = ChainStateAt
 
-  chainStateSlot ChainStateAt{recordedAt} =
-    maybe (ChainSlot 0) chainSlotFromPoint recordedAt
+  chainStatePoint ChainStateAt{recordedAt} =
+    fromMaybe ChainPointAtGenesis recordedAt
+
+  chainPointSlot = chainSlotFromPoint
 
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.
