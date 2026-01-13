@@ -466,12 +466,22 @@ instance Arbitrary HeadParameters where
     dedupParties HeadParameters{contestationPeriod, parties} =
       HeadParameters{contestationPeriod, parties = nub parties}
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
-  arbitrary = genericArbitrary
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
+  arbitrary = do
+    headId <- arbitrary
+    version <- arbitrary
+    number <- arbitrary
+    confirmed <- arbitrary
+    utxo <- arbitrary
+    utxoToCommit <- arbitrary
+    utxoToDecommit <- arbitrary
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit, accumulator} =
-    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
+    [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
+       in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
     , utxoToCommit' <- shrink utxoToCommit
@@ -518,9 +528,9 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let utxoHash = hashUTxO utxo
-    let accumulator = Accumulator.build [utxoHash, hashUTxO (fromMaybe mempty utxoToCommit), hashUTxO (fromMaybe mempty utxoToDecommit)]
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit, accumulator}
+    let u = utxo `withoutUTxO` fromMaybe mempty utxoToCommit
+    let accumulator = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
+        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, accumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 
