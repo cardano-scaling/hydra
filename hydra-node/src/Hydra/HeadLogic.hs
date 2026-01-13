@@ -90,7 +90,6 @@ import Hydra.Tx (
   withoutUTxO,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (
   Signature,
   Verified (..),

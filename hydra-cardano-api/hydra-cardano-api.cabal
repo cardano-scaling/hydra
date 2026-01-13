@@ -75,7 +75,6 @@ library
     , base                    >=4.14
     , bytestring
     , cardano-api             ^>=10.20
-    , cardano-api:gen
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra

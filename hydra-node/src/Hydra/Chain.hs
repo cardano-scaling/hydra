@@ -39,7 +39,6 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
-import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | Hardcoded limit for commit tx on mainnet
