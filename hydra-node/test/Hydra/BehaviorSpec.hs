@@ -30,7 +30,7 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
@@ -1127,8 +1127,8 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- getLatest localChainState
-      -- XXX: This chain state (its slot) does not correspond to 'now'
-      pure $ Tick now cs
+      -- XXX: This chain state (its point) does not correspond to 'now'
+      pure $ Tick now (chainStatePoint cs)
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history localChainState tx = do
