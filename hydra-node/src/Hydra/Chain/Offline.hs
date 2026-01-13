@@ -21,7 +21,7 @@ import Hydra.Chain (
   chainTime,
   initHistory,
  )
-import Hydra.Chain.Direct.State (ChainStateAt (..), initialChainState)
+import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
@@ -202,15 +202,10 @@ tickForever genesis callback = do
     threadDelay $ realToFrac sleepDelay
     blockHash <- generate (hedgehog genBlockHeaderHash)
     let point = ChainPoint upcomingSlot blockHash
-        lastKnown =
-          ChainStateAt
-            { spendableUTxO = mempty
-            , recordedAt = Just point
-            }
     callback $
       Tick
         { chainTime = timeToSleepUntil
-        , chainState = lastKnown
+        , chainPoint = point
         }
   systemStart = SystemStart protocolParamSystemStart
 

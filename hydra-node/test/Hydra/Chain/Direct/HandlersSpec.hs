@@ -25,7 +25,7 @@ import Test.QuickCheck.Hedgehog (hedgehog)
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
-import Hydra.Chain.ChainState (chainStatePoint, chainStateSlot)
+import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
@@ -61,7 +61,6 @@ import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
-  conjoin,
   counterexample,
   elements,
   label,
@@ -112,16 +111,7 @@ spec = do
             either (failure . ("Time conversion failed: " <>) . toString) pure $
               slotToUTCTime timeHandle slot
         let (BlockHeader _ blockHash _) = header
-            chainPoint = ChainPoint slot blockHash
-        void . stop $
-          case events of
-            [Tick time cs] ->
-              conjoin
-                [ time === expectedUTCTime
-                , chainStatePoint cs === chainPoint
-                ]
-            _ ->
-              counterexample ("Unexpected events: " <> show events) False
+        void . stop $ events === [Tick expectedUTCTime (ChainPoint slot blockHash)]
 
     prop "roll forward fails with outdated TimeHandle" $
       monadicIO $ do
