@@ -16,6 +16,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
+import Data.List.NonEmpty qualified as NE
 import Hydra.Cardano.Api (
   Address,
   AddressInEra,
@@ -236,6 +237,11 @@ data ChainStateHistory tx = UnsafeChainStateHistory
   }
   deriving stock (Generic)
 
+-- | Number of chain points to retain for intersection.
+-- It matches the Cardano’s security parameter (k).
+historyDepth :: Int
+historyDepth = 2160
+
 -- Fetches the last updated chain state from history.
 -- Note: it could be behind the 'lastKnown'.
 currentState :: ChainStateHistory tx -> ChainStateType tx
@@ -243,7 +249,7 @@ currentState UnsafeChainStateHistory{history} = head history
 
 -- Tracks the last updated chain state that modify history (e.g., tx observations)
 pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history, lastKnown = cs}
+pushNewState cs h@UnsafeChainStateHistory{history} = h{history = fromList $ NE.take historyDepth (cs <| history), lastKnown = cs}
 
 -- Tracks the last updated chain state that do not modify history (e.g., ticks)
 trackLatestKnown :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
