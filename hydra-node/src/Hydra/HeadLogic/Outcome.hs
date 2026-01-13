@@ -93,7 +93,7 @@ data StateChanged tx
       , newLocalTxs :: [tx]
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
-  | PartySignedSnapshot {party :: Party, signature :: Signature (Snapshot tx)}
+  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
   | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
   | DepositRecorded
       { chainState :: ChainStateType tx
