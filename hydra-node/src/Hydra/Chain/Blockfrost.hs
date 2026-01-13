@@ -123,16 +123,15 @@ withBlockfrostChain ::
   ChainComponent Tx IO a
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
-  let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newLabelledTQueueIO "blockfrost-chain-queue"
-  -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
-    (max <$> startChainFrom <*> persistedPoint)
-      <|> persistedPoint
-      <|> startChainFrom
-  let startingPoints = chainPoint :| []
+  let persistedPoints = chainStatePoint <$> history chainStateHistory
+  -- Select a prefix chain from which to start synchronizing
+  let prefix = case startChainFrom of
+        -- Only use start chain from if its more recent than persisted points.
+        Just sc | sc > last persistedPoints -> sc :| []
+        _ -> persistedPoints
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   let chainHandle =
         mkChain
           tracer
@@ -148,7 +147,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
       ( "blockfrost-chain-connection"
       , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
-          blockfrostChain tracer queue prj startingPoints handler wallet
+          blockfrostChain tracer queue prj prefix handler wallet
       )
       ("blockfrost-chain-handle", action chainHandle)
   case res of
@@ -190,10 +189,10 @@ blockfrostChain ::
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChain tracer queue prj startingPoints handler wallet = do
+blockfrostChain tracer queue prj prefix handler wallet = do
   forever $
     raceLabelled_
-      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj startingPoints handler wallet)
+      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj prefix handler wallet)
       ("blockfrost-submission", blockfrostSubmissionClient prj tracer queue)
 
 blockfrostChainFollow ::
@@ -205,13 +204,14 @@ blockfrostChainFollow ::
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChainFollow tracer prj startingPoints handler wallet = do
+blockfrostChainFollow tracer prj prefix handler wallet = do
   Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
     Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-  blockHash <- case head startingPoints of
+  -- FIXME: should start at 'last' and try older and older points
+  blockHash <- case head prefix of
     ChainPointAtGenesis -> do
       result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
       case result of

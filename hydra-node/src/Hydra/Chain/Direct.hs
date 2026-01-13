@@ -45,7 +45,6 @@ import Hydra.Chain (
   ChainComponent,
   ChainStateHistory (..),
   PostTxError (..),
-  currentState,
  )
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient qualified as CardanoClient
@@ -59,14 +58,9 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
-  ChainStateAt (..),
- )
+import Hydra.Chain.Direct.State (ChainContext (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Wallet (
-  TinyWallet (..),
- )
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
@@ -141,25 +135,15 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
-  let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newLabelledTQueueIO "direct-chain-queue"
-  -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
-    (max <$> startChainFrom <*> persistedPoint)
-      <|> persistedPoint
-      <|> startChainFrom
-  -- Select all chain points from which to find intersection during synchronization
-  let historyPoints = fmap chainStatePoint (history chainStateHistory)
-      -- Identify the set of candidate intersection points.
-      startingPoints =
-        if chainPoint == head historyPoints
-          then historyPoints
-          -- XXX: if 'chainPoint' is far in future compared to historyPoints,
-          -- and the chain backend experienced a re-org in between,
-          -- then we expect to find intersection at one of the 'historyPoints'.
-          else chainPoint :| toList historyPoints
+  let persistedPoints = chainStatePoint <$> history chainStateHistory
+  -- Select a prefix chain from which to start synchronizing
+  let prefix = case startChainFrom of
+        -- Only use start chain from if its more recent than persisted points.
+        Just sc | sc > last persistedPoints -> sc :| []
+        _ -> persistedPoints
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
         mkChain
           tracer
@@ -176,7 +160,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , handle onIOException $ do
           connectToLocalNode
             (connectInfo networkId nodeSocket)
-            (clientProtocols startingPoints queue handler)
+            (clientProtocols prefix queue handler)
       )
       ("direct-chain-chain-handle", action chainHandle)
   case res of
@@ -196,9 +180,9 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , localNodeSocketPath = nodeSocket'
       }
 
-  clientProtocols startingPoints queue handler =
+  clientProtocols prefix queue handler =
     LocalNodeClientProtocols
-      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet startingPoints
+      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet prefix
       , localTxSubmissionClient = Just $ txSubmissionClient tracer queue
       , localStateQueryClient = Nothing
       , localTxMonitoringClient = Nothing
@@ -283,13 +267,13 @@ chainSyncClient ::
   TinyWallet m ->
   NonEmpty ChainPoint ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient handler wallet startingPoints =
+chainSyncClient handler wallet prefix =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect
-        (toList startingPoints)
+        (toList prefix)
         ( clientStIntersect
-            (\_ -> throwIO (IntersectionNotFound startingPoints))
+            (\_ -> throwIO (IntersectionNotFound prefix))
         )
  where
   clientStIntersect ::
