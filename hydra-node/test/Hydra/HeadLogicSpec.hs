@@ -182,7 +182,7 @@ spec =
               -- open state with pending deposits from another head
               party = [alice]
               openState = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1), (2, deposit2)]}
-          let input = ChainInput $ Tick{chainTime = depositTime 3, chainState = 3}
+          let input = ChainInput $ Tick{chainTime = depositTime 3, chainPoint = 3}
 
           let outcome = update aliceEnv ledger now openState input
 
@@ -224,7 +224,7 @@ spec =
           -- XXX: chainTime should be > created + depositPeriod && < deadline - depositPeriod
           -- so deposits are considered Active
           let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
-          let input = ChainInput $ Tick{chainTime, chainState = 4}
+          let input = ChainInput $ Tick{chainTime, chainPoint = 4}
 
           let outcome = update aliceEnv ledger now nodeState input
 
@@ -734,8 +734,7 @@ spec =
 
           let oneSecondsPastDeadline = addUTCTime 1 contestationDeadline
               someChainPoint = arbitrary `generateWith` 42
-          let lastKnown = SimpleChainState someChainPoint
-          let stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline lastKnown
+          let stepTimePastDeadline = ChainInput $ Tick oneSecondsPastDeadline someChainPoint
 
           outcome2 <- step stepTimePastDeadline
           lift $
@@ -808,7 +807,7 @@ spec =
               now <- run getCurrentTime
               nodeInSync <- run $ do
                 runHeadLogic bobEnv ledger stillCatchingUp $ do
-                  step $ ChainInput Tick{chainTime = now, chainState = 10}
+                  step $ ChainInput Tick{chainTime = now, chainPoint = 10}
                   getState
 
               assert $ case nodeInSync of
@@ -820,7 +819,7 @@ spec =
                     -- make chain time too old: beyond unsynced threshold
                     oldChainTime = addUTCTime (negate (delta + 1)) now
                 runHeadLogic bobEnv ledger nodeInSync $ do
-                  step $ ChainInput Tick{chainTime = oldChainTime, chainState = 100}
+                  step $ ChainInput Tick{chainTime = oldChainTime, chainPoint = 100}
                   getState
 
               assert $ case nodeOutOfSync of
@@ -839,7 +838,7 @@ spec =
             let oldChainTime = addUTCTime (negate $ CP.toNominalDiffTime delta) now
 
             nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
-              step $ ChainInput Tick{chainTime = oldChainTime, chainState = 1}
+              step $ ChainInput Tick{chainTime = oldChainTime, chainPoint = 1}
               getState
 
             assert $ case nodeAfter of
@@ -857,7 +856,7 @@ spec =
             let nextTime = addUTCTime normalBlockInterval now
 
             nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
-              step $ ChainInput Tick{chainTime = nextTime, chainState = 1}
+              step $ ChainInput Tick{chainTime = nextTime, chainPoint = 1}
               getState
 
             assert $ case nodeAfter of
@@ -1171,12 +1170,7 @@ spec =
         -- so deposits are considered Active
         let chainTime = depositTime 4 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
         blockHash' <- pick (hedgehog genBlockHeaderHash)
-        let lastKnown =
-              ChainStateAt
-                { spendableUTxO = mempty
-                , recordedAt = Just (ChainPoint 4 blockHash')
-                }
-        let input = ChainInput $ Tick{chainTime, chainState = lastKnown}
+        let input = ChainInput $ Tick{chainTime, chainPoint = ChainPoint 4 blockHash'}
 
         let outcome = update aliceEnv ledger now nodeState input
 

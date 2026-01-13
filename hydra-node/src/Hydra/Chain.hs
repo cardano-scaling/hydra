@@ -354,16 +354,18 @@ data ChainEvent tx
       { chainTime :: UTCTime
       , rolledBackChainState :: ChainStateType tx
       }
-  | -- | Indicate time has advanced on the chain.
+  | -- | Indicate time has advanced on the chain. This is deliberately not a
+    -- ChainStateType because state updates are only expected upon 'Observation'
+    -- or'Rollback'.
     --
-    -- NOTE: While the type does not guarantee that the UTCTime and ChainSlot
-    -- are consistent the alternative would be provide the means to do the
-    -- conversion. For Cardano, this would be a systemStart and eraHistory..
-    -- which is annoying and if it's kept in the chain layer, it would mean
-    -- another round trip / state to keep there.
+    -- NOTE: While the type does not guarantee that the UTCTime and the slot in
+    -- ChainPointType tx are consistent the alternative would be provide the
+    -- means to do the conversion. For Cardano, this would be a systemStart and
+    -- eraHistory.. which is annoying and if it's kept in the chain layer, it
+    -- would mean another round trip / state to keep there.
     Tick
       { chainTime :: UTCTime
-      , chainState :: ChainStateType tx
+      , chainPoint :: ChainPointType tx
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
@@ -374,7 +376,14 @@ deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (ChainEvent tx) where
+instance
+  ( ArbitraryIsTx tx
+  , Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  , IsChainState tx
+  ) =>
+  Arbitrary (ChainEvent tx)
+  where
   arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
