@@ -108,7 +108,7 @@ jobs:
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
           --output-directory=benchmarks \
-          --scaling-factor="$scaling_factor" \
+          --number-of-txs="$scaling_factor" \
           --timeout=1200s \
           --testnet-magic 42 \
           --node-socket=demo/devnet/node.socket \
