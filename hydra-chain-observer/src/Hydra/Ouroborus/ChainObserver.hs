@@ -83,9 +83,9 @@ clientProtocols ::
   NonEmpty ChainPoint ->
   ObserverHandler IO ->
   LocalNodeClientProtocols BlockType ChainPoint ChainTip slot tx txid txerr query IO
-clientProtocols tracer networkId startingPoints observerHandler =
+clientProtocols tracer networkId prefix observerHandler =
   LocalNodeClientProtocols
-    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId startingPoints observerHandler
+    { localChainSyncClient = LocalChainSyncClient $ chainSyncClient tracer networkId prefix observerHandler
     , localTxSubmissionClient = Nothing
     , localStateQueryClient = Nothing
     , localTxMonitoringClient = Nothing
@@ -111,10 +111,10 @@ chainSyncClient ::
   NonEmpty ChainPoint ->
   ObserverHandler m ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient tracer networkId startingPoints observerHandler =
+chainSyncClient tracer networkId prefix observerHandler =
   ChainSyncClient $
     pure $
-      SendMsgFindIntersect (toList startingPoints) clientStIntersect
+      SendMsgFindIntersect (toList prefix) clientStIntersect
  where
   clientStIntersect :: ClientStIntersect BlockType ChainPoint ChainTip m ()
   clientStIntersect =
@@ -122,7 +122,7 @@ chainSyncClient tracer networkId startingPoints observerHandler =
       { recvMsgIntersectFound = \_ _ ->
           ChainSyncClient (pure $ clientStIdle mempty)
       , recvMsgIntersectNotFound = \_ ->
-          ChainSyncClient $ throwIO (IntersectionNotFound startingPoints)
+          ChainSyncClient $ throwIO (IntersectionNotFound prefix)
       }
 
   clientStIdle :: UTxO -> ClientStIdle BlockType ChainPoint ChainTip m ()
