@@ -939,7 +939,7 @@ components:
         - env
         - networkInfo
         - chainSyncedStatus
-        - atChainPoint
+        - currentSlot
       properties:
         tag:
           type: string
@@ -962,8 +962,8 @@ components:
           $ref: "api.yaml#/components/schemas/NetworkInfo"
         chainSyncedStatus:
           $ref: "api.yaml#/components/schemas/SyncedStatus"
-        atChainPoint:
-          $ref: "api.yaml#/components/schemas/ChainPoint"
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
 
     # Client inputs
 
@@ -3713,36 +3713,3 @@ components:
             tag:
               type: string
               enum: ["Expired"]
-
-    ChainPoint:
-      oneOf:
-        - title: ChainPointAtGenesis
-          description: |
-            Special chain point representing the beginning of the chain, before any blocks have been produced.
-          additionalProperties: false
-          type: object
-          required:
-            - tag
-          properties:
-            tag:
-              type: string
-              enum: ["ChainPointAtGenesis"]
-        - title: ChainPoint
-          description: |
-            Concrete chain point referencing a block on-chain by its slot number and header hash.
-          additionalProperties: false
-          type: object
-          required:
-            - tag
-            - slot
-            - blockHash
-          properties:
-            tag:
-              type: string
-              enum: ["ChainPoint"]
-            slot:
-              type: integer
-              minimum: 0
-            blockHash:
-              type: string
-              contentEncoding: base16

@@ -25,7 +25,7 @@ changes.
 
 - **BREAKING** Resume node from the latest observed tick.
   - `TickObserved` event schema has changed: the `chainSlot` field has been replaced with `chainState`
-  - `Greetings` message now also contains a new field `atChainPoint` that represents the last known chain point observed by the chain backend.
+  - `Greetings` message now also contains a new field `currentSlot` that indicates the last known slot while catching up.
   - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407)
 
 ## [1.2.0] - 2025.11.28

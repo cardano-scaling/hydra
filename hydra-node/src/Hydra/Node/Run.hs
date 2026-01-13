@@ -104,7 +104,7 @@ run opts = do
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
           -- API
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
-          withAPIServer apiServerConfig env stateFile party eventSource (contramap APIServer tracer) (chainStateHistory wetHydraNode) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+          withAPIServer apiServerConfig env stateFile party eventSource (contramap APIServer tracer) chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
             -- Network
             let networkConfiguration =
                   NetworkConfiguration
