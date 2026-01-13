@@ -409,7 +409,6 @@ test-suite tests
     , QuickCheck
     , quickcheck-dynamic              >=3.4     && <3.5
     , quickcheck-instances
-    , random
     , regex-tdfa
     , req
     , resourcet

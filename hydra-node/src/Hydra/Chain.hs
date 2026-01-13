@@ -230,13 +230,20 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => A
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
   -- ^ The sequence of known chain states, ordered from most recent to oldest.
+  -- These contain notable state observed on-chain to be able to interact with
+  -- Hydra heads.
+  , lastKnown :: ChainPointType tx
+  -- ^ The last known chain point, which may be used to continue observing the
+  -- chain.
   , defaultChainState :: ChainStateType tx
-  -- ^ The default chain state to fall back to when rolling back beyond known history.
+  -- ^ The default chain state to fall back to when rolling back beyond known
+  -- history.
   }
   deriving stock (Generic)
 
 -- | Number of chain points to retain for intersection.
 -- It matches the Cardano’s security parameter (k).
+-- FIXME: this is cardano-specific and we should avoid that leaking abstraction here.
 historyDepth :: Int
 historyDepth = 2160
 
@@ -244,28 +251,56 @@ historyDepth = 2160
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
-pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history} = h{history = fromList $ NE.take historyDepth (cs <| history)}
+pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history, lastKnown} =
+  h
+    { history = fromList $ NE.take historyDepth (cs <| history)
+    , lastKnown = max lastKnown (chainStatePoint cs)
+    }
 
-initHistory :: ChainStateType tx -> ChainStateHistory tx
-initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs}
+-- | Update the last known chain point. Use 'pushNewState' if you have a full 'ChainStateType tx'.
+setLastKnown :: ChainPointType tx -> ChainStateHistory tx -> ChainStateHistory tx
+setLastKnown cp h = h{lastKnown = cp}
 
-rollbackHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-rollbackHistory rollbackChainState h@UnsafeChainStateHistory{history, defaultChainState} =
-  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
+initHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx
+initHistory cs =
+  UnsafeChainStateHistory
+    { history = cs :| []
+    , lastKnown = chainStatePoint cs
+    , defaultChainState = cs
+    }
+
+rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
+rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
+  h
+    { history = rolledBack
+    , lastKnown = chainStatePoint (head rolledBack)
+    }
  where
-  rollbackChainSlot = chainStateSlot rollbackChainState
-
   rolledBack =
-    dropWhile
-      (\cs -> chainStateSlot cs > rollbackChainSlot)
-      (toList history)
+    fromMaybe (defaultChainState :| []) . nonEmpty $
+      NE.dropWhile
+        (\cs -> chainStateSlot cs > rollbackChainSlot)
+        history
 
-deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
+deriving stock instance
+  ( Eq (ChainPointType tx)
+  , Eq (ChainStateType tx)
+  ) =>
+  Eq (ChainStateHistory tx)
 
-deriving stock instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
+deriving stock instance
+  ( Show (ChainPointType tx)
+  , Show (ChainStateType tx)
+  ) =>
+  Show (ChainStateHistory tx)
 
-instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
+instance
+  ( Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  ) =>
+  Arbitrary (ChainStateHistory tx)
+  where
   arbitrary = genericArbitrary
 
 -- | Handle to interface with the main chain network

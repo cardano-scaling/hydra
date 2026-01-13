@@ -45,6 +45,7 @@ import Hydra.Chain (
   rollbackHistory,
  )
 import Hydra.Chain.ChainState (
+  ChainSlot,
   ChainStateType,
   IsChainState,
  )
@@ -52,6 +53,7 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
   abort,
+  chainSlotFromPoint,
   close,
   collect,
   commit',
@@ -103,7 +105,7 @@ import System.IO.Error (userError)
 data LocalChainState m tx = LocalChainState
   { getLatest :: STM m (ChainStateType tx)
   , pushNew :: ChainStateType tx -> STM m ()
-  , rollback :: ChainStateType tx -> STM m (ChainStateType tx)
+  , rollback :: ChainSlot -> STM m (ChainStateType tx)
   , history :: STM m (ChainStateHistory tx)
   }
 
@@ -130,11 +132,11 @@ newLocalChainState chainState = do
   pushNew tv cs =
     modifyTVar tv (pushNewState cs)
 
-  rollback :: TVar m (ChainStateHistory tx) -> ChainStateType tx -> STM m (ChainStateType tx)
-  rollback tv cs = do
+  rollback :: TVar m (ChainStateHistory tx) -> ChainSlot -> STM m (ChainStateType tx)
+  rollback tv chainSlot = do
     rolledBack <-
       readTVar tv
-        <&> rollbackHistory cs
+        <&> rollbackHistory chainSlot
     writeTVar tv rolledBack
     pure (currentState rolledBack)
 
@@ -330,13 +332,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
       Left reason ->
         throwIO TimeConversionException{slotNo, reason}
       Right utcTime -> do
-        ChainStateAt{spendableUTxO} <- atomically getLatest
-        let lastKnown =
-              ChainStateAt
-                { spendableUTxO
-                , recordedAt = Just point
-                }
-        rolledBackChainState <- atomically $ rollback lastKnown
+        rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
         callback Rollback{rolledBackChainState, chainTime = utcTime}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
