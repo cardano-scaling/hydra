@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench, benchDemo)
-import Bench.Options (Options (..), benchOptionsParser)
+import Bench.Options (BenchType (..), Options (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -23,20 +23,15 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId} -> do
+    StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId, benchType} -> do
       (_, faucetSk) <- keysFor Faucet
       -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
       putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
       dataset <- generate $ do
         numberOfTxs <- scale (* scalingFactor) getSize
-        -- FIXME: make this configurable
-        -- generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-        generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-      -- XXX: Using the --output-directory for both dataset storage and as a
-      -- state directory for the cluster is weird. However, the 'scenario'
-      -- contains the writing of the 'results.csv' file right now and we can't
-      -- use a temporary directory if we want to keep the 'results.csv' for
-      -- plotting after benchmarking.
+        case benchType of
+          Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+          Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
       workDir <- maybe (createTempDir "bench-single") checkEmpty outputDirectory
       saveDataset (workDir </> "dataset.json") dataset
       let action = bench startingNodeId timeoutSeconds

@@ -29,6 +29,8 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
+data BenchType = Constant | Growing deriving (Eq, Show, Read)
+
 data Options
   = StandaloneOptions
       { scalingFactor :: Int
@@ -36,6 +38,7 @@ data Options
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
+      , benchType :: BenchType
       }
   | DatasetOptions
       { datasetFiles :: [FilePath]
@@ -88,6 +91,7 @@ standaloneOptionsParser =
     <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
+    <*> benchTypeParser
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
@@ -144,6 +148,20 @@ startingNodeIdParser =
           \ id controls TCP ports allocation for various servers run by the nodes, \
           \ it's useful to change if local processes on the machine running the \
           \ benchmark conflicts with default ports allocation scheme (default: 0)"
+    )
+
+benchTypeParser :: Parser BenchType
+benchTypeParser =
+  option
+    auto
+    ( long "bench-type"
+        <> value Constant
+        <> metavar "BenchType"
+        <> help
+          "Benchmark type. This can be 'Constant' or 'Growing' regarding the produced UTxO set. \
+          \ In constant benchmarks we are just re-spending some UTxO while in the growing one\
+          \ we produce more UTxO outputs on each transaction trying to observe the current limits\
+          \ and behavior of hydra-node in terms of mem/cpu."
     )
 
 demoOptionsInfo :: ParserInfo Options
