@@ -109,7 +109,7 @@ instance IsTx SimpleTx where
 newtype SimpleChainState = SimpleChainState {point :: ChainPoint}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-  deriving newtype (Arbitrary)
+  deriving newtype (Arbitrary, Num)
 
 instance IsChainState SimpleTx where
   type ChainStateType SimpleTx = SimpleChainState

@@ -42,7 +42,6 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (HeadStatus (..))
 import Hydra.Cardano.Api (
-  ChainPoint,
   Coin (..),
   Era,
   File (File),
@@ -107,7 +106,7 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Direct.State (chainSlotFromPoint)
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -303,29 +302,25 @@ resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
     chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
       <&> setNetworkId networkId
 
-  chainPoint :: ChainPoint <-
+  chainSlot :: ChainSlot <-
     withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-      point <- waitMatch 20 n1 $ \v -> do
+      chainSlot <- waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
-        point <- v ^? key "atChainPoint"
-        parseMaybe parseJSON point
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
 
       -- wait for some ticks to be observed
       threadDelay 1
-      pure point
+      pure chainSlot
 
-  let chainSlot = chainSlotFromPoint chainPoint
-
-  chainPoint' :: ChainPoint <-
+  chainSlot' <-
     withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
-        point <- v ^? key "atChainPoint"
-        parseMaybe parseJSON point
-
-  let chainSlot' = chainSlotFromPoint chainPoint'
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
 
   chainSlot `shouldSatisfy` (< chainSlot')
  where
