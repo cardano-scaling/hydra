@@ -33,7 +33,7 @@ data BenchType = Constant | Growing deriving (Eq, Show, Read)
 
 data Options
   = StandaloneOptions
-      { scalingFactor :: Int
+      { numberOfTxs :: Int
       , clusterSize :: Word64
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
@@ -48,7 +48,7 @@ data Options
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
-      , scalingFactor :: Int
+      , numberOfTxs :: Int
       , timeoutSeconds :: NominalDiffTime
       , networkId :: NetworkId
       , nodeSocket :: SocketPath
@@ -86,7 +86,7 @@ standaloneOptionsInfo =
 standaloneOptionsParser :: Parser Options
 standaloneOptionsParser =
   StandaloneOptions
-    <$> scalingFactorParser
+    <$> numberOfTxsParser
     <*> clusterSizeParser
     <*> optional outputDirectoryParser
     <*> timeoutParser
@@ -103,14 +103,14 @@ outputDirectoryParser =
           \ If not set, raw text summary will be printed to the console. (default: none)"
     )
 
-scalingFactorParser :: Parser Int
-scalingFactorParser =
+numberOfTxsParser :: Parser Int
+numberOfTxsParser =
   option
     auto
-    ( long "scaling-factor"
+    ( long "number-of-txs"
         <> value 100
         <> metavar "INT"
-        <> help "The scaling factor to apply to transactions generator (default: 100)"
+        <> help "Number of txs to generate (default: 100)"
     )
 
 timeoutParser :: Parser NominalDiffTime
@@ -179,7 +179,7 @@ demoOptionsParser :: Parser Options
 demoOptionsParser =
   DemoOptions
     <$> optional outputDirectoryParser
-    <*> scalingFactorParser
+    <*> numberOfTxsParser
     <*> timeoutParser
     <*> networkIdParser
     <*> nodeSocketParser

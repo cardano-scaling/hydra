@@ -17,18 +17,17 @@ import System.Directory (createDirectoryIfMissing, listDirectory, removeDirector
 import System.Environment (withArgs)
 import System.FilePath (takeDirectory, (</>))
 import Test.HUnit.Lang (formatFailureReason)
-import Test.QuickCheck (generate, getSize, scale)
+import Test.QuickCheck (generate)
 
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{outputDirectory, timeoutSeconds, scalingFactor, clusterSize, startingNodeId, benchType} -> do
+    StandaloneOptions{outputDirectory, timeoutSeconds, numberOfTxs, clusterSize, startingNodeId, benchType} -> do
       (_, faucetSk) <- keysFor Faucet
       -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
-      putStrLn $ "Generating dataset with scaling factor: " <> show scalingFactor
+      putStrLn $ "Generating dataset with number of txs: " <> show numberOfTxs
       dataset <- generate $ do
-        numberOfTxs <- scale (* scalingFactor) getSize
         case benchType of
           Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
           Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
@@ -37,9 +36,8 @@ main = do
       let action = bench startingNodeId timeoutSeconds
       results <- runSingle dataset workDir action
       summarizeResults outputDirectory [results]
-    DemoOptions{outputDirectory, scalingFactor, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+    DemoOptions{outputDirectory, numberOfTxs, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
       (_, faucetSk) <- keysFor Faucet
-      numberOfTxs <- generate $ scale (* scalingFactor) getSize
       dataset <- generateDemoUTxODataset networkId nodeSocket faucetSk (length hydraClients) numberOfTxs
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
