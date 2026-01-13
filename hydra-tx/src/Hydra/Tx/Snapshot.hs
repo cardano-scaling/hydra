@@ -15,7 +15,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
 import PlutusLedgerApi.V3 (toBuiltin, toData)

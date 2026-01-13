@@ -105,16 +105,6 @@ class
   -- This serializes the TxOut in the same way as the on-chain code does.
   utxoToElement :: TxOutType tx -> ByteString
 
--- * Constraint synonyms
-
-type ArbitraryIsTx tx =
-  ( IsTx tx
-  , Arbitrary tx
-  , Arbitrary (UTxOType tx)
-  , Arbitrary (TxIdType tx)
-  , Arbitrary (TxOutType tx)
-  )
-
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
