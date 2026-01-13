@@ -28,7 +28,6 @@ import Hydra.Ledger (
  )
 import Hydra.Tx (IsTx (..))
 import Test.Hydra.Tx.Gen ()
-import Hydra.Tx.Accumulator (HasAccumulatorElement (..))
 
 -- * Simple transactions
 

@@ -7,7 +7,6 @@ import Test.Hydra.Prelude
 
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 import Test.Hydra.Tx.Gen ()
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data ClientInput tx

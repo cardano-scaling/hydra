@@ -93,7 +93,7 @@ instance IsChainState tx => FromJSON (ClientMessage tx) where
         { omitNothingFields = True
         }
 
-instance (IsChainState tx, ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
+instance (IsChainState tx, Arbitrary (ChainStateType tx), ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
   arbitrary = genericArbitrary
 
 -- | A friendly welcome message which tells a client something about the
@@ -232,7 +232,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerO
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO

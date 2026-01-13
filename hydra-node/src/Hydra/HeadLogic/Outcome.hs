@@ -159,7 +159,7 @@ deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), F
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (StateChanged tx) where
   arbitrary = arbitrary >>= genStateChanged
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), HasAccumulatorElement tx, IsChainState tx) => ToADTArbitrary (StateChanged tx)
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (StateChanged tx)
 
 -- REVIEW: why are we missing Checkpoint and other events ?
 genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)

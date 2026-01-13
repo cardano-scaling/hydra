@@ -13,7 +13,6 @@ import Hydra.Tx (
   IsTx (..),
  )
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Hydra.Tx.Accumulator (HasAccumulatorElement)
 import Test.QuickCheck (recursivelyShrink)
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
