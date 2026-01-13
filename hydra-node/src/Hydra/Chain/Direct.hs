@@ -48,7 +48,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient qualified as CardanoClient
-import Hydra.Chain.ChainState (chainStatePoint)
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler,
@@ -58,7 +57,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..))
+import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
@@ -135,7 +134,9 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Last known point on chain as loaded from persistence.
-  let persistedPoints = chainStatePoint <$> history chainStateHistory
+  let persistedPoints =
+        history chainStateHistory <&> \ChainStateAt{recordedAt} ->
+          fromMaybe ChainPointAtGenesis recordedAt
   -- Select a prefix chain from which to start synchronizing
   let prefix = case startChainFrom of
         -- Only use start chain from if its more recent than persisted points.
