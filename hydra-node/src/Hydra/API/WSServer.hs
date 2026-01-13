@@ -38,8 +38,8 @@ import Hydra.API.ServerOutput (
 import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
-import Hydra.Chain (Chain (..), ChainStateHistory, currentState)
-import Hydra.Chain.ChainState (IsChainState, chainStatePoint)
+import Hydra.Chain (Chain (..))
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -64,7 +64,6 @@ wsApp ::
   Environment ->
   Party ->
   Tracer IO APIServerLog ->
-  ChainStateHistory tx ->
   Chain tx IO ->
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
@@ -76,7 +75,7 @@ wsApp ::
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chainStateHistory chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -102,7 +101,6 @@ wsApp env party tracer chainStateHistory chain history callback nodeStateP netwo
   forwardGreetingOnly config con = do
     nodeState <- atomically getLatestNodeState
     let headState = nodeState.headState
-    let chainSyncedStatus = syncedStatus nodeState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
@@ -115,8 +113,8 @@ wsApp env party tracer chainStateHistory chain history callback nodeStateP netwo
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
             , env
             , networkInfo
-            , chainSyncedStatus
-            , atChainPoint = chainStatePoint (currentState chainStateHistory)
+            , chainSyncedStatus = syncedStatus nodeState
+            , currentSlot = nodeState.currentSlot
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP
