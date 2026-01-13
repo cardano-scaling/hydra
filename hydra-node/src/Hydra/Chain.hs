@@ -241,22 +241,12 @@ data ChainStateHistory tx = UnsafeChainStateHistory
   }
   deriving stock (Generic)
 
--- | Number of chain points to retain for intersection.
--- It matches the Cardano’s security parameter (k).
--- FIXME: this is cardano-specific and we should avoid that leaking abstraction here.
-historyDepth :: Int
-historyDepth = 2160
-
 -- Fetches the last updated chain state from history.
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
-pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history, lastKnown} =
-  h
-    { history = fromList $ NE.take historyDepth (cs <| history)
-    , lastKnown = max lastKnown (chainStatePoint cs)
-    }
+pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
 
 -- | Update the last known chain point. Use 'pushNewState' if you have a full 'ChainStateType tx'.
 setLastKnown :: ChainPointType tx -> ChainStateHistory tx -> ChainStateHistory tx
