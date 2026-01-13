@@ -37,6 +37,7 @@ import Hydra.Chain (
   initHistory,
   pushNewState,
   rollbackHistory,
+  setLastKnown,
  )
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.Error (
@@ -1463,7 +1464,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainState}
+    newState TickObserved{chainPoint = chainStatePoint chainState}
       <> handleOutOfSync env now chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
@@ -1486,7 +1487,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainState})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainState}
+        newState TickObserved{chainPoint = chainStatePoint chainState}
           <> handleOutOfSync env now chainTime syncStatus
           <> onChainTick env pendingDeposits chainTime
           <> newState HeadIsReadyToFanout{headId}
@@ -1505,7 +1506,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
     newState ChainRolledBack{chainState = rolledBackChainState}
       <> handleOutOfSync env now chainTime syncStatus
   (_, ChainInput Tick{chainTime, chainState}) ->
-    newState TickObserved{chainState}
+    newState TickObserved{chainPoint = chainStatePoint chainState}
       <> handleOutOfSync env now chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
@@ -1647,8 +1648,8 @@ aggregateNodeState nodeState sc =
                 { headState = st
                 , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                 }
-        TickObserved{chainState} ->
-          nodeState{headState = st, currentSlot = chainStateSlot chainState}
+        TickObserved{chainPoint} ->
+          nodeState{headState = st, currentSlot = chainPointSlot chainPoint}
         ChainRolledBack{chainState} ->
           nodeState{headState = st, currentSlot = chainStateSlot chainState}
         NodeUnsynced ->
@@ -1987,15 +1988,15 @@ aggregateChainStateHistory history = \case
   HeadContested{chainState} -> pushNewState chainState history
   HeadIsReadyToFanout{} -> history
   HeadFannedOut{chainState} -> pushNewState chainState history
-  ChainRolledBack{chainState} ->
-    rollbackHistory chainState history
-  TickObserved{chainState} -> pushNewState chainState history
+  ChainRolledBack{chainState} -> rollbackHistory (chainStateSlot chainState) history
+  TickObserved{chainPoint} -> setLastKnown chainPoint history
   CommitApproved{} -> history
   DecommitApproved{} -> history
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
   LocalStateCleared{} -> history
+  -- FIXME: This makes chain sync starting after rollbacks past the chain state impossible
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
   NodeUnsynced -> history
   NodeSynced -> history

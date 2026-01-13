@@ -25,7 +25,7 @@ changes.
 - Support non-encoded DELETE `/commit/:tx-id` requests [#2445](https://github.com/cardano-scaling/hydra/pull/2445)
 
 - **BREAKING** Resume node from the latest observed tick.
-  - `TickObserved` event schema has changed: the `chainSlot` field has been replaced with `chainState`
+  - `TickObserved` event schema has changed: the `chainSlot` field has been replaced with `chainPoint`
   - `Greetings` message now also contains a new field `currentSlot` that indicates the last known slot while catching up.
   - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407)
 
