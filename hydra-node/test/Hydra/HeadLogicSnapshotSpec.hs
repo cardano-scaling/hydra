@@ -15,7 +15,6 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Tx.Accumulator (HasAccumulatorElement, getAccumulatorHash, makeHeadAccumulator)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
