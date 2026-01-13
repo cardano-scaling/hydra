@@ -17,7 +17,6 @@ import Hydra.Tx.Accumulator (
   buildFromUTxO,
   createMembershipProof,
   createMembershipProofFromUTxO,
-  defaultCRS,
   generateCRS,
   getAccumulatorHash,
   unHydraAccumulator,
