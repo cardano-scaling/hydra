@@ -149,12 +149,13 @@ generateGrowingUTxODataset faucetSk nClients nTxs = do
     let (_, txs) = foldl' (genTx paymentKey) (initialUTxO, []) [1 .. nTxs]
     pure ClientDataset{paymentKey, initialUTxO, txSequence = reverse txs}
 
+  genTx :: SigningKey PaymentKey -> (UTxO.UTxO Era, [Tx]) -> Int -> (UTxO.UTxO Era, [Tx])
   genTx sk (utxo, txs) _tx = do
     let vk = getVerificationKey sk
     case UTxO.find (isVkTxOut vk) utxo of
       Nothing -> error "no utxo left to spend"
       Just (txIn, txOut) -> do
-        let aBitLess = txOutValue txOut <> negateValue (lovelaceToValue 1)
+        let aBitLess = txOutValue txOut <> negateValue (lovelaceToValue 2_000_000)
         case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, aBitLess) sk of
           Left err ->
             error $ "mkSimpleTx failed: " <> show err
