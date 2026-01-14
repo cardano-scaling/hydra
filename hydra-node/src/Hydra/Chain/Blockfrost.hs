@@ -122,7 +122,7 @@ withBlockfrostChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
-  -- Last known point on chain as loaded from persistence.
+  -- Known points on chain as loaded from persistence.
   let persistedPoints =
         history chainStateHistory <&> \ChainStateAt{recordedAt} ->
           fromMaybe ChainPointAtGenesis recordedAt
@@ -183,7 +183,7 @@ newtype BlockfrostConnectException = BlockfrostConnectException
 instance Exception BlockfrostConnectException
 
 blockfrostChain ::
-  (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
@@ -199,7 +199,7 @@ blockfrostChain tracer queue prj prefix handler wallet = do
 
 blockfrostChainFollow ::
   forall m.
-  (MonadIO m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   NonEmpty ChainPoint ->
@@ -212,19 +212,9 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
 
   let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-  -- FIXME: should start at 'last' and try older and older points
-  blockHash <- case head prefix of
-    ChainPointAtGenesis -> do
-      result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
-      case result of
-        Right (Right (Blockfrost.Block{_blockHash = Blockfrost.BlockHash genesisBlockHash})) -> do
-          pure $ Blockfrost.BlockHash genesisBlockHash
-        _ -> do
-          Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
-            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
-          pure $ Blockfrost.BlockHash block1Hash
-    ChainPoint _ headerHash ->
-      pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
+  -- Start from the latest point and fall back to older ones (best effort)
+  -- If none of them can be resolved, we fall back to the tip of the chain.
+  blockHash <- resolvePrefixPoints (toList prefix)
 
   stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
@@ -278,6 +268,34 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
         writeTVar stateTVar nextBlockHash
 
     pollForNewBlocks blockTime' stateTVar
+
+  resolvePrefixPoints :: [ChainPoint] -> m Blockfrost.BlockHash
+  resolvePrefixPoints = \case
+    [] -> resolveTip
+    cp : cps -> do
+      res <- try (resolveChainPoint cp)
+      case res of
+        Right bh -> pure bh
+        Left (_ :: SomeException) -> resolvePrefixPoints cps
+
+  resolveTip :: m Blockfrost.BlockHash
+  resolveTip = do
+    (ChainPoint _ headerHash) <- Blockfrost.runBlockfrostM prj Blockfrost.queryTip
+    pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
+
+  resolveChainPoint :: ChainPoint -> m Blockfrost.BlockHash
+  resolveChainPoint = \case
+    ChainPointAtGenesis -> do
+      result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
+      case result of
+        Right (Right (Blockfrost.Block{_blockHash = Blockfrost.BlockHash genesisBlockHash})) -> do
+          pure $ Blockfrost.BlockHash genesisBlockHash
+        _ -> do
+          Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
+            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
+          pure $ Blockfrost.BlockHash block1Hash
+    ChainPoint _ headerHash ->
+      pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
