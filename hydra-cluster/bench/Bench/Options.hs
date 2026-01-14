@@ -59,7 +59,7 @@ benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
   info
     ( hsubparser
-        ( command "single" standaloneOptionsInfo
+        ( command "standalone" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
             <> command "demo" demoOptionsInfo
         )
@@ -81,7 +81,7 @@ standaloneOptionsInfo :: ParserInfo Options
 standaloneOptionsInfo =
   info
     standaloneOptionsParser
-    (progDesc "Runs a single scenario, reusing a previous dataset from some directory.")
+    (progDesc "Runs a scenario reusing a previous dataset/s from some directory.")
 
 standaloneOptionsParser :: Parser Options
 standaloneOptionsParser =

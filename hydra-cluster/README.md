@@ -135,46 +135,54 @@ To run and plot results of the benchmark:
  - Generate the dataset (it also runs the generated dataset)
 
 ```sh
-cabal run bench-e2e -- dataset --number-of-txs 10 --output-directory out"
+cabal run bench-e2e -- datasets --number-of-txs 10 --output-directory out"
 ```
 
  - Run the generated dataset
 
 ```sh
-cabal run bench-e2e -- single out/dataset.json --output-directory out-single"
-./hydra-cluster/bench/plot.sh out-single
+cabal run bench-e2e -- standalone out/dataset.json --output-directory out-standalone"
+./hydra-cluster/bench/plot.sh out-standalone
 ```
 
 Which will produce an output like:
 
 ```
-Generating dataset with scaling factor: 10
-Writing dataset to: out/dataset.json
-Test logs available in: out/test.log
+Reading dataset from: out/dataset.json
+Running benchmark with datasets: ["out/dataset.json"]
+Test logs available in: out-standalone/test.log
 Starting benchmark
 Seeding network
 Fund scenario from faucet
-Fuel node key "16e61ed92346eb0b0bd1c6d8c0f924b4d1278996a61043a0a42afad193e5f3fb"
+Fuel node key "2ff597dedda6f64fb987ef6f569a97a2d5348b042b2646b28724bc4aaf8b215e"
+Fuel node key "fddb0f7c162a449805ac9ec0bfbdf5be7859816bde356935ec000a8c9a28d046"
+Fuel node key "7630df1fb7ecc842f1c14320844a032a8e1c6e5d880ac3c2449c6fa79422ef8d"
 Publishing hydra scripts
-Starting hydra cluster in out
+Starting hydra cluster in out-standalone
 Initializing Head
 Committing initialUTxO from dataset
 HeadIsOpen
-Client 1 (node 0): 0/300 (0.00%)
-Client 1 (node 0): 266/300 (88.67%)
+Client 1 (node 0): 1/10 (10.00%)
+Client 2 (node 1): 1/10 (10.00%)
+Client 3 (node 2): 1/10 (10.00%)
+All transactions confirmed. Sweet!
+All transactions confirmed. Sweet!
 All transactions confirmed. Sweet!
 Closing the Head
+Writing results to: out-standalone/results.csv
 Finalizing the Head
-Writing results to: out/results.csv
-Confirmed txs/Total expected txs: 300/300 (100.00 %)
-Average confirmation time (ms): 18.747147496
-P99: 23.100851369999994ms
-P95: 19.81722345ms
-P50: 18.532922ms
+Confirmed txs/Total expected txs: 30/30 (100.00 %)
+Average confirmation time (ms): 59.389381566
+P99: 76.50239429000001ms
+P95: 74.69033515ms
+P50: 58.844284ms
 Invalid txs: 0
-Writing report to: out/end-to-end-benchmarks.md
-         line 0: warning: Cannot find or open file "out/system.csv"
-Created plot: out/results.png
+Fanout outputs: 3
+Writing report to: out-standalone/end-to-end-benchmarks.md
+
+./hydra-cluster/bench/plot.sh out-standalone
+         line 0: warning: Cannot find or open file "out-standalone/system.csv"
+Created plot: out-standalone/results.png
 ```
 
 Note that if it's present in the environment, benchmark executable will gather basic system-level statistics about the RAM, CPU, and network bandwidth used. The `plot.sh` script then displays those alongside tx confirmation time in a single graph.
