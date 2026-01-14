@@ -29,22 +29,22 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
-data BenchType = Constant | Growing deriving (Eq, Show, Read)
+data UTxOSize = Constant | Growing deriving (Eq, Show, Read)
 
 data Options
   = StandaloneOptions
-      { numberOfTxs :: Int
-      , clusterSize :: Word64
-      , outputDirectory :: Maybe FilePath
-      , timeoutSeconds :: NominalDiffTime
-      , startingNodeId :: Int
-      , benchType :: BenchType
-      }
-  | DatasetOptions
       { datasetFiles :: [FilePath]
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
+      }
+  | DatasetOptions
+      { outputDirectory :: Maybe FilePath
+      , timeoutSeconds :: NominalDiffTime
+      , startingNodeId :: Int
+      , datasetUTxO :: UTxOSize
+      , numberOfTxs :: Int
+      , clusterSize :: Word64
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -81,17 +81,15 @@ standaloneOptionsInfo :: ParserInfo Options
 standaloneOptionsInfo =
   info
     standaloneOptionsParser
-    (progDesc "Runs a single scenario, generating or reusing a previous dataset from some directory.")
+    (progDesc "Runs a single scenario, reusing a previous dataset from some directory.")
 
 standaloneOptionsParser :: Parser Options
 standaloneOptionsParser =
   StandaloneOptions
-    <$> numberOfTxsParser
-    <*> clusterSizeParser
+    <$> many filepathParser
     <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
-    <*> benchTypeParser
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
@@ -150,18 +148,17 @@ startingNodeIdParser =
           \ benchmark conflicts with default ports allocation scheme (default: 0)"
     )
 
-benchTypeParser :: Parser BenchType
-benchTypeParser =
+utxoSizeParser :: Parser UTxOSize
+utxoSizeParser =
   option
     auto
-    ( long "bench-type"
+    ( long "utxo-size"
         <> value Constant
-        <> metavar "BenchType"
+        <> metavar "UTxOSize"
         <> help
-          "Benchmark type. This can be 'Constant' or 'Growing' regarding the produced UTxO set. \
-          \ In constant benchmarks we are just re-spending some UTxO while in the growing one\
-          \ we produce more UTxO outputs on each transaction trying to observe the current limits\
-          \ and behavior of hydra-node in terms of mem/cpu."
+          "Generated UTxO size. This can be 'Constant' where UTxO set has constant size \
+          \ depending on the number of generated txs or 'Growing' where each new generated \
+          \ transaction produces one extra output which makes the UTxO in the Head grow."
     )
 
 demoOptionsInfo :: ParserInfo Options
@@ -202,18 +199,19 @@ datasetOptionsInfo =
   info
     datasetOptionsParser
     ( progDesc
-        "Run scenarios from one or several dataset files, concatenating the \
-        \ output to single document. This is useful to produce a summary \
-        \ page describing alternative runs."
+        "Generate and run one or several dataset files, concatenating the \
+        \ output to single document."
     )
 
 datasetOptionsParser :: Parser Options
 datasetOptionsParser =
   DatasetOptions
-    <$> many filepathParser
-    <*> optional outputDirectoryParser
+    <$> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
+    <*> utxoSizeParser
+    <*> numberOfTxsParser
+    <*> clusterSizeParser
 
 filepathParser :: Parser FilePath
 filepathParser =

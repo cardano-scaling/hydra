@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench, benchDemo)
-import Bench.Options (BenchType (..), Options (..), benchOptionsParser)
+import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -23,19 +23,14 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{outputDirectory, timeoutSeconds, numberOfTxs, clusterSize, startingNodeId, benchType} -> do
-      (_, faucetSk) <- keysFor Faucet
-      -- XXX: Scaling factor is unintuitive and should rather be a number of txs directly
-      putStrLn $ "Generating dataset with number of txs: " <> show numberOfTxs
-      dataset <- generate $ do
-        case benchType of
-          Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-          Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
-      workDir <- maybe (createTempDir "bench-single") checkEmpty outputDirectory
-      saveDataset (workDir </> "dataset.json") dataset
+    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles} -> do
+      datasets <- forM datasetFiles loadDataset
+      putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
+      workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
       let action = bench startingNodeId timeoutSeconds
-      results <- runSingle dataset workDir action
-      summarizeResults outputDirectory [results]
+      results <- forM datasets $ \dataset ->
+        runSingle dataset workDir action
+      summarizeResults outputDirectory results
     DemoOptions{outputDirectory, numberOfTxs, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
       (_, faucetSk) <- keysFor Faucet
       dataset <- generateDemoUTxODataset networkId nodeSocket faucetSk (length hydraClients) numberOfTxs
@@ -45,16 +40,20 @@ main = do
           benchDemo networkId nodeSocket timeoutSeconds hydraClients
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{datasetFiles, outputDirectory, timeoutSeconds, startingNodeId} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetUTxO, numberOfTxs, clusterSize} -> do
+      (_, faucetSk) <- keysFor Faucet
+      workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
+      dataset <- generate $ case datasetUTxO of
+        Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+        Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
+      saveDataset (workDir </> "dataset.json") dataset
       let action = bench startingNodeId timeoutSeconds
-      putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
-      datasets <- forM datasetFiles loadDataset
-      results <- forM datasets $ \dataset -> do
-        withTempDir "bench-dataset" $ \dir -> do
-          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
-          threadDelay 10
-          runSingle dataset dir action
-      summarizeResults outputDirectory results
+      putTextLn $ "Running benchmark with datasets: " <> show (workDir </> "dataset.json")
+      results <- withTempDir "bench-dataset" $ \dir -> do
+        -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+        threadDelay 10
+        runSingle dataset dir action
+      summarizeResults outputDirectory [results]
  where
   checkEmpty fp = do
     createDirectoryIfMissing True fp
