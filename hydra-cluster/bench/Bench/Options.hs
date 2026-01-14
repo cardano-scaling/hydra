@@ -40,8 +40,6 @@ data Options
       }
   | DatasetOptions
       { outputDirectory :: Maybe FilePath
-      , timeoutSeconds :: NominalDiffTime
-      , startingNodeId :: Int
       , datasetUTxO :: UTxOSize
       , numberOfTxs :: Int
       , clusterSize :: Word64
@@ -60,7 +58,7 @@ benchOptionsParser =
   info
     ( hsubparser
         ( command "standalone" standaloneOptionsInfo
-            <> command "datasets" datasetOptionsInfo
+            <> command "dataset" datasetOptionsInfo
             <> command "demo" demoOptionsInfo
         )
         <**> helper
@@ -207,8 +205,6 @@ datasetOptionsParser :: Parser Options
 datasetOptionsParser =
   DatasetOptions
     <$> optional outputDirectoryParser
-    <*> timeoutParser
-    <*> startingNodeIdParser
     <*> utxoSizeParser
     <*> numberOfTxsParser
     <*> clusterSizeParser
