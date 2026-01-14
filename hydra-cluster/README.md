@@ -132,9 +132,17 @@ directory containing the benchmark's results.
 
 To run and plot results of the benchmark:
 
+ - Generate the dataset (it also runs the generated dataset)
+
 ```sh
-cabal run bench-e2e -- single --output-directory out"
-bench/plot.sh out
+cabal run bench-e2e -- dataset --number-of-txs 10 --output-directory out"
+```
+
+ - Run the generated dataset
+
+```sh
+cabal run bench-e2e -- single out/dataset.json --output-directory out-single"
+./hydra-cluster/bench/plot.sh out-single
 ```
 
 Which will produce an output like:
@@ -173,7 +181,7 @@ Note that if it's present in the environment, benchmark executable will gather b
 
 The benchmark can be run in three modes:
 
-* `single`: Generate a single _dataset_ and runs the benchmark with it.
-* `datasets`: Runs one or more pre-existing _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
+* `single`: Benchmark a single _dataset_.
+* `datasets`: Generates and runs one or more pre-existing _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
 * `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 
