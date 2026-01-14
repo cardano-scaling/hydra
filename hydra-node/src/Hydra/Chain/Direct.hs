@@ -133,7 +133,7 @@ withDirectChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
-  -- Last known point on chain as loaded from persistence.
+  -- Known points on chain as loaded from persistence.
   let persistedPoints =
         history chainStateHistory <&> \ChainStateAt{recordedAt} ->
           fromMaybe ChainPointAtGenesis recordedAt
