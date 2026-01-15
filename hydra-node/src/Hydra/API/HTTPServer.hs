@@ -257,6 +257,7 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- headState <$> getNodeState
       respond . okJSON $ getSeenSnapshot hs
+    -- FIXME: We should not be parsing the state file here.
     ("GET", ["head-initialization"]) ->
       handleHeadInitializationTime stateFile
         >>= respond
