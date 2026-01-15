@@ -142,7 +142,6 @@ library
     , filepath
     , grapesy
     , grapesy-etcd                    >=0.3
-    , hedgehog-quickcheck
     , http-types
     , hydra-cardano-api
     , hydra-cardano-api:testlib
