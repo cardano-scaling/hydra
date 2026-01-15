@@ -125,8 +125,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle :: Chain Tx IO
   chainHandle =
     Chain
-      { mkChainState = initialChainState
-      , submitTx = const $ pure ()
+      { submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = const $ pure ()
