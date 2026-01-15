@@ -45,6 +45,7 @@ import Hydra.Chain (
   ChainComponent,
   ChainStateHistory (..),
   PostTxError (..),
+  prefixOf,
  )
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient qualified as CardanoClient
@@ -57,7 +58,7 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainContext (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
@@ -134,14 +135,23 @@ withDirectChain ::
   ChainComponent Tx IO a
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
-  let persistedPoints =
-        history chainStateHistory <&> \ChainStateAt{recordedAt} ->
-          fromMaybe ChainPointAtGenesis recordedAt
+  let persistedPoints = prefixOf chainStateHistory
+
   -- Select a prefix chain from which to start synchronizing
-  let prefix = case startChainFrom of
+  let startFromPrefix =
         -- Only use start chain from if its more recent than persisted points.
-        Just sc | sc > last persistedPoints -> sc :| []
-        _ -> persistedPoints
+        case startChainFrom of
+          Just sc
+            | sc > head persistedPoints -> sc :| []
+            | otherwise -> persistedPoints -- TODO: should warn the user about this
+          _ -> persistedPoints
+
+  -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
+  prefix <-
+    case head startFromPrefix of
+      ChainPointAtGenesis -> queryTip backend <&> (:| [])
+      _ -> pure startFromPrefix
+
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"

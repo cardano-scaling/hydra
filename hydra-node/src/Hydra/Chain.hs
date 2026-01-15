@@ -245,8 +245,14 @@ data ChainStateHistory tx = UnsafeChainStateHistory
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
-pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
+-- | Record a new chain state in history. Also ensures the 'lastKnown' point is
+-- updated accordingly.
+pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history, lastKnown} =
+  h
+    { history = cs <| history
+    , lastKnown = max lastKnown (chainStatePoint cs)
+    }
 
 -- | Update the last known chain point. Use 'pushNewState' if you have a full 'ChainStateType tx'.
 setLastKnown :: ChainPointType tx -> ChainStateHistory tx -> ChainStateHistory tx
@@ -272,6 +278,14 @@ rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChai
       NE.dropWhile
         (\cs -> chainStateSlot cs > rollbackChainSlot)
         history
+
+-- | Get the known prefix of all the ChainStateHistory.
+prefixOf :: IsChainState tx => ChainStateHistory tx -> NonEmpty (ChainPointType tx)
+prefixOf ch@UnsafeChainStateHistory{history, lastKnown}
+  | lastKnown == chainStatePoint (currentState ch) = historyPoints
+  | otherwise = lastKnown <| historyPoints
+ where
+  historyPoints = chainStatePoint <$> history
 
 deriving stock instance
   ( Eq (ChainPointType tx)
