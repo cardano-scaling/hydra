@@ -101,22 +101,13 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
-onConnectionEvent :: Text -> Network.Connectivity -> Outcome tx
-onConnectionEvent misconfiguredPeers = \case
-  Network.NetworkConnected ->
-    newState NetworkConnected
-  Network.NetworkDisconnected ->
-    newState NetworkDisconnected
-  Network.VersionMismatch{ourVersion, theirVersion} ->
-    newState NetworkVersionMismatch{ourVersion, theirVersion}
-  Network.ClusterIDMismatch{clusterPeers} ->
-    newState NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers}
-  Network.PeerConnected{peer} ->
-    newState PeerConnected{peer}
-  Network.PeerDisconnected{peer} ->
-    newState PeerDisconnected{peer}
-
 -- * The Coordinated Head protocol
+
+-- | Maximum number of transaction ids per snapshot. This effectively limits our
+-- "block size" and ensures it does not grow arbitrarly with the backlog of
+-- pending transactions (localTxs).
+maxTxsPerSnapshot :: Int
+maxTxsPerSnapshot = 100
 
 -- ** On-Chain Protocol
 
@@ -341,7 +332,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs') decommitTx currentDepositTxId)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx currentDepositTxId)
       else outcome
 
   Environment{party} = env
@@ -693,7 +684,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) decommitTx currentDepositTxId)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx currentDepositTxId)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -889,7 +880,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   maybeRequestSnapshot =
     if not snapshotInFlight && isLeader parameters party nextSn
-      then cause (NetworkEffect (ReqSn version nextSn (txId <$> localTxs) (Just decommitTx) Nothing))
+      then cause (NetworkEffect (ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) (Just decommitTx) Nothing))
       else noop
 
   Environment{party} = env
@@ -991,7 +982,7 @@ onOpenChainTick env chainTime pendingDeposits st =
             -- requested a snapshot? If yes, should update spec.
             newState SnapshotRequestDecided{snapshotNumber = nextSn}
               -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> localTxs) Nothing (Just depositTxId))
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing (Just depositTxId))
           else
             noop
  where
@@ -1541,6 +1532,21 @@ handleNetworkInput env ledger _now currentSlot pendingDeposits st ev = case (st,
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
   _ ->
     Error $ UnhandledInput ev st
+
+onConnectionEvent :: Text -> Network.Connectivity -> Outcome tx
+onConnectionEvent misconfiguredPeers = \case
+  Network.NetworkConnected ->
+    newState NetworkConnected
+  Network.NetworkDisconnected ->
+    newState NetworkDisconnected
+  Network.VersionMismatch{ourVersion, theirVersion} ->
+    newState NetworkVersionMismatch{ourVersion, theirVersion}
+  Network.ClusterIDMismatch{clusterPeers} ->
+    newState NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers}
+  Network.PeerConnected{peer} ->
+    newState PeerConnected{peer}
+  Network.PeerDisconnected{peer} ->
+    newState PeerDisconnected{peer}
 
 handleClientInput ::
   IsChainState tx =>
