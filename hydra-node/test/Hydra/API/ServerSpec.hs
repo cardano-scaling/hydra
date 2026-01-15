@@ -35,11 +35,10 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
+import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
@@ -401,9 +400,8 @@ withTestAPIServer ::
   Tracer IO APIServerLog ->
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServer port actor eventSource tracer action = do
-  let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+withTestAPIServer port actor eventSource tracer =
+  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
