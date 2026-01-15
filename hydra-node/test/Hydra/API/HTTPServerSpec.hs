@@ -23,7 +23,7 @@ import Hydra.API.HTTPServer (
   httpApp,
  )
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import Hydra.API.ServerSpec (dummyChainHandle, dummySimpleChainHandle, dummyUnsafeChainHandle)
+import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   UTxO,
   mkTxOutDatumInline,
@@ -229,7 +229,7 @@ apiServerSpec = do
         ( return $
             httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -262,7 +262,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -326,7 +326,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -347,7 +347,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -399,7 +399,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -427,7 +427,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -449,7 +449,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -471,7 +471,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -492,7 +492,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -611,7 +611,7 @@ apiServerSpec = do
 
       let failingChainHandle :: PostTxError tx -> Chain tx IO
           failingChainHandle postTxError =
-            dummyUnsafeChainHandle
+            dummyChainHandle
               { draftCommitTx = \_ _ -> pure $ Left postTxError
               , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
               }
@@ -723,7 +723,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -758,7 +758,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -790,7 +790,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -810,7 +810,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -831,7 +831,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -858,7 +858,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -885,7 +885,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -906,7 +906,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -948,7 +948,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -976,7 +976,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -998,7 +998,7 @@ apiServerSpec = do
         withApplication
           ( httpApp @SimpleTx
               nullTracer
-              dummySimpleChainHandle
+              dummyChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams

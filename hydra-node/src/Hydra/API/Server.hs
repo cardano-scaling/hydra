@@ -30,7 +30,7 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
@@ -88,18 +88,19 @@ withAPIServer ::
   Party ->
   EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
+  ChainStateType tx ->
   Chain tx IO ->
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env stateFile party eventSource tracer chain pparams serverOutputFilter callback action =
+withAPIServer config env stateFile party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    nodeStateP <- mkProjection "nodeStateP" (initNodeState mkChainState) aggregateNodeState
+    nodeStateP <- mkProjection "nodeStateP" (initNodeState initialChainState) aggregateNodeState
     -- XXX: We never subscribe to changes of commitInfoP et al directly so a
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
@@ -175,8 +176,6 @@ withAPIServer config env stateFile party eventSource tracer chain pparams server
   APIServerConfig{host, port, tlsCertPath, tlsKeyPath} = config
 
   EventSource{sourceEvents} = eventSource
-
-  Chain{mkChainState} = chain
 
   startServer settings app =
     case (tlsCertPath, tlsKeyPath) of

@@ -1088,8 +1088,7 @@ simulatedChainAndNetwork initialChainState = do
       { connectNode = \draftNode -> do
           let mockChain =
                 Chain
-                  { mkChainState = initialChainState
-                  , postTx = \tx -> do
+                  { postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"
                       void . asyncLabelled "sim-chain-post-tx" $ do
