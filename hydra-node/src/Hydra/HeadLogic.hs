@@ -104,7 +104,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 -- * The Coordinated Head protocol
 
 -- | Maximum number of transaction ids per snapshot. This effectively limits our
--- "block size" and ensures it does not grow arbitrarly with the backlog of
+-- "block size" and ensures it does not grow arbitrarily with the backlog of
 -- pending transactions (localTxs).
 maxTxsPerSnapshot :: Int
 maxTxsPerSnapshot = 100
