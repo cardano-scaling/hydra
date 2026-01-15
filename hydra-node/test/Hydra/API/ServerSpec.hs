@@ -330,7 +330,7 @@ spec =
                     , tlsKeyPath = Just "test/tls/key.pem"
                     , apiTransactionTimeout = 1000000
                     }
-                initialChainState = SimpleChainState{slot = ChainSlot 0}
+                initialChainState = 0
             withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
