@@ -22,7 +22,7 @@ import Control.Lens ((^?))
 import Data.Aeson (KeyValue ((.=)), Value (String), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _String)
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.List qualified as List
@@ -422,7 +422,7 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
               )
  where
   parseTxIdFromPath txIdStr =
-    case Aeson.eitherDecode (encodeUtf8 txIdStr) :: Either String (TxIdType tx) of
+    case parseEither parseJSON (Aeson.String txIdStr) of
       Left e -> Left (responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
       Right txid -> Right txid
 
