@@ -1381,7 +1381,7 @@ chainEffect postChainTx =
     { postChainTx
     }
 
--- | Create an observation chain input with chain state at given point.
+-- | Create an observation chain input with chain state at given slot.
 observeTxAtSlot :: ChainSlot -> OnChainTx SimpleTx -> Input SimpleTx
 observeTxAtSlot slot observedTx =
   ChainInput
