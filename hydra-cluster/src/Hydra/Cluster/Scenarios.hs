@@ -36,7 +36,6 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as T
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
@@ -165,7 +164,6 @@ import Network.HTTP.Req (
   (/:),
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
-import Network.HTTP.Types (urlEncode)
 import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
@@ -1758,13 +1756,12 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
         (selectLovelace . balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
           `shouldReturn` 0
 
-        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
         -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
         diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
         threadDelay $ diff + 1
 
         (`shouldReturn` "OK") $
-          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> show (txId tx))
             >>= httpJSON
             <&> getResponseBody @String
 
@@ -1907,9 +1904,8 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
     diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
     threadDelay $ diff + 1
 
-    let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show depositId
     (`shouldReturn` "OK") $
-      parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n <> "/commits/" <> path)
+      parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n <> "/commits/" <> show depositId)
         >>= httpJSON
         <&> getResponseBody @String
     blockTime <- Backend.getBlockTime backend
@@ -1981,13 +1977,12 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
           pure depositTxId
 
         forM_ deposited $ \deposit -> do
-          let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
           -- XXX: should know the deadline from the query above
           -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
           threadDelay $ realToFrac (toNominalDiffTime depositPeriod * 4)
 
           (`shouldReturn` "OK") $
-            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> show deposit)
               >>= httpJSON
               <&> getResponseBody @String
 

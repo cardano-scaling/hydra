@@ -97,7 +97,6 @@ library
     , directory
     , filepath
     , http-conduit
-    , http-types
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
