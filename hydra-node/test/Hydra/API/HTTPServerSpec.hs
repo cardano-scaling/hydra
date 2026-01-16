@@ -901,6 +901,27 @@ apiServerSpec = do
           $ do
             post "/decommit" (encode tx) `shouldRespondWith` 503
 
+    describe "DELETE /commits/:txid full unencoded TxId" $ do
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        withApplication
+          ( httpApp @Tx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure $ error "Not called")
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            -- endpoint path formats the txid as JSON in the path; spec helper keeps the path
+            delete "/commits/d2c03a20bce36bf86888827f642e69d259ed12c8322a71a9089b057ea81a25ac" `shouldRespondWith` 202
+
     describe "DELETE /commits/:txid" $ do
       it "returns 202 on timeout" $ do
         responseChannel <- newTChanIO

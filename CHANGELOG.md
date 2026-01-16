@@ -22,6 +22,7 @@ changes.
 - Fix the `cabalOnly` development environment to allow for `cabal build hydra-node` without `haskell.nix`.
 - Add `--unsynced-period` CLI option to configure when the node considers itself
   out of sync with the chain. Defaults to half the contestation period.
+- Support non-encoded DELETE `/commit/:tx-id` requests [#2445](https://github.com/cardano-scaling/hydra/pull/2445)
 
 ## [1.2.0] - 2025.11.28
 

@@ -297,7 +297,7 @@ You should see the tx-id of the deposit transaction in case it wasn't picked up 
 To recover, we can use the `/commits` endpoint again using the transaction id of the deposit:
 
 ```shell
-curl -X DELETE localhost:4001/commits/$(printf "\"ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4"\" | jq -sRr '@uri')
+curl -X DELETE localhost:4001/commits/ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4)
 ```
 
 If we inspect the address funds again we will see that the locked deposit is now recovered. It is important to mention that recovering works even if the Head is closed already.

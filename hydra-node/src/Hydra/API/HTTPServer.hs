@@ -421,14 +421,15 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
                     ]
               )
  where
+  parseTxIdFromPath :: Text -> Either Response (TxIdType tx)
   parseTxIdFromPath txIdStr =
     -- First try parsing as a raw JSON value (for backwards compatibility with numeric IDs)
     -- then fall back to parsing as a JSON String (for hex-encoded TxIds)
     case Aeson.eitherDecode (LBS.fromStrict $ encodeUtf8 txIdStr) of
       Right txid -> Right txid
       Left _ -> case parseEither parseJSON (Aeson.String txIdStr) of
-        Left e -> Left (responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
         Right txid -> Right txid
+        Left e -> Left $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e)
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
