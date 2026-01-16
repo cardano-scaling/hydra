@@ -24,10 +24,12 @@ changes.
   out of sync with the chain. Defaults to half the contestation period.
 - Support non-encoded DELETE `/commit/:tx-id` requests [#2445](https://github.com/cardano-scaling/hydra/pull/2445)
 
-- **BREAKING** Resume node from the latest observed tick.
+- **BREAKING** Reduced the time required to synchronize the node with the chain after long periods of inactivity (without head transitions).
+  - When restarting, the node now resumes from the last seen tick while catching up with the chain, instead of from the last seen head transition.
+  - The chain backend now uses a non-empty list of starting points as a prefix to find a valid intersection when reconnecting to the chain.
   - `TickObserved` event schema has changed: the `chainSlot` field has been replaced with `chainPoint`
   - `Greetings` message now also contains a new field `currentSlot` that indicates the last known slot while catching up.
-  - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407)
+  - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407).
 
 ## [1.2.0] - 2025.11.28
 
