@@ -112,7 +112,7 @@ library
     , aeson
     , base
     , base16-bytestring
-    , blockfrost-client               >=0.11.0.0
+    , blockfrost-client            >=0.11.0.0
     , bytestring
     , cardano-api
     , cardano-binary
@@ -121,13 +121,10 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-babbage
-    , cardano-ledger-babbage:testlib
     , cardano-ledger-binary
     , cardano-ledger-byron
     , cardano-ledger-conway
-    , cardano-ledger-conway:testlib
     , cardano-ledger-core
-    , cardano-ledger-core:testlib
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
@@ -140,16 +137,13 @@ library
     , file-embed
     , filepath
     , grapesy
-    , grapesy-etcd                    >=0.3
+    , grapesy-etcd                 >=0.3
     , http-types
     , hydra-cardano-api
-    , hydra-cardano-api:testlib
     , hydra-plutus
     , hydra-prelude
-    , hydra-test-utils
     , hydra-tx
-    , hydra-tx:testlib
-    , io-classes                      >=0.3.0.0
+    , io-classes                   >=0.3.0.0
     , iohk-monitoring
     , iproute
     , lens
@@ -158,13 +152,11 @@ library
     , network
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-network-api           >=0.7.1
-    , ouroboros-network-protocols     >=0.8
+    , ouroboros-network-api        >=0.7.1
+    , ouroboros-network-protocols  >=0.8
     , process
     , prometheus
     , QuickCheck
-    , quickcheck-arbitrary-adt
-    , quickcheck-instances
     , resourcet
     , retry
     , safe-money
@@ -193,25 +185,60 @@ library testlib
   hs-source-dirs:  testlib
   exposed-modules:
     Hydra.JSONSchema
+    Test.Hydra.API.ClientInput
+    Test.Hydra.API.HTTPServer
+    Test.Hydra.API.ServerOutput
+    Test.Hydra.Chain
+    Test.Hydra.Chain.Direct.State
+    Test.Hydra.Chain.Direct.TimeHandle
+    Test.Hydra.HeadLogic.Input
+    Test.Hydra.HeadLogic.Outcome
+    Test.Hydra.HeadLogic.State
+    Test.Hydra.HeadLogic.StateEvent
+    Test.Hydra.Ledger
+    Test.Hydra.Ledger.Cardano
+    Test.Hydra.Ledger.Simple
+    Test.Hydra.Logging
+    Test.Hydra.Network
+    Test.Hydra.Network.Authenticate
+    Test.Hydra.Network.Message
+    Test.Hydra.Node.ApiTransactionTimeout
+    Test.Hydra.Node.DepositPeriod
+    Test.Hydra.Node.Environment
     Test.Hydra.Node.Fixture
+    Test.Hydra.Node.State
+    Test.Hydra.Node.UnsyncedPeriod
+    Test.Hydra.Options
 
   other-modules:   Paths_hydra_node
   build-depends:
     , aeson
     , base
+    , bytestring
+    , cardano-api
+    , cardano-crypto-class
+    , cardano-ledger-babbage:testlib
+    , cardano-ledger-conway:testlib
     , cardano-ledger-core
+    , cardano-ledger-core:testlib
+    , cardano-slotting
     , containers
     , directory
     , filepath
     , hydra-cardano-api
+    , hydra-cardano-api:testlib
     , hydra-node
     , hydra-prelude
     , hydra-test-utils
+    , hydra-tx
     , hydra-tx:testlib
+    , iproute
     , lens
     , lens-aeson
     , process
     , QuickCheck
+    , quickcheck-arbitrary-adt
+    , quickcheck-instances
     , text
     , time
     , versions
@@ -268,6 +295,7 @@ benchmark tx-cost
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-node
+    , hydra-node:testlib
     , hydra-plutus
     , hydra-plutus-extras
     , hydra-prelude

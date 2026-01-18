@@ -14,7 +14,8 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (Ledger (applyTransactions), ValidationError)
-import Hydra.Ledger.Cardano (Tx, cardanoLedger, genFixedSizeSequenceOfSimplePaymentTransactions)
+import Hydra.Ledger.Cardano (Tx, cardanoLedger)
+import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
 import Test.QuickCheck (generate)
 

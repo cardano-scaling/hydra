@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
 import Test.QuickCheck (counterexample, generate, ioProperty)
+import Test.QuickCheck.Instances.Natural ()
 
 spec :: Spec
 spec = do
