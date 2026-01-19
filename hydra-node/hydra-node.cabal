@@ -299,6 +299,24 @@ benchmark micro
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
+benchmark logging
+  import:         project-config
+  hs-source-dirs: bench/logging
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , contra-tracer
+    , criterion
+    , directory
+    , hydra-node
+    , hydra-prelude
+    , io-classes
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
+
 test-suite tests
   import:             project-config
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
