@@ -27,29 +27,29 @@
 </span><span id="line-27"></span><span class="hs-comment">-- | Sign transaction using the provided secret key</span><span>
 </span><span id="line-28"></span><span class="hs-comment">-- It only works for tx not containing scripts.</span><span>
 </span><span id="line-29"></span><span class="hs-comment">-- You can't sign a script utxo with this.</span><span>
-</span><span id="line-30"></span><span id="local-6989586621679273281"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#signTx"><span class="hs-identifier hs-type">signTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273281"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-30"></span><span id="local-6989586621679273402"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#signTx"><span class="hs-identifier hs-type">signTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273402"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273281"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273281"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273402"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273402"><span class="hs-identifier hs-type">era</span></a></span></span><span>
 </span><span id="line-35"></span><span id="signTx"><span class="annot"><span class="annottext">signTx :: forall era.
 IsShelleyBasedEra era =&gt;
 SigningKey PaymentKey -&gt; Tx era -&gt; Tx era
-</span><a href="Hydra.Cardano.Api.Tx.html#signTx"><span class="hs-identifier hs-var hs-var">signTx</span></a></span></span><span> </span><span id="local-6989586621679273375"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679273375"><span class="hs-identifier hs-var">signingKey</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679273377"><span class="annot"><span class="annottext">TxBody era
-</span><a href="#local-6989586621679273377"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span id="local-6989586621679273378"><span class="annot"><span class="annottext">[KeyWitness era]
-</span><a href="#local-6989586621679273378"><span class="hs-identifier hs-var">wits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Tx.html#signTx"><span class="hs-identifier hs-var hs-var">signTx</span></a></span></span><span> </span><span id="local-6989586621679273496"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679273496"><span class="hs-identifier hs-var">signingKey</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679273498"><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679273498"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span id="local-6989586621679273499"><span class="annot"><span class="annottext">[KeyWitness era]
+</span><a href="#local-6989586621679273499"><span class="hs-identifier hs-var">wits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-36"></span><span>  </span><span class="annot"><span class="annottext">[KeyWitness era] -&gt; TxBody era -&gt; Tx era
 forall era. [KeyWitness era] -&gt; TxBody era -&gt; Tx era
 </span><span class="hs-identifier hs-var">makeSignedTransaction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KeyWitness era
-</span><a href="#local-6989586621679273380"><span class="hs-identifier hs-var">witness</span></a></span><span> </span><span class="annot"><span class="annottext">KeyWitness era -&gt; [KeyWitness era] -&gt; [KeyWitness era]
+</span><a href="#local-6989586621679273501"><span class="hs-identifier hs-var">witness</span></a></span><span> </span><span class="annot"><span class="annottext">KeyWitness era -&gt; [KeyWitness era] -&gt; [KeyWitness era]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[KeyWitness era]
-</span><a href="#local-6989586621679273378"><span class="hs-identifier hs-var">wits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxBody era
-</span><a href="#local-6989586621679273377"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><a href="#local-6989586621679273499"><span class="hs-identifier hs-var">wits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxBody era
+</span><a href="#local-6989586621679273498"><span class="hs-identifier hs-var">body</span></a></span><span>
 </span><span id="line-37"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-38"></span><span>  </span><span id="local-6989586621679273380"><span class="annot"><span class="annottext">witness :: KeyWitness era
-</span><a href="#local-6989586621679273380"><span class="hs-identifier hs-var hs-var">witness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><span id="line-38"></span><span>  </span><span id="local-6989586621679273501"><span class="annot"><span class="annottext">witness :: KeyWitness era
+</span><a href="#local-6989586621679273501"><span class="hs-identifier hs-var hs-var">witness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
 -&gt; TxBody era -&gt; ShelleyWitnessSigningKey -&gt; KeyWitness era
 forall era.
 ShelleyBasedEra era
@@ -57,15 +57,15 @@ ShelleyBasedEra era
 </span><span class="hs-identifier hs-var">makeShelleyKeyWitness</span></span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra era
 forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
 </span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span> </span><span class="annot"><span class="annottext">TxBody era
-</span><a href="#local-6989586621679273377"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; ShelleyWitnessSigningKey
+</span><a href="#local-6989586621679273498"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; ShelleyWitnessSigningKey
 </span><span class="hs-identifier hs-var">WitnessPaymentKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679273375"><span class="hs-identifier hs-var">signingKey</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679273496"><span class="hs-identifier hs-var">signingKey</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-39"></span><span>
 </span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- | Create a transaction spending all given `UTxO`.</span></span><span>
 </span><span id="line-41"></span><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#txSpendingUTxO"><span class="hs-identifier hs-type">txSpendingUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span>
 </span><span id="line-42"></span><span id="txSpendingUTxO"><span class="annot"><span class="annottext">txSpendingUTxO :: UTxO Era -&gt; Tx Era
-</span><a href="Hydra.Cardano.Api.Tx.html#txSpendingUTxO"><span class="hs-identifier hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span id="local-6989586621679273386"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679273386"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Tx.html#txSpendingUTxO"><span class="hs-identifier hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span id="local-6989586621679273507"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679273507"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-43"></span><span>  </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra Era) -&gt; Tx Era
 forall era.
 IsShelleyBasedEra era =&gt;
@@ -98,21 +98,21 @@ forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
 </span><a href="Hydra.Cardano.Api.TxIn.html#toLedgerTxIn"><span class="hs-identifier hs-var">toLedgerTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; TxIn) -&gt; Set TxIn -&gt; Set TxIn
 forall b a. Ord b =&gt; (a -&gt; b) -&gt; Set a -&gt; Set b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#map"><span class="hs-operator hs-var">`Set.map`</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn
-</span><a href="#local-6989586621679273389"><span class="hs-identifier hs-var">inputs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679273510"><span class="hs-identifier hs-var">inputs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-47"></span><span>      </span><span class="hs-special">)</span><span>
 </span><span id="line-48"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-49"></span><span>  </span><span id="local-6989586621679273389"><span class="annot"><span class="annottext">inputs :: Set TxIn
-</span><a href="#local-6989586621679273389"><span class="hs-identifier hs-var hs-var">inputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; Set TxIn
+</span><span id="line-49"></span><span>  </span><span id="local-6989586621679273510"><span class="annot"><span class="annottext">inputs :: Set TxIn
+</span><a href="#local-6989586621679273510"><span class="hs-identifier hs-var hs-var">inputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; Set TxIn
 forall era. UTxO era -&gt; Set TxIn
 </span><span class="hs-identifier hs-var">UTxO.inputSet</span></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679273386"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679273507"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-50"></span><span>
 </span><span id="line-51"></span><span class="hs-comment">-- | Get the UTxO that are produced by some transaction.</span><span>
 </span><span id="line-52"></span><span class="hs-comment">-- XXX: Defined here to avoid cyclic module dependency</span><span>
 </span><span id="line-53"></span><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#utxoProducedByTx"><span class="hs-identifier hs-type">utxoProducedByTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="annot"><a href="Hydra.Cardano.Api.Prelude.html#Era"><span class="hs-identifier hs-type">Era</span></a></span><span>
 </span><span id="line-54"></span><span id="utxoProducedByTx"><span class="annot"><span class="annottext">utxoProducedByTx :: Tx Era -&gt; UTxO Era
-</span><a href="Hydra.Cardano.Api.Tx.html#utxoProducedByTx"><span class="hs-identifier hs-var hs-var">utxoProducedByTx</span></a></span></span><span> </span><span id="local-6989586621679273392"><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679273392"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Tx.html#utxoProducedByTx"><span class="hs-identifier hs-var hs-var">utxoProducedByTx</span></a></span></span><span> </span><span id="local-6989586621679273513"><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679273513"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-55"></span><span>  </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO Era
 forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO Era)
@@ -125,7 +125,7 @@ forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxBodyContent ViewTx Era -&gt; [TxOut CtxTx Era]
 forall build era. TxBodyContent build era -&gt; [TxOut CtxTx era]
 </span><span class="hs-identifier hs-var">txOuts</span></span><span> </span><span class="annot"><span class="annottext">TxBodyContent ViewTx Era
-</span><a href="#local-6989586621679273395"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679273516"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-57"></span><span>      </span><span class="annot"><span class="annottext">[(Word, TxOut CtxTx Era)]
 -&gt; ((Word, TxOut CtxTx Era) -&gt; (TxIn, TxOut CtxUTxO Era))
 -&gt; [(TxIn, TxOut CtxUTxO Era)]
@@ -141,12 +141,12 @@ Bifunctor p =&gt;
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#bimap"><span class="hs-identifier hs-var">bimap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; Word -&gt; TxIn
 forall era. Tx era -&gt; Word -&gt; TxIn
 </span><a href="Hydra.Cardano.Api.TxIn.html#mkTxIn"><span class="hs-identifier hs-var">mkTxIn</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679273392"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
+</span><a href="#local-6989586621679273513"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
 forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
 </span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span>
 </span><span id="line-58"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-59"></span><span>  </span><span id="local-6989586621679273395"><span class="annot"><span class="annottext">body :: TxBodyContent ViewTx Era
-</span><a href="#local-6989586621679273395"><span class="hs-identifier hs-var hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBody Era -&gt; TxBodyContent ViewTx Era
+</span><span id="line-59"></span><span>  </span><span id="local-6989586621679273516"><span class="annot"><span class="annottext">body :: TxBodyContent ViewTx Era
+</span><a href="#local-6989586621679273516"><span class="hs-identifier hs-var hs-var">body</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxBody Era -&gt; TxBodyContent ViewTx Era
 forall era. TxBody era -&gt; TxBodyContent ViewTx era
 </span><span class="hs-identifier hs-var">getTxBodyContent</span></span><span> </span><span class="annot"><span class="annottext">(TxBody Era -&gt; TxBodyContent ViewTx Era)
 -&gt; TxBody Era -&gt; TxBodyContent ViewTx Era
@@ -154,25 +154,25 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; TxBody Era
 forall era. Tx era -&gt; TxBody era
 </span><span class="hs-identifier hs-var">getTxBody</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679273392"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679273513"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-60"></span><span>
 </span><span id="line-61"></span><span class="annot"><span class="hs-comment">-- * Type Conversions</span></span><span>
 </span><span id="line-62"></span><span>
 </span><span id="line-63"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-api 'Tx' into a matching cardano-ledger 'Tx'.</span></span><span>
-</span><span id="line-64"></span><span id="local-6989586621679273340"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#toLedgerTx"><span class="hs-identifier hs-type">toLedgerTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-65"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273340"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-66"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyLedgerEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273340"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-64"></span><span id="local-6989586621679273461"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#toLedgerTx"><span class="hs-identifier hs-type">toLedgerTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273461"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyLedgerEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273461"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-67"></span><span id="toLedgerTx"><span class="annot"><span class="annottext">toLedgerTx :: forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
-</span><a href="Hydra.Cardano.Api.Tx.html#toLedgerTx"><span class="hs-identifier hs-var hs-var">toLedgerTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTx</span></span><span> </span><span id="local-6989586621679273401"><span class="annot"><span class="annottext">ShelleyBasedEra era
-</span><a href="#local-6989586621679273401"><span class="hs-identifier hs-var">_era</span></a></span></span><span> </span><span id="local-6989586621679273402"><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra era)
-</span><a href="#local-6989586621679273402"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra era)
-</span><a href="#local-6989586621679273402"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="Hydra.Cardano.Api.Tx.html#toLedgerTx"><span class="hs-identifier hs-var hs-var">toLedgerTx</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyTx</span></span><span> </span><span id="local-6989586621679273522"><span class="annot"><span class="annottext">ShelleyBasedEra era
+</span><a href="#local-6989586621679273522"><span class="hs-identifier hs-var">_era</span></a></span></span><span> </span><span id="local-6989586621679273523"><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra era)
+</span><a href="#local-6989586621679273523"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra era)
+</span><a href="#local-6989586621679273523"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-68"></span><span>
 </span><span id="line-69"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-ledger's 'Tx' in the Babbage era into a cardano-api 'Tx'.</span></span><span>
-</span><span id="line-70"></span><span id="local-6989586621679273297"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#fromLedgerTx"><span class="hs-identifier hs-type">fromLedgerTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-71"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273297"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyLedgerEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273297"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273297"><span class="hs-identifier hs-type">era</span></a></span></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679273418"><span class="annot"><a href="Hydra.Cardano.Api.Tx.html#fromLedgerTx"><span class="hs-identifier hs-type">fromLedgerTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsShelleyBasedEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273418"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ShelleyLedgerEra</span></span><span> </span><span class="annot"><a href="#local-6989586621679273418"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679273418"><span class="hs-identifier hs-type">era</span></a></span></span><span>
 </span><span id="line-74"></span><span id="fromLedgerTx"><span class="annot"><span class="annottext">fromLedgerTx :: forall era.
 IsShelleyBasedEra era =&gt;
 Tx (ShelleyLedgerEra era) -&gt; Tx era

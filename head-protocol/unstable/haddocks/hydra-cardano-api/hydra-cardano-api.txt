@@ -2553,6 +2553,7 @@ unsafePaymentKeyHashFromBytes :: HasCallStack => ByteString -> Hash PaymentKey
 --   
 --   Pre-condition: the input bytestring MUST be of length 32.
 unsafeScriptDataHashFromBytes :: HasCallStack => ByteString -> Hash ScriptData
+unsafeBlockHeaderHashFromBytes :: HasCallStack => ByteString -> Hash BlockHeader
 unsafeCastHash :: (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b), HasCallStack) => Hash a -> Hash b
 
 module Hydra.Cardano.Api.ExecutionUnits
@@ -3137,6 +3138,7 @@ toLedgerKeyHash :: Hash PaymentKey -> KeyHash 'Witness
 --   
 --   Pre-condition: the input bytestring MUST be of length 28.
 unsafePaymentKeyHashFromBytes :: HasCallStack => ByteString -> Hash PaymentKey
+unsafeBlockHeaderHashFromBytes :: HasCallStack => ByteString -> Hash BlockHeader
 unsafeCastHash :: (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b), HasCallStack) => Hash a -> Hash b
 
 -- | Construct a Shelley-style address from a Plutus script. This address
