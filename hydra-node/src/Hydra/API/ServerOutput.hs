@@ -11,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -109,6 +109,7 @@ data Greetings tx = Greetings
   , env :: Environment
   , networkInfo :: NetworkInfo
   , chainSyncedStatus :: SyncedStatus
+  , currentSlot :: ChainSlot
   }
   deriving (Generic)
 

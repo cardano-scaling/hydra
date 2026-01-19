@@ -16,6 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
+import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
@@ -42,9 +43,9 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (
   ChainComponent,
-  ChainStateHistory,
+  ChainStateHistory (..),
   PostTxError (..),
-  currentState,
+  prefixOf,
  )
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient qualified as CardanoClient
@@ -57,14 +58,9 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
-  ChainStateAt (..),
- )
+import Hydra.Chain.Direct.State (ChainContext (..))
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Wallet (
-  TinyWallet (..),
- )
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
@@ -138,17 +134,27 @@ withDirectChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
-  -- Last known point on chain as loaded from persistence.
-  let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newLabelledTQueueIO "direct-chain-queue"
-  -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
-    (max <$> startChainFrom <*> persistedPoint)
-      <|> persistedPoint
-      <|> startChainFrom
+  -- Known points on chain as loaded from persistence.
+  let persistedPoints = prefixOf chainStateHistory
+
+  -- Select a prefix chain from which to start synchronizing
+  let startFromPrefix =
+        -- Only use start chain from if its more recent than persisted points.
+        case startChainFrom of
+          Just sc
+            | sc > head persistedPoints -> sc :| []
+            | otherwise -> persistedPoints -- TODO: should warn the user about this
+          _ -> persistedPoints
+
+  -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
+  prefix <-
+    case head startFromPrefix of
+      ChainPointAtGenesis -> queryTip backend <&> (:| [])
+      _ -> pure startFromPrefix
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
         mkChain
           tracer
@@ -165,7 +171,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , handle onIOException $ do
           connectToLocalNode
             (connectInfo networkId nodeSocket)
-            (clientProtocols chainPoint queue handler)
+            (clientProtocols prefix queue handler)
       )
       ("direct-chain-chain-handle", action chainHandle)
   case res of
@@ -185,9 +191,9 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       , localNodeSocketPath = nodeSocket'
       }
 
-  clientProtocols point queue handler =
+  clientProtocols prefix queue handler =
     LocalNodeClientProtocols
-      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet point
+      { localChainSyncClient = LocalChainSyncClient $ chainSyncClient handler wallet prefix
       , localTxSubmissionClient = Just $ txSubmissionClient tracer queue
       , localStateQueryClient = Nothing
       , localTxMonitoringClient = Nothing
@@ -220,24 +226,29 @@ data DirectConnectException = DirectConnectException
 
 instance Exception DirectConnectException
 
--- | Thrown when the user-provided custom point of intersection is unknown to
+-- | Thrown when the user-provided custom points of intersection are unknown to
 -- the local node. This may happen if users shut down their node quickly after
--- starting them and hold on a not-so-stable point of the chain. When they turn
--- the node back on, that point may no longer exist on the network if a fork
+-- starting them and hold on not-so-stable points of the chain. When they turn
+-- the node back on, those points may no longer exist on the network if a fork
 -- with deeper roots has been adopted in the meantime.
 newtype IntersectionNotFoundException = IntersectionNotFound
-  { requestedPoint :: ChainPoint
+  { requestedPoints :: NonEmpty ChainPoint
   }
   deriving newtype (Show)
 
 instance Exception IntersectionNotFoundException where
-  displayException (IntersectionNotFound point) =
+  displayException (IntersectionNotFound points) =
     printf
-      "The requested intersection point %s was not found on the local node. \
-      \This may happen if the point is too recent and the node has not yet \
-      \synchronized that far, or if the point is too old and has been pruned \
-      \from the local node. Please try again with a different point."
-      (show point :: String)
+      "None of the requested intersection points %s were found on the local node.\n\
+      \Requested points (newest first):\n\
+      \%s\n\
+      \This may happen if the points are too recent and the node has not yet \
+      \synchronized that far, or if they are too old and have been pruned \
+      \from the local node. Please try again with a different points."
+      requestedPoints
+   where
+    requestedPoints :: String
+    requestedPoints = T.unpack $ T.unlines (fmap show (toList points))
 
 data EraNotSupportedException
   = EraNotSupportedAnymore {otherEraName :: Text}
@@ -265,15 +276,15 @@ chainSyncClient ::
   (MonadSTM m, MonadThrow m) =>
   ChainSyncHandler m ->
   TinyWallet m ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ChainSyncClient BlockType ChainPoint ChainTip m ()
-chainSyncClient handler wallet startingPoint =
+chainSyncClient handler wallet prefix =
   ChainSyncClient $
     pure $
       SendMsgFindIntersect
-        [startingPoint]
+        (toList prefix)
         ( clientStIntersect
-            (\_ -> throwIO (IntersectionNotFound startingPoint))
+            (\_ -> throwIO (IntersectionNotFound prefix))
         )
  where
   clientStIntersect ::

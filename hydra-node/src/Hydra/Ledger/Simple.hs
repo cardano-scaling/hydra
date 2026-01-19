@@ -21,11 +21,8 @@ import Data.Aeson (
   (.=),
  )
 import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot (..), ChainStateType, IsChainState (..))
-import Hydra.Ledger (
-  Ledger (..),
-  ValidationError (ValidationError),
- )
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
+import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 import Hydra.Tx (IsTx (..))
 import Test.Hydra.Tx.Gen ()
 
@@ -108,12 +105,13 @@ instance IsTx SimpleTx where
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-  deriving newtype (Arbitrary)
+  deriving newtype (Arbitrary, Num)
 
 instance IsChainState SimpleTx where
+  type ChainPointType SimpleTx = ChainSlot
   type ChainStateType SimpleTx = SimpleChainState
-
-  chainStateSlot SimpleChainState{slot} = slot
+  chainStatePoint = slot
+  chainPointSlot = id
 
 -- * A simple ledger
 

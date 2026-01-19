@@ -12,14 +12,14 @@ import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized), genStateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
@@ -73,7 +73,7 @@ spec = parallel $ do
         IO ()
       setupHydrate action =
         showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
+          let testHydrate = hydrate tracer testEnvironment simpleLedger 0
           action testHydrate
 
   describe "hydrate" $ do
@@ -339,7 +339,7 @@ spec = parallel $ do
 -- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
 -- to advance the chain slot and ensure the 'NodeState' is in sync. This is
 -- returning the node to allow for chaining with 'runToCompletion'.
-primeWith :: (MonadSTM m, MonadTime m) => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+primeWith :: (MonadSTM m, MonadTime m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
   now <- getCurrentTime
   chainSlot <- currentSlot <$> atomically queryNodeState
@@ -365,8 +365,7 @@ mockNetwork =
 mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
-    { mkChainState = error "mockChain: unexpected mkChainState"
-    , postTx = \_ -> pure ()
+    { postTx = \_ -> pure ()
     , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
@@ -435,7 +434,7 @@ observationInput observedTx =
     { chainEvent =
         Observation
           { observedTx
-          , newChainState = SimpleChainState{slot = ChainSlot 0}
+          , newChainState = 0
           }
     }
 
@@ -462,7 +461,7 @@ testHydraNode ::
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   let eventStore :: Monad m => EventStore (StateEvent SimpleTx) m
       eventStore = mockEventStore []
-  hydrate tracer env simpleLedger SimpleChainState{slot = ChainSlot 0} eventStore []
+  hydrate tracer env simpleLedger 0 eventStore []
     >>= notConnect
     >>= primeWith inputs
  where
@@ -527,8 +526,7 @@ throwExceptionOnPostTx exception node =
     node
       { oc =
           Chain
-            { mkChainState = error "mkChainState not implemented"
-            , postTx = \_ -> throwIO exception
+            { postTx = \_ -> throwIO exception
             , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"

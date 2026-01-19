@@ -144,6 +144,7 @@ class HasKnownUTxO a where
 -- | The chain state used by the Hydra.Chain.Direct implementation. It records
 -- the actual 'ChainState' paired with a 'ChainSlot' (used to know up to which
 -- point to rewind on rollbacks).
+-- XXX: could move this into IsChainState and use UTxOType tx instead of ChainStateType tx
 data ChainStateAt = ChainStateAt
   { spendableUTxO :: UTxO
   , recordedAt :: Maybe ChainPoint
@@ -156,10 +157,14 @@ instance Arbitrary ChainStateAt where
   shrink = genericShrink
 
 instance IsChainState Tx where
+  type ChainPointType Tx = ChainPoint
+
   type ChainStateType Tx = ChainStateAt
 
-  chainStateSlot ChainStateAt{recordedAt} =
-    maybe (ChainSlot 0) chainSlotFromPoint recordedAt
+  chainStatePoint ChainStateAt{recordedAt} =
+    fromMaybe ChainPointAtGenesis recordedAt
+
+  chainPointSlot = chainSlotFromPoint
 
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.

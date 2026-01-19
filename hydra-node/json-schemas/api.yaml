@@ -939,6 +939,7 @@ components:
         - env
         - networkInfo
         - chainSyncedStatus
+        - currentSlot
       properties:
         tag:
           type: string
@@ -961,6 +962,8 @@ components:
           $ref: "api.yaml#/components/schemas/NetworkInfo"
         chainSyncedStatus:
           $ref: "api.yaml#/components/schemas/SyncedStatus"
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
 
     # Client inputs
 

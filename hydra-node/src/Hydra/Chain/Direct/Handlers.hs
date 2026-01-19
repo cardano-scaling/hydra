@@ -45,7 +45,7 @@ import Hydra.Chain (
   rollbackHistory,
  )
 import Hydra.Chain.ChainState (
-  ChainSlot (..),
+  ChainSlot,
   ChainStateType,
   IsChainState,
  )
@@ -62,7 +62,6 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   increment,
-  initialChainState,
   initialize,
   recover,
  )
@@ -172,8 +171,7 @@ mkChain ::
   Chain Tx m
 mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
-    { mkChainState = initialChainState
-    , postTx = \tx -> do
+    { postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
@@ -352,8 +350,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
-            let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
-            callback (Tick{chainTime = utcTime, chainSlot})
+            callback (Tick{chainTime = utcTime, chainPoint = point})
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case

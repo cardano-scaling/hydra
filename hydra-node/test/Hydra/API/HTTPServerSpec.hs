@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (newTChanIO, writeTChan)
 import Control.Lens ((^?))
-import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
+import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
+import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -664,15 +665,33 @@ apiServerSpec = do
                 FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
-      it "gives information on when the Head was initialized" $
+      it "gives information on when the Head was initialized" $ do
+        let genTick :: Gen (StateChanged Tx)
+            genTick = TickObserved <$> arbitrary
+            genInit :: Gen (StateChanged Tx)
+            genInit = HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+            mkStateLine :: Int -> Text -> StateChanged Tx -> Text
+            mkStateLine eventId time stateChanged =
+              decodeUtf8 . LBS.toStrict $
+                Aeson.encode $
+                  object
+                    [ "eventId" .= eventId
+                    , "stateChanged" .= stateChanged
+                    , "time" .= time
+                    ]
         withTempDir "http-server-spec" $ \tmpDir -> do
-          let stateLines =
-                [ "{\"eventId\":163,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
-                , "{\"eventId\":164,\"stateChanged\":{\"chainSlot\":235,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T09:33:02.30814188Z\"}"
-                , "{\"eventId\":258,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
-                , "{\"eventId\":258,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
-                , "{\"eventId\":300,\"stateChanged\":{\"chainSlot\":300,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T10:33:02.30814188Z\"}"
-                ]
+          -- NOTE: These lines do NOT represent real state events.
+          -- They are synthetic log entries, only used to mimic the shape of the
+          -- state file so the endpoint can extract the `time` field from
+          -- `HeadInitialized` `stateChanged` events during parsing.
+          stateLines <-
+            sequenceA
+              [ mkStateLine 163 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
+              , mkStateLine 164 "2025-10-08T09:33:02.30814188Z" <$> generate genInit
+              , mkStateLine 258 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
+              , mkStateLine 259 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
+              , mkStateLine 300 "2025-10-08T10:33:02.30814188Z" <$> generate genInit
+              ]
           let statePath = tmpDir </> "state"
           writeFileText statePath (unlines stateLines)
 

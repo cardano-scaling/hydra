@@ -30,7 +30,7 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
@@ -1088,8 +1088,7 @@ simulatedChainAndNetwork initialChainState = do
       { connectNode = \draftNode -> do
           let mockChain =
                 Chain
-                  { mkChainState = initialChainState
-                  , postTx = \tx -> do
+                  { postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"
                       void . asyncLabelled "sim-chain-post-tx" $ do
@@ -1127,8 +1126,8 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- getLatest localChainState
-      let chainSlot = chainStateSlot cs
-      pure $ Tick now chainSlot
+      -- XXX: This chain state (its point) does not correspond to 'now'
+      pure $ Tick now (chainStatePoint cs)
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history localChainState tx = do

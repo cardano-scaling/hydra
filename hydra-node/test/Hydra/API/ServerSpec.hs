@@ -32,7 +32,6 @@ import Hydra.Chain (
   checkNonADAAssets,
   draftCommitTx,
   draftDepositTx,
-  mkChainState,
   postTx,
   submitTx,
  )
@@ -330,7 +329,8 @@ spec =
                     , tlsKeyPath = Just "test/tls/key.pem"
                     , apiTransactionTimeout = 1000000
                     }
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+                initialChainState = 0
+            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -377,8 +377,7 @@ testClient queue semaphore cnx = do
 dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
-    { mkChainState = error "unexpected call to mkChainState"
-    , postTx = \_ -> error "unexpected call to postTx"
+    { postTx = \_ -> error "unexpected call to postTx"
     , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
@@ -401,8 +400,8 @@ withTestAPIServer ::
   Tracer IO APIServerLog ->
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServer port actor eventSource tracer action = do
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop action
+withTestAPIServer port actor eventSource tracer =
+  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 

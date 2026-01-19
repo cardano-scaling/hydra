@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -137,7 +137,7 @@ data StateChanged tx
   | HeadIsReadyToFanout {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
   | ChainRolledBack {chainState :: ChainStateType tx}
-  | TickObserved {chainSlot :: ChainSlot}
+  | TickObserved {chainPoint :: ChainPointType tx}
   | IgnoredHeadInitializing
       { headId :: HeadId
       , contestationPeriod :: ContestationPeriod
@@ -156,10 +156,23 @@ deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (Ch
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => Arbitrary (StateChanged tx) where
+instance
+  ( ArbitraryIsTx tx
+  , Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  , IsChainState tx
+  ) =>
+  Arbitrary (StateChanged tx)
+  where
   arbitrary = arbitrary >>= genStateChanged
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (StateChanged tx)
+instance
+  ( ArbitraryIsTx tx
+  , Arbitrary (ChainPointType tx)
+  , Arbitrary (ChainStateType tx)
+  , IsChainState tx
+  ) =>
+  ToADTArbitrary (StateChanged tx)
 
 -- REVIEW: why are we missing Checkpoint and other events ?
 genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)

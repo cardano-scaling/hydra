@@ -106,6 +106,7 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -292,6 +293,38 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
     withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
       waitFor hydraTracer 10 [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
+
+resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
+  networkId <- Backend.queryNetworkId backend
+  let contestationPeriod = 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+      <&> setNetworkId networkId
+
+  chainSlot :: ChainSlot <-
+    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      chainSlot <- waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
+
+      -- wait for some ticks to be observed
+      threadDelay 1
+      pure chainSlot
+
+  chainSlot' <-
+    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
+
+  chainSlot `shouldSatisfy` (< chainSlot')
+ where
+  hydraTracer = contramap FromHydraNode tracer
 
 restartedNodeCanAbort :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 restartedNodeCanAbort tracer workDir backend hydraScriptsTxId = do
@@ -2236,11 +2269,11 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
     chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
+  withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
     waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
       waitMatch (20 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
@@ -2249,13 +2282,13 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
     callProcess "rm" ["-rf", workDir </> "state-2"]
     threadDelay 1
 
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ threadDelay 1)
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ threadDelay 1)
       `shouldThrow` \(e :: SomeException) ->
         "hydra-node" `isInfixOf` show e
           && "etcd" `isInfixOf` show e
 
     setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
     unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
  where
   hydraTracer = contramap FromHydraNode tracer

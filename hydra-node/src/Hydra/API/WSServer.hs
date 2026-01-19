@@ -39,9 +39,7 @@ import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (
-  IsChainState,
- )
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -103,7 +101,6 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   forwardGreetingOnly config con = do
     nodeState <- atomically getLatestNodeState
     let headState = nodeState.headState
-    let chainSyncedStatus = syncedStatus nodeState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
@@ -116,7 +113,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
             , env
             , networkInfo
-            , chainSyncedStatus
+            , chainSyncedStatus = syncedStatus nodeState
+            , currentSlot = nodeState.currentSlot
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP

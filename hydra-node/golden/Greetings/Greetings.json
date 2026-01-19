@@ -1,7 +1,8 @@
 {
     "samples": [
         {
-            "chainSyncedStatus": "CatchingUp",
+            "chainSyncedStatus": "InSync",
+            "currentSlot": 1,
             "env": {
                 "configuredPeers": "",
                 "contestationPeriod": 43200,

@@ -6,12 +6,22 @@ import Cardano.Api.Genesis (shelleyGenesisDefaults)
 import Cardano.Api.Ledger qualified as Ledger
 import Cardano.Ledger.Coin qualified as L
 import Cardano.Ledger.Shelley.Genesis qualified as Shelley
-import Cardano.Ledger.Slot (unSlotNo)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
+import Hydra.Cardano.Api (
+  BlockHeader,
+  ChainPoint (..),
+  GenesisParameters (..),
+  Hash,
+  NetworkMagic (..),
+  ShelleyEra,
+  ShelleyGenesis (..),
+  Tx,
+  fromShelleyNetwork,
+  unsafeBlockHeaderHashFromBytes,
+ )
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -19,11 +29,9 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostTxError (..),
-  chainSlot,
   chainTime,
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
@@ -125,8 +133,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle :: Chain Tx IO
   chainHandle =
     Chain
-      { mkChainState = initialChainState
-      , submitTx = const $ pure ()
+      { submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = const $ pure ()
@@ -200,10 +207,11 @@ tickForever genesis callback = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
+    let point = ChainPoint upcomingSlot offlineBlockHash
     callback $
       Tick
         { chainTime = timeToSleepUntil
-        , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
+        , chainPoint = point
         }
   systemStart = SystemStart protocolParamSystemStart
 
@@ -213,3 +221,6 @@ tickForever genesis callback = do
     { protocolParamSlotLength
     , protocolParamSystemStart
     } = genesis
+
+offlineBlockHash :: Hash BlockHeader
+offlineBlockHash = unsafeBlockHeaderHashFromBytes "offline-blockhash-00000000000000"

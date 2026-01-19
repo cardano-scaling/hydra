@@ -20,7 +20,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytes,
  )
-import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), currentState)
+import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Direct.Handlers (
@@ -30,7 +30,7 @@ import Hydra.Chain.Direct.Handlers (
   mkChain,
   newLocalChainState,
  )
-import Hydra.Chain.Direct.State (ChainContext, ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -122,17 +122,27 @@ withBlockfrostChain ::
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
-  -- Last known point on chain as loaded from persistence.
-  let persistedPoint = recordedAt (currentState chainStateHistory)
-  queue <- newLabelledTQueueIO "blockfrost-chain-queue"
-  -- Select a chain point from which to start synchronizing
-  chainPoint <- maybe (queryTip backend) pure $ do
-    (max <$> startChainFrom <*> persistedPoint)
-      <|> persistedPoint
-      <|> startChainFrom
+  -- Known points on chain as loaded from persistence.
+  let persistedPoints = prefixOf chainStateHistory
+
+  -- Select a prefix chain from which to start synchronizing
+  let startFromPrefix =
+        -- Only use start chain from if its more recent than persisted points.
+        case startChainFrom of
+          Just sc
+            | sc > head persistedPoints -> sc :| []
+            | otherwise -> persistedPoints -- TODO: should warn the user about this
+          _ -> persistedPoints
+
+  -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
+  prefix <-
+    case head startFromPrefix of
+      ChainPointAtGenesis -> queryTip backend <&> (:| [])
+      _ -> pure startFromPrefix
 
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
+  queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   let chainHandle =
         mkChain
           tracer
@@ -148,7 +158,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
       ( "blockfrost-chain-connection"
       , handle onIOException $ do
           prj <- Blockfrost.projectFromFile projectPath
-          blockfrostChain tracer queue prj chainPoint handler wallet
+          blockfrostChain tracer queue prj prefix handler wallet
       )
       ("blockfrost-chain-handle", action chainHandle)
   case res of
@@ -182,47 +192,38 @@ newtype BlockfrostConnectException = BlockfrostConnectException
 instance Exception BlockfrostConnectException
 
 blockfrostChain ::
-  (MonadIO m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChain tracer queue prj chainPoint handler wallet = do
+blockfrostChain tracer queue prj prefix handler wallet = do
   forever $
     raceLabelled_
-      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj chainPoint handler wallet)
+      ("blockfrost-chain-follow", blockfrostChainFollow tracer prj prefix handler wallet)
       ("blockfrost-submission", blockfrostSubmissionClient prj tracer queue)
 
 blockfrostChainFollow ::
   forall m.
-  (MonadIO m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
-  ChainPoint ->
+  NonEmpty ChainPoint ->
   ChainSyncHandler m ->
   TinyWallet m ->
   m ()
-blockfrostChainFollow tracer prj chainPoint handler wallet = do
+blockfrostChainFollow tracer prj prefix handler wallet = do
   Blockfrost.Genesis{_genesisSlotLength, _genesisActiveSlotsCoefficient} <-
     Blockfrost.runBlockfrostM prj Blockfrost.getLedgerGenesis
 
   let blockTime :: Double = realToFrac _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
-  blockHash <- case chainPoint of
-    ChainPointAtGenesis -> do
-      result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
-      case result of
-        Right (Right (Blockfrost.Block{_blockHash = Blockfrost.BlockHash genesisBlockHash})) -> do
-          pure $ Blockfrost.BlockHash genesisBlockHash
-        _ -> do
-          Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
-            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
-          pure $ Blockfrost.BlockHash block1Hash
-    ChainPoint _ headerHash ->
-      pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
+  -- Start from the latest point and fall back to older ones (best effort)
+  -- If none of them can be resolved, we fall back to the tip of the chain.
+  blockHash <- resolvePrefixPoints (toList prefix)
 
   stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
@@ -276,6 +277,34 @@ blockfrostChainFollow tracer prj chainPoint handler wallet = do
         writeTVar stateTVar nextBlockHash
 
     pollForNewBlocks blockTime' stateTVar
+
+  resolvePrefixPoints :: [ChainPoint] -> m Blockfrost.BlockHash
+  resolvePrefixPoints = \case
+    [] -> resolveTip
+    cp : cps -> do
+      res <- try (resolveChainPoint cp)
+      case res of
+        Right bh -> pure bh
+        Left (_ :: SomeException) -> resolvePrefixPoints cps
+
+  resolveTip :: m Blockfrost.BlockHash
+  resolveTip = do
+    (ChainPoint _ headerHash) <- Blockfrost.runBlockfrostM prj Blockfrost.queryTip
+    pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
+
+  resolveChainPoint :: ChainPoint -> m Blockfrost.BlockHash
+  resolveChainPoint = \case
+    ChainPointAtGenesis -> do
+      result <- liftIO $ Blockfrost.tryError $ Blockfrost.runBlockfrost prj (Blockfrost.getBlock (Left 0))
+      case result of
+        Right (Right (Blockfrost.Block{_blockHash = Blockfrost.BlockHash genesisBlockHash})) -> do
+          pure $ Blockfrost.BlockHash genesisBlockHash
+        _ -> do
+          Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
+            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
+          pure $ Blockfrost.BlockHash block1Hash
+    ChainPoint _ headerHash ->
+      pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
 
 rollForward ::
   (MonadIO m, MonadThrow m) =>
