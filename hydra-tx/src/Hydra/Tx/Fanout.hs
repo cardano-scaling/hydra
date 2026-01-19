@@ -37,7 +37,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
+      & addTxInsReference [headScriptRef, crsScriptRef] mempty
       & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
@@ -47,14 +47,26 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+
   headScriptRef =
     fst (headReference scriptRegistry)
+
+  crsScriptRef =
+    fst (crsReference scriptRegistry)
+
+  utxoLength = UTxO.size utxo
+
+  toCommitLength = length orderedTxOutsToCommit
+
+  toDecommitLength = length orderedTxOutsToDecommit
+
   headRedeemer =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral $ UTxO.size utxo
-        , numberOfCommitOutputs = fromIntegral $ length orderedTxOutsToCommit
-        , numberOfDecommitOutputs = fromIntegral $ length orderedTxOutsToDecommit
+        { numberOfFanoutOutputs = fromIntegral utxoLength
+        , numberOfCommitOutputs = fromIntegral toCommitLength
+        , numberOfDecommitOutputs = fromIntegral toDecommitLength
+        , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
   headTokens =

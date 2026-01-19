@@ -100,6 +100,11 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
+  -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
+  toPairList = Set.toList
+
+  utxoToElement = toStrict . serialise . unSimpleTxOut
+
 -- * Simple chain state
 
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}

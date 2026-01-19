@@ -51,6 +51,7 @@ import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.ModelSpec (propIsDistributive)
 import Hydra.Tx (CommitBlueprintTx (..))
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Tx.Deposit (depositTx)
@@ -754,6 +755,7 @@ signedSnapshot ms =
       , utxo
       , utxoToCommit
       , utxoToDecommit
+      , accumulator
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -767,6 +769,8 @@ signedSnapshot ms =
   utxoToCommit =
     let u = realWorldModelUTxO (toCommit ms)
      in if UTxO.null u then Nothing else Just u
+
+  accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.

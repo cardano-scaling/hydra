@@ -10,6 +10,7 @@ import Hydra.Cardano.Api (
   serialiseToRawBytes,
   pattern PlutusScript,
  )
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
@@ -29,6 +30,8 @@ data HydraScriptCatalogue = HydraScriptCatalogue
   , headScriptSize :: Int
   , depositScriptHash :: ScriptHash
   , depositScriptSize :: Int
+  , crsScriptHash :: ScriptHash
+  , crsScriptSize :: Int
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -48,6 +51,8 @@ hydraScriptCatalogue =
     , headScriptSize = scriptSize Head.validatorScript
     , depositScriptHash = scriptHash depositValidatorScript
     , depositScriptSize = scriptSize depositValidatorScript
+    , crsScriptHash = scriptHash CRS.validatorScript
+    , crsScriptSize = scriptSize CRS.validatorScript
     }
  where
   scriptHash = hashScript . PlutusScript
