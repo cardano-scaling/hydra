@@ -62,8 +62,8 @@ genStateChanged env =
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary
-    , pure NodeUnsynced
-    , pure NodeSynced
+    , NodeUnsynced <$> arbitrary
+    , NodeSynced <$> arbitrary
     ]
  where
   Environment{party} = env
