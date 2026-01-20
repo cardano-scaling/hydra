@@ -13,6 +13,7 @@ import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
 import Hydra.Prelude
 import Hydra.Tx.Crypto (sign)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Network.Authenticate ()
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (listOf)

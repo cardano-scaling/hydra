@@ -28,20 +28,9 @@ import Hydra.Chain.Direct.State (
   ctxHydraSigningKeys,
   ctxParticipants,
   ctxVerificationKeys,
-  genCloseTx,
-  genCommits,
-  genCommits',
-  genDecrementTx,
-  genHydraContextFor,
-  genIncrementTx,
-  genInitTx,
-  genStClosed,
-  genStInitial,
-  genStOpen,
   getKnownUTxO,
   initialize,
   observeClose,
-  pickChainContext,
   unsafeAbort,
   unsafeClose,
   unsafeCollect,
@@ -61,6 +50,19 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
+import Test.Hydra.Chain.Direct.State (
+  genCloseTx,
+  genCommits,
+  genCommits',
+  genDecrementTx,
+  genHydraContextFor,
+  genIncrementTx,
+  genInitTx,
+  genStClosed,
+  genStInitial,
+  genStOpen,
+  pickChainContext,
+ )
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 

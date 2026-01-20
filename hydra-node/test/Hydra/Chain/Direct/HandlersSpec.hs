@@ -44,10 +44,6 @@ import Hydra.Chain.Direct.State (
   ctxHeadParameters,
   ctxParticipants,
   ctxVerificationKeys,
-  deriveChainContexts,
-  genChainStateWithTx,
-  genCommit,
-  genHydraContext,
   getKnownUTxO,
   initialChainState,
   initialize,
@@ -56,9 +52,17 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.Hydra.Chain ()
+import Test.Hydra.Chain.Direct.State (
+  deriveChainContexts,
+  genChainStateWithTx,
+  genCommit,
+  genHydraContext,
+ )
+import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,

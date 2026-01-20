@@ -1,9 +1,6 @@
 module Hydra.Node.ApiTransactionTimeout where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
-
-import Test.QuickCheck (choose)
 
 -- | A new type wrapped period of time to be used in API transaction timeout.
 newtype ApiTransactionTimeout = ApiTransactionTimeout
@@ -19,6 +16,3 @@ instance Integral ApiTransactionTimeout where
     (q, r) = properFraction (a / b)
 
   toInteger (ApiTransactionTimeout a) = round a
-
-instance Arbitrary ApiTransactionTimeout where
-  arbitrary = ApiTransactionTimeout . fromInteger <$> choose (0, 86400)

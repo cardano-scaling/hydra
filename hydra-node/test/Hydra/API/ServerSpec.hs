@@ -37,7 +37,7 @@ import Hydra.Chain (
  )
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Hydra.HeadLogic.Outcome qualified as Outcome
-import Hydra.HeadLogic.StateEvent (StateEvent (..), genStateEvent)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
@@ -48,6 +48,8 @@ import Network.Simple.WSS qualified as WSS
 import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
 import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 import System.IO.Error (isAlreadyInUseError)
+import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
+import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()

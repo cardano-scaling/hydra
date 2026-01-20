@@ -14,6 +14,8 @@ import Test.Aeson.GenericSpecs (
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
  )
+import Test.Hydra.API.ClientInput ()
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (counterexample, forAll, property)
 
 spec :: Spec

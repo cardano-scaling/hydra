@@ -9,15 +9,14 @@ module Hydra.Options (
 ) where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Control.Arrow (left)
 import Control.Lens ((?~))
 import Data.Aeson (Value (Object, String), withObject, (.:))
 import Data.Aeson.Lens (atKey)
-import Data.ByteString qualified as BS
+
 import Data.ByteString.Char8 qualified as BSC
-import Data.IP (IP (IPv4), toIPv4, toIPv4w)
+import Data.IP (IP (IPv4), toIPv4)
 import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (showVersion)
@@ -29,9 +28,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   SocketPath,
   TxId (..),
-  deserialiseFromRawBytes,
   deserialiseFromRawBytesHex,
-  proxyToAsType,
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -81,7 +78,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
-import Test.QuickCheck (Positive (..), choose, elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck (Positive (..))
 
 data Command
   = Run RunOptions
@@ -228,55 +225,6 @@ instance ToJSON a => ToJSON (Positive a) where
 instance FromJSON a => FromJSON (Positive a) where
   parseJSON v = Positive <$> parseJSON v
 
--- Orphan instance
-instance Arbitrary IP where
-  arbitrary = IPv4 . toIPv4w <$> arbitrary
-  shrink = genericShrink
-
-instance Arbitrary RunOptions where
-  arbitrary = do
-    verbosity <- elements [Quiet, Verbose "HydraNode"]
-    nodeId <- arbitrary
-    listen <- arbitrary
-    advertise <- arbitrary
-    peers <- reasonablySized arbitrary
-    apiHost <- arbitrary
-    apiPort <- arbitrary
-    tlsCertPath <- oneof [pure Nothing, Just <$> genFilePath "pem"]
-    tlsKeyPath <- oneof [pure Nothing, Just <$> genFilePath "key"]
-    monitoringPort <- arbitrary
-    hydraSigningKey <- genFilePath "sk"
-    hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
-    persistenceDir <- genDirPath
-    persistenceRotateAfter <- oneof [pure Nothing, Just . Positive . fromInteger <$> choose (1, 100000)]
-    chainConfig <- arbitrary
-    ledgerConfig <- arbitrary
-    whichEtcd <- arbitrary
-    apiTransactionTimeout <- arbitrary
-    pure $
-      RunOptions
-        { verbosity
-        , nodeId
-        , listen
-        , advertise
-        , peers
-        , apiHost
-        , apiPort
-        , tlsCertPath
-        , tlsKeyPath
-        , monitoringPort
-        , hydraSigningKey
-        , hydraVerificationKeys
-        , persistenceDir
-        , persistenceRotateAfter
-        , chainConfig
-        , ledgerConfig
-        , whichEtcd
-        , apiTransactionTimeout
-        }
-
-  shrink = genericShrink
-
 -- | Default options as they should also be provided by 'runOptionsParser'.
 defaultRunOptions :: RunOptions
 defaultRunOptions =
@@ -382,11 +330,6 @@ defaultLedgerConfig =
     { cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
     }
 
-instance Arbitrary LedgerConfig where
-  arbitrary = do
-    cardanoLedgerProtocolParametersFile <- genFilePath "json"
-    pure $ CardanoLedgerConfig{cardanoLedgerProtocolParametersFile}
-
 ledgerConfigParser :: Parser LedgerConfig
 ledgerConfigParser =
   CardanoLedgerConfig
@@ -474,49 +417,6 @@ data BlockfrostChainConfig = BlockfrostChainConfig
   -- ^ Identifier of transaction holding the hydra scripts to use.
   }
   deriving stock (Eq, Show, Generic)
-
-instance Arbitrary ChainConfig where
-  arbitrary =
-    oneof
-      [ Cardano <$> genCardanoChainConfig
-      , Offline <$> genOfflineChainConfig
-      ]
-   where
-    genCardanoChainConfig = do
-      hydraScriptsTxId <- reasonablySized arbitrary
-      cardanoSigningKey <- genFilePath "sk"
-      cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
-      startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
-      contestationPeriod <- arbitrary
-      depositPeriod <- arbitrary
-      unsyncedPeriod <- arbitrary
-      chainBackendOptions <-
-        oneof
-          [ pure $ Direct defaultDirectOptions
-          , pure $ Blockfrost defaultBlockfrostOptions
-          ]
-      pure
-        CardanoChainConfig
-          { hydraScriptsTxId
-          , cardanoSigningKey
-          , cardanoVerificationKeys
-          , startChainFrom
-          , contestationPeriod
-          , depositPeriod
-          , unsyncedPeriod
-          , chainBackendOptions
-          }
-
-    genOfflineChainConfig = do
-      offlineHeadSeed <- arbitrary
-      ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "json"]
-      initialUTxOFile <- genFilePath "json"
-      pure
-        OfflineChainConfig
-          { offlineHeadSeed
-          , initialUTxOFile
-          , ledgerGenesisFile
-          }
 
 offlineChainConfigParser :: Parser OfflineChainConfig
 offlineChainConfigParser =
@@ -1179,21 +1079,3 @@ toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
   Mainnet -> ["--mainnet"]
   Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
-
-genFilePath :: String -> Gen FilePath
-genFilePath extension = do
-  path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
-  pure $ intercalate "/" path <> "." <> extension
-
-genDirPath :: Gen FilePath
-genDirPath = do
-  path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
-  pure $ intercalate "/" path
-
-genChainPoint :: Gen ChainPoint
-genChainPoint = (ChainPoint . SlotNo <$> arbitrary) <*> someHeaderHash
- where
-  someHeaderHash = do
-    bytes <- vectorOf 32 arbitrary
-    let hash = either (error "invalid bytes") id $ deserialiseFromRawBytes (proxyToAsType Proxy) . BS.pack $ bytes
-    pure hash
