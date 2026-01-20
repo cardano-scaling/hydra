@@ -640,7 +640,7 @@ createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m
 -- | Derive an <a>OnChainTx</a> from <a>PostChainTx</a> to simulate a
 --   "perfect" chain. NOTE: This implementation announces hard-coded
 --   contestationDeadlines. Also, all heads will have the same
---   <a>OpenState</a> and <a>OpenState</a>.
+--   <a>InitialState</a> and <a>InitialState</a>.
 toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 nothingHappensFor :: (MonadTimer m, MonadThrow m, IsChainState tx) => TestHydraClient tx m -> NominalDiffTime -> m ()

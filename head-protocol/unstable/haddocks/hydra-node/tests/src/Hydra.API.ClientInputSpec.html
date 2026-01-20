@@ -14,16 +14,18 @@
 </span><span id="line-14"></span><span>  </span><span class="annot"><span class="hs-identifier">defaultSettings</span></span><span class="hs-special">,</span><span>
 </span><span id="line-15"></span><span>  </span><span class="annot"><span class="hs-identifier">roundtripAndGoldenADTSpecsWithSettings</span></span><span class="hs-special">,</span><span>
 </span><span id="line-16"></span><span> </span><span class="hs-special">)</span><span>
-</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">counterexample</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">forAll</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">property</span></span><span class="hs-special">)</span><span>
-</span><span id="line-18"></span><span>
-</span><span id="line-19"></span><span class="annot"><a href="Hydra.API.ClientInputSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
-</span><span id="line-20"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.API.ClientInput</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Gen</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.QuickCheck</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">counterexample</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">forAll</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">property</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span>
+</span><span id="line-21"></span><span class="annot"><a href="Hydra.API.ClientInputSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-22"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
 </span><a href="Hydra.API.ClientInputSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Spec -&gt; Spec
 forall a. SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">parallel</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-21"></span><span>  </span><span class="annot"><span class="annottext">Settings -&gt; Proxy (MinimumSized (ClientInput Tx)) -&gt; Spec
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">Settings -&gt; Proxy (MinimumSized (ClientInput Tx)) -&gt; Spec
 forall a.
 (Arbitrary a, ToADTArbitrary a, Eq a, Show a, ToJSON a,
  FromJSON a) =&gt;
@@ -35,8 +37,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall t. Proxy t
 forall {k} (t :: k). Proxy t
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MinimumSized</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ClientInput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-22"></span><span>
-</span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
 (HasCallStack, Testable prop) =&gt;
 String -&gt; prop -&gt; Spec
@@ -44,14 +46,14 @@ String -&gt; prop -&gt; Spec
 </span><span class="hs-string">&quot;matches JSON schema&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Spec) -&gt; Property -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">forall a.
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="annottext">forall a.
 (HasCallStack, ToJSON a, Arbitrary a, Show a) =&gt;
 String -&gt; SchemaSelector -&gt; Property
 </span><span class="hs-identifier hs-var">prop_validateJSONSchema</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ClientInput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.json&quot;</span></span><span> </span><span class="annot"><span class="annottext">(SchemaSelector -&gt; Property) -&gt; SchemaSelector -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-25"></span><span>      </span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
+</span><span id="line-27"></span><span>      </span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;components&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; f Value) -&gt; Value -&gt; f Value)
@@ -73,9 +75,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;ClientInput&quot;</span></span><span>
-</span><span id="line-26"></span><span>
-</span><span id="line-27"></span><span>  </span><span class="hs-comment">-- XXX: This seems no to be working? Adding a new message does not lead to a failure here</span><span>
-</span><span id="line-28"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-comment">-- XXX: This seems no to be working? Adding a new message does not lead to a failure here</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
 (HasCallStack, Testable prop) =&gt;
 String -&gt; prop -&gt; Spec
@@ -83,14 +85,14 @@ String -&gt; prop -&gt; Spec
 </span><span class="hs-string">&quot;schema covers all defined client inputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Spec) -&gt; Property -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">forall a.
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">forall a.
 (Arbitrary a, Show a) =&gt;
 String -&gt; SchemaSelector -&gt; Property
 </span><span class="hs-identifier hs-var">prop_specIsComplete</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ClientInput</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;api.json&quot;</span></span><span> </span><span class="annot"><span class="annottext">(SchemaSelector -&gt; Property) -&gt; SchemaSelector -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-30"></span><span>      </span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
+</span><span id="line-32"></span><span>      </span><span class="annot"><span class="annottext">Key -&gt; SchemaSelector
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;channels&quot;</span></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; f Value) -&gt; Value -&gt; f Value)
@@ -121,14 +123,14 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
 </span><span class="hs-identifier hs-var">key</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;message&quot;</span></span><span>
-</span><span id="line-31"></span><span>
-</span><span id="line-32"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;FromJSON (ValidatedTx era)&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
+</span><span id="line-35"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
 (HasCallStack, Testable prop) =&gt;
 String -&gt; prop -&gt; Spec
@@ -136,17 +138,17 @@ String -&gt; prop -&gt; Spec
 </span><span class="hs-string">&quot;accepts transactions produced via cardano-cli&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Spec) -&gt; Property -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
-</span><span id="line-34"></span><span>      </span><span class="annot"><span class="annottext">Gen Tx -&gt; (Tx -&gt; Property) -&gt; Property
+</span><span id="line-36"></span><span>      </span><span class="annot"><span class="annottext">Gen Tx -&gt; (Tx -&gt; Property) -&gt; Property
 forall a prop.
 (Show a, Testable prop) =&gt;
 Gen a -&gt; (a -&gt; prop) -&gt; Property
 </span><span class="hs-identifier hs-var">forAll</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Tx -&gt; Property) -&gt; Property) -&gt; (Tx -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679614893"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679614893"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-35"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679614894"><span class="annot"><span class="annottext">envelope :: Value
-</span><a href="#local-6989586621679614894"><span class="hs-identifier hs-var hs-var">envelope</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TextEnvelope -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679615056"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679615056"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-37"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679615057"><span class="annot"><span class="annottext">envelope :: Value
+</span><a href="#local-6989586621679615057"><span class="hs-identifier hs-var hs-var">envelope</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TextEnvelope -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">(TextEnvelope -&gt; Value) -&gt; TextEnvelope -&gt; Value
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -158,16 +160,16 @@ Maybe TextEnvelopeDescr -&gt; a -&gt; TextEnvelope
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">TextEnvelopeDescr
 </span><span class="hs-string">&quot;Tx Babbage&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679614893"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-36"></span><span>         </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">forall a. FromJSON a =&gt; Value -&gt; Result a
+</span><a href="#local-6989586621679615056"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-38"></span><span>         </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">forall a. FromJSON a =&gt; Value -&gt; Result a
 </span><span class="hs-identifier hs-var">fromJSON</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679614894"><span class="hs-identifier hs-var">envelope</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-37"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Success</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
+</span><a href="#local-6989586621679615057"><span class="hs-identifier hs-var">envelope</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-39"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Success</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
-</span><span id="line-38"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span id="local-6989586621679614898"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679614898"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
+</span><span id="line-40"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">Error</span></span><span> </span><span id="local-6989586621679615061"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679615061"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
 forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">counterexample</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; String
 forall a. ToString a =&gt; a -&gt; String
@@ -176,10 +178,10 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
 forall a. ToText a =&gt; a -&gt; Text
 </span><span class="hs-identifier hs-var">toText</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679614898"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Property) -&gt; Property -&gt; Property
+</span><a href="#local-6989586621679615061"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Property -&gt; Property) -&gt; Property -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-39"></span></pre></body></html>
+</span><span id="line-41"></span></pre></body></html>
