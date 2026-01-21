@@ -37,36 +37,36 @@
 </span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Ouroboros.Consensus.HardFork.History</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Consensus</span></span><span>
 </span><span id="line-38"></span><span>
 </span><span id="line-39"></span><span class="annot"><a href="Hydra.Chain.Cardano.html#withCardanoChain"><span class="hs-identifier hs-type">withCardanoChain</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-40"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680449045"><span class="annot"><a href="#local-6989586621680449045"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680449081"><span class="annot"><a href="#local-6989586621680449081"><span class="hs-identifier hs-type">a</span></a></span></span><span class="hs-operator">.</span><span>
 </span><span id="line-41"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.Handlers.html#CardanoChainLog"><span class="hs-identifier hs-type">CardanoChainLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-44"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Chain state loaded from persistence.</span></span><span>
 </span><span id="line-45"></span><span>  </span><span class="annot"><a href="Hydra.Chain.html#ChainStateHistory"><span class="hs-identifier hs-type">ChainStateHistory</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-46"></span><span>  </span><span class="annot"><a href="Hydra.Chain.html#ChainComponent"><span class="hs-identifier hs-type">ChainComponent</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680449045"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><a href="Hydra.Chain.html#ChainComponent"><span class="hs-identifier hs-type">ChainComponent</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680449081"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-47"></span><span id="withCardanoChain"><span class="annot"><span class="annottext">withCardanoChain :: forall a.
 Tracer IO CardanoChainLog
 -&gt; CardanoChainConfig
 -&gt; Party
 -&gt; ChainStateHistory Tx
 -&gt; ChainComponent Tx IO a
-</span><a href="Hydra.Chain.Cardano.html#withCardanoChain"><span class="hs-identifier hs-var hs-var">withCardanoChain</span></a></span></span><span> </span><span id="local-6989586621680449165"><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449165"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680449166"><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621680449167"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680449167"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621680449168"><span class="annot"><span class="annottext">ChainStateHistory Tx
-</span><a href="#local-6989586621680449168"><span class="hs-identifier hs-var">chainStateHistory</span></a></span></span><span> </span><span id="local-6989586621680449169"><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680449169"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680449170"><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
-</span><a href="#local-6989586621680449170"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Chain.Cardano.html#withCardanoChain"><span class="hs-identifier hs-var hs-var">withCardanoChain</span></a></span></span><span> </span><span id="local-6989586621680449201"><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
+</span><a href="#local-6989586621680449201"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680449202"><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span id="local-6989586621680449203"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680449203"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621680449204"><span class="annot"><span class="annottext">ChainStateHistory Tx
+</span><a href="#local-6989586621680449204"><span class="hs-identifier hs-var">chainStateHistory</span></a></span></span><span> </span><span id="local-6989586621680449205"><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680449205"><span class="hs-identifier hs-var">callback</span></a></span></span><span> </span><span id="local-6989586621680449206"><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
+</span><a href="#local-6989586621680449206"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-48"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621680449171"><span class="hs-identifier hs-var">chainBackendOptions</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-49"></span><span>    </span><span class="annot"><a href="Hydra.Options.html#Direct"><span class="hs-identifier hs-type">Direct</span></a></span><span> </span><span id="local-6989586621680449173"><span class="annot"><span class="annottext">DirectOptions
-</span><a href="#local-6989586621680449173"><span class="hs-identifier hs-var">directOptions</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-50"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680449174"><span class="annot"><span class="annottext">directBackend :: DirectBackend
-</span><a href="#local-6989586621680449174"><span class="hs-identifier hs-var hs-var">directBackend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DirectOptions -&gt; DirectBackend
+</span><a href="#local-6989586621680449207"><span class="hs-identifier hs-var">chainBackendOptions</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><a href="Hydra.Options.html#Direct"><span class="hs-identifier hs-type">Direct</span></a></span><span> </span><span id="local-6989586621680449209"><span class="annot"><span class="annottext">DirectOptions
+</span><a href="#local-6989586621680449209"><span class="hs-identifier hs-var">directOptions</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-50"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680449210"><span class="annot"><span class="annottext">directBackend :: DirectBackend
+</span><a href="#local-6989586621680449210"><span class="hs-identifier hs-var hs-var">directBackend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DirectOptions -&gt; DirectBackend
 </span><a href="Hydra.Chain.Direct.html#DirectBackend"><span class="hs-identifier hs-var">DirectBackend</span></a></span><span> </span><span class="annot"><span class="annottext">DirectOptions
-</span><a href="#local-6989586621680449173"><span class="hs-identifier hs-var">directOptions</span></a></span><span>
-</span><span id="line-51"></span><span>      </span><span id="local-6989586621680449176"><span class="annot"><span class="annottext">TinyWallet IO
-</span><a href="#local-6989586621680449176"><span class="hs-identifier hs-var">wallet</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">DirectBackend
+</span><a href="#local-6989586621680449209"><span class="hs-identifier hs-var">directOptions</span></a></span><span>
+</span><span id="line-51"></span><span>      </span><span id="local-6989586621680449212"><span class="annot"><span class="annottext">TinyWallet IO
+</span><a href="#local-6989586621680449212"><span class="hs-identifier hs-var">wallet</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">DirectBackend
 -&gt; Tracer IO CardanoChainLog
 -&gt; CardanoChainConfig
 -&gt; IO (TinyWallet IO)
@@ -77,18 +77,18 @@ backend
 -&gt; CardanoChainConfig
 -&gt; IO (TinyWallet IO)
 </span><a href="Hydra.Chain.Cardano.html#mkTinyWallet"><span class="hs-identifier hs-var">mkTinyWallet</span></a></span><span> </span><span class="annot"><span class="annottext">DirectBackend
-</span><a href="#local-6989586621680449174"><span class="hs-identifier hs-var">directBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449165"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span>
-</span><span id="line-52"></span><span>      </span><span id="local-6989586621680449178"><span class="annot"><span class="annottext">ChainContext
-</span><a href="#local-6989586621680449178"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">DirectBackend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
+</span><a href="#local-6989586621680449210"><span class="hs-identifier hs-var">directBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
+</span><a href="#local-6989586621680449201"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-52"></span><span>      </span><span id="local-6989586621680449214"><span class="annot"><span class="annottext">ChainContext
+</span><a href="#local-6989586621680449214"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">DirectBackend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
 forall backend.
 ChainBackend backend =&gt;
 backend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
 </span><a href="Hydra.Chain.Cardano.html#loadChainContext"><span class="hs-identifier hs-var">loadChainContext</span></a></span><span> </span><span class="annot"><span class="annottext">DirectBackend
-</span><a href="#local-6989586621680449174"><span class="hs-identifier hs-var">directBackend</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680449167"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680449210"><span class="hs-identifier hs-var">directBackend</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680449203"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-53"></span><span>      </span><span class="annot"><span class="annottext">DirectBackend
 -&gt; Tracer IO CardanoChainLog
 -&gt; CardanoChainConfig
@@ -105,22 +105,22 @@ DirectBackend
 -&gt; ChainStateHistory Tx
 -&gt; ChainComponent Tx IO a
 </span><a href="Hydra.Chain.Direct.html#withDirectChain"><span class="hs-identifier hs-var">withDirectChain</span></a></span><span> </span><span class="annot"><span class="annottext">DirectBackend
-</span><a href="#local-6989586621680449174"><span class="hs-identifier hs-var">directBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449165"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainContext
-</span><a href="#local-6989586621680449178"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">TinyWallet IO
-</span><a href="#local-6989586621680449176"><span class="hs-identifier hs-var">wallet</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx
-</span><a href="#local-6989586621680449168"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680449169"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
-</span><a href="#local-6989586621680449170"><span class="hs-identifier hs-var">action</span></a></span><span>
-</span><span id="line-54"></span><span>    </span><span class="annot"><a href="Hydra.Options.html#Blockfrost"><span class="hs-identifier hs-type">Blockfrost</span></a></span><span> </span><span id="local-6989586621680449181"><span class="annot"><span class="annottext">BlockfrostOptions
-</span><a href="#local-6989586621680449181"><span class="hs-identifier hs-var">blockfrostOptions</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-55"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680449182"><span class="annot"><span class="annottext">blockfrostBackend :: BlockfrostBackend
-</span><a href="#local-6989586621680449182"><span class="hs-identifier hs-var hs-var">blockfrostBackend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockfrostOptions -&gt; BlockfrostBackend
+</span><a href="#local-6989586621680449210"><span class="hs-identifier hs-var">directBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
+</span><a href="#local-6989586621680449201"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainContext
+</span><a href="#local-6989586621680449214"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">TinyWallet IO
+</span><a href="#local-6989586621680449212"><span class="hs-identifier hs-var">wallet</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx
+</span><a href="#local-6989586621680449204"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680449205"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
+</span><a href="#local-6989586621680449206"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><span id="line-54"></span><span>    </span><span class="annot"><a href="Hydra.Options.html#Blockfrost"><span class="hs-identifier hs-type">Blockfrost</span></a></span><span> </span><span id="local-6989586621680449217"><span class="annot"><span class="annottext">BlockfrostOptions
+</span><a href="#local-6989586621680449217"><span class="hs-identifier hs-var">blockfrostOptions</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-55"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680449218"><span class="annot"><span class="annottext">blockfrostBackend :: BlockfrostBackend
+</span><a href="#local-6989586621680449218"><span class="hs-identifier hs-var hs-var">blockfrostBackend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BlockfrostOptions -&gt; BlockfrostBackend
 </span><a href="Hydra.Chain.Blockfrost.html#BlockfrostBackend"><span class="hs-identifier hs-var">BlockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">BlockfrostOptions
-</span><a href="#local-6989586621680449181"><span class="hs-identifier hs-var">blockfrostOptions</span></a></span><span>
-</span><span id="line-56"></span><span>      </span><span id="local-6989586621680449184"><span class="annot"><span class="annottext">TinyWallet IO
-</span><a href="#local-6989586621680449184"><span class="hs-identifier hs-var">wallet</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend
+</span><a href="#local-6989586621680449217"><span class="hs-identifier hs-var">blockfrostOptions</span></a></span><span>
+</span><span id="line-56"></span><span>      </span><span id="local-6989586621680449220"><span class="annot"><span class="annottext">TinyWallet IO
+</span><a href="#local-6989586621680449220"><span class="hs-identifier hs-var">wallet</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend
 -&gt; Tracer IO CardanoChainLog
 -&gt; CardanoChainConfig
 -&gt; IO (TinyWallet IO)
@@ -131,18 +131,18 @@ backend
 -&gt; CardanoChainConfig
 -&gt; IO (TinyWallet IO)
 </span><a href="Hydra.Chain.Cardano.html#mkTinyWallet"><span class="hs-identifier hs-var">mkTinyWallet</span></a></span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend
-</span><a href="#local-6989586621680449182"><span class="hs-identifier hs-var">blockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449165"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span>
-</span><span id="line-57"></span><span>      </span><span id="local-6989586621680449185"><span class="annot"><span class="annottext">ChainContext
-</span><a href="#local-6989586621680449185"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
+</span><a href="#local-6989586621680449218"><span class="hs-identifier hs-var">blockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
+</span><a href="#local-6989586621680449201"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><span id="line-57"></span><span>      </span><span id="local-6989586621680449221"><span class="annot"><span class="annottext">ChainContext
+</span><a href="#local-6989586621680449221"><span class="hs-identifier hs-var">ctx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
 forall backend.
 ChainBackend backend =&gt;
 backend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
 </span><a href="Hydra.Chain.Cardano.html#loadChainContext"><span class="hs-identifier hs-var">loadChainContext</span></a></span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend
-</span><a href="#local-6989586621680449182"><span class="hs-identifier hs-var">blockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680449167"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680449218"><span class="hs-identifier hs-var">blockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680449203"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-58"></span><span>      </span><span class="annot"><span class="annottext">BlockfrostBackend
 -&gt; Tracer IO CardanoChainLog
 -&gt; CardanoChainConfig
@@ -159,26 +159,26 @@ BlockfrostBackend
 -&gt; ChainStateHistory Tx
 -&gt; ChainComponent Tx IO a
 </span><a href="Hydra.Chain.Blockfrost.html#withBlockfrostChain"><span class="hs-identifier hs-var">withBlockfrostChain</span></a></span><span> </span><span class="annot"><span class="annottext">BlockfrostBackend
-</span><a href="#local-6989586621680449182"><span class="hs-identifier hs-var">blockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449165"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainContext
-</span><a href="#local-6989586621680449185"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">TinyWallet IO
-</span><a href="#local-6989586621680449184"><span class="hs-identifier hs-var">wallet</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx
-</span><a href="#local-6989586621680449168"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO
-</span><a href="#local-6989586621680449169"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
-</span><a href="#local-6989586621680449170"><span class="hs-identifier hs-var">action</span></a></span><span>
+</span><a href="#local-6989586621680449218"><span class="hs-identifier hs-var">blockfrostBackend</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
+</span><a href="#local-6989586621680449201"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span> </span><span class="annot"><span class="annottext">ChainContext
+</span><a href="#local-6989586621680449221"><span class="hs-identifier hs-var">ctx</span></a></span><span> </span><span class="annot"><span class="annottext">TinyWallet IO
+</span><a href="#local-6989586621680449220"><span class="hs-identifier hs-var">wallet</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory Tx
+</span><a href="#local-6989586621680449204"><span class="hs-identifier hs-var">chainStateHistory</span></a></span><span> </span><span class="annot"><span class="annottext">ChainCallback Tx IO
+</span><a href="#local-6989586621680449205"><span class="hs-identifier hs-var">callback</span></a></span><span> </span><span class="annot"><span class="annottext">Chain Tx IO -&gt; IO a
+</span><a href="#local-6989586621680449206"><span class="hs-identifier hs-var">action</span></a></span><span>
 </span><span id="line-59"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-60"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680449171"><span class="annot"><span class="annottext">ChainBackendOptions
+</span><span id="line-60"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680449207"><span class="annot"><span class="annottext">ChainBackendOptions
 chainBackendOptions :: ChainBackendOptions
 $sel:chainBackendOptions:CardanoChainConfig :: CardanoChainConfig -&gt; ChainBackendOptions
-</span><a href="#local-6989586621680449171"><span class="hs-identifier hs-var hs-var">chainBackendOptions</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449166"><span class="hs-identifier hs-var">cfg</span></a></span><span>
+</span><a href="#local-6989586621680449207"><span class="hs-identifier hs-var hs-var">chainBackendOptions</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449202"><span class="hs-identifier hs-var">cfg</span></a></span><span>
 </span><span id="line-61"></span><span>
 </span><span id="line-62"></span><span class="annot"><span class="hs-comment">-- | Build the 'ChainContext' from a 'ChainConfig' and additional information.</span></span><span>
 </span><span id="line-63"></span><span class="annot"><a href="Hydra.Chain.Cardano.html#loadChainContext"><span class="hs-identifier hs-type">loadChainContext</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-64"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680449058"><span class="annot"><a href="#local-6989586621680449058"><span class="hs-identifier hs-type">backend</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-65"></span><span>  </span><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-type">ChainBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680449058"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-66"></span><span>  </span><span class="annot"><a href="#local-6989586621680449058"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-64"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680449094"><span class="annot"><a href="#local-6989586621680449094"><span class="hs-identifier hs-type">backend</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-type">ChainBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680449094"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><a href="#local-6989586621680449094"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-67"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-68"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Hydra party of our hydra node.</span></span><span>
 </span><span id="line-69"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -187,17 +187,17 @@ $sel:chainBackendOptions:CardanoChainConfig :: CardanoChainConfig -&gt; ChainBac
 </span><span id="line-72"></span><span id="loadChainContext"><span class="annot"><span class="annottext">loadChainContext :: forall backend.
 ChainBackend backend =&gt;
 backend -&gt; CardanoChainConfig -&gt; Party -&gt; IO ChainContext
-</span><a href="Hydra.Chain.Cardano.html#loadChainContext"><span class="hs-identifier hs-var hs-var">loadChainContext</span></a></span></span><span> </span><span id="local-6989586621680449203"><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449203"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span id="local-6989586621680449204"><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449204"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680449205"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680449205"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-73"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621680449206"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621680449206"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="Hydra.Chain.Cardano.html#loadChainContext"><span class="hs-identifier hs-var hs-var">loadChainContext</span></a></span></span><span> </span><span id="local-6989586621680449239"><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680449239"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span id="local-6989586621680449240"><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449240"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680449241"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680449241"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-73"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621680449242"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621680449242"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 </span><a href="Hydra.Node.Util.html#readKeyPair"><span class="hs-identifier hs-var">readKeyPair</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680449207"><span class="hs-identifier hs-var">cardanoSigningKey</span></a></span><span>
-</span><span id="line-74"></span><span>  </span><span id="local-6989586621680449208"><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621680449208"><span class="hs-identifier hs-var">scriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; [TxId] -&gt; IO ScriptRegistry
+</span><a href="#local-6989586621680449243"><span class="hs-identifier hs-var">cardanoSigningKey</span></a></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621680449244"><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621680449244"><span class="hs-identifier hs-var">scriptRegistry</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; [TxId] -&gt; IO ScriptRegistry
 forall a (m :: * -&gt; *).
 (ChainBackend a, MonadIO m, MonadThrow m) =&gt;
 a -&gt; [TxId] -&gt; m ScriptRegistry
@@ -205,10 +205,10 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; [TxId] -&gt; m ScriptRegistry
 </span><a href="Hydra.Chain.Backend.html#queryScriptRegistry"><span class="hs-identifier hs-var">queryScriptRegistry</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449203"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">[TxId]
-</span><a href="#local-6989586621680449210"><span class="hs-identifier hs-var">hydraScriptsTxId</span></a></span><span>
-</span><span id="line-75"></span><span>  </span><span id="local-6989586621680449211"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621680449211"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; IO NetworkId
+</span><a href="#local-6989586621680449239"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">[TxId]
+</span><a href="#local-6989586621680449246"><span class="hs-identifier hs-var">hydraScriptsTxId</span></a></span><span>
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621680449247"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680449247"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; IO NetworkId
 forall a (m :: * -&gt; *).
 (ChainBackend a, MonadIO m, MonadThrow m) =&gt;
 a -&gt; m NetworkId
@@ -216,7 +216,7 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; m NetworkId
 </span><a href="Hydra.Chain.Backend.html#queryNetworkId"><span class="hs-identifier hs-var">queryNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449203"><span class="hs-identifier hs-var">backend</span></a></span><span>
+</span><a href="#local-6989586621680449239"><span class="hs-identifier hs-var">backend</span></a></span><span>
 </span><span id="line-76"></span><span>  </span><span class="annot"><span class="annottext">ChainContext -&gt; IO ChainContext
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -228,35 +228,35 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-78"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">NetworkId
 networkId :: NetworkId
 $sel:networkId:ChainContext :: NetworkId
-</span><a href="#local-6989586621680449211"><span class="hs-identifier hs-var hs-var">networkId</span></a></span><span>
+</span><a href="#local-6989586621680449247"><span class="hs-identifier hs-var hs-var">networkId</span></a></span><span>
 </span><span id="line-79"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:ownVerificationKey:ChainContext :: VerificationKey PaymentKey
-</span><a href="#local-6989586621680449214"><span class="hs-identifier hs-var">ownVerificationKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621680449206"><span class="hs-identifier hs-var">vk</span></a></span><span>
+</span><a href="#local-6989586621680449250"><span class="hs-identifier hs-var">ownVerificationKey</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621680449242"><span class="hs-identifier hs-var">vk</span></a></span><span>
 </span><span id="line-80"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:ownParty:ChainContext :: Party
-</span><a href="#local-6989586621680449215"><span class="hs-identifier hs-var">ownParty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680449205"><span class="hs-identifier hs-var">party</span></a></span><span>
+</span><a href="#local-6989586621680449251"><span class="hs-identifier hs-var">ownParty</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621680449241"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-81"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
 scriptRegistry :: ScriptRegistry
 $sel:scriptRegistry:ChainContext :: ScriptRegistry
-</span><a href="#local-6989586621680449208"><span class="hs-identifier hs-var hs-var">scriptRegistry</span></a></span><span>
+</span><a href="#local-6989586621680449244"><span class="hs-identifier hs-var hs-var">scriptRegistry</span></a></span><span>
 </span><span id="line-82"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-83"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-84"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span>
-</span><span id="line-85"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680449210"><span class="annot"><span class="annottext">[TxId]
+</span><span id="line-85"></span><span>    </span><span class="hs-special">{</span><span> </span><span id="local-6989586621680449246"><span class="annot"><span class="annottext">[TxId]
 hydraScriptsTxId :: [TxId]
 $sel:hydraScriptsTxId:CardanoChainConfig :: CardanoChainConfig -&gt; [TxId]
-</span><a href="#local-6989586621680449210"><span class="hs-identifier hs-var hs-var">hydraScriptsTxId</span></a></span></span><span>
-</span><span id="line-86"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680449207"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621680449246"><span class="hs-identifier hs-var hs-var">hydraScriptsTxId</span></a></span></span><span>
+</span><span id="line-86"></span><span>    </span><span class="hs-special">,</span><span> </span><span id="local-6989586621680449243"><span class="annot"><span class="annottext">FilePath
 cardanoSigningKey :: FilePath
 $sel:cardanoSigningKey:CardanoChainConfig :: CardanoChainConfig -&gt; FilePath
-</span><a href="#local-6989586621680449207"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span>
+</span><a href="#local-6989586621680449243"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span>
 </span><span id="line-87"></span><span>    </span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449204"><span class="hs-identifier hs-var">config</span></a></span><span>
+</span><a href="#local-6989586621680449240"><span class="hs-identifier hs-var">config</span></a></span><span>
 </span><span id="line-88"></span><span>
 </span><span id="line-89"></span><span class="annot"><a href="Hydra.Chain.Cardano.html#mkTinyWallet"><span class="hs-identifier hs-type">mkTinyWallet</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-90"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680449056"><span class="annot"><a href="#local-6989586621680449056"><span class="hs-identifier hs-type">backend</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-91"></span><span>  </span><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-type">ChainBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680449056"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-92"></span><span>  </span><span class="annot"><a href="#local-6989586621680449056"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621680449092"><span class="annot"><a href="#local-6989586621680449092"><span class="hs-identifier hs-type">backend</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><a href="Hydra.Chain.Backend.html#ChainBackend"><span class="hs-identifier hs-type">ChainBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680449092"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><a href="#local-6989586621680449092"><span class="hs-identifier hs-type">backend</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-93"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.Direct.Handlers.html#CardanoChainLog"><span class="hs-identifier hs-type">CardanoChainLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-94"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-95"></span><span>  </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.Direct.Wallet.html#TinyWallet"><span class="hs-identifier hs-type">TinyWallet</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span class="hs-special">)</span><span>
@@ -266,16 +266,16 @@ backend
 -&gt; Tracer IO CardanoChainLog
 -&gt; CardanoChainConfig
 -&gt; IO (TinyWallet IO)
-</span><a href="Hydra.Chain.Cardano.html#mkTinyWallet"><span class="hs-identifier hs-var hs-var">mkTinyWallet</span></a></span></span><span> </span><span id="local-6989586621680449252"><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span id="local-6989586621680449253"><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449253"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680449254"><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449254"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-97"></span><span>  </span><span id="local-6989586621680449255"><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
-</span><a href="#local-6989586621680449255"><span class="hs-identifier hs-var">keyPair</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="Hydra.Chain.Cardano.html#mkTinyWallet"><span class="hs-identifier hs-var hs-var">mkTinyWallet</span></a></span></span><span> </span><span id="local-6989586621680449288"><span class="annot"><span class="annottext">backend
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span id="local-6989586621680449289"><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
+</span><a href="#local-6989586621680449289"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621680449290"><span class="annot"><span class="annottext">CardanoChainConfig
+</span><a href="#local-6989586621680449290"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621680449291"><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="#local-6989586621680449291"><span class="hs-identifier hs-var">keyPair</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 </span><a href="Hydra.Node.Util.html#readKeyPair"><span class="hs-identifier hs-var">readKeyPair</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621680449256"><span class="hs-identifier hs-var">cardanoSigningKey</span></a></span><span>
-</span><span id="line-98"></span><span>  </span><span id="local-6989586621680449257"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621680449257"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; IO NetworkId
+</span><a href="#local-6989586621680449292"><span class="hs-identifier hs-var">cardanoSigningKey</span></a></span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621680449293"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680449293"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; IO NetworkId
 forall a (m :: * -&gt; *).
 (ChainBackend a, MonadIO m, MonadThrow m) =&gt;
 a -&gt; m NetworkId
@@ -283,7 +283,7 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; m NetworkId
 </span><a href="Hydra.Chain.Backend.html#queryNetworkId"><span class="hs-identifier hs-var">queryNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span><span>
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span><span>
 </span><span id="line-99"></span><span>  </span><span class="annot"><span class="annottext">Tracer IO TinyWalletLog
 -&gt; NetworkId
 -&gt; (VerificationKey PaymentKey, SigningKey PaymentKey)
@@ -299,23 +299,23 @@ Contravariant f =&gt;
 (a' -&gt; a) -&gt; f a -&gt; f a'
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Contravariant.html#contramap"><span class="hs-identifier hs-var">contramap</span></a></span><span> </span><span class="annot"><span class="annottext">TinyWalletLog -&gt; CardanoChainLog
 </span><a href="Hydra.Chain.Direct.Handlers.html#Wallet"><span class="hs-identifier hs-var">Wallet</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO CardanoChainLog
-</span><a href="#local-6989586621680449253"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621680449257"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
-</span><a href="#local-6989586621680449255"><span class="hs-identifier hs-var">keyPair</span></a></span><span> </span><span class="annot"><span class="annottext">ChainQuery IO
-</span><a href="#local-6989586621680449260"><span class="hs-identifier hs-var">queryWalletInfo</span></a></span><span> </span><span class="annot"><span class="annottext">IO (EpochInfo (Either Text))
-</span><a href="#local-6989586621680449261"><span class="hs-identifier hs-var">queryEpochInfo</span></a></span><span> </span><span class="annot"><span class="annottext">IO (PParams ConwayEra)
+</span><a href="#local-6989586621680449289"><span class="hs-identifier hs-var">tracer</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621680449293"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><a href="#local-6989586621680449291"><span class="hs-identifier hs-var">keyPair</span></a></span><span> </span><span class="annot"><span class="annottext">ChainQuery IO
+</span><a href="#local-6989586621680449296"><span class="hs-identifier hs-var">queryWalletInfo</span></a></span><span> </span><span class="annot"><span class="annottext">IO (EpochInfo (Either Text))
+</span><a href="#local-6989586621680449297"><span class="hs-identifier hs-var">queryEpochInfo</span></a></span><span> </span><span class="annot"><span class="annottext">IO (PParams ConwayEra)
 IO (PParams LedgerEra)
-</span><a href="#local-6989586621680449262"><span class="hs-identifier hs-var">querySomePParams</span></a></span><span>
+</span><a href="#local-6989586621680449298"><span class="hs-identifier hs-var">querySomePParams</span></a></span><span>
 </span><span id="line-100"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-101"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680449256"><span class="annot"><span class="annottext">FilePath
+</span><span id="line-101"></span><span>  </span><span class="annot"><a href="Hydra.Options.html#CardanoChainConfig"><span class="hs-identifier hs-type">CardanoChainConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621680449292"><span class="annot"><span class="annottext">FilePath
 $sel:cardanoSigningKey:CardanoChainConfig :: CardanoChainConfig -&gt; FilePath
 cardanoSigningKey :: FilePath
 </span><a href="Hydra.Options.html#%24sel%3AcardanoSigningKey%3ACardanoChainConfig"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoChainConfig
-</span><a href="#local-6989586621680449254"><span class="hs-identifier hs-var">config</span></a></span><span>
+</span><a href="#local-6989586621680449290"><span class="hs-identifier hs-var">config</span></a></span><span>
 </span><span id="line-102"></span><span>
-</span><span id="line-103"></span><span>  </span><span id="local-6989586621680449261"><span class="annot"><span class="annottext">queryEpochInfo :: IO (EpochInfo (Either Text))
-</span><a href="#local-6989586621680449261"><span class="hs-identifier hs-var hs-var">queryEpochInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EraHistory -&gt; EpochInfo (Either Text)
-</span><a href="#local-6989586621680449263"><span class="hs-identifier hs-var">toEpochInfo</span></a></span><span> </span><span class="annot"><span class="annottext">(EraHistory -&gt; EpochInfo (Either Text))
+</span><span id="line-103"></span><span>  </span><span id="local-6989586621680449297"><span class="annot"><span class="annottext">queryEpochInfo :: IO (EpochInfo (Either Text))
+</span><a href="#local-6989586621680449297"><span class="hs-identifier hs-var hs-var">queryEpochInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EraHistory -&gt; EpochInfo (Either Text)
+</span><a href="#local-6989586621680449299"><span class="hs-identifier hs-var">toEpochInfo</span></a></span><span> </span><span class="annot"><span class="annottext">(EraHistory -&gt; EpochInfo (Either Text))
 -&gt; IO EraHistory -&gt; IO (EpochInfo (Either Text))
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO EraHistory
@@ -326,11 +326,11 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; QueryPoint -&gt; m EraHistory
 </span><a href="Hydra.Chain.Backend.html#queryEraHistory"><span class="hs-identifier hs-var">queryEraHistory</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
 </span><span id="line-104"></span><span>
-</span><span id="line-105"></span><span>  </span><span id="local-6989586621680449262"><span class="annot"><span class="annottext">querySomePParams :: IO (PParams LedgerEra)
-</span><a href="#local-6989586621680449262"><span class="hs-identifier hs-var hs-var">querySomePParams</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO (PParams LedgerEra)
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621680449298"><span class="annot"><span class="annottext">querySomePParams :: IO (PParams LedgerEra)
+</span><a href="#local-6989586621680449298"><span class="hs-identifier hs-var hs-var">querySomePParams</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO (PParams LedgerEra)
 forall a (m :: * -&gt; *).
 (ChainBackend a, MonadIO m, MonadThrow m) =&gt;
 a -&gt; QueryPoint -&gt; m (PParams LedgerEra)
@@ -338,21 +338,21 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; QueryPoint -&gt; m (PParams LedgerEra)
 </span><a href="Hydra.Chain.Backend.html#queryProtocolParameters"><span class="hs-identifier hs-var">queryProtocolParameters</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
-</span><span id="line-106"></span><span>  </span><span id="local-6989586621680449260"><span class="annot"><span class="annottext">queryWalletInfo :: ChainQuery IO
-</span><a href="#local-6989586621680449260"><span class="hs-identifier hs-var hs-var">queryWalletInfo</span></a></span></span><span> </span><span id="local-6989586621680449268"><span class="annot"><span class="annottext">QueryPoint
-</span><a href="#local-6989586621680449268"><span class="hs-identifier hs-var">queryPoint</span></a></span></span><span> </span><span id="local-6989586621680449269"><span class="annot"><span class="annottext">Address ShelleyAddr
-</span><a href="#local-6989586621680449269"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-107"></span><span>    </span><span id="local-6989586621680449270"><span class="annot"><span class="annottext">ChainPoint
-</span><a href="#local-6989586621680449270"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">QueryPoint
-</span><a href="#local-6989586621680449268"><span class="hs-identifier hs-var">queryPoint</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-108"></span><span>      </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryAt"><span class="hs-identifier hs-type">QueryAt</span></a></span><span> </span><span id="local-6989586621680449272"><span class="annot"><span class="annottext">ChainPoint
-</span><a href="#local-6989586621680449272"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainPoint -&gt; IO ChainPoint
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621680449296"><span class="annot"><span class="annottext">queryWalletInfo :: ChainQuery IO
+</span><a href="#local-6989586621680449296"><span class="hs-identifier hs-var hs-var">queryWalletInfo</span></a></span></span><span> </span><span id="local-6989586621680449304"><span class="annot"><span class="annottext">QueryPoint
+</span><a href="#local-6989586621680449304"><span class="hs-identifier hs-var">queryPoint</span></a></span></span><span> </span><span id="local-6989586621680449305"><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621680449305"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-107"></span><span>    </span><span id="local-6989586621680449306"><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621680449306"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="#local-6989586621680449304"><span class="hs-identifier hs-var">queryPoint</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-108"></span><span>      </span><span class="annot"><a href="Hydra.Chain.CardanoClient.html#QueryAt"><span class="hs-identifier hs-type">QueryAt</span></a></span><span> </span><span id="local-6989586621680449308"><span class="annot"><span class="annottext">ChainPoint
+</span><a href="#local-6989586621680449308"><span class="hs-identifier hs-var">point</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainPoint -&gt; IO ChainPoint
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPoint
-</span><a href="#local-6989586621680449272"><span class="hs-identifier hs-var">point</span></a></span><span>
+</span><a href="#local-6989586621680449308"><span class="hs-identifier hs-var">point</span></a></span><span>
 </span><span id="line-109"></span><span>      </span><span class="annot"><span class="annottext">QueryPoint
 </span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">backend -&gt; IO ChainPoint
 forall a (m :: * -&gt; *).
@@ -362,9 +362,9 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; m ChainPoint
 </span><a href="Hydra.Chain.Backend.html#queryTip"><span class="hs-identifier hs-var">queryTip</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span><span>
-</span><span id="line-110"></span><span>    </span><span id="local-6989586621680449274"><span class="annot"><span class="annottext">Map TxIn (TxOut ConwayEra)
-</span><a href="#local-6989586621680449274"><span class="hs-identifier hs-var">walletUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO ConwayEra -&gt; Map TxIn (TxOut ConwayEra)
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span id="local-6989586621680449310"><span class="annot"><span class="annottext">Map TxIn (TxOut ConwayEra)
+</span><a href="#local-6989586621680449310"><span class="hs-identifier hs-var">walletUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO ConwayEra -&gt; Map TxIn (TxOut ConwayEra)
 forall era. UTxO era -&gt; Map TxIn (TxOut era)
 </span><span class="hs-identifier hs-var">Ledger.unUTxO</span></span><span> </span><span class="annot"><span class="annottext">(UTxO ConwayEra -&gt; Map TxIn (TxOut ConwayEra))
 -&gt; (UTxO Era -&gt; UTxO ConwayEra)
@@ -387,10 +387,10 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; [Address ShelleyAddr] -&gt; m (UTxO Era)
 </span><a href="Hydra.Chain.Backend.html#queryUTxO"><span class="hs-identifier hs-var">queryUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Address ShelleyAddr
-</span><a href="#local-6989586621680449269"><span class="hs-identifier hs-var">address</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-111"></span><span>    </span><span id="local-6989586621680449279"><span class="annot"><span class="annottext">SystemStart
-</span><a href="#local-6989586621680449279"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO SystemStart
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621680449305"><span class="hs-identifier hs-var">address</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-111"></span><span>    </span><span id="local-6989586621680449315"><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680449315"><span class="hs-identifier hs-var">systemStart</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">backend -&gt; QueryPoint -&gt; IO SystemStart
 forall a (m :: * -&gt; *).
 (ChainBackend a, MonadIO m, MonadThrow m) =&gt;
 a -&gt; QueryPoint -&gt; m SystemStart
@@ -398,7 +398,7 @@ forall (m :: * -&gt; *).
 (MonadIO m, MonadThrow m) =&gt;
 backend -&gt; QueryPoint -&gt; m SystemStart
 </span><a href="Hydra.Chain.Backend.html#querySystemStart"><span class="hs-identifier hs-var">querySystemStart</span></a></span><span> </span><span class="annot"><span class="annottext">backend
-</span><a href="#local-6989586621680449252"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="#local-6989586621680449288"><span class="hs-identifier hs-var">backend</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><a href="Hydra.Chain.CardanoClient.html#QueryTip"><span class="hs-identifier hs-var">QueryTip</span></a></span><span>
 </span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">WalletInfoOnChain -&gt; IO WalletInfoOnChain
 forall a. a -&gt; IO a
@@ -410,17 +410,17 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 Map TxIn TxOut
 walletUTxO :: Map TxIn (TxOut ConwayEra)
 $sel:walletUTxO:WalletInfoOnChain :: Map TxIn TxOut
-</span><a href="#local-6989586621680449274"><span class="hs-identifier hs-var hs-var">walletUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SystemStart
+</span><a href="#local-6989586621680449310"><span class="hs-identifier hs-var hs-var">walletUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SystemStart
 systemStart :: SystemStart
 $sel:systemStart:WalletInfoOnChain :: SystemStart
-</span><a href="#local-6989586621680449279"><span class="hs-identifier hs-var hs-var">systemStart</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:tip:WalletInfoOnChain :: ChainPoint
+</span><a href="#local-6989586621680449315"><span class="hs-identifier hs-var hs-var">systemStart</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:tip:WalletInfoOnChain :: ChainPoint
 </span><a href="Hydra.Chain.Direct.Wallet.html#%24sel%3Atip%3AWalletInfoOnChain"><span class="hs-identifier hs-var">tip</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainPoint
-</span><a href="#local-6989586621680449270"><span class="hs-identifier hs-var">point</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680449306"><span class="hs-identifier hs-var">point</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-113"></span><span>
-</span><span id="line-114"></span><span>  </span><span class="annot"><a href="#local-6989586621680449263"><span class="hs-identifier hs-type">toEpochInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EpochInfo</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-115"></span><span>  </span><span id="local-6989586621680449263"><span class="annot"><span class="annottext">toEpochInfo :: EraHistory -&gt; EpochInfo (Either Text)
-</span><a href="#local-6989586621680449263"><span class="hs-identifier hs-var hs-var">toEpochInfo</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span id="local-6989586621680449286"><span class="annot"><span class="annottext">Interpreter xs
-</span><a href="#local-6989586621680449286"><span class="hs-identifier hs-var">interpreter</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><a href="#local-6989586621680449299"><span class="hs-identifier hs-type">toEpochInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EpochInfo</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621680449299"><span class="annot"><span class="annottext">toEpochInfo :: EraHistory -&gt; EpochInfo (Either Text)
+</span><a href="#local-6989586621680449299"><span class="hs-identifier hs-var hs-var">toEpochInfo</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EraHistory</span></span><span> </span><span id="local-6989586621680449322"><span class="annot"><span class="annottext">Interpreter xs
+</span><a href="#local-6989586621680449322"><span class="hs-identifier hs-var">interpreter</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">(forall a. Except PastHorizonException a -&gt; Either Text a)
 -&gt; EpochInfo (Except PastHorizonException)
 -&gt; EpochInfo (Either Text)
@@ -451,5 +451,5 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall (xs :: [*]).
 Interpreter xs -&gt; EpochInfo (Except PastHorizonException)
 </span><span class="hs-identifier hs-var">Consensus.interpreterToEpochInfo</span></span><span> </span><span class="annot"><span class="annottext">Interpreter xs
-</span><a href="#local-6989586621680449286"><span class="hs-identifier hs-var">interpreter</span></a></span><span>
+</span><a href="#local-6989586621680449322"><span class="hs-identifier hs-var">interpreter</span></a></span><span>
 </span><span id="line-118"></span></pre></body></html>

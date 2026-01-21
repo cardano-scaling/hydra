@@ -336,10 +336,6 @@ withBlockfrostBackend :: Tracer IO NodeLog -> FilePath -> (NominalDiffTime -> Bl
 --   the specified file exists there. If not found, it recursively checks
 --   the parent directories up to the given maximum depth.
 findFileStartingAtDirectory :: Int -> FilePath -> IO FilePath
-data HydraBackend
-DirectBackendType :: HydraBackend
-BlockfrostBackendType :: HydraBackend
-getHydraBackend :: IO HydraBackend
 withBackend :: forall a. Tracer IO NodeLog -> FilePath -> (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) -> IO a
 
 -- | Run a cardano-node as normal network participant on a known network.
@@ -399,9 +395,6 @@ instance GHC.Show.Show CardanoNode.PortsConfig
 instance GHC.Generics.Generic CardanoNode.DevnetConfig
 instance GHC.Show.Show CardanoNode.DevnetConfig
 instance GHC.Classes.Eq CardanoNode.DevnetConfig
-instance GHC.Read.Read CardanoNode.HydraBackend
-instance GHC.Show.Show CardanoNode.HydraBackend
-instance GHC.Classes.Eq CardanoNode.HydraBackend
 instance GHC.Show.Show CardanoNode.ProcessHasExited
 
 module HydraNode
