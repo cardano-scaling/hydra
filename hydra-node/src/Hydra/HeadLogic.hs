@@ -106,6 +106,8 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 -- | Maximum number of transaction ids per snapshot. This effectively limits our
 -- "block size" and ensures it does not grow arbitrarily with the backlog of
 -- pending transactions (localTxs).
+-- TODO: Investigate what a good value is for this, in relation to memory
+-- usage
 maxTxsPerSnapshot :: Int
 maxTxsPerSnapshot = 100
 
