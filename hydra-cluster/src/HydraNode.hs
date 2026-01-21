@@ -5,7 +5,7 @@ module HydraNode where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (HydraBackend (..), cliQueryProtocolParameters, getHydraBackend)
+import CardanoNode (cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
@@ -49,7 +49,7 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (failAfter, failure, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
