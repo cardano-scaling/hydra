@@ -256,7 +256,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
-      it "nightly - full head life-cycle" $ \tracer -> do
+      around_ requiresBlockfrost $ it "full head life-cycle @requiresBlockfrost" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
@@ -271,7 +271,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= timedTx tmpDir tracer backend
-      it "nightly - commits from external with utxo" $ \tracer -> do
+      around_ requiresBlockfrost $ it "commits from external with utxo @requiresBlockfrost" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
