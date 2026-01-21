@@ -2845,7 +2845,12 @@ update :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> NodeState tx
 -- | Reflect <a>StateChanged</a> events onto the <a>NodeState</a>
 --   aggregateNodeState.
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
-onConnectionEvent :: Text -> Connectivity -> Outcome tx
+
+-- | Maximum number of transaction ids per snapshot. This effectively
+--   limits our "block size" and ensures it does not grow arbitrarily with
+--   the backlog of pending transactions (localTxs). TODO: Investigate what
+--   a good value is for this, in relation to memory usage
+maxTxsPerSnapshot :: Int
 aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
 aggregateState :: IsChainState tx => NodeState tx -> Outcome tx -> NodeState tx
 
@@ -3052,6 +3057,7 @@ updateSyncedHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> Ch
 handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 handleClientInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
+onConnectionEvent :: Text -> Connectivity -> Outcome tx
 
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
