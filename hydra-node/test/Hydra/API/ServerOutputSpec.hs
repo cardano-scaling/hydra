@@ -16,6 +16,9 @@ import Test.Aeson.GenericSpecs (
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
  )
+import Test.Hydra.API.ClientInput ()
+import Test.Hydra.API.ServerOutput ()
+import Test.Hydra.Chain.Direct.State ()
 import Test.QuickCheck (conjoin, withMaxSuccess)
 
 spec :: Spec

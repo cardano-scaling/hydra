@@ -3,7 +3,6 @@
 module Hydra.Node.State where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Data.Map qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
@@ -12,8 +11,6 @@ import Hydra.Tx (
   HeadId,
   IsTx (..),
  )
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck (recursivelyShrink)
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
@@ -37,9 +34,6 @@ data NodeState tx
       }
   deriving stock (Generic)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
-  arbitrary = genericArbitrary
-
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
@@ -55,10 +49,6 @@ initNodeState chainState =
 
 data SyncedStatus = InSync | CatchingUp
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
-
-instance Arbitrary SyncedStatus where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
@@ -80,16 +70,8 @@ deriving stock instance IsTx tx => Show (Deposit tx)
 deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
 deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
 
-instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
-  arbitrary = genericArbitrary
-  shrink = recursivelyShrink
-
 data DepositStatus = Inactive | Active | Expired
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
-
-instance Arbitrary DepositStatus where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

@@ -38,7 +38,7 @@ import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO), genChainStateWithTx)
+import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
@@ -51,6 +51,7 @@ import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed qualified as Gen
+import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
 import Test.Hydra.Tx.Fixture (
   pparams,
   testNetworkId,

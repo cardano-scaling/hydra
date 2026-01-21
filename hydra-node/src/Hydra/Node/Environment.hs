@@ -1,7 +1,6 @@
 module Hydra.Node.Environment where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
@@ -10,8 +9,6 @@ import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party)
-import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck.Instances.Text ()
 
 data Environment = Environment
   { party :: Party
@@ -32,10 +29,6 @@ data Environment = Environment
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary Environment where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 instance HasParty Environment where
   getParty = party

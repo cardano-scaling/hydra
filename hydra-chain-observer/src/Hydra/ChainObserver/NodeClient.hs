@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
+import Hydra.Cardano.Api.Gen ()
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Contract (HydraScriptCatalogue)
 import Hydra.Ledger.Cardano (adjustUTxO)
@@ -32,6 +33,8 @@ import Hydra.Tx.Observe (
   RecoverObservation (..),
   observeHeadTx,
  )
+
+import Test.Hydra.Tx.Gen ()
 
 type ObserverHandler m = [ChainObservation] -> m ()
 

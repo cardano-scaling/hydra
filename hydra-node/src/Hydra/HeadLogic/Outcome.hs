@@ -4,7 +4,6 @@
 module Hydra.HeadLogic.Outcome where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
@@ -13,7 +12,6 @@ import Hydra.HeadLogic.Error (LogicError)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Network.Message (Message)
-import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Node.State (Deposit, NodeState)
 import Hydra.Tx (
   HeadId,
@@ -30,9 +28,6 @@ import Hydra.Tx (
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.OnChainId (OnChainId)
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck (oneof)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emitted to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -155,59 +150,6 @@ deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainS
 deriving stock instance (IsChainState tx, IsTx tx, Show (NodeState tx), Show (ChainStateType tx)) => Show (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (StateChanged tx)
 deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), FromJSON (ChainStateType tx)) => FromJSON (StateChanged tx)
-
-instance
-  ( ArbitraryIsTx tx
-  , Arbitrary (ChainPointType tx)
-  , Arbitrary (ChainStateType tx)
-  , IsChainState tx
-  ) =>
-  Arbitrary (StateChanged tx)
-  where
-  arbitrary = arbitrary >>= genStateChanged
-
-instance
-  ( ArbitraryIsTx tx
-  , Arbitrary (ChainPointType tx)
-  , Arbitrary (ChainStateType tx)
-  , IsChainState tx
-  ) =>
-  ToADTArbitrary (StateChanged tx)
-
--- REVIEW: why are we missing Checkpoint and other events ?
-genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
-genStateChanged env =
-  oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
-    , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
-    , TransactionReceived <$> arbitrary
-    , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-    , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
-    , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
-    , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommitApproved <$> arbitrary <*> arbitrary
-    , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitInvalid <$> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , HeadClosed <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , HeadContested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , HeadIsReadyToFanout <$> arbitrary
-    , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
-    , LocalStateCleared <$> arbitrary <*> arbitrary
-    , pure NodeUnsynced
-    , pure NodeSynced
-    ]
- where
-  Environment{party} = env
 
 data Outcome tx
   = -- | Continue with the given state updates and side effects.

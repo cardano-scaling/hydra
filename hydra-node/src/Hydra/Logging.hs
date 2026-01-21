@@ -25,7 +25,6 @@ module Hydra.Logging (
 ) where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
 import Control.Concurrent.Class.MonadSTM (
@@ -46,16 +45,10 @@ import Data.Aeson (pairs, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
-import Test.QuickCheck.Instances.Text ()
-import Test.QuickCheck.Instances.Time ()
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary Verbosity where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 -- | Provides logging metadata for entries.
 data Envelope a = Envelope

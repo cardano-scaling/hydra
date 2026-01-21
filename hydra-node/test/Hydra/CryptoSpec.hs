@@ -15,6 +15,7 @@ import Data.ByteString.Char8 qualified as Char8
 import Data.Map qualified as Map
 import Hydra.Tx.Party (Party (vkey), deriveParty)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
   classify,
   counterexample,

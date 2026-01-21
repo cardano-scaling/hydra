@@ -24,6 +24,9 @@ import Test.Aeson.GenericSpecs (
   roundtripAndGoldenSpecsWithSettings,
   sampleSize,
  )
+import Test.Hydra.Chain.Direct.State ()
+import Test.Hydra.HeadLogic.StateEvent ()
+import Test.Hydra.Ledger.Simple ()
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
 
