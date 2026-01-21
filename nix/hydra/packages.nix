@@ -66,6 +66,36 @@
         patchedForCrossProject = hsPkgs.appendModule
           ({ lib, ... }: { options.nonReinstallablePkgs = lib.mkOption { apply = lib.remove "terminfo"; }; });
         musl64Pkgs = patchedForCrossProject.projectCross.musl64.hsPkgs;
+
+        # Define static packages conditionally
+        staticPackages = lib.optionalAttrs (system == "x86_64-linux") {
+          hydra-node-static = embedRevision
+            musl64Pkgs.hydra-node.components.exes.hydra-node
+            "hydra-node"
+            paddedRevision;
+
+
+          release-static = asZip
+            { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
+            [ staticPackages.hydra-node-static staticPackages.hydra-tui-static ];
+
+          hydra-chain-observer-static = embedRevision
+            musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
+            "hydra-chain-observer"
+            paddedRevision;
+
+          visualize-logs-static = embedRevision
+            musl64Pkgs.visualize-logs.components.exes.visualize-logs
+            "visualize-logs"
+            paddedRevision;
+
+          hydra-tui-static = embedRevision
+            musl64Pkgs.hydra-tui.components.exes.hydra-tui
+            "hydra-tui"
+            paddedRevision;
+
+          hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
+        };
       in
       rec {
         release =
@@ -73,27 +103,11 @@
             { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
             [ hydra-node hydra-tui ];
 
-        release-static =
-          if system == "x86_64-linux" then
-            (
-              asZip
-                { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
-                [ hydra-node-static hydra-tui-static ]) else null;
-
         hydra-node =
           embedRevision
             nativePkgs.hydra-node.components.exes.hydra-node
             "hydra-node"
             paddedRevision;
-
-        hydra-node-static =
-          if system == "x86_64-linux" then
-            (
-              embedRevision
-                musl64Pkgs.hydra-node.components.exes.hydra-node
-                "hydra-node"
-                paddedRevision
-            ) else null;
 
         hydra-chain-observer =
           embedRevision
@@ -101,29 +115,11 @@
             "hydra-chain-observer"
             paddedRevision;
 
-        hydra-chain-observer-static =
-          if system == "x86_64-linux" then
-            (
-              embedRevision
-                musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
-                "hydra-chain-observer"
-                paddedRevision
-            ) else null;
-
         visualize-logs =
           embedRevision
             nativePkgs.visualize-logs.components.exes.visualize-logs
             "visualize-logs"
             paddedRevision;
-
-        visualize-logs-static =
-          if system == "x86_64-linux" then
-            (
-              embedRevision
-                musl64Pkgs.visualize-logs.components.exes.visualize-logs
-                "visualize-logs"
-                paddedRevision
-            ) else null;
 
         hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
           export PATH=$PATH:${hydra-node}/bin
@@ -138,18 +134,7 @@
             "hydra-tui"
             paddedRevision;
 
-        hydra-tui-static =
-          if system == "x86_64-linux" then
-            (
-              embedRevision
-                musl64Pkgs.hydra-tui.components.exes.hydra-tui
-                "hydra-tui"
-                paddedRevision
-            ) else null;
-
         inherit (nativePkgs.hydraw.components.exes) hydraw;
-
-        hydraw-static = if system == "x86_64-linux" then musl64Pkgs.hydraw.components.exes.hydraw else null;
 
         hydra-plutus-tests = pkgs.mkShellNoCC {
           name = "hydra-plutus-tests";
@@ -219,33 +204,6 @@
               pkgs.cardano-cli
             ];
         };
-
-        haddocks = pkgs.runCommand "hydra-haddocks"
-          {
-            paths = [
-              hsPkgs.hydra-prelude.components.library.doc
-              hsPkgs.hydra-cardano-api.components.library.doc
-              hsPkgs.hydra-plutus.components.library.doc
-              hsPkgs.hydra-node.components.library.doc
-              hsPkgs.hydra-tx.components.library.doc
-              hsPkgs.hydra-tx.components.tests.tests.doc
-              hsPkgs.hydra-node.components.tests.tests.doc
-              hsPkgs.hydra-cluster.components.library.doc
-              hsPkgs.hydra-tui.components.library.doc
-            ];
-          }
-          ''
-            set -ex
-            mkdir -p $out
-            for p in $paths; do
-              cd $p
-              for html in $(find $haddockRoot -name html -type d); do
-                package=$(basename $(dirname $html))
-                mkdir -p $out/$package
-                cp -a $html/* $out/$package/
-              done
-            done
-          '';
-      };
+      } // staticPackages;
   };
 }
