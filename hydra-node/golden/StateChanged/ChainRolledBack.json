@@ -3,31 +3,25 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "blockHash": "0101000100010001000101000101000001000100010001000100010000010001",
-                    "slot": 0,
-                    "tag": "ChainPoint"
+                    "chainPoint": {
+                        "blockHash": "0000000101000000010000010001010000010100000001000000000101000001",
+                        "slot": 1,
+                        "tag": "ChainPoint"
+                    },
+                    "chainTime": "1864-05-10T08:35:52.532463606734Z"
                 },
                 "spendableUTxO": {
-                    "0101000100010000010001000100010001010000010100010001000000000000#56": {
-                        "address": "addr_test1zqsuhw4qs7vz3xkrscty5jfmrawxeemymmqldl6w6z2fq3xrrusaj42nwzuj5j0m4zwnrwk7p8rqxymxkwsl326hrvzqn9mydv",
+                    "0101000000000100000101000101010100010101000000010000000101000100#25": {
+                        "address": "addr_test1yzsr7yrmcjqum3sjhnnvvhefxcn3tcrx8wgkdtjunuref846khgujlgph65n3jh30lj9hpd9m3f8f59kwudx6su9u3wqjrzfv9",
                         "datum": null,
                         "inlineDatum": {
-                            "int": 5
+                            "int": -1
                         },
-                        "inlineDatumRaw": "05",
-                        "inlineDatumhash": "fb3d635c7cb573d1b9e9bff4a64ab4f25190d29b6fd8db94c605a218a23fa9ad",
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "820502",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
+                        "inlineDatumRaw": "20",
+                        "inlineDatumhash": "ae85d245a3d00bfde01f59f3c4fe0b4bfae1cb37e9cf91929eadcea4985711de",
+                        "referenceScript": null,
                         "value": {
-                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
-                                "41fde839e4f5aca93739651aa791": 5634554429931401002
-                            }
+                            "lovelace": 45000000000000000
                         }
                     }
                 }

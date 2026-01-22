@@ -24,10 +24,9 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostTxError (..),
-  chainTime,
   initHistory,
  )
-import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.Chain.Direct.State (ChainStatePoint (..), initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
@@ -167,8 +166,7 @@ tickForever genesis callback = do
     let point = ChainPoint upcomingSlot offlineBlockHash
     callback $
       Tick
-        { chainTime = timeToSleepUntil
-        , chainPoint = point
+        { chainPoint = ChainStatePoint point timeToSleepUntil
         }
   systemStart = SystemStart protocolParamSystemStart
 

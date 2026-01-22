@@ -3,21 +3,34 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "tag": "ChainPointAtGenesis"
+                    "chainPoint": {
+                        "blockHash": "0001000100000001010101010101000100010101000000010001000100000100",
+                        "slot": 1,
+                        "tag": "ChainPoint"
+                    },
+                    "chainTime": "1864-05-10T18:29:19.6278558841Z"
                 },
-                "spendableUTxO": {}
+                "spendableUTxO": {
+                    "0001010000000100000000000000000000010101000100000000000001000101#45": {
+                        "address": "addr_test1yqckty2vh39h738qvr4665kr4kxhyh4tzke7w07v3rkrr4w4ygcp9ukpa8z6z905k8z28epkv3tmf5584v60gladejzqyf4yhs",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                }
             },
-            "headId": "01000000010000010101010000000101",
-            "headSeed": "00000001010101010000000101010001",
+            "headId": "00000000000100010000000000000100",
+            "headSeed": "01000000000100000001000100000101",
             "parameters": {
-                "contestationPeriod": 2592000,
+                "contestationPeriod": 43200,
                 "parties": []
             },
-            "parties": [
-                {
-                    "vkey": "4e61016cc48e6e1aca98262f3e99ce06df966ede57b79e4de7af8ecfccb6e2c0"
-                }
-            ],
+            "parties": [],
             "tag": "HeadInitialized"
         }
     ],

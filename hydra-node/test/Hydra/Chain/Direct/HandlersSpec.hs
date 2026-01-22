@@ -38,6 +38,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
+  ChainStatePoint (..),
   HydraContext,
   InitialState (..),
   chainSlotFromPoint,
@@ -63,6 +64,7 @@ import Test.Hydra.Chain.Direct.State (
   genHydraContext,
  )
 import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
+import Test.Hydra.Options (genChainPointAt)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,
@@ -115,7 +117,8 @@ spec = do
             either (failure . ("Time conversion failed: " <>) . toString) pure $
               slotToUTCTime timeHandle slot
         let (BlockHeader _ blockHash _) = header
-        void . stop $ events === [Tick expectedUTCTime (ChainPoint slot blockHash)]
+            chainPoint = ChainStatePoint (ChainPoint slot blockHash) expectedUTCTime
+        void . stop $ events === [Tick chainPoint]
 
     prop "roll forward fails with outdated TimeHandle" $
       monadicIO $ do
@@ -143,9 +146,12 @@ spec = do
       (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
       let utxo = getKnownUTxO st <> utxo'
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      utcTime <- pickBlind arbitrary
+      chainPoint <- pickBlind $ genChainPointAt 1
+      let recordedAt = ChainStatePoint chainPoint utcTime
       monitor (label $ show transition)
       localChainState <-
-        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing})
+        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} -> failure "rolled back but expected roll forward."
@@ -188,10 +194,13 @@ spec = do
       let utxo = getKnownUTxO st <> utxo'
 
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      utcTime <- pickBlind arbitrary
+      chainPoint <- pickBlind $ genChainPointAt 1
+      let recordedAt = ChainStatePoint chainPoint utcTime
       monitor (label $ show transition)
 
       localChainState <-
-        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing})
+        run $ newLocalChainState (initHistory ChainStateAt{spendableUTxO = utxo, recordedAt})
       timeHandle <- pickBlind arbitrary
       let callback = \case
             Rollback{} -> failure "rolled back but expected roll forward."

@@ -52,6 +52,7 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
+  ChainStatePoint (..),
   abort,
   chainSlotFromPoint,
   close,
@@ -324,14 +325,8 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    timeHandle <- getTimeHandle
-    let slotNo = fromMaybe 0 (chainPointToSlotNo point)
-    case slotToUTCTime timeHandle slotNo of
-      Left reason ->
-        throwIO TimeConversionException{slotNo, reason}
-      Right utcTime -> do
-        rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
-        callback Rollback{rolledBackChainState, chainTime = utcTime}
+    rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
+    callback Rollback{rolledBackChainState}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
@@ -350,14 +345,15 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
-            callback (Tick{chainTime = utcTime, chainPoint = point})
+            let chainPoint = ChainStatePoint point utcTime
+            callback (Tick{chainPoint})
 
-    forM_ receivedTxs $
-      maybeObserveSomeTx timeHandle point >=> \case
-        Nothing -> pure ()
-        Just event -> callback event
+            forM_ receivedTxs $
+              maybeObserveSomeTx timeHandle chainPoint >=> \case
+                Nothing -> pure ()
+                Just event -> callback event
 
-  maybeObserveSomeTx timeHandle point tx = atomically $ do
+  maybeObserveSomeTx timeHandle chainPoint tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
     let observation = observeHeadTx networkId spendableUTxO tx
     case convertObservation timeHandle observation of
@@ -366,7 +362,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         let newChainState =
               ChainStateAt
                 { spendableUTxO = adjustUTxO tx spendableUTxO
-                , recordedAt = Just point
+                , recordedAt = chainPoint
                 }
         pushNew newChainState
         pure $ Just Observation{observedTx, newChainState}

@@ -11,7 +11,7 @@ import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (recursivelyShrink)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainPointType tx), Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
   arbitrary = genericArbitrary
 
 instance Arbitrary SyncedStatus where

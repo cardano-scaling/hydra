@@ -42,6 +42,7 @@ import Hydra.Chain (
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
+import Hydra.Chain.ChainState (chainPointTime)
 import Hydra.Chain.Direct (DirectBackend (..), IntersectionNotFoundException (..), withDirectChain)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
@@ -336,7 +337,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             delayUntil deadline
 
             waitMatch aliceChain $ \case
-              Tick t _ | t > deadline -> Just ()
+              Tick p | chainPointTime p > deadline -> Just ()
               _ -> Nothing
             postTx $
               FanoutTx

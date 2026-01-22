@@ -2,34 +2,29 @@
     "samples": [
         {
             "chainState": {
-                "recordedAt": null,
+                "recordedAt": {
+                    "chainPoint": {
+                        "tag": "ChainPointAtGenesis"
+                    },
+                    "chainTime": "1864-05-08T22:39:14.295204923255Z"
+                },
                 "spendableUTxO": {
-                    "0000000100010000010100010100010001010101000000010001000001000101#13": {
-                        "address": "addr_test1xrcpyjw5jkvr8js8pkwx3lwrxsmdvxyzclucrcnyrckds8fqge46rcj0wd7lu6qhrzxepd97grau4daw7sl8gdskvrjs3n69pd",
+                    "0101010001000000010000010100010001010100010001010001010101000000#88": {
+                        "address": "addr_test1vzmxs693vtav07dvcx0q2jzdah09a0hvvalls40uvy0ssgs7h679u",
                         "datum": null,
-                        "datumhash": null,
+                        "datumhash": "008c8b9738b98ccb4ed664f6aa9008e4bc9d5b4255588a11dda22c9b3e59be70",
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "820503",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
+                        "referenceScript": null,
                         "value": {
-                            "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
-                                "dd475073": 1
-                            },
-                            "lovelace": 4772342029819399506
+                            "lovelace": 45000000000000000
                         }
                     }
                 }
             },
-            "contestationDeadline": "1864-05-08T06:55:03.192640857607Z",
-            "headId": "00010100010100000000000000000100",
-            "snapshotNumber": 1,
+            "contestationDeadline": "1864-05-09T20:16:27.997196482858Z",
+            "headId": "01010000010001010001000000000101",
+            "snapshotNumber": 0,
             "tag": "HeadContested"
         }
     ],
