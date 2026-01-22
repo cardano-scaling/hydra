@@ -1,14 +1,7 @@
 {
     "samples": [
         {
-            "chainPoint": {
-                "chainPoint": {
-                    "blockHash": "0100000100000001000100000101010100010000000100010000000100010101",
-                    "slot": 1,
-                    "tag": "ChainPoint"
-                },
-                "chainTime": "1864-05-09T10:07:08.507424338102Z"
-            },
+            "chainTime": "1864-05-09T09:22:49.038495324908Z",
             "tag": "NodeUnsynced"
         }
     ],

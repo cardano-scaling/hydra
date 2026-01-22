@@ -30,14 +30,14 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainStateType, IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
-import Hydra.Ledger.Simple (SimpleChainPoint (..), SimpleChainState (..), SimpleTx (..), aValidTx, initialSimpleChainState, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
@@ -889,8 +889,8 @@ spec = parallel $ do
               -- XXX: This is a bit cumbersome and maybe even incorrect (chain
               -- states), the simulated chain should provide a way to inject an
               -- 'OnChainTx' without providing a chain state?
-              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = initialSimpleChainState}
-              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = initialSimpleChainState}
+              injectChainEvent n1 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
+              injectChainEvent n2 Observation{observedTx = OnCloseTx testHeadId 0 deadline, newChainState = SimpleChainState{slot = ChainSlot 0}}
 
               waitUntilMatch [n1, n2] $ \case
                 HeadIsClosed{snapshotNumber} -> guard $ snapshotNumber == 0
@@ -1065,7 +1065,7 @@ withSimulatedChainAndNetwork ::
   m a
 withSimulatedChainAndNetwork =
   bracket
-    (simulatedChainAndNetwork initialSimpleChainState)
+    (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
     (cancel . tickThread)
 
 -- | Creates a simulated chain and network to which 'HydraNode's can be
@@ -1126,17 +1126,14 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- getLatest localChainState
-      let nextSlot = chainStateSlot cs + 1
-      let chainPoint = SimpleChainPoint{slot = nextSlot, time = now}
       -- XXX: This chain state (its point) does not correspond to 'now'
-      pure $ Tick chainPoint
+      pure $ Tick now (chainStatePoint cs)
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history localChainState tx = do
-    now <- getCurrentTime
     chainEvent <- atomically $ do
       cs <- getLatest localChainState
-      let cs' = advanceSlot cs now
+      let cs' = advanceSlot cs
       pushNew localChainState cs'
       pure $
         Observation
@@ -1145,8 +1142,7 @@ simulatedChainAndNetwork initialChainState = do
           }
     recordAndYieldEvent nodes history chainEvent
 
-  advanceSlot SimpleChainState{point = SimpleChainPoint{slot}} now =
-    SimpleChainState{point = SimpleChainPoint{slot = nextChainSlot slot, time = now}}
+  advanceSlot SimpleChainState{slot} = SimpleChainState{slot = nextChainSlot slot}
 
   recordAndYieldEvent ::
     TVar m [HydraNode tx m] ->
@@ -1175,19 +1171,18 @@ simulatedChainAndNetwork initialChainState = do
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
     let chainSlot =
-          map
-            ( \case
-                Observation{newChainState} -> chainStateSlot newChainState
-                _NoObservation -> error "unexpected non-observation ChainEvent"
-            )
-            kept
-    case chainSlot of
-      [] -> pure ()
-      (slot : _) -> do
-        rolledBackChainState <- atomically $ rollback localChainState slot
-        -- Yield rollback events
-        ns <- readTVarIO nodes
-        forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
+          List.head $
+            map
+              ( \case
+                  Observation{newChainState} -> chainStateSlot newChainState
+                  _NoObservation -> error "unexpected non-observation ChainEvent"
+              )
+              kept
+    rolledBackChainState <- atomically $ rollback localChainState chainSlot
+    -- Yield rollback events
+    ns <- readTVarIO nodes
+    chainTime <- getCurrentTime
+    forM_ ns $ \n -> handleChainEvent n Rollback{chainTime, rolledBackChainState}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
@@ -1285,7 +1280,7 @@ withHydraNode' dp signingKey otherParties chain action = do
   outputs <- newLabelledTQueueIO "hydra-node-outputs"
   messages <- newLabelledTQueueIO "hydra-node-messages"
   outputHistory <- newLabelledTVarIO "hydra-node-output-history" mempty
-  let initialChainState = initialSimpleChainState
+  let initialChainState = SimpleChainState{slot = ChainSlot 0}
   node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
     createHydraNode
       traceInIOSim

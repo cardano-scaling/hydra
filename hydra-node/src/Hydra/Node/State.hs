@@ -5,7 +5,7 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
   HeadId,
@@ -23,31 +23,31 @@ data NodeState tx
       -- ^ Pending deposits as observed on chain.
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
-      , currentChainPoint :: ChainPointType tx
-      -- ^ Current chain point (slot + time) as observed by the node.
+      , currentSlot :: ChainSlot
+      , currentChainTime :: Maybe UTCTime
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
     NodeCatchingUp
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
-      , currentChainPoint :: ChainPointType tx
+      , currentSlot :: ChainSlot
+      , currentChainTime :: Maybe UTCTime
       }
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, Eq (ChainStateType tx), Eq (ChainPointType tx)) => Eq (NodeState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx), Show (ChainPointType tx)) => Show (NodeState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx), ToJSON (ChainPointType tx)) => ToJSON (NodeState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx), FromJSON (ChainPointType tx)) => FromJSON (NodeState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
   NodeCatchingUp
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
-    , -- TODO: consider storing the full chain state here instead of just the
-      -- point, so that we can avoid threading it through the HeadState.
-      currentChainPoint = chainStatePoint chainState
+    , currentSlot = chainStateSlot chainState
+    , currentChainTime = Nothing
     }
 
 data SyncedStatus = InSync | CatchingUp

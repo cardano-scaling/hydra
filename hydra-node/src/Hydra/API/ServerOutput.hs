@@ -11,7 +11,7 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainPointType, ChainSlot, IsChainState)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
@@ -204,8 +204,8 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
-  | NodeUnsynced {chainPoint :: ChainPointType tx}
-  | NodeSynced {chainPoint :: ChainPointType tx}
+  | NodeUnsynced {chainTime :: UTCTime}
+  | NodeSynced {chainTime :: UTCTime}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)

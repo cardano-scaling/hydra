@@ -2,22 +2,15 @@
     "samples": [
         {
             "state": {
-                "currentChainPoint": {
-                    "chainPoint": {
-                        "blockHash": "0101000001000000000101000000000001000001000101010101010001010100",
-                        "slot": 0,
-                        "tag": "ChainPoint"
-                    },
-                    "chainTime": "1864-05-08T14:07:31.866276904118Z"
-                },
+                "currentChainTime": null,
+                "currentSlot": 1,
                 "headState": {
                     "contents": {
                         "chainState": {
                             "recordedAt": {
-                                "chainPoint": {
-                                    "tag": "ChainPointAtGenesis"
-                                },
-                                "chainTime": "1864-05-08T15:59:53.55599253223Z"
+                                "blockHash": "0100000101010000000000010000010101010101000000010100010101000001",
+                                "slot": 0,
+                                "tag": "ChainPoint"
                             },
                             "spendableUTxO": {
                                 "0101000001010000000100010001000000010000000101010000000000010000#99": {

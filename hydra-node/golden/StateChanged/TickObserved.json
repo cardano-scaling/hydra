@@ -2,12 +2,9 @@
     "samples": [
         {
             "chainPoint": {
-                "chainPoint": {
-                    "blockHash": "0001010000000100000100010101000000000100000001010001000100010101",
-                    "slot": 1,
-                    "tag": "ChainPoint"
-                },
-                "chainTime": "1864-05-09T07:34:48.615625819846Z"
+                "blockHash": "0001010000000101010001010000000001010100010001010100010101010101",
+                "slot": 0,
+                "tag": "ChainPoint"
             },
             "tag": "TickObserved"
         }

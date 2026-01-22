@@ -2,47 +2,35 @@
     "samples": [
         {
             "chainState": {
-                "recordedAt": {
-                    "chainPoint": {
-                        "blockHash": "0001000100010000000101010000010101000101010000010101000000000100",
-                        "slot": 1,
-                        "tag": "ChainPoint"
-                    },
-                    "chainTime": "1864-05-08T11:19:24.862662964245Z"
-                },
+                "recordedAt": null,
                 "spendableUTxO": {
-                    "0100010001000000010100010101000000010101000001010101010001000101#18": {
-                        "address": "addr_test1zrxhyyvahae3y0qt8yqxv7vth58cm2xmymgwtrsa4wvcexyl43cqnh544vwjdhmnwhq4fswnnjff7cg0dr2vkdcvc8rs7jnqv9",
+                    "0001000100000001000001010001000001010001000000000001010101000101#77": {
+                        "address": "addr1vyzm7wgk47qkaw4zxhhnxu258hcx707rg2e9lfccdgtrslsh3rtuh",
                         "datum": null,
-                        "datumhash": "8369960dae5aea085476cb507cfe102b6670f637afb1739126ba27b0528575d3",
+                        "datumhash": null,
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
-                        "referenceScript": null,
+                        "referenceScript": {
+                            "script": {
+                                "cborHex": "46010000222601",
+                                "description": "",
+                                "type": "PlutusScriptV3"
+                            },
+                            "scriptLanguage": "PlutusScriptLanguage PlutusScriptV3"
+                        },
                         "value": {
-                            "lovelace": 1116290
+                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                "6f50": 4028375868379221612
+                            },
+                            "lovelace": 3334349631456695258
                         }
                     }
                 }
             },
-            "committedUTxO": {
-                "0001000001000101000100000101000100010001010100010000010100010100#50": {
-                    "address": "addr_test1qr4apn8ru7yl34l58jgvemefj7z603zz68qle2jw7fvjsg6ny3la0exr002wauh7v393ktuwt6a2ndxdqs95fe3v43hqywdtdr",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "77835442420894e2941d3e4d36e2a7602747b58556497c2d662a38ea": {
-                            "5b24587cf24d0fd3ef7caa06f0593bb8a65cece084003fb2": 5472048414968132226
-                        },
-                        "lovelace": 1262830
-                    }
-                }
-            },
-            "headId": "01000101010101010100000100000000",
+            "committedUTxO": {},
+            "headId": "01000100000100000100010100010001",
             "party": {
-                "vkey": "e938d6f097a2724b295fd0d28ed4e855b0106f848a9dd914ab0a56c0269c83c3"
+                "vkey": "0e6a8472103ee3cd84139e44cea1644de574e0bcfc9397b39e8ebe0c5ed28d4d"
             },
             "tag": "CommittedUTxO"
         }
