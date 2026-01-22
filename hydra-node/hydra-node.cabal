@@ -290,6 +290,7 @@ benchmark tx-cost
     , bytestring
     , cardano-api
     , cardano-binary
+    , cardano-ledger-api
     , directory
     , filepath
     , hydra-cardano-api
