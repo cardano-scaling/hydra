@@ -1,7 +1,7 @@
 # A set of buildables we typically build for releases
 
 { self, ... }: {
-  perSystem = { pkgs, lib, asZip, hsPkgs, ... }: {
+  perSystem = { pkgs, system, lib, asZip, hsPkgs, ... }: {
     packages =
       let
         # Creates a fixed length string by padding with given filler as suffix.
@@ -74,9 +74,11 @@
             [ hydra-node hydra-tui ];
 
         release-static =
-          asZip
-            { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
-            [ hydra-node-static hydra-tui-static ];
+          if system == "x86_64-linux" then
+            (
+              asZip
+                { name = "hydra-${pkgs.stdenv.hostPlatform.system}"; }
+                [ hydra-node-static hydra-tui-static ]) else null;
 
         hydra-node =
           embedRevision
@@ -85,10 +87,13 @@
             paddedRevision;
 
         hydra-node-static =
-          embedRevision
-            musl64Pkgs.hydra-node.components.exes.hydra-node
-            "hydra-node"
-            paddedRevision;
+          if system == "x86_64-linux" then
+            (
+              embedRevision
+                musl64Pkgs.hydra-node.components.exes.hydra-node
+                "hydra-node"
+                paddedRevision
+            ) else null;
 
         hydra-chain-observer =
           embedRevision
@@ -97,10 +102,13 @@
             paddedRevision;
 
         hydra-chain-observer-static =
-          embedRevision
-            musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
-            "hydra-chain-observer"
-            paddedRevision;
+          if system == "x86_64-linux" then
+            (
+              embedRevision
+                musl64Pkgs.hydra-chain-observer.components.exes.hydra-chain-observer
+                "hydra-chain-observer"
+                paddedRevision
+            ) else null;
 
         visualize-logs =
           embedRevision
@@ -109,10 +117,13 @@
             paddedRevision;
 
         visualize-logs-static =
-          embedRevision
-            musl64Pkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
-            paddedRevision;
+          if system == "x86_64-linux" then
+            (
+              embedRevision
+                musl64Pkgs.visualize-logs.components.exes.visualize-logs
+                "visualize-logs"
+                paddedRevision
+            ) else null;
 
         hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
           export PATH=$PATH:${hydra-node}/bin
@@ -128,14 +139,17 @@
             paddedRevision;
 
         hydra-tui-static =
-          embedRevision
-            musl64Pkgs.hydra-tui.components.exes.hydra-tui
-            "hydra-tui"
-            paddedRevision;
+          if system == "x86_64-linux" then
+            (
+              embedRevision
+                musl64Pkgs.hydra-tui.components.exes.hydra-tui
+                "hydra-tui"
+                paddedRevision
+            ) else null;
 
         inherit (nativePkgs.hydraw.components.exes) hydraw;
 
-        hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
+        hydraw-static = if system == "x86_64-linux" then musl64Pkgs.hydraw.components.exes.hydraw else null;
 
         hydra-plutus-tests = pkgs.mkShellNoCC {
           name = "hydra-plutus-tests";
