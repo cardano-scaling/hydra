@@ -27,34 +27,7 @@ import Hydra.Cardano.Api (
   modifyTxOutValue,
  )
 import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
-  ChainState (..),
-  ChainStateAt (..),
-  ChainStatePoint (..),
-  ChainTransition (..),
-  ClosedState (..),
-  HasKnownUTxO (..),
-  HydraContext (..),
-  InitialState (..),
-  OpenState (..),
-  ctxHeadParameters,
-  ctxParticipants,
-  ctxParties,
-  initialize,
-  observeClose,
-  observeCollect,
-  unsafeAbort,
-  unsafeClose,
-  unsafeCollect,
-  unsafeCommit,
-  unsafeContest,
-  unsafeDecrement,
-  unsafeFanout,
-  unsafeIncrement,
-  unsafeObserveInit,
-  unsafeObserveInitAndCommits,
- )
+import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ChainStateAt (..), ChainTransition (..), ClosedState (..), HasKnownUTxO (..), HydraContext (..), InitialState (..), OpenState (..), ctxHeadParameters, ctxParticipants, ctxParties, initialize, observeClose, observeCollect, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeContest, unsafeDecrement, unsafeFanout, unsafeIncrement, unsafeObserveInit, unsafeObserveInitAndCommits)
 import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Tx (
@@ -84,10 +57,6 @@ import Test.Hydra.Tx.Gen (
 import Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
 
 instance Arbitrary ChainStateAt where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary ChainStatePoint where
   arbitrary = genericArbitrary
   shrink = genericShrink
 

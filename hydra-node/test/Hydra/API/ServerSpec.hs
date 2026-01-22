@@ -38,7 +38,7 @@ import Hydra.Chain (
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Ledger.Simple (SimpleTx (..), initialSimpleChainState)
+import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
@@ -331,7 +331,8 @@ spec =
                     , tlsKeyPath = Just "test/tls/key.pem"
                     , apiTransactionTimeout = 1000000
                     }
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialSimpleChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+                initialChainState = 0
+            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -401,8 +402,8 @@ withTestAPIServer ::
   Tracer IO APIServerLog ->
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
-withTestAPIServer port actor eventSource tracer = do
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer initialSimpleChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
+withTestAPIServer port actor eventSource tracer =
+  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 

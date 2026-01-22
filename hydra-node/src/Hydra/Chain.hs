@@ -319,7 +319,8 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback
-      { rolledBackChainState :: ChainStateType tx
+      { chainTime :: UTCTime
+      , rolledBackChainState :: ChainStateType tx
       }
   | -- | Indicate time has advanced on the chain. This is deliberately not a
     -- ChainStateType because state updates are only expected upon 'Observation'
@@ -331,7 +332,8 @@ data ChainEvent tx
     -- eraHistory.. which is annoying and if it's kept in the chain layer, it
     -- would mean another round trip / state to keep there.
     Tick
-      { chainPoint :: ChainPointType tx
+      { chainTime :: UTCTime
+      , chainPoint :: ChainPointType tx
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}

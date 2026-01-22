@@ -21,7 +21,6 @@ import Hydra.Chain.Backend (blockfrostProjectPath)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
-import Hydra.Chain.ChainState (chainPointTime)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
@@ -124,7 +123,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
               _ -> Nothing
 
           waitMatch aliceChain $ \case
-            Tick p | chainPointTime p > deadline -> Just ()
+            Tick t _ | t > deadline -> Just ()
             _ -> Nothing
           postTx $
             FanoutTx

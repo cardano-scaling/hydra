@@ -30,7 +30,7 @@ import Hydra.Chain.Direct.Handlers (
   mkChain,
   newLocalChainState,
  )
-import Hydra.Chain.Direct.State (ChainContext, chainPoint)
+import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -123,7 +123,7 @@ withBlockfrostChain ::
   ChainComponent Tx IO a
 withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
-  let persistedPoints = chainPoint <$> prefixOf chainStateHistory
+  let persistedPoints = prefixOf chainStateHistory
 
   -- Select a prefix chain from which to start synchronizing
   let startFromPrefix =
