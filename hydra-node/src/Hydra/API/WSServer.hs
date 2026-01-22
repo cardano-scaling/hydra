@@ -39,7 +39,7 @@ import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (IsChainState, chainPointSlot)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
@@ -114,7 +114,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
             , env
             , networkInfo
             , chainSyncedStatus = syncedStatus nodeState
-            , currentSlot = chainPointSlot nodeState.currentChainPoint
+            , currentSlot = nodeState.currentSlot
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP

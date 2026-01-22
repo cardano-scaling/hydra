@@ -37,11 +37,11 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (Greetings tx)
 
 data InvalidInput = InvalidInput
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainPointType tx), Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainPointType tx), Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (ServerOutput tx)
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary

@@ -6,12 +6,12 @@ import Test.Hydra.Prelude
 import Control.Monad (foldM)
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.ChainState (IsChainState, chainPointSlot)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
-import Hydra.Ledger.Simple (SimpleTx, initialSimpleChainState, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState)
@@ -36,7 +36,7 @@ spec = parallel $ do
           IO ()
         setupHydrate action =
           showLogsOnFailure "RotationSpec" $ \tracer -> do
-            let testHydrate = hydrate tracer testEnvironment simpleLedger initialSimpleChainState
+            let testHydrate = hydrate tracer testEnvironment simpleLedger 0
             action testHydrate
     around setupHydrate $ do
       it "rotates while running" $ \testHydrate -> do
@@ -45,7 +45,7 @@ spec = parallel $ do
           -- NOTE: because there will be 5 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a checkpoint + single event at the end
           let rotationConfig = RotateAfter (Positive 5)
-          let s0 = initNodeState initialSimpleChainState
+          let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -59,7 +59,7 @@ spec = parallel $ do
           -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
-          let s0 = initNodeState initialSimpleChainState
+          let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -88,7 +88,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
           -- run rotated event store with prepared inputs
-          let s0 = initNodeState initialSimpleChainState
+          let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -114,7 +114,7 @@ spec = parallel $ do
         let inputs1 = take 3 inputs
         let inputs2 = drop 3 inputs
         failAfter 1 $ do
-          let s0 = initNodeState initialSimpleChainState
+          let s0 = initNodeState 0
           -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
@@ -288,8 +288,8 @@ assertCheckpointAreEqual c1 c2 =
     (Checkpoint s1, Checkpoint s2) ->
       headState s1 == headState s2
         && pendingDeposits s1 == pendingDeposits s2
-        && chainPointSlot (currentChainPoint s1)
-          == chainPointSlot (currentChainPoint s2)
+        && currentSlot s1
+          == currentSlot s2
           `shouldBe` True
     _ ->
       expectationFailure $

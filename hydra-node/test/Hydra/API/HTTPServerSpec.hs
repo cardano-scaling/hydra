@@ -32,9 +32,8 @@ import Hydra.Cardano.Api (
   serialiseToTextEnvelope,
  )
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
-import Hydra.Chain.ChainState (chainStatePoint)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
-import Hydra.Chain.Direct.State (ChainStatePoint (..), initialChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
@@ -56,7 +55,6 @@ import Test.Hspec.Wai.Internal (withApplication)
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.Node.Fixture (testEnvironment)
-import Test.Hydra.Options (genChainPointAt)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
 import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
@@ -380,7 +378,7 @@ apiServerSpec = do
                   testEnvironment
                   dummyStatePath
                   defaultPParams
-                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentChainPoint = chainStatePoint initialChainState})
+                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -598,7 +596,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentChainPoint = chainStatePoint initialChainState})
+                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -633,7 +631,7 @@ apiServerSpec = do
               testEnvironment
               dummyStatePath
               defaultPParams
-              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentChainPoint = chainStatePoint initialChainState})
+              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -681,7 +679,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentChainPoint = chainStatePoint initialChainState})
+                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing})
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -730,8 +728,6 @@ apiServerSpec = do
           let statePath = tmpDir </> "state"
           writeFileText statePath (unlines stateLines)
           chainTime <- getCurrentTime
-          chainPoint <- generate $ genChainPointAt 152
-          let currentChainPoint = ChainStatePoint chainPoint chainTime
           withApplication
             ( httpApp @Tx
                 nullTracer
@@ -739,7 +735,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentChainPoint})
+                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152, currentChainTime = Just chainTime})
                 getHeadId
                 getPendingDeposits
                 putClientInput

@@ -55,7 +55,7 @@ import Hydra.Chain (
   PostTxError (..),
   maxMainnetLovelace,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..), initialChainTime)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
@@ -120,28 +120,20 @@ class HasKnownUTxO a where
 -- XXX: could move this into IsChainState and use UTxOType tx instead of ChainStateType tx
 data ChainStateAt = ChainStateAt
   { spendableUTxO :: UTxO
-  , recordedAt :: ChainStatePoint
+  , recordedAt :: Maybe ChainPoint
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data ChainStatePoint = ChainStatePoint
-  { chainPoint :: ChainPoint
-  , chainTime :: UTCTime
-  }
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
 instance IsChainState Tx where
-  type ChainPointType Tx = ChainStatePoint
+  type ChainPointType Tx = ChainPoint
 
   type ChainStateType Tx = ChainStateAt
 
-  chainStatePoint ChainStateAt{recordedAt} = recordedAt
+  chainStatePoint ChainStateAt{recordedAt} =
+    fromMaybe ChainPointAtGenesis recordedAt
 
-  chainPointSlot = chainSlotFromPoint . chainPoint
-
-  chainPointTime = chainTime
+  chainPointSlot = chainSlotFromPoint
 
 -- | Get a generic 'ChainSlot' from a Cardano 'ChainPoint'. Slot 0 is used for
 -- the genesis point.
@@ -190,11 +182,7 @@ initialChainState :: ChainStateType Tx
 initialChainState =
   ChainStateAt
     { spendableUTxO = mempty
-    , recordedAt =
-        ChainStatePoint
-          { chainTime = initialChainTime
-          , chainPoint = ChainPointAtGenesis
-          }
+    , recordedAt = Nothing
     }
 
 -- | Read-only chain-specific data. This is different to 'HydraContext' as it

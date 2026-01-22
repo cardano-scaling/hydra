@@ -20,7 +20,7 @@ import Data.Aeson (
   (.=),
  )
 import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..), initialChainTime)
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
 import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 import Hydra.Tx (IsTx (..))
 
@@ -97,24 +97,16 @@ instance IsTx SimpleTx where
 
 -- * Simple chain state
 
-newtype SimpleChainState = SimpleChainState {point :: SimpleChainPoint}
+newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-data SimpleChainPoint = SimpleChainPoint {slot :: ChainSlot, time :: UTCTime}
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving newtype (Num)
 
 instance IsChainState SimpleTx where
-  type ChainPointType SimpleTx = SimpleChainPoint
+  type ChainPointType SimpleTx = ChainSlot
   type ChainStateType SimpleTx = SimpleChainState
-  chainStatePoint = point
-  chainPointSlot = slot
-  chainPointTime = time
-
-initialSimpleChainState :: ChainStateType SimpleTx
-initialSimpleChainState =
-  SimpleChainState{point = SimpleChainPoint{slot = 0, time = initialChainTime}}
+  chainStatePoint = slot
+  chainPointSlot = id
 
 -- * A simple ledger
 

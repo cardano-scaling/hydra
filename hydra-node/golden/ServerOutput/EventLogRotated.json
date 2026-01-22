@@ -2,25 +2,12 @@
     "samples": [
         {
             "checkpoint": {
-                "currentChainPoint": {
-                    "chainPoint": {
-                        "blockHash": "0000010001010001000100000001000101000000010000000101010000000101",
-                        "slot": 1,
-                        "tag": "ChainPoint"
-                    },
-                    "chainTime": "1864-05-09T13:22:07.739600480053Z"
-                },
+                "currentChainTime": null,
+                "currentSlot": 1,
                 "headState": {
                     "contents": {
                         "chainState": {
-                            "recordedAt": {
-                                "chainPoint": {
-                                    "blockHash": "0001010000000101000100000100000101010101010001010101000000000001",
-                                    "slot": 0,
-                                    "tag": "ChainPoint"
-                                },
-                                "chainTime": "1864-05-10T00:56:47.728257936552Z"
-                            },
+                            "recordedAt": null,
                             "spendableUTxO": {
                                 "0000000100010101000000000001010101010101000000010001010000000101#53": {
                                     "address": "addr_test1xqk052fntst9mjemjcfp87kxhdn48f7uy7kfl02nr0szeu0m430d7ey20tvnxy60kyhhl5l839r0g6xq2paepfjcg0hq46yg6s",
