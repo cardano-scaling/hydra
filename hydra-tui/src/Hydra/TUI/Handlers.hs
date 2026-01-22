@@ -240,13 +240,12 @@ handleHydraEventsInfo now = \case
   Update (ApiClientMessage API.RejectedInput{clientInput, reason}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> show reason
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainTime}}) -> do
-    let drift = now `diffUTCTime` chainTime
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainTime, timeDrift}}) -> do
     warn time $
       "Node state is out of sync with chain backend. Chain time: "
         <> show chainTime
         <> ", Drift: "
-        <> show drift
+        <> show timeDrift
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime}}) ->
     warn time $ "Node state is back in sync with chain backend. Chain time: " <> show chainTime
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->

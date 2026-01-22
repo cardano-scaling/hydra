@@ -1,8 +1,11 @@
 {
     "samples": [
         {
-            "chainTime": "1864-05-09T09:22:49.038495324908Z",
-            "tag": "NodeUnsynced"
+            "chainSlot": 1,
+            "chainTime": "1864-05-10T11:25:53.901786067282Z",
+            "slotDrift": 0,
+            "tag": "NodeUnsynced",
+            "timeDrift": 1
         }
     ],
     "seed": 106937398
