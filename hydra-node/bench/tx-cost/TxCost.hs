@@ -300,8 +300,7 @@ checkSizeAndEvaluate tx knownUTxO = do
             { executionMemory = usedMemory
             , executionSteps = usedCpu
             } = usedExecutionUnits report
-      -- FIXME: This is not considering the refscripts size
-      let minFee = estimateMinFee tx report
+      let minFee = estimateMinFee knownUTxO tx report
       Just (TxSize txSize, MemUnit usedMemory, CpuUnit usedCpu, minFee)
     _ -> Nothing
  where

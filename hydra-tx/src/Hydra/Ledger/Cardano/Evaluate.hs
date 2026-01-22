@@ -1,6 +1,6 @@
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
-
 {-# HLINT ignore "Use <$>" #-}
+{-# OPTIONS_GHC -Wno-missing-local-signatures #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 -- | Simplified interface to phase-2 validation of transactions, eg. evaluation
 -- of Plutus scripts.
@@ -16,13 +16,19 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
-import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
-import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
+import Cardano.Api.Ledger qualified as Ledger
+import Cardano.Api.UTxO (toShelleyUTxO)
+import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), Script, mkCostModel, mkCostModels, txscriptfee)
+import Cardano.Ledger.Api (BabbageEraTxBody, CoinPerByte (..), EraTx, ScriptHash, bodyTxL, hashScript, inputsTxBodyL, ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL, referenceInputsTxBodyL, referenceScriptTxOutL)
+import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), StrictMaybe (..), natVersion, unboundRational)
 import Cardano.Ledger.Coin (Coin (Coin))
 import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
-import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
+import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
+import Cardano.Ledger.Core (PParams, originalBytesSize, ppMaxTxSizeL)
 import Cardano.Ledger.Plutus (Language (..))
+import Cardano.Ledger.UMap ((◁))
+import Cardano.Ledger.UTxO qualified as Ledger
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
@@ -35,12 +41,14 @@ import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import Data.Ratio ((%))
 import Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
+import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   Era,
   EraHistory (EraHistory),
   ExecutionUnits (..),
   IsCardanoEra (cardanoEra),
+  IsShelleyBasedEra (shelleyBasedEra),
   LedgerEpochInfo (..),
   LedgerEra,
   LedgerProtocolParameters (..),
@@ -50,11 +58,14 @@ import Hydra.Cardano.Api (
   SerialiseAsCBOR (serialiseToCBOR),
   TransactionValidityError,
   Tx,
+  TxIn,
   UTxO,
   evaluateTransactionExecutionUnits,
   getTxBody,
   prettyError,
   toLedgerExUnits,
+  toLedgerTx,
+  toLedgerTxOut,
  )
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
@@ -69,6 +80,7 @@ import Ouroboros.Consensus.HardFork.History (
   mkInterpreter,
  )
 import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
+import Ouroboros.Consensus.Shelley.Ledger (refScriptsSize)
 import Prettyprinter (defaultLayoutOptions, layoutPretty)
 import Prettyprinter.Render.Text (renderStrict)
 
@@ -177,18 +189,60 @@ usedExecutionUnits report =
 -- rough estimate using this modules' 'pparams' and likely under-estimates cost
 -- as we have no witnesses on this 'Tx'.
 estimateMinFee ::
+  UTxO ->
   Tx ->
   EvaluationReport ->
   Coin
-estimateMinFee tx evaluationReport =
+estimateMinFee utxo tx evaluationReport =
   (txSize <×> a <+> b)
     <+> txscriptfee prices allExunits
+    <+> refScriptsFee
  where
   txSize = BS.length $ serialiseToCBOR tx
   a = pparams ^. ppMinFeeAL
   b = pparams ^. ppMinFeeBL
   prices = pparams ^. ppPricesL
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport
+
+  refScriptsSize = txNonDistinctRefScriptsSize (toShelleyUTxO shelleyBasedEra utxo) (toLedgerTx tx)
+
+  refScriptCostPerByte = unboundRational (pparams ^. ppMinFeeRefScriptCostPerByteL)
+  refScriptsFee =
+    tierRefScriptFee
+      refScriptCostMultiplier
+      refScriptCostStride
+      refScriptCostPerByte
+      refScriptsSize
+
+-- | Calculate the fee for reference scripts using an expoential growth of the price per
+-- byte with linear increments
+tierRefScriptFee ::
+  HasCallStack =>
+  -- | Growth factor or step multiplier
+  Rational ->
+  -- | Increment size in which price grows linearly according to the price
+  Int ->
+  -- | Base fee. Currently this is customizable by `ppMinFeeRefScriptCostPerByteL`
+  Rational ->
+  -- | Total RefScript size in bytes
+  Int ->
+  Coin
+tierRefScriptFee multiplier sizeIncrement
+  | multiplier <= 0 || sizeIncrement <= 0 = error "Size increment and multiplier must be positive"
+  | otherwise = go 0
+ where
+  go !acc !curTierPrice !n
+    | n < sizeIncrement =
+        Coin $ floor (acc + toRational n * curTierPrice)
+    | otherwise =
+        go (acc + sizeIncrementRational * curTierPrice) (multiplier * curTierPrice) (n - sizeIncrement)
+  sizeIncrementRational = toRational sizeIncrement
+
+refScriptCostStride :: Int
+refScriptCostStride = 25_600
+
+refScriptCostMultiplier :: Rational
+refScriptCostMultiplier = 1.2
 
 -- * Fixtures
 
