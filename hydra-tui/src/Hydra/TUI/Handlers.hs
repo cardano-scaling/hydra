@@ -27,6 +27,7 @@ import Hydra.Cardano.Api.Prelude ()
 import Hydra.Cardano.Api.Pretty (renderUTxO)
 import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
+import Hydra.Chain.ChainState (chainPointTime)
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
@@ -240,14 +241,16 @@ handleHydraEventsInfo now = \case
   Update (ApiClientMessage API.RejectedInput{clientInput, reason}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> show reason
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainTime}}) -> do
-    let drift = now `diffUTCTime` chainTime
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainPoint}}) -> do
+    let chainTime = chainPointTime chainPoint
+        drift = now `diffUTCTime` chainTime
     warn time $
       "Node state is out of sync with chain backend. Chain time: "
         <> show chainTime
         <> ", Drift: "
         <> show drift
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime}}) ->
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainPoint}}) -> do
+    let chainTime = chainPointTime chainPoint
     warn time $ "Node state is back in sync with chain backend. Chain time: " <> show chainTime
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
     info time $ "Head closed with snapshot number " <> show snapshotNumber

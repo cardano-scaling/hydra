@@ -3,37 +3,29 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "blockHash": "0100000100000101000100000001000100010001000000010100010100010000",
-                    "slot": 1,
-                    "tag": "ChainPoint"
+                    "chainPoint": {
+                        "blockHash": "0001010001010101000101000100000101000001000001000001000001010100",
+                        "slot": 0,
+                        "tag": "ChainPoint"
+                    },
+                    "chainTime": "1864-05-08T13:45:37.37798550284Z"
                 },
                 "spendableUTxO": {
-                    "0101000001010000010000000101000000010001000101000101000101010100#52": {
-                        "address": "addr_test1xrx23kf3fc77cv8z7eaezshe6mem8u8fqlfgymzzew3hsp078cp6ykukj9x2ajszjcd9n78etssshmmew075cdfy0vwq9xcjka",
+                    "0000000001000101010000010101010100010100000001010100000001010001#84": {
+                        "address": "addr_test1vqhe6cg7sle4s4f80c4ekl5mmxmp2ymm5h20vwwa2ssff4scxvzl9",
                         "datum": null,
-                        "inlineDatum": {
-                            "int": 1
-                        },
-                        "inlineDatumRaw": "01",
-                        "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "820401",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
+                        "datumhash": "9f10cd59b9ebecf972ba54feedd5384fdcb2a3974c41d56bc814ffa1a312d6d0",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
                         "value": {
-                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                                "dc2d92b068fe0dd1838d104d70dd557c0b1522": 1
-                            }
+                            "lovelace": 995610
                         }
                     }
                 }
             },
-            "contestationDeadline": "1864-05-09T16:14:55.682122322999Z",
-            "headId": "01000100010001000101000101010001",
+            "contestationDeadline": "1864-05-10T02:44:35.578084957434Z",
+            "headId": "00000001000000010100010101000000",
             "snapshotNumber": 0,
             "tag": "HeadClosed"
         }
