@@ -11,7 +11,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
 import Hydra.Cardano.Api (Tx, UTxO)
 import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
-import Hydra.Chain.ChainState (chainPointSlot)
+import Hydra.Chain.ChainState (chainPointSlot, chainPointTime)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)
@@ -80,11 +80,11 @@ spec = do
         Just slotLength <- readFileBS (tmpDir </> "genesis.json") >>= \bs -> pure $ bs ^? key "slotLength" . _Number
         slotTime <-
           waitNext >>= \case
-            Tick{chainTime} -> pure chainTime
+            Tick{chainPoint} -> pure (chainPointTime chainPoint)
             e -> failure $ "unexpected " <> show e
         nextSlotTime <-
           waitNext >>= \case
-            Tick{chainTime} -> pure chainTime
+            Tick{chainPoint} -> pure (chainPointTime chainPoint)
             e -> failure $ "unexpected " <> show e
         addUTCTime (realToFrac slotLength) slotTime `shouldBe` nextSlotTime
 

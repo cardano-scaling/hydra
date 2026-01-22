@@ -6,7 +6,7 @@ module Test.Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import Hydra.Chain.ChainState (ChainPointType, ChainStateType (..), IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()
@@ -34,7 +34,7 @@ instance
   ToADTArbitrary (StateChanged tx)
 
 -- REVIEW: why are we missing Checkpoint and other events ?
-genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
+genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainPointType tx), Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
     [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

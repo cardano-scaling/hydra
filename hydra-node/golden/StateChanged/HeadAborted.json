@@ -3,35 +3,46 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "blockHash": "0100010101000001010100000000000101000000000001010101000001010100",
-                    "slot": 0,
-                    "tag": "ChainPoint"
+                    "chainPoint": {
+                        "tag": "ChainPointAtGenesis"
+                    },
+                    "chainTime": "1864-05-09T22:14:47.863998893721Z"
                 },
-                "spendableUTxO": {}
+                "spendableUTxO": {
+                    "0100000100010001010000000000010100000100010000010101010100010000#69": {
+                        "address": "addr_test1yr8xgquaqeavg4tjaj8gan20t706ajnglwkztmjhyyahcl2tgg7xdeq0skql8y3f4cqcnnqkpdpjwl238gghafyyzsfqpllupw",
+                        "datum": null,
+                        "datumhash": "9adf35fc047781eeab681a95c1531c19e96f63410d1c23fa58d20493066b60e2",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "f24db816e3ed68807928873cfa7546b02ace18bad44303c6ff4dc069": {
+                                "35": 1
+                            },
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                }
             },
-            "headId": "01000001010000010101010001000001",
+            "headId": "01010001000001000101010100010000",
             "tag": "HeadAborted",
             "utxo": {
-                "0001010001000101000001000000000001000100000100010100010001010101#94": {
-                    "address": "addr_test1zqdasj75pfer55qdz5mna88f0pdcrufgtyvaqxtnuf9shcsfvt436st54jpx4e3tr6ks8a3mgxajushalctfny4nyc6skw6lc4",
+                "0100000000010101010100000101000101010001000100000001000000010000#13": {
+                    "address": "addr_test1xrrchv6a6yzw53895m5e2kwg32p584vcvwjd59pctyaqxvz7k9pkjg0yvun5a5c4rrfe83nf2qt968ez6c3dusktxp7qg7k7sv",
                     "datum": null,
                     "inlineDatum": {
-                        "bytes": "56"
+                        "constructor": 0,
+                        "fields": []
                     },
-                    "inlineDatumRaw": "4156",
-                    "inlineDatumhash": "ac4a018030c77d54d68bc12d25f05ca742c67578cf655dbd8d2e96179136438b",
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "830300848200581cf682f7d919aec58e9765ded31ca4e317b1cd1155fa4fb6b725268b9283030284830301818200581c14dbdd50ccc594ae0ff5495b0ad630dfe3d7cc4d4e291744b4901f60820280830302838200581cc8e7ba7a1f76c477524265d72c048bbe99feedde0da559c62cd8c3358200581c2ab8626d714df06c5581100d360fe329fa4adf333ffb8e536c6c50728200581c4362b6ff8f7ee183d992e3997d81aa8e1a12b144b02d7854665ff61f8201848200581c196d81de1ec2bf77f0b328788077f8164ce805abba4afb7d1986be788200581c35128e8cdc8beed371a7a689fa8829fa96fe1bf0690a1f6291a47b0b8200581cfaf300cd298b7fdfc36c500ce037d476526291dd7083e1ec2f83b9448200581c25a47c167ac80acbc54e5aad7188aac7d2b043af7f6bb008553a194b8200581caafe20450264f58751392169a88f4dcec7f29e194a2f3ace0bae826b8200581c388a3dac063275133fce94fd49b405c0828d2a83a765ffeef9618651",
-                            "description": "",
-                            "type": "SimpleScript"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage"
-                    },
+                    "inlineDatumRaw": "d87980",
+                    "inlineDatumhash": "923918e403bf43c34b4ef6b48eb2ee04babed17320d8d1b9ff9ad086e86f44ec",
+                    "referenceScript": null,
                     "value": {
-                        "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
-                            "0fd70690f5e504f1be306d4e5ac19fef11": 2
-                        }
+                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                            "c4ae98b2bd5acfaf8523b60d252d79ae5e": 7455887984398125837
+                        },
+                        "lovelace": 45000000000000000
                     }
                 }
             }

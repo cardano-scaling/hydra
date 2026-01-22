@@ -19,7 +19,7 @@ import Hydra.HeadLogic (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainPoint (..), SimpleTx (..), aValidTx, initialSimpleChainState, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
@@ -75,7 +75,7 @@ spec = parallel $ do
         IO ()
       setupHydrate action =
         showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let testHydrate = hydrate tracer testEnvironment simpleLedger 0
+          let testHydrate = hydrate tracer testEnvironment simpleLedger initialSimpleChainState
           action testHydrate
 
   describe "hydrate" $ do
@@ -344,8 +344,9 @@ spec = parallel $ do
 primeWith :: (MonadSTM m, MonadTime m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
   now <- getCurrentTime
-  chainSlot <- currentSlot <$> atomically queryNodeState
-  let tick = ChainInput $ Tick now (chainSlot + 1)
+  (SimpleChainPoint chainSlot _) <- currentChainPoint <$> atomically queryNodeState
+  let chainPoint = SimpleChainPoint (chainSlot + 1) now
+  let tick = ChainInput $ Tick chainPoint
   forM_ (tick : inputs) enqueue
   pure node
 
@@ -436,7 +437,7 @@ observationInput observedTx =
     { chainEvent =
         Observation
           { observedTx
-          , newChainState = 0
+          , newChainState = initialSimpleChainState
           }
     }
 
@@ -463,7 +464,7 @@ testHydraNode ::
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   let eventStore :: Monad m => EventStore (StateEvent SimpleTx) m
       eventStore = mockEventStore []
-  hydrate tracer env simpleLedger 0 eventStore []
+  hydrate tracer env simpleLedger initialSimpleChainState eventStore []
     >>= notConnect
     >>= primeWith inputs
  where

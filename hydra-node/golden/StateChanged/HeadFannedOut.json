@@ -3,15 +3,42 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "blockHash": "0000000100000100010000000000010101010001010000000101000100010000",
-                    "slot": 1,
-                    "tag": "ChainPoint"
+                    "chainPoint": {
+                        "blockHash": "0101010100000001010001010100000100010001010100010000010100010001",
+                        "slot": 1,
+                        "tag": "ChainPoint"
+                    },
+                    "chainTime": "1864-05-10T19:23:58.842319377465Z"
                 },
-                "spendableUTxO": {}
+                "spendableUTxO": {
+                    "0000000001010101000001010101000101010001000101010000010001010101#47": {
+                        "address": "addr_test1yr9j30m7lpk97543ucsvscrkmh63uhuwa9ll7hwmtcxhpsndydm9r6sfkjl0jhnt9q0nepxkuv5g4x39z86ecsletrhq6wj7v4",
+                        "datum": null,
+                        "datumhash": "c40fb6ddc8706ea43629ae4381723950f0fbacbc0a5a031121fe7fc1e10e34d6",
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                }
             },
-            "headId": "00010101010100010000010101010001",
+            "headId": "01010001000001000001010100010001",
             "tag": "HeadFannedOut",
-            "utxo": {}
+            "utxo": {
+                "0101000000000000000001000000010101000101000000000101010101000001#44": {
+                    "address": "addr_test1xqhmzp000cpj2ausyk8sw9kglwxpk2nhd32qsd8447htjg9e3svp000w70qnxs9ntzu907frv55uc26ck99q9486wxus9rt7v7",
+                    "datum": null,
+                    "datumhash": "7508f3d91a7986215324613a7dac5df12a895f8fd3a0ab79dc70b2ce7a65f487",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
+            }
         }
     ],
     "seed": 249844913

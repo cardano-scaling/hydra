@@ -1,7 +1,14 @@
 {
     "samples": [
         {
-            "chainTime": "1864-05-10T20:17:58.381020528468Z",
+            "chainPoint": {
+                "chainPoint": {
+                    "blockHash": "0001000001010101010100000100000100000000000000000001010001010000",
+                    "slot": 1,
+                    "tag": "ChainPoint"
+                },
+                "chainTime": "1864-05-08T17:31:06.809743715493Z"
+            },
             "tag": "NodeSynced"
         }
     ],

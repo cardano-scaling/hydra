@@ -3,36 +3,76 @@
         {
             "chainState": {
                 "recordedAt": {
-                    "blockHash": "0100000000010001010100010000000100000101010101000100010101000100",
-                    "slot": 1,
-                    "tag": "ChainPoint"
+                    "chainPoint": {
+                        "blockHash": "0001000000000001010001000101010100000000010000000100000000010001",
+                        "slot": 1,
+                        "tag": "ChainPoint"
+                    },
+                    "chainTime": "1864-05-08T14:16:02.816816983693Z"
                 },
                 "spendableUTxO": {
-                    "0000010001000000000001000101010100000000010000000100000001000001#33": {
-                        "address": "2RhQhCGqYPDn9TWRPDVY9kcHEZpLDwnJka72YWCwDfxGA35wPizRdA9GyvhuD9qcqxKMaGPJZSjD2tBdXHee8wGiTFMAcxgxVLjs6fjkLan6mu",
+                    "0000000000000100010000010100010100010000000100010000000000010000#36": {
+                        "address": "addr_test1vpvyzuq49qfprfe9vmv7lmneeg02zq40wds3vqr5u2wsaqqgl5hfk",
                         "datum": null,
-                        "datumhash": null,
-                        "inlineDatum": null,
-                        "inlineDatumRaw": null,
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "820501",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
+                        "inlineDatum": {
+                            "constructor": 5,
+                            "fields": [
+                                {
+                                    "list": [
+                                        {
+                                            "int": 5
+                                        },
+                                        {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "bytes": "33b876"
+                                                    },
+                                                    "v": {
+                                                        "int": 4
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": -3
+                                                    },
+                                                    "v": {
+                                                        "bytes": "34592e"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 2
+                                                    },
+                                                    "v": {
+                                                        "int": 2
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": -4
+                                                    },
+                                                    "v": {
+                                                        "bytes": "f409beb8"
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
                         },
+                        "inlineDatumRaw": "d87e9f9f05a44333b87604224334592e02022344f409beb8ffff",
+                        "inlineDatumhash": "38bb923f9800474077c9862f5a7cd2beab779ee820a20143038871dc4674ab6c",
+                        "referenceScript": null,
                         "value": {
-                            "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                "1927e29b34ffa554fc50ccc8bf9b41e5ea17cbdfe6ae6e5a879765": 1094243968039730176
-                            },
-                            "lovelace": 1904754014670228328
+                            "lovelace": 45000000000000000
                         }
                     }
                 }
             },
-            "depositTxId": "0001010000000000010001000000010001000000000000010100010101000001",
-            "headId": "01010001000101000101010100010100",
+            "depositTxId": "0000010001010101010000010001000000000101010000000000010000000101",
+            "headId": "00010101000001010001000000010101",
             "newVersion": 0,
             "tag": "CommitFinalized"
         }
