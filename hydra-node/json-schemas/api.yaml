@@ -2038,15 +2038,25 @@ components:
       type: object
       required:
         - tag
+        - chainSlot
         - chainTime
+        - timeDrift
+        - slotDrift
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeUnsynced"]
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
         chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
+        timeDrift:
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
+        slotDrift:
+          type: integer
+          minimum: 0
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2060,15 +2070,25 @@ components:
       type: object
       required:
         - tag
+        - chainSlot
         - chainTime
+        - timeDrift
+        - slotDrift
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeSynced"]
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
         chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
+        timeDrift:
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
+        slotDrift:
+          type: integer
+          minimum: 0
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -3241,6 +3261,12 @@ components:
       type: number
       description: |
         A length of time, measured in whole seconds, to be used in deposit validity.
+      example: 60
+    
+    NominalDiffTime:
+      type: number
+      description: |
+        A length of time, measured in whole seconds, to be used for time difference.
       example: 60
 
     UnsyncedPeriod:

@@ -45,7 +45,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initNodeState)
+import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -795,7 +795,7 @@ spec =
             )
             shrink
             $ \noTickInputs -> monadicIO $ do
-              let catchingUp = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing}
+              let catchingUp = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
 
               stillCatchingUp <-
                 run $
@@ -838,7 +838,7 @@ spec =
       prop "node must be out of sync after full contestation period" $
         forAllShrink arbitrary shrink $ \headState ->
           monadicIO $ do
-            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing}
+            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
 
             now <- run getCurrentTime
             let delta = bobEnv.contestationPeriod
@@ -857,7 +857,7 @@ spec =
       prop "node remains in sync under normal block cadence" $
         forAllShrink arbitrary shrink $ \headState ->
           monadicIO $ do
-            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = Nothing}
+            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
 
             now <- run getCurrentTime
             let normalBlockInterval = 20
@@ -1157,7 +1157,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = 0
-                , currentChainTime = Nothing
+                , currentChainTime = initialChainTime
                 }
         -- deposit txs
         (deposited1, depositTx1) <- pick mkDepositTx
@@ -1256,7 +1256,7 @@ spec =
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
-                , currentChainTime = Just chainTime
+                , currentChainTime = chainTime
                 }
 
         st <-
@@ -1299,7 +1299,7 @@ spec =
                       }
               , pendingDeposits = mempty
               , currentSlot = ChainSlot 1
-              , currentChainTime = Just chainTime
+              , currentChainTime = chainTime
               }
 
       let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
@@ -1386,7 +1386,7 @@ genClosedState = do
       { headState = Closed $ closedState{headId = testHeadId}
       , pendingDeposits = mempty
       , currentSlot = ChainSlot 0
-      , currentChainTime = Nothing
+      , currentChainTime = initialChainTime
       }
 
 -- * Utilities
@@ -1439,7 +1439,7 @@ inUnsyncedIdleState =
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
-    , currentChainTime = Nothing
+    , currentChainTime = initialChainTime
     }
  where
   chainState = 0
@@ -1460,7 +1460,7 @@ inInitialState parties =
             }
     , pendingDeposits = mempty
     , currentSlot = 0
-    , currentChainTime = Nothing
+    , currentChainTime = initialChainTime
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1502,7 +1502,7 @@ inOpenState' parties coordinatedHeadState =
             }
     , pendingDeposits = mempty
     , currentSlot = 0
-    , currentChainTime = Nothing
+    , currentChainTime = initialChainTime
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -1531,7 +1531,7 @@ inClosedState' parties confirmedSnapshot =
             }
     , pendingDeposits = mempty
     , currentSlot = 0
-    , currentChainTime = Nothing
+    , currentChainTime = initialChainTime
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
