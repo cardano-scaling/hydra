@@ -33,11 +33,7 @@ import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsT
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Generator (ClientDataset (..), Dataset (..))
-import Hydra.Logging (
-  Tracer,
-  traceWith,
-  withTracerOutputTo,
- )
+import Hydra.Logging (Tracer, traceWith, withTracerLogFile)
 import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
@@ -63,9 +59,10 @@ import Text.Printf (printf)
 
 bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemStats)
 bench startingNodeId timeoutSeconds workDir dataset = do
-  putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
-  withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo hdl "Test" $ \tracer ->
+  let logFile = workDir </> "test.log"
+  putStrLn $ "Test logs available in: " <> logFile
+  withFile logFile ReadWriteMode $ \_hdl ->
+    withTracerLogFile logFile "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
@@ -97,9 +94,10 @@ benchDemo ::
   Dataset ->
   IO (Summary, SystemStats)
 benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets} = do
-  putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
-  withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo hdl "Test" $ \tracer ->
+  let logFile = workDir </> "test.log"
+  putStrLn $ "Test logs available in: " <> logFile
+  withFile logFile ReadWriteMode $ \_hdl ->
+    withTracerLogFile logFile "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark demo"
         let cardanoTracer = contramap FromCardanoNode tracer
