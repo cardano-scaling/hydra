@@ -6,10 +6,8 @@ module TxCost where
 import Hydra.Prelude hiding (catch)
 import Test.Hydra.Prelude
 
-import Cardano.Api (shelleyBasedEra)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
-import Cardano.Ledger.Api (calcMinFeeTx)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -17,8 +15,6 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Tx,
   UTxO,
-  calculateMinTxFee,
-  toLedgerTx,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
@@ -67,7 +63,6 @@ import Test.Hydra.Chain.Direct.State (
   genStOpen,
   pickChainContext,
  )
-import Test.Hydra.Node.Fixture (pparams)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
@@ -305,7 +300,8 @@ checkSizeAndEvaluate tx knownUTxO = do
             { executionMemory = usedMemory
             , executionSteps = usedCpu
             } = usedExecutionUnits report
-      let minFee = calcMinFeeTx (UTxO.toShelleyUTxO shelleyBasedEra knownUTxO) (spy' "PPARAMS" pparams) (toLedgerTx tx) 0
+      -- FIXME: This is not considering the refscripts size
+      let minFee = estimateMinFee tx report
       Just (TxSize txSize, MemUnit usedMemory, CpuUnit usedCpu, minFee)
     _ -> Nothing
  where
