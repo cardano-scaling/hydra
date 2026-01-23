@@ -1503,20 +1503,21 @@
         "flake-parts": "flake-parts_5",
         "formal-ledger": "formal-ledger",
         "hydra-coding-standards": "hydra-coding-standards_2",
+        "import-tree": "import-tree_7",
         "nixpkgs": "nixpkgs_18"
       },
       "locked": {
-        "lastModified": 1758113083,
-        "narHash": "sha256-DNg3NSQ2uXyEoF3a2qCT/PRV5bGffJF9zTmMzXYSQ+w=",
+        "lastModified": 1769172731,
+        "narHash": "sha256-lzfahbO4a9KpqNcUhfRn9uhd2NzWIUGO0un/qHnAatY=",
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "1354ffa922816a023350c9296e8c6ae55993e229",
+        "rev": "895bd8a8ce5ad2911aee8add207bea2a87bc73aa",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "1354ffa922816a023350c9296e8c6ae55993e229",
+        "rev": "895bd8a8ce5ad2911aee8add207bea2a87bc73aa",
         "type": "github"
       }
     },
@@ -1611,6 +1612,21 @@
       }
     },
     "import-tree_7": {
+      "locked": {
+        "lastModified": 1763762820,
+        "narHash": "sha256-ZvYKbFib3AEwiNMLsejb/CWs/OL/srFQ8AogkebEPF0=",
+        "owner": "vic",
+        "repo": "import-tree",
+        "rev": "3c23749d8013ec6daa1d7255057590e9ca726646",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vic",
+        "repo": "import-tree",
+        "type": "github"
+      }
+    },
+    "import-tree_8": {
       "locked": {
         "lastModified": 1763762820,
         "narHash": "sha256-ZvYKbFib3AEwiNMLsejb/CWs/OL/srFQ8AogkebEPF0=",
@@ -2713,7 +2729,7 @@
         "haskellNix": "haskellNix_2",
         "hydra-coding-standards": "hydra-coding-standards",
         "hydra-spec": "hydra-spec",
-        "import-tree": "import-tree_7",
+        "import-tree": "import-tree_8",
         "iohk-nix": "iohk-nix",
         "mithril": "mithril",
         "nix-npm-buildpackage": "nix-npm-buildpackage",
