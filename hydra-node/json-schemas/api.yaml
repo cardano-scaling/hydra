@@ -1924,7 +1924,6 @@ components:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
         slotDrift:
           type: integer
-          minimum: 0
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1956,7 +1955,6 @@ components:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
         slotDrift:
           type: integer
-          minimum: 0
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:

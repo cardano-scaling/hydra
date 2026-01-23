@@ -1353,9 +1353,9 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime currentChai
 
   timeDrift = now `diffUTCTime` chainTime
 
-  currentSlot = chainPointSlot currentChainPoint
-  chainSlot = chainPointSlot chainPoint
-  ChainSlot slotDrift = currentSlot - chainSlot
+  ChainSlot current = chainPointSlot currentChainPoint
+  chainSlot@(ChainSlot chain) = chainPointSlot chainPoint
+  slotDrift = toInteger current - toInteger chain
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
