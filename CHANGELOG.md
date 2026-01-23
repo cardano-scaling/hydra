@@ -31,6 +31,7 @@ changes.
   - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407).
 - Bounded the number of transactions that will be approved per snapshot
   [#2444](https://github.com/cardano-scaling/hydra/pull/2444).
+- Buffer and batch logging so it's faster [#2452](https://github.com/cardano-scaling/hydra/pull/2452)
 
 ## [1.2.0] - 2025.11.28
 

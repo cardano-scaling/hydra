@@ -20,6 +20,8 @@ module Hydra.Logging (
   showLogsOnFailure,
   traceInTVar,
   contramap,
+  mkEnvelope,
+  defaultQueueSize,
 ) where
 
 import Hydra.Prelude
@@ -101,6 +103,7 @@ withTracerOutputTo ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracerOutputTo hdl namespace action = do
+  hSetBuffering hdl (BlockBuffering (Just 64000))
   msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
   withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
@@ -111,8 +114,11 @@ withTracerOutputTo hdl namespace action = do
 
   writeLogs queue =
     forever $ do
-      atomically (readTBQueue queue) >>= write . Aeson.encode
-      hFlush hdl
+      entries <- atomically $ do
+        firstEntry <- readTBQueue queue
+        rest <- flushTBQueue queue
+        pure (firstEntry : rest)
+      forM_ entries (write . Aeson.encode)
 
   flushLogs queue = liftIO $ do
     entries <- atomically $ flushTBQueue queue
