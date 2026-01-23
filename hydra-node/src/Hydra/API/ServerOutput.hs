@@ -204,8 +204,8 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
-  | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, timeDrift :: NominalDiffTime, slotDrift :: Natural}
-  | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, timeDrift :: NominalDiffTime, slotDrift :: Natural}
+  | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, timeDrift :: NominalDiffTime, slotDrift :: Integer}
+  | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, timeDrift :: NominalDiffTime, slotDrift :: Integer}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)

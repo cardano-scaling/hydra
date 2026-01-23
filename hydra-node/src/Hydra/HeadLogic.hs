@@ -1411,9 +1411,9 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime currentChai
   plus = flip addUTCTime
   timeDrift = now `diffUTCTime` chainTime
 
-  currentSlot = chainPointSlot currentChainPoint
-  chainSlot = chainPointSlot chainPoint
-  ChainSlot slotDrift = currentSlot - chainSlot
+  ChainSlot current = chainPointSlot currentChainPoint
+  chainSlot@(ChainSlot chain) = chainPointSlot chainPoint
+  slotDrift = toInteger current - toInteger chain
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.
