@@ -21,7 +21,7 @@
 </span><span id="line-21"></span><span class="hs-comment">-- NOTE: New type wrapper to add Ord and Eq instances to signing keys</span><span>
 </span><span id="line-22"></span><span class="hs-keyword">newtype</span><span> </span><span id="CardanoSigningKey"><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-var">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="CardanoSigningKey"><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-var">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AsigningKey%3ACardanoSigningKey"><span class="annot"><span class="annottext">CardanoSigningKey -&gt; SigningKey PaymentKey
 </span><a href="Hydra.Model.Payment.html#%24sel%3AsigningKey%3ACardanoSigningKey"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">}</span><span>
-</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633352"><span id="local-6989586621679633358"><span id="local-6989586621679633362"><span class="annot"><span class="annottext">Int -&gt; CardanoSigningKey -&gt; ShowS
+</span><span id="line-23"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633353"><span id="local-6989586621679633359"><span id="local-6989586621679633363"><span class="annot"><span class="annottext">Int -&gt; CardanoSigningKey -&gt; ShowS
 [CardanoSigningKey] -&gt; ShowS
 CardanoSigningKey -&gt; String
 (Int -&gt; CardanoSigningKey -&gt; ShowS)
@@ -38,11 +38,11 @@ $cshowList :: [CardanoSigningKey] -&gt; ShowS
 showList :: [CardanoSigningKey] -&gt; ShowS
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-24"></span><span>
-</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633367"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633380"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633380"><span class="hs-identifier hs-var">ska</span></a></span></span><span> </span><span id="local-6989586621679633381"><span class="annot"><span class="annottext">== :: CardanoSigningKey -&gt; CardanoSigningKey -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var hs-var hs-var hs-var">==</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633382"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633382"><span class="hs-identifier hs-var">skb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633368"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633381"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679633381"><span class="hs-identifier hs-var">ska</span></a></span></span><span> </span><span id="local-6989586621679633382"><span class="annot"><span class="annottext">== :: CardanoSigningKey -&gt; CardanoSigningKey -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var hs-var hs-var hs-var">==</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633383"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679633383"><span class="hs-identifier hs-var">skb</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
 forall keyrole.
 Key keyrole =&gt;
@@ -52,7 +52,7 @@ forall keyrole.
 (Key keyrole, HasTypeProxy keyrole) =&gt;
 SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633380"><span class="hs-identifier hs-var">ska</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; Hash PaymentKey -&gt; Bool
+</span><a href="#local-6989586621679633381"><span class="hs-identifier hs-var">ska</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; Hash PaymentKey -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
 forall keyrole.
@@ -63,22 +63,22 @@ forall keyrole.
 (Key keyrole, HasTypeProxy keyrole) =&gt;
 SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633382"><span class="hs-identifier hs-var">skb</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679633383"><span class="hs-identifier hs-var">skb</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-28"></span><span>
-</span><span id="line-29"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633388"><span id="local-6989586621679633392"><span id="local-6989586621679633396"><span id="local-6989586621679633399"><span id="local-6989586621679633402"><span id="local-6989586621679633405"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633410"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633410"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679633411"><span class="annot"><span class="annottext">&lt;= :: CardanoSigningKey -&gt; CardanoSigningKey -&gt; Bool
-</span><a href="#local-6989586621679633411"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;=</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633413"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633413"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Hash PaymentKey
-</span><a href="#local-6989586621679633414"><span class="hs-identifier hs-var">hashOf</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633410"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; Hash PaymentKey -&gt; Bool
+</span><span id="line-29"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633389"><span id="local-6989586621679633393"><span id="local-6989586621679633397"><span id="local-6989586621679633400"><span id="local-6989586621679633403"><span id="local-6989586621679633406"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633411"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679633411"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679633412"><span class="annot"><span class="annottext">&lt;= :: CardanoSigningKey -&gt; CardanoSigningKey -&gt; Bool
+</span><a href="#local-6989586621679633412"><span class="hs-operator hs-var hs-var hs-var hs-var">&lt;=</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span> </span><span id="local-6989586621679633414"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679633414"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Hash PaymentKey
+</span><a href="#local-6989586621679633415"><span class="hs-identifier hs-var">hashOf</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679633411"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; Hash PaymentKey -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; Hash PaymentKey
-</span><a href="#local-6989586621679633414"><span class="hs-identifier hs-var">hashOf</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679633413"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><a href="#local-6989586621679633415"><span class="hs-identifier hs-var">hashOf</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679633414"><span class="hs-identifier hs-var">b</span></a></span><span>
 </span><span id="line-31"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-32"></span><span>    </span><span id="local-6989586621679633414"><span class="annot"><span class="annottext">hashOf :: SigningKey PaymentKey -&gt; Hash PaymentKey
-</span><a href="#local-6989586621679633414"><span class="hs-identifier hs-var hs-var">hashOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
+</span><span id="line-32"></span><span>    </span><span id="local-6989586621679633415"><span class="annot"><span class="annottext">hashOf :: SigningKey PaymentKey -&gt; Hash PaymentKey
+</span><a href="#local-6989586621679633415"><span class="hs-identifier hs-var hs-var">hashOf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Hash PaymentKey
 forall keyrole.
 Key keyrole =&gt;
 VerificationKey keyrole -&gt; Hash keyrole
@@ -93,37 +93,37 @@ forall keyrole.
 SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span>
 </span><span id="line-33"></span><span>
-</span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633449"><span id="local-6989586621679633453"><span id="local-6989586621679633456"><span id="local-6989586621679633459"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-35"></span><span>  </span><span id="local-6989586621679633470"><span class="annot"><span class="annottext">toJSON :: CardanoSigningKey -&gt; Value
-</span><a href="#local-6989586621679633470"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; CardanoSigningKey -&gt; Value
+</span><span id="line-34"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633450"><span id="local-6989586621679633454"><span id="local-6989586621679633457"><span id="local-6989586621679633460"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-35"></span><span>  </span><span id="local-6989586621679633471"><span class="annot"><span class="annottext">toJSON :: CardanoSigningKey -&gt; Value
+</span><a href="#local-6989586621679633471"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; CardanoSigningKey -&gt; Value
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;don't use&quot;</span></span><span>
 </span><span id="line-36"></span><span>
-</span><span id="line-37"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633475"><span id="local-6989586621679633479"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-38"></span><span>  </span><span id="local-6989586621679633489"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser CardanoSigningKey
-</span><a href="#local-6989586621679633489"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Parser CardanoSigningKey
+</span><span id="line-37"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633476"><span id="local-6989586621679633480"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>  </span><span id="local-6989586621679633490"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser CardanoSigningKey
+</span><a href="#local-6989586621679633490"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Parser CardanoSigningKey
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;don't use&quot;</span></span><span>
 </span><span id="line-39"></span><span>
-</span><span id="line-40"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633495"><span id="local-6989586621679633499"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-41"></span><span>  </span><span id="local-6989586621679633509"><span class="annot"><span class="annottext">toCBOR :: CardanoSigningKey -&gt; Encoding
-</span><a href="#local-6989586621679633509"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; CardanoSigningKey -&gt; Encoding
+</span><span id="line-40"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633496"><span id="local-6989586621679633500"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621679633510"><span class="annot"><span class="annottext">toCBOR :: CardanoSigningKey -&gt; Encoding
+</span><a href="#local-6989586621679633510"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; CardanoSigningKey -&gt; Encoding
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;don't use&quot;</span></span><span>
 </span><span id="line-42"></span><span>
-</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633515"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-44"></span><span>  </span><span id="local-6989586621679633526"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s CardanoSigningKey
-</span><a href="#local-6989586621679633526"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Decoder s CardanoSigningKey
+</span><span id="line-43"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633516"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-44"></span><span>  </span><span id="local-6989586621679633527"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s CardanoSigningKey
+</span><a href="#local-6989586621679633527"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Decoder s CardanoSigningKey
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;don't use&quot;</span></span><span>
 </span><span id="line-45"></span><span>
-</span><span id="line-46"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633530"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-47"></span><span>  </span><span id="local-6989586621679633535"><span class="annot"><span class="annottext">arbitrary :: Gen CardanoSigningKey
-</span><a href="#local-6989586621679633535"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; CardanoSigningKey
+</span><span id="line-46"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633531"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>  </span><span id="local-6989586621679633536"><span class="annot"><span class="annottext">arbitrary :: Gen CardanoSigningKey
+</span><a href="#local-6989586621679633536"><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; CardanoSigningKey
 </span><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-var">CardanoSigningKey</span></a></span><span> </span><span class="annot"><span class="annottext">(SigningKey PaymentKey -&gt; CardanoSigningKey)
 -&gt; ((VerificationKey PaymentKey, SigningKey PaymentKey)
     -&gt; SigningKey PaymentKey)
@@ -150,7 +150,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span id="line-53"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Avalue%3APayment"><span class="annot"><span class="annottext">Payment -&gt; Value
 </span><a href="Hydra.Model.Payment.html#%24sel%3Avalue%3APayment"><span class="hs-identifier hs-var hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
 </span><span id="line-54"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-55"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633543"><span id="local-6989586621679633548"><span class="annot"><span class="annottext">Payment -&gt; Payment -&gt; Bool
+</span><span id="line-55"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633544"><span id="local-6989586621679633549"><span class="annot"><span class="annottext">Payment -&gt; Payment -&gt; Bool
 (Payment -&gt; Payment -&gt; Bool)
 -&gt; (Payment -&gt; Payment -&gt; Bool) -&gt; Eq Payment
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -158,7 +158,7 @@ $c== :: Payment -&gt; Payment -&gt; Bool
 == :: Payment -&gt; Payment -&gt; Bool
 $c/= :: Payment -&gt; Payment -&gt; Bool
 /= :: Payment -&gt; Payment -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633552"><span id="local-6989586621679633554"><span class="annot"><span class="annottext">(forall x. Payment -&gt; Rep Payment x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633553"><span id="local-6989586621679633555"><span class="annot"><span class="annottext">(forall x. Payment -&gt; Rep Payment x)
 -&gt; (forall x. Rep Payment x -&gt; Payment) -&gt; Generic Payment
 forall x. Rep Payment x -&gt; Payment
 forall x. Payment -&gt; Rep Payment x
@@ -169,7 +169,7 @@ from :: forall x. Payment -&gt; Rep Payment x
 $cto :: forall x. Rep Payment x -&gt; Payment
 to :: forall x. Rep Payment x -&gt; Payment
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-56"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633558"><span id="local-6989586621679633565"><span id="local-6989586621679633568"><span id="local-6989586621679633571"><span id="local-6989586621679633574"><span class="annot"><span class="annottext">[Payment] -&gt; Value
+</span><span id="line-56"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633559"><span id="local-6989586621679633566"><span id="local-6989586621679633569"><span id="local-6989586621679633572"><span id="local-6989586621679633575"><span class="annot"><span class="annottext">[Payment] -&gt; Value
 [Payment] -&gt; Encoding
 Payment -&gt; Bool
 Payment -&gt; Value
@@ -197,7 +197,7 @@ $ctoEncodingList :: [Payment] -&gt; Encoding
 toEncodingList :: [Payment] -&gt; Encoding
 $comitField :: Payment -&gt; Bool
 omitField :: Payment -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633688"><span id="local-6989586621679633695"><span id="local-6989586621679633698"><span class="annot"><span class="annottext">Maybe Payment
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633689"><span id="local-6989586621679633696"><span id="local-6989586621679633699"><span class="annot"><span class="annottext">Maybe Payment
 Value -&gt; Parser [Payment]
 Value -&gt; Parser Payment
 (Value -&gt; Parser Payment)
@@ -213,17 +213,17 @@ $comittedField :: Maybe Payment
 omittedField :: Maybe Payment
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-57"></span><span>
-</span><span id="line-58"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633773"><span id="local-6989586621679633778"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633774"><span id="local-6989586621679633779"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-59"></span><span>  </span><span class="hs-comment">-- NOTE: We display derived addresses instead of raw signing keys in order to help troubleshooting</span><span>
 </span><span id="line-60"></span><span>  </span><span class="hs-comment">-- tests failures or errors.</span><span>
-</span><span id="line-61"></span><span>  </span><span id="local-6989586621679633800"><span class="annot"><span class="annottext">show :: Payment -&gt; String
-</span><a href="#local-6989586621679633800"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span id="local-6989586621679633802"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><span id="line-61"></span><span>  </span><span id="local-6989586621679633801"><span class="annot"><span class="annottext">show :: Payment -&gt; String
+</span><a href="#local-6989586621679633801"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span id="local-6989586621679633803"><span class="annot"><span class="annottext">CardanoSigningKey
 $sel:from:Payment :: Payment -&gt; CardanoSigningKey
 from :: CardanoSigningKey
-</span><a href="Hydra.Model.Payment.html#%24sel%3Afrom%3APayment"><span class="hs-identifier hs-var hs-var">from</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633803"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><a href="Hydra.Model.Payment.html#%24sel%3Afrom%3APayment"><span class="hs-identifier hs-var hs-var">from</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633804"><span class="annot"><span class="annottext">CardanoSigningKey
 $sel:to:Payment :: Payment -&gt; CardanoSigningKey
 to :: CardanoSigningKey
-</span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var hs-var">to</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633804"><span class="annot"><span class="annottext">Value
+</span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var hs-var">to</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633805"><span class="annot"><span class="annottext">Value
 $sel:value:Payment :: Payment -&gt; Value
 value :: Value
 </span><a href="Hydra.Model.Payment.html#%24sel%3Avalue%3APayment"><span class="hs-identifier hs-var hs-var">value</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -234,7 +234,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679633802"><span class="hs-identifier hs-var">from</span></a></span><span>
+</span><a href="#local-6989586621679633803"><span class="hs-identifier hs-var">from</span></a></span><span>
 </span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -244,7 +244,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679633803"><span class="hs-identifier hs-var">to</span></a></span><span>
+</span><a href="#local-6989586621679633804"><span class="hs-identifier hs-var">to</span></a></span><span>
 </span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -254,21 +254,21 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679633804"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><a href="#local-6989586621679633805"><span class="hs-identifier hs-var">value</span></a></span><span>
 </span><span id="line-68"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot; }&quot;</span></span><span>
 </span><span id="line-69"></span><span>
-</span><span id="line-70"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633810"><span id="local-6989586621679633814"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-71"></span><span>  </span><span id="local-6989586621679633823"><span class="annot"><span class="annottext">toCBOR :: Payment -&gt; Encoding
+</span><span id="line-70"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633811"><span id="local-6989586621679633815"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679633824"><span class="annot"><span class="annottext">toCBOR :: Payment -&gt; Encoding
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Payment -&gt; Encoding
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;don't use&quot;</span></span><span>
 </span><span id="line-72"></span><span>
-</span><span id="line-73"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633828"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-74"></span><span>  </span><span id="local-6989586621679633838"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Payment
+</span><span id="line-73"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679633829"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679633839"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Payment
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Decoder s Payment
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
@@ -280,13 +280,13 @@ forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span id="line-79"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="TxOutType"><span class="annot"><span class="hs-identifier hs-var">TxOutType</span></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span class="hs-special">)</span><span>
 </span><span id="line-80"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="UTxOType"><span class="annot"><span class="hs-identifier hs-var">UTxOType</span></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Model.Payment.html#CardanoSigningKey"><span class="hs-identifier hs-type">CardanoSigningKey</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-81"></span><span>  </span><span class="hs-keyword">type</span><span> </span><span id="ValueType"><span class="annot"><span class="hs-identifier hs-var">ValueType</span></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621679633974"><span class="annot"><span class="annottext">txId :: Payment -&gt; TxIdType Payment
-</span><a href="#local-6989586621679633974"><span class="hs-identifier hs-var hs-var hs-var hs-var">txId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Payment -&gt; Int
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679633975"><span class="annot"><span class="annottext">txId :: Payment -&gt; TxIdType Payment
+</span><a href="#local-6989586621679633975"><span class="hs-identifier hs-var hs-var hs-var hs-var">txId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Payment -&gt; Int
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;undefined&quot;</span></span><span>
-</span><span id="line-83"></span><span>  </span><span id="local-6989586621679633980"><span class="annot"><span class="annottext">balance :: UTxOType Payment -&gt; ValueType Payment
-</span><a href="#local-6989586621679633980"><span class="hs-identifier hs-var hs-var hs-var hs-var">balance</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((CardanoSigningKey, Value) -&gt; Value)
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621679633981"><span class="annot"><span class="annottext">balance :: UTxOType Payment -&gt; ValueType Payment
+</span><a href="#local-6989586621679633981"><span class="hs-identifier hs-var hs-var hs-var hs-var">balance</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">((CardanoSigningKey, Value) -&gt; Value)
 -&gt; [(CardanoSigningKey, Value)] -&gt; Value
 forall m a. Monoid m =&gt; (a -&gt; m) -&gt; [a] -&gt; m
 forall (t :: * -&gt; *) m a.
@@ -295,8 +295,8 @@ forall (t :: * -&gt; *) m a.
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldMap"><span class="hs-identifier hs-var">foldMap</span></a></span><span> </span><span class="annot"><span class="annottext">(CardanoSigningKey, Value) -&gt; Value
 forall a b. (a, b) -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span>
-</span><span id="line-84"></span><span>  </span><span id="local-6989586621679633990"><span class="annot"><span class="annottext">hashUTxO :: UTxOType Payment -&gt; ByteString
-</span><a href="#local-6989586621679633990"><span class="hs-identifier hs-var hs-var hs-var hs-var">hashUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679633991"><span class="annot"><span class="annottext">hashUTxO :: UTxOType Payment -&gt; ByteString
+</span><a href="#local-6989586621679633991"><span class="hs-identifier hs-var hs-var hs-var hs-var">hashUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
 forall a b. ConvertUtf8 a b =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ByteString)
 -&gt; ([(CardanoSigningKey, Value)] -&gt; Text)
@@ -305,20 +305,20 @@ forall a b. ConvertUtf8 a b =&gt; a -&gt; b
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621679634006"><span class="annot"><span class="annottext">txSpendingUTxO :: UTxOType Payment -&gt; Payment
-</span><a href="#local-6989586621679634006"><span class="hs-identifier hs-var hs-var hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679634007"><span class="annot"><span class="annottext">txSpendingUTxO :: UTxOType Payment -&gt; Payment
+</span><a href="#local-6989586621679634007"><span class="hs-identifier hs-var hs-var hs-var hs-var">txSpendingUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-86"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Payment
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;nothing to spend spending&quot;</span></span><span>
-</span><span id="line-87"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">(</span><span id="local-6989586621679634008"><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679634008"><span class="hs-identifier hs-var">from</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634009"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679634009"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">CardanoSigningKey
+</span><span id="line-87"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">(</span><span id="local-6989586621679634009"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><a href="#local-6989586621679634009"><span class="hs-identifier hs-var">from</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634010"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679634010"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">CardanoSigningKey
 $sel:from:Payment :: CardanoSigningKey
 from :: CardanoSigningKey
 </span><a href="Hydra.Model.Payment.html#%24sel%3Afrom%3APayment"><span class="hs-identifier hs-var hs-var">from</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:to:Payment :: CardanoSigningKey
 </span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var">to</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679634008"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679634009"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
 $sel:value:Payment :: Value
 value :: Value
 </span><a href="Hydra.Model.Payment.html#%24sel%3Avalue%3APayment"><span class="hs-identifier hs-var hs-var">value</span></a></span><span class="hs-special">}</span><span>
@@ -327,27 +327,27 @@ value :: Value
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;cant spend from multiple utxo in one payment&quot;</span></span><span>
-</span><span id="line-89"></span><span>  </span><span id="local-6989586621679634010"><span class="annot"><span class="annottext">utxoFromTx :: Payment -&gt; UTxOType Payment
-</span><a href="#local-6989586621679634010"><span class="hs-identifier hs-var hs-var hs-var hs-var">utxoFromTx</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span id="local-6989586621679634012"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621679634011"><span class="annot"><span class="annottext">utxoFromTx :: Payment -&gt; UTxOType Payment
+</span><a href="#local-6989586621679634011"><span class="hs-identifier hs-var hs-var hs-var hs-var">utxoFromTx</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span id="local-6989586621679634013"><span class="annot"><span class="annottext">CardanoSigningKey
 $sel:to:Payment :: Payment -&gt; CardanoSigningKey
 to :: CardanoSigningKey
-</span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var hs-var">to</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634013"><span class="annot"><span class="annottext">Value
+</span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var hs-var">to</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634014"><span class="annot"><span class="annottext">Value
 $sel:value:Payment :: Payment -&gt; Value
 value :: Value
 </span><a href="Hydra.Model.Payment.html#%24sel%3Avalue%3APayment"><span class="hs-identifier hs-var hs-var">value</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679634012"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679634013"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-90"></span><span>  </span><span id="local-6989586621679634014"><span class="annot"><span class="annottext">outputsOfUTxO :: UTxOType Payment -&gt; [TxOutType Payment]
-</span><a href="#local-6989586621679634014"><span class="hs-identifier hs-var hs-var hs-var hs-var">outputsOfUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, Value)] -&gt; [(CardanoSigningKey, Value)]
+</span><a href="#local-6989586621679634013"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679634014"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679634015"><span class="annot"><span class="annottext">outputsOfUTxO :: UTxOType Payment -&gt; [TxOutType Payment]
+</span><a href="#local-6989586621679634015"><span class="hs-identifier hs-var hs-var hs-var hs-var">outputsOfUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, Value)] -&gt; [(CardanoSigningKey, Value)]
 UTxOType Payment -&gt; [TxOutType Payment]
 forall a. a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span>
-</span><span id="line-91"></span><span>  </span><span id="local-6989586621679634042"><span class="annot"><span class="annottext">withoutUTxO :: UTxOType Payment -&gt; UTxOType Payment -&gt; UTxOType Payment
-</span><a href="#local-6989586621679634042"><span class="hs-identifier hs-var hs-var hs-var hs-var">withoutUTxO</span></a></span></span><span> </span><span id="local-6989586621679634044"><span class="annot"><span class="annottext">UTxOType Payment
-</span><a href="#local-6989586621679634044"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679634045"><span class="annot"><span class="annottext">UTxOType Payment
-</span><a href="#local-6989586621679634045"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-92"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679634046"><span class="annot"><span class="annottext">as :: [(CardanoSigningKey, [Item Value])]
-</span><a href="#local-6989586621679634046"><span class="hs-keyword hs-var hs-var">as</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; [Item Value])
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621679634043"><span class="annot"><span class="annottext">withoutUTxO :: UTxOType Payment -&gt; UTxOType Payment -&gt; UTxOType Payment
+</span><a href="#local-6989586621679634043"><span class="hs-identifier hs-var hs-var hs-var hs-var">withoutUTxO</span></a></span></span><span> </span><span id="local-6989586621679634045"><span class="annot"><span class="annottext">UTxOType Payment
+</span><a href="#local-6989586621679634045"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621679634046"><span class="annot"><span class="annottext">UTxOType Payment
+</span><a href="#local-6989586621679634046"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679634047"><span class="annot"><span class="annottext">as :: [(CardanoSigningKey, [Item Value])]
+</span><a href="#local-6989586621679634047"><span class="hs-keyword hs-var hs-var">as</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; [Item Value])
 -&gt; (CardanoSigningKey, Value) -&gt; (CardanoSigningKey, [Item Value])
 forall b c a. (b -&gt; c) -&gt; (a, b) -&gt; (a, c)
 forall (p :: * -&gt; * -&gt; *) b c a.
@@ -361,9 +361,9 @@ forall l. IsList l =&gt; l -&gt; [Item l]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, Value)]
 UTxOType Payment
-</span><a href="#local-6989586621679634044"><span class="hs-identifier hs-var">a</span></a></span><span>
-</span><span id="line-93"></span><span>        </span><span id="local-6989586621679634048"><span class="annot"><span class="annottext">bs :: [(CardanoSigningKey, [Item Value])]
-</span><a href="#local-6989586621679634048"><span class="hs-identifier hs-var hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; [Item Value])
+</span><a href="#local-6989586621679634045"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-93"></span><span>        </span><span id="local-6989586621679634049"><span class="annot"><span class="annottext">bs :: [(CardanoSigningKey, [Item Value])]
+</span><a href="#local-6989586621679634049"><span class="hs-identifier hs-var hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; [Item Value])
 -&gt; (CardanoSigningKey, Value) -&gt; (CardanoSigningKey, [Item Value])
 forall b c a. (b -&gt; c) -&gt; (a, b) -&gt; (a, c)
 forall (p :: * -&gt; * -&gt; *) b c a.
@@ -377,9 +377,9 @@ forall l. IsList l =&gt; l -&gt; [Item l]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, Value)]
 UTxOType Payment
-</span><a href="#local-6989586621679634045"><span class="hs-identifier hs-var">b</span></a></span><span>
-</span><span id="line-94"></span><span>        </span><span id="local-6989586621679634049"><span class="annot"><span class="annottext">result :: [(CardanoSigningKey, [Item Value])]
-</span><a href="#local-6989586621679634049"><span class="hs-identifier hs-var hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set (CardanoSigningKey, [Item Value])
+</span><a href="#local-6989586621679634046"><span class="hs-identifier hs-var">b</span></a></span><span>
+</span><span id="line-94"></span><span>        </span><span id="local-6989586621679634050"><span class="annot"><span class="annottext">result :: [(CardanoSigningKey, [Item Value])]
+</span><a href="#local-6989586621679634050"><span class="hs-identifier hs-var hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set (CardanoSigningKey, [Item Value])
 -&gt; [(CardanoSigningKey, [Item Value])]
 forall a. Set a -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#toList"><span class="hs-identifier hs-var">Set.toList</span></a></span><span> </span><span class="annot"><span class="annottext">(Set (CardanoSigningKey, [Item Value])
@@ -391,7 +391,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 -&gt; Set (CardanoSigningKey, [Item Value])
 forall a. Ord a =&gt; [a] -&gt; Set a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, [Item Value])]
-</span><a href="#local-6989586621679634046"><span class="hs-keyword hs-var">as</span></a></span><span> </span><span class="annot"><span class="annottext">Set (CardanoSigningKey, [Item Value])
+</span><a href="#local-6989586621679634047"><span class="hs-keyword hs-var">as</span></a></span><span> </span><span class="annot"><span class="annottext">Set (CardanoSigningKey, [Item Value])
 -&gt; Set (CardanoSigningKey, [Item Value])
 -&gt; Set (CardanoSigningKey, [Item Value])
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
@@ -399,7 +399,7 @@ forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
 -&gt; Set (CardanoSigningKey, [Item Value])
 forall a. Ord a =&gt; [a] -&gt; Set a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, [Item Value])]
-</span><a href="#local-6989586621679634048"><span class="hs-identifier hs-var">bs</span></a></span><span>
+</span><a href="#local-6989586621679634049"><span class="hs-identifier hs-var">bs</span></a></span><span>
 </span><span id="line-95"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">([Item Value] -&gt; Value)
 -&gt; (CardanoSigningKey, [Item Value]) -&gt; (CardanoSigningKey, Value)
 forall b c a. (b -&gt; c) -&gt; (a, b) -&gt; (a, c)
@@ -413,34 +413,34 @@ forall l. IsList l =&gt; [Item l] -&gt; l
 -&gt; [(CardanoSigningKey, Value)]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, [Item Value])]
-</span><a href="#local-6989586621679634049"><span class="hs-identifier hs-var">result</span></a></span><span>
+</span><a href="#local-6989586621679634050"><span class="hs-identifier hs-var">result</span></a></span><span>
 </span><span id="line-96"></span><span>
 </span><span id="line-97"></span><span class="annot"><a href="Hydra.Model.Payment.html#applyTx"><span class="hs-identifier hs-type">applyTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span>
 </span><span id="line-98"></span><span id="applyTx"><span class="annot"><span class="annottext">applyTx :: UTxOType Payment -&gt; Payment -&gt; UTxOType Payment
-</span><a href="Hydra.Model.Payment.html#applyTx"><span class="hs-identifier hs-var hs-var">applyTx</span></a></span></span><span> </span><span id="local-6989586621679634053"><span class="annot"><span class="annottext">UTxOType Payment
-</span><a href="#local-6989586621679634053"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span id="local-6989586621679634054"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><a href="Hydra.Model.Payment.html#applyTx"><span class="hs-identifier hs-var hs-var">applyTx</span></a></span></span><span> </span><span id="local-6989586621679634054"><span class="annot"><span class="annottext">UTxOType Payment
+</span><a href="#local-6989586621679634054"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Model.Payment.html#Payment"><span class="hs-identifier hs-type">Payment</span></a></span><span class="hs-special">{</span><span id="local-6989586621679634055"><span class="annot"><span class="annottext">CardanoSigningKey
 $sel:from:Payment :: Payment -&gt; CardanoSigningKey
 from :: CardanoSigningKey
-</span><a href="Hydra.Model.Payment.html#%24sel%3Afrom%3APayment"><span class="hs-identifier hs-var hs-var">from</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634055"><span class="annot"><span class="annottext">CardanoSigningKey
+</span><a href="Hydra.Model.Payment.html#%24sel%3Afrom%3APayment"><span class="hs-identifier hs-var hs-var">from</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634056"><span class="annot"><span class="annottext">CardanoSigningKey
 $sel:to:Payment :: Payment -&gt; CardanoSigningKey
 to :: CardanoSigningKey
-</span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var hs-var">to</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634056"><span class="annot"><span class="annottext">Value
+</span><a href="Hydra.Model.Payment.html#%24sel%3Ato%3APayment"><span class="hs-identifier hs-var hs-var">to</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679634057"><span class="annot"><span class="annottext">Value
 $sel:value:Payment :: Payment -&gt; Value
 value :: Value
 </span><a href="Hydra.Model.Payment.html#%24sel%3Avalue%3APayment"><span class="hs-identifier hs-var hs-var">value</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-99"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679634055"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679634056"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(CardanoSigningKey, Value)
+</span><a href="#local-6989586621679634056"><span class="hs-identifier hs-var">to</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679634057"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(CardanoSigningKey, Value)
 -&gt; [(CardanoSigningKey, Value)] -&gt; [(CardanoSigningKey, Value)]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">(CardanoSigningKey, Value)
 -&gt; [(CardanoSigningKey, Value)] -&gt; [(CardanoSigningKey, Value)]
 forall a. Eq a =&gt; a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.OldList.html#delete"><span class="hs-identifier hs-var">List.delete</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CardanoSigningKey
-</span><a href="#local-6989586621679634054"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679634056"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, Value)]
+</span><a href="#local-6989586621679634055"><span class="hs-identifier hs-var">from</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679634057"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[(CardanoSigningKey, Value)]
 UTxOType Payment
-</span><a href="#local-6989586621679634053"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679634054"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-100"></span><span>
 </span><span id="line-101"></span><span class="annot"><a href="Hydra.Model.Payment.html#genAdaValue"><span class="hs-identifier hs-type">genAdaValue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span><span>
 </span><span id="line-102"></span><span id="genAdaValue"><span class="annot"><span class="annottext">genAdaValue :: Gen Value
@@ -454,29 +454,29 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
 forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679634060"><span class="hs-identifier hs-var">minimumUTxOAda</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679634061"><span class="hs-identifier hs-var">minimumUTxOAda</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">10000000000</span></span><span class="hs-special">)</span><span>
 </span><span id="line-103"></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-comment">-- NOTE: this should probably be retrieved from some authoritative source?</span><span>
-</span><span id="line-105"></span><span>  </span><span id="local-6989586621679634060"><span class="annot"><span class="annottext">minimumUTxOAda :: Integer
-</span><a href="#local-6989586621679634060"><span class="hs-identifier hs-var hs-var">minimumUTxOAda</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621679634061"><span class="annot"><span class="annottext">minimumUTxOAda :: Integer
+</span><a href="#local-6989586621679634061"><span class="hs-identifier hs-var hs-var">minimumUTxOAda</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1000000</span></span><span>
 </span><span id="line-106"></span><span>
 </span><span id="line-107"></span><span class="annot"><span class="hs-comment">-- * Orphans</span></span><span>
-</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679634064"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-109"></span><span>  </span><span id="local-6989586621679634067"><span class="annot"><span class="annottext">arbitrary :: Gen Value
+</span><span id="line-108"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679634065"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679634068"><span class="annot"><span class="annottext">arbitrary :: Gen Value
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Gen Value
 </span><a href="Hydra.Model.Payment.html#genAdaValue"><span class="hs-identifier hs-var">genAdaValue</span></a></span><span>
 </span><span id="line-110"></span><span>
-</span><span id="line-111"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679634072"><span id="local-6989586621679634075"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-112"></span><span>  </span><span id="local-6989586621679634084"><span class="annot"><span class="annottext">toCBOR :: Value -&gt; Encoding
+</span><span id="line-111"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679634073"><span id="local-6989586621679634076"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621679634085"><span class="annot"><span class="annottext">toCBOR :: Value -&gt; Encoding
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Value -&gt; Encoding
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;don't use&quot;</span></span><span>
 </span><span id="line-113"></span><span>
-</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679634089"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-115"></span><span>  </span><span id="local-6989586621679634098"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Value
+</span><span id="line-114"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679634090"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Value</span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621679634099"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Value
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Decoder s Value
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text

@@ -1237,6 +1237,8 @@ withTracerOutputTo :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJS
 showLogsOnFailure :: (MonadLabelledSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) => Text -> (Tracer m msg -> m a) -> m a
 traceInTVar :: (MonadFork m, MonadTime m, MonadSTM m) => TVar m [Envelope msg] -> Text -> Tracer m msg
 contramap :: Contravariant f => (a' -> a) -> f a -> f a'
+mkEnvelope :: (MonadFork m, MonadTime m) => Text -> msg -> m (Envelope msg)
+defaultQueueSize :: Natural
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Logging.Verbosity
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Logging.Verbosity
 instance GHC.Generics.Generic Hydra.Logging.Verbosity
