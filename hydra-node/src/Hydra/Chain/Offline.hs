@@ -2,10 +2,7 @@ module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
-import Cardano.Api.Genesis (shelleyGenesisDefaults)
-import Cardano.Api.Ledger qualified as Ledger
-import Cardano.Ledger.Coin qualified as L
-import Cardano.Ledger.Shelley.Genesis qualified as Shelley
+import Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
@@ -15,11 +12,9 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   GenesisParameters (..),
   Hash,
-  NetworkMagic (..),
   ShelleyEra,
   ShelleyGenesis (..),
   Tx,
-  fromShelleyNetwork,
   unsafeBlockHeaderHashFromBytes,
  )
 import Hydra.Chain (
@@ -38,44 +33,6 @@ import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
-
--- Upstreamed in cardano-api 10.18
-fromShelleyGenesis :: Shelley.ShelleyGenesis -> GenesisParameters ShelleyEra
-fromShelleyGenesis
-  sg@Shelley.ShelleyGenesis
-    { Shelley.sgSystemStart
-    , Shelley.sgNetworkMagic
-    , Shelley.sgNetworkId
-    , Shelley.sgActiveSlotsCoeff
-    , Shelley.sgSecurityParam
-    , Shelley.sgEpochLength
-    , Shelley.sgSlotsPerKESPeriod
-    , Shelley.sgMaxKESEvolutions
-    , Shelley.sgSlotLength
-    , Shelley.sgUpdateQuorum
-    , Shelley.sgMaxLovelaceSupply
-    , Shelley.sgGenDelegs = _ -- unused, might be of interest
-    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
-    , Shelley.sgStaking = _ -- unused, not retained by the node
-    } =
-    GenesisParameters
-      { protocolParamSystemStart = sgSystemStart
-      , protocolParamNetworkId =
-          fromShelleyNetwork
-            sgNetworkId
-            (NetworkMagic sgNetworkMagic)
-      , protocolParamActiveSlotsCoefficient =
-          Ledger.unboundRational
-            sgActiveSlotsCoeff
-      , protocolParamSecurity = sgSecurityParam
-      , protocolParamEpochLength = sgEpochLength
-      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
-      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
-      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
-      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
-      , protocolParamMaxLovelaceSupply = L.Coin $ fromIntegral sgMaxLovelaceSupply
-      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
-      }
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.
 offlineHeadId :: HeadSeed -> HeadId
