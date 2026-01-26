@@ -113,14 +113,14 @@ writeTransactionCostMarkdown mseed hdl = do
           <> intersperse
             ""
             [ initC
-            , commitC
-            , collectComC
-            , incrementC
-            , decrementC
-            , closeC
-            , contestC
-            , abortC
-            , fanoutC
+            -- , commitC
+            -- , collectComC
+            -- , incrementC
+            -- , decrementC
+            -- , closeC
+            -- , contestC
+            -- , abortC
+            -- , fanoutC
             ]
 
 -- NOTE: GitHub actions CI depends on the number of header lines, see
