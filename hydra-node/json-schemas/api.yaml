@@ -1908,8 +1908,7 @@ components:
         - tag
         - chainSlot
         - chainTime
-        - timeDrift
-        - slotDrift
+        - drift
         - seq
         - timestamp
       properties:
@@ -1920,10 +1919,8 @@ components:
           $ref: "api.yaml#/components/schemas/ChainSlot"
         chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
-        timeDrift:
+        drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
-        slotDrift:
-          type: integer
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1939,8 +1936,7 @@ components:
         - tag
         - chainSlot
         - chainTime
-        - timeDrift
-        - slotDrift
+        - drift
         - seq
         - timestamp
       properties:
@@ -1951,10 +1947,8 @@ components:
           $ref: "api.yaml#/components/schemas/ChainSlot"
         chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
-        timeDrift:
+        drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
-        slotDrift:
-          type: integer
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
