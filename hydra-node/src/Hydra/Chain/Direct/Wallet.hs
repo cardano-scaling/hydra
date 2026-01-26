@@ -94,6 +94,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano.Evaluate (maxTxSize)
 import Hydra.Logging (Tracer, traceWith)
 
 type Address = Ledger.Addr
@@ -269,7 +270,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         adjustRedeemers
           (body ^. inputsTxBodyL)
           newInputs
-          estimatedScriptCosts
+          (spy' "estimated" estimatedScriptCosts)
           (wits ^. rdmrsTxWitsL)
 
   -- Compute script integrity hash from adjusted redeemers
@@ -298,7 +299,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
   -- and an additional witness (we will sign this tx later)
-  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
+  let fee = spy' "fee" $ calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
@@ -356,6 +357,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
     Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
    where
+    -- TODO: This appears to be VERY fragile and we should probabaly resolve
+    -- redeemers, then set the correct units and rebuild the indexed redeemers
+    -- from the new inputs. In fact, the starting / target data should be tx
+    -- body, because minting purposes (for example) also reference a specific
+    -- entry in the 'minting' field of the body.
     sortedInputs = sort $ toList initialInputs
     sortedFinalInputs = sort $ toList finalInputs
     differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
@@ -371,12 +377,16 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
 
     executionUnitsFor :: PlutusPurpose AsIx era -> ExUnits
     executionUnitsFor ptr =
-      let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
-          ExUnits totalMem totalCpu = foldMap identity estimatedCosts
-          ExUnits approxMem approxCpu = estimatedCosts ! ptr
-       in ExUnits
-            (floor (maxMem * approxMem % totalMem))
-            (floor (maxCpu * approxCpu % totalCpu))
+      case lookup ptr estimatedCosts of
+        Nothing ->
+          -- FIXME: This lookup should never fail and we must not use max units
+          -- (or a constant fraction of it)
+          let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
+              ExUnits totalMem totalCpu = fold estimatedCosts
+           in ExUnits
+                (floor $ maxMem % totalMem)
+                (floor $ maxCpu % totalCpu)
+        Just exUnits -> exUnits
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =
