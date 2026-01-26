@@ -9,6 +9,7 @@ import Control.Concurrent.Class.MonadSTM (
   readTBQueue,
   writeTBQueue,
  )
+import Hydra.Logging (defaultQueueSize)
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): handle pattern, but likely not required as there is no need for an
@@ -31,7 +32,7 @@ createInputQueue ::
 createInputQueue = do
   numThreads <- newLabelledTVarIO "num-threads" (0 :: Integer)
   nextId <- newLabelledTVarIO "nex-id" 0
-  q <- newLabelledTBQueueIO "input-queue" 100
+  q <- newLabelledTBQueueIO "input-queue" defaultQueueSize
   pure
     InputQueue
       { enqueue = \queuedItem ->
