@@ -1497,7 +1497,6 @@ canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
     -- Get some L1 funds
     (walletVk, walletSk) <- generate genKeyPair
     commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-    -- commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
     withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
@@ -1509,6 +1508,8 @@ canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
       getSnapshotUTxO n1 `shouldReturn` commitUTxO
+
+      withAsyncLabelled ("spam-L2", spamL2 n1 commitUTxO walletSk walletVk) $ \_ -> pure ()
 
       send n1 $ input "Close" []
 
@@ -1528,6 +1529,12 @@ canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
         `shouldReturn` balance commitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
+
+  spamL2 :: HydraClient -> UTxO -> SigningKey PaymentKey -> CAPI.VerificationKey PaymentKey -> IO ()
+  spamL2 client utxo sk vk = forever $ do
+    tx <- mkTransferTx (CAPI.Testnet $ CAPI.NetworkMagic 42) utxo sk vk
+    send client $ input "NewTx" ["transaction" .= tx]
+    threadDelay 1
 
 -- | Open a a two participant head and incrementally commit to it.
 canCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
