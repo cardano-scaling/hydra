@@ -1483,6 +1483,53 @@ startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
       configuredPeers `shouldBe` "0.0.0.0:5004=http://0.0.0.0:5004"
 
 -- | Open a a two participant head and incrementally commit to it.
+canCommitWithSpammingL2 :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
+canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 30_000_000
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 100 * blockTime
+    networkId <- Backend.queryNetworkId backend
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
+    -- Get some L1 funds
+    (walletVk, walletSk) <- generate genKeyPair
+    commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+    -- commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+
+    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Commit nothing
+      requestCommitTx n1 commitUTxO <&> signTx walletSk >>= Backend.submitTransaction backend
+      waitFor hydraTracer (20 * blockTime) [n1] $
+        output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
+
+      getSnapshotUTxO n1 `shouldReturn` commitUTxO
+
+      send n1 $ input "Close" []
+
+      deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        v ^? key "contestationDeadline" . _JSON
+
+      remainingTime <- diffUTCTime deadline <$> getCurrentTime
+      waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
+        output "ReadyToFanout" ["headId" .= headId]
+      send n1 $ input "Fanout" []
+      waitMatch (10 * blockTime) n1 $ \v ->
+        guard $ v ^? key "tag" == Just "HeadIsFinalized"
+
+      -- Assert final wallet balance
+      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        `shouldReturn` balance commitUTxO
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+-- | Open a a two participant head and incrementally commit to it.
 canCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
 canCommit tracer workDir blockTime backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do

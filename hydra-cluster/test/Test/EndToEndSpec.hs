@@ -51,6 +51,7 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
   canCommit,
+  canCommitWithSpammingL2,
   canDecommit,
   canDepositPartially,
   canRecoverDeposit,
@@ -301,6 +302,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
               >>= canDecommit tracer tmpDir backend
+      it "can incrementally commit with spamming L2 txs" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= canCommitWithSpammingL2 tracer tmpDir blockTime backend
       it "can incrementally commit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
