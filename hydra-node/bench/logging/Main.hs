@@ -16,7 +16,7 @@ import Data.ByteString.Lazy qualified as LBS
 import System.Directory (getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 
-import Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
+import Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo, withTracerLogFile)
 
 main :: IO ()
 main = do
@@ -26,6 +26,7 @@ main = do
         "logging"
         [ bench "buffered" $ nfIO (runBuffered n)
         , bench "flush-each" $ nfIO (runFlushEach n)
+        , bench "fast-logger" $ nfIO (runFastLogger n)
         ]
     ]
 
@@ -33,6 +34,12 @@ runBuffered :: Int -> IO ()
 runBuffered n =
   withTempLogFile $ \hdl ->
     withTracerOutputTo hdl "logging-bench" $ \tracer ->
+      replicateM_ n (traceWith tracer benchMessage)
+
+runFastLogger :: Int -> IO ()
+runFastLogger n =
+  withTempLogFilePath $ \path ->
+    withTracerLogFile path "logging-bench" $ \tracer ->
       replicateM_ n (traceWith tracer benchMessage)
 
 runFlushEach :: Int -> IO ()
@@ -50,6 +57,15 @@ withTempLogFile action = do
   (path, hdl) <- openTempFile tmpDir "hydra-logging-bench.log"
   action hdl `finally` (hClose hdl >> removeFile path)
 
+-- | Create a temp file path for fast-logger, removing the file on exit.
+withTempLogFilePath :: (FilePath -> IO a) -> IO a
+withTempLogFilePath action = do
+  tmpDir <- getTemporaryDirectory
+  (path, hdl) <- openTempFile tmpDir "hydra-logging-bench.log"
+  hClose hdl
+  action path `finally` removeFile path
+
+-- | Flush each log entry to model the legacy behavior.
 withTracerOutputToFlushEach ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>

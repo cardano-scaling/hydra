@@ -16,7 +16,10 @@ module Hydra.Logging (
   Verbosity (..),
   Envelope (..),
   withTracer,
+  withTracerStdout,
+  withTracerLogType,
   withTracerOutputTo,
+  withTracerLogFile,
   showLogsOnFailure,
   traceInTVar,
   contramap,
@@ -45,6 +48,7 @@ import Data.Aeson (pairs, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
+import System.Log.FastLogger (LogStr, LogType, LogType' (LogFileNoRotate, LogStdout), ToLogStr, defaultBufSize, newFastLogger, toLogStr)
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
@@ -90,11 +94,65 @@ withTracer ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracer Quiet = ($ nullTracer)
-withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
+withTracer (Verbose namespace) = withTracerStdout namespace
 
--- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
--- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
--- with metadata.
+-- | Log to stdout using fast-logger with a default buffer size.
+withTracerStdout ::
+  forall m msg a.
+  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  Text ->
+  (Tracer m msg -> IO a) ->
+  IO a
+withTracerStdout = withTracerLogType (LogStdout defaultBufSize)
+
+-- | Log to a file path using fast-logger without rotation.
+withTracerLogFile ::
+  forall m msg a.
+  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  FilePath ->
+  Text ->
+  (Tracer m msg -> IO a) ->
+  IO a
+withTracerLogFile filepath =
+  withTracerLogType (LogFileNoRotate filepath defaultBufSize)
+
+-- | Log using a fast-logger 'LogType' (stdout/stderr/file/rotation).
+withTracerLogType ::
+  forall m msg a.
+  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  LogType ->
+  Text ->
+  (Tracer m msg -> IO a) ->
+  IO a
+withTracerLogType logType namespace action = do
+  (logger, cleanup) <- newFastLogger logType
+  msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
+  withAsyncLabelled ("logging-writeLogs", writeLogs logger msgQueue) $ \_ ->
+    action (natTracer liftIO (tracer msgQueue)) `finally` (flushLogs logger msgQueue >> cleanup)
+ where
+  tracer queue =
+    Tracer $
+      mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
+
+  writeLogs :: (LogStr -> IO ()) -> TBQueue IO (Envelope msg) -> IO ()
+  writeLogs logger queue =
+    forever $ do
+      entries <- atomically $ do
+        firstEntry <- readTBQueue queue
+        rest <- flushTBQueue queue
+        pure (firstEntry : rest)
+      forM_ entries (write logger . Aeson.encode)
+
+  flushLogs :: (LogStr -> IO ()) -> TBQueue IO (Envelope msg) -> IO ()
+  flushLogs logger queue = do
+    entries <- atomically $ flushTBQueue queue
+    forM_ entries (write logger . Aeson.encode)
+
+  write logger bs = logger (toLogStr bs <> "\n")
+
+-- | Start logging to a provided handle; used for benchmarks and tests.
+-- Prefer 'withTracerLogFile' or 'withTracerStdout' for production paths
+-- TODO: delete
 withTracerOutputTo ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>

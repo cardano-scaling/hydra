@@ -134,6 +134,7 @@ library
     , crypton
     , data-default
     , directory
+    , fast-logger
     , file-embed
     , filepath
     , grapesy
