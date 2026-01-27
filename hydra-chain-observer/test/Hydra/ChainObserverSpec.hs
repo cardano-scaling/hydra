@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Hydra.ChainObserverSpec where
 
 import Hydra.Prelude
@@ -19,6 +21,10 @@ import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import Test.QuickCheck.Property (checkCoverage)
+
+instance Arbitrary ChainObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
 
 spec :: Spec
 spec =
