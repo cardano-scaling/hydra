@@ -41,14 +41,21 @@ main = do
           benchDemo networkId nodeSocket timeoutSeconds hydraClients
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{outputDirectory, datasetUTxO, numberOfTxs, clusterSize} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
+      let action = bench startingNodeId timeoutSeconds
       dataset <- generate $ case datasetUTxO of
         Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
         Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
       saveDataset (workDir </> "dataset.json") dataset
       putStrLn $ "Saved dataset in: " <> (workDir </> "dataset.json")
+      results <-
+        withTempDir "bench-dataset" $ \dir -> do
+          -- XXX: Wait between each bench run to give the OS time to cleanup resources??
+          threadDelay 10
+          runSingle dataset dir action
+      summarizeResults outputDirectory [results]
  where
   checkEmpty fp = do
     createDirectoryIfMissing True fp
