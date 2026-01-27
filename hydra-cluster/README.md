@@ -130,33 +130,39 @@ produces a `results.csv` file in a work directory. To plot the transaction
 confirmation times you can use the `bench/plot.sh` script, passing it the
 directory containing the benchmark's results.
 
-To run and plot results of the benchmark:
+For the benchmarks, you can choose between generating either a constant-size
+UTxO set or a growing UTxO set.
 
- - Generate the dataset
+Constant UTxO set:
+Each transaction spends one input and creates exactly one new output (1-in-1-out), so the total number of
+UTxOs in the set remains roughly the same over time.
+
+Growing UTxO set:
+Each transaction spends one input but creates two outputs gradually increasing the total number of UTxOs as more
+transactions are processed. For this we use the `--number-of-txs` argument.
+
+This distinction allows you to measure performance under different realistic UTxO-set growth scenarios on Cardano.
+
+
+To generate, run and then plot results of the benchmark:
 
 ```sh
-cabal run bench-e2e -- dataset --number-of-txs 10 --output-directory 1"
-```
-
- - Run the generated dataset
-
-```sh
-cabal run bench-e2e -- standalone 1/dataset.json --output-directory out"
+cabal run bench-e2e -- datasets --number-of-txs 10 --output-directory out
 ./hydra-cluster/bench/plot.sh out
 ```
 
 Which will produce an output like:
 
 ```
-Reading dataset from: 1/dataset.json
-Running benchmark with datasets: ["1/dataset.json"]
+Writing dataset to: out/dataset.json
+Saved dataset in: out/dataset.json
 Test logs available in: out/test.log
 Starting benchmark
 Seeding network
 Fund scenario from faucet
-Fuel node key "92caede6c58affa96718ab4f47bb34639c135df3a7428aa118b13f25236c02e9"
-Fuel node key "17a705d22d4ee258400067ee7c8c3a314513f24c6271c8524e085049d1fdd449"
-Fuel node key "9951c3506f6f56e3d1871c8a2a0e88e61d32593663f9585e10d3da93b9caec87"
+Fuel node key "006ba2f18d2e08f1cb96d3a425090768e3b6dc5e7f613a882509a02af668e6d7"
+Fuel node key "33184090500d0c26994df825800d169021e6dc32ecf1633d0903c28eecd87830"
+Fuel node key "d7f2a66d3f7bc9bdf135ad28b5106ee751aa5725d767336a2aa1ee19a5532c00"
 Publishing hydra scripts
 Starting hydra cluster in out
 Initializing Head
@@ -172,24 +178,24 @@ Closing the Head
 Writing results to: out/results.csv
 Finalizing the Head
 Confirmed txs/Total expected txs: 30/30 (100.00 %)
-Average confirmation time (ms): 60.917365233
-P99: 74.32681356ms
-P95: 72.72738555ms
-P50: 62.208124ms
+Average confirmation time (ms): 59.977068200
+P99: 75.43316676ms
+P95: 70.41318959999998ms
+P50: 60.638328ms
 Invalid txs: 0
 Fanout outputs: 3
 Writing report to: out/end-to-end-benchmarks.md
 
-./hydra-cluster/bench/plot.sh out-standalone
-         line 0: warning: Cannot find or open file "out-standalone/system.csv"
-Created plot: out-standalone/results.png
+./hydra-cluster/bench/plot.sh out
+         line 0: warning: Cannot find or open file "out/system.csv"
+Created plot: out/results.png
 ```
 
 Note that if it's present in the environment, benchmark executable will gather basic system-level statistics about the RAM, CPU, and network bandwidth used. The `plot.sh` script then displays those alongside tx confirmation time in a single graph.
 
 The benchmark can be run in three modes:
 
-* `standalone`: Benchmark a single or multiple _datasets_.
-* `dataset`: Generates a _dataset_. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
+* `single`: Generate a single _dataset_ and runs the benchmark with it.
+* `datasets`: Runs one or more pre-existing _datasets_ in sequence and collect their results in a single markdown formatted file. This is useful to track the evolution of hydra-node's performance over some well-known datasets over time and produce a human-readable summary.
 * `demo`: Generates transactions against an already running network of cardano and hydra nodes. This can serve as a workload when testing network-resilience scenarios, such as packet loss or node failures. See [this CI workflow](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml) for how it is used.
 

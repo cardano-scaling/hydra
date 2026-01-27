@@ -40,9 +40,11 @@ data Options
       }
   | DatasetOptions
       { outputDirectory :: Maybe FilePath
+      , timeoutSeconds :: NominalDiffTime
       , datasetUTxO :: UTxOSize
       , numberOfTxs :: Int
       , clusterSize :: Word64
+      , startingNodeId :: Int
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -57,8 +59,8 @@ benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
   info
     ( hsubparser
-        ( command "standalone" standaloneOptionsInfo
-            <> command "dataset" datasetOptionsInfo
+        ( command "single" standaloneOptionsInfo
+            <> command "datasets" datasetOptionsInfo
             <> command "demo" demoOptionsInfo
         )
         <**> helper
@@ -197,17 +199,20 @@ datasetOptionsInfo =
   info
     datasetOptionsParser
     ( progDesc
-        "Generate and run one or several dataset files, concatenating the \
-        \ output to single document."
+        "Run scenarios from one or several dataset files, concatenating the \
+        \ output to single document. This is useful to produce a summary \
+        \ page describing alternative runs."
     )
 
 datasetOptionsParser :: Parser Options
 datasetOptionsParser =
   DatasetOptions
     <$> optional outputDirectoryParser
+    <*> timeoutParser
     <*> utxoSizeParser
     <*> numberOfTxsParser
     <*> clusterSizeParser
+    <*> startingNodeIdParser
 
 filepathParser :: Parser FilePath
 filepathParser =
