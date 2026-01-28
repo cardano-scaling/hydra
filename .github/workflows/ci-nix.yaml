@@ -77,22 +77,6 @@ jobs:
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
         if-no-files-found: ignore
 
-  haddock:
-    name: "Build haddock using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: ❄ Setup Nix/Cachix
-      uses: ./.github/actions/nix-cachix-setup
-      with:
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: 📚 Documentation (Haddock)
-      run: |
-        nix build .#haddocks
-
   benchmarks:
     name: "Benchmarks"
     runs-on: ubuntu-latest
