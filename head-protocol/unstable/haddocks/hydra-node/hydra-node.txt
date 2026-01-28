@@ -1944,8 +1944,7 @@ instance GHC.Classes.Eq Hydra.Network.Etcd.EtcdLog
 module Hydra.Node.InputQueue
 
 -- | The single, required queue in the system from which a hydra head is
---   "fed". NOTE(SN): this probably should be bounded and include proper
---   logging NOTE(SN): handle pattern, but likely not required as there is
+--   "fed". NOTE(SN): handle pattern, but likely not required as there is
 --   no need for an alternative implementation
 data InputQueue m e
 InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> m (Queued e) -> m Bool -> InputQueue m e
