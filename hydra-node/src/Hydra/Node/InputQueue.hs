@@ -32,6 +32,11 @@ createInputQueue ::
 createInputQueue = do
   numThreads <- newLabelledTVarIO "num-threads" (0 :: Integer)
   nextId <- newLabelledTVarIO "nex-id" 0
+  -- XXX: We bound the _input_ queue by the _logging_ queue size! This is a
+  -- hack; but we do it because it seems that the logging queue blocking
+  -- prevents further processing, _unless_ the input queue is also bounded.
+  -- In truth it probably makes sense for this queue to be bounded anyway.
+  -- See: <https://github.com/cardano-scaling/hydra/issues/2442>
   q <- newLabelledTBQueueIO "input-queue" defaultQueueSize
   pure
     InputQueue
