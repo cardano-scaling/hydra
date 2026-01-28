@@ -62,7 +62,7 @@ import Data.List ((\\))
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Text qualified as T
-import Hydra.Logging (Tracer, defaultQueueSize, traceWith)
+import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
@@ -155,7 +155,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                         ("etcd-waitMessages", waitMessages tracer conn persistenceDir callback)
                         ( "etcd-callback-4"
                         , do
-                            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") defaultQueueSize
+                            queue <- newPersistentQueue (persistenceDir </> "pending-broadcast") 100
                             raceLabelled_
                               ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
                               ( "etcd-network-component-action"

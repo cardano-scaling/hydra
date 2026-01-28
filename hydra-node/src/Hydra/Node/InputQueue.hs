@@ -9,7 +9,6 @@ import Control.Concurrent.Class.MonadSTM (
   readTBQueue,
   writeTBQueue,
  )
-import Hydra.Logging (defaultQueueSize)
 
 -- | The single, required queue in the system from which a hydra head is "fed".
 -- NOTE(SN): handle pattern, but likely not required as there is no need for an
@@ -37,7 +36,7 @@ createInputQueue = do
   -- prevents further processing, _unless_ the input queue is also bounded.
   -- In truth it probably makes sense for this queue to be bounded anyway.
   -- See: <https://github.com/cardano-scaling/hydra/issues/2442>
-  q <- newLabelledTBQueueIO "input-queue" defaultQueueSize
+  q <- newLabelledTBQueueIO "input-queue" 100
   pure
     InputQueue
       { enqueue = \queuedItem ->
