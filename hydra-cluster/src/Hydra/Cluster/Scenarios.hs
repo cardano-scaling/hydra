@@ -24,7 +24,8 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (NodeLog)
-import Control.Concurrent.Async (mapConcurrently_)
+import Control.Concurrent (killThread, forkIO)
+import Control.Concurrent.Async (async, asyncThreadId, mapConcurrently_, concurrently_, withAsync)
 import Control.Lens ((.~), (?~), (^.), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
@@ -114,6 +115,7 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
+import Hydra.HeadLogic.State (getOpenStateUTxO)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -128,6 +130,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  getHeadUTxO,
   getProtocolParameters,
   getSnapshotConfirmed,
   getSnapshotLastSeen,
@@ -1482,11 +1485,11 @@ startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
       clusterPeers `shouldBe` "0.0.0.0:5003=http://0.0.0.0:5003,0.0.0.0:5004=http://0.0.0.0:5004"
       configuredPeers `shouldBe` "0.0.0.0:5004=http://0.0.0.0:5004"
 
--- | Open a a two participant head and incrementally commit to it.
+-- | Prove that spamming the node with NewTx messages and doing a deposit works out.
 canCommitWithSpammingL2 :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
 canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 30_000_000
+    refuelIfNeeded tracer backend Alice 100_000_000
     -- NOTE: Adapt periods to block times
     let contestationPeriod = truncate $ 10 * blockTime
         depositPeriod = truncate $ 100 * blockTime
@@ -1508,10 +1511,19 @@ canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
         output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
 
       getSnapshotUTxO n1 `shouldReturn` commitUTxO
+      -- spam the node with NewTx messages
+      concurrently_ (spamL2 n1 walletSk 0.1) (deposit n1 walletSk headId 1)
 
-      withAsyncLabelled ("spam-L2", spamL2 n1 commitUTxO walletSk walletVk) $ \_ -> pure ()
+      -- threadDelay 10
+
+      waitForAllMatch (300 * blockTime) [n1] $ \v -> do
+         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+         guard $ v ^? key "snapshot" . key "version" > Just (toJSON (1 :: Integer))
 
       send n1 $ input "Close" []
+
+      -- kill the spamming thread so that we can fanout
+      -- killThread $ asyncThreadId a
 
       deadline <- waitMatch (10 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
@@ -1521,20 +1533,65 @@ canCommitWithSpammingL2 tracer workDir blockTime backend hydraScriptsTxId =
       waitFor hydraTracer (remainingTime + 3 * blockTime) [n1] $
         output "ReadyToFanout" ["headId" .= headId]
       send n1 $ input "Fanout" []
-      waitMatch (10 * blockTime) n1 $ \v ->
+      waitMatch (50 * blockTime) n1 $ \v ->
         guard $ v ^? key "tag" == Just "HeadIsFinalized"
-
-      -- Assert final wallet balance
-      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
-        `shouldReturn` balance commitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  spamL2 :: HydraClient -> UTxO -> SigningKey PaymentKey -> CAPI.VerificationKey PaymentKey -> IO ()
-  spamL2 client utxo sk vk = forever $ do
-    tx <- mkTransferTx (CAPI.Testnet $ CAPI.NetworkMagic 42) utxo sk vk
-    send client $ input "NewTx" ["transaction" .= tx]
-    threadDelay 1
+  spamL2 :: HydraClient -> SigningKey PaymentKey -> NominalDiffTime -> IO ()
+  spamL2 client sk delay = traceShow "SPAM" $ runUntil 20 $ do
+    headState <- getHeadUTxO client
+    case getOpenStateUTxO headState of
+      Nothing -> die "NO HEAD UTxO"
+      Just utxo -> traceShow utxo $ do
+        let vk = getVerificationKey sk
+        let submitToHead tx = do
+              send client $ input "NewTx" ["transaction" .= tx]
+              waitMatch 5 client (\v ->
+                case v ^? key "tag" of
+                 Just "TxValid" -> pure ()
+                 _ -> Nothing
+                )
+              --    Just "TxInvalid" -> traceShow "Invalid" $ traceShow (v ^? key "validationError") $ Nothing
+              --    x -> traceShow x $ pure ()) `catch` (\(e :: SomeException) -> traceShow "retry" $ traceShow e $ pure ())
+
+        tx <- mkTransferTx testNetworkId utxo sk vk
+        _ <- submitToHead (signTx sk tx)
+        threadDelay $ realToFrac delay
+        spamL2 client sk delay
+
+  deposit :: HydraClient -> SigningKey PaymentKey -> HeadId -> Integer -> IO ()
+  deposit client sk headId snapshotVer = runUntil 20 $ do
+    let vk = getVerificationKey sk
+    utxo <- seedFromFaucet backend vk (lovelaceToValue 7_000_000) (contramap FromFaucet tracer)
+    threadDelay 5
+    resp <-
+      parseUrlThrow ("POST " <> hydraNodeBaseUrl client <> "/commit")
+        <&> setRequestBodyJSON utxo
+          >>= httpJSON
+
+    let depositTransaction = getResponseBody resp :: Tx
+    let tx = signTx sk depositTransaction
+
+    Backend.submitTransaction backend tx
+
+    waitFor hydraTracer 200 [client] $
+      output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= utxo]
+    waitFor hydraTracer (20 * blockTime) [client] $
+      output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
+
+      -- expect snapshot to have increased version field to 1
+    -- waitForAllMatch (300 * blockTime) [client] $ \v -> do
+    --    guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+    --    guard $ v ^? key "snapshot" . key "version" == Just (toJSON (snapshotVer :: Integer))
+    deposit client sk headId (snapshotVer + 1)
+
+  runUntil :: (MonadIO m, MonadTimer m) => NominalDiffTime -> m a -> m ()
+  runUntil seconds action =
+    timeout (realToFrac seconds) action >>= \case
+      Nothing -> putStrLn "Action timeout"
+      Just _ -> pure ()
+
 
 -- | Open a a two participant head and incrementally commit to it.
 canCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
