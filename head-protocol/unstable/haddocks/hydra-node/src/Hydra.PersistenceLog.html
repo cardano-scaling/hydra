@@ -8,7 +8,7 @@
 </span><a href="Hydra.PersistenceLog.html#%24sel%3Areason%3AFailedToDecodeJson"><span class="hs-identifier hs-var hs-var">reason</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span id="%24sel%3Afilepath%3AFailedToDecodeJson"><span class="annot"><span class="annottext">PersistenceLog -&gt; String
 </span><a href="Hydra.PersistenceLog.html#%24sel%3Afilepath%3AFailedToDecodeJson"><span class="hs-identifier hs-var hs-var">filepath</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span class="hs-special">,</span><span> </span><span id="%24sel%3Acontents%3AFailedToDecodeJson"><span class="annot"><span class="annottext">PersistenceLog -&gt; String
 </span><a href="Hydra.PersistenceLog.html#%24sel%3Acontents%3AFailedToDecodeJson"><span class="hs-identifier hs-var hs-var">contents</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-8"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680437304"><span id="local-6989586621680437311"><span class="annot"><span class="annottext">PersistenceLog -&gt; PersistenceLog -&gt; Bool
+</span><span id="line-8"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680437309"><span id="local-6989586621680437316"><span class="annot"><span class="annottext">PersistenceLog -&gt; PersistenceLog -&gt; Bool
 (PersistenceLog -&gt; PersistenceLog -&gt; Bool)
 -&gt; (PersistenceLog -&gt; PersistenceLog -&gt; Bool) -&gt; Eq PersistenceLog
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -16,7 +16,7 @@ $c== :: PersistenceLog -&gt; PersistenceLog -&gt; Bool
 == :: PersistenceLog -&gt; PersistenceLog -&gt; Bool
 $c/= :: PersistenceLog -&gt; PersistenceLog -&gt; Bool
 /= :: PersistenceLog -&gt; PersistenceLog -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680437317"><span id="local-6989586621680437326"><span id="local-6989586621680437330"><span class="annot"><span class="annottext">Int -&gt; PersistenceLog -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680437322"><span id="local-6989586621680437331"><span id="local-6989586621680437335"><span class="annot"><span class="annottext">Int -&gt; PersistenceLog -&gt; ShowS
 [PersistenceLog] -&gt; ShowS
 PersistenceLog -&gt; String
 (Int -&gt; PersistenceLog -&gt; ShowS)
@@ -31,7 +31,7 @@ $cshow :: PersistenceLog -&gt; String
 show :: PersistenceLog -&gt; String
 $cshowList :: [PersistenceLog] -&gt; ShowS
 showList :: [PersistenceLog] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680437335"><span id="local-6989586621680437337"><span class="annot"><span class="annottext">(forall x. PersistenceLog -&gt; Rep PersistenceLog x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680437340"><span id="local-6989586621680437342"><span class="annot"><span class="annottext">(forall x. PersistenceLog -&gt; Rep PersistenceLog x)
 -&gt; (forall x. Rep PersistenceLog x -&gt; PersistenceLog)
 -&gt; Generic PersistenceLog
 forall x. Rep PersistenceLog x -&gt; PersistenceLog
@@ -46,9 +46,9 @@ to :: forall x. Rep PersistenceLog x -&gt; PersistenceLog
 </span><span id="line-9"></span><span>
 </span><span id="line-10"></span><span class="hs-comment">-- Note: Specific Aeson instances, so that we don't hide the tags when emitting</span><span>
 </span><span id="line-11"></span><span class="hs-comment">-- this log.</span><span>
-</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680437342"><span id="local-6989586621680437346"><span id="local-6989586621680437349"><span id="local-6989586621680437352"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.PersistenceLog.html#PersistenceLog"><span class="hs-identifier hs-type">PersistenceLog</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-13"></span><span>  </span><span id="local-6989586621680437468"><span class="annot"><span class="annottext">toJSON :: PersistenceLog -&gt; Value
-</span><a href="#local-6989586621680437468"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680437347"><span id="local-6989586621680437351"><span id="local-6989586621680437354"><span id="local-6989586621680437357"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.PersistenceLog.html#PersistenceLog"><span class="hs-identifier hs-type">PersistenceLog</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>  </span><span id="local-6989586621680437473"><span class="annot"><span class="annottext">toJSON :: PersistenceLog -&gt; Value
+</span><a href="#local-6989586621680437473"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-14"></span><span>    </span><span class="annot"><span class="annottext">Options -&gt; PersistenceLog -&gt; Value
 forall a.
 (Generic a, GToJSON' Value Zero (Rep a)) =&gt;
@@ -59,9 +59,9 @@ Options -&gt; a -&gt; Value
 </span><span id="line-16"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="hs-identifier hs-var">tagSingleConstructors</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-type">True</span></a></span><span>
 </span><span id="line-17"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-18"></span><span>
-</span><span id="line-19"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680437472"><span id="local-6989586621680437476"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.PersistenceLog.html#PersistenceLog"><span class="hs-identifier hs-type">PersistenceLog</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-20"></span><span>  </span><span id="local-6989586621680437556"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser PersistenceLog
-</span><a href="#local-6989586621680437556"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680437477"><span id="local-6989586621680437481"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.PersistenceLog.html#PersistenceLog"><span class="hs-identifier hs-type">PersistenceLog</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-20"></span><span>  </span><span id="local-6989586621680437561"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser PersistenceLog
+</span><a href="#local-6989586621680437561"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-21"></span><span>    </span><span class="annot"><span class="annottext">Options -&gt; Value -&gt; Parser PersistenceLog
 forall a.
 (Generic a, GFromJSON Zero (Rep a)) =&gt;
