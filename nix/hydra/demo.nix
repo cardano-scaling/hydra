@@ -196,7 +196,7 @@
             test = {
               command = pkgs.writeShellApplication {
                 name = "demo-test";
-                runtimeInputs = [ pkgs.coreutils pkgs.cardano-cli pkgs.cardano-node self'.packages.hydra-node ];
+                runtimeInputs = [ pkgs.coreutils pkgs.cardano-cli pkgs.cardano-node self'.packages.hydra-node pkgs.jq ];
                 text = ''
                   set -euo pipefail
 
