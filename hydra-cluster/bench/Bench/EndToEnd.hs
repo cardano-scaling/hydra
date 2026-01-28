@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -19,6 +20,7 @@ import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
+import Data.Aeson.Types (parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -26,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
+import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -177,6 +179,12 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "contestationDeadline" . _JSON
 
+  -- Write the results already in case we cannot finalize
+  let res = mapMaybe analyze . Map.toList $ processedTransactions
+      aggregates = movingAverage res
+
+  writeResultsCsv (workDir </> "results.csv") aggregates
+
   -- Expect to see ReadyToFanout within 3 seconds after deadline
   remainingTime <- diffUTCTime deadline <$> getCurrentTime
   waitFor hydraTracer (remainingTime + 3) [leader] $
@@ -184,14 +192,10 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
 
   putTextLn "Finalizing the Head"
   send leader $ input "Fanout" []
-  waitMatch 100 leader $ \v -> do
+  finalUTxOJSON <- waitMatch 100 leader $ \v -> do
     guard (v ^? key "tag" == Just "HeadIsFinalized")
     guard $ v ^? key "headId" == Just (toJSON headId)
-
-  let res = mapMaybe analyze . Map.toList $ processedTransactions
-      aggregates = movingAverage res
-
-  writeResultsCsv (workDir </> "results.csv") aggregates
+    v ^? key "utxo"
 
   let confTimes = map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes
@@ -200,6 +204,10 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
       quantiles = makeQuantiles confTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
+      numberOfFanoutOutputs =
+        case parseEither (parseJSON @(UTxO.UTxO Era)) finalUTxOJSON of
+          Left _ -> error "Failed to decode Fanout UTxO"
+          Right fanoutUTxO -> UTxO.size fanoutUTxO
 
   pure $
     Summary
@@ -211,6 +219,7 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
       , summaryTitle
       , summaryDescription
       , numberOfInvalidTxs
+      , numberOfFanoutOutputs
       }
 
 defaultDescription :: Text
