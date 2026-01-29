@@ -488,6 +488,8 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
             case event of
               Left TimedServerOutput{output = SnapshotSideLoaded{}} ->
                 pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Right (SideLoadSnapshotRejected{clientInput = SideLoadSnapshot{}, requirementFailure}) ->
+                pure $ responseLBS status400 jsonContent (Aeson.encode requirementFailure)
               Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
               Right (RejectedInput{clientInput = SideLoadSnapshot{}, reason}) ->

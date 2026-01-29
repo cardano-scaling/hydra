@@ -34,6 +34,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState)
@@ -464,6 +465,36 @@ apiServerSpec = do
           )
           $ do
             post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot)) `shouldRespondWith` 400
+
+      it "returns 400 with side-load failure details" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        SideLoadSnapshotRequest snapshot <- reqGen
+        let requirementFailure :: SideLoadRequirementFailure SimpleTx = SideLoadSnNumberInvalid{requestedSn = 7, lastSeenSn = 760}
+        let clientFailed = SideLoadSnapshotRejected{clientInput = SideLoadSnapshot snapshot, requirementFailure}
+        let expectedBody =
+              object
+                [ "tag" .= Aeson.String "SideLoadSnNumberInvalid"
+                , "requestedSn" .= (7 :: Int)
+                , "lastSeenSn" .= (760 :: Int)
+                ]
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inIdleState)
+              cantCommit
+              getPendingDeposits
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot))
+              `shouldRespondWith` 400{matchBody = matchJSON expectedBody}
 
       it "returns 503 on RejectedInput" $ do
         responseChannel <- newTChanIO

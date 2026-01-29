@@ -75,6 +75,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/RejectedInput"
+          - $ref: "api.yaml#/components/messages/SideLoadSnapshotRejected"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -741,6 +742,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/RejectedInput"
 
+    SideLoadSnapshotRejected:
+      title: SideLoadSnapshotRejected
+      description: |
+        Emitted by the server when a side-loaded snapshot cannot be applied.
+      payload:
+        $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
+
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
       description: |
@@ -928,6 +936,7 @@ components:
         - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
         - $ref: "api.yaml#/components/schemas/CommandFailed"
         - $ref: "api.yaml#/components/schemas/RejectedInput"
+        - $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
 
     Greetings:
       type: object
@@ -1513,6 +1522,129 @@ components:
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         reason:
           type: string
+
+    SideLoadSnapshotRejected:
+      type: object
+      required:
+      - tag
+      - clientInput
+      - requirementFailure
+      properties:
+        tag:
+          type: string
+          enum: ["SideLoadSnapshotRejected"]
+        clientInput:
+          oneOf:
+            - $ref: "api.yaml#/components/messages/Init/payload"
+            - $ref: "api.yaml#/components/messages/Abort/payload"
+            - $ref: "api.yaml#/components/messages/NewTx/payload"
+            - $ref: "api.yaml#/components/messages/Decommit/payload"
+            - $ref: "api.yaml#/components/messages/Recover/payload"
+            - $ref: "api.yaml#/components/messages/Close/payload"
+            - $ref: "api.yaml#/components/messages/SafeClose/payload"
+            - $ref: "api.yaml#/components/messages/Contest/payload"
+            - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+        requirementFailure:
+          $ref: "api.yaml#/components/schemas/SideLoadRequirementFailure"
+
+    SideLoadRequirementFailure:
+      oneOf:
+        - title: SideLoadInitialSnapshotMismatch
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadInitialSnapshotMismatch"]
+        - title: SideLoadSnNumberInvalid
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadSnNumberInvalid"]
+            requestedSn:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+            lastSeenSn:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+          required:
+          - tag
+          - requestedSn
+          - lastSeenSn
+        - title: SideLoadSvNumberInvalid
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadSvNumberInvalid"]
+            requestedSv:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+            lastSeenSv:
+              $ref: "api.yaml#/components/schemas/SnapshotVersion"
+          required:
+          - tag
+          - requestedSv
+          - lastSeenSv
+        - title: SideLoadUTxOToCommitInvalid
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadUTxOToCommitInvalid"]
+            requestedSc:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+            lastSeenSc:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+          required:
+          - tag
+          - requestedSc
+          - lastSeenSc
+        - title: SideLoadUTxOToDecommitInvalid
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadUTxOToDecommitInvalid"]
+            requestedSd:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+            lastSeenSd:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTxO"
+                - type: "null"
+          required:
+          - tag
+          - requestedSd
+          - lastSeenSd
+        - title: SideLoadInvalidMultisignature
+          type: object
+          additionalProperties: false
+          properties:
+            tag:
+              type: string
+              enum: ["SideLoadInvalidMultisignature"]
+            multisig:
+              type: string
+            vkeys:
+              type: array
+              items:
+                type: string
+                contentEncoding: base16
+          required:
+          - tag
+          - multisig
+          - vkeys
 
     IgnoredHeadInitializing:
       type: object

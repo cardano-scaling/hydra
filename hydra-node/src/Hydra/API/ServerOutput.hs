@@ -12,6 +12,7 @@ import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
@@ -67,6 +68,7 @@ data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RejectedInput {clientInput :: ClientInput tx, reason :: Text}
+  | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
   deriving (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
