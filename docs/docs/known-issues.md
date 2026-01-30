@@ -65,4 +65,4 @@ The `--deposit-period` allows an individual `hydra-node` operator to decide how 
 
 ### Known bugs
 
-Refer to the project repository issue tracker for [known issues](https://github.com/cardano-scaling/hydra/issues?q=is%3Aissue+is%3Aopen+label%3A%22bug+%3Abug%3A%22). If you discover any security-relevant problems, please follow our [security policy](https://github.com/cardano-scaling/hydra?tab=security-ov-file#readme).
+Refer to the project repository issue tracker for [known issues](https://github.com/cardano-scaling/hydra/issues?q=is%3Aissue%20is%3Aopen%20(label%3A%22bug%20%3Abug%3A%22%20OR%20type%3ABug)). If you discover any security-relevant problems, please follow our [security policy](https://github.com/cardano-scaling/hydra?tab=security-ov-file#readme).
