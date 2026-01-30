@@ -10,6 +10,8 @@ changes.
 
 ## [1.3.0] - UNRELEASED
 
+- Tested with `cardano-node 10.6.1` and `cardano-cli 10.13.1.0`.
+
 - **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
   - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
   - Added `RejectedInput` client message.
