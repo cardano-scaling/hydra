@@ -285,13 +285,14 @@ DevnetConfig :: FilePath -> UTCTime -> PortsConfig -> DevnetConfig
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs
-CardanoNodeArgs :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe Port -> CardanoNodeArgs
+CardanoNodeArgs :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe Port -> CardanoNodeArgs
 [$sel:nodeSocket:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeConfigFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeByronGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeShelleyGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeAlonzoGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeConwayGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
+[$sel:nodeDijkstraGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeTopologyFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeDatabaseDir:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeDlgCertFile:CardanoNodeArgs] :: CardanoNodeArgs -> Maybe FilePath
