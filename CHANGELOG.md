@@ -10,6 +10,8 @@ changes.
 
 ## [1.3.0] - UNRELEASED
 
+- Tested with `cardano-node 10.6.1` and `cardano-cli 10.13.1.0`.
+
 - **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
   - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
   - Added `RejectedInput` client message.
@@ -32,6 +34,11 @@ changes.
 - Bounded the number of transactions that will be approved per snapshot
   [#2444](https://github.com/cardano-scaling/hydra/pull/2444).
 - Buffer and batch logging so it's faster [#2452](https://github.com/cardano-scaling/hydra/pull/2452)
+- Make the input queue bounded and align its size with other bounded queues (logging, etcd-pending-broadcast)
+  [#2430](https://github.com/cardano-scaling/hydra/pull/2430).
+- Ensure input and etcd-pending-broadcast bounded queue sizes are smaller than the logging queue
+  [#2466](https://github.com/cardano-scaling/hydra/pull/2466).
+
 
 ## [1.2.0] - 2025.11.28
 

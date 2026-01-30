@@ -14,7 +14,7 @@ chmod -R u+w  "$TARGETDIR"
 cp -af "$BASEDIR/hydra-cluster/config/credentials" "$TARGETDIR"
 chmod -R u+w "$TARGETDIR"
 
-echo '{"Producers": []}' > "$TARGETDIR/topology.json"
+echo '{"localRoots": [], "publicRoots": []}' > "$TARGETDIR/topology.json"
 sed -i.bak "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
 sed -i.bak "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
 
