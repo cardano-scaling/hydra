@@ -3,8 +3,8 @@
 -- | Parse hydra-node logs format more easy on the eyes. Parser works with regular json logs as well as journalctl format.
 module VisualizeLogs where
 
-import Hydra.Cardano.Api (Tx)
 import Hydra.Prelude hiding (encodeUtf8, takeWhile)
+import Hydra.Cardano.Api (Tx)
 
 import Conduit
 import Control.Lens ((^?))
