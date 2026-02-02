@@ -65,3 +65,10 @@ depositValidatorScript :: PlutusScript
 depositValidatorScript =
   PlutusScriptSerialised . toShort . Base16.decodeLenient . encodeUtf8 $
     blueprintJSON ^. key "validators" . nth 2 . key "compiledCode" . _String
+
+-- | Get the vesting validator by decoding it from 'blueprintJSON'.
+-- NB: Vesting script is used only for testing!
+vestingValidatorScript :: PlutusScript
+vestingValidatorScript =
+  PlutusScriptSerialised . toShort . Base16.decodeLenient . encodeUtf8 $
+    blueprintJSON ^. key "validators" . nth 5 . key "compiledCode" . _String

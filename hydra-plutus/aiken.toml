@@ -1,5 +1,7 @@
 name = "hydra/hydra-plutus"
 version = "0.20.0"
+compiler = "v1.1.9"
+plutus = "v3"
 license = "Apache-2.0"
 description = "Aiken contracts for project 'hydra/hydra-plutus'"
 
@@ -7,3 +9,10 @@ description = "Aiken contracts for project 'hydra/hydra-plutus'"
 name = "aiken-lang/stdlib"
 version = "2.1.0"
 source = "github"
+
+[[dependencies]]
+name = "sidan-lab/vodka"
+version = "0.1.22"
+source = "github"
+
+[config]
