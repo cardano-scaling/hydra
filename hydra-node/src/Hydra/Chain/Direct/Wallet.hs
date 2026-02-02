@@ -308,14 +308,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
-  -- and an additional witness (we will sign this tx later)
-  let fee = spy' "fee" $ calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
+  let fee = spy' "fee" $ calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx 0
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
           & bodyTxL . feeTxBodyL .~ Coin 10_000_000
-      -- We add one additional witness for the fee input
-      additionalWitnesses = 1 + length (partialTx ^. bodyTxL . reqSignerHashesTxBodyL)
 
   -- Balance tx with a change output and computed fee
   change <-
