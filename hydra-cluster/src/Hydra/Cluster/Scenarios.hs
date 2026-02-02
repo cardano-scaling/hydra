@@ -1139,6 +1139,101 @@ singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
           ]
       , scriptUTxO
       )
+
+singlePartyValidityRangesWithAiken ::
+  ChainBackend backend =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  backend ->
+  [TxId] ->
+  IO ()
+singlePartyValidityRangesWithAiken tracer workDir backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 20_000_000
+    blockTime <- Backend.getBlockTime backend
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 50 * blockTime
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> modifyConfig (\c -> c{depositPeriod})
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    (_, walletSk) <- keysFor AliceFunds
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+      (clientPayload, scriptUTxO, _) <- prepareScriptPayload 7_000_000 0
+
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let commitTx = responseBody res
+      Backend.submitTransaction backend commitTx
+
+      lockedUTxO <- waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+        pure $ v ^? key "utxo"
+      lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
+
+      -- incrementally commit script to a running Head
+      (clientPayload', _, blueprint) <- prepareScriptPayload 5_000_000 2_000_000
+
+      res' <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload')
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let depositTransaction = responseBody res'
+      let tx = signTx walletSk depositTransaction
+
+      Backend.submitTransaction backend tx
+
+      let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
+      waitFor hydraTracer (2 * realToFrac depositPeriod) [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedDeposit]
+      waitFor hydraTracer (20 * blockTime) [n1] $
+        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
+      getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> expectedDeposit
+ where
+  prepareScriptPayload lovelaceAmt commitAmount = do
+    networkId <- Backend.queryNetworkId backend
+    let scriptAddress = mkScriptAddress networkId dummyValidatorScript
+    let datumHash :: TxOutDatum ctx
+        datumHash = mkTxOutDatumHash ()
+    (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
+    let scriptOut' = modifyTxOutValue (const $ lovelaceToValue commitAmount) scriptOut
+    let scriptUTxO = UTxO.singleton scriptIn scriptOut
+
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
+    let spendingTx =
+          unsafeBuildTransaction $
+            defaultTxBodyContent
+              & addTxIns [(scriptIn, scriptWitness)]
+              & addTxOut (fromCtxUTxOTxOut scriptOut')
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= spendingTx
+          , "utxo" .= scriptUTxO
+          ]
+      , scriptUTxO
+      , spendingTx
+      )
+
 persistenceCanLoadWithEmptyCommit ::
   ChainBackend backend =>
   Tracer IO EndToEndLog ->

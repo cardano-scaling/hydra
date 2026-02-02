@@ -80,6 +80,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
+  singlePartyValidityRangesWithAiken,
   startWithWrongPeers,
   threeNodesNoErrorsOnOpen,
   threeNodesWithMirrorParty,
@@ -341,6 +342,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= singlePartyCommitsScriptToTheRightHead tracer tmpDir backend
+
+      it "validity ranges with aiken" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= singlePartyValidityRangesWithAiken tracer tmpDir backend
       it "can deposit partial UTxO" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend ->
