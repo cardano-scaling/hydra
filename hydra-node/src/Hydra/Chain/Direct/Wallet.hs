@@ -6,15 +6,14 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
+import Cardano.Api.Ledger (Data, ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
-  ExUnits (ExUnits),
   plutusScriptLanguage,
-  unAsIx,
  )
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
@@ -25,7 +24,6 @@ import Cardano.Ledger.Api (
   AlonzoEraTx,
   BabbageEraTxBody,
   ConwayEra,
-  Data,
   PParams,
   TransactionScriptFailure,
   Tx,
@@ -38,10 +36,8 @@ import Cardano.Ledger.Api (
   feeTxBodyL,
   inputsTxBodyL,
   outputsTxBodyL,
-  ppMaxTxExUnitsL,
   rdmrsTxWitsL,
   referenceInputsTxBodyL,
-  reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
   scriptTxWitsL,
   witsTxL,
@@ -66,9 +62,7 @@ import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
-import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
-import Data.Ratio ((%))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
@@ -94,7 +88,6 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
-import Hydra.Ledger.Cardano.Evaluate (maxTxSize)
 import Hydra.Logging (Tracer, traceWith)
 
 type Address = Ledger.Addr
@@ -281,7 +274,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   -- Estimate script costs on the transaction WITH the fee input already added
   estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo txForEstimation
   let adjustedRedeemers =
-        applyEstimatedCosts (spy' "estimated" estimatedScriptCosts) redeemersWithAdjustedIndices
+        applyEstimatedCosts estimatedScriptCosts redeemersWithAdjustedIndices
 
   -- Compute script integrity hash from adjusted redeemers
   let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
@@ -308,7 +301,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
-  let fee = spy' "fee" $ calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx 0
+  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx 0
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
@@ -355,7 +348,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     totalIn = foldMap (view coinTxOutL) resolvedInputs
     changeOut = totalIn <> invert totalOut
 
-  -- \| Apply estimated execution units to redeemers. This replaces the existing
+  -- Apply estimated execution units to redeemers. This replaces the existing
   -- execution units with the estimated costs.
   applyEstimatedCosts ::
     Map (PlutusPurpose AsIx era) ExUnits ->
@@ -370,7 +363,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
               Map.lookup ptr estimatedCosts
        in (d, exUnits)
 
-  -- \| Adjust redeemer indices when inputs change. When a fee input is added,
+  -- Adjust redeemer indices when inputs change. When a fee input is added,
   -- it may shift the position of existing inputs in the sorted order, which
   -- requires updating spending purpose indices accordingly.
   adjustRedeemerIndices ::
