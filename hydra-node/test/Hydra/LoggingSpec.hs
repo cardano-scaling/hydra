@@ -4,14 +4,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Data.Aeson (object, (.=))
-import Hydra.Logging (Verbosity (Verbose), traceWith, withTracer)
+import Hydra.Logging (traceWith, withTracerOutputTo)
 import System.IO.Silently (capture_)
 
 spec :: Spec
 spec = do
   it "dumps logs to stdout in JSON with timestamp" $ do
     captured <- capture_ $ do
-      withTracer (Verbose "test") $ \tracer -> do
+      withTracerOutputTo LineBuffering stdout "test" $ \tracer -> do
         traceWith tracer (object ["foo" .= (42 :: Int)])
 
     -- This test is flakey in CI. Suspected race condition.
