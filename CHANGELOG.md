@@ -38,7 +38,7 @@ changes.
   [#2430](https://github.com/cardano-scaling/hydra/pull/2430).
 - Ensure input and etcd-pending-broadcast bounded queue sizes are smaller than the logging queue
   [#2466](https://github.com/cardano-scaling/hydra/pull/2466).
-
+- `POST /snapshot` now returns the specific side-load validation failure instead of timing out [#2462](https://github.com/cardano-scaling/hydra/issues/2462).
 
 ## [1.2.0] - 2025.11.28
 

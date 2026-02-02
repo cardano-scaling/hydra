@@ -1201,29 +1201,35 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     , utxoToDecommit = requestedSd
     } = getSnapshot requestedConfirmedSnapshot
 
+  clientInput = SideLoadSnapshot requestedConfirmedSnapshot
+
+  sideLoadFailed requirementFailure =
+    cause . ClientEffect $
+      ServerOutput.SideLoadSnapshotRejected{clientInput, requirementFailure}
+
   requireVerifiedSameSnapshot cont =
     if requestedSnapshot == currentSnapshot
       then cont
-      else Error . SideLoadSnapshotFailed $ SideLoadInitialSnapshotMismatch
+      else sideLoadFailed SideLoadInitialSnapshotMismatch
 
   requireVerifiedSnapshotNumber cont =
     if requestedSn >= lastSeenSn
       then cont
-      else Error . SideLoadSnapshotFailed $ SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
+      else sideLoadFailed SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
 
   requireVerifiedL1Snapshot cont
-    | requestedSv /= lastSeenSv = Error . SideLoadSnapshotFailed $ SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
-    | requestedSc /= lastSeenSc = Error . SideLoadSnapshotFailed $ SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
-    | requestedSd /= lastSeenSd = Error . SideLoadSnapshotFailed $ SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
+    | requestedSv /= lastSeenSv = sideLoadFailed SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
+    | requestedSc /= lastSeenSc = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+    | requestedSd /= lastSeenSd = sideLoadFailed SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 
   requireVerifiedMultisignature snapshot signatories cont =
     case verifyMultiSignature vkeys signatories snapshot of
       Verified -> cont
       FailedKeys failures ->
-        Error . SideLoadSnapshotFailed $ SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
+        sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
       KeyNumberMismatch ->
-        Error . SideLoadSnapshotFailed $ SideLoadInvalidMultisignature{multisig = show signatories, vkeys}
+        sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys}
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.

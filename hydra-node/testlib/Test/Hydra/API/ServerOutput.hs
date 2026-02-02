@@ -7,6 +7,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason, Greetings, HeadStatus, NetworkInfo, ServerOutput (..), TimedServerOutput)
 import Hydra.Chain (PostChainTx)
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Test.Hydra.Chain ()
 import Test.Hydra.Ledger ()
 import Test.Hydra.Network ()
@@ -21,6 +22,9 @@ instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
+  arbitrary = genericArbitrary
+
+instance ArbitraryIsTx tx => Arbitrary (SideLoadRequirementFailure tx) where
   arbitrary = genericArbitrary
 
 instance (IsChainState tx, Arbitrary (ChainStateType tx), Arbitrary (ClientInput tx), Arbitrary (PostChainTx tx), ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
