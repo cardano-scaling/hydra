@@ -32,9 +32,9 @@
 </span><span id="line-32"></span><span class="annot"><span class="hs-comment">-- * Hydra network interface</span></span><span>
 </span><span id="line-33"></span><span>
 </span><span id="line-34"></span><span class="annot"><span class="hs-comment">-- | Interface from the application to the network layer.</span></span><span>
-</span><span id="line-35"></span><span class="hs-keyword">newtype</span><span> </span><span id="Network"><span class="annot"><a href="Hydra.Network.html#Network"><span class="hs-identifier hs-var">Network</span></a></span></span><span> </span><span id="local-6989586621680405551"><span class="annot"><a href="#local-6989586621680405551"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680405552"><span class="annot"><a href="#local-6989586621680405552"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Network"><span class="annot"><a href="Hydra.Network.html#Network"><span class="hs-identifier hs-var">Network</span></a></span></span><span>
+</span><span id="line-35"></span><span class="hs-keyword">newtype</span><span> </span><span id="Network"><span class="annot"><a href="Hydra.Network.html#Network"><span class="hs-identifier hs-var">Network</span></a></span></span><span> </span><span id="local-6989586621680408116"><span class="annot"><a href="#local-6989586621680408116"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680408117"><span class="annot"><a href="#local-6989586621680408117"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Network"><span class="annot"><a href="Hydra.Network.html#Network"><span class="hs-identifier hs-var">Network</span></a></span></span><span>
 </span><span id="line-36"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Abroadcast%3ANetwork"><span class="annot"><span class="annottext">forall (m :: * -&gt; *) msg. Network m msg -&gt; msg -&gt; m ()
-</span><a href="Hydra.Network.html#%24sel%3Abroadcast%3ANetwork"><span class="hs-identifier hs-var hs-var">broadcast</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680405552"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405551"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Network.html#%24sel%3Abroadcast%3ANetwork"><span class="hs-identifier hs-var hs-var">broadcast</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680408117"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408116"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Send a `msg` to the whole configured hydra network including ourselves.</span></span><span>
 </span><span id="line-38"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-39"></span><span>
@@ -43,25 +43,25 @@
 </span><span id="line-42"></span><span class="hs-comment">-- tricky. According to &quot;Introduction to Reliable and Secure Distributed</span><span>
 </span><span id="line-43"></span><span class="hs-comment">-- Programming&quot; section &quot;2.2.4 Crashes with recoveries&quot; explains that storing to</span><span>
 </span><span id="line-44"></span><span class="hs-comment">-- stable storage and just pointing to stored events is a better way.</span><span>
-</span><span id="line-45"></span><span class="hs-keyword">data</span><span> </span><span id="NetworkCallback"><span class="annot"><a href="Hydra.Network.html#NetworkCallback"><span class="hs-identifier hs-var">NetworkCallback</span></a></span></span><span> </span><span id="local-6989586621680405556"><span class="annot"><a href="#local-6989586621680405556"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621680405557"><span class="annot"><a href="#local-6989586621680405557"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NetworkCallback"><span class="annot"><a href="Hydra.Network.html#NetworkCallback"><span class="hs-identifier hs-var">NetworkCallback</span></a></span></span><span>
+</span><span id="line-45"></span><span class="hs-keyword">data</span><span> </span><span id="NetworkCallback"><span class="annot"><a href="Hydra.Network.html#NetworkCallback"><span class="hs-identifier hs-var">NetworkCallback</span></a></span></span><span> </span><span id="local-6989586621680408121"><span class="annot"><a href="#local-6989586621680408121"><span class="hs-identifier hs-type">msg</span></a></span></span><span> </span><span id="local-6989586621680408122"><span class="annot"><a href="#local-6989586621680408122"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NetworkCallback"><span class="annot"><a href="Hydra.Network.html#NetworkCallback"><span class="hs-identifier hs-var">NetworkCallback</span></a></span></span><span>
 </span><span id="line-46"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Adeliver%3ANetworkCallback"><span class="annot"><span class="annottext">forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
-</span><a href="Hydra.Network.html#%24sel%3Adeliver%3ANetworkCallback"><span class="hs-identifier hs-var hs-var">deliver</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680405556"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405557"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Network.html#%24sel%3Adeliver%3ANetworkCallback"><span class="hs-identifier hs-var hs-var">deliver</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621680408121"><span class="hs-identifier hs-type">msg</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408122"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-47"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ The given `msg` was received from the network.</span></span><span>
 </span><span id="line-48"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AonConnectivity%3ANetworkCallback"><span class="annot"><span class="annottext">forall msg (m :: * -&gt; *).
 NetworkCallback msg m -&gt; Connectivity -&gt; m ()
-</span><a href="Hydra.Network.html#%24sel%3AonConnectivity%3ANetworkCallback"><span class="hs-identifier hs-var hs-var">onConnectivity</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#Connectivity"><span class="hs-identifier hs-type">Connectivity</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405557"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Network.html#%24sel%3AonConnectivity%3ANetworkCallback"><span class="hs-identifier hs-var hs-var">onConnectivity</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#Connectivity"><span class="hs-identifier hs-type">Connectivity</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408122"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-49"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ The given `Connectivity` event was observed by network.</span></span><span>
 </span><span id="line-50"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-51"></span><span>
 </span><span id="line-52"></span><span class="hs-comment">-- | A type tying both inbound and outbound messages sending in a single /Component/.</span><span>
 </span><span id="line-53"></span><span class="hs-comment">--</span><span>
 </span><span id="line-54"></span><span class="hs-comment">-- A `NetworkComponent` can have different inbound and outbound message types.</span><span>
-</span><span id="line-55"></span><span class="hs-keyword">type</span><span> </span><span id="NetworkComponent"><span class="annot"><a href="Hydra.Network.html#NetworkComponent"><span class="hs-identifier hs-var">NetworkComponent</span></a></span></span><span> </span><span id="local-6989586621680405945"><span class="annot"><a href="#local-6989586621680405945"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680405946"><span class="annot"><a href="#local-6989586621680405946"><span class="hs-identifier hs-type">inbound</span></a></span></span><span> </span><span id="local-6989586621680405947"><span class="annot"><a href="#local-6989586621680405947"><span class="hs-identifier hs-type">outbound</span></a></span></span><span> </span><span id="local-6989586621680405948"><span class="annot"><a href="#local-6989586621680405948"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Network.html#NetworkCallback"><span class="hs-identifier hs-type">NetworkCallback</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405946"><span class="hs-identifier hs-type">inbound</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405945"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#Network"><span class="hs-identifier hs-type">Network</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405945"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405947"><span class="hs-identifier hs-type">outbound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405945"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405948"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405945"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405948"><span class="hs-identifier hs-type">a</span></a></span><span>
+</span><span id="line-55"></span><span class="hs-keyword">type</span><span> </span><span id="NetworkComponent"><span class="annot"><a href="Hydra.Network.html#NetworkComponent"><span class="hs-identifier hs-var">NetworkComponent</span></a></span></span><span> </span><span id="local-6989586621680408510"><span class="annot"><a href="#local-6989586621680408510"><span class="hs-identifier hs-type">m</span></a></span></span><span> </span><span id="local-6989586621680408511"><span class="annot"><a href="#local-6989586621680408511"><span class="hs-identifier hs-type">inbound</span></a></span></span><span> </span><span id="local-6989586621680408512"><span class="annot"><a href="#local-6989586621680408512"><span class="hs-identifier hs-type">outbound</span></a></span></span><span> </span><span id="local-6989586621680408513"><span class="annot"><a href="#local-6989586621680408513"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Network.html#NetworkCallback"><span class="hs-identifier hs-type">NetworkCallback</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408511"><span class="hs-identifier hs-type">inbound</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408510"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#Network"><span class="hs-identifier hs-type">Network</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408510"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408512"><span class="hs-identifier hs-type">outbound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408510"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408513"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408510"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408513"><span class="hs-identifier hs-type">a</span></a></span><span>
 </span><span id="line-56"></span><span>
 </span><span id="line-57"></span><span class="annot"><span class="hs-comment">-- * Types used by concrete implementations</span></span><span>
 </span><span id="line-58"></span><span>
 </span><span id="line-59"></span><span class="hs-keyword">data</span><span> </span><span id="WhichEtcd"><span class="annot"><a href="Hydra.Network.html#WhichEtcd"><span class="hs-identifier hs-var">WhichEtcd</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="EmbeddedEtcd"><span class="annot"><a href="Hydra.Network.html#EmbeddedEtcd"><span class="hs-identifier hs-var">EmbeddedEtcd</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="SystemEtcd"><span class="annot"><a href="Hydra.Network.html#SystemEtcd"><span class="hs-identifier hs-var">SystemEtcd</span></a></span></span><span>
-</span><span id="line-60"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680405952"><span id="local-6989586621680405954"><span class="annot"><span class="annottext">WhichEtcd -&gt; WhichEtcd -&gt; Bool
+</span><span id="line-60"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680408517"><span id="local-6989586621680408519"><span class="annot"><span class="annottext">WhichEtcd -&gt; WhichEtcd -&gt; Bool
 (WhichEtcd -&gt; WhichEtcd -&gt; Bool)
 -&gt; (WhichEtcd -&gt; WhichEtcd -&gt; Bool) -&gt; Eq WhichEtcd
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -69,7 +69,7 @@ $c== :: WhichEtcd -&gt; WhichEtcd -&gt; Bool
 == :: WhichEtcd -&gt; WhichEtcd -&gt; Bool
 $c/= :: WhichEtcd -&gt; WhichEtcd -&gt; Bool
 /= :: WhichEtcd -&gt; WhichEtcd -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680405959"><span id="local-6989586621680405961"><span id="local-6989586621680405965"><span class="annot"><span class="annottext">Int -&gt; WhichEtcd -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680408524"><span id="local-6989586621680408526"><span id="local-6989586621680408530"><span class="annot"><span class="annottext">Int -&gt; WhichEtcd -&gt; ShowS
 [WhichEtcd] -&gt; ShowS
 WhichEtcd -&gt; String
 (Int -&gt; WhichEtcd -&gt; ShowS)
@@ -84,7 +84,7 @@ $cshow :: WhichEtcd -&gt; String
 show :: WhichEtcd -&gt; String
 $cshowList :: [WhichEtcd] -&gt; ShowS
 showList :: [WhichEtcd] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680405969"><span id="local-6989586621680405971"><span class="annot"><span class="annottext">(forall x. WhichEtcd -&gt; Rep WhichEtcd x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680408534"><span id="local-6989586621680408536"><span class="annot"><span class="annottext">(forall x. WhichEtcd -&gt; Rep WhichEtcd x)
 -&gt; (forall x. Rep WhichEtcd x -&gt; WhichEtcd) -&gt; Generic WhichEtcd
 forall x. Rep WhichEtcd x -&gt; WhichEtcd
 forall x. WhichEtcd -&gt; Rep WhichEtcd x
@@ -95,7 +95,7 @@ from :: forall x. WhichEtcd -&gt; Rep WhichEtcd x
 $cto :: forall x. Rep WhichEtcd x -&gt; WhichEtcd
 to :: forall x. Rep WhichEtcd x -&gt; WhichEtcd
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-61"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680405975"><span id="local-6989586621680405982"><span id="local-6989586621680405985"><span id="local-6989586621680405988"><span id="local-6989586621680405991"><span class="annot"><span class="annottext">[WhichEtcd] -&gt; Value
+</span><span id="line-61"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680408540"><span id="local-6989586621680408547"><span id="local-6989586621680408550"><span id="local-6989586621680408553"><span id="local-6989586621680408556"><span class="annot"><span class="annottext">[WhichEtcd] -&gt; Value
 [WhichEtcd] -&gt; Encoding
 WhichEtcd -&gt; Bool
 WhichEtcd -&gt; Value
@@ -123,7 +123,7 @@ $ctoEncodingList :: [WhichEtcd] -&gt; Encoding
 toEncodingList :: [WhichEtcd] -&gt; Encoding
 $comitField :: WhichEtcd -&gt; Bool
 omitField :: WhichEtcd -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406071"><span id="local-6989586621680406078"><span id="local-6989586621680406081"><span class="annot"><span class="annottext">Maybe WhichEtcd
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680408636"><span id="local-6989586621680408643"><span id="local-6989586621680408646"><span class="annot"><span class="annottext">Maybe WhichEtcd
 Value -&gt; Parser [WhichEtcd]
 Value -&gt; Parser WhichEtcd
 (Value -&gt; Parser WhichEtcd)
@@ -171,37 +171,37 @@ omittedField :: Maybe WhichEtcd
 </span><span id="line-82"></span><span>
 </span><span id="line-83"></span><span class="annot"><span class="hs-comment">-- ** IP (Orphans)</span></span><span>
 </span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span id="local-6989586621680406152"><span id="local-6989586621680406160"><span id="local-6989586621680406163"><span id="local-6989586621680406166"><span id="local-6989586621680406169"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IP</span></span></span></span></span></span></span><span>
-</span><span id="line-86"></span><span id="local-6989586621680406274"><span id="local-6989586621680406281"><span id="local-6989586621680406284"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IP</span></span></span></span></span><span>
+</span><span id="line-85"></span><span id="local-6989586621680408717"><span id="local-6989586621680408725"><span id="local-6989586621680408728"><span id="local-6989586621680408731"><span id="local-6989586621680408734"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IP</span></span></span></span></span></span></span><span>
+</span><span id="line-86"></span><span id="local-6989586621680408839"><span id="local-6989586621680408846"><span id="local-6989586621680408849"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">IP</span></span></span></span></span><span>
 </span><span id="line-87"></span><span>
 </span><span id="line-88"></span><span class="annot"><span class="hs-comment">-- ** PortNumber (Orphans)</span></span><span>
 </span><span id="line-89"></span><span>
-</span><span id="line-90"></span><span id="local-6989586621680405805"><span class="annot"><a href="Hydra.Network.html#readPort"><span class="hs-identifier hs-type">readPort</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405805"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405805"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span></span><span>
+</span><span id="line-90"></span><span id="local-6989586621680408370"><span class="annot"><a href="Hydra.Network.html#readPort"><span class="hs-identifier hs-type">readPort</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408370"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408370"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span></span><span>
 </span><span id="line-91"></span><span id="readPort"><span class="annot"><span class="annottext">readPort :: forall (m :: * -&gt; *). MonadFail m =&gt; String -&gt; m PortNumber
-</span><a href="Hydra.Network.html#readPort"><span class="hs-identifier hs-var hs-var">readPort</span></a></span></span><span> </span><span id="local-6989586621680406395"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406395"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Network.html#readPort"><span class="hs-identifier hs-var hs-var">readPort</span></a></span></span><span> </span><span id="local-6989586621680408960"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680408960"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-92"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe Integer
 forall a. Read a =&gt; String -&gt; Maybe a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Text.Read.html#readMaybe"><span class="hs-identifier hs-var">readMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406395"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621680408960"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">Maybe Integer
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m PortNumber
 forall a. String -&gt; m a
 forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;cannot read port&quot;</span></span><span>
-</span><span id="line-94"></span><span>    </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680406397"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406397"><span class="hs-identifier hs-var">n</span></a></span></span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680408962"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621680408962"><span class="hs-identifier hs-var">n</span></a></span></span><span>
 </span><span id="line-95"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406397"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+</span><a href="#local-6989586621680408962"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406398"><span class="hs-identifier hs-var">minPort</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="#local-6989586621680408963"><span class="hs-identifier hs-var">minPort</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406397"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
+</span><a href="#local-6989586621680408962"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C%3D"><span class="hs-operator hs-var">&lt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406401"><span class="hs-identifier hs-var">maxPort</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PortNumber -&gt; m PortNumber
+</span><a href="#local-6989586621680408966"><span class="hs-identifier hs-var">maxPort</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PortNumber -&gt; m PortNumber
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(PortNumber -&gt; m PortNumber) -&gt; PortNumber -&gt; m PortNumber
@@ -209,7 +209,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; PortNumber
 forall a. Num a =&gt; Integer -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406397"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621680408962"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-96"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-97"></span><span>          </span><span class="annot"><span class="annottext">String -&gt; m PortNumber
@@ -225,7 +225,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406397"><span class="hs-identifier hs-var">n</span></a></span><span>
+</span><a href="#local-6989586621680408962"><span class="hs-identifier hs-var">n</span></a></span><span>
 </span><span id="line-100"></span><span>              </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -235,7 +235,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406398"><span class="hs-identifier hs-var">minPort</span></a></span><span>
+</span><a href="#local-6989586621680408963"><span class="hs-identifier hs-var">minPort</span></a></span><span>
 </span><span id="line-102"></span><span>              </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
@@ -245,28 +245,28 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680406401"><span class="hs-identifier hs-var">maxPort</span></a></span><span>
+</span><a href="#local-6989586621680408966"><span class="hs-identifier hs-var">maxPort</span></a></span><span>
 </span><span id="line-104"></span><span>              </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;)&quot;</span></span><span>
 </span><span id="line-105"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-106"></span><span>  </span><span id="local-6989586621680406401"><span class="annot"><span class="annottext">maxPort :: Integer
-</span><a href="#local-6989586621680406401"><span class="hs-identifier hs-var hs-var">maxPort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Integer
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621680408966"><span class="annot"><span class="annottext">maxPort :: Integer
+</span><a href="#local-6989586621680408966"><span class="hs-identifier hs-var hs-var">maxPort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Integer
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word16
 forall a. Bounded a =&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#maxBound"><span class="hs-identifier hs-var">maxBound</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word16"><span class="hs-identifier hs-type">Word16</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-107"></span><span>  </span><span id="local-6989586621680406398"><span class="annot"><span class="annottext">minPort :: Integer
-</span><a href="#local-6989586621680406398"><span class="hs-identifier hs-var hs-var">minPort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Integer
+</span><span id="line-107"></span><span>  </span><span id="local-6989586621680408963"><span class="annot"><span class="annottext">minPort :: Integer
+</span><a href="#local-6989586621680408963"><span class="hs-identifier hs-var hs-var">minPort</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Word16 -&gt; Integer
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word16
 forall a. Bounded a =&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#minBound"><span class="hs-identifier hs-var">minBound</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word16"><span class="hs-identifier hs-type">Word16</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-108"></span><span>
-</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406415"><span id="local-6989586621680406419"><span id="local-6989586621680406422"><span id="local-6989586621680406425"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-110"></span><span>  </span><span id="local-6989586621680406431"><span class="annot"><span class="annottext">toJSON :: PortNumber -&gt; Value
-</span><a href="#local-6989586621680406431"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Value
+</span><span id="line-109"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680408980"><span id="local-6989586621680408984"><span id="local-6989586621680408987"><span id="local-6989586621680408990"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621680408996"><span class="annot"><span class="annottext">toJSON :: PortNumber -&gt; Value
+</span><a href="#local-6989586621680408996"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Value)
 -&gt; (PortNumber -&gt; Integer) -&gt; PortNumber -&gt; Value
@@ -275,9 +275,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a. Integral a =&gt; a -&gt; Integer
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span>
 </span><span id="line-111"></span><span>
-</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406436"><span id="local-6989586621680406440"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-113"></span><span>  </span><span id="local-6989586621680406447"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser PortNumber
-</span><a href="#local-6989586621680406447"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; PortNumber) -&gt; Parser Integer -&gt; Parser PortNumber
+</span><span id="line-112"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409001"><span id="local-6989586621680409005"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-113"></span><span>  </span><span id="local-6989586621680409012"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser PortNumber
+</span><a href="#local-6989586621680409012"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; PortNumber) -&gt; Parser Integer -&gt; Parser PortNumber
 forall a b. (a -&gt; b) -&gt; Parser a -&gt; Parser b
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; PortNumber
@@ -293,7 +293,7 @@ forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span id="line-116"></span><span>
 </span><span id="line-117"></span><span class="hs-keyword">newtype</span><span> </span><span id="NodeId"><span class="annot"><a href="Hydra.Network.html#NodeId"><span class="hs-identifier hs-var">NodeId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NodeId"><span class="annot"><a href="Hydra.Network.html#NodeId"><span class="hs-identifier hs-var">NodeId</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AnodeId%3ANodeId"><span class="annot"><span class="annottext">NodeId -&gt; Text
 </span><a href="Hydra.Network.html#%24sel%3AnodeId%3ANodeId"><span class="hs-identifier hs-var hs-var">nodeId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-118"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680406452"><span id="local-6989586621680406457"><span class="annot"><span class="annottext">NodeId -&gt; NodeId -&gt; Bool
+</span><span id="line-118"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409017"><span id="local-6989586621680409022"><span class="annot"><span class="annottext">NodeId -&gt; NodeId -&gt; Bool
 (NodeId -&gt; NodeId -&gt; Bool)
 -&gt; (NodeId -&gt; NodeId -&gt; Bool) -&gt; Eq NodeId
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -301,7 +301,7 @@ $c== :: NodeId -&gt; NodeId -&gt; Bool
 == :: NodeId -&gt; NodeId -&gt; Bool
 $c/= :: NodeId -&gt; NodeId -&gt; Bool
 /= :: NodeId -&gt; NodeId -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406462"><span id="local-6989586621680406467"><span id="local-6989586621680406471"><span class="annot"><span class="annottext">Int -&gt; NodeId -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409027"><span id="local-6989586621680409032"><span id="local-6989586621680409036"><span class="annot"><span class="annottext">Int -&gt; NodeId -&gt; ShowS
 [NodeId] -&gt; ShowS
 NodeId -&gt; String
 (Int -&gt; NodeId -&gt; ShowS)
@@ -314,12 +314,12 @@ $cshow :: NodeId -&gt; String
 show :: NodeId -&gt; String
 $cshowList :: [NodeId] -&gt; ShowS
 showList :: [NodeId] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406476"><span class="annot"><span class="annottext">String -&gt; NodeId
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409041"><span class="annot"><span class="annottext">String -&gt; NodeId
 (String -&gt; NodeId) -&gt; IsString NodeId
 forall a. (String -&gt; a) -&gt; IsString a
 $cfromString :: String -&gt; NodeId
 fromString :: String -&gt; NodeId
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.String.html#IsString"><span class="hs-identifier hs-var hs-var hs-var hs-var">IsString</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406483"><span id="local-6989586621680406488"><span id="local-6989586621680406492"><span id="local-6989586621680406496"><span class="annot"><span class="annottext">ReadPrec [NodeId]
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.String.html#IsString"><span class="hs-identifier hs-var hs-var hs-var hs-var">IsString</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409048"><span id="local-6989586621680409053"><span id="local-6989586621680409057"><span id="local-6989586621680409061"><span class="annot"><span class="annottext">ReadPrec [NodeId]
 ReadPrec NodeId
 Int -&gt; ReadS NodeId
 ReadS [NodeId]
@@ -339,7 +339,7 @@ $creadPrec :: ReadPrec NodeId
 readPrec :: ReadPrec NodeId
 $creadListPrec :: ReadPrec [NodeId]
 readListPrec :: ReadPrec [NodeId]
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406504"><span id="local-6989586621680406509"><span id="local-6989586621680406513"><span id="local-6989586621680406517"><span id="local-6989586621680406521"><span id="local-6989586621680406525"><span id="local-6989586621680406529"><span class="annot"><span class="annottext">Eq NodeId
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409069"><span id="local-6989586621680409074"><span id="local-6989586621680409078"><span id="local-6989586621680409082"><span id="local-6989586621680409086"><span id="local-6989586621680409090"><span id="local-6989586621680409094"><span class="annot"><span class="annottext">Eq NodeId
 Eq NodeId =&gt;
 (NodeId -&gt; NodeId -&gt; Ordering)
 -&gt; (NodeId -&gt; NodeId -&gt; Bool)
@@ -376,7 +376,7 @@ $cmax :: NodeId -&gt; NodeId -&gt; NodeId
 max :: NodeId -&gt; NodeId -&gt; NodeId
 $cmin :: NodeId -&gt; NodeId -&gt; NodeId
 min :: NodeId -&gt; NodeId -&gt; NodeId
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406535"><span id="local-6989586621680406540"><span id="local-6989586621680406544"><span id="local-6989586621680406548"><span id="local-6989586621680406552"><span class="annot"><span class="annottext">[NodeId] -&gt; Value
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409100"><span id="local-6989586621680409105"><span id="local-6989586621680409109"><span id="local-6989586621680409113"><span id="local-6989586621680409117"><span class="annot"><span class="annottext">[NodeId] -&gt; Value
 [NodeId] -&gt; Encoding
 NodeId -&gt; Bool
 NodeId -&gt; Value
@@ -404,7 +404,7 @@ $ctoEncodingList :: [NodeId] -&gt; Encoding
 toEncodingList :: [NodeId] -&gt; Encoding
 $comitField :: NodeId -&gt; Bool
 omitField :: NodeId -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406557"><span id="local-6989586621680406562"><span id="local-6989586621680406566"><span class="annot"><span class="annottext">Maybe NodeId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409122"><span id="local-6989586621680409127"><span id="local-6989586621680409131"><span class="annot"><span class="annottext">Maybe NodeId
 Value -&gt; Parser [NodeId]
 Value -&gt; Parser NodeId
 (Value -&gt; Parser NodeId)
@@ -429,7 +429,7 @@ omittedField :: Maybe NodeId
 </span><span id="line-125"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aport%3AHost"><span class="annot"><span class="annottext">Host -&gt; PortNumber
 </span><a href="Hydra.Network.html#%24sel%3Aport%3AHost"><span class="hs-identifier hs-var hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PortNumber</span></span><span>
 </span><span id="line-126"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-127"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680406577"><span id="local-6989586621680406582"><span id="local-6989586621680406586"><span id="local-6989586621680406590"><span id="local-6989586621680406593"><span id="local-6989586621680406596"><span id="local-6989586621680406599"><span class="annot"><span class="annottext">Eq Host
+</span><span id="line-127"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409142"><span id="local-6989586621680409147"><span id="local-6989586621680409151"><span id="local-6989586621680409155"><span id="local-6989586621680409158"><span id="local-6989586621680409161"><span id="local-6989586621680409164"><span class="annot"><span class="annottext">Eq Host
 Eq Host =&gt;
 (Host -&gt; Host -&gt; Ordering)
 -&gt; (Host -&gt; Host -&gt; Bool)
@@ -466,7 +466,7 @@ $cmax :: Host -&gt; Host -&gt; Host
 max :: Host -&gt; Host -&gt; Host
 $cmin :: Host -&gt; Host -&gt; Host
 min :: Host -&gt; Host -&gt; Host
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406602"><span id="local-6989586621680406604"><span class="annot"><span class="annottext">(forall x. Host -&gt; Rep Host x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409167"><span id="local-6989586621680409169"><span class="annot"><span class="annottext">(forall x. Host -&gt; Rep Host x)
 -&gt; (forall x. Rep Host x -&gt; Host) -&gt; Generic Host
 forall x. Rep Host x -&gt; Host
 forall x. Host -&gt; Rep Host x
@@ -476,7 +476,7 @@ $cfrom :: forall x. Host -&gt; Rep Host x
 from :: forall x. Host -&gt; Rep Host x
 $cto :: forall x. Rep Host x -&gt; Host
 to :: forall x. Rep Host x -&gt; Host
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406607"><span id="local-6989586621680406612"><span class="annot"><span class="annottext">Host -&gt; Host -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409172"><span id="local-6989586621680409177"><span class="annot"><span class="annottext">Host -&gt; Host -&gt; Bool
 (Host -&gt; Host -&gt; Bool) -&gt; (Host -&gt; Host -&gt; Bool) -&gt; Eq Host
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Host -&gt; Host -&gt; Bool
@@ -484,7 +484,7 @@ $c== :: Host -&gt; Host -&gt; Bool
 $c/= :: Host -&gt; Host -&gt; Bool
 /= :: Host -&gt; Host -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-128"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680406615"><span id="local-6989586621680406622"><span id="local-6989586621680406625"><span id="local-6989586621680406628"><span id="local-6989586621680406631"><span class="annot"><span class="annottext">[Host] -&gt; Value
+</span><span id="line-128"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409180"><span id="local-6989586621680409187"><span id="local-6989586621680409190"><span id="local-6989586621680409193"><span id="local-6989586621680409196"><span class="annot"><span class="annottext">[Host] -&gt; Value
 [Host] -&gt; Encoding
 Host -&gt; Bool
 Host -&gt; Value
@@ -512,7 +512,7 @@ $ctoEncodingList :: [Host] -&gt; Encoding
 toEncodingList :: [Host] -&gt; Encoding
 $comitField :: Host -&gt; Bool
 omitField :: Host -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406704"><span id="local-6989586621680406711"><span id="local-6989586621680406714"><span class="annot"><span class="annottext">Maybe Host
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409269"><span id="local-6989586621680409276"><span id="local-6989586621680409279"><span class="annot"><span class="annottext">Maybe Host
 Value -&gt; Parser [Host]
 Value -&gt; Parser Host
 (Value -&gt; Parser Host)
@@ -528,37 +528,37 @@ $comittedField :: Maybe Host
 omittedField :: Maybe Host
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-129"></span><span>
-</span><span id="line-130"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406770"><span id="local-6989586621680406774"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-131"></span><span>  </span><span id="local-6989586621680406784"><span class="annot"><span class="annottext">toCBOR :: Host -&gt; Encoding
-</span><a href="#local-6989586621680406784"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span class="hs-special">{</span><span id="local-6989586621680406786"><span class="annot"><span class="annottext">Text
+</span><span id="line-130"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409335"><span id="local-6989586621680409339"><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621680409349"><span class="annot"><span class="annottext">toCBOR :: Host -&gt; Encoding
+</span><a href="#local-6989586621680409349"><span class="hs-identifier hs-var hs-var hs-var hs-var">toCBOR</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span class="hs-special">{</span><span id="local-6989586621680409351"><span class="annot"><span class="annottext">Text
 $sel:hostname:Host :: Host -&gt; Text
 hostname :: Text
-</span><a href="Hydra.Network.html#%24sel%3Ahostname%3AHost"><span class="hs-identifier hs-var hs-var">hostname</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406787"><span class="annot"><span class="annottext">PortNumber
+</span><a href="Hydra.Network.html#%24sel%3Ahostname%3AHost"><span class="hs-identifier hs-var hs-var">hostname</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409352"><span class="annot"><span class="annottext">PortNumber
 $sel:port:Host :: Host -&gt; PortNumber
 port :: PortNumber
 </span><a href="Hydra.Network.html#%24sel%3Aport%3AHost"><span class="hs-identifier hs-var hs-var">port</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-132"></span><span>    </span><span class="annot"><span class="annottext">Text -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680406786"><span class="hs-identifier hs-var">hostname</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
+</span><a href="#local-6989586621680409351"><span class="hs-identifier hs-var">hostname</span></a></span><span> </span><span class="annot"><span class="annottext">Encoding -&gt; Encoding -&gt; Encoding
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Encoding
 forall a. ToCBOR a =&gt; a -&gt; Encoding
 </span><span class="hs-identifier hs-var">toCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PortNumber -&gt; Integer
 forall a. Integral a =&gt; a -&gt; Integer
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var">toInteger</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
-</span><a href="#local-6989586621680406787"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680409352"><span class="hs-identifier hs-var">port</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-133"></span><span>
-</span><span id="line-134"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406792"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-135"></span><span>  </span><span id="local-6989586621680406808"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Host
-</span><a href="#local-6989586621680406808"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-136"></span><span>    </span><span id="local-6989586621680406810"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680406810"><span class="hs-identifier hs-var">hostname</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Decoder s Text
+</span><span id="line-134"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409357"><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621680409373"><span class="annot"><span class="annottext">fromCBOR :: forall s. Decoder s Host
+</span><a href="#local-6989586621680409373"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromCBOR</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-136"></span><span>    </span><span id="local-6989586621680409375"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621680409375"><span class="hs-identifier hs-var">hostname</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Decoder s Text
 forall s. Decoder s Text
 forall a s. FromCBOR a =&gt; Decoder s a
 </span><span class="hs-identifier hs-var">fromCBOR</span></span><span>
-</span><span id="line-137"></span><span>    </span><span id="local-6989586621680406811"><span class="annot"><span class="annottext">PortNumber
-</span><a href="#local-6989586621680406811"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; PortNumber
+</span><span id="line-137"></span><span>    </span><span id="local-6989586621680409376"><span class="annot"><span class="annottext">PortNumber
+</span><a href="#local-6989586621680409376"><span class="hs-identifier hs-var">port</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; PortNumber
 forall a. Num a =&gt; Integer -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; PortNumber)
 -&gt; Decoder s Integer -&gt; Decoder s PortNumber
@@ -578,29 +578,29 @@ $sel:port:Host :: PortNumber
 port :: PortNumber
 </span><a href="Hydra.Network.html#%24sel%3Aport%3AHost"><span class="hs-identifier hs-var hs-var">port</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-139"></span><span>
-</span><span id="line-140"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406814"><span id="local-6989586621680406819"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-141"></span><span>  </span><span id="local-6989586621680406821"><span class="annot"><span class="annottext">show :: Host -&gt; String
+</span><span id="line-140"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409379"><span id="local-6989586621680409384"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-141"></span><span>  </span><span id="local-6989586621680409386"><span class="annot"><span class="annottext">show :: Host -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var hs-var hs-var hs-var">show</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Host -&gt; String
 </span><a href="Hydra.Network.html#showHost"><span class="hs-identifier hs-var">showHost</span></a></span><span>
 </span><span id="line-142"></span><span>
-</span><span id="line-143"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406825"><span id="local-6989586621680406829"><span id="local-6989586621680406832"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-type">Read</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-144"></span><span>  </span><span id="local-6989586621680406836"><span class="annot"><span class="annottext">readsPrec :: Int -&gt; ReadS Host
+</span><span id="line-143"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409390"><span id="local-6989586621680409394"><span id="local-6989586621680409397"><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-type">Read</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-144"></span><span>  </span><span id="local-6989586621680409401"><span class="annot"><span class="annottext">readsPrec :: Int -&gt; ReadS Host
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#readsPrec"><span class="hs-identifier hs-var hs-var hs-var hs-var">readsPrec</span></a></span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680406837"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406837"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe Host
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621680409402"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680409402"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe Host
 forall (m :: * -&gt; *). MonadFail m =&gt; String -&gt; m Host
 </span><a href="Hydra.Network.html#readHost"><span class="hs-identifier hs-var">readHost</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406837"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-145"></span><span>    </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680406839"><span class="annot"><span class="annottext">Host
-</span><a href="#local-6989586621680406839"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Host
-</span><a href="#local-6989586621680406839"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680409402"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-145"></span><span>    </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621680409404"><span class="annot"><span class="annottext">Host
+</span><a href="#local-6989586621680409404"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Host
+</span><a href="#local-6989586621680409404"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-146"></span><span>    </span><span class="annot"><span class="annottext">Maybe Host
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-147"></span><span>
-</span><span id="line-148"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406842"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-149"></span><span>  </span><span id="local-6989586621680406848"><span class="annot"><span class="annottext">toJSONKey :: ToJSONKeyFunction Host
-</span><a href="#local-6989586621680406848"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Host -&gt; Text) -&gt; ToJSONKeyFunction Host
+</span><span id="line-148"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409407"><span class="annot"><span class="hs-identifier hs-type">ToJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-149"></span><span>  </span><span id="local-6989586621680409413"><span class="annot"><span class="annottext">toJSONKey :: ToJSONKeyFunction Host
+</span><a href="#local-6989586621680409413"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Host -&gt; Text) -&gt; ToJSONKeyFunction Host
 forall a. (a -&gt; Text) -&gt; ToJSONKeyFunction a
 </span><span class="hs-identifier hs-var">toJSONKeyText</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#pack"><span class="hs-identifier hs-var">T.pack</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Text) -&gt; (Host -&gt; String) -&gt; Host -&gt; Text
@@ -609,9 +609,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-150"></span><span>
-</span><span id="line-151"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680406852"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-152"></span><span>  </span><span id="local-6989586621680406859"><span class="annot"><span class="annottext">fromJSONKey :: FromJSONKeyFunction Host
-</span><a href="#local-6989586621680406859"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser Host) -&gt; FromJSONKeyFunction Host
+</span><span id="line-151"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680409417"><span class="annot"><span class="hs-identifier hs-type">FromJSONKey</span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-152"></span><span>  </span><span id="local-6989586621680409424"><span class="annot"><span class="annottext">fromJSONKey :: FromJSONKeyFunction Host
+</span><a href="#local-6989586621680409424"><span class="hs-identifier hs-var hs-var hs-var hs-var">fromJSONKey</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Parser Host) -&gt; FromJSONKeyFunction Host
 forall a. (Text -&gt; Parser a) -&gt; FromJSONKeyFunction a
 </span><span class="hs-identifier hs-var">FromJSONKeyTextParser</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Parser Host
 forall (m :: * -&gt; *). MonadFail m =&gt; String -&gt; m Host
@@ -622,16 +622,16 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span id="line-153"></span><span>
 </span><span id="line-154"></span><span class="annot"><a href="Hydra.Network.html#showHost"><span class="hs-identifier hs-type">showHost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
 </span><span id="line-155"></span><span id="showHost"><span class="annot"><span class="annottext">showHost :: Host -&gt; String
-</span><a href="Hydra.Network.html#showHost"><span class="hs-identifier hs-var hs-var">showHost</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span class="hs-special">{</span><span id="local-6989586621680406861"><span class="annot"><span class="annottext">Text
+</span><a href="Hydra.Network.html#showHost"><span class="hs-identifier hs-var hs-var">showHost</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span><span class="hs-special">{</span><span id="local-6989586621680409426"><span class="annot"><span class="annottext">Text
 $sel:hostname:Host :: Host -&gt; Text
 hostname :: Text
-</span><a href="Hydra.Network.html#%24sel%3Ahostname%3AHost"><span class="hs-identifier hs-var hs-var">hostname</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406862"><span class="annot"><span class="annottext">PortNumber
+</span><a href="Hydra.Network.html#%24sel%3Ahostname%3AHost"><span class="hs-identifier hs-var hs-var">hostname</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409427"><span class="annot"><span class="annottext">PortNumber
 $sel:port:Host :: Host -&gt; PortNumber
 port :: PortNumber
 </span><a href="Hydra.Network.html#%24sel%3Aport%3AHost"><span class="hs-identifier hs-var hs-var">port</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-156"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Show.html#unpack"><span class="hs-identifier hs-var">unpack</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621680406861"><span class="hs-identifier hs-var">hostname</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+</span><a href="#local-6989586621680409426"><span class="hs-identifier hs-var">hostname</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;:&quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
@@ -639,12 +639,12 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber -&gt; String
 forall a. Show a =&gt; a -&gt; String
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">PortNumber
-</span><a href="#local-6989586621680406862"><span class="hs-identifier hs-var">port</span></a></span><span>
+</span><a href="#local-6989586621680409427"><span class="hs-identifier hs-var">port</span></a></span><span>
 </span><span id="line-157"></span><span>
-</span><span id="line-158"></span><span id="local-6989586621680405892"><span class="annot"><a href="Hydra.Network.html#readHost"><span class="hs-identifier hs-type">readHost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680405892"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680405892"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span>
+</span><span id="line-158"></span><span id="local-6989586621680408457"><span class="annot"><a href="Hydra.Network.html#readHost"><span class="hs-identifier hs-type">readHost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#MonadFail"><span class="hs-identifier hs-type">MonadFail</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680408457"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680408457"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-type">Host</span></a></span></span><span>
 </span><span id="line-159"></span><span id="readHost"><span class="annot"><span class="annottext">readHost :: forall (m :: * -&gt; *). MonadFail m =&gt; String -&gt; m Host
-</span><a href="Hydra.Network.html#readHost"><span class="hs-identifier hs-var hs-var">readHost</span></a></span></span><span> </span><span id="local-6989586621680406875"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406875"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Network.html#readHost"><span class="hs-identifier hs-var hs-var">readHost</span></a></span></span><span> </span><span id="local-6989586621680409440"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680409440"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-160"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">(Char -&gt; Bool) -&gt; String -&gt; (String, String)
 forall a. (a -&gt; Bool) -&gt; [a] -&gt; ([a], [a])
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#break"><span class="hs-identifier hs-var">break</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Char -&gt; Char -&gt; Bool
@@ -653,23 +653,23 @@ forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><span class="hs-char">':'</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShowS
 forall a. [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#reverse"><span class="hs-identifier hs-var">reverse</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406875"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-161"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680406878"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406878"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Char
-</span><span class="hs-char">':'</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621680406879"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406879"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; PortNumber -&gt; Host
+</span><a href="#local-6989586621680409440"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680409443"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680409443"><span class="hs-identifier hs-var">p</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Char
+</span><span class="hs-char">':'</span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span id="local-6989586621680409444"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621680409444"><span class="hs-identifier hs-var">h</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; PortNumber -&gt; Host
 </span><a href="Hydra.Network.html#Host"><span class="hs-identifier hs-var">Host</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; Text
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#pack"><span class="hs-identifier hs-var">pack</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShowS
 forall a. [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#reverse"><span class="hs-identifier hs-var">reverse</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406879"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(PortNumber -&gt; Host) -&gt; m PortNumber -&gt; m Host
+</span><a href="#local-6989586621680409444"><span class="hs-identifier hs-var">h</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(PortNumber -&gt; Host) -&gt; m PortNumber -&gt; m Host
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; m PortNumber
 forall (m :: * -&gt; *). MonadFail m =&gt; String -&gt; m PortNumber
 </span><a href="Hydra.Network.html#readPort"><span class="hs-identifier hs-var">readPort</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShowS
 forall a. [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#reverse"><span class="hs-identifier hs-var">reverse</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406878"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680409443"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-162"></span><span>    </span><span class="annot"><span class="annottext">(String, String)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; m Host
 forall a. String -&gt; m a
@@ -680,7 +680,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-string">&quot;readHost: missing : in &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621680406875"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621680409440"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-163"></span><span>
 </span><span id="line-164"></span><span class="annot"><span class="hs-comment">-- ** Connectivity &amp; versions</span></span><span>
 </span><span id="line-165"></span><span>
@@ -704,7 +704,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span id="line-180"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AclusterPeers%3APeerConnected"><span class="annot"><span class="annottext">Connectivity -&gt; Text
 </span><a href="Hydra.Network.html#%24sel%3AclusterPeers%3APeerConnected"><span class="hs-identifier hs-var hs-var">clusterPeers</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
 </span><span id="line-181"></span><span>      </span><span class="hs-special">}</span><span>
-</span><span id="line-182"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680406891"><span id="local-6989586621680406893"><span class="annot"><span class="annottext">(forall x. Connectivity -&gt; Rep Connectivity x)
+</span><span id="line-182"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409456"><span id="local-6989586621680409458"><span class="annot"><span class="annottext">(forall x. Connectivity -&gt; Rep Connectivity x)
 -&gt; (forall x. Rep Connectivity x -&gt; Connectivity)
 -&gt; Generic Connectivity
 forall x. Rep Connectivity x -&gt; Connectivity
@@ -715,7 +715,7 @@ $cfrom :: forall x. Connectivity -&gt; Rep Connectivity x
 from :: forall x. Connectivity -&gt; Rep Connectivity x
 $cto :: forall x. Rep Connectivity x -&gt; Connectivity
 to :: forall x. Rep Connectivity x -&gt; Connectivity
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406896"><span id="local-6989586621680406905"><span class="annot"><span class="annottext">Connectivity -&gt; Connectivity -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409461"><span id="local-6989586621680409470"><span class="annot"><span class="annottext">Connectivity -&gt; Connectivity -&gt; Bool
 (Connectivity -&gt; Connectivity -&gt; Bool)
 -&gt; (Connectivity -&gt; Connectivity -&gt; Bool) -&gt; Eq Connectivity
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -723,7 +723,7 @@ $c== :: Connectivity -&gt; Connectivity -&gt; Bool
 == :: Connectivity -&gt; Connectivity -&gt; Bool
 $c/= :: Connectivity -&gt; Connectivity -&gt; Bool
 /= :: Connectivity -&gt; Connectivity -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680406909"><span id="local-6989586621680406923"><span id="local-6989586621680406927"><span class="annot"><span class="annottext">Int -&gt; Connectivity -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409474"><span id="local-6989586621680409488"><span id="local-6989586621680409492"><span class="annot"><span class="annottext">Int -&gt; Connectivity -&gt; ShowS
 [Connectivity] -&gt; ShowS
 Connectivity -&gt; String
 (Int -&gt; Connectivity -&gt; ShowS)
@@ -739,7 +739,7 @@ show :: Connectivity -&gt; String
 $cshowList :: [Connectivity] -&gt; ShowS
 showList :: [Connectivity] -&gt; ShowS
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-183"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680406930"><span id="local-6989586621680406937"><span id="local-6989586621680406940"><span id="local-6989586621680406943"><span id="local-6989586621680406946"><span class="annot"><span class="annottext">[Connectivity] -&gt; Value
+</span><span id="line-183"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409495"><span id="local-6989586621680409502"><span id="local-6989586621680409505"><span id="local-6989586621680409508"><span id="local-6989586621680409511"><span class="annot"><span class="annottext">[Connectivity] -&gt; Value
 [Connectivity] -&gt; Encoding
 Connectivity -&gt; Bool
 Connectivity -&gt; Value
@@ -767,7 +767,7 @@ $ctoEncodingList :: [Connectivity] -&gt; Encoding
 toEncodingList :: [Connectivity] -&gt; Encoding
 $comitField :: Connectivity -&gt; Bool
 omitField :: Connectivity -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680407164"><span id="local-6989586621680407171"><span id="local-6989586621680407174"><span class="annot"><span class="annottext">Maybe Connectivity
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409729"><span id="local-6989586621680409736"><span id="local-6989586621680409739"><span class="annot"><span class="annottext">Maybe Connectivity
 Value -&gt; Parser [Connectivity]
 Value -&gt; Parser Connectivity
 (Value -&gt; Parser Connectivity)
@@ -786,7 +786,7 @@ omittedField :: Maybe Connectivity
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-184"></span><span>
 </span><span id="line-185"></span><span class="hs-keyword">newtype</span><span> </span><span id="ProtocolVersion"><span class="annot"><a href="Hydra.Network.html#ProtocolVersion"><span class="hs-identifier hs-var">ProtocolVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ProtocolVersion"><span class="annot"><a href="Hydra.Network.html#ProtocolVersion"><span class="hs-identifier hs-var">ProtocolVersion</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
-</span><span id="line-186"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680407341"><span id="local-6989586621680407345"><span class="annot"><span class="annottext">ProtocolVersion -&gt; ProtocolVersion -&gt; Bool
+</span><span id="line-186"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409906"><span id="local-6989586621680409910"><span class="annot"><span class="annottext">ProtocolVersion -&gt; ProtocolVersion -&gt; Bool
 (ProtocolVersion -&gt; ProtocolVersion -&gt; Bool)
 -&gt; (ProtocolVersion -&gt; ProtocolVersion -&gt; Bool)
 -&gt; Eq ProtocolVersion
@@ -795,7 +795,7 @@ $c== :: ProtocolVersion -&gt; ProtocolVersion -&gt; Bool
 == :: ProtocolVersion -&gt; ProtocolVersion -&gt; Bool
 $c/= :: ProtocolVersion -&gt; ProtocolVersion -&gt; Bool
 /= :: ProtocolVersion -&gt; ProtocolVersion -&gt; Bool
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680407348"><span id="local-6989586621680407353"><span id="local-6989586621680407356"><span class="annot"><span class="annottext">Int -&gt; ProtocolVersion -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409913"><span id="local-6989586621680409918"><span id="local-6989586621680409921"><span class="annot"><span class="annottext">Int -&gt; ProtocolVersion -&gt; ShowS
 [ProtocolVersion] -&gt; ShowS
 ProtocolVersion -&gt; String
 (Int -&gt; ProtocolVersion -&gt; ShowS)
@@ -810,7 +810,7 @@ $cshow :: ProtocolVersion -&gt; String
 show :: ProtocolVersion -&gt; String
 $cshowList :: [ProtocolVersion] -&gt; ShowS
 showList :: [ProtocolVersion] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680407359"><span id="local-6989586621680407361"><span class="annot"><span class="annottext">(forall x. ProtocolVersion -&gt; Rep ProtocolVersion x)
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409924"><span id="local-6989586621680409926"><span class="annot"><span class="annottext">(forall x. ProtocolVersion -&gt; Rep ProtocolVersion x)
 -&gt; (forall x. Rep ProtocolVersion x -&gt; ProtocolVersion)
 -&gt; Generic ProtocolVersion
 forall x. Rep ProtocolVersion x -&gt; ProtocolVersion
@@ -821,7 +821,7 @@ $cfrom :: forall x. ProtocolVersion -&gt; Rep ProtocolVersion x
 from :: forall x. ProtocolVersion -&gt; Rep ProtocolVersion x
 $cto :: forall x. Rep ProtocolVersion x -&gt; ProtocolVersion
 to :: forall x. Rep ProtocolVersion x -&gt; ProtocolVersion
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680407366"><span id="local-6989586621680407370"><span id="local-6989586621680407373"><span id="local-6989586621680407377"><span id="local-6989586621680407380"><span id="local-6989586621680407383"><span id="local-6989586621680407386"><span class="annot"><span class="annottext">Eq ProtocolVersion
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409931"><span id="local-6989586621680409935"><span id="local-6989586621680409938"><span id="local-6989586621680409942"><span id="local-6989586621680409945"><span id="local-6989586621680409948"><span id="local-6989586621680409951"><span class="annot"><span class="annottext">Eq ProtocolVersion
 Eq ProtocolVersion =&gt;
 (ProtocolVersion -&gt; ProtocolVersion -&gt; Ordering)
 -&gt; (ProtocolVersion -&gt; ProtocolVersion -&gt; Bool)
@@ -859,7 +859,7 @@ max :: ProtocolVersion -&gt; ProtocolVersion -&gt; ProtocolVersion
 $cmin :: ProtocolVersion -&gt; ProtocolVersion -&gt; ProtocolVersion
 min :: ProtocolVersion -&gt; ProtocolVersion -&gt; ProtocolVersion
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-187"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680407391"><span id="local-6989586621680407396"><span id="local-6989586621680407400"><span class="annot"><span class="annottext">Typeable ProtocolVersion
+</span><span id="line-187"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409956"><span id="local-6989586621680409961"><span id="local-6989586621680409965"><span class="annot"><span class="annottext">Typeable ProtocolVersion
 Typeable ProtocolVersion =&gt;
 (ProtocolVersion -&gt; Encoding)
 -&gt; ((forall t. ToCBOR t =&gt; Proxy t -&gt; Size)
@@ -888,7 +888,7 @@ $cencodedListSizeExpr :: (forall t. ToCBOR t =&gt; Proxy t -&gt; Size)
 -&gt; Proxy [ProtocolVersion] -&gt; Size
 encodedListSizeExpr :: (forall t. ToCBOR t =&gt; Proxy t -&gt; Size)
 -&gt; Proxy [ProtocolVersion] -&gt; Size
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToCBOR</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680407407"><span id="local-6989586621680407412"><span class="annot"><span class="annottext">Typeable ProtocolVersion
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToCBOR</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680409972"><span id="local-6989586621680409977"><span class="annot"><span class="annottext">Typeable ProtocolVersion
 Typeable ProtocolVersion =&gt;
 (forall s. Decoder s ProtocolVersion)
 -&gt; (Proxy ProtocolVersion -&gt; Text) -&gt; FromCBOR ProtocolVersion
@@ -902,7 +902,7 @@ fromCBOR :: forall s. Decoder s ProtocolVersion
 $clabel :: Proxy ProtocolVersion -&gt; Text
 label :: Proxy ProtocolVersion -&gt; Text
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromCBOR</span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-188"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680407417"><span id="local-6989586621680407423"><span id="local-6989586621680407426"><span id="local-6989586621680407429"><span id="local-6989586621680407432"><span class="annot"><span class="annottext">[ProtocolVersion] -&gt; Value
+</span><span id="line-188"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680409982"><span id="local-6989586621680409988"><span id="local-6989586621680409991"><span id="local-6989586621680409994"><span id="local-6989586621680409997"><span class="annot"><span class="annottext">[ProtocolVersion] -&gt; Value
 [ProtocolVersion] -&gt; Encoding
 ProtocolVersion -&gt; Bool
 ProtocolVersion -&gt; Value
@@ -930,7 +930,7 @@ $ctoEncodingList :: [ProtocolVersion] -&gt; Encoding
 toEncodingList :: [ProtocolVersion] -&gt; Encoding
 $comitField :: ProtocolVersion -&gt; Bool
 omitField :: ProtocolVersion -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680407465"><span id="local-6989586621680407471"><span id="local-6989586621680407474"><span class="annot"><span class="annottext">Maybe ProtocolVersion
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680410030"><span id="local-6989586621680410036"><span id="local-6989586621680410039"><span class="annot"><span class="annottext">Maybe ProtocolVersion
 Value -&gt; Parser [ProtocolVersion]
 Value -&gt; Parser ProtocolVersion
 (Value -&gt; Parser ProtocolVersion)

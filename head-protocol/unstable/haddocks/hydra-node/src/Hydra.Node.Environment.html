@@ -35,7 +35,7 @@
 </span><a href="Hydra.Node.Environment.html#%24sel%3AconfiguredPeers%3AEnvironment"><span class="hs-identifier hs-var hs-var">configuredPeers</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span>
 </span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Configured peers for the network layer, used for comparison on etcd errors.</span></span><span>
 </span><span id="line-29"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-30"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680420950"><span id="local-6989586621680420952"><span class="annot"><span class="annottext">(forall x. Environment -&gt; Rep Environment x)
+</span><span id="line-30"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680423515"><span id="local-6989586621680423517"><span class="annot"><span class="annottext">(forall x. Environment -&gt; Rep Environment x)
 -&gt; (forall x. Rep Environment x -&gt; Environment)
 -&gt; Generic Environment
 forall x. Rep Environment x -&gt; Environment
@@ -46,7 +46,7 @@ $cfrom :: forall x. Environment -&gt; Rep Environment x
 from :: forall x. Environment -&gt; Rep Environment x
 $cto :: forall x. Rep Environment x -&gt; Environment
 to :: forall x. Rep Environment x -&gt; Environment
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420956"><span id="local-6989586621680420976"><span id="local-6989586621680420980"><span class="annot"><span class="annottext">Int -&gt; Environment -&gt; ShowS
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680423521"><span id="local-6989586621680423541"><span id="local-6989586621680423545"><span class="annot"><span class="annottext">Int -&gt; Environment -&gt; ShowS
 [Environment] -&gt; ShowS
 Environment -&gt; String
 (Int -&gt; Environment -&gt; ShowS)
@@ -61,7 +61,7 @@ $cshow :: Environment -&gt; String
 show :: Environment -&gt; String
 $cshowList :: [Environment] -&gt; ShowS
 showList :: [Environment] -&gt; ShowS
-</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680420985"><span id="local-6989586621680421003"><span class="annot"><span class="annottext">Environment -&gt; Environment -&gt; Bool
+</span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680423550"><span id="local-6989586621680423568"><span class="annot"><span class="annottext">Environment -&gt; Environment -&gt; Bool
 (Environment -&gt; Environment -&gt; Bool)
 -&gt; (Environment -&gt; Environment -&gt; Bool) -&gt; Eq Environment
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -70,7 +70,7 @@ $c== :: Environment -&gt; Environment -&gt; Bool
 $c/= :: Environment -&gt; Environment -&gt; Bool
 /= :: Environment -&gt; Environment -&gt; Bool
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-31"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680421009"><span id="local-6989586621680421016"><span id="local-6989586621680421019"><span id="local-6989586621680421022"><span id="local-6989586621680421025"><span class="annot"><span class="annottext">[Environment] -&gt; Value
+</span><span id="line-31"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680423574"><span id="local-6989586621680423581"><span id="local-6989586621680423584"><span id="local-6989586621680423587"><span id="local-6989586621680423590"><span class="annot"><span class="annottext">[Environment] -&gt; Value
 [Environment] -&gt; Encoding
 Environment -&gt; Bool
 Environment -&gt; Value
@@ -98,7 +98,7 @@ $ctoEncodingList :: [Environment] -&gt; Encoding
 toEncodingList :: [Environment] -&gt; Encoding
 $comitField :: Environment -&gt; Bool
 omitField :: Environment -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421235"><span id="local-6989586621680421242"><span id="local-6989586621680421245"><span class="annot"><span class="annottext">Maybe Environment
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680423800"><span id="local-6989586621680423807"><span id="local-6989586621680423810"><span class="annot"><span class="annottext">Maybe Environment
 Value -&gt; Parser [Environment]
 Value -&gt; Parser Environment
 (Value -&gt; Parser Environment)
@@ -117,30 +117,30 @@ omittedField :: Maybe Environment
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-32"></span><span>
 </span><span id="line-33"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasParty</span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-34"></span><span>  </span><span id="local-6989586621680421381"><span class="annot"><span class="annottext">getParty :: Environment -&gt; Party
-</span><a href="#local-6989586621680421381"><span class="hs-identifier hs-var hs-var hs-var hs-var">getParty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment -&gt; Party
+</span><span id="line-34"></span><span>  </span><span id="local-6989586621680423946"><span class="annot"><span class="annottext">getParty :: Environment -&gt; Party
+</span><a href="#local-6989586621680423946"><span class="hs-identifier hs-var hs-var hs-var hs-var">getParty</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Environment -&gt; Party
 </span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var">party</span></a></span><span>
 </span><span id="line-35"></span><span>
 </span><span id="line-36"></span><span class="annot"><span class="hs-comment">-- | Make 'HeadParameters' that are consistent with the given 'Environment'.</span></span><span>
 </span><span id="line-37"></span><span class="annot"><a href="Hydra.Node.Environment.html#mkHeadParameters"><span class="hs-identifier hs-type">mkHeadParameters</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span>
 </span><span id="line-38"></span><span id="mkHeadParameters"><span class="annot"><span class="annottext">mkHeadParameters :: Environment -&gt; HeadParameters
-</span><a href="Hydra.Node.Environment.html#mkHeadParameters"><span class="hs-identifier hs-var hs-var">mkHeadParameters</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680421385"><span class="annot"><span class="annottext">Party
+</span><a href="Hydra.Node.Environment.html#mkHeadParameters"><span class="hs-identifier hs-var hs-var">mkHeadParameters</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621680423950"><span class="annot"><span class="annottext">Party
 $sel:party:Environment :: Environment -&gt; Party
 party :: Party
-</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421386"><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Node.Environment.html#%24sel%3Aparty%3AEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680423951"><span class="annot"><span class="annottext">[Party]
 $sel:otherParties:Environment :: Environment -&gt; [Party]
 otherParties :: [Party]
-</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680421387"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AotherParties%3AEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680423952"><span class="annot"><span class="annottext">ContestationPeriod
 $sel:contestationPeriod:Environment :: Environment -&gt; ContestationPeriod
 contestationPeriod :: ContestationPeriod
 </span><a href="Hydra.Node.Environment.html#%24sel%3AcontestationPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ContestationPeriod
 contestationPeriod :: ContestationPeriod
 $sel:contestationPeriod:HeadParameters :: ContestationPeriod
-</span><a href="#local-6989586621680421387"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:HeadParameters :: [Party]
+</span><a href="#local-6989586621680423952"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:parties:HeadParameters :: [Party]
 </span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621680421385"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
+</span><a href="#local-6989586621680423950"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/gzcywk4gwjw7sny9jb53pk5hsfrza7x1-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621680421386"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621680423951"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-40"></span></pre></body></html>

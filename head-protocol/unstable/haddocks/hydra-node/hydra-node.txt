@@ -2214,6 +2214,9 @@ PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 RejectedInput :: ClientInput tx -> Text -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:reason:CommandFailed] :: ClientMessage tx -> Text
+SideLoadSnapshotRejected :: ClientInput tx -> SideLoadRequirementFailure tx -> ClientMessage tx
+[$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
+[$sel:requirementFailure:CommandFailed] :: ClientMessage tx -> SideLoadRequirementFailure tx
 
 -- | A friendly welcome message which tells a client something about the
 --   node. Currently used for knowing what signing key the server uses (it
@@ -3084,6 +3087,23 @@ NetworkInput :: TTL -> NetworkEvent (Message tx) -> Input tx
 ChainInput :: ChainEvent tx -> Input tx
 [$sel:chainEvent:ClientInput] :: Input tx -> ChainEvent tx
 type TTL = Natural
+data SideLoadRequirementFailure tx
+SideLoadInitialSnapshotMismatch :: SideLoadRequirementFailure tx
+SideLoadSnNumberInvalid :: SnapshotNumber -> SnapshotNumber -> SideLoadRequirementFailure tx
+[$sel:requestedSn:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotNumber
+[$sel:lastSeenSn:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotNumber
+SideLoadSvNumberInvalid :: SnapshotVersion -> SnapshotVersion -> SideLoadRequirementFailure tx
+[$sel:requestedSv:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotVersion
+[$sel:lastSeenSv:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotVersion
+SideLoadUTxOToCommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
+[$sel:requestedSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
+[$sel:lastSeenSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
+SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
+[$sel:requestedSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
+[$sel:lastSeenSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
+SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
+[$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
+[$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
 data LogicError tx
 UnhandledInput :: Input tx -> HeadState tx -> LogicError tx
 [$sel:input:UnhandledInput] :: LogicError tx -> Input tx
@@ -3125,23 +3145,6 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 NoMatchingDeposit :: RequirementFailure tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
-data SideLoadRequirementFailure tx
-SideLoadInitialSnapshotMismatch :: SideLoadRequirementFailure tx
-SideLoadSnNumberInvalid :: SnapshotNumber -> SnapshotNumber -> SideLoadRequirementFailure tx
-[$sel:requestedSn:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotNumber
-[$sel:lastSeenSn:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotNumber
-SideLoadSvNumberInvalid :: SnapshotVersion -> SnapshotVersion -> SideLoadRequirementFailure tx
-[$sel:requestedSv:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotVersion
-[$sel:lastSeenSv:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> SnapshotVersion
-SideLoadUTxOToCommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
-[$sel:requestedSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
-[$sel:lastSeenSc:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
-SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> SideLoadRequirementFailure tx
-[$sel:requestedSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
-[$sel:lastSeenSd:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Maybe (UTxOType tx)
-SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
-[$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
-[$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 --   overall protocol state, but also the off-chain
