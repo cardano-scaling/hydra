@@ -114,6 +114,7 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
+import Hydra.Contract.Vesting qualified as Vesting
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -121,6 +122,7 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (SyncedStatus (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
+import Hydra.Plutus (vestingValidatorScript)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (constructDepositUTxO)
@@ -165,6 +167,7 @@ import Network.HTTP.Req (
   (/:),
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
+import PlutusLedgerApi.V3 (BuiltinByteString, PubKeyHash (..), toBuiltin)
 import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
@@ -1159,11 +1162,11 @@ singlePartyValidityRangesWithAiken tracer workDir backend hydraScriptsTxId =
         <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    (_, walletSk) <- keysFor AliceFunds
+    (walletVk, walletSk) <- keysFor AliceFunds
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
-      (clientPayload, scriptUTxO, _) <- prepareScriptPayload 7_000_000 0
+      (clientPayload, scriptUTxO, _) <- prepareScriptPayload 7_000_000 0 walletVk
 
       res <-
         runReq defaultHttpConfig $
@@ -1184,7 +1187,7 @@ singlePartyValidityRangesWithAiken tracer workDir backend hydraScriptsTxId =
       lockedUTxO `shouldBe` Just (toJSON scriptUTxO)
 
       -- incrementally commit script to a running Head
-      (clientPayload', _, blueprint) <- prepareScriptPayload 5_000_000 2_000_000
+      (clientPayload', _, blueprint) <- prepareScriptPayload 5_000_000 2_000_000 walletVk
 
       res' <-
         runReq defaultHttpConfig $
@@ -1207,11 +1210,25 @@ singlePartyValidityRangesWithAiken tracer workDir backend hydraScriptsTxId =
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
       getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> expectedDeposit
  where
-  prepareScriptPayload lovelaceAmt commitAmount = do
+  prepareScriptPayload lovelaceAmt commitAmount vk = do
     networkId <- Backend.queryNetworkId backend
-    let scriptAddress = mkScriptAddress networkId dummyValidatorScript
+
+    -- \| Convert a cardano-api VerificationKey (PaymentKey) to Plutus PubKeyHash
+    let vkToPubKeyHash vkey =
+          let keyHash :: CAPI.Hash PaymentKey
+              keyHash = CAPI.verificationKeyHash vkey
+
+              hashBytes :: BuiltinByteString
+              hashBytes = toBuiltin (CAPI.serialiseToRawBytes keyHash)
+           in PubKeyHash hashBytes
+
+    let scriptAddress = mkScriptAddress networkId vestingValidatorScript
+    let expectedHash = vkToPubKeyHash vk
+
+    let vestingPlutusDatum = Vesting.datum (100, expectedHash, expectedHash)
     let datumHash :: TxOutDatum ctx
-        datumHash = mkTxOutDatumHash ()
+        datumHash = mkTxOutDatumHash vestingPlutusDatum
+
     (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptOut' = modifyTxOutValue (const $ lovelaceToValue commitAmount) scriptOut
     let scriptUTxO = UTxO.singleton scriptIn scriptOut
@@ -1219,7 +1236,7 @@ singlePartyValidityRangesWithAiken tracer workDir backend hydraScriptsTxId =
     let scriptWitness =
           BuildTxWith $
             ScriptWitness scriptWitnessInCtx $
-              mkScriptWitness dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
+              mkScriptWitness vestingValidatorScript (mkScriptDatum vestingPlutusDatum) (toScriptData ())
     let spendingTx =
           unsafeBuildTransaction $
             defaultTxBodyContent

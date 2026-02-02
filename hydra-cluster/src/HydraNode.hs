@@ -42,6 +42,7 @@ import System.Process.Typed (
   ExitCode (..),
   createPipe,
   getStderr,
+  inherit,
   proc,
   setStderr,
   setStdout,
@@ -466,7 +467,7 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
     let cmd =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
-            & setStderr createPipe
+            & setStderr inherit
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
@@ -478,15 +479,15 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
         <&> either absurd id
  where
   collectAndCheckExitCode p = do
-    let h = getStderr p
+    -- let h = getStderr p
     waitExitCode p >>= \case
       ExitSuccess -> failure "hydra-node stopped early"
       ExitFailure ec -> do
-        err <- hGetContents h
+        -- err <- hGetContents h
         failure . toString $
           unlines
             [ "hydra-node (nodeId = " <> show hydraNodeId <> ") exited with failure code: " <> show ec
-            , decodeUtf8 err
+            -- , decodeUtf8 err
             ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"

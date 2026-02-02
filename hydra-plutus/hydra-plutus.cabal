@@ -59,6 +59,7 @@ library
     Hydra.Contract.InitialError
     Hydra.Contract.MintAction
     Hydra.Contract.Util
+    Hydra.Contract.Vesting
     Hydra.Data.ContestationPeriod
     Hydra.Data.Party
     Hydra.Plutus

@@ -109,6 +109,7 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
+    , plutus-ledger-api
     , process
     , QuickCheck
     , req

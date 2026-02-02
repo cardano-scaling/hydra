@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
   shelleyBasedEra,
   throwError,
  )
+import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
   ChainCallback,
@@ -245,12 +246,15 @@ finalizeTx ::
   m Tx
 finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
   let headUTxO = getKnownUTxO ctx <> utxo <> userUTxO
+  traceShowM (renderTxWithUTxO headUTxO partialTx)
   coverFee headUTxO partialTx >>= \case
     Left ErrNoFuelUTxOFound ->
       throwIO NoFuelUTXOFound{failingTx = partialTx}
     Left ErrNotEnoughFunds{} ->
       throwIO NotEnoughFuel{failingTx = partialTx}
-    Left ErrScriptExecutionFailed{redeemerPointer, scriptFailure} ->
+    Left ErrScriptExecutionFailed{redeemerPointer, scriptFailure} -> do
+      traceShowM "scriptFailure"
+      traceShowM scriptFailure
       throwIO
         ( ScriptFailedInWallet
             { redeemerPtr = redeemerPointer
