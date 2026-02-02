@@ -263,15 +263,25 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   -- would invalidate most Hydra protocol transactions.
   let txOuts = body ^. outputsTxBodyL <&> ensureMinCoinTxOut pparams
 
-  -- Compute costs of redeemers
   let utxo = lookupUTxO <> walletUTxO
-  estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
+
+  -- First, adjust redeemer indices for the fee input (keeping original execution units)
+  let redeemersWithAdjustedIndices =
+        adjustRedeemerIndices (body ^. inputsTxBodyL) newInputs (wits ^. rdmrsTxWitsL)
+
+  -- Build a transaction with the fee input and change output included for cost
+  -- estimation. We use feeTxOut as a placeholder for the change output since
+  -- the script context (number of outputs, addresses) affects execution costs.
+  let txForEstimation =
+        partialTx
+          & bodyTxL . inputsTxBodyL .~ newInputs
+          & bodyTxL . outputsTxBodyL .~ (txOuts |> feeTxOut)
+          & witsTxL . rdmrsTxWitsL .~ redeemersWithAdjustedIndices
+
+  -- Estimate script costs on the transaction WITH the fee input already added
+  estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo txForEstimation
   let adjustedRedeemers =
-        adjustRedeemers
-          (body ^. inputsTxBodyL)
-          newInputs
-          (spy' "estimated" estimatedScriptCosts)
-          (wits ^. rdmrsTxWitsL)
+        applyEstimatedCosts (spy' "estimated" estimatedScriptCosts) redeemersWithAdjustedIndices
 
   -- Compute script integrity hash from adjusted redeemers
   let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
@@ -348,45 +358,55 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     totalIn = foldMap (view coinTxOutL) resolvedInputs
     changeOut = totalIn <> invert totalOut
 
-  adjustRedeemers ::
-    Set TxIn ->
-    Set TxIn ->
+  -- \| Apply estimated execution units to redeemers. This replaces the existing
+  -- execution units with the estimated costs.
+  applyEstimatedCosts ::
     Map (PlutusPurpose AsIx era) ExUnits ->
     Redeemers era ->
     Redeemers era
-  adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
-    Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
+  applyEstimatedCosts estimatedCosts (Redeemers redeemers) =
+    Redeemers $ Map.mapWithKey updateExUnits redeemers
    where
-    -- TODO: This appears to be VERY fragile and we should probabaly resolve
-    -- redeemers, then set the correct units and rebuild the indexed redeemers
-    -- from the new inputs. In fact, the starting / target data should be tx
-    -- body, because minting purposes (for example) also reference a specific
-    -- entry in the 'minting' field of the body.
-    sortedInputs = sort $ toList initialInputs
+    updateExUnits ptr (d, _oldExUnits) =
+      let exUnits =
+            fromMaybe (error $ "applyEstimatedCosts: missing cost for " <> show ptr) $
+              Map.lookup ptr estimatedCosts
+       in (d, exUnits)
+
+  -- \| Adjust redeemer indices when inputs change. When a fee input is added,
+  -- it may shift the position of existing inputs in the sorted order, which
+  -- requires updating spending purpose indices accordingly.
+  adjustRedeemerIndices ::
+    Set TxIn ->
+    Set TxIn ->
+    Redeemers era ->
+    Redeemers era
+  adjustRedeemerIndices initialInputs finalInputs (Redeemers redeemers) =
+    Redeemers $ Map.fromList $ map adjustOne $ Map.toList redeemers
+   where
+    sortedInitialInputs = sort $ toList initialInputs
     sortedFinalInputs = sort $ toList finalInputs
-    differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
+
+    -- Map from TxIn to its index in the final sorted inputs
+    finalInputIndex :: Map TxIn Word32
+    finalInputIndex = Map.fromList $ zip sortedFinalInputs [0 ..]
+
+    -- Map from original index to TxIn
+    initialIndexToTxIn :: Map Word32 TxIn
+    initialIndexToTxIn = Map.fromList $ zip [0 ..] sortedInitialInputs
 
     adjustOne :: (PlutusPurpose AsIx era, (Data era, ExUnits)) -> (PlutusPurpose AsIx era, (Data era, ExUnits))
-    adjustOne (ptr, (d, _exUnits)) =
-      case ptr of
-        SpendingPurpose idx
-          | fromIntegral (unAsIx idx) `elem` differences ->
-              (SpendingPurpose (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
-        _ ->
-          (ptr, (d, executionUnitsFor ptr))
+    adjustOne (ptr, v) = (adjustPurpose ptr, v)
 
-    executionUnitsFor :: PlutusPurpose AsIx era -> ExUnits
-    executionUnitsFor ptr =
-      case lookup ptr estimatedCosts of
-        Nothing ->
-          -- FIXME: This lookup should never fail and we must not use max units
-          -- (or a constant fraction of it)
-          let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
-              ExUnits totalMem totalCpu = fold estimatedCosts
-           in ExUnits
-                (floor $ maxMem % totalMem)
-                (floor $ maxCpu % totalCpu)
-        Just exUnits -> exUnits
+    adjustPurpose :: PlutusPurpose AsIx era -> PlutusPurpose AsIx era
+    adjustPurpose purpose@(SpendingPurpose (AsIx idx)) =
+      -- Get the TxIn that was at this index in the original sorted inputs,
+      -- then find its new index in the final sorted inputs
+      fromMaybe purpose $ do
+        txIn <- Map.lookup idx initialIndexToTxIn
+        newIdx <- Map.lookup txIn finalInputIndex
+        pure $ SpendingPurpose (AsIx newIdx)
+    adjustPurpose other = other
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =
