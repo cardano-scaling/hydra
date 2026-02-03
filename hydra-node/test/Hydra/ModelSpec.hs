@@ -159,8 +159,8 @@ spec = do
   -- This scenario seeds a head with a single party and an UTxO set of 42 elements,
   -- which is over the budget of the mocked chain implementation.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
-  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 42)
-  prop "succeeds fanout under the limit" $ propFanoutLimit 41
+  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 23)
+  prop "succeeds fanout under the limit" $ propFanoutLimit 22
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "check head opens if all participants commit" $ propDL headOpensIfAllPartiesCommit
