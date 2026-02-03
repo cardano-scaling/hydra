@@ -101,6 +101,7 @@ data InitialState tx = InitialState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , headSeed :: HeadSeed
+  , headInitializedAt :: UTCTime
   }
   deriving stock (Generic)
 
@@ -123,6 +124,7 @@ data OpenState tx = OpenState
   , chainState :: ChainStateType tx
   , headId :: HeadId
   , headSeed :: HeadSeed
+  , headInitializedAt :: UTCTime
   }
   deriving stock (Generic)
 

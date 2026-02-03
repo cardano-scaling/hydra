@@ -1115,6 +1115,8 @@ spec =
 
     describe "Coordinated Head Protocol using real Tx" $ do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+          headInitializedAt = generateWith arbitrary 42
+
       prop "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ \now -> monadicIO $ do
         let singleParty = [alice]
             plusTime = flip addUTCTime
@@ -1154,6 +1156,7 @@ spec =
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                         , headId = testHeadId
                         , headSeed = testHeadSeed
+                        , headInitializedAt
                         }
                 , pendingDeposits = mempty
                 , currentSlot = 0
@@ -1251,6 +1254,7 @@ spec =
                         , chainState = Prelude.error "should not be used"
                         , headId = testHeadId
                         , headSeed = testHeadSeed
+                        , headInitializedAt
                         }
                 , pendingDeposits = mempty
                 , currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
@@ -1270,39 +1274,39 @@ spec =
               } -> null localTxs
           _ -> False
 
-    prop "empty inputs in decommit tx are prevented" $ \tx -> do
-      let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
-      let st =
-            NodeInSync
-              { headState =
-                  Open
-                    OpenState
-                      { parameters = HeadParameters defaultContestationPeriod threeParties
-                      , coordinatedHeadState =
-                          CoordinatedHeadState
-                            { localUTxO = mempty
-                            , allTxs = mempty
-                            , localTxs = []
-                            , confirmedSnapshot = InitialSnapshot testHeadId mempty
-                            , seenSnapshot = NoSeenSnapshot
-                            , currentDepositTxId = Nothing
-                            , decommitTx = Nothing
-                            , version = 0
-                            }
-                      , chainState = Prelude.error "should not be used"
-                      , headId = testHeadId
-                      , headSeed = testHeadSeed
-                      }
-              , pendingDeposits = mempty
-              , currentSlot = ChainSlot 1
-              }
+      prop "empty inputs in decommit tx are prevented" $ \tx -> do
+        let st =
+              NodeInSync
+                { headState =
+                    Open
+                      OpenState
+                        { parameters = HeadParameters defaultContestationPeriod threeParties
+                        , coordinatedHeadState =
+                            CoordinatedHeadState
+                              { localUTxO = mempty
+                              , allTxs = mempty
+                              , localTxs = []
+                              , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                              , seenSnapshot = NoSeenSnapshot
+                              , currentDepositTxId = Nothing
+                              , decommitTx = Nothing
+                              , version = 0
+                              }
+                        , chainState = Prelude.error "should not be used"
+                        , headId = testHeadId
+                        , headSeed = testHeadSeed
+                        , headInitializedAt
+                        }
+                , pendingDeposits = mempty
+                , currentSlot = ChainSlot 1
+                }
 
-      let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
-      let input = receiveMessage $ ReqDec{transaction = tx'}
-      now <- nowFromSlot st.currentSlot
-      update bobEnv ledger now st input `shouldSatisfy` \case
-        Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
-        _ -> False
+        let tx' = fromLedgerTx (toLedgerTx tx & bodyTxL . inputsTxBodyL .~ mempty)
+        let input = receiveMessage $ ReqDec{transaction = tx'}
+        now <- nowFromSlot st.currentSlot
+        update bobEnv ledger now st input `shouldSatisfy` \case
+          Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
+          _ -> False
 
 -- * Properties
 
@@ -1450,6 +1454,7 @@ inInitialState parties =
             , chainState = 0
             , headId = testHeadId
             , headSeed = testHeadSeed
+            , headInitializedAt = generateWith arbitrary 42
             }
     , pendingDeposits = mempty
     , currentSlot = 0
@@ -1491,12 +1496,14 @@ inOpenState' parties coordinatedHeadState =
             , chainState = 0
             , headId = testHeadId
             , headSeed = testHeadSeed
+            , headInitializedAt
             }
     , pendingDeposits = mempty
     , currentSlot = 0
     }
  where
   parameters = HeadParameters defaultContestationPeriod parties
+  headInitializedAt = generateWith arbitrary 42
 
 -- XXX: This is always called with 'threeParties'
 inClosedState :: [Party] -> NodeState SimpleTx

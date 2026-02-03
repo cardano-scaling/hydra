@@ -84,7 +84,6 @@ withAPIServer ::
   IsChainState tx =>
   APIServerConfig ->
   Environment ->
-  FilePath ->
   Party ->
   EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
@@ -95,7 +94,7 @@ withAPIServer ::
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env stateFile party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
+withAPIServer config env party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -141,7 +140,6 @@ withAPIServer config env stateFile party eventSource tracer initialChainState ch
                   tracer
                   chain
                   env
-                  stateFile
                   pparams
                   (atomically $ getLatest nodeStateP)
                   (atomically $ getLatest commitInfoP)
