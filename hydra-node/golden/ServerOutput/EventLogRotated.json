@@ -6,52 +6,43 @@
                 "headState": {
                     "contents": {
                         "chainState": {
-                            "recordedAt": null,
+                            "recordedAt": {
+                                "tag": "ChainPointAtGenesis"
+                            },
                             "spendableUTxO": {
-                                "0000000100010101000000000001010101010101000000010001010000000101#53": {
-                                    "address": "addr_test1xqk052fntst9mjemjcfp87kxhdn48f7uy7kfl02nr0szeu0m430d7ey20tvnxy60kyhhl5l839r0g6xq2paepfjcg0hq46yg6s",
+                                "0100000100000000000001000100010100010000010001000100010101000101#83": {
+                                    "address": "addr_test1zqtjhq7c97q9uu52y4xu25vz8jzzcvyyt4rmse9ja6f9mga7yp5tcxtdkumulnxhjcsrfj7ezzgtgr86g64lhxxncxjq5rdhh4",
                                     "datum": null,
-                                    "inlineDatum": {
-                                        "int": -2
-                                    },
-                                    "inlineDatumRaw": "21",
-                                    "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
-                                    "referenceScript": null,
-                                    "value": {
-                                        "lovelace": 1008540
-                                    }
-                                }
-                            }
-                        },
-                        "committed": {
-                            "d4075407365d2373c3f0e775a2b4960343f2edadfa9851f54e93dd94274c3d33": {
-                                "0100000001000101000101010001010100010101010100000101010100010101#38": {
-                                    "address": "addr_test1wzcnv407z7ng73gtyzxf879h980zrw54xc7zhqen6s2hvng58n0p8",
-                                    "datum": null,
-                                    "datumhash": "b7306ec2cbf3f9b5faf994d6f1c2aadf511ffad45dd101dc55d39d2a1cdb4f40",
+                                    "datumhash": null,
                                     "inlineDatum": null,
                                     "inlineDatumRaw": null,
                                     "referenceScript": null,
                                     "value": {
-                                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
-                                            "e4663b": 8556050355498001224
+                                        "d9f470d3e20b394ef718d43ff41e56adff3da6c1bac7f18d48d6f775": {
+                                            "3113d69c3dc6067b45d7a312b4803cd418616dde29b31f4e79701c7b50": 2789948328474725461
                                         },
-                                        "lovelace": 1193870
+                                        "lovelace": 45000000000000000
                                     }
                                 }
                             }
                         },
-                        "headId": "00000101010100010000000000000001",
-                        "headSeed": "00010100010100000000000101010001",
+                        "committed": {},
+                        "headId": "00000001000101000100010101000101",
+                        "headInitializedAt": "1864-05-09T13:48:57.744318004944Z",
+                        "headSeed": "00000101010100010000000000000001",
                         "parameters": {
-                            "contestationPeriod": 2592000,
+                            "contestationPeriod": 31536000,
                             "parties": [
                                 {
-                                    "vkey": "cd1a36fddfc1709e6621dcf9b0829e2c72d17a396a387d4d886fc468e18531ff"
+                                    "vkey": "2c7f0dec195762bc23f47cefa8c21c11f6f4fd11f670e67589148f8e3ee0b336"
                                 }
                             ]
                         },
-                        "pendingCommits": []
+                        "pendingCommits": [
+                            {
+                                "vkey": "cd1a36fddfc1709e6621dcf9b0829e2c72d17a396a387d4d886fc468e18531ff"
+                            }
+                        ]
                     },
                     "tag": "Initial"
                 },
