@@ -13,8 +13,8 @@ import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
-  plutusScriptLanguage,
   ExUnits (ExUnits),
+  plutusScriptLanguage,
   unAsIx,
  )
 import Cardano.Ledger.Alonzo.TxWits (
@@ -45,7 +45,6 @@ import Cardano.Ledger.Api (
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
 import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
-import Cardano.Ledger.Babbage.Tx (hashScriptIntegrity)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.BaseTypes qualified as Ledger
