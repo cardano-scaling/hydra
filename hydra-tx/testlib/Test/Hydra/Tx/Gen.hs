@@ -337,7 +337,10 @@ instance Arbitrary TxId where
     onlyTxId (TxIn txi _) = txi
 
 genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
+genScriptRegistry = genScriptRegistryWithCRSSize defaultItems
+
+genScriptRegistryWithCRSSize :: Int -> Gen ScriptRegistry
+genScriptRegistryWithCRSSize crsSize = do
   txId' <- arbitrary
   vk <- arbitrary
   txOut <- genTxOutAdaOnly vk
@@ -357,7 +360,7 @@ genScriptRegistry = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum defaultItems}
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum crsSize}
           )
       }
 
