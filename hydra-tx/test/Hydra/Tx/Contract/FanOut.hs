@@ -26,12 +26,12 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
+import Hydra.Tx.IsTx (IsTx (hashUTxO, utxoToElement))
 import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (bls12_381_G2_uncompress, toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -54,7 +54,7 @@ healthyFanoutTx =
       healthySlotNo
       headTokenScript
 
-  scriptRegistry = genScriptRegistry `generateWith` 42
+  scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
   headInput = generateWith arbitrary 42
 
@@ -82,7 +82,16 @@ healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
 accumulator :: Accumulator.HydraAccumulator
-accumulator = Accumulator.buildFromUTxO @Tx (uncurry (<>) healthyFanoutSnapshotUTxO)
+accumulator =
+  Accumulator.buildFromSnapshotUTxOs
+    (fst healthyFanoutSnapshotUTxO)
+    Nothing
+    (Just $ snd healthyFanoutSnapshotUTxO)
+
+crsSize :: Int
+crsSize = Accumulator.requiredCRSSize accumulator
+
+crs = Accumulator.generateCRS crsSize
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
@@ -101,13 +110,16 @@ healthyFanoutDatum =
       , version = 0
       , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
       , proof =
-          let snapshotUTxO =
-                uncurry (<>) healthyFanoutSnapshotUTxO
+          let fanoutOutputs =
+                UTxO.txOutputs (fst healthyFanoutSnapshotUTxO)
+                  <> UTxO.txOutputs (snd healthyFanoutSnapshotUTxO)
+              subsetElements =
+                utxoToElement @Tx <$> fanoutOutputs
            in bls12_381_G2_uncompress $
                 toBuiltin $
-                  Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator (Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1)
+                  Accumulator.createMembershipProof subsetElements accumulator crs
       , accumulatorCommitment =
-          Accumulator.getAccumulatorCommitment $
+          Accumulator.getAccumulatorCommitmentWithCRS crs $
             Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) mempty (Just $ snd healthyFanoutSnapshotUTxO)
       }
  where
