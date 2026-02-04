@@ -13,22 +13,22 @@
 </span><span id="line-13"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-api 'Hash' into a plutus 'PubKeyHash'</span></span><span>
 </span><span id="line-14"></span><span class="annot"><a href="Hydra.Cardano.Api.Hash.html#toPlutusKeyHash"><span class="hs-identifier hs-type">toPlutusKeyHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.PubKeyHash</span></span><span>
 </span><span id="line-15"></span><span id="toPlutusKeyHash"><span class="annot"><span class="annottext">toPlutusKeyHash :: Hash PaymentKey -&gt; PubKeyHash
-</span><a href="Hydra.Cardano.Api.Hash.html#toPlutusKeyHash"><span class="hs-identifier hs-var hs-var">toPlutusKeyHash</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PaymentKeyHash</span></span><span> </span><span id="local-6989586621679272581"><span class="annot"><span class="annottext">KeyHash 'Payment
-</span><a href="#local-6989586621679272581"><span class="hs-identifier hs-var">vkh</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KeyHash 'Payment -&gt; PubKeyHash
+</span><a href="Hydra.Cardano.Api.Hash.html#toPlutusKeyHash"><span class="hs-identifier hs-var hs-var">toPlutusKeyHash</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PaymentKeyHash</span></span><span> </span><span id="local-6989586621679273423"><span class="annot"><span class="annottext">KeyHash 'Payment
+</span><a href="#local-6989586621679273423"><span class="hs-identifier hs-var">vkh</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">KeyHash 'Payment -&gt; PubKeyHash
 forall (d :: KeyRole). KeyHash d -&gt; PubKeyHash
 </span><span class="hs-identifier hs-var">transKeyHash</span></span><span> </span><span class="annot"><span class="annottext">KeyHash 'Payment
-</span><a href="#local-6989586621679272581"><span class="hs-identifier hs-var">vkh</span></a></span><span>
+</span><a href="#local-6989586621679273423"><span class="hs-identifier hs-var">vkh</span></a></span><span>
 </span><span id="line-16"></span><span>
 </span><span id="line-17"></span><span class="annot"><span class="hs-comment">-- | Convert a cardano-api 'Hash' into a cardano-ledger 'KeyHash'</span></span><span>
 </span><span id="line-18"></span><span class="annot"><a href="Hydra.Cardano.Api.Hash.html#toLedgerKeyHash"><span class="hs-identifier hs-type">toLedgerKeyHash</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.KeyHash</span></span><span> </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Ledger.Witness</span></span><span>
 </span><span id="line-19"></span><span id="toLedgerKeyHash"><span class="annot"><span class="annottext">toLedgerKeyHash :: Hash PaymentKey -&gt; KeyHash 'Witness
-</span><a href="Hydra.Cardano.Api.Hash.html#toLedgerKeyHash"><span class="hs-identifier hs-var hs-var">toLedgerKeyHash</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PaymentKeyHash</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.KeyHash</span></span><span> </span><span id="local-6989586621679272584"><span class="annot"><span class="annottext">Hash ADDRHASH (VerKeyDSIGN DSIGN)
-</span><a href="#local-6989586621679272584"><span class="hs-identifier hs-var">vkh</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Hash.html#toLedgerKeyHash"><span class="hs-identifier hs-var hs-var">toLedgerKeyHash</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">PaymentKeyHash</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.KeyHash</span></span><span> </span><span id="local-6989586621679273426"><span class="annot"><span class="annottext">Hash ADDRHASH (VerKeyDSIGN DSIGN)
+</span><a href="#local-6989586621679273426"><span class="hs-identifier hs-var">vkh</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-20"></span><span>  </span><span class="annot"><span class="annottext">Hash ADDRHASH (VerKeyDSIGN DSIGN) -&gt; KeyHash 'Witness
 forall (r :: KeyRole).
 Hash ADDRHASH (VerKeyDSIGN DSIGN) -&gt; KeyHash r
 </span><span class="hs-identifier hs-var">Ledger.KeyHash</span></span><span> </span><span class="annot"><span class="annottext">Hash ADDRHASH (VerKeyDSIGN DSIGN)
-</span><a href="#local-6989586621679272584"><span class="hs-identifier hs-var">vkh</span></a></span><span>
+</span><a href="#local-6989586621679273426"><span class="hs-identifier hs-var">vkh</span></a></span><span>
 </span><span id="line-21"></span><span>
 </span><span id="line-22"></span><span class="hs-comment">-- | Unsafe wrap some bytes as a 'Hash PaymentKey'.</span><span>
 </span><span id="line-23"></span><span class="hs-comment">--</span><span>
@@ -38,11 +38,11 @@ Hash ADDRHASH (VerKeyDSIGN DSIGN) -&gt; KeyHash r
 </span><span id="line-27"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span>
 </span><span id="line-29"></span><span id="unsafePaymentKeyHashFromBytes"><span class="annot"><span class="annottext">unsafePaymentKeyHashFromBytes :: HasCallStack =&gt; ByteString -&gt; Hash PaymentKey
-</span><a href="Hydra.Cardano.Api.Hash.html#unsafePaymentKeyHashFromBytes"><span class="hs-identifier hs-var hs-var">unsafePaymentKeyHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679272606"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272606"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
+</span><a href="Hydra.Cardano.Api.Hash.html#unsafePaymentKeyHashFromBytes"><span class="hs-identifier hs-var hs-var">unsafePaymentKeyHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679273448"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679273448"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
 </span><span id="line-30"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272606"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679273448"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">28</span></span><span> </span><span class="hs-glyph">=</span><span>
@@ -57,7 +57,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a. Show a =&gt; a -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272606"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+</span><a href="#local-6989586621679273448"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot; bytes.&quot;</span></span><span>
@@ -78,7 +78,7 @@ forall hash a.
 (HasCallStack, HashAlgorithm hash) =&gt;
 ByteString -&gt; Hash hash a
 </span><a href="Hydra.Cardano.Api.Prelude.html#unsafeHashFromBytes"><span class="hs-identifier hs-var">unsafeHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272606"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679273448"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-34"></span><span>
 </span><span id="line-35"></span><span class="hs-comment">-- | Unsafe wrap some bytes as a 'Hash ScriptData', relying on the fact that</span><span>
 </span><span id="line-36"></span><span class="hs-comment">-- Plutus is using Blake2b_256 for hashing data (according to 'cardano-ledger').</span><span>
@@ -89,11 +89,11 @@ ByteString -&gt; Hash hash a
 </span><span id="line-41"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-42"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ScriptData</span></span><span>
 </span><span id="line-43"></span><span id="unsafeScriptDataHashFromBytes"><span class="annot"><span class="annottext">unsafeScriptDataHashFromBytes :: HasCallStack =&gt; ByteString -&gt; Hash ScriptData
-</span><a href="Hydra.Cardano.Api.Hash.html#unsafeScriptDataHashFromBytes"><span class="hs-identifier hs-var hs-var">unsafeScriptDataHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679272628"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272628"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
+</span><a href="Hydra.Cardano.Api.Hash.html#unsafeScriptDataHashFromBytes"><span class="hs-identifier hs-var hs-var">unsafeScriptDataHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679273470"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679273470"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
 </span><span id="line-44"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272628"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679273470"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">32</span></span><span> </span><span class="hs-glyph">=</span><span>
@@ -108,7 +108,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a. Show a =&gt; a -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272628"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+</span><a href="#local-6989586621679273470"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot; bytes.&quot;</span></span><span>
@@ -132,18 +132,18 @@ forall hash a.
 (HasCallStack, HashAlgorithm hash) =&gt;
 ByteString -&gt; Hash hash a
 </span><a href="Hydra.Cardano.Api.Prelude.html#unsafeHashFromBytes"><span class="hs-identifier hs-var">unsafeHashFromBytes</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272628"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679273470"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-50"></span><span>
 </span><span id="line-51"></span><span class="annot"><a href="Hydra.Cardano.Api.Hash.html#unsafeBlockHeaderHashFromBytes"><span class="hs-identifier hs-type">unsafeBlockHeaderHashFromBytes</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-52"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-53"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-54"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">BlockHeader</span></span><span>
 </span><span id="line-55"></span><span id="unsafeBlockHeaderHashFromBytes"><span class="annot"><span class="annottext">unsafeBlockHeaderHashFromBytes :: HasCallStack =&gt; ByteString -&gt; Hash BlockHeader
-</span><a href="Hydra.Cardano.Api.Hash.html#unsafeBlockHeaderHashFromBytes"><span class="hs-identifier hs-var hs-var">unsafeBlockHeaderHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679272660"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272660"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
+</span><a href="Hydra.Cardano.Api.Hash.html#unsafeBlockHeaderHashFromBytes"><span class="hs-identifier hs-var hs-var">unsafeBlockHeaderHashFromBytes</span></a></span></span><span> </span><span id="local-6989586621679273502"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679273502"><span class="hs-identifier hs-var">bytes</span></a></span></span><span>
 </span><span id="line-56"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272660"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679273502"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">32</span></span><span> </span><span class="hs-glyph">=</span><span>
@@ -158,7 +158,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a. Show a =&gt; a -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#length"><span class="hs-identifier hs-var">BS.length</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272660"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+</span><a href="#local-6989586621679273502"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot; bytes.&quot;</span></span><span>
@@ -174,9 +174,9 @@ forall t. HasTypeProxy t =&gt; Proxy t -&gt; AsType t
 </span><span class="hs-identifier hs-var">proxyToAsType</span></span><span> </span><span class="annot"><span class="annottext">Proxy (Hash BlockHeader)
 forall {k} (t :: k). Proxy t
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272660"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-60"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679272664"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679272664"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679273502"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-60"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679273506"><span class="annot"><span class="annottext">SerialiseAsRawBytesError
+</span><a href="#local-6989586621679273506"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-61"></span><span>          </span><span class="annot"><span class="annottext">[Char] -&gt; Hash BlockHeader
 forall a. HasCallStack =&gt; [Char] -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Err.html#error"><span class="hs-identifier hs-var">error</span></a></span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; Hash BlockHeader) -&gt; [Char] -&gt; Hash BlockHeader
@@ -189,7 +189,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; [Char]
 forall a. Show a =&gt; a -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679272660"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><a href="#local-6989586621679273502"><span class="hs-identifier hs-var">bytes</span></a></span><span>
 </span><span id="line-64"></span><span>              </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
@@ -199,30 +199,30 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError -&gt; [Char]
 forall a. Show a =&gt; a -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">SerialiseAsRawBytesError
-</span><a href="#local-6989586621679272664"><span class="hs-identifier hs-var">e</span></a></span><span>
-</span><span id="line-66"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679272665"><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679272665"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
-</span><a href="#local-6989586621679272665"><span class="hs-identifier hs-var">h</span></a></span><span>
+</span><a href="#local-6989586621679273506"><span class="hs-identifier hs-var">e</span></a></span><span>
+</span><span id="line-66"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679273507"><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679273507"><span class="hs-identifier hs-var">h</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Hash BlockHeader
+</span><a href="#local-6989586621679273507"><span class="hs-identifier hs-var">h</span></a></span><span>
 </span><span id="line-67"></span><span>
 </span><span id="line-68"></span><span class="hs-comment">-- NOTE: The constructor for Hash isn't exposed in the cardano-api. Although</span><span>
 </span><span id="line-69"></span><span class="hs-comment">-- there's a 'CastHash' type-class, there are not instances for everything, so</span><span>
 </span><span id="line-70"></span><span class="hs-comment">-- we have to resort to binary serialisation/deserialisation to cast hashes.</span><span>
-</span><span id="line-71"></span><span id="local-6989586621679272566"><span id="local-6989586621679272568"><span class="annot"><a href="Hydra.Cardano.Api.Hash.html#unsafeCastHash"><span class="hs-identifier hs-type">unsafeCastHash</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-72"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679272566"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679272568"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679272566"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-74"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679272568"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
+</span><span id="line-71"></span><span id="local-6989586621679273408"><span id="local-6989586621679273410"><span class="annot"><a href="Hydra.Cardano.Api.Hash.html#unsafeCastHash"><span class="hs-identifier hs-type">unsafeCastHash</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-72"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679273408"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsCBOR</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679273410"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Stack.Types.html#HasCallStack"><span class="hs-identifier hs-type">HasCallStack</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679273408"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Hash</span></span><span> </span><span class="annot"><a href="#local-6989586621679273410"><span class="hs-identifier hs-type">b</span></a></span></span></span><span>
 </span><span id="line-75"></span><span id="unsafeCastHash"><span class="annot"><span class="annottext">unsafeCastHash :: forall a b.
 (SerialiseAsCBOR (Hash a), SerialiseAsCBOR (Hash b),
  HasCallStack) =&gt;
 Hash a -&gt; Hash b
-</span><a href="Hydra.Cardano.Api.Hash.html#unsafeCastHash"><span class="hs-identifier hs-var hs-var">unsafeCastHash</span></a></span></span><span> </span><span id="local-6989586621679272682"><span class="annot"><span class="annottext">Hash a
-</span><a href="#local-6989586621679272682"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.Hash.html#unsafeCastHash"><span class="hs-identifier hs-var hs-var">unsafeCastHash</span></a></span></span><span> </span><span id="local-6989586621679273524"><span class="annot"><span class="annottext">Hash a
+</span><a href="#local-6989586621679273524"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-76"></span><span>  </span><span class="annot"><span class="annottext">(DecoderError -&gt; Hash b)
 -&gt; (Hash b -&gt; Hash b) -&gt; Either DecoderError (Hash b) -&gt; Hash b
 forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span>
-</span><span id="line-77"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679272684"><span class="annot"><span class="annottext">DecoderError
-</span><a href="#local-6989586621679272684"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Hash b
+</span><span id="line-77"></span><span>    </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679273526"><span class="annot"><span class="annottext">DecoderError
+</span><a href="#local-6989586621679273526"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Hash b
 forall a. HasCallStack =&gt; [Char] -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Err.html#error"><span class="hs-identifier hs-var">error</span></a></span><span> </span><span class="annot"><span class="annottext">([Char] -&gt; Hash b) -&gt; [Char] -&gt; Hash b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -232,7 +232,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DecoderError -&gt; [Char]
 forall a. Show a =&gt; a -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#show"><span class="hs-identifier hs-var">show</span></a></span><span> </span><span class="annot"><span class="annottext">DecoderError
-</span><a href="#local-6989586621679272684"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679273526"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-78"></span><span>    </span><span class="annot"><span class="annottext">Hash b -&gt; Hash b
 forall a. a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#id"><span class="hs-identifier hs-var">id</span></a></span><span>
@@ -247,5 +247,5 @@ forall {k} (t :: k). Proxy t
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Hash a -&gt; ByteString
 forall a. SerialiseAsCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialiseToCBOR</span></span><span> </span><span class="annot"><span class="annottext">Hash a
-</span><a href="#local-6989586621679272682"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679273524"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-80"></span></pre></body></html>

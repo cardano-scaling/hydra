@@ -4,20 +4,20 @@
 </span><span id="line-4"></span><span>
 </span><span id="line-5"></span><span class="annot"><span class="hs-comment">-- | Construct a stake address from a Plutus script.</span></span><span>
 </span><span id="line-6"></span><span class="annot"><a href="Hydra.Cardano.Api.StakeAddress.html#mkScriptStakeAddress"><span class="hs-identifier hs-type">mkScriptStakeAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-7"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679273071"><span class="annot"><a href="#local-6989586621679273071"><span class="hs-identifier hs-type">lang</span></a></span></span><span class="hs-operator">.</span><span>
-</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679273071"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-7"></span><span>  </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621679273913"><span class="annot"><a href="#local-6989586621679273913"><span class="hs-identifier hs-type">lang</span></a></span></span><span class="hs-operator">.</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsPlutusScriptLanguage</span></span><span> </span><span class="annot"><a href="#local-6989586621679273913"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679273071"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span> </span><span class="annot"><a href="#local-6989586621679273913"><span class="hs-identifier hs-type">lang</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-11"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">StakeAddress</span></span><span>
 </span><span id="line-12"></span><span id="mkScriptStakeAddress"><span class="annot"><span class="annottext">mkScriptStakeAddress :: forall lang.
 IsPlutusScriptLanguage lang =&gt;
 NetworkId -&gt; PlutusScript lang -&gt; StakeAddress
-</span><a href="Hydra.Cardano.Api.StakeAddress.html#mkScriptStakeAddress"><span class="hs-identifier hs-var hs-var">mkScriptStakeAddress</span></a></span></span><span> </span><span id="local-6989586621679273091"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679273091"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679273092"><span class="annot"><span class="annottext">PlutusScript lang
-</span><a href="#local-6989586621679273092"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Cardano.Api.StakeAddress.html#mkScriptStakeAddress"><span class="hs-identifier hs-var hs-var">mkScriptStakeAddress</span></a></span></span><span> </span><span id="local-6989586621679273933"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679273933"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679273934"><span class="annot"><span class="annottext">PlutusScript lang
+</span><a href="#local-6989586621679273934"><span class="hs-identifier hs-var">script</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-13"></span><span>  </span><span class="annot"><span class="annottext">NetworkId -&gt; StakeCredential -&gt; StakeAddress
 </span><span class="hs-identifier hs-var">makeStakeAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679273091"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">(StakeCredential -&gt; StakeAddress)
+</span><a href="#local-6989586621679273933"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">(StakeCredential -&gt; StakeAddress)
 -&gt; StakeCredential -&gt; StakeAddress
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptHash -&gt; StakeCredential
@@ -32,12 +32,12 @@ forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang -&gt; PlutusScript lang -&gt; Script lang
 </span><span class="hs-identifier hs-var">PlutusScript</span></span><span> </span><span class="annot"><span class="annottext">PlutusScriptVersion lang
-</span><a href="#local-6989586621679273097"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript lang
-</span><a href="#local-6989586621679273092"><span class="hs-identifier hs-var">script</span></a></span><span>
+</span><a href="#local-6989586621679273939"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript lang
+</span><a href="#local-6989586621679273934"><span class="hs-identifier hs-var">script</span></a></span><span>
 </span><span id="line-14"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-15"></span><span>  </span><span id="local-6989586621679273097"><span class="annot"><span class="annottext">version :: PlutusScriptVersion lang
-</span><a href="#local-6989586621679273097"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall lang.
+</span><span id="line-15"></span><span>  </span><span id="local-6989586621679273939"><span class="annot"><span class="annottext">version :: PlutusScriptVersion lang
+</span><a href="#local-6989586621679273939"><span class="hs-identifier hs-var hs-var">version</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall lang.
 IsPlutusScriptLanguage lang =&gt;
 PlutusScriptVersion lang
-</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679273071"><span class="hs-identifier hs-type">lang</span></a></span><span>
+</span><span class="hs-identifier hs-var">plutusScriptVersion</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="#local-6989586621679273913"><span class="hs-identifier hs-type">lang</span></a></span><span>
 </span><span id="line-16"></span></pre></body></html>

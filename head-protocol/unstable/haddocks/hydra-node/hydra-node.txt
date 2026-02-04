@@ -3836,7 +3836,6 @@ genHydraKeys :: GenerateKeyPair -> IO (Either (FileError ()) ())
 readJsonFileThrow :: (Value -> Parser a) -> FilePath -> IO a
 
 module Hydra.Chain.Offline
-fromShelleyGenesis :: ShelleyGenesis -> GenesisParameters ShelleyEra
 
 -- | Derived <a>HeadId</a> of offline head from a <a>HeadSeed</a>.
 offlineHeadId :: HeadSeed -> HeadId

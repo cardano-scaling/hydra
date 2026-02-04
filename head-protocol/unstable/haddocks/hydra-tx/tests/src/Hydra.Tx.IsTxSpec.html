@@ -87,8 +87,8 @@ Gen (AlonzoTx BabbageEra)
 </span><a href="Hydra.Tx.IsTxSpec.html#genConwayCompatibleBabbageTx"><span class="hs-identifier hs-var">genConwayCompatibleBabbageTx</span></a></span><span> </span><span class="annot"><span class="annottext">((AlonzoTx BabbageEra -&gt; Property) -&gt; Property)
 -&gt; (AlonzoTx BabbageEra -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679434023"><span class="annot"><span class="annottext">AlonzoTx BabbageEra
-</span><a href="#local-6989586621679434023"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679434512"><span class="annot"><span class="annottext">AlonzoTx BabbageEra
+</span><a href="#local-6989586621679434512"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-32"></span><span>          </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String (Tx Era)
 forall a. FromJSON a =&gt; ByteString -&gt; Either String a
 </span><span class="hs-identifier hs-var">Aeson.eitherDecode</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String (Tx Era))
@@ -104,9 +104,9 @@ IsShelleyBasedEra era =&gt;
 Tx (ShelleyLedgerEra era) -&gt; Tx era
 </span><span class="hs-identifier hs-var">fromLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra BabbageEra)
 AlonzoTx BabbageEra
-</span><a href="#local-6989586621679434023"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-33"></span><span>            </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679434026"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679434026"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679434512"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-33"></span><span>            </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679434515"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679434515"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-34"></span><span>              </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
@@ -119,13 +119,13 @@ forall prop. Testable prop =&gt; String -&gt; prop -&gt; Property
 </span><span class="hs-string">&quot;Failed to decode: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679434026"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-36"></span><span>            </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434028"><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434028"><span class="hs-identifier hs-var">decodedTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679434515"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>            </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434517"><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679434517"><span class="hs-identifier hs-var">decodedTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-37"></span><span>              </span><span class="hs-comment">-- NOTE: Not full comparison as the decoding &quot;upgraded&quot; it to</span><span>
 </span><span id="line-38"></span><span>              </span><span class="hs-comment">-- the latest era.</span><span>
 </span><span id="line-39"></span><span>              </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra
-</span><a href="#local-6989586621679434023"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra
+</span><a href="#local-6989586621679434512"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra
 -&gt; Getting (Set TxIn) (AlonzoTx BabbageEra) (Set TxIn) -&gt; Set TxIn
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxBody BabbageEra -&gt; Const (Set TxIn) (TxBody BabbageEra))
@@ -150,7 +150,7 @@ forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; Tx (ShelleyLedgerEra Era)
 forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434028"><span class="hs-identifier hs-var">decodedTx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
+</span><a href="#local-6989586621679434517"><span class="hs-identifier hs-var">decodedTx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; Getting (Set TxIn) (AlonzoTx ConwayEra) (Set TxIn) -&gt; Set TxIn
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxBody ConwayEra -&gt; Const (Set TxIn) (TxBody ConwayEra))
@@ -188,10 +188,10 @@ Gen (AlonzoTx BabbageEra)
 </span><a href="Hydra.Tx.IsTxSpec.html#genConwayCompatibleBabbageTx"><span class="hs-identifier hs-var">genConwayCompatibleBabbageTx</span></a></span><span> </span><span class="annot"><span class="annottext">((AlonzoTx BabbageEra -&gt; Property) -&gt; Property)
 -&gt; (AlonzoTx BabbageEra -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679434030"><span class="annot"><span class="annottext">AlonzoTx BabbageEra
-</span><a href="#local-6989586621679434030"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-43"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434031"><span class="annot"><span class="annottext">encoded :: ByteString
-</span><a href="#local-6989586621679434031"><span class="hs-identifier hs-var hs-var">encoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx BabbageEra -&gt; ByteString
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679434519"><span class="annot"><span class="annottext">AlonzoTx BabbageEra
+</span><a href="#local-6989586621679434519"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-43"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434520"><span class="annot"><span class="annottext">encoded :: ByteString
+</span><a href="#local-6989586621679434520"><span class="hs-identifier hs-var hs-var">encoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx BabbageEra -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">(Tx BabbageEra -&gt; ByteString) -&gt; Tx BabbageEra -&gt; ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -201,13 +201,13 @@ IsShelleyBasedEra era =&gt;
 Tx (ShelleyLedgerEra era) -&gt; Tx era
 </span><span class="hs-identifier hs-var">fromLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra BabbageEra)
 AlonzoTx BabbageEra
-</span><a href="#local-6989586621679434030"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679434519"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-44"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError (Tx Era)
 forall a. FromCBOR a =&gt; ByteString -&gt; Either DecoderError a
 </span><span class="hs-identifier hs-var">decodeFull'</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679434031"><span class="hs-identifier hs-var">encoded</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-45"></span><span>                </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679434032"><span class="annot"><span class="annottext">DecoderError
-</span><a href="#local-6989586621679434032"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679434520"><span class="hs-identifier hs-var">encoded</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-45"></span><span>                </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679434521"><span class="annot"><span class="annottext">DecoderError
+</span><a href="#local-6989586621679434521"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-46"></span><span>                  </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
@@ -222,7 +222,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">DecoderError -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">DecoderError
-</span><a href="#local-6989586621679434032"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434521"><span class="hs-identifier hs-var">err</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-48"></span><span>                    </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -234,13 +234,13 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
 </span><span class="hs-identifier hs-var">Base16.encode</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679434031"><span class="hs-identifier hs-var">encoded</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-49"></span><span>                </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434036"><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434036"><span class="hs-identifier hs-var">decodedTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679434520"><span class="hs-identifier hs-var">encoded</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>                </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679434525"><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679434525"><span class="hs-identifier hs-var">decodedTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-50"></span><span>                  </span><span class="hs-comment">-- NOTE: Not full comparison as the decoding &quot;upgraded&quot; it to</span><span>
 </span><span id="line-51"></span><span>                  </span><span class="hs-comment">-- the latest era.</span><span>
 </span><span id="line-52"></span><span>                  </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra
-</span><a href="#local-6989586621679434030"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra
+</span><a href="#local-6989586621679434519"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra
 -&gt; Getting (Set TxIn) (AlonzoTx BabbageEra) (Set TxIn) -&gt; Set TxIn
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxBody BabbageEra -&gt; Const (Set TxIn) (TxBody BabbageEra))
@@ -265,7 +265,7 @@ forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; Tx (ShelleyLedgerEra Era)
 forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434036"><span class="hs-identifier hs-var">decodedTx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
+</span><a href="#local-6989586621679434525"><span class="hs-identifier hs-var">decodedTx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; Getting (Set TxIn) (AlonzoTx ConwayEra) (Set TxIn) -&gt; Set TxIn
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxBody ConwayEra -&gt; Const (Set TxIn) (TxBody ConwayEra))
@@ -289,8 +289,8 @@ Lens' (TxBody ConwayEra) (Set TxIn)
 </span><span id="line-55"></span><span class="annot"><a href="Hydra.Tx.IsTxSpec.html#genConwayCompatibleBabbageTx"><span class="hs-identifier hs-type">genConwayCompatibleBabbageTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.BabbageEra</span></span><span class="hs-special">)</span><span>
 </span><span id="line-56"></span><span id="genConwayCompatibleBabbageTx"><span class="annot"><span class="annottext">genConwayCompatibleBabbageTx :: Gen (Tx BabbageEra)
 </span><a href="Hydra.Tx.IsTxSpec.html#genConwayCompatibleBabbageTx"><span class="hs-identifier hs-var hs-var">genConwayCompatibleBabbageTx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-57"></span><span>  </span><span id="local-6989586621679434037"><span class="annot"><span class="annottext">Tx BabbageEra
-</span><a href="#local-6989586621679434037"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (Tx BabbageEra)
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679434526"><span class="annot"><span class="annottext">Tx BabbageEra
+</span><a href="#local-6989586621679434526"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (Tx BabbageEra)
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">AlonzoTx BabbageEra -&gt; Gen (AlonzoTx BabbageEra)
@@ -301,7 +301,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-59"></span><span>    </span><span class="annot"><span class="annottext">Tx BabbageEra
-</span><a href="#local-6989586621679434037"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679434526"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">Tx BabbageEra -&gt; (Tx BabbageEra -&gt; Tx BabbageEra) -&gt; Tx BabbageEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBody BabbageEra -&gt; Identity (TxBody BabbageEra))
@@ -373,43 +373,43 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a
 </span><span id="line-62"></span><span>
 </span><span id="line-63"></span><span class="annot"><a href="Hydra.Tx.IsTxSpec.html#roundtripTxId"><span class="hs-identifier hs-type">roundtripTxId</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-64"></span><span id="roundtripTxId"><span class="annot"><span class="annottext">roundtripTxId :: Tx Era -&gt; Property
-</span><a href="Hydra.Tx.IsTxSpec.html#roundtripTxId"><span class="hs-identifier hs-var hs-var">roundtripTxId</span></a></span></span><span> </span><span id="local-6989586621679434040"><span class="annot"><span class="annottext">tx :: Tx Era
-</span><a href="#local-6989586621679434040"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434041"><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434041"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
+</span><a href="Hydra.Tx.IsTxSpec.html#roundtripTxId"><span class="hs-identifier hs-var hs-var">roundtripTxId</span></a></span></span><span> </span><span id="local-6989586621679434529"><span class="annot"><span class="annottext">tx :: Tx Era
+</span><a href="#local-6989586621679434529"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434530"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679434530"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-65"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe (Tx Era)
 forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Aeson.decode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; ByteString
 forall a. ToJSON a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">Aeson.encode</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434040"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679434529"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">Maybe (Tx Era)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-67"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-68"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679434043"><span class="annot"><span class="annottext">tx' :: Tx Era
-</span><a href="#local-6989586621679434043"><span class="hs-identifier hs-var">tx'</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434044"><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434044"><span class="hs-identifier hs-var">body'</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
+</span><span id="line-68"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679434532"><span class="annot"><span class="annottext">tx' :: Tx Era
+</span><a href="#local-6989586621679434532"><span class="hs-identifier hs-var">tx'</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434533"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679434533"><span class="hs-identifier hs-var">body'</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-69"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434040"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; Tx Era -&gt; Property
+</span><a href="#local-6989586621679434529"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; Tx Era -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434043"><span class="hs-identifier hs-var">tx'</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; Property -&gt; Property
+</span><a href="#local-6989586621679434532"><span class="hs-identifier hs-var">tx'</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; Property -&gt; Property
 forall prop1 prop2.
 (Testable prop1, Testable prop2) =&gt;
 prop1 -&gt; prop2 -&gt; Property
 </span><span class="hs-operator hs-var">.&amp;&amp;.</span></span><span> </span><span class="annot"><span class="annottext">TxBody -&gt; TxId
 forall era. TxBody era -&gt; TxId
 </span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434041"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Property
+</span><a href="#local-6989586621679434530"><span class="hs-identifier hs-var">body</span></a></span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">TxBody -&gt; TxId
 forall era. TxBody era -&gt; TxId
 </span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434044"><span class="hs-identifier hs-var">body'</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434533"><span class="hs-identifier hs-var">body'</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-70"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -425,7 +425,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434043"><span class="hs-identifier hs-var">tx'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434532"><span class="hs-identifier hs-var">tx'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-71"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -441,51 +441,51 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434040"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434529"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-72"></span><span>
 </span><span id="line-73"></span><span class="annot"><a href="Hydra.Tx.IsTxSpec.html#roundtripTxId%27"><span class="hs-identifier hs-type">roundtripTxId'</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-74"></span><span id="roundtripTxId%27"><span class="annot"><span class="annottext">roundtripTxId' :: Tx Era -&gt; Property
-</span><a href="Hydra.Tx.IsTxSpec.html#roundtripTxId%27"><span class="hs-identifier hs-var hs-var">roundtripTxId'</span></a></span></span><span> </span><span id="local-6989586621679434045"><span class="annot"><span class="annottext">tx :: Tx Era
-</span><a href="#local-6989586621679434045"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434046"><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434046"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
+</span><a href="Hydra.Tx.IsTxSpec.html#roundtripTxId%27"><span class="hs-identifier hs-var hs-var">roundtripTxId'</span></a></span></span><span> </span><span id="local-6989586621679434534"><span class="annot"><span class="annottext">tx :: Tx Era
+</span><a href="#local-6989586621679434534"><span class="hs-identifier hs-var">tx</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434535"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679434535"><span class="hs-identifier hs-var">body</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-75"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe (Tx Era)
 forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
 </span><span class="hs-identifier hs-var">Aeson.decode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; ByteString
 forall a. ToJSON a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">Aeson.encode</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434045"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679434534"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">Maybe (Tx Era)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-77"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Property
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">property</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-78"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679434047"><span class="annot"><span class="annottext">tx' :: Tx Era
-</span><a href="#local-6989586621679434047"><span class="hs-identifier hs-var">tx'</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434048"><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434048"><span class="hs-identifier hs-var">body'</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
+</span><span id="line-78"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679434536"><span class="annot"><span class="annottext">tx' :: Tx Era
+</span><a href="#local-6989586621679434536"><span class="hs-identifier hs-var">tx'</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span id="local-6989586621679434537"><span class="annot"><span class="annottext">TxBody
+</span><a href="#local-6989586621679434537"><span class="hs-identifier hs-var">body'</span></a></span></span><span> </span><span class="annot"><span class="annottext">[KeyWitness]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-79"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; TxIdType (Tx Era)
 forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
 </span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434045"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Property
+</span><a href="#local-6989586621679434534"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">TxBody -&gt; TxId
 forall era. TxBody era -&gt; TxId
 </span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434048"><span class="hs-identifier hs-var">body'</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; Bool -&gt; Property
+</span><a href="#local-6989586621679434537"><span class="hs-identifier hs-var">body'</span></a></span><span> </span><span class="annot"><span class="annottext">Property -&gt; Bool -&gt; Property
 forall prop1 prop2.
 (Testable prop1, Testable prop2) =&gt;
 prop1 -&gt; prop2 -&gt; Property
 </span><span class="hs-operator hs-var">.&amp;&amp;.</span></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; TxIdType (Tx Era)
 forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
 </span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434047"><span class="hs-identifier hs-var">tx'</span></a></span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Bool
+</span><a href="#local-6989586621679434536"><span class="hs-identifier hs-var">tx'</span></a></span><span> </span><span class="annot"><span class="annottext">TxId -&gt; TxId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">TxBody -&gt; TxId
 forall era. TxBody era -&gt; TxId
 </span><span class="hs-identifier hs-var">getTxId</span></span><span> </span><span class="annot"><span class="annottext">TxBody
-</span><a href="#local-6989586621679434046"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434535"><span class="hs-identifier hs-var">body</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-80"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -501,7 +501,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434047"><span class="hs-identifier hs-var">tx'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434536"><span class="hs-identifier hs-var">tx'</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">Property -&gt; (Property -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Property
@@ -517,12 +517,12 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434045"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434534"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-82"></span><span>
 </span><span id="line-83"></span><span class="annot"><a href="Hydra.Tx.IsTxSpec.html#roundtripLedger"><span class="hs-identifier hs-type">roundtripLedger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span><span>
 </span><span id="line-84"></span><span id="roundtripLedger"><span class="annot"><span class="annottext">roundtripLedger :: Tx Era -&gt; Property
-</span><a href="Hydra.Tx.IsTxSpec.html#roundtripLedger"><span class="hs-identifier hs-var hs-var">roundtripLedger</span></a></span></span><span> </span><span id="local-6989586621679434049"><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434049"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.IsTxSpec.html#roundtripLedger"><span class="hs-identifier hs-var hs-var">roundtripLedger</span></a></span></span><span> </span><span id="local-6989586621679434538"><span class="annot"><span class="annottext">Tx Era
+</span><a href="#local-6989586621679434538"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-85"></span><span>  </span><span class="annot"><span class="annottext">Tx (ShelleyLedgerEra Era) -&gt; Tx Era
 forall era.
 IsShelleyBasedEra era =&gt;
@@ -530,22 +530,22 @@ Tx (ShelleyLedgerEra era) -&gt; Tx era
 </span><span class="hs-identifier hs-var">fromLedgerTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx Era -&gt; Tx (ShelleyLedgerEra Era)
 forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434049"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; Tx Era -&gt; Property
+</span><a href="#local-6989586621679434538"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tx Era -&gt; Tx Era -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">Tx Era
-</span><a href="#local-6989586621679434049"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679434538"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-86"></span><span>
-</span><span id="line-87"></span><span id="local-6989586621679433666"><span class="annot"><a href="Hydra.Tx.IsTxSpec.html#roundtripCBOR"><span class="hs-identifier hs-type">roundtripCBOR</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433666"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679433666"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621679433666"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621679433666"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679433666"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span></span><span>
+</span><span id="line-87"></span><span id="local-6989586621679434155"><span class="annot"><a href="Hydra.Tx.IsTxSpec.html#roundtripCBOR"><span class="hs-identifier hs-type">roundtripCBOR</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679434155"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679434155"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ToCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621679434155"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">FromCBOR</span></span><span> </span><span class="annot"><a href="#local-6989586621679434155"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679434155"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Property</span></span></span><span>
 </span><span id="line-88"></span><span id="roundtripCBOR"><span class="annot"><span class="annottext">roundtripCBOR :: forall a. (Eq a, Show a, ToCBOR a, FromCBOR a) =&gt; a -&gt; Property
-</span><a href="Hydra.Tx.IsTxSpec.html#roundtripCBOR"><span class="hs-identifier hs-var hs-var">roundtripCBOR</span></a></span></span><span> </span><span id="local-6989586621679434074"><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679434074"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-89"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434075"><span class="annot"><span class="annottext">encoded :: ByteString
-</span><a href="#local-6989586621679434075"><span class="hs-identifier hs-var hs-var">encoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; ByteString
+</span><a href="Hydra.Tx.IsTxSpec.html#roundtripCBOR"><span class="hs-identifier hs-var hs-var">roundtripCBOR</span></a></span></span><span> </span><span id="local-6989586621679434563"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679434563"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679434564"><span class="annot"><span class="annottext">encoded :: ByteString
+</span><a href="#local-6989586621679434564"><span class="hs-identifier hs-var hs-var">encoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; ByteString
 forall a. ToCBOR a =&gt; a -&gt; ByteString
 </span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679434074"><span class="hs-identifier hs-var">a</span></a></span><span>
-</span><span id="line-90"></span><span>      </span><span id="local-6989586621679434076"><span class="annot"><span class="annottext">decoded :: Either DecoderError a
-</span><a href="#local-6989586621679434076"><span class="hs-identifier hs-var hs-var">decoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError a
+</span><a href="#local-6989586621679434563"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><span id="line-90"></span><span>      </span><span id="local-6989586621679434565"><span class="annot"><span class="annottext">decoded :: Either DecoderError a
+</span><a href="#local-6989586621679434565"><span class="hs-identifier hs-var hs-var">decoded</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError a
 forall a. FromCBOR a =&gt; ByteString -&gt; Either DecoderError a
 </span><span class="hs-identifier hs-var">CB.decodeFull</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either DecoderError a)
 -&gt; ByteString -&gt; Either DecoderError a
@@ -553,14 +553,14 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
 forall l s. LazyStrict l s =&gt; s -&gt; l
 </span><span class="hs-identifier hs-var">fromStrict</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679434075"><span class="hs-identifier hs-var">encoded</span></a></span><span>
+</span><a href="#local-6989586621679434564"><span class="hs-identifier hs-var">encoded</span></a></span><span>
 </span><span id="line-91"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Either DecoderError a
-</span><a href="#local-6989586621679434076"><span class="hs-identifier hs-var">decoded</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError a -&gt; Either DecoderError a -&gt; Bool
+</span><a href="#local-6989586621679434565"><span class="hs-identifier hs-var">decoded</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError a -&gt; Either DecoderError a -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">a -&gt; Either DecoderError a
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679434074"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><a href="#local-6989586621679434563"><span class="hs-identifier hs-var">a</span></a></span><span>
 </span><span id="line-92"></span><span>        </span><span class="annot"><span class="annottext">Bool -&gt; (Bool -&gt; Property) -&gt; Property
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Bool -&gt; Property
@@ -571,7 +571,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679434075"><span class="hs-identifier hs-var">encoded</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679434564"><span class="hs-identifier hs-var">encoded</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;. decode: &quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
@@ -579,5 +579,5 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Either DecoderError a -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Either DecoderError a
-</span><a href="#local-6989586621679434076"><span class="hs-identifier hs-var">decoded</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679434565"><span class="hs-identifier hs-var">decoded</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-93"></span></pre></body></html>

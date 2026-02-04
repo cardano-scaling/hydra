@@ -592,7 +592,7 @@ data () => ShelleyBasedEra era
 [ShelleyBasedEraAlonzo] :: ShelleyBasedEra AlonzoEra
 [ShelleyBasedEraBabbage] :: ShelleyBasedEra BabbageEra
 [ShelleyBasedEraConway] :: ShelleyBasedEra ConwayEra
-type ShelleyBasedEraConstraints era = (HashAlgorithm HASH, Signable VRF StandardCrypto Seed, PraosProtocolSupportsNode ConsensusProtocol era, ShelleyBlock ConsensusProtocol era ShelleyLedgerEra era ~ ConsensusBlockForEra era, ShelleyCompatible ConsensusProtocol era ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, IsCardanoEra era, IsShelleyBasedEra era, ADDRHASH ~ Blake2b_224, Era ShelleyLedgerEra era, EraPParams ShelleyLedgerEra era, EraTx ShelleyLedgerEra era, EraTxBody ShelleyLedgerEra era, EraTxOut ShelleyLedgerEra era, EraUTxO ShelleyLedgerEra era, EraTxWits ShelleyLedgerEra era, HashAnnotated TxBody ShelleyLedgerEra era EraIndependentTxBody, ShelleyEraTxCert ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, IsCardanoEra era, IsShelleyBasedEra era, ToJSON ChainDepState ConsensusProtocol era, ToJSON PredicateFailure EraRule "LEDGER" ShelleyLedgerEra era, Typeable era, era == ByronEra ~ 'False)
+type ShelleyBasedEraConstraints era = (HashAlgorithm HASH, Signable VRF StandardCrypto Seed, PraosProtocolSupportsNode ConsensusProtocol era, ShelleyBlock ConsensusProtocol era ShelleyLedgerEra era ~ ConsensusBlockForEra era, ShelleyCompatible ConsensusProtocol era ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, IsCardanoEra era, IsShelleyBasedEra era, ADDRHASH ~ Blake2b_224, Era ShelleyLedgerEra era, EraPParams ShelleyLedgerEra era, EraTx ShelleyLedgerEra era, EraTxBody ShelleyLedgerEra era, EraTxOut ShelleyLedgerEra era, EraUTxO ShelleyLedgerEra era, EraTxWits ShelleyLedgerEra era, HashAnnotated TxBody ShelleyLedgerEra era EraIndependentTxBody, ShelleyEraTxCert ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, FromCBOR TxCert ShelleyLedgerEra era, HasTypeProxy era, IsCardanoEra era, IsShelleyBasedEra era, ToJSON ChainDepState ConsensusProtocol era, ToJSON PredicateFailure EraRule "LEDGER" ShelleyLedgerEra era, Typeable era, era == ByronEra ~ 'False)
 type family ShelleyLedgerEra era = (ledgerera :: Type) | ledgerera -> era
 data () => ShelleyEraOnly era
 [ShelleyEraOnlyShelley] :: ShelleyEraOnly ShelleyEra
@@ -1245,10 +1245,16 @@ bech32PrefixesPermitted :: SerialiseAsBech32 a => AsType a -> [HumanReadablePart
 class HasTypeProxy a => SerialiseAsCBOR a
 serialiseToCBOR :: SerialiseAsCBOR a => a -> ByteString
 deserialiseFromCBOR :: SerialiseAsCBOR a => AsType a -> ByteString -> Either DecoderError a
-class (SerialiseAsRawBytes a, HasTypeProxy a) => Cip129 a
+class (SerialiseAsRawBytes a, HasTypeProxy a) => Cip129 a where {
+    data family Cip129Header a;
+}
 cip129Bech32PrefixFor :: Cip129 a => AsType a -> HumanReadablePart
-cip129HeaderHexByte :: Cip129 a => a -> ByteString
 cip129Bech32PrefixesPermitted :: Cip129 a => AsType a -> [Text]
+cip129Header :: Cip129 a => Cip129Header a -> Word8
+cip129SerialiseRaw :: Cip129 a => a -> ByteString
+cip129DeserialiseRaw :: Cip129 a => ByteString -> Either Cip129EncodingError a
+data () => Cip129EncodingError
+data family Cip129Header a
 data () => InputDecodeError
 InputTextEnvelopeError :: !TextEnvelopeError -> InputDecodeError
 InputBech32DecodeError :: !Bech32DecodeError -> InputDecodeError
@@ -1288,6 +1294,8 @@ data () => TextEnvelopeError
 TextEnvelopeTypeError :: ![TextEnvelopeType] -> !TextEnvelopeType -> TextEnvelopeError
 TextEnvelopeDecodeError :: !DecoderError -> TextEnvelopeError
 TextEnvelopeAesonDecodeError :: !String -> TextEnvelopeError
+TextEnvelopeUnknownKeyWitness :: !TextEnvelopeDescr -> TextEnvelopeError
+TextEnvelopeUnknownType :: !Text -> TextEnvelopeError
 newtype () => TextEnvelopeType
 TextEnvelopeType :: String -> TextEnvelopeType
 data () => FromSomeTypeCDDL c b
@@ -1439,6 +1447,8 @@ WitnessNetworkId :: !NetworkId -> WitnessNetworkIdOrByronAddress
 WitnessByronAddress :: !Address ByronAddr -> WitnessNetworkIdOrByronAddress
 newtype () => TxIx
 TxIx :: Word -> TxIx
+class () => AsTxMetadata a
+asTxMetadata :: AsTxMetadata a => a -> TxMetadata
 newtype () => TxMetadata
 TxMetadata :: Map Word64 TxMetadataValue -> TxMetadata
 [unTxMetadata] :: TxMetadata -> Map Word64 TxMetadataValue
@@ -1842,6 +1852,7 @@ conwayGenesisDefaults :: ConwayGenesis
 decodeAlonzoGenesis :: forall era t (m :: Type -> Type). MonadTransError String t m => Maybe (CardanoEra era) -> ByteString -> t m AlonzoGenesis
 shelleyGenesisDefaults :: ShelleyGenesis
 unsafeBoundedRational :: (HasCallStack, Typeable r, BoundedRational r) => Rational -> r
+fromShelleyGenesis :: ShelleyGenesis -> GenesisParameters ShelleyEra
 createAnchor :: Url -> ByteString -> Anchor
 createGovernanceActionId :: TxId -> Word16 -> GovActionId
 createProposalProcedure :: ShelleyBasedEra era -> Network -> Coin -> StakeCredential -> GovernanceAction era -> Anchor -> Proposal era
@@ -1923,6 +1934,8 @@ readShelleyGenesisConfig :: forall t (m :: Type -> Type). MonadIOTransError Gene
 shelleyPraosNonce :: GenesisHashShelley -> Nonce
 toConditionResult :: Bool -> ConditionResult
 convertRetiredPoolsMap :: Map StakeCredential (Map (KeyHash 'StakePool) Coin) -> Map StakeCredential (Map (Hash StakePoolKey) Coin)
+(?!) :: MonadError e m => Maybe a -> e -> m a
+(?!&) :: Either e a -> (e -> e') -> Either e' a
 failEither :: MonadFail m => Either String a -> m a
 failEitherWith :: MonadFail m => (e -> String) -> Either e a -> m a
 handleIOExceptionsLiftWith :: (MonadIOTransError e' t m, Exception e) => (e -> e') -> m a -> t m a
@@ -2003,6 +2016,7 @@ docToText :: Doc AnsiStyle -> Text
 magenta :: Doc AnsiStyle -> Doc AnsiStyle
 prettyException :: Exception a => a -> Doc ann
 pshow :: Show a => a -> Doc ann
+renderBuildable :: Buildable a => a -> Text
 textShow :: Show a => a -> Text
 white :: Doc AnsiStyle -> Doc AnsiStyle
 yellow :: Doc AnsiStyle -> Doc AnsiStyle
@@ -2082,8 +2096,8 @@ serialiseToBech32 :: SerialiseAsBech32 a => a -> Text
 unsafeHumanReadablePartFromText :: HasCallStack => Text -> HumanReadablePart
 canonicaliseCborBs :: ByteString -> Either DecoderError ByteString
 canonicaliseTerm :: Term -> Term
-deserialiseFromBech32Cip129 :: Cip129 a => Text -> Either Bech32DecodeError a
-deserialiseGovActionIdFromBech32Cip129 :: Text -> Either Bech32DecodeError GovActionId
+deserialiseFromBech32Cip129 :: Cip129 a => Text -> Either Cip129EncodingError a
+deserialiseGovActionIdFromBech32Cip129 :: Text -> Either Cip129EncodingError GovActionId
 serialiseGovActionIdToBech32Cip129 :: GovActionId -> Text
 serialiseToBech32Cip129 :: Cip129 a => a -> Text
 deserialiseInput :: NonEmpty (InputFormat a) -> ByteString -> Either InputDecodeError a
@@ -2122,7 +2136,6 @@ deserialiseFromTextEnvelopeCddlAnyOf :: [FromSomeTypeCDDL TextEnvelope b] -> Tex
 deserialiseWitnessLedgerCddl :: ShelleyBasedEra era -> TextEnvelope -> Either TextEnvelopeCddlError (KeyWitness era)
 readFileTextEnvelopeCddlAnyOf :: [FromSomeTypeCDDL TextEnvelope b] -> FilePath -> IO (Either (FileError TextEnvelopeCddlError) b)
 serialiseWitnessLedgerCddl :: ShelleyBasedEra era -> KeyWitness era -> TextEnvelope
-serializeByronTx :: ATxAux ByteString -> TextEnvelope
 writeByronTxFileTextEnvelopeCddl :: File content 'Out -> ATxAux ByteString -> IO (Either (FileError ()) ())
 writeTxFileTextEnvelopeCanonicalCddl :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
 writeTxFileTextEnvelopeCddl :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
@@ -2162,6 +2175,12 @@ convWithdrawals :: TxWithdrawals build era -> Withdrawals
 createTransactionBody :: HasCallStack => ShelleyBasedEra era -> TxBodyContent BuildTx era -> Either TxBodyError (TxBody era)
 defaultTxFee :: ShelleyBasedEra era -> TxFee era
 defaultTxValidityUpperBound :: ShelleyBasedEra era -> TxValidityUpperBound era
+extractWitnessableCertificates :: AlonzoEraOnwards era -> TxCertificates BuildTx era -> [(Witnessable 'CertItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
+extractWitnessableMints :: AlonzoEraOnwards era -> TxMintValue build era -> [(Witnessable 'MintItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxMint era))]
+extractWitnessableProposals :: forall era (eon :: Type -> Type). ConwayEraOnwards era -> Maybe (Featured eon era (TxProposalProcedures BuildTx era)) -> [(Witnessable 'ProposalItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
+extractWitnessableTxIns :: AlonzoEraOnwards era -> TxIns BuildTx era -> [(Witnessable 'TxInItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxTxIn era))]
+extractWitnessableVotes :: forall era (eon :: Type -> Type). ConwayEraOnwards era -> Maybe (Featured eon era (TxVotingProcedures BuildTx era)) -> [(Witnessable 'VoterItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
+extractWitnessableWithdrawals :: AlonzoEraOnwards era -> TxWithdrawals BuildTx era -> [(Witnessable 'WithdrawalItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
 genesisUTxOPseudoTxIn :: NetworkId -> Hash GenesisUTxOKey -> TxIn
 getReferenceInputDatumMap :: TxInsReferenceDatums build -> Map (Hash ScriptData) HashableScriptData
 getReferenceInputsSizeForTxIds :: ShelleyLedgerEra era ~ ledgerera => BabbageEraOnwards era -> UTxO ledgerera -> Set TxIn -> Int
@@ -2291,6 +2310,11 @@ txOutInAnyEra :: CardanoEra era -> TxOut CtxTx era -> TxOutInAnyEra
 txOutValueToLovelace :: TxOutValue era -> Coin
 txOutValueToValue :: TxOutValue era -> Value
 validateTxOuts :: ShelleyBasedEra era -> [TxOut CtxTx era] -> Either TxOutputError ()
+deserialiseByronTx :: TextEnvelope -> Either TextEnvelopeError (ATxAux ByteString)
+serialiseByronTx :: ATxAux ByteString -> TextEnvelope
+writeTxFileTextEnvelope :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
+writeTxFileTextEnvelopeCanonical :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
+writeTxWitnessFileTextEnvelope :: ShelleyBasedEra era -> File () 'Out -> KeyWitness era -> IO (Either (FileError ()) ())
 getByronTxBody :: ATxAux ByteString -> Annotated Tx ByteString
 getShelleyKeyWitnessVerificationKey :: ShelleySigningKey -> VKey 'Witness
 getTxBody :: Tx era -> TxBody era
@@ -2298,6 +2322,7 @@ getTxBodyAndWitnesses :: Tx era -> (TxBody era, [KeyWitness era])
 getTxWitnesses :: Tx era -> [KeyWitness era]
 getTxWitnessesByron :: ATxAux ByteString -> [KeyWitness ByronEra]
 isValidToScriptValidity :: IsValid -> ScriptValidity
+legacyKeyWitnessEncode :: KeyWitness era -> ByteString
 makeByronKeyWitness :: IsByronKey key => NetworkId -> Annotated Tx ByteString -> SigningKey key -> KeyWitness ByronEra
 makeShelleyBasedBootstrapWitness :: ShelleyBasedEra era -> WitnessNetworkIdOrByronAddress -> TxBody (ShelleyLedgerEra era) -> SigningKey ByronKey -> KeyWitness era
 makeShelleyBootstrapWitness :: ShelleyBasedEra era -> WitnessNetworkIdOrByronAddress -> TxBody era -> SigningKey ByronKey -> KeyWitness era
@@ -3750,7 +3775,7 @@ data () => ShelleyBasedEra era
 [ShelleyBasedEraAlonzo] :: ShelleyBasedEra AlonzoEra
 [ShelleyBasedEraBabbage] :: ShelleyBasedEra BabbageEra
 [ShelleyBasedEraConway] :: ShelleyBasedEra ConwayEra
-type ShelleyBasedEraConstraints era = (HashAlgorithm HASH, Signable VRF StandardCrypto Seed, PraosProtocolSupportsNode ConsensusProtocol era, ShelleyBlock ConsensusProtocol era ShelleyLedgerEra era ~ ConsensusBlockForEra era, ShelleyCompatible ConsensusProtocol era ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, IsCardanoEra era, IsShelleyBasedEra era, ADDRHASH ~ Blake2b_224, Era ShelleyLedgerEra era, EraPParams ShelleyLedgerEra era, EraTx ShelleyLedgerEra era, EraTxBody ShelleyLedgerEra era, EraTxOut ShelleyLedgerEra era, EraUTxO ShelleyLedgerEra era, EraTxWits ShelleyLedgerEra era, HashAnnotated TxBody ShelleyLedgerEra era EraIndependentTxBody, ShelleyEraTxCert ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, IsCardanoEra era, IsShelleyBasedEra era, ToJSON ChainDepState ConsensusProtocol era, ToJSON PredicateFailure EraRule "LEDGER" ShelleyLedgerEra era, Typeable era, era == ByronEra ~ 'False)
+type ShelleyBasedEraConstraints era = (HashAlgorithm HASH, Signable VRF StandardCrypto Seed, PraosProtocolSupportsNode ConsensusProtocol era, ShelleyBlock ConsensusProtocol era ShelleyLedgerEra era ~ ConsensusBlockForEra era, ShelleyCompatible ConsensusProtocol era ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, IsCardanoEra era, IsShelleyBasedEra era, ADDRHASH ~ Blake2b_224, Era ShelleyLedgerEra era, EraPParams ShelleyLedgerEra era, EraTx ShelleyLedgerEra era, EraTxBody ShelleyLedgerEra era, EraTxOut ShelleyLedgerEra era, EraUTxO ShelleyLedgerEra era, EraTxWits ShelleyLedgerEra era, HashAnnotated TxBody ShelleyLedgerEra era EraIndependentTxBody, ShelleyEraTxCert ShelleyLedgerEra era, FromCBOR ChainDepState ConsensusProtocol era, FromCBOR TxCert ShelleyLedgerEra era, HasTypeProxy era, IsCardanoEra era, IsShelleyBasedEra era, ToJSON ChainDepState ConsensusProtocol era, ToJSON PredicateFailure EraRule "LEDGER" ShelleyLedgerEra era, Typeable era, era == ByronEra ~ 'False)
 type family ShelleyLedgerEra era = (ledgerera :: Type) | ledgerera -> era
 data () => ShelleyEraOnly era
 [ShelleyEraOnlyShelley] :: ShelleyEraOnly ShelleyEra
@@ -4403,10 +4428,16 @@ bech32PrefixesPermitted :: SerialiseAsBech32 a => AsType a -> [HumanReadablePart
 class HasTypeProxy a => SerialiseAsCBOR a
 serialiseToCBOR :: SerialiseAsCBOR a => a -> ByteString
 deserialiseFromCBOR :: SerialiseAsCBOR a => AsType a -> ByteString -> Either DecoderError a
-class (SerialiseAsRawBytes a, HasTypeProxy a) => Cip129 a
+class (SerialiseAsRawBytes a, HasTypeProxy a) => Cip129 a where {
+    data family Cip129Header a;
+}
 cip129Bech32PrefixFor :: Cip129 a => AsType a -> HumanReadablePart
-cip129HeaderHexByte :: Cip129 a => a -> ByteString
 cip129Bech32PrefixesPermitted :: Cip129 a => AsType a -> [Text]
+cip129Header :: Cip129 a => Cip129Header a -> Word8
+cip129SerialiseRaw :: Cip129 a => a -> ByteString
+cip129DeserialiseRaw :: Cip129 a => ByteString -> Either Cip129EncodingError a
+data () => Cip129EncodingError
+data family Cip129Header a
 data () => InputDecodeError
 InputTextEnvelopeError :: !TextEnvelopeError -> InputDecodeError
 InputBech32DecodeError :: !Bech32DecodeError -> InputDecodeError
@@ -4446,6 +4477,8 @@ data () => TextEnvelopeError
 TextEnvelopeTypeError :: ![TextEnvelopeType] -> !TextEnvelopeType -> TextEnvelopeError
 TextEnvelopeDecodeError :: !DecoderError -> TextEnvelopeError
 TextEnvelopeAesonDecodeError :: !String -> TextEnvelopeError
+TextEnvelopeUnknownKeyWitness :: !TextEnvelopeDescr -> TextEnvelopeError
+TextEnvelopeUnknownType :: !Text -> TextEnvelopeError
 newtype () => TextEnvelopeType
 TextEnvelopeType :: String -> TextEnvelopeType
 data () => FromSomeTypeCDDL c b
@@ -4597,6 +4630,8 @@ WitnessNetworkId :: !NetworkId -> WitnessNetworkIdOrByronAddress
 WitnessByronAddress :: !Address ByronAddr -> WitnessNetworkIdOrByronAddress
 newtype () => TxIx
 TxIx :: Word -> TxIx
+class () => AsTxMetadata a
+asTxMetadata :: AsTxMetadata a => a -> TxMetadata
 newtype () => TxMetadata
 TxMetadata :: Map Word64 TxMetadataValue -> TxMetadata
 [unTxMetadata] :: TxMetadata -> Map Word64 TxMetadataValue
@@ -4985,6 +5020,7 @@ conwayGenesisDefaults :: ConwayGenesis
 decodeAlonzoGenesis :: forall era t (m :: Type -> Type). MonadTransError String t m => Maybe (CardanoEra era) -> ByteString -> t m AlonzoGenesis
 shelleyGenesisDefaults :: ShelleyGenesis
 unsafeBoundedRational :: (HasCallStack, Typeable r, BoundedRational r) => Rational -> r
+fromShelleyGenesis :: ShelleyGenesis -> GenesisParameters ShelleyEra
 createAnchor :: Url -> ByteString -> Anchor
 createGovernanceActionId :: TxId -> Word16 -> GovActionId
 createProposalProcedure :: ShelleyBasedEra era -> Network -> Coin -> StakeCredential -> GovernanceAction era -> Anchor -> Proposal era
@@ -5066,6 +5102,8 @@ readShelleyGenesisConfig :: forall t (m :: Type -> Type). MonadIOTransError Gene
 shelleyPraosNonce :: GenesisHashShelley -> Nonce
 toConditionResult :: Bool -> ConditionResult
 convertRetiredPoolsMap :: Map StakeCredential (Map (KeyHash 'StakePool) Coin) -> Map StakeCredential (Map (Hash StakePoolKey) Coin)
+(?!) :: MonadError e m => Maybe a -> e -> m a
+(?!&) :: Either e a -> (e -> e') -> Either e' a
 failEither :: MonadFail m => Either String a -> m a
 failEitherWith :: MonadFail m => (e -> String) -> Either e a -> m a
 handleIOExceptionsLiftWith :: (MonadIOTransError e' t m, Exception e) => (e -> e') -> m a -> t m a
@@ -5146,6 +5184,7 @@ docToText :: Doc AnsiStyle -> Text
 magenta :: Doc AnsiStyle -> Doc AnsiStyle
 prettyException :: Exception a => a -> Doc ann
 pshow :: Show a => a -> Doc ann
+renderBuildable :: Buildable a => a -> Text
 textShow :: Show a => a -> Text
 white :: Doc AnsiStyle -> Doc AnsiStyle
 yellow :: Doc AnsiStyle -> Doc AnsiStyle
@@ -5225,8 +5264,8 @@ serialiseToBech32 :: SerialiseAsBech32 a => a -> Text
 unsafeHumanReadablePartFromText :: HasCallStack => Text -> HumanReadablePart
 canonicaliseCborBs :: ByteString -> Either DecoderError ByteString
 canonicaliseTerm :: Term -> Term
-deserialiseFromBech32Cip129 :: Cip129 a => Text -> Either Bech32DecodeError a
-deserialiseGovActionIdFromBech32Cip129 :: Text -> Either Bech32DecodeError GovActionId
+deserialiseFromBech32Cip129 :: Cip129 a => Text -> Either Cip129EncodingError a
+deserialiseGovActionIdFromBech32Cip129 :: Text -> Either Cip129EncodingError GovActionId
 serialiseGovActionIdToBech32Cip129 :: GovActionId -> Text
 serialiseToBech32Cip129 :: Cip129 a => a -> Text
 deserialiseInput :: NonEmpty (InputFormat a) -> ByteString -> Either InputDecodeError a
@@ -5265,7 +5304,6 @@ deserialiseFromTextEnvelopeCddlAnyOf :: [FromSomeTypeCDDL TextEnvelope b] -> Tex
 deserialiseWitnessLedgerCddl :: ShelleyBasedEra era -> TextEnvelope -> Either TextEnvelopeCddlError (KeyWitness era)
 readFileTextEnvelopeCddlAnyOf :: [FromSomeTypeCDDL TextEnvelope b] -> FilePath -> IO (Either (FileError TextEnvelopeCddlError) b)
 serialiseWitnessLedgerCddl :: ShelleyBasedEra era -> KeyWitness era -> TextEnvelope
-serializeByronTx :: ATxAux ByteString -> TextEnvelope
 writeByronTxFileTextEnvelopeCddl :: File content 'Out -> ATxAux ByteString -> IO (Either (FileError ()) ())
 writeTxFileTextEnvelopeCanonicalCddl :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
 writeTxFileTextEnvelopeCddl :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
@@ -5305,6 +5343,12 @@ convWithdrawals :: TxWithdrawals build era -> Withdrawals
 createTransactionBody :: HasCallStack => ShelleyBasedEra era -> TxBodyContent BuildTx era -> Either TxBodyError (TxBody era)
 defaultTxFee :: ShelleyBasedEra era -> TxFee era
 defaultTxValidityUpperBound :: ShelleyBasedEra era -> TxValidityUpperBound era
+extractWitnessableCertificates :: AlonzoEraOnwards era -> TxCertificates BuildTx era -> [(Witnessable 'CertItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
+extractWitnessableMints :: AlonzoEraOnwards era -> TxMintValue build era -> [(Witnessable 'MintItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxMint era))]
+extractWitnessableProposals :: forall era (eon :: Type -> Type). ConwayEraOnwards era -> Maybe (Featured eon era (TxProposalProcedures BuildTx era)) -> [(Witnessable 'ProposalItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
+extractWitnessableTxIns :: AlonzoEraOnwards era -> TxIns BuildTx era -> [(Witnessable 'TxInItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxTxIn era))]
+extractWitnessableVotes :: forall era (eon :: Type -> Type). ConwayEraOnwards era -> Maybe (Featured eon era (TxVotingProcedures BuildTx era)) -> [(Witnessable 'VoterItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
+extractWitnessableWithdrawals :: AlonzoEraOnwards era -> TxWithdrawals BuildTx era -> [(Witnessable 'WithdrawalItem (ShelleyLedgerEra era), BuildTxWith BuildTx (Witness WitCtxStake era))]
 genesisUTxOPseudoTxIn :: NetworkId -> Hash GenesisUTxOKey -> TxIn
 getReferenceInputDatumMap :: TxInsReferenceDatums build -> Map (Hash ScriptData) HashableScriptData
 getReferenceInputsSizeForTxIds :: ShelleyLedgerEra era ~ ledgerera => BabbageEraOnwards era -> UTxO ledgerera -> Set TxIn -> Int
@@ -5434,6 +5478,11 @@ txOutInAnyEra :: CardanoEra era -> TxOut CtxTx era -> TxOutInAnyEra
 txOutValueToLovelace :: TxOutValue era -> Coin
 txOutValueToValue :: TxOutValue era -> Value
 validateTxOuts :: ShelleyBasedEra era -> [TxOut CtxTx era] -> Either TxOutputError ()
+deserialiseByronTx :: TextEnvelope -> Either TextEnvelopeError (ATxAux ByteString)
+serialiseByronTx :: ATxAux ByteString -> TextEnvelope
+writeTxFileTextEnvelope :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
+writeTxFileTextEnvelopeCanonical :: ShelleyBasedEra era -> File content 'Out -> Tx era -> IO (Either (FileError ()) ())
+writeTxWitnessFileTextEnvelope :: ShelleyBasedEra era -> File () 'Out -> KeyWitness era -> IO (Either (FileError ()) ())
 getByronTxBody :: ATxAux ByteString -> Annotated Tx ByteString
 getShelleyKeyWitnessVerificationKey :: ShelleySigningKey -> VKey 'Witness
 getTxBody :: Tx era -> TxBody era
@@ -5441,6 +5490,7 @@ getTxBodyAndWitnesses :: Tx era -> (TxBody era, [KeyWitness era])
 getTxWitnesses :: Tx era -> [KeyWitness era]
 getTxWitnessesByron :: ATxAux ByteString -> [KeyWitness ByronEra]
 isValidToScriptValidity :: IsValid -> ScriptValidity
+legacyKeyWitnessEncode :: KeyWitness era -> ByteString
 makeByronKeyWitness :: IsByronKey key => NetworkId -> Annotated Tx ByteString -> SigningKey key -> KeyWitness ByronEra
 makeShelleyBasedBootstrapWitness :: ShelleyBasedEra era -> WitnessNetworkIdOrByronAddress -> TxBody (ShelleyLedgerEra era) -> SigningKey ByronKey -> KeyWitness era
 makeShelleyBootstrapWitness :: ShelleyBasedEra era -> WitnessNetworkIdOrByronAddress -> TxBody era -> SigningKey ByronKey -> KeyWitness era

@@ -38,8 +38,8 @@ forall a. Monoid a =&gt; a
 </span><a href="Hydra.Ledger.SimpleSpec.html#shrinkSequence"><span class="hs-identifier hs-var">shrinkSequence</span></a></span><span> </span><span class="annot"><span class="annottext">(([SimpleTx] -&gt; Bool) -&gt; Property)
 -&gt; ([SimpleTx] -&gt; Bool) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679632976"><span class="annot"><span class="annottext">[SimpleTx]
-</span><a href="#local-6989586621679632976"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679633465"><span class="annot"><span class="annottext">[SimpleTx]
+</span><a href="#local-6989586621679633465"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-21"></span><span>    </span><span class="annot"><span class="annottext">Either (SimpleTx, ValidationError) (Set SimpleTxOut) -&gt; Bool
 forall a b. Either a b -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#isRight"><span class="hs-identifier hs-var">isRight</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ledger SimpleTx
@@ -60,7 +60,7 @@ Ledger tx
 UTxOType SimpleTx
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
-</span><a href="#local-6989586621679632976"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679633465"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-22"></span><span>
 </span><span id="line-23"></span><span class="annot"><a href="Hydra.Ledger.SimpleSpec.html#shrinkSequence"><span class="hs-identifier hs-type">shrinkSequence</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">]</span><span class="hs-special">]</span><span>
 </span><span id="line-24"></span><span id="shrinkSequence"><span class="annot"><span class="annottext">shrinkSequence :: [SimpleTx] -&gt; [[SimpleTx]]
@@ -72,34 +72,34 @@ forall a b. a -&gt; b -&gt; a
 </span><span id="line-25"></span><span>
 </span><span id="line-26"></span><span class="annot"><a href="Hydra.Ledger.SimpleSpec.html#genSequenceOfValidTransactions"><span class="hs-identifier hs-type">genSequenceOfValidTransactions</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">]</span><span>
 </span><span id="line-27"></span><span id="genSequenceOfValidTransactions"><span class="annot"><span class="annottext">genSequenceOfValidTransactions :: UTxOType SimpleTx -&gt; Gen [SimpleTx]
-</span><a href="Hydra.Ledger.SimpleSpec.html#genSequenceOfValidTransactions"><span class="hs-identifier hs-var hs-var">genSequenceOfValidTransactions</span></a></span></span><span> </span><span id="local-6989586621679632980"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621679632980"><span class="hs-identifier hs-var">initialUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-28"></span><span>  </span><span id="local-6989586621679632981"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632981"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Integer
+</span><a href="Hydra.Ledger.SimpleSpec.html#genSequenceOfValidTransactions"><span class="hs-identifier hs-var hs-var">genSequenceOfValidTransactions</span></a></span></span><span> </span><span id="local-6989586621679633469"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621679633469"><span class="hs-identifier hs-var">initialUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-28"></span><span>  </span><span id="local-6989586621679633470"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633470"><span class="hs-identifier hs-var">n</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Integer
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Integer) -&gt; Gen Int -&gt; Gen Integer
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Gen Int
 </span><span class="hs-identifier hs-var">getSize</span></span><span>
-</span><span id="line-29"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679632983"><span class="annot"><span class="annottext">maxId :: Integer
-</span><a href="#local-6989586621679632983"><span class="hs-identifier hs-var hs-var">maxId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Bool
+</span><span id="line-29"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679633472"><span class="annot"><span class="annottext">maxId :: Integer
+</span><a href="#local-6989586621679633472"><span class="hs-identifier hs-var hs-var">maxId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Bool
 forall a. Set a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#null"><span class="hs-identifier hs-var">Set.null</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632980"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633469"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">SimpleTxOut -&gt; Integer
 </span><span class="hs-identifier hs-var">unSimpleTxOut</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; SimpleTxOut
 forall a. Ord a =&gt; Set a -&gt; a
 forall (t :: * -&gt; *) a. (Foldable t, Ord a) =&gt; t a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#maximum"><span class="hs-identifier hs-var">maximum</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632980"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-30"></span><span>  </span><span id="local-6989586621679632986"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632986"><span class="hs-identifier hs-var">numTxs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
+</span><a href="#local-6989586621679633469"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679633475"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633475"><span class="hs-identifier hs-var">numTxs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
 forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632981"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679633470"><span class="hs-identifier hs-var">n</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-31"></span><span>  </span><span class="annot"><span class="annottext">((Integer, Set SimpleTxOut, [SimpleTx])
  -&gt; Integer -&gt; Gen (Integer, Set SimpleTxOut, [SimpleTx]))
 -&gt; (Integer, Set SimpleTxOut, [SimpleTx])
@@ -113,107 +113,107 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
 (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
 -&gt; TxIdType SimpleTx
 -&gt; Gen (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
-</span><a href="#local-6989586621679632988"><span class="hs-identifier hs-var">newTx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632983"><span class="hs-identifier hs-var">maxId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633477"><span class="hs-identifier hs-var">newTx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633472"><span class="hs-identifier hs-var">maxId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632980"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
+</span><a href="#local-6989586621679633469"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632986"><span class="hs-identifier hs-var">numTxs</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Gen (Integer, Set SimpleTxOut, [SimpleTx])
+</span><a href="#local-6989586621679633475"><span class="hs-identifier hs-var">numTxs</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Gen (Integer, Set SimpleTxOut, [SimpleTx])
 -&gt; ((Integer, Set SimpleTxOut, [SimpleTx]) -&gt; Gen [SimpleTx])
 -&gt; Gen [SimpleTx]
 forall a b. Gen a -&gt; (a -&gt; Gen b) -&gt; Gen b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632989"><span class="annot"><span class="annottext">[SimpleTx]
-</span><a href="#local-6989586621679632989"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[SimpleTx] -&gt; Gen [SimpleTx]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633478"><span class="annot"><span class="annottext">[SimpleTx]
+</span><a href="#local-6989586621679633478"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[SimpleTx] -&gt; Gen [SimpleTx]
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[SimpleTx] -&gt; [SimpleTx]
 forall a. [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#reverse"><span class="hs-identifier hs-var">reverse</span></a></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
-</span><a href="#local-6989586621679632989"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679633478"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-32"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-33"></span><span>  </span><span class="annot"><a href="#local-6989586621679632988"><span class="hs-identifier hs-type">newTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="#local-6989586621679633477"><span class="hs-identifier hs-type">newTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-34"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-35"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-36"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
-</span><span id="line-37"></span><span>  </span><span id="local-6989586621679632988"><span class="annot"><span class="annottext">newTx :: (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679633477"><span class="annot"><span class="annottext">newTx :: (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
 -&gt; TxIdType SimpleTx
 -&gt; Gen (TxIdType SimpleTx, UTxOType SimpleTx, [SimpleTx])
-</span><a href="#local-6989586621679632988"><span class="hs-identifier hs-var hs-var">newTx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679632991"><span class="annot"><span class="annottext">TxIdType SimpleTx
-</span><a href="#local-6989586621679632991"><span class="hs-identifier hs-var">maxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632992"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621679632992"><span class="hs-identifier hs-var">utxo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632993"><span class="annot"><span class="annottext">[SimpleTx]
-</span><a href="#local-6989586621679632993"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679632994"><span class="annot"><span class="annottext">TxIdType SimpleTx
-</span><a href="#local-6989586621679632994"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-38"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679632995"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632995"><span class="hs-identifier hs-var">newMax</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632996"><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621679632996"><span class="hs-identifier hs-var">ins</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679632997"><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621679632997"><span class="hs-identifier hs-var">outs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633477"><span class="hs-identifier hs-var hs-var">newTx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679633480"><span class="annot"><span class="annottext">TxIdType SimpleTx
+</span><a href="#local-6989586621679633480"><span class="hs-identifier hs-var">maxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633481"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621679633481"><span class="hs-identifier hs-var">utxo</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633482"><span class="annot"><span class="annottext">[SimpleTx]
+</span><a href="#local-6989586621679633482"><span class="hs-identifier hs-var">txs</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679633483"><span class="annot"><span class="annottext">TxIdType SimpleTx
+</span><a href="#local-6989586621679633483"><span class="hs-identifier hs-var">txid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-38"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679633484"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633484"><span class="hs-identifier hs-var">newMax</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633485"><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633485"><span class="hs-identifier hs-var">ins</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679633486"><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633486"><span class="hs-identifier hs-var">outs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Integer
 -&gt; Set SimpleTxOut
 -&gt; Gen (Integer, Set SimpleTxOut, Set SimpleTxOut)
-</span><a href="#local-6989586621679632998"><span class="hs-identifier hs-var">genInputsAndOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633487"><span class="hs-identifier hs-var">genInputsAndOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
 TxIdType SimpleTx
-</span><a href="#local-6989586621679632991"><span class="hs-identifier hs-var">maxId</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633480"><span class="hs-identifier hs-var">maxId</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632992"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679633481"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-39"></span><span>    </span><span class="annot"><span class="annottext">(Integer, Set SimpleTxOut, [SimpleTx])
 -&gt; Gen (Integer, Set SimpleTxOut, [SimpleTx])
 forall a. a -&gt; Gen a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679632995"><span class="hs-identifier hs-var">newMax</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633484"><span class="hs-identifier hs-var">newMax</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632992"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
+</span><a href="#local-6989586621679633481"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#%5C%5C"><span class="hs-operator hs-var">Set.\\</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621679632996"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
+</span><a href="#local-6989586621679633485"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; Set a -&gt; Set a -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#union"><span class="hs-operator hs-var">`Set.union`</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621679632997"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
+</span><a href="#local-6989586621679633486"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
 </span><span class="hs-identifier hs-var">SimpleTx</span></span><span> </span><span class="annot"><span class="annottext">Integer
 TxIdType SimpleTx
-</span><a href="#local-6989586621679632994"><span class="hs-identifier hs-var">txid</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633483"><span class="hs-identifier hs-var">txid</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632996"><span class="hs-identifier hs-var">ins</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633485"><span class="hs-identifier hs-var">ins</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679632997"><span class="hs-identifier hs-var">outs</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; [SimpleTx] -&gt; [SimpleTx]
+</span><a href="#local-6989586621679633486"><span class="hs-identifier hs-var">outs</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; [SimpleTx] -&gt; [SimpleTx]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
-</span><a href="#local-6989586621679632993"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679633482"><span class="hs-identifier hs-var">txs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-40"></span><span>
-</span><span id="line-41"></span><span>  </span><span class="annot"><a href="#local-6989586621679632998"><span class="hs-identifier hs-type">genInputsAndOutputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTxOut</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTxOut</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTxOut</span></span><span class="hs-special">)</span><span>
-</span><span id="line-42"></span><span>  </span><span id="local-6989586621679632998"><span class="annot"><span class="annottext">genInputsAndOutputs :: Integer
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="#local-6989586621679633487"><span class="hs-identifier hs-type">genInputsAndOutputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTxOut</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTxOut</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTxOut</span></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span><span>  </span><span id="local-6989586621679633487"><span class="annot"><span class="annottext">genInputsAndOutputs :: Integer
 -&gt; Set SimpleTxOut
 -&gt; Gen (Integer, Set SimpleTxOut, Set SimpleTxOut)
-</span><a href="#local-6989586621679632998"><span class="hs-identifier hs-var hs-var">genInputsAndOutputs</span></a></span></span><span> </span><span id="local-6989586621679633002"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679633002"><span class="hs-identifier hs-var">maxId</span></a></span></span><span> </span><span id="local-6989586621679633003"><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621679633003"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-43"></span><span>    </span><span id="local-6989586621679633004"><span class="annot"><span class="annottext">[SimpleTxOut]
-</span><a href="#local-6989586621679633004"><span class="hs-identifier hs-var">ins</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Gen [SimpleTxOut]
+</span><a href="#local-6989586621679633487"><span class="hs-identifier hs-var hs-var">genInputsAndOutputs</span></a></span></span><span> </span><span id="local-6989586621679633491"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633491"><span class="hs-identifier hs-var">maxId</span></a></span></span><span> </span><span id="local-6989586621679633492"><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679633492"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-43"></span><span>    </span><span id="local-6989586621679633493"><span class="annot"><span class="annottext">[SimpleTxOut]
+</span><a href="#local-6989586621679633493"><span class="hs-identifier hs-var">ins</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Gen [SimpleTxOut]
 forall a. [a] -&gt; Gen [a]
 </span><span class="hs-identifier hs-var">sublistOf</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; [SimpleTxOut]
 forall a. Set a -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#toList"><span class="hs-identifier hs-var">Set.toList</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
-</span><a href="#local-6989586621679633003"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-44"></span><span>    </span><span id="local-6989586621679633006"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679633006"><span class="hs-identifier hs-var">numOuts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
+</span><a href="#local-6989586621679633492"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>    </span><span id="local-6989586621679633495"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633495"><span class="hs-identifier hs-var">numOuts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Integer, Integer) -&gt; Gen Integer
 forall a. Random a =&gt; (a, a) -&gt; Gen a
 </span><span class="hs-identifier hs-var">choose</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">10</span></span><span class="hs-special">)</span><span>
-</span><span id="line-45"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679633007"><span class="annot"><span class="annottext">outs :: [Integer]
-</span><a href="#local-6989586621679633007"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Integer) -&gt; [Integer] -&gt; [Integer]
+</span><span id="line-45"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679633496"><span class="annot"><span class="annottext">outs :: [Integer]
+</span><a href="#local-6989586621679633496"><span class="hs-identifier hs-var hs-var">outs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Integer -&gt; Integer) -&gt; [Integer] -&gt; [Integer]
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; Integer -&gt; Integer
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679633002"><span class="hs-identifier hs-var">maxId</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621679633491"><span class="hs-identifier hs-var">maxId</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Integer
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621679633006"><span class="hs-identifier hs-var">numOuts</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679633495"><span class="hs-identifier hs-var">numOuts</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">(Integer, Set SimpleTxOut, Set SimpleTxOut)
 -&gt; Gen (Integer, Set SimpleTxOut, Set SimpleTxOut)
 forall a. a -&gt; Gen a
@@ -222,10 +222,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a. Ord a =&gt; [a] -&gt; a
 forall (t :: * -&gt; *) a. (Foldable t, Ord a) =&gt; t a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#maximum"><span class="hs-identifier hs-var">maximum</span></a></span><span> </span><span class="annot"><span class="annottext">[Integer]
-</span><a href="#local-6989586621679633007"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Set SimpleTxOut
+</span><a href="#local-6989586621679633496"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; [a] -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut]
-</span><a href="#local-6989586621679633004"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Set SimpleTxOut
+</span><a href="#local-6989586621679633493"><span class="hs-identifier hs-var">ins</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[SimpleTxOut] -&gt; Set SimpleTxOut
 forall a. Ord a =&gt; [a] -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([SimpleTxOut] -&gt; Set SimpleTxOut)
 -&gt; [SimpleTxOut] -&gt; Set SimpleTxOut
@@ -235,5 +235,5 @@ forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; SimpleTxOut
 </span><span class="hs-identifier hs-var">SimpleTxOut</span></span><span> </span><span class="annot"><span class="annottext">[Integer]
-</span><a href="#local-6989586621679633007"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679633496"><span class="hs-identifier hs-var">outs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-47"></span></pre></body></html>

@@ -62,15 +62,15 @@
 -&gt; CommitBlueprintTx Tx
 -&gt; (TxIn, TxOut CtxUTxO, Hash PaymentKey)
 -&gt; Tx
-</span><a href="Hydra.Tx.Commit.html#commitTx"><span class="hs-identifier hs-var hs-var">commitTx</span></a></span></span><span> </span><span id="local-6989586621679436255"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679436255"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679436256"><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679436256"><span class="hs-identifier hs-var">scriptRegistry</span></a></span></span><span> </span><span id="local-6989586621679436257"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679436257"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679436258"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436258"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621679436259"><span class="annot"><span class="annottext">CommitBlueprintTx Tx
-</span><a href="#local-6989586621679436259"><span class="hs-identifier hs-var">commitBlueprintTx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436260"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436260"><span class="hs-identifier hs-var">initialInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436261"><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679436261"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436262"><span class="annot"><span class="annottext">Hash PaymentKey
-</span><a href="#local-6989586621679436262"><span class="hs-identifier hs-var">vkh</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Commit.html#commitTx"><span class="hs-identifier hs-var hs-var">commitTx</span></a></span></span><span> </span><span id="local-6989586621679436565"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679436565"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679436566"><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621679436566"><span class="hs-identifier hs-var">scriptRegistry</span></a></span></span><span> </span><span id="local-6989586621679436567"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679436567"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679436568"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679436568"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621679436569"><span class="annot"><span class="annottext">CommitBlueprintTx Tx
+</span><a href="#local-6989586621679436569"><span class="hs-identifier hs-var">commitBlueprintTx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436570"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679436570"><span class="hs-identifier hs-var">initialInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436571"><span class="annot"><span class="annottext">TxOut CtxUTxO
+</span><a href="#local-6989586621679436571"><span class="hs-identifier hs-var">out</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436572"><span class="annot"><span class="annottext">Hash PaymentKey
+</span><a href="#local-6989586621679436572"><span class="hs-identifier hs-var">vkh</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-59"></span><span>  </span><span class="hs-comment">-- NOTE: We use the cardano-ledger-api functions here such that we can use the</span><span>
 </span><span id="line-60"></span><span>  </span><span class="hs-comment">-- blueprint transaction as a starting point (cardano-api does not allow</span><span>
 </span><span id="line-61"></span><span>  </span><span class="hs-comment">-- convenient transaction modifications).</span><span>
@@ -84,12 +84,12 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-63"></span><span>    </span><span class="annot"><span class="annottext">Tx -&gt; Tx LedgerEra
 forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679436265"><span class="hs-identifier hs-var">blueprintTx</span></a></span><span>
+</span><a href="#local-6989586621679436575"><span class="hs-identifier hs-var">blueprintTx</span></a></span><span>
 </span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">Tx ConwayEra
 -&gt; (Tx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra -&gt; AlonzoTx ConwayEra
-</span><a href="#local-6989586621679436267"><span class="hs-identifier hs-var">spendFromInitial</span></a></span><span>
+</span><a href="#local-6989586621679436577"><span class="hs-identifier hs-var">spendFromInitial</span></a></span><span>
 </span><span id="line-65"></span><span>      </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; (AlonzoTx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
@@ -130,7 +130,7 @@ forall era.
 IsShelleyBasedEra era =&gt;
 TxOut CtxUTxO era -&gt; TxOut (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679436271"><span class="hs-identifier hs-var">commitOutput</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436581"><span class="hs-identifier hs-var">commitOutput</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; (AlonzoTx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
@@ -166,20 +166,20 @@ forall a b. a -&gt; (a -&gt; b) -&gt; b
 </span><a href="Hydra.Tx.Utils.html#addMetadata"><span class="hs-identifier hs-var">addMetadata</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; TxMetadata
 </span><a href="Hydra.Tx.Utils.html#mkHydraHeadV1TxName"><span class="hs-identifier hs-var">mkHydraHeadV1TxName</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;CommitTx&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679436265"><span class="hs-identifier hs-var">blueprintTx</span></a></span><span>
+</span><a href="#local-6989586621679436575"><span class="hs-identifier hs-var">blueprintTx</span></a></span><span>
 </span><span id="line-68"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-69"></span><span>  </span><span id="local-6989586621679436267"><span class="annot"><span class="annottext">spendFromInitial :: Tx ConwayEra -&gt; AlonzoTx ConwayEra
-</span><a href="#local-6989586621679436267"><span class="hs-identifier hs-var hs-var">spendFromInitial</span></a></span></span><span> </span><span id="local-6989586621679436272"><span class="annot"><span class="annottext">Tx ConwayEra
-</span><a href="#local-6989586621679436272"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-70"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679436273"><span class="annot"><span class="annottext">newRedeemers :: Map TxIn (Data ConwayEra)
-</span><a href="#local-6989586621679436273"><span class="hs-identifier hs-var hs-var">newRedeemers</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621679436577"><span class="annot"><span class="annottext">spendFromInitial :: Tx ConwayEra -&gt; AlonzoTx ConwayEra
+</span><a href="#local-6989586621679436577"><span class="hs-identifier hs-var hs-var">spendFromInitial</span></a></span></span><span> </span><span id="local-6989586621679436582"><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679436582"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679436583"><span class="annot"><span class="annottext">newRedeemers :: Map TxIn (Data ConwayEra)
+</span><a href="#local-6989586621679436583"><span class="hs-identifier hs-var hs-var">newRedeemers</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-71"></span><span>          </span><span class="annot"><span class="annottext">Tx ConwayEra -&gt; Map TxIn (Data ConwayEra)
 forall era.
 (AlonzoEraTxBody era, AlonzoEraTxWits era, EraTx era,
  PlutusPurpose AsIxItem era ~ ConwayPlutusPurpose AsIxItem era) =&gt;
 Tx era -&gt; Map TxIn (Data era)
-</span><a href="#local-6989586621679436274"><span class="hs-identifier hs-var">resolveSpendingRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
-</span><a href="#local-6989586621679436272"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679436584"><span class="hs-identifier hs-var">resolveSpendingRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679436582"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-72"></span><span>            </span><span class="annot"><span class="annottext">Map TxIn (Data ConwayEra)
 -&gt; (Map TxIn (Data ConwayEra) -&gt; Map TxIn (Data ConwayEra))
 -&gt; Map TxIn (Data ConwayEra)
@@ -191,12 +191,12 @@ forall a b. a -&gt; (a -&gt; b) -&gt; b
 forall k a. Ord k =&gt; k -&gt; a -&gt; Map k a -&gt; Map k a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#insert"><span class="hs-identifier hs-var">Map.insert</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; TxIn
 </span><span class="hs-identifier hs-var">toLedgerTxIn</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436260"><span class="hs-identifier hs-var">initialInput</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. Era era =&gt; HashableScriptData -&gt; Data era
+</span><a href="#local-6989586621679436570"><span class="hs-identifier hs-var">initialInput</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall era. Era era =&gt; HashableScriptData -&gt; Data era
 </span><span class="hs-identifier hs-var">toLedgerData</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">LedgerEra</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679436278"><span class="hs-identifier hs-var">initialRedeemer</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-73"></span><span>        </span><span id="local-6989586621679436279"><span class="annot"><span class="annottext">newInputs :: Set TxIn
-</span><a href="#local-6989586621679436279"><span class="hs-identifier hs-var hs-var">newInputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
-</span><a href="#local-6989586621679436272"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679436588"><span class="hs-identifier hs-var">initialRedeemer</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>        </span><span id="local-6989586621679436589"><span class="annot"><span class="annottext">newInputs :: Set TxIn
+</span><a href="#local-6989586621679436589"><span class="hs-identifier hs-var hs-var">newInputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679436582"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
 -&gt; Getting (Set TxIn) (Tx ConwayEra) (Set TxIn) -&gt; Set TxIn
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(TxBody ConwayEra -&gt; Const (Set TxIn) (TxBody ConwayEra))
@@ -219,9 +219,9 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a. a -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; TxIn
 </span><span class="hs-identifier hs-var">toLedgerTxIn</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436260"><span class="hs-identifier hs-var">initialInput</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436570"><span class="hs-identifier hs-var">initialInput</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-74"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
-</span><a href="#local-6989586621679436272"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679436582"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-75"></span><span>          </span><span class="annot"><span class="annottext">Tx ConwayEra
 -&gt; (Tx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
@@ -248,7 +248,7 @@ Lens' (TxBody ConwayEra) (Set TxIn)
 -&gt; Set TxIn -&gt; Tx ConwayEra -&gt; AlonzoTx ConwayEra
 forall s t a b. ASetter s t a b -&gt; b -&gt; s -&gt; t
 </span><span class="hs-operator hs-var">.~</span></span><span> </span><span class="annot"><span class="annottext">Set TxIn
-</span><a href="#local-6989586621679436279"><span class="hs-identifier hs-var">newInputs</span></a></span><span>
+</span><a href="#local-6989586621679436589"><span class="hs-identifier hs-var">newInputs</span></a></span><span>
 </span><span id="line-76"></span><span>          </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; (AlonzoTx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
@@ -278,7 +278,7 @@ forall a s t. Semigroup a =&gt; ASetter s t a a -&gt; a -&gt; s -&gt; t
 forall a. a -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; TxIn
 </span><span class="hs-identifier hs-var">toLedgerTxIn</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436281"><span class="hs-identifier hs-var">initialScriptRef</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436591"><span class="hs-identifier hs-var">initialScriptRef</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>          </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; (AlonzoTx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
@@ -312,7 +312,7 @@ forall a s t. Semigroup a =&gt; ASetter s t a a -&gt; a -&gt; s -&gt; t
 forall a. a -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#singleton"><span class="hs-identifier hs-var">Set.singleton</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Hash PaymentKey -&gt; KeyHash 'Witness
 </span><span class="hs-identifier hs-var">toLedgerKeyHash</span></span><span> </span><span class="annot"><span class="annottext">Hash PaymentKey
-</span><a href="#local-6989586621679436262"><span class="hs-identifier hs-var">vkh</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436572"><span class="hs-identifier hs-var">vkh</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-78"></span><span>          </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; (AlonzoTx ConwayEra -&gt; AlonzoTx ConwayEra) -&gt; AlonzoTx ConwayEra
 forall a b. a -&gt; (a -&gt; b) -&gt; b
@@ -364,8 +364,8 @@ forall era era2.
 (AlonzoEraTxBody era, AlonzoEraTxWits era, EraTx era,
  PlutusPurpose AsIxItem era ~ ConwayPlutusPurpose AsIxItem era) =&gt;
 Tx era -&gt; [(ConwayPlutusPurpose AsIx era2, (Data era, ExUnits))]
-</span><a href="#local-6989586621679436284"><span class="hs-identifier hs-var">nonSpendingRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
-</span><a href="#local-6989586621679436272"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436594"><span class="hs-identifier hs-var">nonSpendingRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Tx ConwayEra
+</span><a href="#local-6989586621679436582"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-80"></span><span>              </span><span class="annot"><span class="annottext">Redeemers ConwayEra -&gt; Redeemers ConwayEra -&gt; Redeemers ConwayEra
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Map (PlutusPurpose AsIx ConwayEra) (Data ConwayEra, ExUnits)
@@ -391,18 +391,18 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall k a era.
 Ord k =&gt;
 Map k a -&gt; Set k -&gt; [(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
-</span><a href="#local-6989586621679436285"><span class="hs-identifier hs-var">mkRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (Data ConwayEra)
-</span><a href="#local-6989586621679436273"><span class="hs-identifier hs-var">newRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn
-</span><a href="#local-6989586621679436279"><span class="hs-identifier hs-var">newInputs</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436595"><span class="hs-identifier hs-var">mkRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (Data ConwayEra)
+</span><a href="#local-6989586621679436583"><span class="hs-identifier hs-var">newRedeemers</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxIn
+</span><a href="#local-6989586621679436589"><span class="hs-identifier hs-var">newInputs</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-81"></span><span>
 </span><span id="line-82"></span><span>  </span><span class="hs-comment">-- Make redeemers (with zeroed units) from a TxIn -&gt; Data map and a set of transaction inputs</span><span>
-</span><span id="line-83"></span><span>  </span><span id="local-6989586621679435814"><span id="local-6989586621679435815"><span id="local-6989586621679435816"><span class="annot"><a href="#local-6989586621679436285"><span class="hs-identifier hs-type">mkRedeemers</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679435814"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679435814"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679435815"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679435814"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span class="annot"><a href="#local-6989586621679435816"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679435815"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExUnits</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span></span></span></span><span>
-</span><span id="line-84"></span><span>  </span><span id="local-6989586621679436285"><span class="annot"><span class="annottext">mkRedeemers :: forall k a era.
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621679436124"><span id="local-6989586621679436125"><span id="local-6989586621679436126"><span class="annot"><a href="#local-6989586621679436595"><span class="hs-identifier hs-type">mkRedeemers</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679436124"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679436124"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679436125"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#Set"><span class="hs-identifier hs-type">Set</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679436124"><span class="hs-identifier hs-type">k</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span class="annot"><a href="#local-6989586621679436126"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679436125"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExUnits</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span></span></span></span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679436595"><span class="annot"><span class="annottext">mkRedeemers :: forall k a era.
 Ord k =&gt;
 Map k a -&gt; Set k -&gt; [(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
-</span><a href="#local-6989586621679436285"><span class="hs-identifier hs-var hs-var">mkRedeemers</span></a></span></span><span> </span><span id="local-6989586621679436298"><span class="annot"><span class="annottext">Map k a
-</span><a href="#local-6989586621679436298"><span class="hs-identifier hs-var">resolved</span></a></span></span><span> </span><span id="local-6989586621679436299"><span class="annot"><span class="annottext">Set k
-</span><a href="#local-6989586621679436299"><span class="hs-identifier hs-var">inputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679436595"><span class="hs-identifier hs-var hs-var">mkRedeemers</span></a></span></span><span> </span><span id="local-6989586621679436608"><span class="annot"><span class="annottext">Map k a
+</span><a href="#local-6989586621679436608"><span class="hs-identifier hs-var">resolved</span></a></span></span><span> </span><span id="local-6989586621679436609"><span class="annot"><span class="annottext">Set k
+</span><a href="#local-6989586621679436609"><span class="hs-identifier hs-var">inputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">([(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
  -&gt; k -&gt; [(ConwayPlutusPurpose AsIx era, (a, ExUnits))])
 -&gt; [(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
@@ -413,37 +413,37 @@ forall (t :: * -&gt; *) b a.
 Foldable t =&gt;
 (b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span>
-</span><span id="line-86"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679436301"><span class="annot"><span class="annottext">[(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
-</span><a href="#local-6989586621679436301"><span class="hs-identifier hs-var">newRedeemerData</span></a></span></span><span> </span><span id="local-6989586621679436302"><span class="annot"><span class="annottext">k
-</span><a href="#local-6989586621679436302"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-87"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679436303"><span class="annot"><span class="annottext">ix :: Word32
-</span><a href="#local-6989586621679436303"><span class="hs-identifier hs-var hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word32
+</span><span id="line-86"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679436611"><span class="annot"><span class="annottext">[(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
+</span><a href="#local-6989586621679436611"><span class="hs-identifier hs-var">newRedeemerData</span></a></span></span><span> </span><span id="local-6989586621679436612"><span class="annot"><span class="annottext">k
+</span><a href="#local-6989586621679436612"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-87"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679436613"><span class="annot"><span class="annottext">ix :: Word32
+</span><a href="#local-6989586621679436613"><span class="hs-identifier hs-var hs-var">ix</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Word32
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">(Int -&gt; Word32) -&gt; Int -&gt; Word32
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">k -&gt; Set k -&gt; Int
 forall a. Ord a =&gt; a -&gt; Set a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#findIndex"><span class="hs-identifier hs-var">Set.findIndex</span></a></span><span> </span><span class="annot"><span class="annottext">k
-</span><a href="#local-6989586621679436302"><span class="hs-identifier hs-var">txin</span></a></span><span> </span><span class="annot"><span class="annottext">Set k
-</span><a href="#local-6989586621679436299"><span class="hs-identifier hs-var">inputs</span></a></span><span>
+</span><a href="#local-6989586621679436612"><span class="hs-identifier hs-var">txin</span></a></span><span> </span><span class="annot"><span class="annottext">Set k
+</span><a href="#local-6989586621679436609"><span class="hs-identifier hs-var">inputs</span></a></span><span>
 </span><span id="line-88"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">k -&gt; Map k a -&gt; Maybe a
 forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">k
-</span><a href="#local-6989586621679436302"><span class="hs-identifier hs-var">txin</span></a></span><span> </span><span class="annot"><span class="annottext">Map k a
-</span><a href="#local-6989586621679436298"><span class="hs-identifier hs-var">resolved</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679436612"><span class="hs-identifier hs-var">txin</span></a></span><span> </span><span class="annot"><span class="annottext">Map k a
+</span><a href="#local-6989586621679436608"><span class="hs-identifier hs-var">resolved</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-89"></span><span>                </span><span class="annot"><span class="annottext">Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
-</span><a href="#local-6989586621679436301"><span class="hs-identifier hs-var">newRedeemerData</span></a></span><span>
-</span><span id="line-90"></span><span>                </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679436306"><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679436306"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679436611"><span class="hs-identifier hs-var">newRedeemerData</span></a></span><span>
+</span><span id="line-90"></span><span>                </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679436616"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679436616"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-91"></span><span>                  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsIx Word32 TxIn -&gt; ConwayPlutusPurpose AsIx era
 forall (f :: * -&gt; * -&gt; *) era.
 f Word32 TxIn -&gt; ConwayPlutusPurpose f era
 </span><span class="hs-identifier hs-var">ConwaySpending</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 TxIn
 forall ix it. ix -&gt; AsIx ix it
 </span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436303"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679436306"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; ExUnits
+</span><a href="#local-6989586621679436613"><span class="hs-identifier hs-var">ix</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679436616"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; ExUnits
 </span><span class="hs-identifier hs-var">ExUnits</span></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ConwayPlutusPurpose AsIx era, (a, ExUnits))
@@ -451,33 +451,33 @@ forall ix it. ix -&gt; AsIx ix it
 -&gt; [(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[(ConwayPlutusPurpose AsIx era, (a, ExUnits))]
-</span><a href="#local-6989586621679436301"><span class="hs-identifier hs-var">newRedeemerData</span></a></span><span>
+</span><a href="#local-6989586621679436611"><span class="hs-identifier hs-var">newRedeemerData</span></a></span><span>
 </span><span id="line-92"></span><span>      </span><span class="hs-special">)</span><span>
 </span><span id="line-93"></span><span>      </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-94"></span><span>      </span><span class="annot"><span class="annottext">Set k
-</span><a href="#local-6989586621679436299"><span class="hs-identifier hs-var">inputs</span></a></span><span>
+</span><a href="#local-6989586621679436609"><span class="hs-identifier hs-var">inputs</span></a></span><span>
 </span><span id="line-95"></span><span>
 </span><span id="line-96"></span><span>  </span><span class="hs-comment">-- Create a TxIn -&gt; Data map of all spending redeemers</span><span>
-</span><span id="line-97"></span><span>  </span><span id="local-6989586621679435792"><span class="annot"><a href="#local-6989586621679436274"><span class="hs-identifier hs-type">resolveSpendingRedeemers</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-98"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxBody</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxWits</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.EraTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#~"><span class="hs-operator hs-type">~</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-99"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-100"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.TxIn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Data</span></span><span> </span><span class="annot"><a href="#local-6989586621679435792"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
-</span><span id="line-101"></span><span>  </span><span id="local-6989586621679436274"><span class="annot"><span class="annottext">resolveSpendingRedeemers :: forall era.
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621679436102"><span class="annot"><a href="#local-6989586621679436584"><span class="hs-identifier hs-type">resolveSpendingRedeemers</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxBody</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxWits</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.EraTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#~"><span class="hs-operator hs-type">~</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-100"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.TxIn</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Data</span></span><span> </span><span class="annot"><a href="#local-6989586621679436102"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-101"></span><span>  </span><span id="local-6989586621679436584"><span class="annot"><span class="annottext">resolveSpendingRedeemers :: forall era.
 (AlonzoEraTxBody era, AlonzoEraTxWits era, EraTx era,
  PlutusPurpose AsIxItem era ~ ConwayPlutusPurpose AsIxItem era) =&gt;
 Tx era -&gt; Map TxIn (Data era)
-</span><a href="#local-6989586621679436274"><span class="hs-identifier hs-var hs-var">resolveSpendingRedeemers</span></a></span></span><span> </span><span id="local-6989586621679436325"><span class="annot"><span class="annottext">Tx era
-</span><a href="#local-6989586621679436325"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679436584"><span class="hs-identifier hs-var hs-var">resolveSpendingRedeemers</span></a></span></span><span> </span><span id="local-6989586621679436635"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679436635"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-102"></span><span>    </span><span class="annot"><span class="annottext">(PlutusPurpose AsIx era
  -&gt; (Data era, ExUnits) -&gt; Map TxIn (Data era))
 -&gt; Map (PlutusPurpose AsIx era) (Data era, ExUnits)
 -&gt; Map TxIn (Data era)
 forall m k a. Monoid m =&gt; (k -&gt; a -&gt; m) -&gt; Map k a -&gt; m
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#foldMapWithKey"><span class="hs-identifier hs-var">Map.foldMapWithKey</span></a></span><span>
-</span><span id="line-103"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679436327"><span class="annot"><span class="annottext">PlutusPurpose AsIx era
-</span><a href="#local-6989586621679436327"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436328"><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436328"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436329"><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436329"><span class="hs-identifier hs-var">_ex</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-103"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679436637"><span class="annot"><span class="annottext">PlutusPurpose AsIx era
+</span><a href="#local-6989586621679436637"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436638"><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436638"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436639"><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436639"><span class="hs-identifier hs-var">_ex</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-104"></span><span>          </span><span class="hs-comment">-- XXX: Should soon be available through cardano-ledger-api again</span><span>
 </span><span id="line-105"></span><span>          </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxBody era
 -&gt; PlutusPurpose AsIx era
@@ -488,20 +488,20 @@ TxBody era
 -&gt; PlutusPurpose AsIx era
 -&gt; StrictMaybe (PlutusPurpose AsIxItem era)
 </span><span class="hs-identifier hs-var">redeemerPointerInverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx era
-</span><a href="#local-6989586621679436325"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; Getting (TxBody era) (Tx era) (TxBody era) -&gt; TxBody era
+</span><a href="#local-6989586621679436635"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; Getting (TxBody era) (Tx era) (TxBody era) -&gt; TxBody era
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting (TxBody era) (Tx era) (TxBody era)
 forall era. EraTx era =&gt; Lens' (Tx era) (TxBody era)
 Lens' (Tx era) (TxBody era)
 </span><span class="hs-identifier hs-var">bodyTxL</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PlutusPurpose AsIx era
-</span><a href="#local-6989586621679436327"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679436637"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-106"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwaySpending</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679436332"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436332"><span class="hs-identifier hs-var">txIn</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; Data era -&gt; Map TxIn (Data era)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679436642"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679436642"><span class="hs-identifier hs-var">txIn</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; Data era -&gt; Map TxIn (Data era)
 forall k a. k -&gt; a -&gt; Map k a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#singleton"><span class="hs-identifier hs-var">Map.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436332"><span class="hs-identifier hs-var">txIn</span></a></span><span> </span><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436328"><span class="hs-identifier hs-var">d</span></a></span><span>
+</span><a href="#local-6989586621679436642"><span class="hs-identifier hs-var">txIn</span></a></span><span> </span><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436638"><span class="hs-identifier hs-var">d</span></a></span><span>
 </span><span id="line-107"></span><span>            </span><span class="annot"><span class="annottext">StrictMaybe (PlutusPurpose AsIxItem era)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Map TxIn (Data era)
 forall a. Monoid a =&gt; a
@@ -515,7 +515,7 @@ Redeemers era -&gt; Map (PlutusPurpose AsIx era) (Data era, ExUnits)
 -&gt; Map (PlutusPurpose AsIx era) (Data era, ExUnits)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
-</span><a href="#local-6989586621679436325"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679436635"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
 -&gt; Getting (Redeemers era) (Tx era) (Redeemers era)
 -&gt; Redeemers era
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -537,16 +537,16 @@ Lens' (TxWits era) (Redeemers era)
 Lens' (TxWits era) (Redeemers era)
 </span><span class="hs-identifier hs-var">rdmrsTxWitsL</span></span><span class="hs-special">)</span><span>
 </span><span id="line-110"></span><span>
-</span><span id="line-111"></span><span>  </span><span id="local-6989586621679435812"><span id="local-6989586621679435813"><span class="annot"><a href="#local-6989586621679436284"><span class="hs-identifier hs-type">nonSpendingRedeemers</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-112"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxBody</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxWits</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.EraTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#~"><span class="hs-operator hs-type">~</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-113"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-114"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span class="annot"><a href="#local-6989586621679435813"><span class="hs-identifier hs-type">era2</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Data</span></span><span> </span><span class="annot"><a href="#local-6989586621679435812"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExUnits</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span></span></span><span>
-</span><span id="line-115"></span><span>  </span><span id="local-6989586621679436284"><span class="annot"><span class="annottext">nonSpendingRedeemers :: forall era era2.
+</span><span id="line-111"></span><span>  </span><span id="local-6989586621679436122"><span id="local-6989586621679436123"><span class="annot"><a href="#local-6989586621679436594"><span class="hs-identifier hs-type">nonSpendingRedeemers</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxBody</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">AlonzoEraTxWits</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger.EraTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#~"><span class="hs-operator hs-type">~</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">Ledger.Tx</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-114"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayPlutusPurpose</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AsIx</span></span><span> </span><span class="annot"><a href="#local-6989586621679436123"><span class="hs-identifier hs-type">era2</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Data</span></span><span> </span><span class="annot"><a href="#local-6989586621679436122"><span class="hs-identifier hs-type">era</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ExUnits</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span></span></span><span>
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621679436594"><span class="annot"><span class="annottext">nonSpendingRedeemers :: forall era era2.
 (AlonzoEraTxBody era, AlonzoEraTxWits era, EraTx era,
  PlutusPurpose AsIxItem era ~ ConwayPlutusPurpose AsIxItem era) =&gt;
 Tx era -&gt; [(ConwayPlutusPurpose AsIx era2, (Data era, ExUnits))]
-</span><a href="#local-6989586621679436284"><span class="hs-identifier hs-var hs-var">nonSpendingRedeemers</span></a></span></span><span> </span><span id="local-6989586621679436348"><span class="annot"><span class="annottext">Tx era
-</span><a href="#local-6989586621679436348"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679436594"><span class="hs-identifier hs-var hs-var">nonSpendingRedeemers</span></a></span></span><span> </span><span id="local-6989586621679436658"><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679436658"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">(PlutusPurpose AsIx era
  -&gt; (Data era, ExUnits)
  -&gt; [(ConwayPlutusPurpose AsIx era2, (Data era, ExUnits))])
@@ -554,10 +554,10 @@ Tx era -&gt; [(ConwayPlutusPurpose AsIx era2, (Data era, ExUnits))]
 -&gt; [(ConwayPlutusPurpose AsIx era2, (Data era, ExUnits))]
 forall m k a. Monoid m =&gt; (k -&gt; a -&gt; m) -&gt; Map k a -&gt; m
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#foldMapWithKey"><span class="hs-identifier hs-var">Map.foldMapWithKey</span></a></span><span>
-</span><span id="line-117"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679436349"><span class="annot"><span class="annottext">PlutusPurpose AsIx era
-</span><a href="#local-6989586621679436349"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436350"><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436350"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436351"><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436351"><span class="hs-identifier hs-var">ex</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-117"></span><span>      </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679436659"><span class="annot"><span class="annottext">PlutusPurpose AsIx era
+</span><a href="#local-6989586621679436659"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436660"><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436660"><span class="hs-identifier hs-var">d</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436661"><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436661"><span class="hs-identifier hs-var">ex</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-118"></span><span>          </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxBody era
 -&gt; PlutusPurpose AsIx era
 -&gt; StrictMaybe (PlutusPurpose AsIxItem era)
@@ -567,48 +567,48 @@ TxBody era
 -&gt; PlutusPurpose AsIx era
 -&gt; StrictMaybe (PlutusPurpose AsIxItem era)
 </span><span class="hs-identifier hs-var">redeemerPointerInverse</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx era
-</span><a href="#local-6989586621679436348"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; Getting (TxBody era) (Tx era) (TxBody era) -&gt; TxBody era
+</span><a href="#local-6989586621679436658"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era -&gt; Getting (TxBody era) (Tx era) (TxBody era) -&gt; TxBody era
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting (TxBody era) (Tx era) (TxBody era)
 forall era. EraTx era =&gt; Lens' (Tx era) (TxBody era)
 Lens' (Tx era) (TxBody era)
 </span><span class="hs-identifier hs-var">bodyTxL</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PlutusPurpose AsIx era
-</span><a href="#local-6989586621679436349"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-119"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayMinting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436353"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436353"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">PolicyID
+</span><a href="#local-6989586621679436659"><span class="hs-identifier hs-var">p</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-119"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayMinting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436663"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679436663"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">PolicyID
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsIx Word32 PolicyID -&gt; ConwayPlutusPurpose AsIx era2
 forall (f :: * -&gt; * -&gt; *) era.
 f Word32 PolicyID -&gt; ConwayPlutusPurpose f era
 </span><span class="hs-identifier hs-var">ConwayMinting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 PolicyID
 forall ix it. ix -&gt; AsIx ix it
 </span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436353"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436350"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436351"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-120"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayRewarding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436355"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436355"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">RewardAccount
+</span><a href="#local-6989586621679436663"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436660"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436661"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-120"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayRewarding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436665"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679436665"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">RewardAccount
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsIx Word32 RewardAccount -&gt; ConwayPlutusPurpose AsIx era2
 forall (f :: * -&gt; * -&gt; *) era.
 f Word32 RewardAccount -&gt; ConwayPlutusPurpose f era
 </span><span class="hs-identifier hs-var">ConwayRewarding</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 RewardAccount
 forall ix it. ix -&gt; AsIx ix it
 </span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436355"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436350"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436351"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-121"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayCertifying</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436357"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436357"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxCert era
+</span><a href="#local-6989586621679436665"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436660"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436661"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-121"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayCertifying</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436667"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679436667"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxCert era
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsIx Word32 (TxCert era2) -&gt; ConwayPlutusPurpose AsIx era2
 forall (f :: * -&gt; * -&gt; *) era.
 f Word32 (TxCert era) -&gt; ConwayPlutusPurpose f era
 </span><span class="hs-identifier hs-var">ConwayCertifying</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 (TxCert era2)
 forall ix it. ix -&gt; AsIx ix it
 </span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436357"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436350"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436351"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-122"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayProposing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436359"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436359"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">ProposalProcedure era
+</span><a href="#local-6989586621679436667"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436660"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436661"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-122"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayProposing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436669"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679436669"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">ProposalProcedure era
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsIx Word32 (ProposalProcedure era2)
 -&gt; ConwayPlutusPurpose AsIx era2
 forall (f :: * -&gt; * -&gt; *) era.
@@ -616,20 +616,20 @@ f Word32 (ProposalProcedure era) -&gt; ConwayPlutusPurpose f era
 </span><span class="hs-identifier hs-var">ConwayProposing</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 (ProposalProcedure era2)
 forall ix it. ix -&gt; AsIx ix it
 </span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436359"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436350"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436351"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-123"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayVoting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436361"><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436361"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">Voter
+</span><a href="#local-6989586621679436669"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436660"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436661"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-123"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwayVoting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span id="local-6989586621679436671"><span class="annot"><span class="annottext">Word32
+</span><a href="#local-6989586621679436671"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="annot"><span class="annottext">Voter
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">AsIx Word32 Voter -&gt; ConwayPlutusPurpose AsIx era2
 forall (f :: * -&gt; * -&gt; *) era.
 f Word32 Voter -&gt; ConwayPlutusPurpose f era
 </span><span class="hs-identifier hs-var">ConwayVoting</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word32 -&gt; AsIx Word32 Voter
 forall ix it. ix -&gt; AsIx ix it
 </span><span class="hs-identifier hs-var">AsIx</span></span><span> </span><span class="annot"><span class="annottext">Word32
-</span><a href="#local-6989586621679436361"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
-</span><a href="#local-6989586621679436350"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
-</span><a href="#local-6989586621679436351"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679436671"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Data era
+</span><a href="#local-6989586621679436660"><span class="hs-identifier hs-var">d</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ExUnits
+</span><a href="#local-6989586621679436661"><span class="hs-identifier hs-var">ex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-124"></span><span>            </span><span class="annot"><span class="hs-identifier hs-type">SJust</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">ConwaySpending</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">AsIxItem</span></span><span> </span><span class="annot"><span class="annottext">Word32
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">TxIn
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
@@ -644,7 +644,7 @@ Redeemers era -&gt; Map (PlutusPurpose AsIx era) (Data era, ExUnits)
 -&gt; Map (PlutusPurpose AsIx era) (Data era, ExUnits)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
-</span><a href="#local-6989586621679436348"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
+</span><a href="#local-6989586621679436658"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx era
 -&gt; Getting (Redeemers era) (Tx era) (Redeemers era)
 -&gt; Redeemers era
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -665,16 +665,16 @@ AlonzoEraTxWits era =&gt;
 Lens' (TxWits era) (Redeemers era)
 Lens' (TxWits era) (Redeemers era)
 </span><span class="hs-identifier hs-var">rdmrsTxWitsL</span></span><span class="hs-special">)</span><span>
-</span><span id="line-128"></span><span>  </span><span id="local-6989586621679436281"><span class="annot"><span class="annottext">initialScriptRef :: TxIn
-</span><a href="#local-6989586621679436281"><span class="hs-identifier hs-var hs-var">initialScriptRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-128"></span><span>  </span><span id="local-6989586621679436591"><span class="annot"><span class="annottext">initialScriptRef :: TxIn
+</span><a href="#local-6989586621679436591"><span class="hs-identifier hs-var hs-var">initialScriptRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-129"></span><span>    </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO) -&gt; TxIn
 forall a b. (a, b) -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptRegistry -&gt; (TxIn, TxOut CtxUTxO)
 </span><a href="Hydra.Tx.ScriptRegistry.html#%24sel%3AinitialReference%3AScriptRegistry"><span class="hs-identifier hs-var">initialReference</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679436256"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436566"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-130"></span><span>
-</span><span id="line-131"></span><span>  </span><span id="local-6989586621679436278"><span class="annot"><span class="annottext">initialRedeemer :: HashableScriptData
-</span><a href="#local-6989586621679436278"><span class="hs-identifier hs-var hs-var">initialRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621679436588"><span class="annot"><span class="annottext">initialRedeemer :: HashableScriptData
+</span><a href="#local-6989586621679436588"><span class="hs-identifier hs-var hs-var">initialRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-132"></span><span>    </span><span class="annot"><span class="annottext">Redeemer -&gt; HashableScriptData
 forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span class="hs-identifier hs-var">toScriptData</span></span><span> </span><span class="annot"><span class="annottext">(Redeemer -&gt; HashableScriptData)
@@ -692,39 +692,39 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">toPlutusTxOutRef</span></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; TxOutRef) -&gt; [TxIn] -&gt; [TxOutRef]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[TxIn]
-</span><a href="#local-6989586621679436369"><span class="hs-identifier hs-var">committedTxIns</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436679"><span class="hs-identifier hs-var">committedTxIns</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-134"></span><span>
-</span><span id="line-135"></span><span>  </span><span id="local-6989586621679436369"><span class="annot"><span class="annottext">committedTxIns :: [TxIn]
-</span><a href="#local-6989586621679436369"><span class="hs-identifier hs-var hs-var">committedTxIns</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxIn]
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621679436679"><span class="annot"><span class="annottext">committedTxIns :: [TxIn]
+</span><a href="#local-6989586621679436679"><span class="hs-identifier hs-var hs-var">committedTxIns</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxIn]
 forall era. Tx era -&gt; [TxIn]
 </span><span class="hs-identifier hs-var">txIns'</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679436265"><span class="hs-identifier hs-var">blueprintTx</span></a></span><span>
+</span><a href="#local-6989586621679436575"><span class="hs-identifier hs-var">blueprintTx</span></a></span><span>
 </span><span id="line-136"></span><span>
-</span><span id="line-137"></span><span>  </span><span id="local-6989586621679436271"><span class="annot"><span class="annottext">commitOutput :: TxOut CtxUTxO
-</span><a href="#local-6989586621679436271"><span class="hs-identifier hs-var hs-var">commitOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-137"></span><span>  </span><span id="local-6989586621679436581"><span class="annot"><span class="annottext">commitOutput :: TxOut CtxUTxO
+</span><a href="#local-6989586621679436581"><span class="hs-identifier hs-var hs-var">commitOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-138"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra
 -&gt; Value -&gt; TxOutDatum CtxUTxO -&gt; ReferenceScript -&gt; TxOut CtxUTxO
 forall ctx.
 AddressInEra
 -&gt; Value -&gt; TxOutDatum ctx -&gt; ReferenceScript -&gt; TxOut ctx
 </span><span class="hs-identifier hs-var">TxOut</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra
-</span><a href="#local-6989586621679436372"><span class="hs-identifier hs-var">commitAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679436373"><span class="hs-identifier hs-var">commitValue</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO
-</span><a href="#local-6989586621679436374"><span class="hs-identifier hs-var">commitDatum</span></a></span><span> </span><span class="annot"><span class="annottext">ReferenceScript
+</span><a href="#local-6989586621679436682"><span class="hs-identifier hs-var">commitAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679436683"><span class="hs-identifier hs-var">commitValue</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679436684"><span class="hs-identifier hs-var">commitDatum</span></a></span><span> </span><span class="annot"><span class="annottext">ReferenceScript
 </span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
 </span><span id="line-139"></span><span>
-</span><span id="line-140"></span><span>  </span><span id="local-6989586621679436372"><span class="annot"><span class="annottext">commitAddress :: AddressInEra
-</span><a href="#local-6989586621679436372"><span class="hs-identifier hs-var hs-var">commitAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-140"></span><span>  </span><span id="local-6989586621679436682"><span class="annot"><span class="annottext">commitAddress :: AddressInEra
+</span><a href="#local-6989586621679436682"><span class="hs-identifier hs-var hs-var">commitAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-141"></span><span>    </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript PlutusScriptV3 -&gt; AddressInEra
 forall lang era.
 (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
 NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679436255"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679436565"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">commitValidatorScript</span></span><span>
 </span><span id="line-142"></span><span>
-</span><span id="line-143"></span><span>  </span><span id="local-6989586621679436377"><span class="annot"><span class="annottext">utxoToCommit :: UTxO Era
-</span><a href="#local-6989586621679436377"><span class="hs-identifier hs-var hs-var">utxoToCommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-143"></span><span>  </span><span id="local-6989586621679436687"><span class="annot"><span class="annottext">utxoToCommit :: UTxO Era
+</span><a href="#local-6989586621679436687"><span class="hs-identifier hs-var hs-var">utxoToCommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-144"></span><span>    </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO)] -&gt; UTxO Era
 forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO)] -&gt; UTxO Era)
@@ -733,33 +733,33 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; Maybe (TxIn, TxOut CtxUTxO))
 -&gt; [TxIn] -&gt; [(TxIn, TxOut CtxUTxO)]
 forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier hs-var">mapMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679436380"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436380"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436380"><span class="hs-identifier hs-var">txin</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO -&gt; (TxIn, TxOut CtxUTxO))
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#mapMaybe"><span class="hs-identifier hs-var">mapMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679436690"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679436690"><span class="hs-identifier hs-var">txin</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679436690"><span class="hs-identifier hs-var">txin</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxOut CtxUTxO -&gt; (TxIn, TxOut CtxUTxO))
 -&gt; Maybe (TxOut CtxUTxO) -&gt; Maybe (TxIn, TxOut CtxUTxO)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; UTxO Era -&gt; Maybe (TxOut CtxUTxO)
 forall era. TxIn -&gt; UTxO era -&gt; Maybe (TxOut CtxUTxO era)
 </span><span class="hs-identifier hs-var">UTxO.resolveTxIn</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679436380"><span class="hs-identifier hs-var">txin</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679436690"><span class="hs-identifier hs-var">txin</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era
 UTxOType Tx
-</span><a href="#local-6989586621679436382"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[TxIn]
-</span><a href="#local-6989586621679436369"><span class="hs-identifier hs-var">committedTxIns</span></a></span><span>
+</span><a href="#local-6989586621679436692"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><a href="#local-6989586621679436679"><span class="hs-identifier hs-var">committedTxIns</span></a></span><span>
 </span><span id="line-145"></span><span>
-</span><span id="line-146"></span><span>  </span><span id="local-6989586621679436373"><span class="annot"><span class="annottext">commitValue :: Value
-</span><a href="#local-6989586621679436373"><span class="hs-identifier hs-var hs-var">commitValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-146"></span><span>  </span><span id="local-6989586621679436683"><span class="annot"><span class="annottext">commitValue :: Value
+</span><a href="#local-6989586621679436683"><span class="hs-identifier hs-var hs-var">commitValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-147"></span><span>    </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679436261"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+</span><a href="#local-6989586621679436571"><span class="hs-identifier hs-var">out</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; Value
 forall era. UTxO era -&gt; Value
 </span><span class="hs-identifier hs-var">UTxO.totalValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436377"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span>
+</span><a href="#local-6989586621679436687"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span>
 </span><span id="line-148"></span><span>
-</span><span id="line-149"></span><span>  </span><span id="local-6989586621679436374"><span class="annot"><span class="annottext">commitDatum :: TxOutDatum CtxUTxO
-</span><a href="#local-6989586621679436374"><span class="hs-identifier hs-var hs-var">commitDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-149"></span><span>  </span><span id="local-6989586621679436684"><span class="annot"><span class="annottext">commitDatum :: TxOutDatum CtxUTxO
+</span><a href="#local-6989586621679436684"><span class="hs-identifier hs-var hs-var">commitDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-150"></span><span>    </span><span class="annot"><span class="annottext">Datum -&gt; TxOutDatum CtxUTxO
 forall era a ctx.
 (ToScriptData a, IsBabbageBasedEra era) =&gt;
@@ -768,35 +768,35 @@ a -&gt; TxOutDatum ctx era
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; UTxO Era -&gt; CurrencySymbol -&gt; Datum
 </span><a href="Hydra.Tx.Commit.html#mkCommitDatum"><span class="hs-identifier hs-var">mkCommitDatum</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436258"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436377"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; CurrencySymbol
+</span><a href="#local-6989586621679436568"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679436687"><span class="hs-identifier hs-var">utxoToCommit</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; CurrencySymbol
 </span><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier hs-var">headIdToCurrencySymbol</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679436257"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436567"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-151"></span><span>
-</span><span id="line-152"></span><span>  </span><span class="annot"><a href="Hydra.Tx.BlueprintTx.html#CommitBlueprintTx"><span class="hs-identifier hs-type">CommitBlueprintTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621679436382"><span class="annot"><span class="annottext">UTxOType Tx
+</span><span id="line-152"></span><span>  </span><span class="annot"><a href="Hydra.Tx.BlueprintTx.html#CommitBlueprintTx"><span class="hs-identifier hs-type">CommitBlueprintTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621679436692"><span class="annot"><span class="annottext">UTxOType Tx
 lookupUTxO :: UTxOType Tx
 $sel:lookupUTxO:CommitBlueprintTx :: forall tx. CommitBlueprintTx tx -&gt; UTxOType tx
-</span><a href="#local-6989586621679436382"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436265"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679436692"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436575"><span class="annot"><span class="annottext">Tx
 blueprintTx :: Tx
 $sel:blueprintTx:CommitBlueprintTx :: forall tx. CommitBlueprintTx tx -&gt; tx
-</span><a href="#local-6989586621679436265"><span class="hs-identifier hs-var hs-var">blueprintTx</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CommitBlueprintTx Tx
-</span><a href="#local-6989586621679436259"><span class="hs-identifier hs-var">commitBlueprintTx</span></a></span><span>
+</span><a href="#local-6989586621679436575"><span class="hs-identifier hs-var hs-var">blueprintTx</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CommitBlueprintTx Tx
+</span><a href="#local-6989586621679436569"><span class="hs-identifier hs-var">commitBlueprintTx</span></a></span><span>
 </span><span id="line-153"></span><span>
 </span><span id="line-154"></span><span class="annot"><a href="Hydra.Tx.Commit.html#mkCommitDatum"><span class="hs-identifier hs-type">mkCommitDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.Party.html#Party"><span class="hs-identifier hs-type">Party</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CurrencySymbol</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Plutus.Datum</span></span><span>
 </span><span id="line-155"></span><span id="mkCommitDatum"><span class="annot"><span class="annottext">mkCommitDatum :: Party -&gt; UTxO Era -&gt; CurrencySymbol -&gt; Datum
-</span><a href="Hydra.Tx.Commit.html#mkCommitDatum"><span class="hs-identifier hs-var hs-var">mkCommitDatum</span></a></span></span><span> </span><span id="local-6989586621679436391"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436391"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621679436392"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436392"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679436393"><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679436393"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Commit.html#mkCommitDatum"><span class="hs-identifier hs-var hs-var">mkCommitDatum</span></a></span></span><span> </span><span id="local-6989586621679436701"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679436701"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621679436702"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679436702"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679436703"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679436703"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-156"></span><span>  </span><span class="annot"><span class="annottext">DatumType -&gt; Datum
 </span><span class="hs-identifier hs-var">Commit.datum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Party -&gt; Party
 </span><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-var">partyToChain</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436391"><span class="hs-identifier hs-var">party</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Commit]
-</span><a href="#local-6989586621679436395"><span class="hs-identifier hs-var">commits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679436393"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436701"><span class="hs-identifier hs-var">party</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679436705"><span class="hs-identifier hs-var">commits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679436703"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-157"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-158"></span><span>  </span><span id="local-6989586621679436395"><span class="annot"><span class="annottext">commits :: [Commit]
-</span><a href="#local-6989586621679436395"><span class="hs-identifier hs-var hs-var">commits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-158"></span><span>  </span><span id="local-6989586621679436705"><span class="annot"><span class="annottext">commits :: [Commit]
+</span><a href="#local-6989586621679436705"><span class="hs-identifier hs-var hs-var">commits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-159"></span><span>    </span><span class="annot"><span class="annottext">((TxIn, TxOut CtxUTxO) -&gt; Maybe Commit)
 -&gt; [(TxIn, TxOut CtxUTxO)] -&gt; [Commit]
 forall a b. (a -&gt; Maybe b) -&gt; [a] -&gt; [b]
@@ -807,7 +807,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; [(TxIn, TxOut CtxUTxO)]
 forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
 </span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436392"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679436702"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-160"></span><span>
 </span><span id="line-161"></span><span class="annot"><span class="hs-comment">-- * Observation</span></span><span>
 </span><span id="line-162"></span><span>
@@ -821,7 +821,7 @@ forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
 </span><span id="line-168"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadId%3ACommitObservation"><span class="annot"><span class="annottext">CommitObservation -&gt; HeadId
 </span><a href="Hydra.Tx.Commit.html#%24sel%3AheadId%3ACommitObservation"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.HeadId.html#HeadId"><span class="hs-identifier hs-type">HeadId</span></a></span><span>
 </span><span id="line-169"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-170"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436403"><span id="local-6989586621679436411"><span class="annot"><span class="annottext">CommitObservation -&gt; CommitObservation -&gt; Bool
+</span><span id="line-170"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436713"><span id="local-6989586621679436721"><span class="annot"><span class="annottext">CommitObservation -&gt; CommitObservation -&gt; Bool
 (CommitObservation -&gt; CommitObservation -&gt; Bool)
 -&gt; (CommitObservation -&gt; CommitObservation -&gt; Bool)
 -&gt; Eq CommitObservation
@@ -830,7 +830,7 @@ $c== :: CommitObservation -&gt; CommitObservation -&gt; Bool
 == :: CommitObservation -&gt; CommitObservation -&gt; Bool
 $c/= :: CommitObservation -&gt; CommitObservation -&gt; Bool
 /= :: CommitObservation -&gt; CommitObservation -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436416"><span id="local-6989586621679436426"><span id="local-6989586621679436430"><span class="annot"><span class="annottext">Int -&gt; CommitObservation -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436726"><span id="local-6989586621679436736"><span id="local-6989586621679436740"><span class="annot"><span class="annottext">Int -&gt; CommitObservation -&gt; ShowS
 [CommitObservation] -&gt; ShowS
 CommitObservation -&gt; String
 (Int -&gt; CommitObservation -&gt; ShowS)
@@ -845,7 +845,7 @@ $cshow :: CommitObservation -&gt; String
 show :: CommitObservation -&gt; String
 $cshowList :: [CommitObservation] -&gt; ShowS
 showList :: [CommitObservation] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436434"><span id="local-6989586621679436436"><span class="annot"><span class="annottext">(forall x. CommitObservation -&gt; Rep CommitObservation x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436744"><span id="local-6989586621679436746"><span class="annot"><span class="annottext">(forall x. CommitObservation -&gt; Rep CommitObservation x)
 -&gt; (forall x. Rep CommitObservation x -&gt; CommitObservation)
 -&gt; Generic CommitObservation
 forall x. Rep CommitObservation x -&gt; CommitObservation
@@ -857,7 +857,7 @@ from :: forall x. CommitObservation -&gt; Rep CommitObservation x
 $cto :: forall x. Rep CommitObservation x -&gt; CommitObservation
 to :: forall x. Rep CommitObservation x -&gt; CommitObservation
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-171"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436440"><span id="local-6989586621679436447"><span id="local-6989586621679436450"><span id="local-6989586621679436453"><span id="local-6989586621679436456"><span class="annot"><span class="annottext">[CommitObservation] -&gt; Value
+</span><span id="line-171"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679436750"><span id="local-6989586621679436757"><span id="local-6989586621679436760"><span id="local-6989586621679436763"><span id="local-6989586621679436766"><span class="annot"><span class="annottext">[CommitObservation] -&gt; Value
 [CommitObservation] -&gt; Encoding
 CommitObservation -&gt; Bool
 CommitObservation -&gt; Value
@@ -885,7 +885,7 @@ $ctoEncodingList :: [CommitObservation] -&gt; Encoding
 toEncodingList :: [CommitObservation] -&gt; Encoding
 $comitField :: CommitObservation -&gt; Bool
 omitField :: CommitObservation -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436578"><span id="local-6989586621679436585"><span id="local-6989586621679436588"><span class="annot"><span class="annottext">Maybe CommitObservation
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436888"><span id="local-6989586621679436895"><span id="local-6989586621679436898"><span class="annot"><span class="annottext">Maybe CommitObservation
 Value -&gt; Parser [CommitObservation]
 Value -&gt; Parser CommitObservation
 (Value -&gt; Parser CommitObservation)
@@ -917,48 +917,48 @@ omittedField :: Maybe CommitObservation
 </span><span id="line-184"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-185"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.Commit.html#CommitObservation"><span class="hs-identifier hs-type">CommitObservation</span></a></span><span>
 </span><span id="line-186"></span><span id="observeCommitTx"><span class="annot"><span class="annottext">observeCommitTx :: NetworkId -&gt; UTxO Era -&gt; Tx -&gt; Maybe CommitObservation
-</span><a href="Hydra.Tx.Commit.html#observeCommitTx"><span class="hs-identifier hs-var hs-var">observeCommitTx</span></a></span></span><span> </span><span id="local-6989586621679436667"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679436667"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679436668"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436668"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679436669"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679436669"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.Tx.Commit.html#observeCommitTx"><span class="hs-identifier hs-var hs-var">observeCommitTx</span></a></span></span><span> </span><span id="local-6989586621679436977"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679436977"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679436978"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679436978"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679436979"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679436979"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-187"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679436670"><span class="hs-identifier hs-var">isSpendingFromInitial</span></a></span><span>
+</span><a href="#local-6989586621679436980"><span class="hs-identifier hs-var">isSpendingFromInitial</span></a></span><span>
 </span><span id="line-188"></span><span>
 </span><span id="line-189"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436671"><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679436671"><span class="hs-identifier hs-var">commitOut</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; Tx -&gt; Maybe (TxIn, TxOut CtxTx Era)
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436981"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679436981"><span class="hs-identifier hs-var">commitOut</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; Tx -&gt; Maybe (TxIn, TxOut CtxTx Era)
 forall era.
 AddressInEra era -&gt; Tx era -&gt; Maybe (TxIn, TxOut CtxTx era)
 </span><span class="hs-identifier hs-var">findTxOutByAddress</span></span><span> </span><span class="annot"><span class="annottext">AddressInEra
-</span><a href="#local-6989586621679436673"><span class="hs-identifier hs-var">commitAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679436669"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-190"></span><span>  </span><span id="local-6989586621679436674"><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679436674"><span class="hs-identifier hs-var">dat</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Maybe HashableScriptData
+</span><a href="#local-6989586621679436983"><span class="hs-identifier hs-var">commitAddress</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679436979"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-190"></span><span>  </span><span id="local-6989586621679436984"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679436984"><span class="hs-identifier hs-var">dat</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Maybe HashableScriptData
 forall era. TxOut CtxTx era -&gt; Maybe HashableScriptData
 </span><span class="hs-identifier hs-var">txOutScriptData</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679436671"><span class="hs-identifier hs-var">commitOut</span></a></span><span>
-</span><span id="line-191"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679436676"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436676"><span class="hs-identifier hs-var">onChainParty</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436677"><span class="annot"><span class="annottext">[Commit]
-</span><a href="#local-6989586621679436677"><span class="hs-identifier hs-var">onChainCommits</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436678"><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679436678"><span class="hs-identifier hs-var">headId</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Commit.DatumType</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe DatumType
+</span><a href="#local-6989586621679436981"><span class="hs-identifier hs-var">commitOut</span></a></span><span>
+</span><span id="line-191"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679436986"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679436986"><span class="hs-identifier hs-var">onChainParty</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436987"><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679436987"><span class="hs-identifier hs-var">onChainCommits</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679436988"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="#local-6989586621679436988"><span class="hs-identifier hs-var">headId</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Commit.DatumType</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe DatumType
 forall a. FromScriptData a =&gt; HashableScriptData -&gt; Maybe a
 </span><span class="hs-identifier hs-var">fromScriptData</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679436674"><span class="hs-identifier hs-var">dat</span></a></span><span>
-</span><span id="line-192"></span><span>  </span><span id="local-6989586621679436680"><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436680"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Maybe Party
+</span><a href="#local-6989586621679436984"><span class="hs-identifier hs-var">dat</span></a></span><span>
+</span><span id="line-192"></span><span>  </span><span id="local-6989586621679436990"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679436990"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Maybe Party
 forall (m :: * -&gt; *). MonadFail m =&gt; Party -&gt; m Party
 </span><a href="Hydra.Tx.Party.html#partyFromChain"><span class="hs-identifier hs-var">partyFromChain</span></a></span><span> </span><span class="annot"><span class="annottext">Party
-</span><a href="#local-6989586621679436676"><span class="hs-identifier hs-var">onChainParty</span></a></span><span>
+</span><a href="#local-6989586621679436986"><span class="hs-identifier hs-var">onChainParty</span></a></span><span>
 </span><span id="line-193"></span><span>
 </span><span id="line-194"></span><span>  </span><span class="hs-comment">-- NOTE: If we have the resolved inputs (utxo) then we could avoid putting</span><span>
 </span><span id="line-195"></span><span>  </span><span class="hs-comment">-- the commit into the datum (+ changing the hashing strategy of</span><span>
 </span><span id="line-196"></span><span>  </span><span class="hs-comment">-- collect/fanout)</span><span>
-</span><span id="line-197"></span><span>  </span><span id="local-6989586621679436681"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436681"><span class="hs-identifier hs-var">committed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-198"></span><span>    </span><span id="local-6989586621679436682"><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO)]
-</span><a href="#local-6989586621679436682"><span class="hs-identifier hs-var">committedUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Commit -&gt; Maybe (TxIn, TxOut CtxUTxO))
+</span><span id="line-197"></span><span>  </span><span id="local-6989586621679436991"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679436991"><span class="hs-identifier hs-var">committed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-198"></span><span>    </span><span id="local-6989586621679436992"><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO)]
+</span><a href="#local-6989586621679436992"><span class="hs-identifier hs-var">committedUTxO</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(Commit -&gt; Maybe (TxIn, TxOut CtxUTxO))
 -&gt; [Commit] -&gt; Maybe [(TxIn, TxOut CtxUTxO)]
 forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
 (Traversable t, Applicative f) =&gt;
@@ -969,8 +969,8 @@ Applicative f =&gt;
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#traverse"><span class="hs-identifier hs-var">traverse</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Network -&gt; Commit -&gt; Maybe (TxIn, TxOut CtxUTxO)
 </span><span class="hs-identifier hs-var">Commit.deserializeCommit</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; Network
 </span><span class="hs-identifier hs-var">toShelleyNetwork</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679436667"><span class="hs-identifier hs-var">networkId</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Commit]
-</span><a href="#local-6989586621679436677"><span class="hs-identifier hs-var">onChainCommits</span></a></span><span>
+</span><a href="#local-6989586621679436977"><span class="hs-identifier hs-var">networkId</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Commit]
+</span><a href="#local-6989586621679436987"><span class="hs-identifier hs-var">onChainCommits</span></a></span><span>
 </span><span id="line-199"></span><span>    </span><span class="annot"><span class="annottext">UTxO Era -&gt; Maybe (UTxO Era)
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -985,13 +985,13 @@ forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
 -&gt; [(TxIn, TxOut CtxUTxO)] -&gt; Maybe (UTxO Era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO)]
-</span><a href="#local-6989586621679436682"><span class="hs-identifier hs-var">committedUTxO</span></a></span><span>
+</span><a href="#local-6989586621679436992"><span class="hs-identifier hs-var">committedUTxO</span></a></span><span>
 </span><span id="line-200"></span><span>
-</span><span id="line-201"></span><span>  </span><span id="local-6989586621679436686"><span class="annot"><span class="annottext">PolicyId
-</span><a href="#local-6989586621679436686"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Maybe PolicyId
+</span><span id="line-201"></span><span>  </span><span id="local-6989586621679436996"><span class="annot"><span class="annottext">PolicyId
+</span><a href="#local-6989586621679436996"><span class="hs-identifier hs-var">policyId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">CurrencySymbol -&gt; Maybe PolicyId
 forall (m :: * -&gt; *). MonadFail m =&gt; CurrencySymbol -&gt; m PolicyId
 </span><span class="hs-identifier hs-var">fromPlutusCurrencySymbol</span></span><span> </span><span class="annot"><span class="annottext">CurrencySymbol
-</span><a href="#local-6989586621679436678"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621679436988"><span class="hs-identifier hs-var">headId</span></a></span><span>
 </span><span id="line-202"></span><span>  </span><span class="annot"><span class="annottext">CommitObservation -&gt; Maybe CommitObservation
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -1008,45 +1008,45 @@ committed :: UTxO Era
 </span><span id="line-206"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headId:CommitObservation :: HeadId
 </span><a href="Hydra.Tx.Commit.html#%24sel%3AheadId%3ACommitObservation"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
 </span><a href="Hydra.Tx.HeadId.html#mkHeadId"><span class="hs-identifier hs-var">mkHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">PolicyId
-</span><a href="#local-6989586621679436686"><span class="hs-identifier hs-var">policyId</span></a></span><span>
+</span><a href="#local-6989586621679436996"><span class="hs-identifier hs-var">policyId</span></a></span><span>
 </span><span id="line-207"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-208"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-209"></span><span>  </span><span class="annot"><a href="#local-6989586621679436670"><span class="hs-identifier hs-type">isSpendingFromInitial</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
-</span><span id="line-210"></span><span>  </span><span id="local-6989586621679436670"><span class="annot"><span class="annottext">isSpendingFromInitial :: Bool
-</span><a href="#local-6989586621679436670"><span class="hs-identifier hs-var hs-var">isSpendingFromInitial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-209"></span><span>  </span><span class="annot"><a href="#local-6989586621679436980"><span class="hs-identifier hs-type">isSpendingFromInitial</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-210"></span><span>  </span><span id="local-6989586621679436980"><span class="annot"><span class="annottext">isSpendingFromInitial :: Bool
+</span><a href="#local-6989586621679436980"><span class="hs-identifier hs-var hs-var">isSpendingFromInitial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-211"></span><span>    </span><span class="annot"><span class="annottext">(TxOut CtxUTxO -&gt; Bool) -&gt; [TxOut CtxUTxO] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; (a -&gt; Bool) -&gt; t a -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679436689"><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679436689"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; AddressInEra
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#any"><span class="hs-identifier hs-var">any</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679436999"><span class="annot"><span class="annottext">TxOut CtxUTxO
+</span><a href="#local-6989586621679436999"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; AddressInEra
 forall ctx. TxOut ctx -&gt; AddressInEra
 </span><span class="hs-identifier hs-var">txOutAddress</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679436689"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; AddressInEra -&gt; Bool
+</span><a href="#local-6989586621679436999"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra -&gt; AddressInEra -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra
-</span><a href="#local-6989586621679436691"><span class="hs-identifier hs-var">initialAddress</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO Era -&gt; [TxOut CtxUTxO]
+</span><a href="#local-6989586621679437001"><span class="hs-identifier hs-var">initialAddress</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO Era -&gt; [TxOut CtxUTxO]
 forall era. UTxO era -&gt; [TxOut CtxUTxO era]
 </span><span class="hs-identifier hs-var">UTxO.txOutputs</span></span><span> </span><span class="annot"><span class="annottext">(UTxO Era -&gt; [TxOut CtxUTxO]) -&gt; UTxO Era -&gt; [TxOut CtxUTxO]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; Tx -&gt; UTxO Era
 </span><span class="hs-identifier hs-var">resolveInputsUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679436668"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679436669"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679436978"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679436979"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-212"></span><span>
-</span><span id="line-213"></span><span>  </span><span id="local-6989586621679436691"><span class="annot"><span class="annottext">initialAddress :: AddressInEra
-</span><a href="#local-6989586621679436691"><span class="hs-identifier hs-var hs-var">initialAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript PlutusScriptV3 -&gt; AddressInEra
+</span><span id="line-213"></span><span>  </span><span id="local-6989586621679437001"><span class="annot"><span class="annottext">initialAddress :: AddressInEra
+</span><a href="#local-6989586621679437001"><span class="hs-identifier hs-var hs-var">initialAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript PlutusScriptV3 -&gt; AddressInEra
 forall lang era.
 (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
 NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679436667"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679436977"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">initialValidatorScript</span></span><span>
 </span><span id="line-214"></span><span>
-</span><span id="line-215"></span><span>  </span><span id="local-6989586621679436673"><span class="annot"><span class="annottext">commitAddress :: AddressInEra
-</span><a href="#local-6989586621679436673"><span class="hs-identifier hs-var hs-var">commitAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript PlutusScriptV3 -&gt; AddressInEra
+</span><span id="line-215"></span><span>  </span><span id="local-6989586621679436983"><span class="annot"><span class="annottext">commitAddress :: AddressInEra
+</span><a href="#local-6989586621679436983"><span class="hs-identifier hs-var hs-var">commitAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; PlutusScript PlutusScriptV3 -&gt; AddressInEra
 forall lang era.
 (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
 NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679436667"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679436977"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">commitValidatorScript</span></span><span>
 </span><span id="line-216"></span></pre></body></html>
