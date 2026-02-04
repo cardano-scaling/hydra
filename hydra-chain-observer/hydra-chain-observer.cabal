@@ -46,13 +46,10 @@ library
     , blockfrost-client            >=0.11.0.0
     , http-conduit
     , hydra-cardano-api
-    , hydra-cardano-api:testlib
     , hydra-node
     , hydra-plutus
     , hydra-prelude
-    , hydra-test-utils
     , hydra-tx
-    , hydra-tx:testlib
     , io-classes
     , network-uri
     , optparse-applicative
