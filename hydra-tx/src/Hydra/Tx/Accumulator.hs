@@ -4,6 +4,7 @@ module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
   getAccumulatorHash,
   getAccumulatorCommitment,
+  getAccumulatorCommitmentWithCRS,
   build,
   buildFromUTxO,
   buildFromSnapshotUTxOs,
@@ -11,8 +12,7 @@ module Hydra.Tx.Accumulator (
   -- * CRS (Common Reference String)
   generateCRS,
   generateCRSG1,
-  defaultCRS,
-  defaultCRSG1,
+  requiredCRSSize,
   defaultItems,
 
   -- * Membership proofs for partial fanout
@@ -107,9 +107,14 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
     -- If utxoToCommit and utxoToDecommit overlap (protocol violation), union deduplicates by TxIn
     utxoToCommit = fromMaybe mempty mUtxoToCommit
     utxoToDecommit = fromMaybe mempty mUtxoToDecommit
-    combinedUTxO = utxo <> utxoToCommit <> utxoToDecommit
+    -- Preserve the fanout output ordering (utxo, then commit, then decommit).
+    orderedOutputs =
+      outputsOfUTxO @tx utxo
+        <> outputsOfUTxO @tx utxoToCommit
+        <> outputsOfUTxO @tx utxoToDecommit
+    elements = utxoToElement @tx <$> orderedOutputs
    in
-    buildFromUTxO @tx combinedUTxO
+    build elements
 
 -- | Get a simple hash of the accumulator state.
 --
@@ -131,6 +136,14 @@ getAccumulatorCommitment (HydraAccumulator acc) =
         Map.elems
           acc
 
+getAccumulatorCommitmentWithCRS :: [Point2] -> HydraAccumulator -> BuiltinBLS12_381_G2_Element
+getAccumulatorCommitmentWithCRS crs (HydraAccumulator acc) =
+  let crsG2 =
+        bls12_381_G2_uncompress . toBuiltin . blsCompress <$> crs
+   in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
+        Map.elems
+          acc
+
 -- * CRS (Common Reference String)
 
 -- | Generate a CRS using the "powers of tau" approach.
@@ -139,7 +152,7 @@ getAccumulatorCommitment (HydraAccumulator acc) =
 -- https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/test/Main.hs
 --
 -- We only need Point2 for proof generation (getPolyCommitOverG2).
--- The CRS consists of: [g2 * tau^0, g2 * tau^1, ..., g2 * tau^n]
+-- The CRS consists of: [g2 * tau^0, g2 * tau^1, ..., g2 * tau^(n-1)]
 --
 -- For testing, we use a fixed tau value. For production, this should be replaced
 -- with a secure CRS from a trusted setup ceremony along with the powers of tau.
@@ -150,8 +163,8 @@ generateCRS setSize =
     -- In production, this should come from a trusted setup ceremony
     tau = F.Scalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
 
-    -- Define powers of tau (tau^0, tau^1, ..., tau^setSize over the field)
-    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral setSize]
+    -- Define powers of tau (tau^0, tau^1, ..., tau^(setSize-1) over the field)
+    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral (setSize - 1)]
     powerOfTauInt = map F.unScalar powerOfTauField
 
     -- Define the generator of G2
@@ -169,8 +182,8 @@ generateCRSG1 setSize =
     -- In production, this should come from a trusted setup ceremony
     tau = F.Scalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
 
-    -- Define powers of tau (tau^0, tau^1, ..., tau^setSize over the field)
-    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral setSize]
+    -- Define powers of tau (tau^0, tau^1, ..., tau^(setSize-1) over the field)
+    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral (setSize - 1)]
     powerOfTauInt = map F.unScalar powerOfTauField
 
     -- Define the generator of G1
@@ -193,6 +206,9 @@ defaultCRSG1 = generateCRSG1 defaultItems
 
 defaultItems :: Int
 defaultItems = 10
+
+requiredCRSSize :: HydraAccumulator -> Int
+requiredCRSSize (HydraAccumulator acc) = Map.size acc
 
 -- * Cryptographic Proofs for partial fanout
 

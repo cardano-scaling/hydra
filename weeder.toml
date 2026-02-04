@@ -11,11 +11,6 @@ roots = [
   "spy$",
   "spy'$",
   "redeemer$",
-  # Accumulator functions for future partial fanout implementation
-  "generateCRS$",
-  "defaultCRS$",
-  "createMembershipProof$",
-  "createMembershipProofFromUTxO$",
 ]
 
 root-instances = [
