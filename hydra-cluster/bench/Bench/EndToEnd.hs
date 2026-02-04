@@ -65,7 +65,7 @@ bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemSta
 bench startingNodeId timeoutSeconds workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo hdl "Test" $ \tracer ->
+    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
@@ -99,7 +99,7 @@ benchDemo ::
 benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo hdl "Test" $ \tracer ->
+    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark demo"
         let cardanoTracer = contramap FromCardanoNode tracer
