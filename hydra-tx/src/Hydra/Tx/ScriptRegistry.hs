@@ -23,7 +23,7 @@ import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 data ScriptRegistry = ScriptRegistry
   { headReference :: (TxIn, TxOut CtxUTxO)
   , crsReference :: (TxIn, TxOut CtxUTxO)
-    -- TODO: why is here no deposit script reference?
+  -- TODO: why is here no deposit script reference?
   }
   deriving stock (Eq, Show, Generic)
 

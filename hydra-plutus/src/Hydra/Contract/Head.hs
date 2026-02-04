@@ -11,6 +11,7 @@ module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
 
+import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (
   PlutusScript,
   pattern PlutusScriptSerialised,
@@ -38,6 +39,7 @@ import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod,
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import Plutus.Crypto.Accumulator (checkMembership)
+import Plutus.Crypto.BlsUtils (Scalar, mkScalar)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V3 (
@@ -518,7 +520,7 @@ headIsFinalizedWith ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum 
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
     && crsRefExists
-    && checkMembership crs accumulatorCommitment [] proof
+    && checkMembership crs accumulatorCommitment subsetScalars proof
  where
   minted = txInfoMint txInfo
 
@@ -539,6 +541,15 @@ headIsFinalizedWith ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum 
   commitUtxoHash = hashTxOuts $ L.take numberOfCommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
 
   decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
+
+  subsetScalars :: [Scalar]
+  subsetScalars =
+    let
+      totalOutputs = numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
+      outputsToProve = L.take totalOutputs txInfoOutputs
+      elementHash txOut = blake2b_224 (hashTxOuts [txOut])
+     in
+      fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) outputsToProve
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, proof, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo

@@ -31,8 +31,8 @@ import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Accumulator (createCRSG1Datum, defaultItems)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
@@ -295,7 +295,10 @@ instance Arbitrary Accumulator.HydraAccumulator where
   arbitrary = Accumulator.build <$> listOf (BS.pack <$> vectorOf 32 arbitrary)
 
 genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
+genScriptRegistry = genScriptRegistryWithCRSSize defaultItems
+
+genScriptRegistryWithCRSSize :: Int -> Gen ScriptRegistry
+genScriptRegistryWithCRSSize crsSize = do
   txId' <- arbitrary
   vk <- arbitrary
   txOut <- genTxOutAdaOnly vk
@@ -307,7 +310,7 @@ genScriptRegistry = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum defaultItems}
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum crsSize}
           )
       }
 
