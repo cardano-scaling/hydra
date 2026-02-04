@@ -39,6 +39,11 @@ changes.
 - Ensure input and etcd-pending-broadcast bounded queue sizes are smaller than the logging queue
   [#2466](https://github.com/cardano-scaling/hydra/pull/2466).
 - `POST /snapshot` now returns the specific side-load validation failure instead of timing out [#2462](https://github.com/cardano-scaling/hydra/issues/2462).
+- **BREAKING** Refactor implementation of `GET /head-initialization`
+  - The `HeadInitialized` event now carries the time at which the head was initialized.
+  - Since `InitialState` and `OpenState` now track the initialization time, the `Checkpoint` event, and consequently the `EventLogRotated` server output, undergo a breaking schema change.
+  - See [Issue #2447](https://github.com/cardano-scaling/hydra/issues/2447) and [PR #2474](https://github.com/cardano-scaling/hydra/pull/2474).
+
 
 ## [1.2.0] - 2025.11.28
 
