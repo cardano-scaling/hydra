@@ -1229,7 +1229,7 @@ withTracer :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) 
 -- | Start logging thread acquiring a <a>Tracer</a>, outputting JSON
 --   formatted messages to some <a>Handle</a>. This tracer is wrapping
 --   <tt>msg</tt> into an <a>Envelope</a> with metadata.
-withTracerOutputTo :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) => Handle -> Text -> (Tracer m msg -> IO a) -> IO a
+withTracerOutputTo :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) => BufferMode -> Handle -> Text -> (Tracer m msg -> IO a) -> IO a
 
 -- | Capture logs and output them to stdout when an exception was raised by
 --   the given <tt>action</tt>. This tracer is wrapping <tt>msg</tt> into
