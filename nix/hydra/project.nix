@@ -88,7 +88,7 @@
           }
           # Add etcd as build dependency of hydra-node (template haskell embedding not tracked by cabal)
           {
-            packages.hydra-node.components.library.build-tools = [ pkgs.etcd ];
+            packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
           }
         ];
       };
