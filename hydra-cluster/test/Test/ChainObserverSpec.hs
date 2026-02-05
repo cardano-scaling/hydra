@@ -10,7 +10,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoNode (NodeLog, withCardanoNodeDevnet)
+import CardanoNode (HydraNodeLog, NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
@@ -27,7 +27,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor)
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (DirectOptions (..))
-import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk, cperiod)

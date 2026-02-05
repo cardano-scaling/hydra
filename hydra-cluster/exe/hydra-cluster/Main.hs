@@ -5,6 +5,7 @@ module Main where
 import Hydra.Prelude
 
 import CardanoNode (
+  EndToEndLog (..),
   findFileStartingAtDirectory,
   findRunningCardanoNode,
   waitForFullySynchronized,
@@ -19,7 +20,7 @@ import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
-import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
+import Hydra.Logging (Tracer, Verbosity (Verbose), traceWith, withTracer, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import System.Directory (removeDirectoryRecursive)

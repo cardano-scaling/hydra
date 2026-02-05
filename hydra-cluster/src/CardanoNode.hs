@@ -18,10 +18,13 @@ import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Data.Vector qualified as Vector
 import Hydra.Cardano.Api (
+  Coin,
   File (..),
   NetworkId,
   NetworkMagic (..),
   SocketPath,
+  TxId (..),
+  UTxO,
   getProgress,
  )
 import Hydra.Cardano.Api qualified as Api
@@ -29,8 +32,10 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (delayBF)
+import Hydra.Cluster.Faucet (FaucetLog, delayBF)
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
+import Hydra.Cluster.Mithril (MithrilLog, downloadLatestSnapshotTo)
+import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
@@ -38,6 +43,7 @@ import System.Directory (
   createDirectoryIfMissing,
   doesFileExist,
   getCurrentDirectory,
+  removeDirectoryRecursive,
   removeFile,
  )
 import System.Exit (ExitCode (..))
@@ -54,6 +60,31 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude
+
+data HydraNodeLog
+  = HydraNodeCommandSpec {cmd :: Text}
+  | NodeStarted {nodeId :: Int}
+  | SentMessage {nodeId :: Int, message :: Aeson.Value}
+  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
+  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
+  | EndWaiting {nodeId :: Int}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
+data EndToEndLog
+  = ClusterOptions {options :: Options}
+  | FromCardanoNode NodeLog
+  | FromFaucet FaucetLog
+  | FromHydraNode HydraNodeLog
+  | FromMithril MithrilLog
+  | StartingFunds {actor :: String, utxo :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Coin, utxo :: UTxO}
+  | RemainingFunds {actor :: String, utxo :: UTxO}
+  | PublishedHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | CreatedKey {keyPath :: FilePath}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 data NodeLog
   = MsgNodeCmdSpec {cmd :: Text}
@@ -175,7 +206,7 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   withCardanoNode tracer stateDirectory args action
 
 withBlockfrostBackend ::
-  Tracer IO NodeLog ->
+  Tracer IO EndToEndLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
   (NominalDiffTime -> BlockfrostBackend -> IO a) ->
@@ -219,16 +250,19 @@ findFileStartingAtDirectory maxDepth fileName = do
 
 withBackend ::
   forall a.
-  Tracer IO NodeLog ->
+  Tracer IO EndToEndLog ->
   FilePath ->
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
   getHydraTestnet >>= \case
-    LocalDevnet -> withCardanoNodeDevnet tracer stateDirectory action
-    PreviewTestnet -> withCardanoNodeOnKnownNetwork tracer stateDirectory Preview action
-    PreproductionTestnet -> withCardanoNodeOnKnownNetwork tracer stateDirectory Preproduction action
-    MainnetTesting -> withCardanoNodeOnKnownNetwork tracer stateDirectory Mainnet action
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
+    PreviewTestnet -> withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) stateDirectory Preview action
+    PreproductionTestnet -> do
+      removeDirectoryRecursive (stateDirectory </> "db") `catch` (\(_ :: SomeException) -> pure ())
+      downloadLatestSnapshotTo (contramap FromMithril tracer) Preproduction stateDirectory
+      withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) stateDirectory Preproduction action
+    MainnetTesting -> withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) stateDirectory Mainnet action
     BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory action
 
 -- | Run a cardano-node as normal network participant on a known network.
