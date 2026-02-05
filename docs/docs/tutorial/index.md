@@ -49,7 +49,7 @@ hydra_version=1.2.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 
-cardano_node_version=10.6.1
+cardano_node_version=10.6.2
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux.tar.gz
 tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
 tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./share/preprod --strip-components=3
@@ -75,7 +75,7 @@ hydra_version=1.2.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 
-cardano_node_version=10.6.1
+cardano_node_version=10.6.2
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz --strip-components=3 ./share/preprod/
