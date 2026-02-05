@@ -133,6 +133,8 @@ onIdleClientInit env =
 -- __Transition__: 'IdleState' → 'InitialState'
 onIdleChainInitTx ::
   Environment ->
+  -- | Now
+  UTCTime ->
   -- | New chain state.
   ChainStateType tx ->
   HeadId ->
@@ -140,7 +142,7 @@ onIdleChainInitTx ::
   HeadParameters ->
   [OnChainId] ->
   Outcome tx
-onIdleChainInitTx env newChainState headId headSeed headParameters participants
+onIdleChainInitTx env now newChainState headId headSeed headParameters participants
   | configuredParties == initializedParties
       && party `member` initializedParties
       && configuredContestationPeriod == contestationPeriod
@@ -152,6 +154,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , headId
           , headSeed
           , parties
+          , atTime = now
           }
   | otherwise =
       newState
@@ -1437,7 +1440,7 @@ handleChainInput ::
   Outcome tx
 handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus = case (st, ev) of
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
-    onIdleChainInitTx env newChainState headId headSeed headParameters participants
+    onIdleChainInitTx env now newChainState headId headSeed headParameters participants
   (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
     | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo
     | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
@@ -1684,7 +1687,7 @@ aggregate st = \case
   NetworkClusterIDMismatch{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
-  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
+  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState, atTime} ->
     Initial
       InitialState
         { parameters = parameters
@@ -1693,18 +1696,16 @@ aggregate st = \case
         , chainState
         , headId
         , headSeed
+        , headInitializedAt = atTime
         }
   CommittedUTxO{committedUTxO, chainState, party} ->
     case st of
-      Initial InitialState{parameters, pendingCommits, committed, headId, headSeed} ->
+      Initial is@InitialState{pendingCommits, committed} ->
         Initial
-          InitialState
-            { parameters
-            , pendingCommits = remainingParties
+          is
+            { pendingCommits = remainingParties
             , committed = newCommitted
             , chainState
-            , headId
-            , headSeed
             }
        where
         newCommitted = Map.insert party committedUTxO committed
@@ -1717,7 +1718,7 @@ aggregate st = \case
         }
   HeadOpened{chainState, initialUTxO} ->
     case st of
-      Initial InitialState{parameters, headId, headSeed} ->
+      Initial InitialState{parameters, headId, headSeed, headInitializedAt} ->
         Open
           OpenState
             { parameters
@@ -1735,6 +1736,7 @@ aggregate st = \case
             , chainState
             , headId
             , headSeed
+            , headInitializedAt
             }
       _otherState -> st
   TransactionReceived{tx} ->

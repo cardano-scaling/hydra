@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLabels #-}
+
 module Hydra.API.HTTPServerSpec where
 
 import Hydra.Prelude hiding (delete, get)
@@ -5,11 +7,12 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (newTChanIO, writeTChan)
-import Control.Lens ((^?))
+import Control.Lens ((.~), (^?))
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
+import Data.Generics.Labels ()
 import Data.Text qualified as Text
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.HTTPServer (
@@ -35,8 +38,7 @@ import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger (ValidationError (..))
@@ -63,12 +65,10 @@ import Test.QuickCheck (
   cover,
   forAll,
   generate,
+  oneof,
   property,
   withMaxSuccess,
  )
-
-dummyStatePath :: FilePath
-dummyStatePath = "~"
 
 spec :: Spec
 spec = do
@@ -234,7 +234,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               getNodeState
               cantCommit
@@ -267,7 +266,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -305,7 +303,6 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
-                  dummyStatePath
                   defaultPParams
                   (pure nodeState)
                   cantCommit
@@ -331,7 +328,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -352,7 +348,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -376,7 +371,6 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
-                  dummyStatePath
                   defaultPParams
                   (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                   cantCommit
@@ -404,7 +398,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -432,7 +425,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -454,7 +446,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -483,7 +474,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -506,7 +496,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               cantCommit
@@ -527,7 +516,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -555,7 +543,6 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
-                  dummyStatePath
                   defaultPParams
                   (pure nodeState)
                   cantCommit
@@ -594,7 +581,6 @@ apiServerSpec = do
                 nullTracer
                 dummyChainHandle
                 testEnvironment
-                dummyStatePath
                 defaultPParams
                 (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 cantCommit
@@ -629,7 +615,6 @@ apiServerSpec = do
               nullTracer
               workingChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
               getHeadId
@@ -677,7 +662,6 @@ apiServerSpec = do
                 nullTracer
                 (failingChainHandle postTxError)
                 testEnvironment
-                dummyStatePath
                 defaultPParams
                 (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
                 getHeadId
@@ -698,51 +682,33 @@ apiServerSpec = do
                 FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
-      it "gives information on when the Head was initialized" $ do
-        let genTick :: Gen (StateChanged Tx)
-            genTick = TickObserved <$> arbitrary
-            genInit :: Gen (StateChanged Tx)
-            genInit = HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-            mkStateLine :: Int -> Text -> StateChanged Tx -> Text
-            mkStateLine eventId time stateChanged =
-              decodeUtf8 . LBS.toStrict $
-                Aeson.encode $
-                  object
-                    [ "eventId" .= eventId
-                    , "stateChanged" .= stateChanged
-                    , "time" .= time
-                    ]
-        withTempDir "http-server-spec" $ \tmpDir -> do
-          -- NOTE: These lines do NOT represent real state events.
-          -- They are synthetic log entries, only used to mimic the shape of the
-          -- state file so the endpoint can extract the `time` field from
-          -- `HeadInitialized` `stateChanged` events during parsing.
-          stateLines <-
-            sequenceA
-              [ mkStateLine 163 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
-              , mkStateLine 164 "2025-10-08T09:33:02.30814188Z" <$> generate genInit
-              , mkStateLine 258 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
-              , mkStateLine 259 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
-              , mkStateLine 300 "2025-10-08T10:33:02.30814188Z" <$> generate genInit
-              ]
-          let statePath = tmpDir </> "state"
-          writeFileText statePath (unlines stateLines)
+    describe "GET /head-initialization" $ do
+      prop "gives information on when the Head was initialized" $ \time currentSlot -> do
+        let genOpenOrInitial =
+              oneof
+                [ Initial <$> (arbitrary @(InitialState SimpleTx) <&> #headInitializedAt .~ time)
+                , Open <$> (arbitrary @(OpenState SimpleTx) <&> #headInitializedAt .~ time)
+                ]
 
+        forAll genOpenOrInitial $ \headState -> do
+          let getNodeStateInitial =
+                pure NodeInSync{headState, pendingDeposits = mempty, currentSlot}
+
+          responseChannel <- newTChanIO
           withApplication
-            ( httpApp @Tx
+            ( httpApp @SimpleTx
                 nullTracer
                 dummyChainHandle
                 testEnvironment
-                statePath
                 defaultPParams
-                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
-                getHeadId
+                getNodeStateInitial
+                cantCommit
                 getPendingDeposits
                 putClientInput
                 300
                 responseChannel
             )
-            $ get "/head-initialization" `shouldRespondWith` 200{matchBody = fromString "\"2025-10-08T10:33:02.30814188Z\""}
+            $ get "/head-initialization" `shouldRespondWith` 200{matchBody = matchJSON time}
 
     describe "POST /transaction" $ do
       let mkReq :: SimpleTx -> LBS.ByteString
@@ -758,7 +724,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -793,7 +758,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -825,7 +789,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -845,7 +808,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               (pure CannotCommit)
@@ -866,7 +828,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -893,7 +854,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -920,7 +880,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -941,7 +900,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               (pure CannotCommit)
@@ -961,7 +919,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure $ error "Not called")
               (pure CannotCommit)
@@ -983,7 +940,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -1011,7 +967,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -1033,7 +988,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               (pure CannotCommit)

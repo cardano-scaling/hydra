@@ -1,21 +1,41 @@
 {
     "samples": [
         {
+            "atTime": "1864-05-09T22:06:40.367689372942Z",
             "chainState": {
                 "recordedAt": {
-                    "tag": "ChainPointAtGenesis"
+                    "blockHash": "0001000100000100000001000001010101010101010100010000010100010101",
+                    "slot": 1,
+                    "tag": "ChainPoint"
                 },
-                "spendableUTxO": {}
+                "spendableUTxO": {
+                    "0001000001010100000101010000000000000101010000000000000100000100#80": {
+                        "address": "addr_test1qrs0w4czvu3kzg777ep0jtyfac3r22z4swkctv09dgpw27nvkzmphazcqksd6l7zycmtt7xllreqmugh7ufsjx349uls8trrf8",
+                        "datum": null,
+                        "inlineDatum": {
+                            "bytes": "7a"
+                        },
+                        "inlineDatumRaw": "417a",
+                        "inlineDatumhash": "3a4a44327cbbdd94d361a384795a468c3bca67a495410159668154af1719fd86",
+                        "referenceScript": null,
+                        "value": {
+                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                "30": 8863575054541241847
+                            },
+                            "lovelace": 1202490
+                        }
+                    }
+                }
             },
-            "headId": "01000000010000010101010000000101",
-            "headSeed": "00000001010101010000000101010001",
+            "headId": "00000101010100000000000100000000",
+            "headSeed": "00000000000100010000000000000100",
             "parameters": {
-                "contestationPeriod": 2592000,
+                "contestationPeriod": 43200,
                 "parties": []
             },
             "parties": [
                 {
-                    "vkey": "4e61016cc48e6e1aca98262f3e99ce06df966ede57b79e4de7af8ecfccb6e2c0"
+                    "vkey": "2e449a9962abba411785f29af09bb026417d41a077749b23b2b1095902e90b43"
                 }
             ],
             "tag": "HeadInitialized"

@@ -67,6 +67,7 @@ data StateChanged tx
       , headId :: HeadId
       , headSeed :: HeadSeed
       , parties :: [Party]
+      , atTime :: UTCTime
       }
   | CommittedUTxO
       { headId :: HeadId

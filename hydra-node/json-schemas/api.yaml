@@ -3588,6 +3588,7 @@ components:
         - chainState
         - headId
         - headSeed
+        - headInitializedAt
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3607,6 +3608,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         headSeed:
           $ref: "api.yaml#/components/schemas/HeadSeed"
+        headInitializedAt:
+          $ref: "api.yaml#/components/schemas/UTCTime"
 
     OpenState:
       type: object
@@ -3617,6 +3620,7 @@ components:
         - chainState
         - headId
         - headSeed
+        - headInitializedAt
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3628,6 +3632,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         headSeed:
           $ref: "api.yaml#/components/schemas/HeadSeed"
+        headInitializedAt:
+          $ref: "api.yaml#/components/schemas/UTCTime"
 
     ClosedState:
       type: object

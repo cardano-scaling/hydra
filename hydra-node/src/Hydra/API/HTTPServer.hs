@@ -4,27 +4,16 @@ module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
 
+-- XXX: We should not rely on the IsChainState Tx instance here
+import Hydra.Chain.Direct.State ()
+
 import Cardano.Ledger.Core (PParams)
-import Conduit (
-  ConduitT,
-  MonadUnliftIO,
-  concatC,
-  linesUnboundedAsciiC,
-  mapMC,
-  runConduitRes,
-  sinkList,
-  sourceFileBS,
-  (.|),
- )
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Control.Lens ((^?))
-import Data.Aeson (KeyValue ((.=)), Value (String), object, withObject, (.:), (.:?))
+import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
-import Data.List qualified as List
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
@@ -32,7 +21,7 @@ import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput
 import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx)
 import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic (HeadState (..), InitialState (..), OpenState (..))
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -42,7 +31,6 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
 import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
-import System.Directory (doesFileExist)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -194,7 +182,6 @@ httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   Environment ->
-  FilePath ->
   PParams LedgerEra ->
   -- | Get latest 'NodeState'.
   IO (NodeState tx) ->
@@ -209,13 +196,15 @@ httpApp ::
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
+httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
+    ("GET", ["node"]) ->
+      getNodeState >>= (respond . okJSON)
     ("GET", ["head"]) ->
       getNodeState >>= (respond . okJSON) . headState
     ("GET", ["snapshot"]) -> do
@@ -231,10 +220,12 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- headState <$> getNodeState
       respond . okJSON $ getSeenSnapshot hs
-    -- FIXME: We should not be parsing the state file here.
-    ("GET", ["head-initialization"]) ->
-      handleHeadInitializationTime stateFile
-        >>= respond
+    ("GET", ["head-initialization"]) -> do
+      hs <- headState <$> getNodeState
+      respond $ case hs of
+        Initial InitialState{headInitializedAt} -> okJSON headInitializedAt
+        Open OpenState{headInitializedAt} -> okJSON headInitializedAt
+        _ -> notFound
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel
@@ -580,33 +571,6 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
               else go
           _ -> go
         Right _ -> go
-
-handleHeadInitializationTime :: MonadUnliftIO m => FilePath -> m Response
-handleHeadInitializationTime stateFile =
-  liftIO (doesFileExist stateFile) >>= \case
-    False -> pure $ responseLBS status400 jsonContent (Aeson.encode $ String $ "Could not read state file at path: " <> show stateFile)
-    True -> do
-      initializations <- runConduitRes $ sourceFileBS stateFile .| parseInitializingTime
-      case initializations of
-        [] -> pure $ responseLBS status400 jsonContent (Aeson.encode $ String "Unable to find Head initialization time in your state file.")
-        as ->
-          pure $ responseLBS status200 jsonContent (Aeson.encode $ List.last as)
-
-parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
-parseInitializingTime =
-  linesUnboundedAsciiC
-    .| mapMC maybeDecode
-    .| concatC
-    .| sinkList
- where
-  maybeDecode :: Monad m => ByteString -> m (Maybe Text)
-  maybeDecode bs =
-    case bs ^? key "stateChanged" . key "tag" . _String of
-      Nothing -> pure Nothing
-      Just tag ->
-        if tag == "HeadInitialized"
-          then pure $ bs ^? key "time" . _String
-          else pure Nothing
 
 badRequest :: IsChainState tx => PostTxError tx -> Response
 badRequest = responseLBS status400 jsonContent . Aeson.encode . toJSON
