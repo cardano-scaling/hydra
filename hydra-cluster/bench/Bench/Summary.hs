@@ -29,6 +29,7 @@ data Summary = Summary
   , summaryTitle :: Text
   , summaryDescription :: Text
   , quantiles :: Vector Double
+  , numberOfFanoutOutputs :: Int
   }
   deriving stock (Generic, Eq, Show)
 
@@ -44,6 +45,7 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , summaryDescription =
         pack $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
     , quantiles = mempty
+    , numberOfFanoutOutputs = 0
     }
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
@@ -54,7 +56,7 @@ makeQuantiles times =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
 
 textReport :: (Summary, SystemStats) -> [Text]
-textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs}, systemStats) =
+textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
@@ -69,6 +71,7 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
               else []
            )
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
+        ++ ["Fanout outputs: " <> show numberOfFanoutOutputs]
         ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
 
 markdownReport :: UTCTime -> [(Summary, SystemStats)] -> [Text]

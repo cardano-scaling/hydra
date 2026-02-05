@@ -130,41 +130,63 @@ produces a `results.csv` file in a work directory. To plot the transaction
 confirmation times you can use the `bench/plot.sh` script, passing it the
 directory containing the benchmark's results.
 
-To run and plot results of the benchmark:
+For the benchmarks, you can choose between generating either a constant-size
+UTxO set or a growing UTxO set.
+
+Constant UTxO set:
+Each transaction spends one input and creates exactly one new output (1-in-1-out), so the total number of
+UTxOs in the set remains roughly the same over time.
+
+Growing UTxO set:
+Each transaction spends one input but creates two outputs gradually increasing the total number of UTxOs as more
+transactions are processed. For this we use the `--number-of-txs` argument.
+
+This distinction allows you to measure performance under different realistic UTxO-set growth scenarios on Cardano.
+
+
+To generate, run and then plot results of the benchmark:
 
 ```sh
-cabal run bench-e2e -- single --output-directory out"
-bench/plot.sh out
+cabal run bench-e2e -- datasets --number-of-txs 10 --output-directory out
+./hydra-cluster/bench/plot.sh out
 ```
 
 Which will produce an output like:
 
 ```
-Generating dataset with scaling factor: 10
 Writing dataset to: out/dataset.json
+Saved dataset in: out/dataset.json
 Test logs available in: out/test.log
 Starting benchmark
 Seeding network
 Fund scenario from faucet
-Fuel node key "16e61ed92346eb0b0bd1c6d8c0f924b4d1278996a61043a0a42afad193e5f3fb"
+Fuel node key "006ba2f18d2e08f1cb96d3a425090768e3b6dc5e7f613a882509a02af668e6d7"
+Fuel node key "33184090500d0c26994df825800d169021e6dc32ecf1633d0903c28eecd87830"
+Fuel node key "d7f2a66d3f7bc9bdf135ad28b5106ee751aa5725d767336a2aa1ee19a5532c00"
 Publishing hydra scripts
 Starting hydra cluster in out
 Initializing Head
 Committing initialUTxO from dataset
 HeadIsOpen
-Client 1 (node 0): 0/300 (0.00%)
-Client 1 (node 0): 266/300 (88.67%)
+Client 1 (node 0): 1/10 (10.00%)
+Client 2 (node 1): 1/10 (10.00%)
+Client 3 (node 2): 1/10 (10.00%)
+All transactions confirmed. Sweet!
+All transactions confirmed. Sweet!
 All transactions confirmed. Sweet!
 Closing the Head
-Finalizing the Head
 Writing results to: out/results.csv
-Confirmed txs/Total expected txs: 300/300 (100.00 %)
-Average confirmation time (ms): 18.747147496
-P99: 23.100851369999994ms
-P95: 19.81722345ms
-P50: 18.532922ms
+Finalizing the Head
+Confirmed txs/Total expected txs: 30/30 (100.00 %)
+Average confirmation time (ms): 59.977068200
+P99: 75.43316676ms
+P95: 70.41318959999998ms
+P50: 60.638328ms
 Invalid txs: 0
+Fanout outputs: 3
 Writing report to: out/end-to-end-benchmarks.md
+
+./hydra-cluster/bench/plot.sh out
          line 0: warning: Cannot find or open file "out/system.csv"
 Created plot: out/results.png
 ```
