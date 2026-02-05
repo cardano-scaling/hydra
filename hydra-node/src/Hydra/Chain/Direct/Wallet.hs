@@ -48,8 +48,7 @@ import Cardano.Ledger.Api (
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity)
-import Cardano.Ledger.Babbage.Tx qualified as Babbage
+import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -59,7 +58,6 @@ import Cardano.Ledger.Core (
  )
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Hashes (EraIndependentTxBody, HashAnnotated, hashAnnotated)
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
@@ -209,22 +207,14 @@ applyTxs txs isOurs utxo =
     forM_ txs $ \apiTx -> do
       -- XXX: Use cardano-api types instead here
       let tx = toLedgerTx apiTx
-      let txId = getTxId tx
-      modify (`Map.withoutKeys` view inputsTxBodyL (body tx))
+      let txId = Ledger.txIdTx tx
+      modify (`Map.withoutKeys` view (bodyTxL . inputsTxBodyL) tx)
       let indexedOutputs =
-            let outs = toList $ body tx ^. outputsTxBodyL
+            let outs = toList $ view (bodyTxL . outputsTxBodyL) tx
                 maxIx = fromIntegral $ length outs
              in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
       forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
         when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
-
-getTxId ::
-  HashAnnotated
-    (Ledger.TxBody era)
-    EraIndependentTxBody =>
-  Babbage.AlonzoTx era ->
-  Ledger.TxId
-getTxId tx = Ledger.TxId $ hashAnnotated (body tx)
 
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
