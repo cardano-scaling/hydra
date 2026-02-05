@@ -54,7 +54,7 @@ handleEvent cardanoClient client = \case
       handleHydraEventsConnectedState e
       zoom connectionL $ handleHydraEventsConnection now e
     zoom (logStateL . logMessagesL) $
-      handleHydraEventsInfo e
+      handleHydraEventsInfo now e
   MouseDown{} -> pure ()
   MouseUp{} -> pure ()
   VtyEvent e -> do
@@ -136,9 +136,9 @@ handleHydraEventsConnection now = \case
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced}) -> do
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{}}) -> do
     chainSyncedStatusL .= CatchingUp
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced}) -> do
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{}}) -> do
     chainSyncedStatusL .= InSync
   e -> zoom headStateL $ handleHydraEventsHeadState now e
  where
@@ -212,8 +212,8 @@ handleHydraEventsActiveLink e = do
       utxoL .= UTxO.difference utxo recoveredUTxO
     _ -> pure ()
 
-handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
-handleHydraEventsInfo = \case
+handleHydraEventsInfo :: UTCTime -> HydraEvent Tx -> EventM Name [LogMessage] ()
+handleHydraEventsInfo now = \case
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NetworkConnected}) ->
     report Success time "Network connected"
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NetworkDisconnected}) ->
@@ -240,10 +240,14 @@ handleHydraEventsInfo = \case
   Update (ApiClientMessage API.RejectedInput{clientInput, reason}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> show reason
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced}) -> do
-    warn time "Node state is out of sync with chain backend."
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced}) -> do
-    warn time "Node state is back in sync with chain backend."
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainTime, drift}}) -> do
+    warn time $
+      "Node state is out of sync with chain backend. Chain time: "
+        <> show chainTime
+        <> ", Drift: "
+        <> show drift
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime}}) ->
+    warn time $ "Node state is back in sync with chain backend. Chain time: " <> show chainTime
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->

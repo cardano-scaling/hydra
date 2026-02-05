@@ -39,6 +39,12 @@ changes.
 - Ensure input and etcd-pending-broadcast bounded queue sizes are smaller than the logging queue
   [#2466](https://github.com/cardano-scaling/hydra/pull/2466).
 - `POST /snapshot` now returns the specific side-load validation failure instead of timing out [#2462](https://github.com/cardano-scaling/hydra/issues/2462).
+- **BREAKING** Improved reporting of chain synchronization status by exposing the node's chain time and drift.
+  - `NodeSynced` and `NodeUnsynced` state-changed events, and their corresponding server outputs, now include the observed chain time.
+  - `NodeState` now tracks the latest observed chan slot in addition to the chain time (`UTCTime`) and its drift measured in seconds.
+  - The `EventLogRotated` and `Checkpoint` state-changed event schemas have been updated accordingly.
+  - Client inputs rejected in `HeadLogic` (via `RejectedInput`) during catch-up now report how far the node is out of sync (drift).
+  - See [Issue #2393](https://github.com/cardano-scaling/hydra/issues/2393).
 
 ## [1.2.0] - 2025.11.28
 

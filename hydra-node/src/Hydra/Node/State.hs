@@ -5,6 +5,7 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
@@ -24,6 +25,9 @@ data NodeState tx
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
       , currentSlot :: ChainSlot
+      -- ^ Latest chain slot as observed on chain.
+      , currentChainTime :: UTCTime
+      -- ^ Latest chain slot time representation as observed on chain.
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
@@ -31,6 +35,7 @@ data NodeState tx
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
       , currentSlot :: ChainSlot
+      , currentChainTime :: UTCTime
       }
   deriving stock (Generic)
 
@@ -45,7 +50,11 @@ initNodeState chainState =
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
     , currentSlot = chainStateSlot chainState
+    , currentChainTime = initialChainTime
     }
+
+initialChainTime :: UTCTime
+initialChainTime = posixSecondsToUTCTime 0
 
 data SyncedStatus = InSync | CatchingUp
   deriving (Generic, Eq, Show, ToJSON, FromJSON)

@@ -2038,12 +2038,21 @@ components:
       type: object
       required:
         - tag
+        - chainSlot
+        - chainTime
+        - drift
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeUnsynced"]
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2057,12 +2066,21 @@ components:
       type: object
       required:
         - tag
+        - chainSlot
+        - chainTime
+        - drift
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeSynced"]
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -3236,6 +3254,12 @@ components:
       description: |
         A length of time, measured in whole seconds, to be used in deposit validity.
       example: 60
+    
+    NominalDiffTime:
+      type: number
+      description: |
+        A length of time, measured in whole seconds, to be used for time difference.
+      example: 60
 
     UnsyncedPeriod:
       type: number
@@ -3744,6 +3768,10 @@ components:
                 $ref: "api.yaml#/components/schemas/Deposit"
             currentSlot:
               $ref: "api.yaml#/components/schemas/ChainSlot"
+            currentChainTime:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTCTime"
+                - type: "null"
         - title: NodeCatchingUp
           type: object
           additionalProperties: false
@@ -3766,6 +3794,10 @@ components:
                 $ref: "api.yaml#/components/schemas/Deposit"
             currentSlot:
               $ref: "api.yaml#/components/schemas/ChainSlot"
+            currentChainTime:
+              oneOf:
+                - $ref: "api.yaml#/components/schemas/UTCTime"
+                - type: "null"
 
     SubmitL2TxResponse:
       oneOf:

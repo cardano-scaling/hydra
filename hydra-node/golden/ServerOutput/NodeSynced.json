@@ -1,6 +1,9 @@
 {
     "samples": [
         {
+            "chainSlot": 0,
+            "chainTime": "1864-05-08T05:28:53.992054083031Z",
+            "drift": 1,
             "tag": "NodeSynced"
         }
     ],
