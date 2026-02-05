@@ -32,8 +32,8 @@ for its configuration files. By default those files are resolved using the cabal
 data structure which is not always convenient.
 
 The `HYDRA_BACKEND` environment variable is used to choose over which backend we will run our
-end-to-end tests. Possible values are _direct_ and _blockfrost_ (eg. export HYDRA_BACKEND="blockfrost").
-If this env variable is not set, the tests will default to _direct_ backend.
+end-to-end tests. Possible values are _devnet_, _preview_, _preprod_ or _blockfrost_ (eg. export HYDRA_BACKEND="blockfrost").
+If this env variable is not set, the tests will default to local _devnet_ backend.
 
 To run the e2e tests successfully using blockfrost backend there should be also
 a file named `blocfrost-project.txt` in the root of the repository with the
