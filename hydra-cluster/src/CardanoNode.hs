@@ -224,9 +224,12 @@ withBackend ::
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
-  getHydraBackend >>= \case
-    DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
-    BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
+  getHydraTestnet >>= \case
+    LocalDevnet -> withCardanoNodeDevnet tracer stateDirectory action
+    PreviewTestnet -> withCardanoNodeOnKnownNetwork tracer stateDirectory Preview action
+    PreproductionTestnet -> withCardanoNodeOnKnownNetwork tracer stateDirectory Preproduction action
+    MainnetTesting -> withCardanoNodeOnKnownNetwork tracer stateDirectory Mainnet action
+    BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
