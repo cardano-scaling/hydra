@@ -86,10 +86,9 @@ library
   build-depends:
     , aeson
     , async
-    , base                   >=4.7 && <5
+    , base                  >=4.7 && <5
     , bytestring
     , cardano-api
-    , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-core
     , cardano-slotting
