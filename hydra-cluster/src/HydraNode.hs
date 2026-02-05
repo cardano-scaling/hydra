@@ -49,7 +49,7 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (HydraTestnet (..), failAfter, failure, getHydraTestnet, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -90,8 +90,8 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  getHydraBackend >>= \case
-    BlockfrostBackendType -> pure $ d * fromIntegral defaultBFQueryTimeout
+  getHydraTestnet >>= \case
+    BlockfrostTesting -> pure $ d * fromIntegral defaultBFQueryTimeout
     _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.
@@ -447,9 +447,9 @@ withPreparedHydraNodeInSync tracer workDir hydraNodeId runOptions action =
   withPreparedHydraNode tracer workDir hydraNodeId runOptions action'
  where
   action' client = do
-    getHydraBackend >>= \case
-      DirectBackendType -> waitForNodesSynced tracer 5 $ client :| []
-      BlockfrostBackendType -> waitForNodesSynced tracer 10 $ client :| []
+    getHydraTestnet >>= \case
+      BlockfrostTesting -> waitForNodesSynced tracer 10 $ client :| []
+      _ -> waitForNodesSynced tracer 5 $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
@@ -536,9 +536,9 @@ withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> M
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
   (retries, delay) <-
-    getHydraBackend >>= \case
-      DirectBackendType -> pure (200, 0.1)
-      BlockfrostBackendType -> pure (300, 1)
+    getHydraTestnet >>= \case
+      BlockfrostTesting -> pure (300, 1)
+      _ -> pure (200, 0.1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay
