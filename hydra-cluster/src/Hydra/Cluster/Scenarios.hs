@@ -23,7 +23,7 @@ import CardanoClient (
   SubmitTransactionException,
   waitForUTxO,
  )
-import CardanoNode (NodeLog)
+import CardanoNode (EndToEndLog (..))
 import Control.Concurrent.Async (mapConcurrently_)
 import Control.Lens ((.~), (?~), (^.), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
@@ -107,11 +107,9 @@ import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.ChainState (ChainSlot)
-import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
+import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Mithril (MithrilLog)
-import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
@@ -127,7 +125,6 @@ import Hydra.Tx.Deposit (constructDepositUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
-  HydraNodeLog,
   getProtocolParameters,
   getSnapshotConfirmed,
   getSnapshotLastSeen,
@@ -171,21 +168,6 @@ import System.Process (callProcess)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
 import Test.QuickCheck (Positive, choose, elements, generate)
-
-data EndToEndLog
-  = ClusterOptions {options :: Options}
-  | FromCardanoNode NodeLog
-  | FromFaucet FaucetLog
-  | FromHydraNode HydraNodeLog
-  | FromMithril MithrilLog
-  | StartingFunds {actor :: String, utxo :: UTxO}
-  | RefueledFunds {actor :: String, refuelingAmount :: Coin, utxo :: UTxO}
-  | RemainingFunds {actor :: String, utxo :: UTxO}
-  | PublishedHydraScriptsAt {hydraScriptsTxId :: [TxId]}
-  | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
-  | CreatedKey {keyPath :: FilePath}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
 
 oneOfThreeNodesStopsForAWhile :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do

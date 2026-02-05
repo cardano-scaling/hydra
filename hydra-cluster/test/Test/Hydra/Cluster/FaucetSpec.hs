@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoNode (withCardanoNodeDevnet)
+import CardanoNode (EndToEndLog (..), withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
 import Hydra.Cardano.Api (Coin (..), lovelaceToValue, selectLovelace)
 import Hydra.Chain.Backend qualified as Backend
@@ -14,7 +14,6 @@ import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Scenarios (EndToEndLog (..))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Test.Hydra.Tx.Gen (genVerificationKey)
