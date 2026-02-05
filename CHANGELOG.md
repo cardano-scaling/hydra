@@ -10,7 +10,7 @@ changes.
 
 ## [1.3.0] - UNRELEASED
 
-- Tested with `cardano-node 10.6.1` and `cardano-cli 10.13.1.0`.
+- Tested with `cardano-node 10.6.2` and `cardano-cli 10.15.0.0`.
 
 - Hydra node now correctly handles deposits and decommits on chain rollbacks and handles its local state correctly in terms of keeping track of pending deposits. [#2491](https://github.com/cardano-scaling/hydra/pull/2491)
 
