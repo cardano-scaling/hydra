@@ -883,9 +883,7 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
-      let depositTransaction = responseBody res'
-      let tx = signTx walletSk depositTransaction
-
+      let tx = responseBody res'
       Backend.submitTransaction backend tx
 
       let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
@@ -972,9 +970,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
-      let depositTransaction = responseBody res'
-      let tx = signTx walletSk depositTransaction
-
+      let tx = responseBody res'
       Backend.submitTransaction backend tx
 
       let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
