@@ -501,7 +501,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
       tip <- Backend.queryTip backend
       blockTime <- Backend.getBlockTime backend
       networkId <- Backend.queryNetworkId backend
-      contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
+      contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
       aliceChainConfig <-
         chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 100)
           <&> modifyConfig (\config -> config{startChainFrom = Just tip})
