@@ -1399,16 +1399,18 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus
   -- falls behind the current system time.
   | chainTime `plus` unsyncedPeriodToNominalDiffTime unsyncedPeriod < now =
       case syncStatus of
-        InSync -> newState (NodeUnsynced{chainSlot, chainTime, drift})
-        CatchingUp -> noop
+        InSync -> newState (NodeUnsynced{chainSlot, chainTime, drift}) <> output
+        CatchingUp -> output
   | otherwise =
       case syncStatus of
-        InSync -> noop
-        CatchingUp -> newState (NodeSynced{chainSlot, chainTime, drift})
+        InSync -> output
+        CatchingUp -> newState (NodeSynced{chainSlot, chainTime, drift}) <> output
  where
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
   drift = now `diffUTCTime` chainTime
+  output =
+    cause . ClientEffect $ ServerOutput.SyncedStatus chainSlot chainTime drift syncStatus
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.

@@ -22,14 +22,8 @@ import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
   getVerificationKey,
  )
-import Hydra.Chain (
-  Chain (..),
-  ChainEvent (..),
-  ChainStateHistory,
-  PostTxError,
-  initHistory,
- )
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
@@ -199,6 +193,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
               <$> ZipSink (foldMapC (Last . pure . getEventId))
               <*> ZipSink recoverNodeStateC
           )
+  traceWith tracer $ LoadedChainState{lastKnownChainPoint = lastKnown chainStateHistory}
   traceWith tracer $ LoadedState{lastEventId, nodeState}
   -- Check whether the loaded state matches our configuration (env)
   -- XXX: re-stream events just for this?
@@ -451,6 +446,7 @@ data HydraNodeLog tx
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
   | LoadingState
   | LoadedState {lastEventId :: Last EventId, nodeState :: NodeState tx}
+  | LoadedChainState {lastKnownChainPoint :: ChainPointType tx}
   | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)
