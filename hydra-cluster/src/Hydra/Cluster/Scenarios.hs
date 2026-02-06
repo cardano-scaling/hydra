@@ -120,7 +120,16 @@ import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (SyncedStatus (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
+import Hydra.Options (
+  CardanoChainConfig (..),
+  ChainBackendOptions (..),
+  ChainConfig (..),
+  DirectOptions (..),
+  RunOptions (..),
+  defaultContestationPeriod,
+  defaultDepositPeriod,
+  startChainFrom,
+ )
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (constructDepositUTxO)
@@ -501,9 +510,10 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
       tip <- Backend.queryTip backend
       blockTime <- Backend.getBlockTime backend
       networkId <- Backend.queryNetworkId backend
-      contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
+      let contestationPeriod = defaultContestationPeriod
+          depositPeriod = defaultDepositPeriod
       aliceChainConfig <-
-        chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 100)
+        chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod depositPeriod
           <&> modifyConfig (\config -> config{startChainFrom = Just tip})
             . setNetworkId networkId
       withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
