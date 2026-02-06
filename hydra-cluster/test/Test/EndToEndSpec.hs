@@ -214,7 +214,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
-        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) tmpDir 1 options' $ \_ -> do
+        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) offlineConfig tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
           let diff = diffUTCTime t2 t1
           pure diff

@@ -438,18 +438,27 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
 withPreparedHydraNodeInSync ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
+  ChainConfig ->
   FilePath ->
   Int ->
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNodeInSync tracer workDir hydraNodeId runOptions action =
+withPreparedHydraNodeInSync tracer chainConfig workDir hydraNodeId runOptions action =
   withPreparedHydraNode tracer workDir hydraNodeId runOptions action'
  where
+  waitFactor = 5
+  blockTime = case chainConfig of
+    Offline _ -> 1
+    Cardano CardanoChainConfig{chainBackendOptions} -> case chainBackendOptions of
+      Direct DirectOptions{networkId} -> case networkId of
+        Mainnet -> 60
+        Testnet (NetworkMagic 42) -> 1
+        Testnet _ -> 20
+      Blockfrost _ -> 60
+  waitTime = blockTime * waitFactor
   action' client = do
-    getHydraBackend >>= \case
-      DirectBackendType -> waitForNodesSynced 5 $ client :| []
-      BlockfrostBackendType -> waitForNodesSynced 10 $ client :| []
+    waitForNodesSynced tracer waitTime $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
@@ -506,7 +515,7 @@ withHydraNode ::
   IO a
 withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
-  withPreparedHydraNodeInSync tracer workDir hydraNodeId opts action
+  withPreparedHydraNodeInSync tracer chainConfig workDir hydraNodeId opts action
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config and catching up with chain backend/.
