@@ -398,64 +398,59 @@ onOpenNetworkReqSn ::
   Maybe (TxIdType tx) ->
   Outcome tx
 onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
-  -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
+  -- Spec: require s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- TODO: is this really needed?
-      -- Spec: wait v = v̂
-      waitOnSnapshotVersion $
-        -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
-        -- Require any pending utxo to decommit to be consistent
-        requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
-          -- Wait for the deposit and require any pending commit to be consistent
-          waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
-            -- Resolve transactions by-id
-            waitResolvableTxs $ \requestedTxs -> do
-              -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
-              --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO requestedTxs $ \u -> do
-                let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                -- Spec: ŝ ← ̅S.s + 1
-                -- NOTE: confSn == seenSn == sn here
-                let nextSnapshot =
-                      Snapshot
-                        { headId
-                        , version = version
-                        , number = sn
-                        , confirmed = requestedTxs
-                        , utxo = snapshotUTxO
-                        , utxoToCommit = mUtxoToCommit
-                        , utxoToDecommit = mUtxoToDecommit
-                        }
-
-                -- Spec: 𝜂 ← combine(𝑈)
-                --       𝜂𝛼 ← combine(𝑈𝛼)
-                --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
-                --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
-                let snapshotSignature = sign signingKey nextSnapshot
-                -- Spec: multicast (ackSn, ŝ, σᵢ)
-                (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
-                  -- Spec: ̂Σ ← ∅
-                  --       L̂ ← 𝑈
-                  --       𝑋 ← T
-                  --       T̂ ← ∅
-                  --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-                  --         T̂ ← T̂ ⋃ {tx}
-                  --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                  newState
-                    SnapshotRequested
-                      { snapshot = nextSnapshot
-                      , requestedTxIds
-                      , newLocalUTxO
-                      , newLocalTxs
-                      , newCurrentDepositTxId = mDepositTxId
+      -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
+      -- Require any pending utxo to decommit to be consistent
+      requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
+        -- Wait for the deposit and require any pending commit to be consistent
+        waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
+          -- Resolve transactions by-id
+          waitResolvableTxs $ \requestedTxs -> do
+            -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
+            --       𝑈 ← 𝑈_active ◦ Treq
+            requireApplyTxs activeUTxO requestedTxs $ \u -> do
+              let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+              -- Spec: ŝ ← ̅S.s + 1
+              -- NOTE: confSn == seenSn == sn here
+              let nextSnapshot =
+                    Snapshot
+                      { headId
+                      , version = version
+                      , number = sn
+                      , confirmed = requestedTxs
+                      , utxo = snapshotUTxO
+                      , utxoToCommit = mUtxoToCommit
+                      , utxoToDecommit = mUtxoToDecommit
                       }
+
+              -- Spec: 𝜂 ← combine(𝑈)
+              --       𝜂𝛼 ← combine(𝑈𝛼)
+              --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
+              --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
+              let snapshotSignature = sign signingKey nextSnapshot
+              -- Spec: multicast (ackSn, ŝ, σᵢ)
+              (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+                -- Spec: ̂Σ ← ∅
+                --       L̂ ← 𝑈
+                --       𝑋 ← T
+                --       T̂ ← ∅
+                --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+                --         T̂ ← T̂ ⋃ {tx}
+                --         L̂ ← L̂ ◦ tx
+                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                newState
+                  SnapshotRequested
+                    { snapshot = nextSnapshot
+                    , requestedTxIds
+                    , newLocalUTxO
+                    , newLocalTxs
+                    , newCurrentDepositTxId = mDepositTxId
+                    }
  where
   requireReqSn continue
-    | sv /= version =
-        Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -468,12 +463,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
         continue
     | otherwise =
         wait $ WaitOnSnapshotNumber seenSn
-
-  waitOnSnapshotVersion continue
-    | version == sv =
-        continue
-    | otherwise =
-        wait $ WaitOnSnapshotVersion sv
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
