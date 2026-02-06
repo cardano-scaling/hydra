@@ -1346,19 +1346,19 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus
   -- falls behind the current system time.
   | chainTime `plus` unsyncedPeriodToNominalDiffTime unsyncedPeriod < now =
       case syncStatus of
-        InSync -> newState NodeUnsynced <> output
-        CatchingUp -> output
+        InSync -> newState NodeUnsynced <> output CatchingUp
+        CatchingUp -> output CatchingUp
   | otherwise =
       case syncStatus of
-        InSync -> output
-        CatchingUp -> newState NodeSynced <> output
+        InSync -> output InSync
+        CatchingUp -> newState NodeSynced <> output InSync
  where
   plus = flip addUTCTime
 
   chainSlot = chainPointSlot chainPoint
   drift = now `diffUTCTime` chainTime
-  output =
-    cause . ClientEffect $ ServerOutput.SyncedStatus chainSlot chainTime drift syncStatus
+  output synced =
+    cause . ClientEffect $ ServerOutput.SyncedStatus chainSlot chainTime drift synced
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
