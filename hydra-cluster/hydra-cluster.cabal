@@ -212,6 +212,7 @@ benchmark bench-e2e
     , aeson
     , base                  >=4.7 && <5
     , bytestring
+    , cardano-api
     , containers
     , directory
     , filepath
