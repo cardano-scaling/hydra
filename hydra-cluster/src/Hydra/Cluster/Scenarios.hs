@@ -7,17 +7,13 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
 import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
-import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
-import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.Tx (AsIx (..), Redeemers (..), bodyTxL, rdmrsTxWitsL, witsTxL)
 import Cardano.Ledger.Api.Tx qualified as Ledger
-import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
-import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
+import Cardano.Ledger.Api.Tx.Wits (ConwayPlutusPurpose (ConwayRewarding))
 import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
 import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Plutus (ExUnits (..))
-import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -25,7 +21,7 @@ import CardanoClient (
  )
 import CardanoNode (NodeLog)
 import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((.~), (?~), (^.), (^..), (^?))
+import Control.Lens ((.~), (?~), (^..), (^?))
 import Data.Aeson (Value, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, values, _JSON, _String)
@@ -59,7 +55,6 @@ import Hydra.Cardano.Api (
   addTxInsCollateral,
   addTxOut,
   addTxOuts,
-  createAndValidateTransactionBody,
   defaultTxBodyContent,
   fromCtxUTxOTxOut,
   fromLedgerTx,
@@ -720,18 +715,8 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
                     & addTxOuts [TxOut (mkVkAddress networkId walletVk) outAmt TxOutDatumNone ReferenceScriptNone]
                     & setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
 
-            -- TODO: Instead of using `createAndValidateTransactionBody`, we
-            -- should be able to just construct the Tx with autobalancing via
-            -- `buildTransactionWithBody`. Unfortunately this is broken in the
-            -- version of cardano-api that we presently use; in a future upgrade
-            -- of that library we can try again.
-            -- tx' <- either (failure . show) pure =<< buildTransactionWithBody networkId nodeSocket (mkVkAddress networkId walletVk) body utxoToCommit
-            txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
-
-            let spendTx' = makeSignedTransaction [] txBody
-                spendTx = fromLedgerTx $ recomputeIntegrityHash pparams [PlutusV3] (toLedgerTx spendTx')
-            let signedTx = signTx walletSk spendTx
-
+            tx' <- either (failure . show) pure $ Backend.buildTransactionWithBody pparams systemStart eraHistory mempty (mkVkAddress networkId walletVk) body utxoToCommit
+            let signedTx = signTx walletSk tx'
             send n1 $ input "NewTx" ["transaction" .= signedTx]
 
             waitMatch (10 * blockTime) n1 $ \v -> do
@@ -795,13 +780,12 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
               script = toLedgerScript @_ @Era dummyRewardingScript
           let tx' =
                 fromLedgerTx $
-                  recomputeIntegrityHash pparams [PlutusV3] $
-                    toLedgerTx tx
-                      & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToCommit)
-                      & bodyTxL . totalCollateralTxBodyL .~ SJust (UTxO.totalLovelace utxoToCommit)
-                      & bodyTxL . withdrawalsTxBodyL .~ Withdrawals (Map.singleton rewardAccount 0)
-                      & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayRewarding $ AsIx 0) (redeemer, exUnits))
-                      & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script
+                  toLedgerTx tx
+                    & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToCommit)
+                    & bodyTxL . totalCollateralTxBodyL .~ SJust (UTxO.totalLovelace utxoToCommit)
+                    & bodyTxL . withdrawalsTxBodyL .~ Withdrawals (Map.singleton rewardAccount 0)
+                    & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayRewarding $ AsIx 0) (redeemer, exUnits))
+                    & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script
 
           let signedL2tx = signTx walletSk tx'
           send n1 $ input "NewTx" ["transaction" .= signedL2tx]
@@ -811,22 +795,6 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
             guard $
               toJSON signedL2tx
                 `elem` (v ^.. key "snapshot" . key "confirmed" . values)
-
--- | Compute the integrity hash of a transaction using a list of plutus languages.
-recomputeIntegrityHash ::
-  (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
-  PParams ppera ->
-  [Language] ->
-  Ledger.Tx txera ->
-  Ledger.Tx txera
-recomputeIntegrityHash pp languages tx = do
-  tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
- where
-  integrityHash =
-    hashScriptIntegrity
-      (Set.fromList $ getLanguageView pp <$> languages)
-      (tx ^. witsTxL . rdmrsTxWitsL)
-      (tx ^. witsTxL . datsTxWitsL)
 
 singlePartyCommitsScriptBlueprint ::
   ChainBackend backend =>
