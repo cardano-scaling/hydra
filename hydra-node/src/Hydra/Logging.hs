@@ -90,7 +90,7 @@ withTracer ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracer Quiet = ($ nullTracer)
-withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
+withTracer (Verbose namespace) = withTracerOutputTo (BlockBuffering (Just 64000)) stdout namespace
 
 -- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
 -- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
@@ -98,12 +98,13 @@ withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
 withTracerOutputTo ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  BufferMode ->
   Handle ->
   Text ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracerOutputTo hdl namespace action = do
-  hSetBuffering hdl (BlockBuffering (Just 64000))
+withTracerOutputTo bufferingMode hdl namespace action = do
+  hSetBuffering hdl bufferingMode
   msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
   withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue

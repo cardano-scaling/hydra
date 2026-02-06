@@ -3,7 +3,6 @@
 module Hydra.ChainObserver.NodeClient where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (
   BlockNo,
@@ -13,7 +12,6 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
-import Hydra.Cardano.Api.Gen ()
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Contract (HydraScriptCatalogue)
 import Hydra.Ledger.Cardano (adjustUTxO)
@@ -34,8 +32,6 @@ import Hydra.Tx.Observe (
   observeHeadTx,
  )
 
-import Test.Hydra.Tx.Gen ()
-
 type ObserverHandler m = [ChainObservation] -> m ()
 
 data ChainObservation
@@ -46,10 +42,6 @@ data ChainObservation
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ChainObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 data NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()

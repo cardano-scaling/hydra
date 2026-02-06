@@ -12,8 +12,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2025-12-03T10:32:49Z
-  , cardano-haskell-packages 2025-12-01T07:41:27Z
+  , hackage.haskell.org 2026-02-03T22:48:03Z
+  , cardano-haskell-packages 2026-01-30T14:47:00Z
 
 packages: **/*.cabal
 

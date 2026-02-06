@@ -12,7 +12,7 @@ import Hydra.Chain.Backend (buildTransaction)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (availableInitialFunds)
-import Hydra.Ledger.Cardano (mkTransferTx)
+import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Options qualified as Options
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, generate, sized)
@@ -117,6 +117,49 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
           clientFunds
   clientDatasets <- forM allPaymentKeys (generateClientDataset networkId fundingTransaction nTxs)
   pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
+
+generateGrowingUTxODataset ::
+  -- | Faucet signing key
+  SigningKey PaymentKey ->
+  -- | Number of clients
+  Int ->
+  -- | Number of transactions
+  Int ->
+  Gen Dataset
+generateGrowingUTxODataset faucetSk nClients nTxs = do
+  -- TODO: DRY
+  hydraNodeKeys <- replicateM nClients genSigningKey
+  allPaymentKeys <- replicateM nClients genSigningKey
+  -- Prepare funding transaction which will give every client's
+  -- 'externalSigningKey' "some" lovelace. The internal 'signingKey' will get
+  -- funded in the beginning of the benchmark run.
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  let fundingTransaction =
+        mkGenesisTx
+          networkId
+          faucetSk
+          (Coin availableInitialFunds)
+          clientFunds
+  clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
+  pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
+ where
+  genClientDataset :: Tx -> SigningKey PaymentKey -> Gen ClientDataset
+  genClientDataset fundingTransaction paymentKey = do
+    let initialUTxO = withInitialUTxO paymentKey fundingTransaction
+    let (_, txs) = foldl' (genTx paymentKey) (initialUTxO, []) [1 .. nTxs]
+    pure ClientDataset{paymentKey, initialUTxO, txSequence = reverse txs}
+
+  genTx :: SigningKey PaymentKey -> (UTxO.UTxO Era, [Tx]) -> Int -> (UTxO.UTxO Era, [Tx])
+  genTx sk (utxo, txs) _tx = do
+    let vk = getVerificationKey sk
+    case UTxO.find (isVkTxOut vk) utxo of
+      Nothing -> error "no utxo left to spend"
+      Just (txIn, txOut) -> do
+        let aBitLess = txOutValue txOut <> negateValue (lovelaceToValue 2_000_000)
+        case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, aBitLess) sk of
+          Left err ->
+            error $ "mkSimpleTx failed: " <> show err
+          Right tx -> (utxoFromTx tx, tx : txs)
 
 -- | Generate a 'Dataset' from an already running network by querying available
 -- funds of the well-known 'faucet.sk' and assuming the hydra-nodes we connect

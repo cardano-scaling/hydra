@@ -32,7 +32,7 @@ main = do
 runBuffered :: Int -> IO ()
 runBuffered n =
   withTempLogFile $ \hdl ->
-    withTracerOutputTo hdl "logging-bench" $ \tracer ->
+    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "logging-bench" $ \tracer ->
       replicateM_ n (traceWith tracer benchMessage)
 
 runFlushEach :: Int -> IO ()
