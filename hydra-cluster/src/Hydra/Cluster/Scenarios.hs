@@ -501,7 +501,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
       tip <- Backend.queryTip backend
       blockTime <- Backend.getBlockTime backend
       networkId <- Backend.queryNetworkId backend
-      contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
+      contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
       aliceChainConfig <-
         chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 100)
           <&> modifyConfig (\config -> config{startChainFrom = Just tip})
@@ -573,7 +573,7 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
     let hydraTracer = contramap FromHydraNode tracer
     options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
     let options' = options{persistenceRotateAfter}
-    withPreparedHydraNodeInSync hydraTracer workDir 1 options' $ \n1 -> do
+    withPreparedHydraNodeInSync hydraTracer aliceChainConfig workDir 1 options' $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       blockTime <- Backend.getBlockTime backend
@@ -1701,7 +1701,7 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
     let pparamsDecorator = atKey "utxoCostPerByte" ?~ toJSON (Aeson.Number 4310)
     optionsWithUTxOCostPerByte <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] pparamsDecorator
 
-    withPreparedHydraNodeInSync hydraTracer workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
+    withPreparedHydraNodeInSync hydraTracer aliceChainConfig workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -2156,7 +2156,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
       -- Carol starts its node misconfigured
       let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
       wrongOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] pparamsDecorator
-      tx <- withPreparedHydraNodeInSync hydraTracer workDir 3 wrongOptions $ \n3 -> do
+      tx <- withPreparedHydraNodeInSync hydraTracer carolChainConfig workDir 3 wrongOptions $ \n3 -> do
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
 

@@ -69,6 +69,12 @@ data ClientMessage tx
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
   | RejectedInput {clientInput :: ClientInput tx, reason :: Text}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
+  | SyncedStatus
+      { chainSlot :: ChainSlot
+      , chainTime :: UTCTime
+      , drift :: NominalDiffTime
+      , synced :: SyncedStatus
+      }
   deriving (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where

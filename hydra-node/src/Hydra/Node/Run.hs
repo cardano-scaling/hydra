@@ -99,9 +99,11 @@ run opts = do
         -- NOTE: Add any custom sinks here
         let eventSinks :: [EventSink (StateEvent Tx) IO] = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
+        traceWith tracer' NodeHydrated
         -- Chain
         withChain <- prepareChainComponent tracer env chainConfig
         withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+          traceWith tracer' ChainBackendStarted
           -- API
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
           withAPIServer apiServerConfig env stateFile party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
@@ -122,10 +124,13 @@ run opts = do
               networkConfiguration
               (wireNetworkInput wetHydraNode)
               $ \network -> do
+                traceWith tracer' NetworkStarted
                 -- Main loop
-                connect chain network server wetHydraNode
-                  <&> addEventSink apiSink
-                    >>= runHydraNode
+                node <-
+                  connect chain network server wetHydraNode
+                    <&> addEventSink apiSink
+                traceWith tracer' StartingMainLoop
+                runHydraNode node
  where
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}

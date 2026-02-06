@@ -124,6 +124,7 @@ newLocalChainState chainState = do
       , history = readTVar tv
       }
  where
+  -- REVIEW: why using `currentState` instead of `lastKnown` ???
   getLatest :: TVar m (ChainStateHistory tx) -> STM m (ChainStateType tx)
   getLatest tv = currentState <$> readTVar tv
 
@@ -497,6 +498,18 @@ maxGraceTime = 200
 -- Tracing
 --
 
+data StartingDecision
+  = FromProvided ChainPoint
+  | FromTip ChainPoint
+  | FromPersisted
+      { chainPoint :: ChainPoint
+      , startChainFromSet :: Bool
+      -- ^ Whether the user-provided --start-chain-from point was set
+      -- but ignored, because it was older than persisted points.
+      }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 data CardanoChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: TxId}
@@ -505,5 +518,6 @@ data CardanoChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
+  | StartingChainDecision StartingDecision
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
