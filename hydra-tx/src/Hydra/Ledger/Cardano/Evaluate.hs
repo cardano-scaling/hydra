@@ -216,7 +216,7 @@ pparams =
         { prSteps = fromJust $ boundRational $ 721 % 10000000
         , prMem = fromJust $ boundRational $ 577 % 10000
         }
-    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @9, pvMinor = 0}
+    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @11, pvMinor = 0}
     & ppCostModelsL
       .~ mkCostModels
         ( Map.fromList

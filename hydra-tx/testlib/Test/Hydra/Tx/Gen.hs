@@ -24,12 +24,15 @@ import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Ledger.Cardano.Evaluate
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
+import Hydra.Tx.Accumulator (createCRSG1Datum, defaultItems)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.CollectCom
 import Hydra.Tx.ContestationPeriod
@@ -64,7 +67,7 @@ genTxOut =
   gen =
     oneof
       [ fromLedgerTxOut <$> arbitrary
-      , notMultiAsset . fromLedgerTxOut <$> arbitrary
+      , noDatum . notMultiAsset . fromLedgerTxOut <$> arbitrary
       ]
 
 notMultiAsset :: TxOut ctx -> TxOut ctx
@@ -107,6 +110,10 @@ noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
 noRefScripts :: TxOut ctx -> TxOut ctx
 noRefScripts out =
   out{txOutReferenceScript = ReferenceScriptNone}
+
+noDatum :: TxOut ctx -> TxOut ctx
+noDatum out =
+  out{txOutDatum = TxOutDatumNone}
 
 -- | Adjusts a transaction output to remove any policy asset groups that contain
 -- non-positive quantities, while preserving the ADA amount. If a 'PolicyId' is
@@ -330,7 +337,10 @@ instance Arbitrary TxId where
     onlyTxId (TxIn txi _) = txi
 
 genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
+genScriptRegistry = genScriptRegistryWithCRSSize defaultItems
+
+genScriptRegistryWithCRSSize :: Int -> Gen ScriptRegistry
+genScriptRegistryWithCRSSize crsSize = do
   txId' <- arbitrary
   vk <- arbitrary
   txOut <- genTxOutAdaOnly vk
@@ -347,6 +357,10 @@ genScriptRegistry = do
       , headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      , crsReference =
+          ( TxIn txId' (TxIx 3)
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum crsSize}
           )
       }
 
@@ -517,12 +531,22 @@ instance Arbitrary HeadParameters where
     dedupParties HeadParameters{contestationPeriod, parties} =
       HeadParameters{contestationPeriod, parties = nub parties}
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
-  arbitrary = genericArbitrary
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
+  arbitrary = do
+    headId <- arbitrary
+    version <- arbitrary
+    number <- arbitrary
+    confirmed <- arbitrary
+    utxo <- arbitrary
+    utxoToCommit <- arbitrary
+    utxoToDecommit <- arbitrary
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
+    [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
+       in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
     , utxoToCommit' <- shrink utxoToCommit
@@ -572,7 +596,9 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
+    let u = utxo `withoutUTxO` fromMaybe mempty utxoToCommit
+    let accumulator = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
+        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, accumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

@@ -7,8 +7,8 @@
                     "contents": {
                         "chainState": {
                             "recordedAt": {
-                                "blockHash": "0100000101010000000000010000010101010101000000010100010101000001",
-                                "slot": 0,
+                                "blockHash": "0101010100010100000000010101010101000000000001010000000000000100",
+                                "slot": 1,
                                 "tag": "ChainPoint"
                             },
                             "spendableUTxO": {
@@ -35,6 +35,7 @@
                                 "multiSignature": []
                             },
                             "snapshot": {
+                                "accumulator": "a3582088f85db80c37fbd35ff71ab367f216f4f8addb31c59f950aabe15538c107d20782581c1d92e7aa4333a42fa83d1a8e120e00adff32a58ee88196c06fef23020158209a7eb0991ead7243cce3cea8721358c39ab8e85b8c467f0afd055be0fa2558bc82581c885ca4c84f23a09411e62a615a55a22985bd9194984e65f1a4d317d7015820e80657acf1683fc5fbf18d56a3563406a042ed402c391e6b7bbdcf1a0f6f3a3082581cf15525a71e0b13e393b9d8e5b6c610f686174b366168ca48985a888401",
                                 "confirmed": [],
                                 "headId": "01010101010101010000000001000100",
                                 "number": 1,
