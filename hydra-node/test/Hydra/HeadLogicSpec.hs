@@ -667,6 +667,151 @@ spec =
           Error RequireFailed{requirementFailure} | requirementFailure == ReqSnDecommitNotSettled -> True
           _ -> False
 
+      describe "Deposit after rollback" $ do
+        let singleParty = [alice]
+            plusTime = flip addUTCTime
+
+        it "ReqSn still references stale currentDepositTxId after deposit is recovered" $ do
+          -- This test reproduces the bug where:
+          -- 1. A deposit is included in a snapshot (setting currentDepositTxId)
+          -- 2. The IncrementTx is posted on-chain
+          -- 3. A chain rollback erases the IncrementTx observation
+          -- 4. The deposit is recovered on-chain (removed from pendingDeposits)
+          -- 5. The stale currentDepositTxId causes future ReqSn to reference a
+          --    deposit that no longer exists, leading to infinite WaitOnDepositObserved
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , contestationPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+          let depositTime = plusTime now
+              deadline = depositTime 600
+              depositTxId = 42 :: Integer
+              depositedUtxo = utxoRef depositTxId
+              deposit =
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId
+                  , deposited = depositedUtxo
+                  , created = depositTime 1
+                  , deadline
+                  }
+
+          -- Step 1: Start in open state, observe deposit
+          s1 <- runHeadLogic aliceEnv' ledger (inOpenState singleParty) $ do
+            step (observeTxAtSlot 1 deposit)
+            getState
+
+          -- Step 2: Tick to activate deposit and trigger ReqSn
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+              tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step tickInput
+            getState
+
+          -- Verify deposit is now active and currentDepositTxId is Nothing still
+          -- (it gets set only when ReqSn is processed)
+          case headState s2 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Nothing
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 3: Process ReqSn with the deposit (as if received from network)
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step reqSnWithDeposit
+            getState
+
+          -- Verify currentDepositTxId is now set
+          case headState s3 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Just depositTxId
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 4: AckSn from alice (single party) → SnapshotConfirmed + CommitApproved + IncrementTx posted
+          let snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUtxo
+                  , utxoToDecommit = Nothing
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+          s4 <- runHeadLogic aliceEnv' ledger s3 $ do
+            step ackSn
+            getState
+
+          -- Verify SnapshotConfirmed happened and currentDepositTxId is still set
+          case headState s4 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId, confirmedSnapshot}} -> do
+              currentDepositTxId `shouldBe` Just depositTxId
+              case confirmedSnapshot of
+                ConfirmedSnapshot{snapshot = Snapshot{number}} -> number `shouldBe` 1
+                _ -> expectationFailure "Expected ConfirmedSnapshot"
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 5: Chain rollback (erases the IncrementTx observation)
+          let rollbackInput = ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now}
+          s5 <- runHeadLogic aliceEnv' ledger s4 $ do
+            step rollbackInput
+            getState
+
+          -- currentDepositTxId should still be set (this is part of the bug)
+          case headState s5 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Just depositTxId
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 6: Deposit is recovered on-chain (removed from pendingDeposits)
+          let recoverInput =
+                observeTxAtSlot
+                  2
+                  OnRecoverTx
+                    { headId = testHeadId
+                    , recoveredTxId = depositTxId
+                    , recoveredUTxO = depositedUtxo
+                    }
+          s6 <- runHeadLogic aliceEnv' ledger s5 $ do
+            step recoverInput
+            getState
+
+          -- Verify deposit removed from pendingDeposits but currentDepositTxId still stale
+          pendingDeposits s6 `shouldSatisfy` \deps -> Map.notMember depositTxId deps
+          case headState s6 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              -- BUG: currentDepositTxId is still set despite deposit being recovered
+              currentDepositTxId `shouldBe` Just depositTxId
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 7: New transaction arrives, leader creates ReqSn with stale deposit
+          let newTx = aValidTx 1
+          let reqTxInput = receiveMessage $ ReqTx newTx
+
+          let outcome = update aliceEnv' ledger now s6 reqTxInput
+
+          -- BUG: The ReqSn emitted by the leader still references the recovered deposit
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId = reqDepositTxId} ->
+              -- This confirms the bug: ReqSn references a deposit that no longer exists
+              reqDepositTxId == Just depositTxId
+            _ -> False
+
+          -- Step 8: When another node (or self) processes this ReqSn, it will wait forever
+          s7 <- runHeadLogic aliceEnv' ledger s6 $ do
+            step reqTxInput
+            getState
+
+          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
+          let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
+          -- BUG: This waits forever because the deposit is not in pendingDeposits
+          reqSnOutcome `assertWait` WaitOnDepositObserved{depositTxId}
+
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
             input = receiveMessage $ ReqTx (aValidTx 42)
