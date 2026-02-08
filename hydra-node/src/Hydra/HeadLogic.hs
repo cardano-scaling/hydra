@@ -1853,6 +1853,8 @@ aggregate st = \case
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
+                      , decommitTx = Nothing
+                      , currentDepositTxId = Nothing
                       }
             }
       _otherState -> st
