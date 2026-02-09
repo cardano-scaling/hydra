@@ -27,7 +27,7 @@ data NodeState tx
       , currentSlot :: ChainSlot
       -- ^ Latest chain slot as observed on chain.
       , currentChainTime :: UTCTime
-      -- ^ Latest chain slot time representation as observed on chain.
+      -- ^ Time corresponding to `currentSlot`.
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
