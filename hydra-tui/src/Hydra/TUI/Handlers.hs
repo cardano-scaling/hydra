@@ -54,7 +54,7 @@ handleEvent cardanoClient client = \case
       handleHydraEventsConnectedState e
       zoom connectionL $ handleHydraEventsConnection now e
     zoom (logStateL . logMessagesL) $
-      handleHydraEventsInfo now e
+      handleHydraEventsInfo e
   MouseDown{} -> pure ()
   MouseUp{} -> pure ()
   VtyEvent e -> do
@@ -212,8 +212,8 @@ handleHydraEventsActiveLink e = do
       utxoL .= UTxO.difference utxo recoveredUTxO
     _ -> pure ()
 
-handleHydraEventsInfo :: UTCTime -> HydraEvent Tx -> EventM Name [LogMessage] ()
-handleHydraEventsInfo now = \case
+handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
+handleHydraEventsInfo = \case
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NetworkConnected}) ->
     report Success time "Network connected"
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NetworkDisconnected}) ->
