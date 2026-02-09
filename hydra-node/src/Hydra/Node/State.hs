@@ -34,8 +34,13 @@ data NodeState tx
     NodeCatchingUp
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
+      -- ^ Pending deposits as observed on chain.
+      -- TODO: could even move the chain state here (also see todo below)
+      -- , chainState :: ChainStateType tx
       , currentSlot :: ChainSlot
+      -- ^ Latest chain slot as observed on chain.
       , currentChainTime :: UTCTime
+      -- ^ Time corresponding to `currentSlot`.
       }
   deriving stock (Generic)
 
