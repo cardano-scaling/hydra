@@ -1075,6 +1075,59 @@ onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
  where
   OpenState{headId} = openState
 
+-- | On rollback, re-post the IncrementTx if there is a pending deposit whose
+-- confirmed snapshot contains a matching utxoToCommit. The rollback may have
+-- erased the original on-chain IncrementTx observation.
+maybeRepostIncrementTx ::
+  IsTx tx =>
+  HeadId ->
+  HeadParameters ->
+  PendingDeposits tx ->
+  Maybe (TxIdType tx) ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+maybeRepostIncrementTx headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
+  case (mDepositTxId, confirmedSnapshot) of
+    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit}, signatures}) ->
+      case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
+        Just (_, Deposit{}) ->
+          cause
+            OnChainEffect
+              { postChainTx =
+                  IncrementTx
+                    { headId
+                    , headParameters = parameters
+                    , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                    , depositTxId
+                    }
+              }
+        _ -> noop
+    _ -> noop
+
+-- | On rollback, re-post the DecrementTx if there is a pending decommit whose
+-- confirmed snapshot contains a matching utxoToDecommit. The rollback may have
+-- erased the original on-chain DecrementTx observation.
+maybeRepostDecrementTx ::
+  IsTx tx =>
+  HeadId ->
+  HeadParameters ->
+  Maybe tx ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+maybeRepostDecrementTx headId parameters mDecommitTx confirmedSnapshot =
+  case (mDecommitTx, confirmedSnapshot) of
+    (Just _, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToDecommit = Just _}, signatures}) ->
+      cause
+        OnChainEffect
+          { postChainTx =
+              DecrementTx
+                { headId
+                , headParameters = parameters
+                , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                }
+          }
+    _ -> noop
+
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
@@ -1509,6 +1562,24 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
     newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
   (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
     newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+  -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
+  ( Open
+      OpenState
+        { headId
+        , parameters
+        , coordinatedHeadState =
+          CoordinatedHeadState
+            { currentDepositTxId
+            , confirmedSnapshot
+            , decommitTx
+            }
+        }
+    , ChainInput Rollback{rolledBackChainState, chainTime}
+    ) ->
+      newState ChainRolledBack{chainState = rolledBackChainState}
+        <> handleOutOfSync env now chainTime syncStatus
+        <> maybeRepostIncrementTx headId parameters pendingDeposits currentDepositTxId confirmedSnapshot
+        <> maybeRepostDecrementTx headId parameters decommitTx confirmedSnapshot
   -- General
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
