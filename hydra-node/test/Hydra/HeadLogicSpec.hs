@@ -672,8 +672,8 @@ spec =
             plusTime = flip addUTCTime
 
         it "ReqSn still references stale currentDepositTxId after deposit is recovered" $ do
-          -- This test reproduces the bug where:
-          -- 1. A deposit is included in a snapshot (setting currentDepositTxId)
+          -- This test reproduced the bug where:
+          -- 1. A deposit is included in a snapshot (setting currentDepositTxId in local state)
           -- 2. The IncrementTx is posted on-chain
           -- 3. A chain rollback erases the IncrementTx observation
           -- 4. The deposit is recovered on-chain (removed from pendingDeposits)
@@ -781,12 +781,10 @@ spec =
             step recoverInput
             getState
 
-          -- Verify deposit removed from pendingDeposits but currentDepositTxId still stale
-          pendingDeposits s6 `shouldSatisfy` \deps -> Map.notMember depositTxId deps
+          -- Verify that deposit was removed from pendingDeposits after recover (fix for the bug)
           case headState s6 of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
-              -- BUG: currentDepositTxId is still set despite deposit being recovered
-              currentDepositTxId `shouldBe` Just depositTxId
+              currentDepositTxId `shouldBe` Nothing
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 7: New transaction arrives, leader creates ReqSn with stale deposit

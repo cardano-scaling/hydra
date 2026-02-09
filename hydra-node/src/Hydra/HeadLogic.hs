@@ -1624,10 +1624,28 @@ aggregateNodeState nodeState sc =
             , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
             }
         DepositRecovered{depositTxId} ->
-          nodeState
-            { headState = st
-            , pendingDeposits = Map.delete depositTxId currentPendingDeposits
-            }
+          case st of
+            Open
+              os@OpenState{coordinatedHeadState} ->
+                nodeState
+                  { headState =
+                      Open
+                        os
+                          { coordinatedHeadState =
+                              coordinatedHeadState
+                                { currentDepositTxId =
+                                    if coordinatedHeadState.currentDepositTxId == Just depositTxId
+                                      then Nothing
+                                      else coordinatedHeadState.currentDepositTxId
+                                }
+                          }
+                  , pendingDeposits = Map.delete depositTxId currentPendingDeposits
+                  }
+            _otherState ->
+              nodeState
+                { headState = st
+                , pendingDeposits = Map.delete depositTxId currentPendingDeposits
+                }
         CommitFinalized{chainState, newVersion, depositTxId} ->
           case st of
             Open
