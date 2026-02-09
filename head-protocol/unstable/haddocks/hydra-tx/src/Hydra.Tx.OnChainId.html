@@ -14,7 +14,7 @@
 </span><span id="line-14"></span><span>
 </span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- | Identifier for a Hydra Head participant on-chain.</span></span><span>
 </span><span id="line-16"></span><span class="hs-keyword">newtype</span><span> </span><span id="OnChainId"><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-var">OnChainId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnsafeOnChainId"><span class="annot"><a href="Hydra.Tx.OnChainId.html#UnsafeOnChainId"><span class="hs-identifier hs-var">UnsafeOnChainId</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
-</span><span id="line-17"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679427888"><span id="local-6989586621679427894"><span id="local-6989586621679427898"><span class="annot"><span class="annottext">Int -&gt; OnChainId -&gt; ShowS
+</span><span id="line-17"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679427922"><span id="local-6989586621679427928"><span id="local-6989586621679427932"><span class="annot"><span class="annottext">Int -&gt; OnChainId -&gt; ShowS
 [OnChainId] -&gt; ShowS
 OnChainId -&gt; String
 (Int -&gt; OnChainId -&gt; ShowS)
@@ -29,7 +29,7 @@ $cshow :: OnChainId -&gt; String
 show :: OnChainId -&gt; String
 $cshowList :: [OnChainId] -&gt; ShowS
 showList :: [OnChainId] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427902"><span id="local-6989586621679427906"><span class="annot"><span class="annottext">OnChainId -&gt; OnChainId -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427936"><span id="local-6989586621679427940"><span class="annot"><span class="annottext">OnChainId -&gt; OnChainId -&gt; Bool
 (OnChainId -&gt; OnChainId -&gt; Bool)
 -&gt; (OnChainId -&gt; OnChainId -&gt; Bool) -&gt; Eq OnChainId
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -37,7 +37,7 @@ $c== :: OnChainId -&gt; OnChainId -&gt; Bool
 == :: OnChainId -&gt; OnChainId -&gt; Bool
 $c/= :: OnChainId -&gt; OnChainId -&gt; Bool
 /= :: OnChainId -&gt; OnChainId -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427913"><span id="local-6989586621679427917"><span id="local-6989586621679427920"><span id="local-6989586621679427924"><span id="local-6989586621679427927"><span id="local-6989586621679427930"><span id="local-6989586621679427933"><span class="annot"><span class="annottext">Eq OnChainId
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427947"><span id="local-6989586621679427951"><span id="local-6989586621679427954"><span id="local-6989586621679427958"><span id="local-6989586621679427961"><span id="local-6989586621679427964"><span id="local-6989586621679427967"><span class="annot"><span class="annottext">Eq OnChainId
 Eq OnChainId =&gt;
 (OnChainId -&gt; OnChainId -&gt; Ordering)
 -&gt; (OnChainId -&gt; OnChainId -&gt; Bool)
@@ -74,7 +74,7 @@ $cmax :: OnChainId -&gt; OnChainId -&gt; OnChainId
 max :: OnChainId -&gt; OnChainId -&gt; OnChainId
 $cmin :: OnChainId -&gt; OnChainId -&gt; OnChainId
 min :: OnChainId -&gt; OnChainId -&gt; OnChainId
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427937"><span id="local-6989586621679427939"><span class="annot"><span class="annottext">(forall x. OnChainId -&gt; Rep OnChainId x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427971"><span id="local-6989586621679427973"><span class="annot"><span class="annottext">(forall x. OnChainId -&gt; Rep OnChainId x)
 -&gt; (forall x. Rep OnChainId x -&gt; OnChainId) -&gt; Generic OnChainId
 forall x. Rep OnChainId x -&gt; OnChainId
 forall x. OnChainId -&gt; Rep OnChainId x
@@ -85,7 +85,7 @@ from :: forall x. OnChainId -&gt; Rep OnChainId x
 $cto :: forall x. Rep OnChainId x -&gt; OnChainId
 to :: forall x. Rep OnChainId x -&gt; OnChainId
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-18"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679427943"><span id="local-6989586621679427949"><span id="local-6989586621679427954"><span id="local-6989586621679427959"><span id="local-6989586621679427964"><span class="annot"><span class="annottext">[OnChainId] -&gt; Value
+</span><span id="line-18"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679427977"><span id="local-6989586621679427983"><span id="local-6989586621679427988"><span id="local-6989586621679427993"><span id="local-6989586621679427998"><span class="annot"><span class="annottext">[OnChainId] -&gt; Value
 [OnChainId] -&gt; Encoding
 OnChainId -&gt; Bool
 OnChainId -&gt; Value
@@ -113,7 +113,7 @@ $ctoEncodingList :: [OnChainId] -&gt; Encoding
 toEncodingList :: [OnChainId] -&gt; Encoding
 $comitField :: OnChainId -&gt; Bool
 omitField :: OnChainId -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679427972"><span id="local-6989586621679427978"><span id="local-6989586621679427983"><span class="annot"><span class="annottext">Maybe OnChainId
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679428006"><span id="local-6989586621679428012"><span id="local-6989586621679428017"><span class="annot"><span class="annottext">Maybe OnChainId
 Value -&gt; Parser [OnChainId]
 Value -&gt; Parser OnChainId
 (Value -&gt; Parser OnChainId)
@@ -132,13 +132,13 @@ omittedField :: Maybe OnChainId
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">via</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">UsingRawBytesHex</span></span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-19"></span><span>
 </span><span id="line-20"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsRawBytes</span></span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-21"></span><span>  </span><span id="local-6989586621679427997"><span class="annot"><span class="annottext">serialiseToRawBytes :: OnChainId -&gt; ByteString
-</span><a href="#local-6989586621679427997"><span class="hs-identifier hs-var hs-var hs-var hs-var">serialiseToRawBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#UnsafeOnChainId"><span class="hs-identifier hs-type">UnsafeOnChainId</span></a></span><span> </span><span id="local-6989586621679427999"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679427999"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679427999"><span class="hs-identifier hs-var">bytes</span></a></span><span>
-</span><span id="line-22"></span><span>  </span><span id="local-6989586621679428000"><span class="annot"><span class="annottext">deserialiseFromRawBytes :: AsType OnChainId
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621679428031"><span class="annot"><span class="annottext">serialiseToRawBytes :: OnChainId -&gt; ByteString
+</span><a href="#local-6989586621679428031"><span class="hs-identifier hs-var hs-var hs-var hs-var">serialiseToRawBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.OnChainId.html#UnsafeOnChainId"><span class="hs-identifier hs-type">UnsafeOnChainId</span></a></span><span> </span><span id="local-6989586621679428033"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679428033"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679428033"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span id="local-6989586621679428034"><span class="annot"><span class="annottext">deserialiseFromRawBytes :: AsType OnChainId
 -&gt; ByteString -&gt; Either SerialiseAsRawBytesError OnChainId
-</span><a href="#local-6989586621679428000"><span class="hs-identifier hs-var hs-var hs-var hs-var">deserialiseFromRawBytes</span></a></span></span><span> </span><span class="annot"><span class="annottext">AsType OnChainId
+</span><a href="#local-6989586621679428034"><span class="hs-identifier hs-var hs-var hs-var hs-var">deserialiseFromRawBytes</span></a></span></span><span> </span><span class="annot"><span class="annottext">AsType OnChainId
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OnChainId -&gt; Either SerialiseAsRawBytesError OnChainId
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(OnChainId -&gt; Either SerialiseAsRawBytesError OnChainId)
@@ -151,8 +151,8 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span id="line-23"></span><span>
 </span><span id="line-24"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasTypeProxy</span></span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-25"></span><span>  </span><span class="hs-keyword">data</span><span> </span><span id="AsType"><span class="annot"><span class="hs-identifier hs-var">AsType</span></span></span><span> </span><span class="annot"><a href="Hydra.Tx.OnChainId.html#OnChainId"><span class="hs-identifier hs-type">OnChainId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="AsOnChainId"><span class="annot"><a href="Hydra.Tx.OnChainId.html#AsOnChainId"><span class="hs-identifier hs-var">AsOnChainId</span></a></span></span><span>
-</span><span id="line-26"></span><span>  </span><span id="local-6989586621679428008"><span class="annot"><span class="annottext">proxyToAsType :: Proxy OnChainId -&gt; AsType OnChainId
-</span><a href="#local-6989586621679428008"><span class="hs-identifier hs-var hs-var hs-var hs-var">proxyToAsType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Proxy OnChainId
+</span><span id="line-26"></span><span>  </span><span id="local-6989586621679428042"><span class="annot"><span class="annottext">proxyToAsType :: Proxy OnChainId -&gt; AsType OnChainId
+</span><a href="#local-6989586621679428042"><span class="hs-identifier hs-var hs-var hs-var hs-var">proxyToAsType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Proxy OnChainId
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AsType OnChainId
 </span><a href="Hydra.Tx.OnChainId.html#AsOnChainId"><span class="hs-identifier hs-var">AsOnChainId</span></a></span><span>
 </span><span id="line-27"></span><span>

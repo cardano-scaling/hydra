@@ -55,16 +55,16 @@
 -&gt; Map TxIn (TxOut CtxUTxO)
 -&gt; UTxO
 -&gt; Tx
-</span><a href="Hydra.Tx.CollectCom.html#collectComTx"><span class="hs-identifier hs-var hs-var">collectComTx</span></a></span></span><span> </span><span id="local-6989586621679437412"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679437412"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679437413"><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679437413"><span class="hs-identifier hs-var">scriptRegistry</span></a></span></span><span> </span><span id="local-6989586621679437414"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679437414"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span id="local-6989586621679437415"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679437415"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679437416"><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621679437416"><span class="hs-identifier hs-var">headParameters</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437417"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437417"><span class="hs-identifier hs-var">headInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437418"><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437418"><span class="hs-identifier hs-var">initialHeadOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679437419"><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO)
-</span><a href="#local-6989586621679437419"><span class="hs-identifier hs-var">commits</span></a></span></span><span> </span><span id="local-6989586621679437420"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679437420"><span class="hs-identifier hs-var">utxoToCollect</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.CollectCom.html#collectComTx"><span class="hs-identifier hs-var hs-var">collectComTx</span></a></span></span><span> </span><span id="local-6989586621679437446"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679437446"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679437447"><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="#local-6989586621679437447"><span class="hs-identifier hs-var">scriptRegistry</span></a></span></span><span> </span><span id="local-6989586621679437448"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679437448"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span id="local-6989586621679437449"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679437449"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679437450"><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621679437450"><span class="hs-identifier hs-var">headParameters</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437451"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679437451"><span class="hs-identifier hs-var">headInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437452"><span class="annot"><span class="annottext">TxOut CtxUTxO
+</span><a href="#local-6989586621679437452"><span class="hs-identifier hs-var">initialHeadOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679437453"><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO)
+</span><a href="#local-6989586621679437453"><span class="hs-identifier hs-var">commits</span></a></span></span><span> </span><span id="local-6989586621679437454"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679437454"><span class="hs-identifier hs-var">utxoToCollect</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-50"></span><span>  </span><span class="annot"><span class="annottext">HasCallStack =&gt; TxBodyContent BuildTx -&gt; Tx
 TxBodyContent BuildTx -&gt; Tx
 </span><a href="Hydra.Ledger.Cardano.Builder.html#unsafeBuildTransaction"><span class="hs-identifier hs-var">unsafeBuildTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">(TxBodyContent BuildTx -&gt; Tx) -&gt; TxBodyContent BuildTx -&gt; Tx
@@ -81,18 +81,18 @@ forall build era.
 TxIns build era
 -&gt; TxBodyContent build era -&gt; TxBodyContent build era
 </span><span class="hs-identifier hs-var">addTxIns</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437417"><span class="hs-identifier hs-var">headInput</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">BuildTxWith BuildTx (Witness WitCtxTxIn)
-</span><a href="#local-6989586621679437424"><span class="hs-identifier hs-var">headWitness</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
+</span><a href="#local-6989586621679437451"><span class="hs-identifier hs-var">headInput</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">BuildTxWith BuildTx (Witness WitCtxTxIn)
+</span><a href="#local-6989586621679437458"><span class="hs-identifier hs-var">headWitness</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
 -&gt; TxIns BuildTx Era -&gt; TxIns BuildTx Era
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-</span><a href="#local-6989586621679437425"><span class="hs-identifier hs-var">mkCommit</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn)))
+</span><a href="#local-6989586621679437459"><span class="hs-identifier hs-var">mkCommit</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn)))
 -&gt; [TxIn] -&gt; TxIns BuildTx Era
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO) -&gt; [TxIn]
 forall k a. Map k a -&gt; [k]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#keys"><span class="hs-identifier hs-var">Map.keys</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO)
-</span><a href="#local-6989586621679437419"><span class="hs-identifier hs-var">commits</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679437453"><span class="hs-identifier hs-var">commits</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-53"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
 -&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
 -&gt; TxBodyContent BuildTx
@@ -108,8 +108,8 @@ forall build era.
 -&gt; TxBodyContent build era
 -&gt; TxBodyContent build era
 </span><span class="hs-identifier hs-var">addTxInsReference</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437429"><span class="hs-identifier hs-var">commitScriptRef</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437430"><span class="hs-identifier hs-var">headScriptRef</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Set HashableScriptData
+</span><a href="#local-6989586621679437463"><span class="hs-identifier hs-var">commitScriptRef</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679437464"><span class="hs-identifier hs-var">headScriptRef</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Set HashableScriptData
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
 </span><span id="line-54"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
@@ -121,7 +121,7 @@ forall era build.
 [TxOut CtxTx era]
 -&gt; TxBodyContent build era -&gt; TxBodyContent build era
 </span><span class="hs-identifier hs-var">addTxOuts</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">TxOut CtxTx Era
-</span><a href="#local-6989586621679437432"><span class="hs-identifier hs-var">headOutput</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679437466"><span class="hs-identifier hs-var">headOutput</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-55"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
 -&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
 -&gt; TxBodyContent BuildTx
@@ -136,7 +136,7 @@ forall keyrole.
 Key keyrole =&gt;
 VerificationKey keyrole -&gt; Hash keyrole
 </span><span class="hs-identifier hs-var">verificationKeyHash</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679437414"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679437448"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-56"></span><span>      </span><span class="annot"><span class="annottext">TxBodyContent BuildTx
 -&gt; (TxBodyContent BuildTx -&gt; TxBodyContent BuildTx)
 -&gt; TxBodyContent BuildTx
@@ -154,17 +154,17 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="Hydra.Tx.Utils.html#mkHydraHeadV1TxName"><span class="hs-identifier hs-var">mkHydraHeadV1TxName</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;CollectComTx&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-57"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-58"></span><span>  </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span class="hs-special">{</span><span id="local-6989586621679437438"><span class="annot"><span class="annottext">[Party]
+</span><span id="line-58"></span><span>  </span><span class="annot"><a href="Hydra.Tx.HeadParameters.html#HeadParameters"><span class="hs-identifier hs-type">HeadParameters</span></a></span><span class="hs-special">{</span><span id="local-6989586621679437472"><span class="annot"><span class="annottext">[Party]
 parties :: [Party]
 $sel:parties:HeadParameters :: HeadParameters -&gt; [Party]
-</span><a href="#local-6989586621679437438"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437440"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621679437472"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437474"><span class="annot"><span class="annottext">ContestationPeriod
 contestationPeriod :: ContestationPeriod
 $sel:contestationPeriod:HeadParameters :: HeadParameters -&gt; ContestationPeriod
-</span><a href="#local-6989586621679437440"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621679437416"><span class="hs-identifier hs-var">headParameters</span></a></span><span>
+</span><a href="#local-6989586621679437474"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621679437450"><span class="hs-identifier hs-var">headParameters</span></a></span><span>
 </span><span id="line-59"></span><span>
-</span><span id="line-60"></span><span>  </span><span id="local-6989586621679437424"><span class="annot"><span class="annottext">headWitness :: BuildTxWith BuildTx (Witness WitCtxTxIn)
-</span><a href="#local-6989586621679437424"><span class="hs-identifier hs-var hs-var">headWitness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621679437458"><span class="annot"><span class="annottext">headWitness :: BuildTxWith BuildTx (Witness WitCtxTxIn)
+</span><a href="#local-6989586621679437458"><span class="hs-identifier hs-var hs-var">headWitness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn)
 forall a. a -&gt; BuildTxWith BuildTx a
 </span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn))
@@ -194,23 +194,23 @@ TxIn
 -&gt; HashableScriptData
 -&gt; ScriptWitness ctx era
 </span><span class="hs-identifier hs-var">mkScriptReference</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437430"><span class="hs-identifier hs-var">headScriptRef</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679437464"><span class="hs-identifier hs-var">headScriptRef</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span> </span><span class="annot"><span class="annottext">ScriptDatum WitCtxTxIn
 </span><span class="hs-identifier hs-var">InlineScriptDatum</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437448"><span class="hs-identifier hs-var">headRedeemer</span></a></span><span>
-</span><span id="line-64"></span><span>  </span><span id="local-6989586621679437430"><span class="annot"><span class="annottext">headScriptRef :: TxIn
-</span><a href="#local-6989586621679437430"><span class="hs-identifier hs-var hs-var">headScriptRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO) -&gt; TxIn
+</span><a href="#local-6989586621679437482"><span class="hs-identifier hs-var">headRedeemer</span></a></span><span>
+</span><span id="line-64"></span><span>  </span><span id="local-6989586621679437464"><span class="annot"><span class="annottext">headScriptRef :: TxIn
+</span><a href="#local-6989586621679437464"><span class="hs-identifier hs-var hs-var">headScriptRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO) -&gt; TxIn
 forall a b. (a, b) -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptRegistry -&gt; (TxIn, TxOut CtxUTxO)
 </span><a href="Hydra.Tx.ScriptRegistry.html#%24sel%3AheadReference%3AScriptRegistry"><span class="hs-identifier hs-var">headReference</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679437413"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-65"></span><span>  </span><span id="local-6989586621679437448"><span class="annot"><span class="annottext">headRedeemer :: HashableScriptData
-</span><a href="#local-6989586621679437448"><span class="hs-identifier hs-var hs-var">headRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Input -&gt; HashableScriptData
+</span><a href="#local-6989586621679437447"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679437482"><span class="annot"><span class="annottext">headRedeemer :: HashableScriptData
+</span><a href="#local-6989586621679437482"><span class="hs-identifier hs-var hs-var">headRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Input -&gt; HashableScriptData
 forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span class="hs-identifier hs-var">toScriptData</span></span><span> </span><span class="annot"><span class="annottext">Input
 </span><span class="hs-identifier hs-var">Head.CollectCom</span></span><span>
-</span><span id="line-66"></span><span>  </span><span id="local-6989586621679437432"><span class="annot"><span class="annottext">headOutput :: TxOut CtxTx Era
-</span><a href="#local-6989586621679437432"><span class="hs-identifier hs-var hs-var">headOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621679437466"><span class="annot"><span class="annottext">headOutput :: TxOut CtxTx Era
+</span><a href="#local-6989586621679437466"><span class="hs-identifier hs-var hs-var">headOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">AddressInEra
 -&gt; Value -&gt; TxOutDatum CtxTx -&gt; ReferenceScript -&gt; TxOut CtxTx Era
 forall ctx.
@@ -222,21 +222,21 @@ forall lang era.
 (IsShelleyBasedEra era, IsPlutusScriptLanguage lang) =&gt;
 NetworkId -&gt; PlutusScript lang -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkScriptAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679437412"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679437446"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span class="hs-special">)</span><span>
 </span><span id="line-69"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; Value
 forall ctx. TxOut ctx -&gt; Value
 </span><span class="hs-identifier hs-var">txOutValue</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437418"><span class="hs-identifier hs-var">initialHeadOutput</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+</span><a href="#local-6989586621679437452"><span class="hs-identifier hs-var">initialHeadOutput</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679437458"><span class="hs-identifier hs-var">commitValue</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679437492"><span class="hs-identifier hs-var">commitValue</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-70"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxTx
-</span><a href="#local-6989586621679437459"><span class="hs-identifier hs-var">headDatumAfter</span></a></span><span>
+</span><a href="#local-6989586621679437493"><span class="hs-identifier hs-var">headDatumAfter</span></a></span><span>
 </span><span id="line-71"></span><span>      </span><span class="annot"><span class="annottext">ReferenceScript
 </span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
-</span><span id="line-72"></span><span>  </span><span id="local-6989586621679437459"><span class="annot"><span class="annottext">headDatumAfter :: TxOutDatum CtxTx
-</span><a href="#local-6989586621679437459"><span class="hs-identifier hs-var hs-var">headDatumAfter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621679437493"><span class="annot"><span class="annottext">headDatumAfter :: TxOutDatum CtxTx
+</span><a href="#local-6989586621679437493"><span class="hs-identifier hs-var hs-var">headDatumAfter</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">State -&gt; TxOutDatum CtxTx
 forall era a ctx.
 (ToScriptData a, IsBabbageBasedEra era) =&gt;
@@ -248,31 +248,31 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">Head.Open</span></span><span>
 </span><span id="line-75"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">Head.OpenDatum</span></span><span>
 </span><span id="line-76"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:parties:OpenDatum :: [Party]
-</span><a href="#local-6989586621679437464"><span class="hs-identifier hs-var">Head.parties</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party
+</span><a href="#local-6989586621679437498"><span class="hs-identifier hs-var">Head.parties</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; Party
 </span><a href="Hydra.Tx.Party.html#partyToChain"><span class="hs-identifier hs-var">partyToChain</span></a></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; Party) -&gt; [Party] -&gt; [Party]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
-</span><a href="#local-6989586621679437438"><span class="hs-identifier hs-var">parties</span></a></span><span>
+</span><a href="#local-6989586621679437472"><span class="hs-identifier hs-var">parties</span></a></span><span>
 </span><span id="line-77"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Hash
 ToBuiltin ByteString
 utxoHash :: ToBuiltin ByteString
 $sel:utxoHash:OpenDatum :: Hash
-</span><a href="#local-6989586621679437465"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span><span>
+</span><a href="#local-6989586621679437499"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span><span>
 </span><span id="line-78"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:contestationPeriod:OpenDatum :: ContestationPeriod
-</span><a href="#local-6989586621679437467"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod
+</span><a href="#local-6989586621679437501"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; ContestationPeriod
 </span><a href="Hydra.Tx.ContestationPeriod.html#toChain"><span class="hs-identifier hs-var">toChain</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621679437440"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
+</span><a href="#local-6989586621679437474"><span class="hs-identifier hs-var">contestationPeriod</span></a></span><span>
 </span><span id="line-79"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headId:OpenDatum :: CurrencySymbol
-</span><a href="#local-6989586621679437468"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; CurrencySymbol
+</span><a href="#local-6989586621679437502"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; CurrencySymbol
 </span><a href="Hydra.Tx.HeadId.html#headIdToCurrencySymbol"><span class="hs-identifier hs-var">headIdToCurrencySymbol</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679437415"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621679437449"><span class="hs-identifier hs-var">headId</span></a></span><span>
 </span><span id="line-80"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:version:OpenDatum :: SnapshotVersion
-</span><a href="#local-6989586621679437469"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679437503"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-81"></span><span>          </span><span class="hs-special">}</span><span>
 </span><span id="line-82"></span><span>
-</span><span id="line-83"></span><span>  </span><span id="local-6989586621679437465"><span class="annot"><span class="annottext">utxoHash :: ToBuiltin ByteString
-</span><a href="#local-6989586621679437465"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621679437499"><span class="annot"><span class="annottext">utxoHash :: ToBuiltin ByteString
+</span><a href="#local-6989586621679437499"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ToBuiltin ByteString
 forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
 </span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ToBuiltin ByteString)
 -&gt; ByteString -&gt; ToBuiltin ByteString
@@ -280,15 +280,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; ByteString
 </span><a href="Hydra.Tx.IsTx.html#hashUTxO"><span class="hs-identifier hs-var">hashUTxO</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
 UTxOType Tx
-</span><a href="#local-6989586621679437420"><span class="hs-identifier hs-var">utxoToCollect</span></a></span><span>
+</span><a href="#local-6989586621679437454"><span class="hs-identifier hs-var">utxoToCollect</span></a></span><span>
 </span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621679437425"><span class="annot"><span class="annottext">mkCommit :: TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
-</span><a href="#local-6989586621679437425"><span class="hs-identifier hs-var hs-var">mkCommit</span></a></span></span><span> </span><span id="local-6989586621679437470"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437470"><span class="hs-identifier hs-var">commitTxIn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437470"><span class="hs-identifier hs-var">commitTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">BuildTxWith BuildTx (Witness WitCtxTxIn)
-</span><a href="#local-6989586621679437471"><span class="hs-identifier hs-var">commitWitness</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-86"></span><span>  </span><span id="local-6989586621679437471"><span class="annot"><span class="annottext">commitWitness :: BuildTxWith BuildTx (Witness WitCtxTxIn)
-</span><a href="#local-6989586621679437471"><span class="hs-identifier hs-var hs-var">commitWitness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679437459"><span class="annot"><span class="annottext">mkCommit :: TxIn -&gt; (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))
+</span><a href="#local-6989586621679437459"><span class="hs-identifier hs-var hs-var">mkCommit</span></a></span></span><span> </span><span id="local-6989586621679437504"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679437504"><span class="hs-identifier hs-var">commitTxIn</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679437504"><span class="hs-identifier hs-var">commitTxIn</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">BuildTxWith BuildTx (Witness WitCtxTxIn)
+</span><a href="#local-6989586621679437505"><span class="hs-identifier hs-var">commitWitness</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679437505"><span class="annot"><span class="annottext">commitWitness :: BuildTxWith BuildTx (Witness WitCtxTxIn)
+</span><a href="#local-6989586621679437505"><span class="hs-identifier hs-var hs-var">commitWitness</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn)
 forall a. a -&gt; BuildTxWith BuildTx a
 </span><span class="hs-identifier hs-var">BuildTxWith</span></span><span> </span><span class="annot"><span class="annottext">(Witness WitCtxTxIn -&gt; BuildTxWith BuildTx (Witness WitCtxTxIn))
@@ -318,19 +318,19 @@ TxIn
 -&gt; HashableScriptData
 -&gt; ScriptWitness ctx era
 </span><span class="hs-identifier hs-var">mkScriptReference</span></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437429"><span class="hs-identifier hs-var">commitScriptRef</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679437463"><span class="hs-identifier hs-var">commitScriptRef</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">commitValidatorScript</span></span><span> </span><span class="annot"><span class="annottext">ScriptDatum WitCtxTxIn
 </span><span class="hs-identifier hs-var">InlineScriptDatum</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437472"><span class="hs-identifier hs-var">commitRedeemer</span></a></span><span>
-</span><span id="line-90"></span><span>  </span><span id="local-6989586621679437429"><span class="annot"><span class="annottext">commitScriptRef :: TxIn
-</span><a href="#local-6989586621679437429"><span class="hs-identifier hs-var hs-var">commitScriptRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679437506"><span class="hs-identifier hs-var">commitRedeemer</span></a></span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679437463"><span class="annot"><span class="annottext">commitScriptRef :: TxIn
+</span><a href="#local-6989586621679437463"><span class="hs-identifier hs-var hs-var">commitScriptRef</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-91"></span><span>    </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO) -&gt; TxIn
 forall a b. (a, b) -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ScriptRegistry -&gt; (TxIn, TxOut CtxUTxO)
 </span><a href="Hydra.Tx.ScriptRegistry.html#%24sel%3AcommitReference%3AScriptRegistry"><span class="hs-identifier hs-var">commitReference</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
-</span><a href="#local-6989586621679437413"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-92"></span><span>  </span><span id="local-6989586621679437458"><span class="annot"><span class="annottext">commitValue :: Value
-</span><a href="#local-6989586621679437458"><span class="hs-identifier hs-var hs-var">commitValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679437447"><span class="hs-identifier hs-var">scriptRegistry</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621679437492"><span class="annot"><span class="annottext">commitValue :: Value
+</span><a href="#local-6989586621679437492"><span class="hs-identifier hs-var hs-var">commitValue</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">[Value] -&gt; Value
 forall a. Monoid a =&gt; [a] -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mconcat"><span class="hs-identifier hs-var">mconcat</span></a></span><span> </span><span class="annot"><span class="annottext">([Value] -&gt; Value) -&gt; [Value] -&gt; Value
@@ -342,9 +342,9 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO) -&gt; [TxOut CtxUTxO]
 forall k a. Map k a -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#elems"><span class="hs-identifier hs-var">Map.elems</span></a></span><span> </span><span class="annot"><span class="annottext">Map TxIn (TxOut CtxUTxO)
-</span><a href="#local-6989586621679437419"><span class="hs-identifier hs-var">commits</span></a></span><span>
-</span><span id="line-94"></span><span>  </span><span id="local-6989586621679437472"><span class="annot"><span class="annottext">commitRedeemer :: HashableScriptData
-</span><a href="#local-6989586621679437472"><span class="hs-identifier hs-var hs-var">commitRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679437453"><span class="hs-identifier hs-var">commits</span></a></span><span>
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621679437506"><span class="annot"><span class="annottext">commitRedeemer :: HashableScriptData
+</span><a href="#local-6989586621679437506"><span class="hs-identifier hs-var hs-var">commitRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-95"></span><span>    </span><span class="annot"><span class="annottext">Redeemer -&gt; HashableScriptData
 forall a. ToScriptData a =&gt; a -&gt; HashableScriptData
 </span><span class="hs-identifier hs-var">toScriptData</span></span><span> </span><span class="annot"><span class="annottext">(Redeemer -&gt; HashableScriptData) -&gt; Redeemer -&gt; HashableScriptData
@@ -356,7 +356,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-97"></span><span class="annot"><span class="hs-comment">-- * Observation</span></span><span>
 </span><span id="line-98"></span><span>
 </span><span id="line-99"></span><span class="hs-keyword">newtype</span><span> </span><span id="UTxOHash"><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-var">UTxOHash</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UTxOHash"><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-var">UTxOHash</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
-</span><span id="line-100"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437481"><span id="local-6989586621679437485"><span class="annot"><span class="annottext">UTxOHash -&gt; UTxOHash -&gt; Bool
+</span><span id="line-100"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437515"><span id="local-6989586621679437519"><span class="annot"><span class="annottext">UTxOHash -&gt; UTxOHash -&gt; Bool
 (UTxOHash -&gt; UTxOHash -&gt; Bool)
 -&gt; (UTxOHash -&gt; UTxOHash -&gt; Bool) -&gt; Eq UTxOHash
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -364,7 +364,7 @@ $c== :: UTxOHash -&gt; UTxOHash -&gt; Bool
 == :: UTxOHash -&gt; UTxOHash -&gt; Bool
 $c/= :: UTxOHash -&gt; UTxOHash -&gt; Bool
 /= :: UTxOHash -&gt; UTxOHash -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437490"><span id="local-6989586621679437496"><span id="local-6989586621679437500"><span class="annot"><span class="annottext">Int -&gt; UTxOHash -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437524"><span id="local-6989586621679437530"><span id="local-6989586621679437534"><span class="annot"><span class="annottext">Int -&gt; UTxOHash -&gt; ShowS
 [UTxOHash] -&gt; ShowS
 UTxOHash -&gt; String
 (Int -&gt; UTxOHash -&gt; ShowS)
@@ -377,7 +377,7 @@ $cshow :: UTxOHash -&gt; String
 show :: UTxOHash -&gt; String
 $cshowList :: [UTxOHash] -&gt; ShowS
 showList :: [UTxOHash] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437504"><span id="local-6989586621679437506"><span class="annot"><span class="annottext">(forall x. UTxOHash -&gt; Rep UTxOHash x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437538"><span id="local-6989586621679437540"><span class="annot"><span class="annottext">(forall x. UTxOHash -&gt; Rep UTxOHash x)
 -&gt; (forall x. Rep UTxOHash x -&gt; UTxOHash) -&gt; Generic UTxOHash
 forall x. Rep UTxOHash x -&gt; UTxOHash
 forall x. UTxOHash -&gt; Rep UTxOHash x
@@ -388,7 +388,7 @@ from :: forall x. UTxOHash -&gt; Rep UTxOHash x
 $cto :: forall x. Rep UTxOHash x -&gt; UTxOHash
 to :: forall x. Rep UTxOHash x -&gt; UTxOHash
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-101"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437510"><span id="local-6989586621679437516"><span id="local-6989586621679437521"><span id="local-6989586621679437526"><span id="local-6989586621679437531"><span class="annot"><span class="annottext">[UTxOHash] -&gt; Value
+</span><span id="line-101"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437544"><span id="local-6989586621679437550"><span id="local-6989586621679437555"><span id="local-6989586621679437560"><span id="local-6989586621679437565"><span class="annot"><span class="annottext">[UTxOHash] -&gt; Value
 [UTxOHash] -&gt; Encoding
 UTxOHash -&gt; Bool
 UTxOHash -&gt; Value
@@ -416,7 +416,7 @@ $ctoEncodingList :: [UTxOHash] -&gt; Encoding
 toEncodingList :: [UTxOHash] -&gt; Encoding
 $comitField :: UTxOHash -&gt; Bool
 omitField :: UTxOHash -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437539"><span id="local-6989586621679437545"><span id="local-6989586621679437550"><span class="annot"><span class="annottext">Maybe UTxOHash
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437573"><span id="local-6989586621679437579"><span id="local-6989586621679437584"><span class="annot"><span class="annottext">Maybe UTxOHash
 Value -&gt; Parser [UTxOHash]
 Value -&gt; Parser UTxOHash
 (Value -&gt; Parser UTxOHash)
@@ -436,19 +436,19 @@ omittedField :: Maybe UTxOHash
 </span><span id="line-102"></span><span>
 </span><span id="line-103"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HasTypeProxy</span></span><span> </span><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-type">UTxOHash</span></a></span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-keyword">data</span><span> </span><span id="AsType"><span class="annot"><span class="hs-identifier hs-var">AsType</span></span></span><span> </span><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-type">UTxOHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="AsUTxOHash"><span class="annot"><a href="Hydra.Tx.CollectCom.html#AsUTxOHash"><span class="hs-identifier hs-var">AsUTxOHash</span></a></span></span><span>
-</span><span id="line-105"></span><span>  </span><span id="local-6989586621679437562"><span class="annot"><span class="annottext">proxyToAsType :: Proxy UTxOHash -&gt; AsType UTxOHash
-</span><a href="#local-6989586621679437562"><span class="hs-identifier hs-var hs-var hs-var hs-var">proxyToAsType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Proxy UTxOHash
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621679437596"><span class="annot"><span class="annottext">proxyToAsType :: Proxy UTxOHash -&gt; AsType UTxOHash
+</span><a href="#local-6989586621679437596"><span class="hs-identifier hs-var hs-var hs-var hs-var">proxyToAsType</span></a></span></span><span> </span><span class="annot"><span class="annottext">Proxy UTxOHash
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AsType UTxOHash
 </span><a href="Hydra.Tx.CollectCom.html#AsUTxOHash"><span class="hs-identifier hs-var">AsUTxOHash</span></a></span><span>
 </span><span id="line-106"></span><span>
 </span><span id="line-107"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SerialiseAsRawBytes</span></span><span> </span><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-type">UTxOHash</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-108"></span><span>  </span><span id="local-6989586621679437571"><span class="annot"><span class="annottext">serialiseToRawBytes :: UTxOHash -&gt; ByteString
-</span><a href="#local-6989586621679437571"><span class="hs-identifier hs-var hs-var hs-var hs-var">serialiseToRawBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-type">UTxOHash</span></a></span><span> </span><span id="local-6989586621679437573"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679437573"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679437573"><span class="hs-identifier hs-var">bytes</span></a></span><span>
-</span><span id="line-109"></span><span>  </span><span id="local-6989586621679437574"><span class="annot"><span class="annottext">deserialiseFromRawBytes :: AsType UTxOHash
+</span><span id="line-108"></span><span>  </span><span id="local-6989586621679437605"><span class="annot"><span class="annottext">serialiseToRawBytes :: UTxOHash -&gt; ByteString
+</span><a href="#local-6989586621679437605"><span class="hs-identifier hs-var hs-var hs-var hs-var">serialiseToRawBytes</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-type">UTxOHash</span></a></span><span> </span><span id="local-6989586621679437607"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679437607"><span class="hs-identifier hs-var">bytes</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679437607"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679437608"><span class="annot"><span class="annottext">deserialiseFromRawBytes :: AsType UTxOHash
 -&gt; ByteString -&gt; Either SerialiseAsRawBytesError UTxOHash
-</span><a href="#local-6989586621679437574"><span class="hs-identifier hs-var hs-var hs-var hs-var">deserialiseFromRawBytes</span></a></span></span><span> </span><span class="annot"><span class="annottext">AsType UTxOHash
+</span><a href="#local-6989586621679437608"><span class="hs-identifier hs-var hs-var hs-var hs-var">deserialiseFromRawBytes</span></a></span></span><span> </span><span class="annot"><span class="annottext">AsType UTxOHash
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOHash -&gt; Either SerialiseAsRawBytesError UTxOHash
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxOHash -&gt; Either SerialiseAsRawBytesError UTxOHash)
@@ -465,7 +465,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><span id="line-113"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AutxoHash%3ACollectComObservation"><span class="annot"><span class="annottext">CollectComObservation -&gt; UTxOHash
 </span><a href="Hydra.Tx.CollectCom.html#%24sel%3AutxoHash%3ACollectComObservation"><span class="hs-identifier hs-var hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-type">UTxOHash</span></a></span><span>
 </span><span id="line-114"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-115"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437581"><span id="local-6989586621679437587"><span id="local-6989586621679437591"><span class="annot"><span class="annottext">Int -&gt; CollectComObservation -&gt; ShowS
+</span><span id="line-115"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437615"><span id="local-6989586621679437621"><span id="local-6989586621679437625"><span class="annot"><span class="annottext">Int -&gt; CollectComObservation -&gt; ShowS
 [CollectComObservation] -&gt; ShowS
 CollectComObservation -&gt; String
 (Int -&gt; CollectComObservation -&gt; ShowS)
@@ -480,7 +480,7 @@ $cshow :: CollectComObservation -&gt; String
 show :: CollectComObservation -&gt; String
 $cshowList :: [CollectComObservation] -&gt; ShowS
 showList :: [CollectComObservation] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437594"><span id="local-6989586621679437599"><span class="annot"><span class="annottext">CollectComObservation -&gt; CollectComObservation -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437628"><span id="local-6989586621679437633"><span class="annot"><span class="annottext">CollectComObservation -&gt; CollectComObservation -&gt; Bool
 (CollectComObservation -&gt; CollectComObservation -&gt; Bool)
 -&gt; (CollectComObservation -&gt; CollectComObservation -&gt; Bool)
 -&gt; Eq CollectComObservation
@@ -489,7 +489,7 @@ $c== :: CollectComObservation -&gt; CollectComObservation -&gt; Bool
 == :: CollectComObservation -&gt; CollectComObservation -&gt; Bool
 $c/= :: CollectComObservation -&gt; CollectComObservation -&gt; Bool
 /= :: CollectComObservation -&gt; CollectComObservation -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437603"><span id="local-6989586621679437605"><span class="annot"><span class="annottext">(forall x. CollectComObservation -&gt; Rep CollectComObservation x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437637"><span id="local-6989586621679437639"><span class="annot"><span class="annottext">(forall x. CollectComObservation -&gt; Rep CollectComObservation x)
 -&gt; (forall x. Rep CollectComObservation x -&gt; CollectComObservation)
 -&gt; Generic CollectComObservation
 forall x. Rep CollectComObservation x -&gt; CollectComObservation
@@ -501,7 +501,7 @@ from :: forall x. CollectComObservation -&gt; Rep CollectComObservation x
 $cto :: forall x. Rep CollectComObservation x -&gt; CollectComObservation
 to :: forall x. Rep CollectComObservation x -&gt; CollectComObservation
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-116"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437608"><span id="local-6989586621679437615"><span id="local-6989586621679437618"><span id="local-6989586621679437621"><span id="local-6989586621679437624"><span class="annot"><span class="annottext">[CollectComObservation] -&gt; Value
+</span><span id="line-116"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679437642"><span id="local-6989586621679437649"><span id="local-6989586621679437652"><span id="local-6989586621679437655"><span id="local-6989586621679437658"><span class="annot"><span class="annottext">[CollectComObservation] -&gt; Value
 [CollectComObservation] -&gt; Encoding
 CollectComObservation -&gt; Bool
 CollectComObservation -&gt; Value
@@ -529,7 +529,7 @@ $ctoEncodingList :: [CollectComObservation] -&gt; Encoding
 toEncodingList :: [CollectComObservation] -&gt; Encoding
 $comitField :: CollectComObservation -&gt; Bool
 omitField :: CollectComObservation -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437723"><span id="local-6989586621679437730"><span id="local-6989586621679437733"><span class="annot"><span class="annottext">Maybe CollectComObservation
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437757"><span id="local-6989586621679437764"><span id="local-6989586621679437767"><span class="annot"><span class="annottext">Maybe CollectComObservation
 Value -&gt; Parser [CollectComObservation]
 Value -&gt; Parser CollectComObservation
 (Value -&gt; Parser CollectComObservation)
@@ -555,31 +555,31 @@ omittedField :: Maybe CollectComObservation
 </span><span id="line-123"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-124"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.CollectCom.html#CollectComObservation"><span class="hs-identifier hs-type">CollectComObservation</span></a></span><span>
 </span><span id="line-125"></span><span id="observeCollectComTx"><span class="annot"><span class="annottext">observeCollectComTx :: UTxO -&gt; Tx -&gt; Maybe CollectComObservation
-</span><a href="Hydra.Tx.CollectCom.html#observeCollectComTx"><span class="hs-identifier hs-var hs-var">observeCollectComTx</span></a></span></span><span> </span><span id="local-6989586621679437800"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679437800"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679437801"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679437801"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-126"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679437802"><span class="annot"><span class="annottext">inputUTxO :: UTxO
-</span><a href="#local-6989586621679437802"><span class="hs-identifier hs-var hs-var">inputUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; UTxO
+</span><a href="Hydra.Tx.CollectCom.html#observeCollectComTx"><span class="hs-identifier hs-var hs-var">observeCollectComTx</span></a></span></span><span> </span><span id="local-6989586621679437834"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679437834"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679437835"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679437835"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-126"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679437836"><span class="annot"><span class="annottext">inputUTxO :: UTxO
+</span><a href="#local-6989586621679437836"><span class="hs-identifier hs-var hs-var">inputUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; UTxO
 </span><span class="hs-identifier hs-var">resolveInputsUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679437800"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679437801"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-127"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679437804"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437804"><span class="hs-identifier hs-var">headInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437805"><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437805"><span class="hs-identifier hs-var">headOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; PlutusScript PlutusScriptV3 -&gt; Maybe (TxIn, TxOut CtxUTxO)
+</span><a href="#local-6989586621679437834"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679437835"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-127"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679437838"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679437838"><span class="hs-identifier hs-var">headInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437839"><span class="annot"><span class="annottext">TxOut CtxUTxO
+</span><a href="#local-6989586621679437839"><span class="hs-identifier hs-var">headOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; PlutusScript PlutusScriptV3 -&gt; Maybe (TxIn, TxOut CtxUTxO)
 forall lang.
 IsPlutusScriptLanguage lang =&gt;
 UTxO -&gt; PlutusScript lang -&gt; Maybe (TxIn, TxOut CtxUTxO)
 </span><span class="hs-identifier hs-var">findTxOutByScript</span></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679437802"><span class="hs-identifier hs-var">inputUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679437836"><span class="hs-identifier hs-var">inputUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span>
-</span><span id="line-128"></span><span>  </span><span id="local-6989586621679437807"><span class="annot"><span class="annottext">Input
-</span><a href="#local-6989586621679437807"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; TxIn -&gt; Maybe Input
+</span><span id="line-128"></span><span>  </span><span id="local-6989586621679437841"><span class="annot"><span class="annottext">Input
+</span><a href="#local-6989586621679437841"><span class="hs-identifier hs-var">redeemer</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; TxIn -&gt; Maybe Input
 forall a. FromData a =&gt; Tx -&gt; TxIn -&gt; Maybe a
 </span><span class="hs-identifier hs-var">findRedeemerSpending</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679437801"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679437804"><span class="hs-identifier hs-var">headInput</span></a></span><span>
-</span><span id="line-129"></span><span>  </span><span id="local-6989586621679437809"><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437809"><span class="hs-identifier hs-var">oldHeadDatum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Maybe HashableScriptData
+</span><a href="#local-6989586621679437835"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679437838"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-129"></span><span>  </span><span id="local-6989586621679437843"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679437843"><span class="hs-identifier hs-var">oldHeadDatum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Maybe HashableScriptData
 forall era. TxOut CtxTx era -&gt; Maybe HashableScriptData
 </span><span class="hs-identifier hs-var">txOutScriptData</span></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Maybe HashableScriptData)
 -&gt; TxOut CtxTx Era -&gt; Maybe HashableScriptData
@@ -587,34 +587,34 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; TxOut CtxTx Era
 forall era. TxOut CtxUTxO era -&gt; TxOut CtxTx era
 </span><span class="hs-identifier hs-var">fromCtxUTxOTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437805"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
-</span><span id="line-130"></span><span>  </span><span id="local-6989586621679437812"><span class="annot"><span class="annottext">State
-</span><a href="#local-6989586621679437812"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe State
+</span><a href="#local-6989586621679437839"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
+</span><span id="line-130"></span><span>  </span><span id="local-6989586621679437846"><span class="annot"><span class="annottext">State
+</span><a href="#local-6989586621679437846"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe State
 forall a. FromScriptData a =&gt; HashableScriptData -&gt; Maybe a
 </span><span class="hs-identifier hs-var">fromScriptData</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437809"><span class="hs-identifier hs-var">oldHeadDatum</span></a></span><span>
-</span><span id="line-131"></span><span>  </span><span id="local-6989586621679437814"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679437814"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; Maybe HeadId
+</span><a href="#local-6989586621679437843"><span class="hs-identifier hs-var">oldHeadDatum</span></a></span><span>
+</span><span id="line-131"></span><span>  </span><span id="local-6989586621679437848"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679437848"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; Maybe HeadId
 forall ctx. TxOut ctx -&gt; Maybe HeadId
 </span><a href="Hydra.Tx.Utils.html#findStateToken"><span class="hs-identifier hs-var">findStateToken</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437805"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
+</span><a href="#local-6989586621679437839"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
 </span><span id="line-132"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State
-</span><a href="#local-6989586621679437812"><span class="hs-identifier hs-var">datum</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input
-</span><a href="#local-6989586621679437807"><span class="hs-identifier hs-var">redeemer</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679437846"><span class="hs-identifier hs-var">datum</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input
+</span><a href="#local-6989586621679437841"><span class="hs-identifier hs-var">redeemer</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-133"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.Initial</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input
 </span><span class="hs-identifier hs-var">Head.CollectCom</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-134"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437816"><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437816"><span class="hs-identifier hs-var">newHeadOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; PlutusScript PlutusScriptV3 -&gt; Maybe (TxIn, TxOut CtxUTxO)
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679437850"><span class="annot"><span class="annottext">TxOut CtxUTxO
+</span><a href="#local-6989586621679437850"><span class="hs-identifier hs-var">newHeadOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; PlutusScript PlutusScriptV3 -&gt; Maybe (TxIn, TxOut CtxUTxO)
 forall lang.
 IsPlutusScriptLanguage lang =&gt;
 UTxO -&gt; PlutusScript lang -&gt; Maybe (TxIn, TxOut CtxUTxO)
 </span><span class="hs-identifier hs-var">findTxOutByScript</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; UTxO
 </span><span class="hs-identifier hs-var">utxoFromTx</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679437801"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
+</span><a href="#local-6989586621679437835"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">PlutusScript PlutusScriptV3
 </span><span class="hs-identifier hs-var">Head.validatorScript</span></span><span>
-</span><span id="line-135"></span><span>      </span><span id="local-6989586621679437818"><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437818"><span class="hs-identifier hs-var">newHeadDatum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Maybe HashableScriptData
+</span><span id="line-135"></span><span>      </span><span id="local-6989586621679437852"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679437852"><span class="hs-identifier hs-var">newHeadDatum</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; Maybe HashableScriptData
 forall era. TxOut CtxTx era -&gt; Maybe HashableScriptData
 </span><span class="hs-identifier hs-var">txOutScriptData</span></span><span> </span><span class="annot"><span class="annottext">(TxOut CtxTx Era -&gt; Maybe HashableScriptData)
 -&gt; TxOut CtxTx Era -&gt; Maybe HashableScriptData
@@ -622,14 +622,14 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO -&gt; TxOut CtxTx Era
 forall era. TxOut CtxUTxO era -&gt; TxOut CtxTx era
 </span><span class="hs-identifier hs-var">fromCtxUTxOTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO
-</span><a href="#local-6989586621679437816"><span class="hs-identifier hs-var">newHeadOutput</span></a></span><span>
-</span><span id="line-136"></span><span>      </span><span id="local-6989586621679437819"><span class="annot"><span class="annottext">UTxOHash
-</span><a href="#local-6989586621679437819"><span class="hs-identifier hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; UTxOHash
+</span><a href="#local-6989586621679437850"><span class="hs-identifier hs-var">newHeadOutput</span></a></span><span>
+</span><span id="line-136"></span><span>      </span><span id="local-6989586621679437853"><span class="annot"><span class="annottext">UTxOHash
+</span><a href="#local-6989586621679437853"><span class="hs-identifier hs-var">utxoHash</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; UTxOHash
 </span><a href="Hydra.Tx.CollectCom.html#UTxOHash"><span class="hs-identifier hs-var">UTxOHash</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; UTxOHash) -&gt; Maybe ByteString -&gt; Maybe UTxOHash
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe ByteString
-</span><a href="#local-6989586621679437820"><span class="hs-identifier hs-var">decodeUtxoHash</span></a></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437818"><span class="hs-identifier hs-var">newHeadDatum</span></a></span><span>
+</span><a href="#local-6989586621679437854"><span class="hs-identifier hs-var">decodeUtxoHash</span></a></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679437852"><span class="hs-identifier hs-var">newHeadDatum</span></a></span><span>
 </span><span id="line-137"></span><span>      </span><span class="annot"><span class="annottext">CollectComObservation -&gt; Maybe CollectComObservation
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -649,14 +649,14 @@ utxoHash :: UTxOHash
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
 </span><span id="line-143"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-144"></span><span>  </span><span id="local-6989586621679437820"><span class="annot"><span class="annottext">decodeUtxoHash :: HashableScriptData -&gt; Maybe ByteString
-</span><a href="#local-6989586621679437820"><span class="hs-identifier hs-var hs-var">decodeUtxoHash</span></a></span></span><span> </span><span id="local-6989586621679437824"><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437824"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-144"></span><span>  </span><span id="local-6989586621679437854"><span class="annot"><span class="annottext">decodeUtxoHash :: HashableScriptData -&gt; Maybe ByteString
+</span><a href="#local-6989586621679437854"><span class="hs-identifier hs-var hs-var">decodeUtxoHash</span></a></span></span><span> </span><span id="local-6989586621679437858"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679437858"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-145"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe State
 forall a. FromScriptData a =&gt; HashableScriptData -&gt; Maybe a
 </span><span class="hs-identifier hs-var">fromScriptData</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
-</span><a href="#local-6989586621679437824"><span class="hs-identifier hs-var">datum</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-146"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.Open</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Head.OpenDatum</span></span><span class="hs-special">{</span><span id="local-6989586621679437825"><span class="annot"><span class="annottext">Hash
+</span><a href="#local-6989586621679437858"><span class="hs-identifier hs-var">datum</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-146"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.Open</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Head.OpenDatum</span></span><span class="hs-special">{</span><span id="local-6989586621679437859"><span class="annot"><span class="annottext">Hash
 $sel:utxoHash:OpenDatum :: OpenDatum -&gt; Hash
 utxoHash :: Hash
 </span><span class="hs-identifier hs-var hs-var">utxoHash</span></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Maybe ByteString
@@ -666,7 +666,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Hash -&gt; FromBuiltin Hash
 forall arep. HasFromBuiltin arep =&gt; arep -&gt; FromBuiltin arep
 </span><span class="hs-identifier hs-var">fromBuiltin</span></span><span> </span><span class="annot"><span class="annottext">Hash
-</span><a href="#local-6989586621679437825"><span class="hs-identifier hs-var">utxoHash</span></a></span><span>
+</span><a href="#local-6989586621679437859"><span class="hs-identifier hs-var">utxoHash</span></a></span><span>
 </span><span id="line-147"></span><span>      </span><span class="annot"><span class="annottext">Maybe State
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe ByteString
 forall a. Maybe a

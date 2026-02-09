@@ -1305,7 +1305,6 @@ newTinyWallet :: Tracer IO TinyWalletLog -> NetworkId -> (VerificationKey Paymen
 --   To determine whether a produced output is ours, we apply the given
 --   function checking the output's address.
 applyTxs :: [Tx] -> (Address -> Bool) -> Map TxIn TxOut -> Map TxIn TxOut
-getTxId :: HashAnnotated (TxBody era) EraIndependentTxBody => AlonzoTx era -> TxId
 
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee

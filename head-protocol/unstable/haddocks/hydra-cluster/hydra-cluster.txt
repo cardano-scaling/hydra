@@ -228,6 +228,7 @@ ClientDataset :: SigningKey PaymentKey -> UTxO -> [Tx] -> ClientDataset
 --   'genesis-shelley.json'). Then for a given number of clients a number
 --   of transactions are generated.
 generateConstantUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
+generateGrowingUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
 
 -- | Generate a <a>Dataset</a> from an already running network by querying
 --   available funds of the well-known 'faucet.sk' and assuming the
