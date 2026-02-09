@@ -293,10 +293,11 @@ onOpenNetworkReqTx ::
   ChainSlot ->
   OpenState tx ->
   TTL ->
+  PendingDeposits tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger currentSlot st ttl tx =
+onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
@@ -329,12 +330,16 @@ onOpenNetworkReqTx env ledger currentSlot st ttl tx =
   maybeRequestSnapshot nextSn outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
       then
-        outcome
-          -- XXX: This state update has no equivalence in the
-          -- spec. Do we really need to store that we have
-          -- requested a snapshot? If yes, should update spec.
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx currentDepositTxId)
+        let existingDeposit = do
+              depositTxId <- currentDepositTxId
+              _ <- Map.lookup depositTxId pendingDeposits
+              currentDepositTxId
+         in outcome
+              -- XXX: This state update has no equivalence in the
+              -- spec. Do we really need to store that we have
+              -- requested a snapshot? If yes, should update spec.
+              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx existingDeposit)
       else outcome
 
   Environment{party} = env
@@ -484,10 +489,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId ->
-        -- XXX: We may need to wait quite long here and this makes losing
-        -- the 'ReqSn' due to a restart (fail-recovery) quite likely
         case Map.lookup depositTxId pendingDeposits of
-          Nothing -> wait WaitOnDepositObserved{depositTxId}
+          Nothing ->
+            -- Error out in case we receive a ReqSn that doesn't match local deposit
+            Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
@@ -684,9 +689,13 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     let nextSn = previous.number + 1
     if isLeader parameters party nextSn && not (null localTxs)
       then
-        outcome
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx currentDepositTxId)
+        let existingDeposit = do
+              depositTxId <- currentDepositTxId
+              _ <- Map.lookup depositTxId pendingDeposits
+              currentDepositTxId
+         in outcome
+              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx existingDeposit)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -1531,7 +1540,7 @@ handleNetworkInput env ledger _now currentSlot pendingDeposits st ev = case (st,
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger currentSlot openState ttl tx
+    onOpenNetworkReqTx env ledger currentSlot openState ttl pendingDeposits tx
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
@@ -1626,6 +1635,8 @@ aggregateNodeState nodeState sc =
         DepositExpired{depositTxId, deposit} ->
           nodeState
             { headState = st
+            -- NB: We keep expired deposits in a map since we actually need it when Recovering.
+            -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
             , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
             }
         DepositRecovered{depositTxId} ->
