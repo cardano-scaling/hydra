@@ -196,7 +196,7 @@ generateCRSG1 setSize =
     crsG1
 
 defaultItems :: Int
-defaultItems = 10
+defaultItems = 30
 
 requiredCRSSize :: HydraAccumulator -> Int
 requiredCRSSize (HydraAccumulator acc) = Map.size acc
