@@ -10,16 +10,8 @@ import Cardano.Api.Ledger (Data, ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
-import Cardano.Ledger.Alonzo.Scripts (
-  AlonzoEraScript (..),
-  AsIx (..),
-  plutusScriptLanguage,
-  ExUnits (ExUnits),
-  unAsIx,
- )
-import Cardano.Ledger.Alonzo.TxWits (
-  Redeemers (..),
- )
+import Cardano.Ledger.Alonzo.Scripts (AlonzoEraScript (..), AsIx (..))
+import Cardano.Ledger.Alonzo.TxWits ( Redeemers (..))
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
@@ -37,14 +29,11 @@ import Cardano.Ledger.Api (
   inputsTxBodyL,
   outputsTxBodyL,
   rdmrsTxWitsL,
-  referenceInputsTxBodyL,
-  reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
   witsTxL,
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
 import Cardano.Ledger.Babbage.Tx (hashScriptIntegrity)
 import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
