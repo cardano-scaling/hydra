@@ -236,8 +236,8 @@ maxTxSize = 16384
 maxTxExecutionUnits :: ExecutionUnits
 maxTxExecutionUnits =
   ExecutionUnits
-    { executionMemory = 14_000_000
-    , executionSteps = 10_000_000_000
+    { executionMemory = 20_000_000
+    , executionSteps = 20_000_000_000
     }
 
 -- | Max memory and cpu units of the current 'pparams'.
