@@ -1473,7 +1473,7 @@ updateUnsyncedHead env ledger now currentSlot currentChainTime pendingDeposits s
     ChainInput{} ->
       handleChainInput env ledger now currentSlot pendingDeposits st ev syncStatus
     ClientInput{clientInput} ->
-      cause . ClientEffect $ ServerOutput.RejectedInput clientInput $ "chain out of sync, drift: " <> show drift
+      cause . ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput drift
     NetworkInput{} ->
       wait WaitOnNodeInSync{currentSlot}
  where

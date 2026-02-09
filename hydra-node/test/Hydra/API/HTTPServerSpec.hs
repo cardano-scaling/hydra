@@ -496,11 +496,11 @@ apiServerSpec = do
             post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot))
               `shouldRespondWith` 400{matchBody = matchJSON expectedBody}
 
-      it "returns 503 on RejectedInput" $ do
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
         let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
         SideLoadSnapshotRequest snapshot <- reqGen
-        let clientFailed = RejectedInput{clientInput = SideLoadSnapshot snapshot, reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot snapshot, drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -837,9 +837,9 @@ apiServerSpec = do
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 400
 
-      prop "returns 503 on RejectedInput" $ do
+      prop "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
-        let clientFailed = RejectedInput{clientInput = NewTx testTx, reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = NewTx testTx, drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -932,10 +932,10 @@ apiServerSpec = do
           $ do
             post "/decommit" (encode tx) `shouldRespondWith` 400
 
-      it "returns 503 on RejectedInput" $ do
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
         let tx = SimpleTx 1 mempty mempty
-        let clientFailed = RejectedInput{clientInput = Decommit tx, reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Decommit tx, drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -1023,11 +1023,11 @@ apiServerSpec = do
           $ do
             delete ("/commits/" <> txidText) `shouldRespondWith` 200
 
-      it "returns 503 on RejectedInput" $ do
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
         let tx = SimpleTx 1 mempty mempty
         let txidText = LBS.toStrict (encode (txId tx))
-        let clientFailed = RejectedInput{clientInput = Recover (txId tx), reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Recover (txId tx), drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer

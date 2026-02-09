@@ -16,7 +16,7 @@ changes.
 
 - **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
   - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
-  - Added `RejectedInput` client message.
+  - Added `RejectedInputBecauseUnsynced` client message.
   - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
   - `Greetings` message now also contains the hydra-node synced status to the chain backend.
   - See [Issue #2286](https://github.com/cardano-scaling/hydra/issues/2286) and [PR #2290](https://github.com/cardano-scaling/hydra/pull/2290).
@@ -47,7 +47,7 @@ changes.
   - `NodeSynced` and `NodeUnsynced` state-changed events, and their corresponding server outputs, now include the observed chain time.
   - `NodeState` now tracks the latest observed chan slot in addition to the chain time (`UTCTime`) and its drift measured in seconds.
   - The `EventLogRotated` and `Checkpoint` state-changed event schemas have been updated accordingly.
-  - Client inputs rejected in `HeadLogic` (via `RejectedInput`) during catch-up now report how far the node is out of sync (drift).
+  - Client inputs rejected in `HeadLogic` (via `RejectedInputBecauseUnsynced`) during catch-up now report how far the node is out of sync (drift).
   - See [Issue #2393](https://github.com/cardano-scaling/hydra/issues/2393).
 
 ## [1.2.0] - 2025.11.28

@@ -67,7 +67,7 @@ instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitI
 data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | RejectedInput {clientInput :: ClientInput tx, reason :: Text}
+  | RejectedInputBecauseUnsynced {clientInput :: ClientInput tx, drift :: NominalDiffTime}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
   deriving (Eq, Show, Generic)
 
