@@ -29,6 +29,7 @@ import Bindings (getPolyCommitOverG2)
 import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
 import Codec.Serialise (serialise)
+import Data.List (nub)
 import Data.Map.Strict qualified as Map
 import Field qualified as F
 import GHC.ByteOrder (ByteOrder (BigEndian))
@@ -194,16 +195,6 @@ generateCRSG1 setSize =
    in
     crsG1
 
--- | Default CRS for testing (supports up to 1000 elements)
---
--- This is a pre-generated CRS using the powers of tau approach.
--- For production, replace with a secure CRS from perpetual powers of tau ceremony.
-defaultCRS :: [Point2]
-defaultCRS = generateCRS defaultItems
-
-defaultCRSG1 :: [Point1]
-defaultCRSG1 = generateCRSG1 defaultItems
-
 defaultItems :: Int
 defaultItems = 10
 
@@ -282,9 +273,14 @@ createMembershipProofFromUTxO ::
   -- | Returns a proof
   ByteString
 createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
-  -- Extract individual TxOut elements from the subset
-  -- This matches how buildFromUTxO serializes each TxOut
-  let subsetElements = utxoToElement @tx <$> toPairList @tx subsetUTxO
+  -- Extract individual TxOut elements from the subset (each TxOut -> hash)
+  -- This matches how buildFromUTxO / buildFromSnapshotUTxOs serialize each TxOut.
+  -- Deduplicate: the same TxOut content can appear under different TxIns (e.g. in
+  -- both snapshot.utxo and utxoToCommit); the underlying accumulator stores each
+  -- element at most once, so we must only pass each unique element once.
+  -- Drop mempty: TxOuts for which toPlutusTxOut returns Nothing yield mempty here;
+  -- we only prove membership of outputs that convert successfully.
+  let subsetElements = filter (/= mempty) $ nub $ utxoToElement @tx <$> toPairList @tx subsetUTxO
   -- Use the element-based proof function
   createMembershipProof subsetElements fullAcc crs
 
