@@ -2049,14 +2049,24 @@ components:
           type: string
           enum: ["NodeUnsynced"]
         chainSlot:
+          description: |
+            Slot of the latest observed chain point.
           $ref: "api.yaml#/components/schemas/ChainSlot"
         chainTime:
+          description: |
+            Wall-clock time corresponding to the latest observed chain point,
+            derived deterministically from the chain slot.
           $ref: "api.yaml#/components/schemas/UTCTime"
         drift:
+          description: |
+            Difference between the current system wall-clock time and the chain time
+            of the latest observed chain point (now − chainTime).
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
+          description: |
+            System wall-clock time at which this event was emitted.
           $ref: "api.yaml#/components/schemas/UTCTime"
 
     NodeSynced:
@@ -2077,14 +2087,24 @@ components:
           type: string
           enum: ["NodeSynced"]
         chainSlot:
+          description: |
+            Slot of the latest observed chain point.
           $ref: "api.yaml#/components/schemas/ChainSlot"
         chainTime:
+          description: |
+            Wall-clock time corresponding to the latest observed chain point,
+            derived deterministically from the chain slot.
           $ref: "api.yaml#/components/schemas/UTCTime"
         drift:
+          description: |
+            Difference between the current system wall-clock time and the chain time
+            of the latest observed chain point (now − chainTime).
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
+          description: |
+            System wall-clock time at which this event was emitted.
           $ref: "api.yaml#/components/schemas/UTCTime"
 
     # END OF SERVER OUTPUT SCHEMAS
