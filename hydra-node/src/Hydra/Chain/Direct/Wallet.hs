@@ -10,7 +10,7 @@ import Cardano.Api.Ledger (Data, ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
-import Cardano.Ledger.Alonzo.Scripts (AlonzoEraScript (..), AsIx (..), ExUnits (ExUnits))
+import Cardano.Ledger.Alonzo.Scripts (AlonzoEraScript (..), AsIx (..))
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
@@ -225,7 +225,6 @@ coverFee_ ::
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
-  , Ledger.AtMostEra "Conway" era
   ) =>
   PParams era ->
   SystemStart ->
@@ -267,11 +266,15 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         applyEstimatedCosts estimatedScriptCosts redeemersWithAdjustedIndices
 
   -- Compute the script integrity hash.
-  let scriptIntegrityHash =
+  -- NOTE: We must use a transaction with the adjusted redeemers (estimated
+  -- execution units) since mkScriptIntegrity extracts redeemers from the tx
+  -- and includes them in the hash.
+  let txWithAdjustedRedeemers = partialTx & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
+      scriptIntegrityHash =
         let ledgerUTxO = Ledger.UTxO utxo
-            scriptsProvided = getScriptsProvided ledgerUTxO partialTx
+            scriptsProvided = getScriptsProvided ledgerUTxO txWithAdjustedRedeemers
             scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO body
-         in hashScriptIntegrity <$> Babbage.mkScriptIntegrity pparams partialTx scriptsProvided scriptsNeeded
+         in hashScriptIntegrity <$> Babbage.mkScriptIntegrity pparams txWithAdjustedRedeemers scriptsProvided scriptsNeeded
 
   let
     unbalancedBody =
