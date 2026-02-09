@@ -1499,9 +1499,9 @@ updateSyncedHead env ledger now currentSlot pendingDeposits st ev syncStatus =
     ChainInput{} ->
       handleChainInput env ledger now currentSlot pendingDeposits st ev syncStatus
     ClientInput{} ->
-      handleClientInput env ledger now currentSlot pendingDeposits st ev
+      handleClientInput env ledger currentSlot pendingDeposits st ev
     NetworkInput{} ->
-      handleNetworkInput env ledger now currentSlot pendingDeposits st ev
+      handleNetworkInput env ledger currentSlot pendingDeposits st ev
 
 -- * Input Handlers
 
@@ -1620,8 +1620,6 @@ handleNetworkInput ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
-  -- | Current system time.
-  UTCTime ->
   -- | Node's current chain slot
   ChainSlot ->
   PendingDeposits tx ->
@@ -1630,7 +1628,7 @@ handleNetworkInput ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-handleNetworkInput env ledger _now currentSlot pendingDeposits st ev = case (st, ev) of
+handleNetworkInput env ledger currentSlot pendingDeposits st ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   -- Open
@@ -1664,8 +1662,6 @@ handleClientInput ::
   IsChainState tx =>
   Environment ->
   Ledger tx ->
-  -- | Current system time.
-  UTCTime ->
   -- | Node's current chain slot
   ChainSlot ->
   PendingDeposits tx ->
@@ -1674,7 +1670,7 @@ handleClientInput ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-handleClientInput env ledger _now currentSlot pendingDeposits st ev = case (st, ev) of
+handleClientInput env ledger currentSlot pendingDeposits st ev = case (st, ev) of
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
   (Initial initialState, ClientInput Abort) ->
