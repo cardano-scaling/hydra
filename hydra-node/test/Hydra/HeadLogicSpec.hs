@@ -787,28 +787,29 @@ spec =
               currentDepositTxId `shouldBe` Nothing
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
-          -- Step 7: New transaction arrives, leader creates ReqSn with stale deposit
+          Map.lookup depositTxId s6.pendingDeposits `shouldBe` Nothing
+
+          -- Step 7: New transaction arrives, leader creates new ReqSn
           let newTx = aValidTx 1
           let reqTxInput = receiveMessage $ ReqTx newTx
 
           let outcome = update aliceEnv' ledger now s6 reqTxInput
 
-          -- BUG: The ReqSn emitted by the leader still references the recovered deposit
+          -- The ReqSn emitted by the leader does not reference the recovered deposit
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId = reqDepositTxId} ->
-              -- This confirms the bug: ReqSn references a deposit that no longer exists
-              reqDepositTxId == Just depositTxId
+              isNothing reqDepositTxId
             _ -> False
 
-          -- Step 8: When another node (or self) processes this ReqSn, it will wait forever
+          -- Step 8: When node processes this ReqSn, it will wait forever
           s7 <- runHeadLogic aliceEnv' ledger s6 $ do
             step reqTxInput
             getState
 
           let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
           let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
-          -- BUG: This waits forever because the deposit is not in pendingDeposits
-          reqSnOutcome `assertWait` WaitOnDepositObserved{depositTxId}
+          -- Fix bug: Error out instead of waiting for deposit to be observed forever
+          reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
