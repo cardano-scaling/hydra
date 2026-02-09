@@ -7,8 +7,8 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
-import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point2)
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point2)
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -93,7 +93,7 @@ accumulator =
 crsSize :: Int
 crsSize = Accumulator.requiredCRSSize accumulator
 
-crs :: [Point2] 
+crs :: [Point2]
 crs = Accumulator.generateCRS crsSize
 
 healthyFanoutDatum :: Head.State
