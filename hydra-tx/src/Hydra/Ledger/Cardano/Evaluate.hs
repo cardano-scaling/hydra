@@ -20,6 +20,7 @@ import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCos
 import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
 import Cardano.Ledger.Coin (Coin (Coin))
+import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
 import Cardano.Ledger.Plutus (Language (..))
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
@@ -191,6 +192,8 @@ estimateMinFee tx evaluationReport =
 
 -- * Fixtures
 
+-- FIXME: these were outdated and we use them for many things.. need to update them again
+
 -- | Current (2023-04-12) mainchain protocol parameters.
 -- XXX: Avoid specifying not required parameters here (e.g. max block units
 -- should not matter).
@@ -216,7 +219,7 @@ pparams =
         { prSteps = fromJust $ boundRational $ 721 % 10000000
         , prMem = fromJust $ boundRational $ 577 % 10000
         }
-    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @9, pvMinor = 0}
+    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @10, pvMinor = 0}
     & ppCostModelsL
       .~ mkCostModels
         ( Map.fromList
@@ -224,6 +227,7 @@ pparams =
             , (PlutusV3, plutusV3CostModel)
             ]
         )
+    & ppMinFeeRefScriptCostPerByteL .~ fromJust (boundRational (15 % 1))
 
 maxTxSize :: Natural
 maxTxSize = 16384

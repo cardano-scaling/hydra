@@ -39,6 +39,7 @@ changes.
 - Ensure input and etcd-pending-broadcast bounded queue sizes are smaller than the logging queue
   [#2466](https://github.com/cardano-scaling/hydra/pull/2466).
 - `POST /snapshot` now returns the specific side-load validation failure instead of timing out [#2462](https://github.com/cardano-scaling/hydra/issues/2462).
+- Fixed the internal wallet fee estimation, which was more often than not using maximum plutus execution units. This reduces costs for initializing, open, etc. of a head by a factor of ~4x [#2473](https://github.com/cardano-scaling/hydra/pull/2473).
 
 ## [1.2.0] - 2025.11.28
 
