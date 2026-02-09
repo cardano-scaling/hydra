@@ -847,7 +847,6 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
         <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    (_, walletSk) <- keysFor AliceFunds
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -883,9 +882,7 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
-      let depositTransaction = responseBody res'
-      let tx = signTx walletSk depositTransaction
-
+      let tx = responseBody res'
       Backend.submitTransaction backend tx
 
       let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
@@ -941,7 +938,6 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
         <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    (_, walletSk) <- keysFor AliceFunds
     -- incrementally commit script to a running Head
     (referenceUTxO, scriptUTxO) <- publishReferenceScript tracer 20_000_000
     withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -972,9 +968,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
-      let depositTransaction = responseBody res'
-      let tx = signTx walletSk depositTransaction
-
+      let tx = responseBody res'
       Backend.submitTransaction backend tx
 
       let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)

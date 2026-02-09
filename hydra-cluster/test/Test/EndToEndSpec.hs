@@ -1084,7 +1084,7 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 41_000_000) (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue (fromInteger $ ledgerSize * 1_000_000)) (contramap FromFaucet tracer)
     requestCommitTx node committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
 
     waitFor hydraTracer 10 [node] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
@@ -1124,7 +1124,9 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
     waitMatch 5 node $ \v -> do
       guard $ v ^? key "tag" == Just "PostTxOnChainFailed"
       failureReason <- v ^? key "postTxError" . key "failureReason" . _String
-      guard $ "The machine terminated part way through evaluation due to overspending the budget." `isInfixOf` failureReason
+      -- Note: Now the failure is because our fee estimate is (correctly)
+      -- too large.
+      guard $ "ExUnitsTooBigUTxO" `isInfixOf` failureReason
 
 -- * Fixtures
 
