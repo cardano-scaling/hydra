@@ -1710,6 +1710,8 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 NoMatchingDeposit :: RequirementFailure tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 data SideLoadRequirementFailure tx
 SideLoadInitialSnapshotMismatch :: SideLoadRequirementFailure tx
 SideLoadSnNumberInvalid :: SnapshotNumber -> SnapshotNumber -> SideLoadRequirementFailure tx
@@ -2914,7 +2916,24 @@ onOpenClientNewTx :: tx -> Outcome tx
 --   including this transaction if needed.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenNetworkReqTx :: IsTx tx => Environment -> Ledger tx -> ChainSlot -> OpenState tx -> TTL -> tx -> Outcome tx
+onOpenNetworkReqTx :: IsTx tx => Environment -> Ledger tx -> ChainSlot -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Outcome tx
+
+-- | Validate whether a current deposit in the local state actually exists
+--   in the map of pending deposits.
+--   
+--   <ul>
+--   <li>If <tt>currentDeposit</tt> is <a>Nothing</a>, returns
+--   <a>Nothing</a>.</li>
+--   <li>If <tt>currentDeposit</tt> is <tt><a>Just</a> txId</tt> and
+--   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a>,
+--   returns the original <tt>currentDeposit</tt>.</li>
+--   <li>Otherwise, returns <a>Nothing</a>.</li>
+--   </ul>
+--   
+--   This is typically used to confirm that a local deposit that is to be
+--   requested in <a>ReqSn</a> is indeed still pending and has not been
+--   processed or removed.
+setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
 
 -- | Process a snapshot request (<a>ReqSn</a>) from party.
 --   
@@ -3003,6 +3022,18 @@ onOpenChainIncrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenChainDecrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Outcome tx
+
+-- | On rollback, re-post the IncrementTx if there is a pending deposit
+--   whose confirmed snapshot contains a matching utxoToCommit. The
+--   rollback may have erased the original on-chain IncrementTx
+--   observation.
+maybeRepostIncrementTx :: IsTx tx => HeadId -> HeadParameters -> PendingDeposits tx -> Maybe (TxIdType tx) -> ConfirmedSnapshot tx -> Outcome tx
+
+-- | On rollback, re-post the DecrementTx if there is a pending decommit
+--   whose confirmed snapshot contains a matching utxoToDecommit. The
+--   rollback may have erased the original on-chain DecrementTx
+--   observation.
+maybeRepostDecrementTx :: HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Outcome tx
 
 -- | Client request to close the head. This leads to a close transaction on
 --   chain using the latest confirmed snaphshot of the <a>OpenState</a>.
@@ -3143,6 +3174,8 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 [$sel:error:ReqSnNumberInvalid] :: RequirementFailure tx -> ValidationError
 NoMatchingDeposit :: RequirementFailure tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
