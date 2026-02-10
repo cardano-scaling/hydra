@@ -1108,7 +1108,6 @@ maybeRepostIncrementTx headId parameters pendingDeposits mDepositTxId confirmedS
 -- confirmed snapshot contains a matching utxoToDecommit. The rollback may have
 -- erased the original on-chain DecrementTx observation.
 maybeRepostDecrementTx ::
-  IsTx tx =>
   HeadId ->
   HeadParameters ->
   Maybe tx ->
@@ -1706,9 +1705,9 @@ aggregateNodeState nodeState sc =
         DepositExpired{depositTxId, deposit} ->
           nodeState
             { headState = st
-            -- NB: We keep expired deposits in a map since we actually need it when Recovering.
-            -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
-            , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
+            , -- NB: We keep expired deposits in a map since we actually need it when Recovering.
+              -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
+              pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
             }
         DepositRecovered{depositTxId} ->
           case st of
