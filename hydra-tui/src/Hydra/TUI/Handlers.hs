@@ -247,7 +247,11 @@ handleHydraEventsInfo = \case
         <> ", Drift: "
         <> show drift
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime}}) ->
-    warn time $ "Node state is back in sync with chain backend. Chain time: " <> show chainTime
+    warn time $
+      "Node state is back in sync with chain backend. Chain time: "
+        <> show chainTime
+        <> ", Drift: "
+        <> show drift
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->
