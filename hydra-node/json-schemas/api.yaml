@@ -3790,9 +3790,7 @@ components:
             currentSlot:
               $ref: "api.yaml#/components/schemas/ChainSlot"
             currentChainTime:
-              oneOf:
-                - $ref: "api.yaml#/components/schemas/UTCTime"
-                - type: "null"
+              $ref: "api.yaml#/components/schemas/UTCTime"
         - title: NodeCatchingUp
           type: object
           additionalProperties: false
@@ -3816,9 +3814,7 @@ components:
             currentSlot:
               $ref: "api.yaml#/components/schemas/ChainSlot"
             currentChainTime:
-              oneOf:
-                - $ref: "api.yaml#/components/schemas/UTCTime"
-                - type: "null"
+              $ref: "api.yaml#/components/schemas/UTCTime"
 
     SubmitL2TxResponse:
       oneOf:
