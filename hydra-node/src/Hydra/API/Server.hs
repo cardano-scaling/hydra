@@ -4,7 +4,6 @@
 module Hydra.API.Server where
 
 import "hydra-prelude" Hydra.Prelude hiding (catMaybes, map, mapM_, seq, state)
-
 import "base" Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import "base" Control.Exception (IOException)
 import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
@@ -14,37 +13,31 @@ import "conduit" Data.Conduit.List (catMaybes)
 import "containers" Data.Map qualified as Map
 import "http-types" Network.HTTP.Types (status500)
 import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra)
-import "hydra-node" Hydra.API.APIServerLog (APIServerLog (..))
-import "hydra-node" Hydra.API.ClientInput (ClientInput)
-import "hydra-node" Hydra.API.HTTPServer (httpApp)
-import "hydra-node" Hydra.API.Projection (Projection (..), mkProjection)
-import "hydra-node" Hydra.API.ServerOutput (
+
+import Hydra.API.APIServerLog (APIServerLog (..))
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.HTTPServer (httpApp)
+import Hydra.API.Projection (Projection (..), mkProjection)
+import Hydra.API.ServerOutput (
   ClientMessage,
   CommitInfo (..),
   NetworkInfo (..),
   ServerOutput (..),
   TimedServerOutput (..),
  )
-import "hydra-node" Hydra.API.ServerOutputFilter (
+import Hydra.API.ServerOutputFilter (
   ServerOutputFilter,
  )
-import "hydra-node" Hydra.API.WSServer (wsApp)
-import "hydra-node" Hydra.Chain (Chain (..))
-import "hydra-node" Hydra.Chain.Direct.State ()
-import "hydra-node" Hydra.Events (EventSink (..), EventSource (..))
-import "hydra-node" Hydra.HeadLogic (
+import Hydra.API.WSServer (wsApp)
+import Hydra.Chain (Chain (..))
+import Hydra.Chain.Direct.State ()
+import Hydra.Events (EventSink (..), EventSource (..))
+import Hydra.HeadLogic (
   HeadState (..),
   InitialState (..),
   OpenState (..),
   aggregateNodeState,
  )
-import "hydra-node" Hydra.HeadLogic.Outcome qualified as StateChanged
-import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (..))
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
-import "hydra-node" Hydra.Network (IP, PortNumber)
-import "hydra-node" Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
-import "hydra-node" Hydra.Node.Environment (Environment)
-import "hydra-node" Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
 import "hydra-tx" Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import "hydra-tx" Hydra.Tx (IsTx (..), Party, txId)
 import "stm" Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
@@ -52,6 +45,14 @@ import "wai" Network.Wai (responseLBS)
 import "wai-cors" Network.Wai.Middleware.Cors (simpleCors)
 import "wai-websockets" Network.Wai.Handler.WebSockets (websocketsOr)
 import "warp" Network.Wai.Handler.Warp (
+
+import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.Network (IP, PortNumber)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
+import Hydra.Node.Environment (Environment)
+import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
   defaultSettings,
   runSettings,
   setBeforeMainLoop,

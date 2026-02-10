@@ -8,7 +8,6 @@ module Hydra.Model.Payment where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (Any, label, toList)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (choose)
 import "base" Data.List qualified as List
 import "base" GHC.IsList (IsList (..))

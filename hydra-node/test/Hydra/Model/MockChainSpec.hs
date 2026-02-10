@@ -1,17 +1,18 @@
 module Hydra.Model.MockChainSpec where
 
-import Hydra.Model.MockChain (scriptLedger)
 import "QuickCheck" Test.QuickCheck (Property, Testable (property), counterexample, forAllBlind, (===))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "hydra-cardano-api" Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON)
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTx, renderUTxO)
-import "hydra-node" Hydra.Ledger (Ledger (applyTransactions))
-import "hydra-node" Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import "hydra-tx" Hydra.Tx.IsTx (IsTx (txId))
 import "text" Data.Text (unpack)
+
+import Hydra.Model.MockChain (scriptLedger)
+import Hydra.Ledger (Ledger (applyTransactions))
+import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 
 spec :: Spec
 spec =

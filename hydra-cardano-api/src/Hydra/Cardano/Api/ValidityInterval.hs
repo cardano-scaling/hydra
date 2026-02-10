@@ -2,10 +2,10 @@
 
 module Hydra.Cardano.Api.ValidityInterval where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
-
 import "cardano-ledger-allegra" Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)
+
+import Hydra.Cardano.Api.Prelude
 
 toLedgerValidityInterval ::
   (TxValidityLowerBound era, TxValidityUpperBound era) ->

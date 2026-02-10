@@ -4,16 +4,16 @@
 module Hydra.Chain.Direct.TimeHandle where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.Fixed (Pico)
 import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (SlotNo))
 import "cardano-slotting" Cardano.Slotting.Time (SystemStart (..), fromRelativeTime, toRelativeTime)
 import "hydra-cardano-api" Hydra.Cardano.Api (EraHistory (EraHistory))
 import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
-import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
-import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 import "hydra-tx" Hydra.Tx.Close (PointInTime)
 import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
+
+import Hydra.Chain.Backend (ChainBackend (..))
+import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
 
 data TimeHandle = TimeHandle
   { currentPointInTime :: Either Text PointInTime

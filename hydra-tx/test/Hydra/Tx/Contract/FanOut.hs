@@ -6,7 +6,6 @@ module Hydra.Tx.Contract.FanOut where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (label, toList)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (choose, elements, oneof, suchThat)
 import "base" GHC.IsList (IsList (..))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -17,18 +16,19 @@ import "hydra-plutus" Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
 import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
 import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
-import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import "hydra-tx" Hydra.Tx (registryUTxO)
-import "hydra-tx" Hydra.Tx.Fanout (fanoutTx)
-import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
-import "hydra-tx" Hydra.Tx.IsTx (IsTx (hashUTxO))
-import "hydra-tx" Hydra.Tx.Party (Party, partyToChain, vkey)
-import "hydra-tx" Hydra.Tx.Utils (adaOnly, splitUTxO)
-import "hydra-tx" Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import "hydra-tx" Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
-import "hydra-tx" Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import "plutus-tx" PlutusTx.Builtins (toBuiltin)
 import "quickcheck-instances" Test.QuickCheck.Instances ()
+
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Tx (registryUTxO)
+import Hydra.Tx.Fanout (fanoutTx)
+import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.IsTx (IsTx (hashUTxO))
+import Hydra.Tx.Party (Party, partyToChain, vkey)
+import Hydra.Tx.Utils (adaOnly, splitUTxO)
+import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =

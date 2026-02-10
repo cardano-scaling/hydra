@@ -3,9 +3,7 @@
 module Hydra.Data.ContestationPeriod where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "plutus-tx" PlutusTx.Prelude qualified as Plutus
-
 import "base" Data.Ratio ((%))
 import "plutus-ledger-api" PlutusLedgerApi.V1.Time (DiffMilliSeconds, fromMilliSeconds)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (POSIXTime (..))

@@ -30,8 +30,6 @@ import Hydra.BehaviorSpec (
   shortLabel,
   waitUntilMatch,
  )
-import Hydra.Model.MockChain (mockChainAndNetwork)
-import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import "QuickCheck" Test.QuickCheck (choose, chooseEnum, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
 import "base" Data.List (nub, (\\))
 import "base" Data.List qualified as List
@@ -43,18 +41,6 @@ import "cardano-binary" Cardano.Binary (serialize', unsafeDeserialize')
 import "containers" Data.Map ((!))
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
-import "hydra-node" Hydra.API.ClientInput (ClientInput)
-import "hydra-node" Hydra.API.ClientInput qualified as Input
-import "hydra-node" Hydra.API.ServerOutput (ServerOutput (..))
-import "hydra-node" Hydra.Chain (maximumNumberOfParties)
-import "hydra-node" Hydra.Chain.Direct.State (initialChainState)
-import "hydra-node" Hydra.HeadLogic (Committed ())
-import "hydra-node" Hydra.Logging (Tracer)
-import "hydra-node" Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import "hydra-node" Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
-import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
-import "hydra-node" Hydra.Node.State (NodeState (..))
-import "hydra-node" Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import "hydra-tx" Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import "hydra-tx" Hydra.Tx (HeadId)
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -65,6 +51,21 @@ import "hydra-tx" Hydra.Tx.Party (Party (..), deriveParty)
 import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
 import "hydra-tx" Test.Hydra.Tx.Gen (genSigningKey)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
+
+import Hydra.Model.MockChain (mockChainAndNetwork)
+import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ClientInput qualified as Input
+import Hydra.API.ServerOutput (ServerOutput (..))
+import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadLogic (Committed ())
+import Hydra.Logging (Tracer)
+import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
+import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.State (NodeState (..))
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
   modifyTVar,
   readTVarIO,
   retry,

@@ -5,15 +5,15 @@ module Test.Hydra.HeadLogic.Outcome where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (oneof)
-import "hydra-node" Hydra.HeadLogic.Outcome (StateChanged (..))
-import "hydra-node" Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import "hydra-node" Test.Hydra.API.ServerOutput ()
-import "hydra-node" Test.Hydra.Chain ()
 import "hydra-tx" Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
 import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.Node.Environment (Environment (..), mkHeadParameters)
+import Test.Hydra.API.ServerOutput ()
+import Test.Hydra.Chain ()
 
 instance
   ( ArbitraryIsTx tx

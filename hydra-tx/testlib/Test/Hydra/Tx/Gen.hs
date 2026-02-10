@@ -6,7 +6,6 @@ module Test.Hydra.Tx.Gen where
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (generateSigningKey)
 import "hydra-prelude" Hydra.Prelude hiding (toList)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import "QuickCheck" Test.QuickCheck.Gen (chooseWord64)
 import "base" Data.List (nub)
@@ -28,18 +27,19 @@ import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import "hydra-plutus" Hydra.Contract.Head qualified as Head
 import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
-import "hydra-tx" Hydra.Chain.ChainState
-import "hydra-tx" Hydra.Ledger.Cardano.Evaluate
-import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import "hydra-tx" Hydra.Tx
-import "hydra-tx" Hydra.Tx.Close (CloseObservation)
-import "hydra-tx" Hydra.Tx.CollectCom
-import "hydra-tx" Hydra.Tx.ContestationPeriod
-import "hydra-tx" Hydra.Tx.Crypto
-import "hydra-tx" Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
-import "hydra-tx" Hydra.Tx.OnChainId
 import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 import "z-cardano-ledger-conway-z-testlib" Test.Cardano.Ledger.Conway.Arbitrary ()
+
+import Hydra.Chain.ChainState
+import Hydra.Ledger.Cardano.Evaluate
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Tx
+import Hydra.Tx.Close (CloseObservation)
+import Hydra.Tx.CollectCom
+import Hydra.Tx.ContestationPeriod
+import Hydra.Tx.Crypto
+import Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
+import Hydra.Tx.OnChainId
 
 -- * TxOut
 

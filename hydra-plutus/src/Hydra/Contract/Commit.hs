@@ -6,12 +6,12 @@
 module Hydra.Contract.Commit where
 
 import "plutus-tx" PlutusTx.Prelude
-
 import "bytestring" Data.ByteString.Lazy (fromStrict, toStrict)
 import "hydra-cardano-api" Hydra.Cardano.Api (CtxUTxO, Network, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as OffChain
-import "hydra-plutus" Hydra.Data.Party (Party)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
+
+import Hydra.Data.Party (Party)
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),

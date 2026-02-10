@@ -11,7 +11,6 @@ module Test.Hydra.Tx.Fixture (
 
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.Maybe (fromJust)
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Core (ppPricesL)
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (Prices (..))
@@ -31,14 +30,15 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
  )
 import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
 import "hydra-test-utils" Test.Hydra.Prelude
-import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
-import "hydra-tx" Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
-import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import "hydra-tx" Hydra.Tx.Crypto (HydraKey, generateSigningKey)
-import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
-import "hydra-tx" Hydra.Tx.OnChainId (AsType (..), OnChainId)
-import "hydra-tx" Hydra.Tx.Party (deriveParty)
 import "lens" Control.Lens ((.~))
+
+import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
+import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.OnChainId (AsType (..), OnChainId)
+import Hydra.Tx.Party (deriveParty)
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party

@@ -10,12 +10,12 @@ module Hydra.Logging.Messages where
 
 import "hydra-prelude" Hydra.Prelude
 
-import "hydra-node" Hydra.API.APIServerLog (APIServerLog)
-import "hydra-node" Hydra.Chain.Direct.Handlers (CardanoChainLog)
-import "hydra-node" Hydra.Node (HydraNodeLog)
-import "hydra-node" Hydra.Node.Network (NetworkLog)
-import "hydra-node" Hydra.Options (RunOptions)
-import "hydra-node" Hydra.PersistenceLog (PersistenceLog)
+import Hydra.API.APIServerLog (APIServerLog)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog)
+import Hydra.Node (HydraNodeLog)
+import Hydra.Node.Network (NetworkLog)
+import Hydra.Options (RunOptions)
+import Hydra.PersistenceLog (PersistenceLog)
 
 data HydraLog tx
   = DirectChain {directChain :: CardanoChainLog}

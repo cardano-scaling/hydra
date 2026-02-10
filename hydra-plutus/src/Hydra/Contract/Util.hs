@@ -3,13 +3,14 @@
 
 module Hydra.Contract.Util where
 
-import "hydra-plutus" Hydra.Contract.Commit
-import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..))
-import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..), errorCode)
-import "hydra-plutus" Hydra.Data.Party (Party)
 import "hydra-prelude" Hydra.Prelude (Show)
 import "plutus-ledger-api" PlutusLedgerApi.V1.Value (isZero)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
+
+import Hydra.Contract.Commit
+import Hydra.Contract.Error (ToErrorCode (..))
+import Hydra.Contract.HeadError (HeadError (..), errorCode)
+import Hydra.Data.Party (Party)
   Address (..),
   Credential (..),
   CurrencySymbol,

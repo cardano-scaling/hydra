@@ -9,12 +9,10 @@ module Hydra.Options (
 ) where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (Value (Object, String), withObject, (.:))
 import "base" Control.Arrow (left)
 import "lens" Control.Lens ((?~))
 import "lens-aeson" Data.Aeson.Lens (atKey)
-
 import "QuickCheck" Test.QuickCheck (Positive (..))
 import "base" Data.Version (showVersion)
 import "bytestring" Data.ByteString.Char8 qualified as BSC
@@ -29,19 +27,20 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   deserialiseFromRawBytesHex,
   serialiseToRawBytesHexText,
  )
-import "hydra-node" Hydra.Chain (maximumNumberOfParties)
-import "hydra-node" Hydra.Logging (Verbosity (..))
-import "hydra-node" Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
-import "hydra-node" Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
-import "hydra-node" Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
-import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
-import "hydra-node" Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
 import "hydra-plutus" Hydra.Contract qualified as Contract
 import "hydra-tx" Hydra.Ledger.Cardano ()
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import "hydra-tx" Hydra.Tx.HeadId (HeadSeed)
 import "iproute" Data.IP (IP (IPv4), toIPv4)
 import "optparse-applicative" Options.Applicative (
+
+import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Logging (Verbosity (..))
+import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
+import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
   Parser,
   ParserInfo,
   ParserResult (..),

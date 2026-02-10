@@ -7,7 +7,6 @@ import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-plutus" Hydra.Plutus.Gen ()
 import "hydra-prelude" Hydra.Prelude hiding (label, toList)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (choose, elements, oneof, suchThat)
 import "base" Data.List qualified as List
 import "base" Data.Maybe (fromJust)
@@ -25,29 +24,30 @@ import "hydra-plutus" Hydra.Contract.InitialError (InitialError (ExpectedSingleC
 import "hydra-plutus" Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import "hydra-plutus" Hydra.Data.Party qualified as OnChain
 import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import "hydra-tx" Hydra.Tx (HeadParameters (..), Party, partyToChain)
-import "hydra-tx" Hydra.Tx.CollectCom (
+
+import Hydra.Tx (HeadParameters (..), Party, partyToChain)
+import Hydra.Tx.CollectCom (
   collectComTx,
  )
-import "hydra-tx" Hydra.Tx.Commit (mkCommitDatum)
-import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
-import "hydra-tx" Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
-import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
-import "hydra-tx" Hydra.Tx.Init (mkHeadOutput, mkInitialOutput)
-import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
-import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
-import "hydra-tx" Hydra.Tx.Utils (
+import Hydra.Tx.Commit (mkCommitDatum)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
+import Hydra.Tx.HeadId (mkHeadId)
+import Hydra.Tx.Init (mkHeadOutput, mkInitialOutput)
+import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Utils (
   hydraHeadV1AssetName,
   onChainIdToAssetName,
   verificationKeyToOnChainId,
  )
-import "hydra-tx" Test.Hydra.Tx.Fixture (
+import Test.Hydra.Tx.Fixture (
   testNetworkId,
   testPolicyId,
   testSeedInput,
  )
-import "hydra-tx" Test.Hydra.Tx.Gen (
+import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
   genHash,
@@ -55,7 +55,7 @@ import "hydra-tx" Test.Hydra.Tx.Gen (
   genUTxOAdaOnlyOfSize,
   genVerificationKey,
  )
-import "hydra-tx" Test.Hydra.Tx.Mutation (
+import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,

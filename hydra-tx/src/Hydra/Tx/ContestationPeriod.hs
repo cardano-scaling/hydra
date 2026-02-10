@@ -1,7 +1,6 @@
 module Hydra.Tx.ContestationPeriod where
 
 import "hydra-prelude" Hydra.Prelude hiding (Show, show)
-
 import "base" Data.Fixed (Pico)
 import "base" Data.Ratio ((%))
 import "base" Text.Show (Show (..))

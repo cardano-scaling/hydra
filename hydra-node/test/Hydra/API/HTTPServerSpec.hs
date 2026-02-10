@@ -2,9 +2,9 @@ module Hydra.API.HTTPServerSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (delete, get)
 import "hydra-test-utils" Test.Hydra.Prelude
+import "QuickCheck" Test.QuickCheck (
 
 import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState)
-import "QuickCheck" Test.QuickCheck (
   checkCoverage,
   counterexample,
   cover,
@@ -29,8 +29,8 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import "hydra-node" Hydra.API.ClientInput (ClientInput (..))
-import "hydra-node" Hydra.API.HTTPServer (
+import Hydra.API.ClientInput (ClientInput (..))
+import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
   DraftCommitTxResponse (..),
   SideLoadSnapshotRequest (..),
@@ -40,21 +40,6 @@ import "hydra-node" Hydra.API.HTTPServer (
   TransactionSubmitted,
   httpApp,
  )
-import "hydra-node" Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
-import "hydra-node" Hydra.API.ServerSpec (dummyChainHandle)
-import "hydra-node" Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
-import "hydra-node" Hydra.Chain.Direct.Handlers (rejectLowDeposits)
-import "hydra-node" Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
-import "hydra-node" Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
-import "hydra-node" Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
-import "hydra-node" Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
-import "hydra-node" Hydra.Ledger (ValidationError (..))
-import "hydra-node" Hydra.Ledger.Simple (SimpleTx (..))
-import "hydra-node" Hydra.Logging (nullTracer)
-import "hydra-node" Hydra.Node.State (NodeState (..))
-import "hydra-node" Test.Hydra.API.HTTPServer ()
-import "hydra-node" Test.Hydra.Chain.Direct.State ()
-import "hydra-node" Test.Hydra.Node.Fixture (testEnvironment)
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import "hydra-tx" Hydra.Ledger.Cardano (Tx)
 import "hydra-tx" Hydra.Tx (ConfirmedSnapshot (..))
@@ -66,6 +51,22 @@ import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key, nth)
 import "stm" Control.Concurrent.STM (newTChanIO, writeTChan)
 import "text" Data.Text qualified as Text
+
+import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerSpec (dummyChainHandle)
+import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
+import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
+import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
+import Hydra.Ledger (ValidationError (..))
+import Hydra.Ledger.Simple (SimpleTx (..))
+import Hydra.Logging (nullTracer)
+import Hydra.Node.State (NodeState (..))
+import Test.Hydra.API.HTTPServer ()
+import Test.Hydra.Chain.Direct.State ()
+import Test.Hydra.Node.Fixture (testEnvironment)
 
 dummyStatePath :: FilePath
 dummyStatePath = "~"

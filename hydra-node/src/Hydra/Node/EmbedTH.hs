@@ -2,7 +2,6 @@
 module Hydra.Node.EmbedTH where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "directory" System.Directory (findExecutable)
 import "file-embed" Data.FileEmbed (embedFile)
 import "template-haskell" Language.Haskell.TH (Exp, Q, runIO)

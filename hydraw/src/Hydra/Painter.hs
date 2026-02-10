@@ -2,7 +2,6 @@ module Hydra.Painter where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson qualified as Aeson
 import "base" Control.Exception (IOException)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO

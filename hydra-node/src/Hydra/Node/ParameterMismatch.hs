@@ -5,7 +5,6 @@
 module Hydra.Node.ParameterMismatch where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-tx" Hydra.Tx (Party)
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
 

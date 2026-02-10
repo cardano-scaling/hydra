@@ -6,10 +6,6 @@ module Hydra.Model.MockChain where
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Network)
 import "hydra-prelude" Hydra.Prelude hiding (Any, label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
-import Hydra.Model.Payment (CardanoSigningKey (..))
-import Hydra.NodeSpec (mockServer)
 import "QuickCheck" Test.QuickCheck (getPositive)
 import "base" GHC.IO.Exception (userError)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -18,7 +14,11 @@ import "containers" Data.Sequence qualified as Seq
 import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import "hydra-node" Hydra.Chain (
+
+import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
+import Hydra.Model.Payment (CardanoSigningKey (..))
+import Hydra.NodeSpec (mockServer)
+import Hydra.Chain (
   Chain (..),
   PostChainTx (
     CloseTx,
@@ -29,7 +29,7 @@ import "hydra-node" Hydra.Chain (
   ),
   initHistory,
  )
-import "hydra-node" Hydra.Chain.Direct.Handlers (
+import Hydra.Chain.Direct.Handlers (
   CardanoChainLog,
   ChainSyncHandler (..),
   LocalChainState,
@@ -40,10 +40,10 @@ import "hydra-node" Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
-import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
-import "hydra-node" Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import "hydra-node" Hydra.HeadLogic (
+import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
   IdleState (..),
@@ -51,14 +51,6 @@ import "hydra-node" Hydra.HeadLogic (
   Input (..),
   OpenState (..),
  )
-import "hydra-node" Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
-import "hydra-node" Hydra.Logging (Tracer)
-import "hydra-node" Hydra.Network (Network (..))
-import "hydra-node" Hydra.Network.Message (Message (..))
-import "hydra-node" Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
-import "hydra-node" Hydra.Node.Environment (Environment (Environment, participants, party))
-import "hydra-node" Hydra.Node.InputQueue (InputQueue (..))
-import "hydra-node" Hydra.Node.State (NodeState (..))
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (..))
 import "hydra-tx" Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
@@ -73,6 +65,15 @@ import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
 import "hydra-tx" Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import "hydra-tx" Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
+
+import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
+import Hydra.Logging (Tracer)
+import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message (..))
+import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
+import Hydra.Node.Environment (Environment (Environment, participants, party))
+import Hydra.Node.InputQueue (InputQueue (..))
+import Hydra.Node.State (NodeState (..))
   MonadSTM (writeTVar),
   modifyTVar,
   readTVarIO,

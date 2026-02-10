@@ -20,8 +20,6 @@ module Hydra.Chain.Direct.TxTraceSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (Any, State, label, show)
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import Hydra.ModelSpec (propIsDistributive)
 import "QuickCheck" Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
 import "QuickCheck" Test.QuickCheck.Monadic (monadic)
 import "base" Data.List (nub, (\\))
@@ -29,6 +27,8 @@ import "base" Text.Show (Show (..))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map.Strict qualified as Map
 import "hydra-cardano-api" Hydra.Cardano.Api (
+
+import Hydra.ModelSpec (propIsDistributive)
   CtxUTxO,
   PaymentKey,
   SlotNo (..),
@@ -48,7 +48,6 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   txSpendingUTxO,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError, DecrementTxError, FanoutTxError, IncrementTxError (..), close, contest, decrement, fanout, increment)
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
 import "hydra-tx" Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (evaluateTx)
@@ -67,6 +66,8 @@ import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), Snap
 import "hydra-tx" Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
 import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
 import "hydra-tx" Test.Hydra.Tx.Gen (
+
+import Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError, DecrementTxError, FanoutTxError, IncrementTxError (..), close, contest, decrement, fanout, increment)
   genForParty,
   genScriptRegistry,
   genTxOut,

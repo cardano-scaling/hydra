@@ -4,10 +4,9 @@
 module Test.Hydra.Ledger.Simple where
 
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import "hydra-node" Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, SimpleTxOut (..))
-
 import "hydra-tx" Test.Hydra.Tx.Gen ()
+
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, SimpleTxOut (..))
 
 instance Arbitrary SimpleTx where
   arbitrary = genericArbitrary

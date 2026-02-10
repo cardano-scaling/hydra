@@ -4,7 +4,6 @@ module Test.Hydra.Ledger.Cardano where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (choose, getSize, vectorOf)
 import "base" Control.Monad (foldM)
 import "bytestring" Data.ByteString qualified as BS

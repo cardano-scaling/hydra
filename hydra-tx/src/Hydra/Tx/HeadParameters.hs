@@ -2,8 +2,8 @@ module Hydra.Tx.HeadParameters where
 
 import "hydra-prelude" Hydra.Prelude
 
-import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import "hydra-tx" Hydra.Tx.Party (Party (..))
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.Party (Party (..))
 
 -- | Contains the head's parameters as established in the initial transaction.
 data HeadParameters = HeadParameters

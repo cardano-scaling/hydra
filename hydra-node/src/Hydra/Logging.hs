@@ -25,7 +25,6 @@ module Hydra.Logging (
 ) where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (pairs, (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "bytestring" Data.ByteString.Lazy qualified as LBS

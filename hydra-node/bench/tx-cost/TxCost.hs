@@ -5,7 +5,6 @@ module TxCost where
 
 import "hydra-prelude" Hydra.Prelude hiding (catch)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (oneof)
 import "base" Data.Maybe (fromJust)
 import "bytestring" Data.ByteString.Lazy qualified as LBS
@@ -19,7 +18,8 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
  )
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
 import "hydra-cardano-api" Hydra.Cardano.Api.TxOut (toPlutusTxOut)
-import "hydra-node" Hydra.Chain.Direct.State (
+
+import Hydra.Chain.Direct.State (
   ClosedState (..),
   InitialState (..),
   OpenState (..),
@@ -39,7 +39,7 @@ import "hydra-node" Hydra.Chain.Direct.State (
   unsafeFanout,
   unsafeObserveInitAndCommits,
  )
-import "hydra-node" Test.Hydra.Chain.Direct.State (
+import Test.Hydra.Chain.Direct.State (
   genCloseTx,
   genCommits,
   genCommits',

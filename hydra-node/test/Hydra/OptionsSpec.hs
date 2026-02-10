@@ -4,7 +4,6 @@ module Hydra.OptionsSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
 import "generic-lens" Data.Generics.Labels ()
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -15,10 +14,10 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   TxId,
   serialiseToRawBytesHexText,
  )
-import "hydra-node" Hydra.Chain (maximumNumberOfParties)
-import "hydra-node" Hydra.Network (Host (Host))
-import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import "hydra-node" Hydra.Options (
+import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Network (Host (Host))
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
   ChainBackendOptions (..),
@@ -44,9 +43,10 @@ import "hydra-node" Hydra.Options (
   toArgs,
   validateRunOptions,
  )
-import "hydra-node" Test.Hydra.Options ()
 import "lens" Control.Lens ((.~))
 import "regex-tdfa" Text.Regex.TDFA ((=~))
+
+import Test.Hydra.Options ()
 
 spec :: Spec
 spec = parallel $

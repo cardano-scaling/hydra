@@ -3,7 +3,6 @@
 module Hydra.ChainObserver.Options where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.Version (showVersion)
 import "hydra-cardano-api" Hydra.Cardano.Api (ChainPoint, NetworkId, SocketPath)
 import "hydra-node" Hydra.NetworkVersions (hydraNodeVersion)

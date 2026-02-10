@@ -3,13 +3,13 @@ module Hydra.JSONSchemaSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "aeson" Data.Aeson (Value (..), object, (.=))
 import "base" Control.Exception (IOException)
 import "filepath" System.FilePath ((</>))
-import "hydra-node" Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import "lens-aeson" Data.Aeson.Lens (key)
 import "quickcheck-instances" Test.QuickCheck.Instances.Time ()
+
+import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 
 spec :: Spec
 spec = do

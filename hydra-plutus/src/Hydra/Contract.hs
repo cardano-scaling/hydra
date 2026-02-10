@@ -2,7 +2,6 @@
 module Hydra.Contract where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "bytestring" Data.ByteString qualified as BS
 import "hydra-cardano-api" Hydra.Cardano.Api (
   ScriptHash,
@@ -10,10 +9,11 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   serialiseToRawBytes,
   pattern PlutusScript,
  )
-import "hydra-plutus" Hydra.Contract.Head qualified as Head
-import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
-import "hydra-plutus" Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
+
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 
 -- | Information about relevant Hydra scripts.
 data HydraScriptCatalogue = HydraScriptCatalogue

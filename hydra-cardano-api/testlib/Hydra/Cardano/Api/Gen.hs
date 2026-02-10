@@ -11,8 +11,9 @@ import "cardano-ledger-binary" Cardano.Ledger.Binary qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.TxIn qualified as Ledger
 import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
-import "hydra-cardano-api" Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed qualified as Gen
+
+import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 
 -- * Orphans
 

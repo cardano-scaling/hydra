@@ -3,8 +3,6 @@
 module Hydra.NetworkVersions where
 
 import "hydra-prelude" Hydra.Prelude hiding (encodeUtf8)
-
-import Paths_hydra_node (version)
 import "aeson" Data.Aeson (Value (..), encode)
 import "base" Data.Version (Version (..), showVersion)
 import "file-embed" Data.FileEmbed (embedFile, makeRelativeToProject)
@@ -14,6 +12,8 @@ import "lens" Control.Lens ((^.), (^?))
 import "lens-aeson" Data.Aeson.Lens (key, nonNull, _Key)
 import "text" Data.Text (splitOn)
 import "text" Data.Text.Encoding (encodeUtf8)
+
+import Paths_hydra_node (version)
 
 hydraNodeVersion :: Version
 hydraNodeVersion =

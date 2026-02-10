@@ -4,10 +4,8 @@ module Hydra.CryptoSpec where
 
 -- Unit under test
 import "hydra-tx" Hydra.Tx.Crypto
-
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   classify,
   counterexample,
@@ -25,10 +23,11 @@ import "cardano-crypto-class" Cardano.Crypto.DSIGN (SigDSIGN (SigEd25519DSIGN))
 import "cardano-crypto-class" Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
 import "containers" Data.Map qualified as Map
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import "hydra-node" Test.Util (propCollisionResistant)
 import "hydra-tx" Hydra.Tx.Party (Party (vkey), deriveParty)
 import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "quickcheck-instances" Test.QuickCheck.Instances.UnorderedContainers ()
+
+import Test.Util (propCollisionResistant)
 
 spec :: Spec
 spec = do

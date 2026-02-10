@@ -4,7 +4,6 @@
 module Hydra.Ledger where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (..))
 import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
 

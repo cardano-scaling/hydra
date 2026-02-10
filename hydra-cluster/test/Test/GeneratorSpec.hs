@@ -4,7 +4,6 @@ module Test.GeneratorSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   Positive (Positive),
   Property,
@@ -15,9 +14,10 @@ import "QuickCheck" Test.QuickCheck (
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripSpecs)
 import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor (Faucet))
-import "hydra-cluster" Hydra.Cluster.Util (keysFor)
-import "hydra-cluster" Hydra.Generator (
+
+import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Util (keysFor)
+import Hydra.Generator (
   ClientDataset (..),
   Dataset (..),
   generateConstantUTxODataset,

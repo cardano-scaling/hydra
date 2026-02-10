@@ -10,9 +10,9 @@
 module Hydra.Contract.Deposit where
 
 import "plutus-tx" PlutusTx.Prelude
-
-import "hydra-plutus" Hydra.Contract.Commit (Commit)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
+
+import Hydra.Contract.Commit (Commit)
   CurrencySymbol,
   Datum (Datum),
   POSIXTime,

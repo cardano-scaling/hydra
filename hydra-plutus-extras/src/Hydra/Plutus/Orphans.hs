@@ -6,7 +6,6 @@ module Hydra.Plutus.Orphans where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "aeson" Data.Aeson (object, withObject, (.:), (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16

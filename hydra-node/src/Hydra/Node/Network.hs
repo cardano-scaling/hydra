@@ -43,13 +43,13 @@ module Hydra.Node.Network (
 ) where
 
 import "hydra-prelude" Hydra.Prelude hiding (fromList, replicate)
-
 import "contra-tracer" Control.Tracer (Tracer)
-import "hydra-node" Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
-import "hydra-node" Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
-import "hydra-node" Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
-import "hydra-node" Hydra.Network.Message (Message)
 import "hydra-tx" Hydra.Tx (IsTx)
+
+import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
+import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
+import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
+import Hydra.Network.Message (Message)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::

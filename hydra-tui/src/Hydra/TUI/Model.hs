@@ -6,9 +6,7 @@
 module Hydra.TUI.Model where
 
 import "hydra-prelude" Hydra.Prelude hiding (Down, State)
-
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Active)
-
 import "brick" Brick.Forms (Form)
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
@@ -17,14 +15,15 @@ import "hydra-node" Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHead
 import "hydra-node" Hydra.HeadLogic.State qualified as State
 import "hydra-node" Hydra.Network (Host (..))
 import "hydra-node" Hydra.Node.State (Deposit (..), NodeState (..))
-import "hydra-tui" Hydra.Client (HydraEvent (..))
-import "hydra-tui" Hydra.TUI.Logging.Types (LogState)
 import "hydra-tx" Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as CP
 import "hydra-tx" Hydra.Tx.HeadParameters as HeadParameters
 import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
 import "microlens" Lens.Micro ((^?))
 import "microlens-th" Lens.Micro.TH (makeLensesFor)
+
+import Hydra.Client (HydraEvent (..))
+import Hydra.TUI.Logging.Types (LogState)
 
 data RootState = RootState
   { nodeHost :: Host

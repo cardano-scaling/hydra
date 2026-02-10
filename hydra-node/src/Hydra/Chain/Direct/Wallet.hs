@@ -5,7 +5,6 @@
 module Hydra.Chain.Direct.Wallet where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.List qualified as List
 import "cardano-api" Cardano.Api.Ledger (Data, ExUnits)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -84,11 +83,12 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
-import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (..))
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
 import "hydra-tx" Hydra.Ledger.Cardano ()
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import "lens" Control.Lens (view, (%~), (.~), (^.))
+
+import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Logging (Tracer, traceWith)
 
 type Address = Ledger.Addr
 type TxIn = Ledger.TxIn

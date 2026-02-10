@@ -4,7 +4,7 @@ module Hydra.Chain.ChainState where
 
 import "hydra-prelude" Hydra.Prelude
 
-import "hydra-tx" Hydra.Tx (IsTx (..))
+import Hydra.Tx (IsTx (..))
 
 -- | A generic description for a chain slot all implementations need to use.
 newtype ChainSlot = ChainSlot Natural

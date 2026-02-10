@@ -2,13 +2,13 @@
 module Hydra.Cluster.Util where
 
 import "hydra-prelude" Hydra.Prelude
-
-import Paths_hydra_cluster qualified as Pkg
 import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson qualified as Aeson
 import "bytestring" Data.ByteString qualified as BS
 import "filepath" System.FilePath ((<.>), (</>))
 import "hydra-cardano-api" Hydra.Cardano.Api (
+
+import Paths_hydra_cluster qualified as Pkg
   Key (VerificationKey, getVerificationKey),
   NetworkId,
   PaymentKey,
@@ -18,12 +18,13 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import "hydra-node" Hydra.Chain.Backend (ChainBackend)
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod)
 import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import "hydra-node" Hydra.Options (
+
+import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),

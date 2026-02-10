@@ -6,13 +6,12 @@
 module Hydra.TUI.Drawing where
 
 import "hydra-prelude" Hydra.Prelude hiding (Down, State)
-
 import "brick" Brick
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Active)
-
-import Paths_hydra_tui (version)
 import "base" Data.Version (Version, showVersion)
 import "brick" Brick.Forms (
+
+import Paths_hydra_tui (version)
   renderForm,
  )
 import "brick" Brick.Widgets.Border (hBorder, vBorder)
@@ -23,16 +22,17 @@ import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderUTxO)
 import "hydra-node" Hydra.Chain.CardanoClient (CardanoClient (..))
 import "hydra-node" Hydra.Chain.Direct.State ()
 import "hydra-node" Hydra.Network (Host)
-import "hydra-tui" Hydra.Client (Client (..))
-import "hydra-tui" Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
-import "hydra-tui" Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
-import "hydra-tui" Hydra.TUI.Model
-import "hydra-tui" Hydra.TUI.Style
 import "hydra-tx" Hydra.Tx (HeadId, IsTx (..), Party (..))
 import "microlens" Lens.Micro ((^.), (^?), _head)
 import "text" Data.Text (chunksOf)
 import "time" Data.Time (defaultTimeLocale, formatTime)
 import "time" Data.Time.Format (FormatTime)
+
+import Hydra.Client (Client (..))
+import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
+import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
+import Hydra.TUI.Model
+import Hydra.TUI.Style
 
 -- | Main draw function
 draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]

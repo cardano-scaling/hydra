@@ -4,33 +4,33 @@ module Hydra.BehaviorSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
-
-import Hydra.HeadLogicSpec (testSnapshot)
-import Hydra.NodeSpec (createMockEventStore)
 import "QuickCheck" Test.QuickCheck (chooseEnum, counterexample, forAll, getNegative, ioProperty)
 import "base" Data.List ((!!))
 import "base" Data.List qualified as List
 import "hydra-cardano-api" Hydra.Cardano.Api (SigningKey)
-import "hydra-node" Hydra.API.ClientInput
-import "hydra-node" Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
-import "hydra-node" Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
-import "hydra-node" Hydra.Chain (
+
+import Hydra.HeadLogicSpec (testSnapshot)
+import Hydra.NodeSpec (createMockEventStore)
+import Hydra.API.ClientInput
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
+import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   OnChainTx (..),
   PostChainTx (..),
   initHistory,
  )
-import "hydra-node" Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import "hydra-node" Hydra.Events (EventSink (..))
-import "hydra-node" Hydra.Events.Rotation (EventStore (..))
-import "hydra-node" Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
-import "hydra-node" Hydra.Ledger (Ledger, nextChainSlot)
-import "hydra-node" Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import "hydra-node" Hydra.Logging (Tracer)
-import "hydra-node" Hydra.Network (Network (..))
-import "hydra-node" Hydra.Network.Message (Message)
-import "hydra-node" Hydra.Node (
+import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
+import Hydra.Events (EventSink (..))
+import Hydra.Events.Rotation (EventStore (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
+import Hydra.Ledger (Ledger, nextChainSlot)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Logging (Tracer)
+import Hydra.Network (Network (..))
+import Hydra.Network.Message (Message)
+import Hydra.Node (
   DraftHydraNode (..),
   HydraNode (..),
   HydraNodeLog (..),
@@ -43,14 +43,14 @@ import "hydra-node" Hydra.Node (
   runHydraNode,
   waitDelay,
  )
-import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
-import "hydra-node" Hydra.Node.DepositPeriod qualified as DP
-import "hydra-node" Hydra.Node.Environment (Environment (..))
-import "hydra-node" Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
-import "hydra-node" Hydra.Node.State (NodeState (..), initNodeState)
-import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import "hydra-node" Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
-import "hydra-node" Test.Util (
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.DepositPeriod qualified as DP
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
+import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
+import Test.Util (
   propRunInSim,
   shouldBe,
   shouldNotBe,

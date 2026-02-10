@@ -3,12 +3,12 @@
 module Test.Hydra.Node.Environment where
 
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import "hydra-node" Hydra.Node.Environment (Environment)
-import "hydra-node" Test.Hydra.Node.DepositPeriod ()
-import "hydra-node" Test.Hydra.Node.UnsyncedPeriod ()
 import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "quickcheck-instances" Test.QuickCheck.Instances.Text ()
+
+import Hydra.Node.Environment (Environment)
+import Test.Hydra.Node.DepositPeriod ()
+import Test.Hydra.Node.UnsyncedPeriod ()
 
 instance Arbitrary Environment where
   arbitrary = genericArbitrary

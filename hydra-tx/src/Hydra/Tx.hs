@@ -10,11 +10,11 @@ module Hydra.Tx (
 )
 where
 
-import "hydra-tx" Hydra.Ledger.Cardano.Builder
-import "hydra-tx" Hydra.Tx.BlueprintTx
-import "hydra-tx" Hydra.Tx.HeadId
-import "hydra-tx" Hydra.Tx.HeadParameters
-import "hydra-tx" Hydra.Tx.IsTx
-import "hydra-tx" Hydra.Tx.Party
-import "hydra-tx" Hydra.Tx.ScriptRegistry
-import "hydra-tx" Hydra.Tx.Snapshot
+import Hydra.Ledger.Cardano.Builder
+import Hydra.Tx.BlueprintTx
+import Hydra.Tx.HeadId
+import Hydra.Tx.HeadParameters
+import Hydra.Tx.IsTx
+import Hydra.Tx.Party
+import Hydra.Tx.ScriptRegistry
+import Hydra.Tx.Snapshot

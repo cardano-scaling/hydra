@@ -4,7 +4,6 @@ module Hydra.ChainObserverSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
 import "QuickCheck" Test.QuickCheck.Property (checkCoverage)
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
@@ -14,13 +13,14 @@ import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
   roundtripAndGoldenSpecsWithSettings,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api (utxoFromTx)
-import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
 import "hydra-node" Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
 import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
 import "hydra-node" Test.Hydra.Chain.Direct.State (genChainStateWithTx)
 import "hydra-node" Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import "hydra-tx" Hydra.Tx.Observe (HeadObservation (..))
 import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
+
+import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
 
 instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary

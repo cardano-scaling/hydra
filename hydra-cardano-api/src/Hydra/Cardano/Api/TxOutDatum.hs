@@ -1,8 +1,7 @@
 module Hydra.Cardano.Api.TxOutDatum where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
-
-import "hydra-cardano-api" Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
+import Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 
 -- | Construct a 'TxOutDatum' as a 'ScriptData' hash from some serialisable data.
 mkTxOutDatumHash ::

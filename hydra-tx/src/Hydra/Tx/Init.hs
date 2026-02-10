@@ -2,7 +2,6 @@ module Hydra.Tx.Init where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (toList)
-
 import "base" GHC.IsList (toList)
 import "hydra-plutus" Hydra.Contract.Head qualified as Head
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
@@ -10,14 +9,15 @@ import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
 import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
 import "hydra-plutus" Hydra.Contract.MintAction (MintAction (..))
 import "hydra-plutus" Hydra.Plutus (initialValidatorScript)
-import "hydra-tx" Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
-import "hydra-tx" Hydra.Tx.ContestationPeriod (fromChain, toChain)
-import "hydra-tx" Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
-import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
-import "hydra-tx" Hydra.Tx.OnChainId (OnChainId (..))
-import "hydra-tx" Hydra.Tx.Party (partyFromChain, partyToChain)
-import "hydra-tx" Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
 import "plutus-ledger-api" PlutusLedgerApi.Common (FromData)
+
+import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
+import Hydra.Tx.ContestationPeriod (fromChain, toChain)
+import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.OnChainId (OnChainId (..))
+import Hydra.Tx.Party (partyFromChain, partyToChain)
+import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
 
 -- * Construction
 

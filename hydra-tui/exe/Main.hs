@@ -1,10 +1,10 @@
 module Main where
 
 import "hydra-prelude" Hydra.Prelude
-
-import "hydra-tui" Hydra.TUI qualified as TUI
-import "hydra-tui" Hydra.TUI.Options (parseOptions)
 import "optparse-applicative" Options.Applicative (execParser, info)
+
+import Hydra.TUI qualified as TUI
+import Hydra.TUI.Options (parseOptions)
 
 main :: IO ()
 main =

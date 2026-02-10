@@ -3,10 +3,10 @@ module Hydra.PersistentQueueSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (counterexample, generate, ioProperty)
-import "hydra-node" Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
 import "quickcheck-instances" Test.QuickCheck.Instances.Natural ()
+
+import Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
 
 spec :: Spec
 spec = do

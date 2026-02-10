@@ -2,7 +2,6 @@ module Hydra.Chain.Direct.ScriptRegistrySpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (forAllBlind, (===))
 import "hydra-tx" Hydra.Tx.ScriptRegistry (
   newScriptRegistry,

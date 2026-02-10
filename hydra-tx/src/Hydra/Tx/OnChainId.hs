@@ -5,7 +5,6 @@
 module Hydra.Tx.OnChainId where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api (
   HasTypeProxy (..),
   SerialiseAsRawBytes (..),

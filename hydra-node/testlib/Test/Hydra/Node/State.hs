@@ -4,12 +4,12 @@
 module Test.Hydra.Node.State where
 
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (recursivelyShrink)
-import "hydra-node" Hydra.Node.State (Deposit, DepositStatus, NodeState, SyncedStatus)
-import "hydra-node" Test.Hydra.HeadLogic.State ()
 import "hydra-tx" Hydra.Chain.ChainState (IsChainState (..))
 import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
+
+import Hydra.Node.State (Deposit, DepositStatus, NodeState, SyncedStatus)
+import Test.Hydra.HeadLogic.State ()
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
   arbitrary = genericArbitrary

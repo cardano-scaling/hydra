@@ -4,8 +4,6 @@ import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
 
 -- NOTE: Arbitrary UTxO and Tx instances
-import "hydra-tx" Test.Hydra.Tx.Gen ()
-
 import "QuickCheck" Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
 import "aeson" Data.Aeson qualified as Aeson
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
@@ -15,8 +13,10 @@ import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxB
 import "cardano-ledger-api" Cardano.Ledger.Api qualified as Ledger
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import "hydra-cardano-api" Hydra.Cardano.Api (Tx, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
-import "hydra-tx" Hydra.Tx.IsTx (txId)
 import "lens" Control.Lens ((.~), (^.))
+
+import Test.Hydra.Tx.Gen ()
+import Hydra.Tx.IsTx (txId)
 
 spec :: Spec
 spec =

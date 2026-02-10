@@ -12,7 +12,6 @@
 module Hydra.Plutus where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson qualified as Aeson
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
 import "file-embed" Data.FileEmbed (embedFile, makeRelativeToProject)

@@ -8,7 +8,6 @@ module Hydra.Chain.Direct (
 ) where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Control.Exception (IOException)
 import "base" Text.Printf (printf)
 import "hydra-cardano-api" Hydra.Cardano.Api (
@@ -35,15 +34,15 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   getTxBody,
   getTxId,
  )
-import "hydra-node" Hydra.Chain (
+import Hydra.Chain (
   ChainComponent,
   ChainStateHistory (..),
   PostTxError (..),
   prefixOf,
  )
-import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
-import "hydra-node" Hydra.Chain.CardanoClient qualified as CardanoClient
-import "hydra-node" Hydra.Chain.Direct.Handlers (
+import Hydra.Chain.Backend (ChainBackend (..))
+import Hydra.Chain.CardanoClient qualified as CardanoClient
+import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler,
   chainSyncHandler,
@@ -52,13 +51,14 @@ import "hydra-node" Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..))
-import "hydra-node" Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import "hydra-node" Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import "hydra-node" Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
-import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (
+
+import Hydra.Chain.Direct.State (ChainContext (..))
+import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
   putTMVar,
   readTQueue,
   takeTMVar,

@@ -7,12 +7,9 @@ module Test.Hydra.Chain.Direct.State where
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
 import "hydra-prelude" Hydra.Prelude hiding (init)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "base" Data.Maybe (fromJust)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-
 import "base" GHC.IsList qualified as IsList
-
 import "QuickCheck" Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
 import "hydra-cardano-api" Hydra.Cardano.Api (
   Key (VerificationKey),
@@ -27,11 +24,12 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   getTxId,
   modifyTxOutValue,
  )
-import "hydra-node" Hydra.Chain (maximumNumberOfParties)
-import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ChainStateAt (..), ChainTransition (..), ClosedState (..), HasKnownUTxO (..), HydraContext (..), InitialState (..), OpenState (..), ctxHeadParameters, ctxParticipants, ctxParties, initialize, observeClose, observeCollect, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeContest, unsafeDecrement, unsafeFanout, unsafeIncrement, unsafeObserveInit, unsafeObserveInitAndCommits)
 import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
 import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import "hydra-tx" Hydra.Tx (
+
+import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ChainStateAt (..), ChainTransition (..), ClosedState (..), HasKnownUTxO (..), HydraContext (..), InitialState (..), OpenState (..), ctxHeadParameters, ctxParticipants, ctxParties, initialize, observeClose, observeCollect, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeContest, unsafeDecrement, unsafeFanout, unsafeIncrement, unsafeObserveInit, unsafeObserveInitAndCommits)
   ConfirmedSnapshot (..),
   Snapshot (..),
   SnapshotNumber,

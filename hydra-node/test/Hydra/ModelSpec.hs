@@ -98,9 +98,6 @@ import Hydra.Model (
   toRealUTxO,
   toTxOuts,
  )
-import Hydra.Model qualified as Model
-import Hydra.Model.Payment (Payment (..))
-import Hydra.Model.Payment qualified as Payment
 import "HUnit" Test.HUnit.Lang (formatFailureReason)
 import "QuickCheck" Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, vectorOf, withMaxSuccess, within)
 import "QuickCheck" Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
@@ -112,14 +109,18 @@ import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map ((!))
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
-import "hydra-node" Hydra.Logging.Messages (HydraLog)
-import "hydra-node" Test.Hydra.Node.Fixture (alice, aliceSk)
-import "hydra-node" Test.Util (printTrace, traceInIOSim)
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import "hydra-tx" Hydra.Tx.Party (Party (..), deriveParty)
 import "io-classes" Control.Monad.Class.MonadTimer ()
 import "io-sim" Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
 import "quickcheck-dynamic" Test.QuickCheck.DynamicLogic (
+
+import Hydra.Model qualified as Model
+import Hydra.Model.Payment (Payment (..))
+import Hydra.Model.Payment qualified as Payment
+import Hydra.Logging.Messages (HydraLog)
+import Test.Hydra.Node.Fixture (alice, aliceSk)
+import Test.Util (printTrace, traceInIOSim)
   DL,
   Quantification,
   action,

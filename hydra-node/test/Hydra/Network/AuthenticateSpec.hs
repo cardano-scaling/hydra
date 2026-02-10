@@ -1,24 +1,25 @@
 module Hydra.Network.AuthenticateSpec where
 
-import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
 import "QuickCheck" Test.QuickCheck (listOf)
 import "QuickCheck" Test.QuickCheck.Gen (generate)
 import "bytestring" Data.ByteString (pack)
 import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation)
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import "hydra-node" Hydra.Ledger.Simple (SimpleTx)
-import "hydra-node" Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
-import "hydra-node" Hydra.Network (Network (..), NetworkCallback (..))
-import "hydra-node" Hydra.Network.Authenticate (AuthLog, Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
-import "hydra-node" Hydra.Network.Message (Message (ReqTx))
-import "hydra-node" Test.Hydra.Network.Authenticate ()
-import "hydra-node" Test.Util (noopCallback)
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
 import "hydra-tx" Hydra.Tx.Crypto (sign)
 import "hydra-tx" Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import "io-classes" Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar')
 import "io-sim" Control.Monad.IOSim (runSimOrThrow)
+
+import Hydra.NetworkSpec (prop_canRoundtripCBOREncoding)
+import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
+import Hydra.Network (Network (..), NetworkCallback (..))
+import Hydra.Network.Authenticate (AuthLog, Authenticated (..), Signed (Signed), mkAuthLog, withAuthentication)
+import Hydra.Network.Message (Message (ReqTx))
+import Test.Hydra.Network.Authenticate ()
+import Test.Util (noopCallback)
 
 spec :: Spec
 spec = parallel $ do

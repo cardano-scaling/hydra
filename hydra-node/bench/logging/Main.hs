@@ -1,7 +1,6 @@
 module Main where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (Value, object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "base" System.IO (hClose, openTempFile)
@@ -16,7 +15,7 @@ import "io-classes" Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
  )
 
-import "hydra-node" Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
+import Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
 
 main :: IO ()
 main = do

@@ -4,7 +4,6 @@
 module Hydra.Cluster.Fixture where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId)
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
 import "hydra-tx" Hydra.Tx (Party, deriveParty)

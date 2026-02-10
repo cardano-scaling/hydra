@@ -6,7 +6,6 @@ module Hydra.Chain.Blockfrost.Client (
 ) where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "blockfrost-client" Blockfrost.Client (
   Block (..),
   BlockHash (..),
@@ -34,7 +33,6 @@ import "cardano-ledger-byron" Cardano.Chain.Genesis (mainnetProtocolMagicId)
 import "containers" Data.Map.Strict qualified as Map
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
 import "time" Data.Time.Clock.POSIX
-
 import "base" Data.List qualified as List
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-api" Cardano.Ledger.Api.PParams
@@ -59,7 +57,6 @@ import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API (ProtVer (..))
 import "cardano-slotting" Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import "containers" Data.Set qualified as Set
 import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (fromNetworkMagic)
-import "hydra-node" Hydra.Options (BlockfrostOptions (..))
 import "hydra-tx" Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import "lens" Control.Lens ((.~), (^.))
 import "ouroboros-consensus" Ouroboros.Consensus.Block (GenesisWindow (..))
@@ -67,6 +64,8 @@ import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History (Bound (..), E
 import "safe-money" Money qualified
 import "sop-extras" Data.SOP.NonEmpty (nonEmptyFromList)
 import "text" Data.Text qualified as T
+
+import Hydra.Options (BlockfrostOptions (..))
 
 data BlockfrostException
   = TimeoutOnUTxO TxId

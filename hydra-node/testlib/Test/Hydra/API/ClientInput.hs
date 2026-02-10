@@ -5,12 +5,11 @@ module Test.Hydra.API.ClientInput where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import "hydra-node" Hydra.API.ClientInput (ClientInput (..))
-
 import "hydra-tx" Hydra.Tx (IsTx (..), TxIdType)
 import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+
+import Hydra.API.ClientInput (ClientInput (..))
 
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ClientInput tx) where
   arbitrary = genericArbitrary

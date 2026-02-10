@@ -5,16 +5,16 @@ module Hydra.NetworkSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Property, (===))
 import "cborg" Codec.CBOR.Read (deserialiseFromBytes)
 import "cborg" Codec.CBOR.Write (toLazyByteString)
 import "directory" System.Directory (removeFile)
 import "filepath" System.FilePath ((</>))
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
-import "hydra-node" Hydra.Ledger.Simple (SimpleTx (..))
-import "hydra-node" Hydra.Logging (showLogsOnFailure)
-import "hydra-node" Hydra.Network (
+
+import Hydra.Ledger.Simple (SimpleTx (..))
+import Hydra.Logging (showLogsOnFailure)
+import Hydra.Network (
   Connectivity (..),
   Host (..),
   Network (..),
@@ -22,15 +22,16 @@ import "hydra-node" Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import "hydra-node" Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
-import "hydra-node" Hydra.Network.Message (Message (..))
-import "hydra-node" Hydra.Node.Network (NetworkConfiguration (..))
-import "hydra-node" Test.Hydra.Ledger.Simple ()
-import "hydra-node" Test.Hydra.Network.Message ()
-import "hydra-node" Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
-import "hydra-node" Test.Util (noopCallback, waitEq, waitMatch)
 import "hydra-test-utils" Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
+
+import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
+import Hydra.Network.Message (Message (..))
+import Hydra.Node.Network (NetworkConfiguration (..))
+import Test.Hydra.Ledger.Simple ()
+import Test.Hydra.Network.Message ()
+import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
+import Test.Util (noopCallback, waitEq, waitMatch)
   readTQueue,
   writeTQueue,
  )

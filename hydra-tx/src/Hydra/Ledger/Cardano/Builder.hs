@@ -4,7 +4,6 @@ module Hydra.Ledger.Cardano.Builder where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
 import "mono-traversable" Data.MonoTraversable (omap)
-
 import "containers" Data.Map qualified as Map
 
 -- * Executing

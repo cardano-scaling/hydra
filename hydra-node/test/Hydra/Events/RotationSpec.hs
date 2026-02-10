@@ -2,25 +2,25 @@ module Hydra.Events.RotationSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
 import "QuickCheck" Test.QuickCheck (Positive (..), choose, sized)
 import "base" Control.Monad (foldM)
 import "base" Data.List qualified as List
-import "hydra-node" Hydra.Chain (OnChainTx (..))
-import "hydra-node" Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
-import "hydra-node" Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import "hydra-node" Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
-import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
-import "hydra-node" Hydra.Ledger.Simple (SimpleTx, simpleLedger)
-import "hydra-node" Hydra.Logging (showLogsOnFailure)
-import "hydra-node" Hydra.Node (DraftHydraNode, hydrate)
-import "hydra-node" Hydra.Node.State (NodeState (..), initNodeState)
-import "hydra-node" Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
 import "hydra-tx" Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import "hydra-tx" Test.Hydra.Tx.Fixture (cperiod)
 import "quickcheck-instances" Test.QuickCheck.Instances.Natural ()
+
+import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
+import Hydra.Chain (OnChainTx (..))
+import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
+import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
+import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
+import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
+import Hydra.Logging (showLogsOnFailure)
+import Hydra.Node (DraftHydraNode, hydrate)
+import Hydra.Node.State (NodeState (..), initNodeState)
+import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 
 spec :: Spec
 spec = parallel $ do

@@ -6,10 +6,8 @@
 module Hydra.TUI.Forms where
 
 import "hydra-prelude" Hydra.Prelude hiding (Down, State)
-
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderUTxO)
-
 import "brick" Brick (BrickEvent (..), vBox, withDefAttr)
 import "brick" Brick.Forms (
   Form (..),

@@ -4,7 +4,6 @@
 module Hydra.Plutus.Extras.Time where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.Fixed (Pico)
 import "base" Data.Ratio ((%))
 import "plutus-ledger-api" PlutusLedgerApi.V1.Time qualified as Plutus

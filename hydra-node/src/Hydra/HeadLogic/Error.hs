@@ -4,11 +4,11 @@
 module Hydra.HeadLogic.Error where
 
 import "hydra-prelude" Hydra.Prelude
-
-import "hydra-node" Hydra.HeadLogic.Input (Input)
-import "hydra-node" Hydra.HeadLogic.State (HeadState)
-import "hydra-node" Hydra.Ledger (ValidationError)
 import "hydra-tx" Hydra.Tx (
+
+import Hydra.HeadLogic.Input (Input)
+import Hydra.HeadLogic.State (HeadState)
+import Hydra.Ledger (ValidationError)
   HeadId,
   IsTx (TxIdType, UTxOType),
   Party,

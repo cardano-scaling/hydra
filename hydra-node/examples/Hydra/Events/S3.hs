@@ -2,7 +2,6 @@
 module Hydra.Events.S3 where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson qualified as Aeson
 import "amazonka" Amazonka qualified as AWS
 import "amazonka-s3" Amazonka.S3 qualified as AWS
@@ -22,8 +21,9 @@ import "conduit" Conduit (
   yieldMany,
   (.|),
  )
-import "hydra-node" Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId, getEventId)
 import "lens" Control.Lens (view)
+
+import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId, getEventId)
 
 -- | Create a new event source and sink that stores events in AWS S3.
 newS3EventStore :: (HasEventId e, ToJSON e, FromJSON e) => AWS.BucketName -> IO (EventSource e IO, EventSink e IO)

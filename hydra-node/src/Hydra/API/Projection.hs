@@ -16,7 +16,6 @@
 module Hydra.API.Projection where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar')
 
 -- | 'Projection' type used to alter/project the API output to suit the client needs.

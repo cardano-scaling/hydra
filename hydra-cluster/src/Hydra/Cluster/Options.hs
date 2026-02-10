@@ -5,11 +5,12 @@ module Hydra.Cluster.Options where
 import "QuickCheck" Test.QuickCheck (Positive)
 import "bytestring" Data.ByteString.Char8 qualified as BSC
 import "hydra-cardano-api" Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
-import "hydra-cluster" Hydra.Cluster.Fixture (KnownNetwork (..))
 import "hydra-node" Hydra.Options (persistenceRotateAfterParser)
 import "hydra-prelude" Hydra.Prelude
 import "optparse-applicative" Options.Applicative (Parser, eitherReader, flag, flag', help, long, metavar, strOption)
 import "optparse-applicative" Options.Applicative.Builder (option)
+
+import Hydra.Cluster.Fixture (KnownNetwork (..))
 
 data Options = Options
   { knownNetwork :: Maybe KnownNetwork

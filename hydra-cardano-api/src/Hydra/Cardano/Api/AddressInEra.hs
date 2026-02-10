@@ -1,12 +1,12 @@
 module Hydra.Cardano.Api.AddressInEra where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
-
 import "cardano-ledger-core" Cardano.Ledger.Address qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.Credential qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.Hashes qualified as Ledger
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
+
+import Hydra.Cardano.Api.Prelude
   Address (..),
   Credential (..),
   StakingCredential (StakingHash, StakingPtr),

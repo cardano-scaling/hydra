@@ -1,12 +1,12 @@
 module Hydra.Cardano.Api.Hash where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
-
 import "bytestring" Data.ByteString qualified as BS
 import "cardano-ledger-core" Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import "cardano-ledger-core" Cardano.Ledger.Keys qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.Plutus.TxInfo (transKeyHash)
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
+
+import Hydra.Cardano.Api.Prelude
 
 -- * Type conversions
 

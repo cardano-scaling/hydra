@@ -3,7 +3,8 @@ module Main where
 
 import "hydra-prelude" Hydra.Prelude
 import "optparse-applicative" Options.Applicative (execParser)
-import "visualize-logs" VisualizeLogs
+
+import VisualizeLogs
 
 main :: IO ()
 main = do

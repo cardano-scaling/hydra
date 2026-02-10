@@ -8,7 +8,6 @@ module Test.ChainObserverSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson as Aeson
 import "base" Data.List qualified as List
@@ -16,11 +15,6 @@ import "base" System.IO.Error (isEOFError, isIllegalOperation)
 import "bytestring" Data.ByteString (hGetLine)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
-import "hydra-cluster" CardanoNode (NodeLog, withCardanoNodeDevnet)
-import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..))
-import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, keysFor)
-import "hydra-cluster" HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
 import "hydra-node" Hydra.Logging (showLogsOnFailure)
@@ -33,6 +27,12 @@ import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key, _JSON, _String)
 import "process" System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import "text" Data.Text qualified as T
+
+import CardanoNode (NodeLog, withCardanoNodeDevnet)
+import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 
 spec :: Spec
 spec = do

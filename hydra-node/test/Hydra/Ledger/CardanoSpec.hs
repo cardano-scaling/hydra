@@ -5,7 +5,6 @@ module Hydra.Ledger.CardanoSpec where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (toList)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
@@ -25,11 +24,6 @@ import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (..))
 import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTx)
-import "hydra-node" Hydra.JSONSchema (prop_validateJSONSchema)
-import "hydra-node" Hydra.Ledger (applyTransactions)
-import "hydra-node" Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
-import "hydra-node" Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
-import "hydra-node" Test.Util (propCollisionResistant)
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import "hydra-tx" Hydra.Ledger.Cardano (cardanoLedger)
 import "hydra-tx" Test.Hydra.Tx.Gen (genOneUTxOFor, genOutputFor, genTxOut, genUTxOFor, genValue)
@@ -37,6 +31,12 @@ import "lens-aeson" Data.Aeson.Lens (key)
 import "text" Data.Text (unpack)
 import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed (genChainPoint)
 import "z-cardano-ledger-babbage-z-testlib" Test.Cardano.Ledger.Babbage.Arbitrary ()
+
+import Hydra.JSONSchema (prop_validateJSONSchema)
+import Hydra.Ledger (applyTransactions)
+import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, defaultPParams)
+import Test.Util (propCollisionResistant)
 
 spec :: Spec
 spec =

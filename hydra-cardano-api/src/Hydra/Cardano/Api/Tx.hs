@@ -7,20 +7,21 @@ module Hydra.Cardano.Api.Tx (
 )
 where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
-
 import "base" Data.Bifunctor (bimap)
 import "base" Data.Functor ((<&>))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-api" Cardano.Ledger.Api (
+
+import Hydra.Cardano.Api.Prelude
   EraTx (mkBasicTx),
   inputsTxBodyL,
   mkBasicTxBody,
  )
 import "cardano-ledger-api" Cardano.Ledger.Api qualified as Ledger
 import "containers" Data.Set qualified as Set
-import "hydra-cardano-api" Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
 import "lens" Control.Lens ((&), (.~))
+
+import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
 
 -- * Extras
 

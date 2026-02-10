@@ -18,17 +18,19 @@ import Test.DirectChainSpec (
 import "QuickCheck" Test.QuickCheck (generate)
 import "base" Control.Exception (IOException)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "hydra-cluster" Hydra.Cluster.Faucet (
+
+import Hydra.Cluster.Faucet (
   seedFromFaucetBlockfrost,
  )
-import "hydra-cluster" Hydra.Cluster.Fixture (
+import Hydra.Cluster.Fixture (
   Actor (Alice, Faucet),
   alice,
   aliceSk,
   blockfrostcperiod,
  )
-import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor', keysFor)
 import "hydra-node" Hydra.Chain (
+
+import Hydra.Cluster.Util (chainConfigFor', keysFor)
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
   OnChainTx (..),

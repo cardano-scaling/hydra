@@ -3,7 +3,6 @@
 module Hydra.Chain.Direct.HandlersSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (label)
-
 import "base" Data.Maybe (fromJust)
 import "contra-tracer" Control.Tracer (nullTracer)
 import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
@@ -21,7 +20,6 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
 import "io-classes" Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed (genBlockHeader)
-
 import "QuickCheck" Test.QuickCheck (
   counterexample,
   elements,
@@ -38,8 +36,9 @@ import "QuickCheck" Test.QuickCheck.Monadic (
   stop,
  )
 import "cardano-ledger-api" Cardano.Ledger.Api (IsValid (..), isValidTxL)
-import "hydra-node" Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
-import "hydra-node" Hydra.Chain.Direct.Handlers (
+
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
+import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
   TimeConversionException (..),
@@ -48,7 +47,7 @@ import "hydra-node" Hydra.Chain.Direct.Handlers (
   history,
   newLocalChainState,
  )
-import "hydra-node" Hydra.Chain.Direct.State (
+import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
   HydraContext,
@@ -64,21 +63,22 @@ import "hydra-node" Hydra.Chain.Direct.State (
   unsafeCommit,
   unsafeObserveInit,
  )
-import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
-import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
-import "hydra-node" Test.Hydra.Chain ()
-import "hydra-node" Test.Hydra.Chain.Direct.State (
+import Hydra.Chain.Direct.State qualified as Transition
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
+import Test.Hydra.Chain ()
+import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
   genChainStateWithTx,
   genCommit,
   genHydraContext,
  )
-import "hydra-node" Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 import "hydra-test-utils" Test.Hydra.Prelude
 import "hydra-tx" Hydra.Chain.ChainState (chainStateSlot)
 import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters)
 import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
 import "lens" Control.Lens ((.~))
+
+import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do

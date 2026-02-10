@@ -7,10 +7,9 @@
 module Test.Hydra.Logging where
 
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import "hydra-node" Hydra.Logging
-
 import "quickcheck-instances" Test.QuickCheck.Instances.Text ()
+
+import Hydra.Logging
 
 instance Arbitrary Verbosity where
   arbitrary = genericArbitrary

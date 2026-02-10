@@ -2,13 +2,13 @@
 
 module Hydra.Cardano.Api.TxIn where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
-
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.Plutus (transSafeHash)
 import "cardano-ledger-core" Cardano.Ledger.TxIn qualified as Ledger
 import "containers" Data.Set qualified as Set
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
+
+import Hydra.Cardano.Api.Prelude
 
 -- * Extras
 

@@ -2,7 +2,6 @@ module Hydra.PartySpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck ((==>))
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import "hydra-tx" Hydra.Tx.Party (Party (..))

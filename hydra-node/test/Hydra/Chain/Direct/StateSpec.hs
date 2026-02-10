@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.StateSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   Property,
   Testable (property),
@@ -63,8 +62,9 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
  )
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import "hydra-node" Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
-import "hydra-node" Hydra.Chain.Direct.State (
+
+import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
+import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
   ClosedState (..),
@@ -90,8 +90,8 @@ import "hydra-node" Hydra.Chain.Direct.State (
   unsafeIncrement,
   unsafeObserveInitAndCommits,
  )
-import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
-import "hydra-node" Test.Hydra.Chain.Direct.State (
+import Hydra.Chain.Direct.State qualified as Transition
+import Test.Hydra.Chain.Direct.State (
   genChainStateWithTx,
   genCloseTx,
   genCollectComTx,

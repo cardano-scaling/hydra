@@ -7,21 +7,21 @@ module Hydra.Tx.CollectCom where
 import "containers" Data.Map qualified as Map
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
 import "hydra-plutus" Hydra.Contract.Head qualified as Head
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
 import "hydra-plutus" Hydra.Plutus (commitValidatorScript)
-import "hydra-tx" Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
-import "hydra-tx" Hydra.Tx.ContestationPeriod (toChain)
-import "hydra-tx" Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
-import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
-import "hydra-tx" Hydra.Tx.IsTx (hashUTxO)
-import "hydra-tx" Hydra.Tx.Party (partyToChain)
-import "hydra-tx" Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import "hydra-tx" Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 import "plutus-ledger-api" PlutusLedgerApi.Common (fromBuiltin)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
+
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (hashUTxO)
+import Hydra.Tx.Party (partyToChain)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 
 -- * Construction
 

@@ -4,17 +4,17 @@ module Hydra.PersistenceSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import "QuickCheck" Test.QuickCheck.Gen (listOf)
 import "QuickCheck" Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 import "aeson" Data.Aeson (Value (..))
 import "aeson" Data.Aeson qualified as Aeson
-import "hydra-node" Hydra.Logging (Envelope (..), Verbosity (Verbose), withTracer)
-import "hydra-node" Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
-import "hydra-node" Hydra.PersistenceLog
-import "hydra-node" Test.Util (captureTracer)
 import "text" Data.Text qualified as Text
+
+import Hydra.Logging (Envelope (..), Verbosity (Verbose), withTracer)
+import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
+import Hydra.PersistenceLog
+import Test.Util (captureTracer)
 
 spec :: Spec
 spec = do

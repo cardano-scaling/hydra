@@ -4,7 +4,6 @@
 module Hydra.Ouroborus.ChainObserver where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockHeader (BlockHeader),
   BlockInMode (..),
@@ -26,7 +25,7 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   getTxId,
   pattern Block,
  )
-import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (
+import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),

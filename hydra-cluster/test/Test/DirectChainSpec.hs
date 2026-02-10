@@ -4,7 +4,6 @@ module Test.DirectChainSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (choose, generate)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
@@ -24,18 +23,18 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   unFile,
   verificationKeyHash,
  )
-import "hydra-cluster" CardanoClient (
+import CardanoClient (
   buildAddress,
   waitForUTxO,
  )
-import "hydra-cluster" CardanoNode (NodeLog, withCardanoNodeDevnet)
-import "hydra-cluster" Hydra.Cluster.Faucet (
+import CardanoNode (NodeLog, withCardanoNodeDevnet)
+import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
   seedFromFaucet,
   seedFromFaucet_,
  )
-import "hydra-cluster" Hydra.Cluster.Fixture (
+import Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol, Faucet),
   alice,
   aliceSk,
@@ -43,8 +42,9 @@ import "hydra-cluster" Hydra.Cluster.Fixture (
   carol,
   cperiod,
  )
-import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile)
 import "hydra-node" Hydra.Chain (
+
+import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile)
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
   OnChainTx (..),

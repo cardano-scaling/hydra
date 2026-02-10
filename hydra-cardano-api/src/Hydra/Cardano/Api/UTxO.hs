@@ -1,8 +1,5 @@
 module Hydra.Cardano.Api.UTxO where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
-import "hydra-cardano-api" Hydra.Cardano.Api.TxIn (txIns')
-
 import "base" Data.Foldable (toList)
 import "base" Data.Maybe (mapMaybe)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -12,6 +9,9 @@ import "cardano-ledger-core" Cardano.Ledger.TxIn qualified as Ledger
 import "cardano-ledger-shelley" Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import "containers" Data.Map qualified as Map
 import "lens" Control.Lens ((^.))
+
+import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
+import Hydra.Cardano.Api.TxIn (txIns')
 
 -- | Construct a UTxO from a transaction. This constructs artificial `TxIn`
 -- (a.k.a output reference) from the transaction itself, zipping them to the

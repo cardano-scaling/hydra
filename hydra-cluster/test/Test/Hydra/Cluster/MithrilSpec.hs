@@ -2,16 +2,16 @@ module Test.Hydra.Cluster.MithrilSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "directory" System.Directory (doesDirectoryExist)
 import "filepath" System.FilePath ((</>))
-import "hydra-cluster" Hydra.Cluster.Fixture (KnownNetwork (..))
-import "hydra-cluster" Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
-import "hydra-cluster" Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 import "hydra-node" Hydra.Logging (Envelope (..), Tracer, traceInTVar)
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTVarIO)
 import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key)
+
+import Hydra.Cluster.Fixture (KnownNetwork (..))
+import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
+import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
 
 spec :: Spec
 spec = parallel $ do

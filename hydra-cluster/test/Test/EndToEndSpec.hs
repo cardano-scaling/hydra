@@ -5,7 +5,6 @@ module Test.EndToEndSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Positive (..), generate)
 import "aeson" Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
@@ -21,19 +20,20 @@ import "filepath" System.FilePath ((</>))
 import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
 import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON)
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
-import "hydra-cluster" CardanoClient (
+
+import CardanoClient (
   waitForUTxO,
  )
-import "hydra-cluster" CardanoNode (
+import CardanoNode (
   withBackend,
   withCardanoNodeDevnet,
  )
-import "hydra-cluster" Hydra.Cluster.Faucet (
+import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
   seedFromFaucet_,
  )
-import "hydra-cluster" Hydra.Cluster.Fixture (
+import Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol, Faucet),
   alice,
   aliceSk,
@@ -45,7 +45,7 @@ import "hydra-cluster" Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import "hydra-cluster" Hydra.Cluster.Scenarios (
+import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
   canCommit,
@@ -83,8 +83,8 @@ import "hydra-cluster" Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
   waitsForChainInSyncAndSecure,
  )
-import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
-import "hydra-cluster" HydraNode (
+import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
+import HydraNode (
   HydraClient (..),
   getMetrics,
   getSnapshotUTxO,
@@ -101,7 +101,6 @@ import "hydra-cluster" HydraNode (
   withHydraNode,
   withPreparedHydraNodeInSync,
  )
-import "hydra-cluster" Test.Hydra.Cluster.Utils (chainPointToSlot)
 import "hydra-node" Hydra.Chain.Backend (ChainBackend)
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Chain.Direct.State ()
@@ -116,6 +115,8 @@ import "lens-aeson" Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, val
 import "text" Data.Text (isInfixOf)
 import "time" Data.Time (secondsToDiffTime)
 import "base" Prelude qualified
+
+import Test.Hydra.Cluster.Utils (chainPointToSlot)
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]

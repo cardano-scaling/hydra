@@ -7,9 +7,7 @@ import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-plutus" Hydra.Plutus.Gen ()
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "base" Data.Maybe (fromJust)
-
 import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import "QuickCheck" Test.QuickCheck.Gen (choose)
 import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
@@ -21,9 +19,10 @@ import "hydra-plutus" Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidde
 import "hydra-plutus" Hydra.Data.Party (partyFromVerificationKeyBytes)
 import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
 import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
-import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import "hydra-tx" Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
-import "hydra-tx" Hydra.Tx.Contract.Contest.Healthy (
+
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
+import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
   healthyClosedHeadTxOut,
@@ -39,17 +38,17 @@ import "hydra-tx" Hydra.Tx.Contract.Contest.Healthy (
   healthyParties,
   healthySignature,
  )
-import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
-import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..))
-import "hydra-tx" Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
-import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
-import "hydra-tx" Test.Hydra.Tx.Gen (
+import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Snapshot (Snapshot (..))
+import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture qualified as Fixture
+import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
   genValue,
   genVerificationKey,
  )
-import "hydra-tx" Test.Hydra.Tx.Mutation (
+import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,

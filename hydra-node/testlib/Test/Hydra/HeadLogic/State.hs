@@ -5,10 +5,10 @@ module Test.Hydra.HeadLogic.State where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import "hydra-node" Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import "hydra-tx" Hydra.Chain.ChainState (IsChainState (..))
 import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
+
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary

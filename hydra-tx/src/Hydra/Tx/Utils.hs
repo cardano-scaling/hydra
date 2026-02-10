@@ -5,7 +5,6 @@ module Hydra.Tx.Utils (
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (toList)
-
 import "base" GHC.IsList (IsList (..))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Tx qualified as Ledger
@@ -14,11 +13,12 @@ import "cardano-strict-containers" Data.Maybe.Strict (StrictMaybe (..))
 import "containers" Data.Map.Strict qualified as Map
 import "hydra-plutus" Hydra.Contract.Dummy (dummyValidatorScript)
 import "hydra-plutus" Hydra.Contract.Util (hydraHeadV1)
-import "hydra-tx" Hydra.Tx.HeadId (HeadId, mkHeadId)
-import "hydra-tx" Hydra.Tx.OnChainId (OnChainId (..))
 import "lens" Control.Lens ((.~), (^.))
 import "ouroboros-consensus-cardano" Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import "plutus-ledger-api" PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
+
+import Hydra.Tx.HeadId (HeadId, mkHeadId)
+import Hydra.Tx.OnChainId (OnChainId (..))
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = UnsafeAssetName (fromBuiltin hydraHeadV1)

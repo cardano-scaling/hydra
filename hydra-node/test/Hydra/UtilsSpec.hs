@@ -2,10 +2,11 @@ module Hydra.UtilsSpec where
 
 import "filepath" System.FilePath ((</>))
 import "hydra-cardano-api" Hydra.Cardano.Api (FileError)
-import "hydra-node" Hydra.Options (GenerateKeyPair (GenerateKeyPair))
-import "hydra-node" Hydra.Utils (genHydraKeys)
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
+
+import Hydra.Options (GenerateKeyPair (GenerateKeyPair))
+import Hydra.Utils (genHydraKeys)
 
 spec :: Spec
 spec = do

@@ -2,19 +2,19 @@ module Test.Hydra.Cluster.CardanoCliSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson (encodeFile)
 import "aeson" Data.Aeson.Types (parseEither)
 import "base" System.Exit (ExitCode (..))
 import "filepath" System.FilePath ((</>))
 import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra, PParams, Tx)
-import "hydra-cluster" CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
 import "hydra-node" Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
 import "hydra-node" Hydra.JSONSchema (validateJSON, withJsonSpecifications)
 import "hydra-node" Hydra.Logging (showLogsOnFailure)
 import "hydra-node" Hydra.Options (
+
+import CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
   DirectOptions (..),
  )
 import "lens" Control.Lens ((^?))

@@ -3,7 +3,6 @@
 module Hydra.Chain.Cardano where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-core" Cardano.Ledger.Slot (EpochInfo)
 import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API qualified as Ledger
@@ -13,28 +12,29 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   Tx,
   shelleyBasedEra,
  )
-import "hydra-node" Hydra.Chain (ChainComponent, ChainStateHistory)
-import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
-import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
-import "hydra-node" Hydra.Chain.CardanoClient (
+import Hydra.Chain (ChainComponent, ChainStateHistory)
+import Hydra.Chain.Backend (ChainBackend (..))
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
+import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
-import "hydra-node" Hydra.Chain.Direct (DirectBackend (..), withDirectChain)
-import "hydra-node" Hydra.Chain.Direct.Handlers (CardanoChainLog (..))
-import "hydra-node" Hydra.Chain.Direct.State (
+import Hydra.Chain.Direct (DirectBackend (..), withDirectChain)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog (..))
+import Hydra.Chain.Direct.State (
   ChainContext (..),
  )
-import "hydra-node" Hydra.Chain.Direct.Wallet (
+import Hydra.Chain.Direct.Wallet (
   TinyWallet (..),
   WalletInfoOnChain (..),
   newTinyWallet,
  )
-import "hydra-node" Hydra.Logging (Tracer)
-import "hydra-node" Hydra.Node.Util (readKeyPair)
-import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
 import "hydra-tx" Hydra.Tx (Party)
 import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History qualified as Consensus
 import "transformers" Control.Monad.Trans.Except (runExcept)
+
+import Hydra.Logging (Tracer)
+import Hydra.Node.Util (readKeyPair)
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
 
 withCardanoChain ::
   forall a.

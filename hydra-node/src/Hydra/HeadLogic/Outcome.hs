@@ -4,16 +4,16 @@
 module Hydra.HeadLogic.Outcome where
 
 import "hydra-prelude" Hydra.Prelude
-
-import "hydra-node" Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
-import "hydra-node" Hydra.Chain (PostChainTx)
-import "hydra-node" Hydra.HeadLogic.Error (LogicError)
-import "hydra-node" Hydra.Ledger (ValidationError)
-import "hydra-node" Hydra.Network (Host, ProtocolVersion)
-import "hydra-node" Hydra.Network.Message (Message)
-import "hydra-node" Hydra.Node.State (Deposit, NodeState)
 import "hydra-tx" Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
 import "hydra-tx" Hydra.Tx (
+
+import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
+import Hydra.Chain (PostChainTx)
+import Hydra.HeadLogic.Error (LogicError)
+import Hydra.Ledger (ValidationError)
+import Hydra.Network (Host, ProtocolVersion)
+import Hydra.Network.Message (Message)
+import Hydra.Node.State (Deposit, NodeState)
   HeadId,
   HeadParameters,
   HeadSeed,

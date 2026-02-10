@@ -6,7 +6,6 @@ import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-plutus" Hydra.Plutus.Gen ()
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import "base" Data.Maybe (fromJust)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -19,24 +18,25 @@ import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
 import "hydra-plutus" Hydra.Data.Party qualified as OnChain
 import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
-import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import "hydra-tx" Hydra.Tx.Contract.Deposit (healthyDeadline)
-import "hydra-tx" Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
-import "hydra-tx" Hydra.Tx.Deposit (mkDepositOutput)
-import "hydra-tx" Hydra.Tx.Deposit qualified as Deposit
-import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
-import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
-import "hydra-tx" Hydra.Tx.Increment (incrementTx)
-import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
-import "hydra-tx" Hydra.Tx.IsTx (IsTx (hashUTxO))
-import "hydra-tx" Hydra.Tx.Party (Party, deriveParty, partyToChain)
-import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
-import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import "hydra-tx" Hydra.Tx.Utils (adaOnly)
-import "hydra-tx" Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
-import "hydra-tx" Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
-import "hydra-tx" Test.Hydra.Tx.Mutation (
+
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import Hydra.Tx.Contract.Deposit (healthyDeadline)
+import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.Deposit qualified as Deposit
+import Hydra.Tx.HeadId (mkHeadId)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.Increment (incrementTx)
+import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.IsTx (IsTx (hashUTxO))
+import Hydra.Tx.Party (Party, deriveParty, partyToChain)
+import Hydra.Tx.ScriptRegistry (registryUTxO)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import Hydra.Tx.Utils (adaOnly)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,

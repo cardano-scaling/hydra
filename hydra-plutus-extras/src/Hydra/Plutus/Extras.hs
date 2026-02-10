@@ -6,10 +6,9 @@ module Hydra.Plutus.Extras (
 ) where
 
 import "hydra-prelude" Hydra.Prelude
-
-import "hydra-plutus-extras" Hydra.Plutus.Extras.Time
-
 import "cardano-api" Cardano.Api (
+
+import Hydra.Plutus.Extras.Time
   IsPlutusScriptLanguage (plutusScriptVersion),
   PlutusScript,
   Script (PlutusScript),

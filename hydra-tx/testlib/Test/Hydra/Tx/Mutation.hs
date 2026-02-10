@@ -129,7 +129,6 @@
 module Test.Hydra.Tx.Mutation where
 
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (label)
-
 import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
@@ -161,15 +160,16 @@ import "hydra-plutus" Hydra.Data.Party qualified as Data (Party)
 import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
 import "hydra-prelude" Hydra.Prelude hiding (label, toList)
 import "hydra-test-utils" Test.Hydra.Prelude
-import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import "hydra-tx" Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
-import "hydra-tx" Test.Hydra.Tx.Fixture (testPolicyId)
-import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
-import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "lens" Control.Lens (set, view, (.~), (^.))
 import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 import "quickcheck-instances" Test.QuickCheck.Instances ()
+
+import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
+import Test.Hydra.Tx.Fixture (testPolicyId)
+import Test.Hydra.Tx.Fixture qualified as Fixture
+import Test.Hydra.Tx.Gen ()
 
 -- * Properties
 

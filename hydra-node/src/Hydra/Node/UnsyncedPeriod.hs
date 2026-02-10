@@ -3,7 +3,6 @@
 module Hydra.Node.UnsyncedPeriod where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 
 -- | Period of time after which we consider the node becoming unsynced with the chain.

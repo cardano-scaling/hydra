@@ -12,7 +12,6 @@ module Hydra.Plutus.GoldenSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "hspec-golden" Test.Hspec.Golden (Golden (..))
 import "hydra-cardano-api" Hydra.Cardano.Api (
   File (..),
@@ -24,11 +23,12 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
  )
-import "hydra-plutus" Hydra.Contract.Head qualified as Head
-import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
 import "hydra-prelude" Hydra.Version (gitDescribe)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (serialiseCompiledCode)
 import "typed-process" System.Process.Typed (runProcess_, shell)
+
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadTokens qualified as HeadTokens
 
 aikenBuildCommand :: String
 aikenBuildCommand = "aiken build -t compact"

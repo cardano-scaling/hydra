@@ -3,11 +3,11 @@
 module Hydra.Network.Message where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "cardano-binary" Cardano.Binary (serialize')
 import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
-import "hydra-node" Hydra.Network (Connectivity)
 import "hydra-tx" Hydra.Tx (
+
+import Hydra.Network (Connectivity)
   IsTx (TxIdType),
   Party,
   Snapshot,

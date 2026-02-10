@@ -2,7 +2,6 @@
 module Test.Network.Ports where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "network" Network.Socket (
   PortNumber,
  )

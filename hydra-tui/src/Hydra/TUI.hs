@@ -4,23 +4,22 @@
 module Hydra.TUI where
 
 import "hydra-prelude" Hydra.Prelude hiding (Down, State)
-
 import "brick" Brick
 import "hydra-cardano-api" Hydra.Cardano.Api
-
 import "brick" Brick.BChan (BChan, newBChan, writeBChan)
 import "hydra-node" Hydra.Chain.Blockfrost.Client as BF
 import "hydra-node" Hydra.Chain.CardanoClient as CC
 import "hydra-node" Hydra.Chain.Direct.State ()
 import "hydra-node" Hydra.Options (BlockfrostOptions (..), defaultBFQueryTimeout, defaultBFRetryTimeout)
-import "hydra-tui" Hydra.Client (HydraEvent (..), withClient)
-import "hydra-tui" Hydra.TUI.Drawing
-import "hydra-tui" Hydra.TUI.Handlers
-import "hydra-tui" Hydra.TUI.Logging.Types
-import "hydra-tui" Hydra.TUI.Model
-import "hydra-tui" Hydra.TUI.Options (Options (..))
-import "hydra-tui" Hydra.TUI.Style
 import "vty" Graphics.Vty (
+
+import Hydra.Client (HydraEvent (..), withClient)
+import Hydra.TUI.Drawing
+import Hydra.TUI.Handlers
+import Hydra.TUI.Logging.Types
+import Hydra.TUI.Model
+import Hydra.TUI.Options (Options (..))
+import Hydra.TUI.Style
   Vty,
   defaultConfig,
  )

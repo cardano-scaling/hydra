@@ -3,7 +3,6 @@
 module Hydra.Persistence where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson qualified as Aeson
 import "bytestring" Data.ByteString qualified as BS
 import "conduit" Conduit (
@@ -20,11 +19,12 @@ import "conduit" Conduit (
  )
 import "directory" System.Directory (createDirectoryIfMissing, doesFileExist)
 import "filepath" System.FilePath (takeDirectory)
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
-import "hydra-node" Hydra.PersistenceLog (PersistenceLog (..))
 import "resourcet" Control.Monad.Trans.Resource (allocate)
 import "unliftio" UnliftIO (MVar, newMVar, putMVar, takeMVar, withMVar)
 import "unliftio" UnliftIO.IO.File (withBinaryFile, writeBinaryFileDurableAtomic)
+
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.PersistenceLog (PersistenceLog (..))
 
 newtype PersistenceException
   = PersistenceException String

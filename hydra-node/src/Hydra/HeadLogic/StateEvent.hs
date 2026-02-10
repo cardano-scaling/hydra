@@ -3,11 +3,12 @@
 
 module Hydra.HeadLogic.StateEvent where
 
-import "hydra-node" Hydra.Events (EventId, HasEventId (..))
-import "hydra-node" Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
-import "hydra-node" Hydra.Node.State (NodeState)
 import "hydra-prelude" Hydra.Prelude
 import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
+
+import Hydra.Events (EventId, HasEventId (..))
+import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
+import Hydra.Node.State (NodeState)
 
 -- * State change events as used by Hydra.Node
 

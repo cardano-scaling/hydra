@@ -9,7 +9,6 @@
 module Hydra.Chain.Direct.State where
 
 import "hydra-prelude" Hydra.Prelude hiding (init)
-
 import "base" Data.List qualified as List
 import "base" Data.Maybe (fromJust)
 import "base" GHC.IsList qualified as IsList
@@ -50,7 +49,7 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   pattern TxIn,
   pattern TxOut,
  )
-import "hydra-node" Hydra.Chain (
+import Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
   maxMainnetLovelace,

@@ -24,7 +24,6 @@
 module Hydra.Contract.Error where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "template-haskell" Language.Haskell.TH (Exp (..), Lit (StringL), Q)
 
 -- | Types which are used to describe errors as short error codes in scripts.

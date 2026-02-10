@@ -12,7 +12,6 @@
 module Hydra.Chain where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.List.NonEmpty ((<|))
 import "base" Data.List.NonEmpty qualified as NE
 import "cardano-ledger-core" Cardano.Ledger.Core (PParams)

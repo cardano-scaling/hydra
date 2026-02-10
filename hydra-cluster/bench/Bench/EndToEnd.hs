@@ -4,8 +4,6 @@ module Bench.EndToEnd where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
 import "HUnit" Test.HUnit.Lang (formatFailureReason)
 import "aeson" Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import "aeson" Data.Aeson.Types (parseEither)
@@ -18,12 +16,14 @@ import "containers" Data.Set ((\\))
 import "containers" Data.Set qualified as Set
 import "filepath" System.FilePath ((</>))
 import "hydra-cardano-api" Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
-import "hydra-cluster" CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
-import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..))
-import "hydra-cluster" Hydra.Cluster.Scenarios (EndToEndLog (..))
-import "hydra-cluster" Hydra.Generator (ClientDataset (..), Dataset (..))
-import "hydra-cluster" HydraNode (
+
+import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
+import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
+import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
+import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Scenarios (EndToEndLog (..))
+import Hydra.Generator (ClientDataset (..), Dataset (..))
+import HydraNode (
   HydraClient,
   HydraNodeLog,
   hydraNodeId,

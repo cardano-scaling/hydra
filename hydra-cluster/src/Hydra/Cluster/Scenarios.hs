@@ -5,7 +5,6 @@ module Hydra.Cluster.Scenarios where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Positive, choose, elements, generate)
 import "aeson" Data.Aeson (Value, object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
@@ -96,19 +95,20 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as CAPI
-import "hydra-cluster" CardanoClient (
+
+import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
   waitForUTxO,
  )
-import "hydra-cluster" CardanoNode (NodeLog)
-import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
-import "hydra-cluster" Hydra.Cluster.Faucet qualified as Faucet
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import "hydra-cluster" Hydra.Cluster.Mithril (MithrilLog)
-import "hydra-cluster" Hydra.Cluster.Options (Options)
-import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
-import "hydra-cluster" HydraNode (
+import CardanoNode (NodeLog)
+import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
+import Hydra.Cluster.Faucet qualified as Faucet
+import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
+import Hydra.Cluster.Mithril (MithrilLog)
+import Hydra.Cluster.Options (Options)
+import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
+import HydraNode (
   HydraClient (..),
   HydraNodeLog,
   getProtocolParameters,

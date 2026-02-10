@@ -2,7 +2,7 @@
 
 module Hydra.Cardano.Api.ChainPoint where
 
-import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
+import Hydra.Cardano.Api.Prelude
 
 -- | Get the chain point corresponding to a given 'BlockHeader'.
 getChainPoint :: BlockHeader -> ChainPoint

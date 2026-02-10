@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.TxSpec where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
@@ -52,9 +51,6 @@ import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
 import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
-import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
-import "hydra-node" Test.Hydra.Chain.Direct.State (genChainStateWithTx)
 import "hydra-plutus" Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import "hydra-tx" Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import "hydra-tx" Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
@@ -65,6 +61,10 @@ import "hydra-tx" Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
 import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
 import "hydra-tx" Test.Hydra.Tx.Fixture (
+
+import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
+import Hydra.Chain.Direct.State qualified as Transition
+import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
   pparams,
   testNetworkId,
  )

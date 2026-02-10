@@ -25,7 +25,6 @@ module Hydra.Tx.Crypto (
 ) where
 
 import "hydra-prelude" Hydra.Prelude hiding (Key, show)
-
 import "aeson" Data.Aeson qualified as Aeson
 import "base" Text.Show (Show (..))
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16

@@ -5,9 +5,7 @@
 module Hydra.Chain.CardanoClient where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Block, queryCurrentEra)
-
 import "aeson" Data.Aeson (eitherDecode', encode)
 import "base" Text.Printf (printf)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO

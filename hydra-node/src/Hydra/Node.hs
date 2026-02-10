@@ -9,23 +9,22 @@
 module Hydra.Node where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "conduit" Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
 import "hydra-cardano-api" Hydra.Cardano.Api (
   getVerificationKey,
  )
-import "hydra-node" Hydra.API.ClientInput (ClientInput)
-import "hydra-node" Hydra.API.Server (Server, sendMessage)
-import "hydra-node" Hydra.Chain (
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.Server (Server, sendMessage)
+import Hydra.Chain (
   Chain (..),
   ChainEvent (..),
   ChainStateHistory,
   PostTxError,
   initHistory,
  )
-import "hydra-node" Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
-import "hydra-node" Hydra.Events.Rotation (EventStore (..))
-import "hydra-node" Hydra.HeadLogic (
+import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
+import Hydra.Events.Rotation (EventStore (..))
+import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
   Input (..),
@@ -35,26 +34,27 @@ import "hydra-node" Hydra.HeadLogic (
   aggregateNodeState,
   aggregateState,
  )
-import "hydra-node" Hydra.HeadLogic qualified as HeadLogic
-import "hydra-node" Hydra.HeadLogic.Outcome (StateChanged (..))
-import "hydra-node" Hydra.HeadLogic.State (getHeadParameters)
-import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (..))
-import "hydra-node" Hydra.Ledger (Ledger)
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
-import "hydra-node" Hydra.Network (Host (..), Network (..), NetworkCallback (..))
-import "hydra-node" Hydra.Network.Authenticate (Authenticated (..))
-import "hydra-node" Hydra.Network.Message (Message (..), NetworkEvent (..))
-import "hydra-node" Hydra.Node.Environment (Environment (..))
-import "hydra-node" Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
-import "hydra-node" Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
-import "hydra-node" Hydra.Node.State (NodeState (..), initNodeState)
-import "hydra-node" Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
-import "hydra-node" Hydra.Node.Util (readFileTextEnvelopeThrow)
-import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import "hydra-tx" Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import "hydra-tx" Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
+
+import Hydra.HeadLogic qualified as HeadLogic
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.Ledger (Ledger)
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
+import Hydra.Network.Authenticate (Authenticated (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
+import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
+import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
+import Hydra.Node.Util (readFileTextEnvelopeThrow)
+import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
   stateTVar,
   writeTVar,
  )

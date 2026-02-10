@@ -5,7 +5,6 @@ module VisualizeLogs where
 
 import "hydra-cardano-api" Hydra.Cardano.Api (Tx)
 import "hydra-prelude" Hydra.Prelude hiding (encodeUtf8, takeWhile)
-
 import "aeson" Data.Aeson (eitherDecode')
 import "attoparsec" Data.Attoparsec.ByteString
 import "attoparsec" Data.Attoparsec.ByteString qualified as A

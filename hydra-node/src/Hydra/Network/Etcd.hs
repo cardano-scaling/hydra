@@ -39,7 +39,6 @@
 module Hydra.Network.Etcd where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (decodeFileStrict', encodeFile)
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.Types (Value)
@@ -78,8 +77,8 @@ import "grapesy-etcd" Network.GRPC.Etcd (
   Lease,
   Watch,
  )
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
-import "hydra-node" Hydra.Network (
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.Network (
   Connectivity (..),
   Host (..),
   Network (..),
@@ -88,8 +87,9 @@ import "hydra-node" Hydra.Network (
   NetworkConfiguration (..),
   ProtocolVersion,
  )
-import "hydra-node" Hydra.Network.EtcdBinary (getEtcdBinary)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
+
+import Hydra.Network.EtcdBinary (getEtcdBinary)
   modifyTVar',
   peekTBQueue,
   readTBQueue,

@@ -4,15 +4,15 @@ module Hydra.Tx.Close where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-plutus" Hydra.Contract.Head qualified as Head
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
 import "hydra-plutus" Hydra.Data.ContestationPeriod (addContestationPeriod)
 import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
 import "hydra-plutus" Hydra.Data.Party qualified as OnChain
 import "hydra-plutus-extras" Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
-import "hydra-tx" Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
-import "hydra-tx" Hydra.Tx (
+
+import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import Hydra.Tx (
   ConfirmedSnapshot (..),
   HeadId,
   ScriptRegistry (headReference),
@@ -25,9 +25,10 @@ import "hydra-tx" Hydra.Tx (
   headIdToCurrencySymbol,
   headReference,
  )
-import "hydra-tx" Hydra.Tx.Crypto (toPlutusSignatures)
-import "hydra-tx" Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
+
+import Hydra.Tx.Crypto (toPlutusSignatures)
+import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 
 -- * Construction
 

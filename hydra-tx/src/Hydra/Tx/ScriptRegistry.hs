@@ -3,7 +3,6 @@
 module Hydra.Tx.ScriptRegistry where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map qualified as Map
 import "hydra-cardano-api" Hydra.Cardano.Api (

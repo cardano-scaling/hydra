@@ -5,24 +5,25 @@ module Hydra.Cluster.Faucet where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "base" Control.Exception (IOException)
 import "base" GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Set qualified as Set
 import "contra-tracer" Control.Tracer (Tracer, traceWith)
-import "hydra-cluster" CardanoClient (
+
+import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
   buildAddress,
   sign,
  )
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor (Faucet))
-import "hydra-cluster" Hydra.Cluster.Util (keysFor)
 import "hydra-node" Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import "hydra-node" Hydra.Chain.ScriptRegistry (
+
+import Hydra.Cluster.Fixture (Actor (Faucet))
+import Hydra.Cluster.Util (keysFor)
   publishHydraScripts,
  )
 import "hydra-node" Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)

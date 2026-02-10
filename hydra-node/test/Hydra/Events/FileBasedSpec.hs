@@ -5,30 +5,31 @@ import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
 
 -- IsChainState tx instance to serialize 'StateEvent Tx'
-import "hydra-node" Hydra.Chain.Direct.State ()
-
 import "QuickCheck" Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import "QuickCheck" Test.QuickCheck.Gen (listOf)
 import "base" Data.List (zipWith3)
 import "conduit" Conduit (runConduitRes, sinkList, (.|))
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
+
+import Hydra.Chain.Direct.State ()
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
   sampleSize,
  )
-import "hydra-node" Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
-import "hydra-node" Hydra.Events.FileBased (mkFileBasedEventStore)
-import "hydra-node" Hydra.Events.Rotation (EventStore (..))
-import "hydra-node" Hydra.HeadLogic (StateChanged)
-import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (..))
-import "hydra-node" Hydra.Ledger.Simple (SimpleTx)
-import "hydra-node" Hydra.Logging (Verbosity (Verbose), withTracer)
-import "hydra-node" Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import "hydra-node" Test.Hydra.Chain.Direct.State ()
-import "hydra-node" Test.Hydra.HeadLogic.StateEvent ()
-import "hydra-node" Test.Hydra.Ledger.Simple ()
 import "hydra-tx" Hydra.Ledger.Cardano (Tx)
+
+import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
+import Hydra.Events.FileBased (mkFileBasedEventStore)
+import Hydra.Events.Rotation (EventStore (..))
+import Hydra.HeadLogic (StateChanged)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Logging (Verbosity (Verbose), withTracer)
+import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
+import Test.Hydra.Chain.Direct.State ()
+import Test.Hydra.HeadLogic.StateEvent ()
+import Test.Hydra.Ledger.Simple ()
 
 spec :: Spec
 spec = do

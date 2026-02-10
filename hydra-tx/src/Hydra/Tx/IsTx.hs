@@ -8,7 +8,6 @@ module Hydra.Tx.IsTx where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson ((.:), (.:?))
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.KeyMap qualified as KeyMap

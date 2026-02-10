@@ -5,22 +5,20 @@ module Hydra.Tx.Contract.Contest.ContestDec where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "base" Data.Maybe (fromJust)
-
 import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
 import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
-import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
-
 import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
-import "hydra-tx" Hydra.Tx (Snapshot)
-import "hydra-tx" Hydra.Tx.Contract.Contest.Healthy (
+
+import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx (Snapshot)
+import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyContestSnapshotNumber,
   healthySignature,
  )
-import "hydra-tx" Test.Hydra.Tx.Mutation (
+import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   modifyInlineDatum,

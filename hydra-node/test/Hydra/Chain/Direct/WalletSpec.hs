@@ -5,7 +5,6 @@ module Hydra.Chain.Direct.WalletSpec where
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
@@ -57,8 +56,9 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
 import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTx)
-import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (..))
-import "hydra-node" Hydra.Chain.Direct.Wallet (
+
+import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
   TinyWallet (..),

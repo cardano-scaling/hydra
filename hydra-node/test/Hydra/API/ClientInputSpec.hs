@@ -2,7 +2,6 @@ module Hydra.API.ClientInputSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (counterexample, forAll, property)
 import "aeson" Data.Aeson (Result (..), fromJSON)
 import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
@@ -11,12 +10,13 @@ import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
   roundtripAndGoldenADTSpecsWithSettings,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api (serialiseToTextEnvelope)
-import "hydra-node" Hydra.API.ClientInput (ClientInput)
-import "hydra-node" Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
-import "hydra-node" Test.Hydra.API.ClientInput ()
 import "hydra-tx" Hydra.Ledger.Cardano (Tx)
 import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "lens-aeson" Data.Aeson.Lens (key)
+
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
+import Test.Hydra.API.ClientInput ()
 
 spec :: Spec
 spec = parallel $ do

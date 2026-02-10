@@ -1,7 +1,6 @@
 module Hydra.API.ClientInput where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-tx" Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 
 data ClientInput tx

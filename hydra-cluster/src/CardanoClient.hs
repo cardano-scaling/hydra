@@ -10,11 +10,9 @@ module CardanoClient (
 ) where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Block)
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Chain.CardanoClient
-
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map qualified as Map
 import "hydra-node" Hydra.Chain.Backend (ChainBackend)

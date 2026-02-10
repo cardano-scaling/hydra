@@ -3,11 +3,11 @@
 module Hydra.Node.State where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "containers" Data.Map qualified as Map
-import "hydra-node" Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import "hydra-tx" Hydra.Tx (
+
+import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
   HeadId,
   IsTx (..),
  )

@@ -2,7 +2,6 @@ module Hydra.Tx.Commit where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
-
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Core (AlonzoEraTxBody, AlonzoEraTxWits, AsIxItem (..))
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (PlutusPurpose)
@@ -32,14 +31,15 @@ import "containers" Data.Set qualified as Set
 import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
 import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
 import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import "hydra-tx" Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import "hydra-tx" Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, mkHeadId)
-import "hydra-tx" Hydra.Tx.Party (Party, partyFromChain, partyToChain)
-import "hydra-tx" Hydra.Tx.ScriptRegistry (ScriptRegistry, initialReference)
-import "hydra-tx" Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import "lens" Control.Lens ((.~), (<>~), (^.))
 import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol)
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
+
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.Party (Party, partyFromChain, partyToChain)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, initialReference)
+import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 
 -- * Construction
 

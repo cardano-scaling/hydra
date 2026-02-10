@@ -6,8 +6,6 @@ module Hydra.JSONSchema where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
-import Paths_hydra_node qualified as Pkg
 import "QuickCheck" Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf, withMaxSuccess)
 import "QuickCheck" Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import "aeson" Data.Aeson (Value, (.=))
@@ -26,6 +24,8 @@ import "text" Data.Text (pack)
 import "versions" Data.Versions (SemVer (SemVer), prettySemVer, semver)
 import "yaml" Data.Yaml qualified as Yaml
 import "base" Prelude qualified
+
+import Paths_hydra_node qualified as Pkg
 
 -- | Validate a specific JSON value against a given JSON schema and throws an
 -- HUnitFailure exception if validation did not pass.

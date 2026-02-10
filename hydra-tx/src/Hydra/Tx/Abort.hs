@@ -2,7 +2,6 @@ module Hydra.Tx.Abort where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
-
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map qualified as Map
 import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
@@ -11,10 +10,11 @@ import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
 import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
 import "hydra-plutus" Hydra.Contract.MintAction (MintAction (Burn))
 import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import "hydra-tx" Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
-import "hydra-tx" Hydra.Tx (ScriptRegistry (..))
-import "hydra-tx" Hydra.Tx.HeadId (HeadId (..))
-import "hydra-tx" Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
+
+import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
+import Hydra.Tx (ScriptRegistry (..))
+import Hydra.Tx.HeadId (HeadId (..))
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
 
 -- * Creation
 

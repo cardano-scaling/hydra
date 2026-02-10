@@ -1,7 +1,6 @@
 module Bench.Options where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId, SocketPath)
 import "hydra-node" Hydra.Chain (maximumNumberOfParties)
 import "hydra-node" Hydra.Network (Host, readHost)

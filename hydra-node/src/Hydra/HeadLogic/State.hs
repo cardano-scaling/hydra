@@ -5,7 +5,6 @@
 module Hydra.HeadLogic.State where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "containers" Data.Map qualified as Map
 import "hydra-tx" Hydra.Chain.ChainState (IsChainState (..))
 import "hydra-tx" Hydra.Tx (

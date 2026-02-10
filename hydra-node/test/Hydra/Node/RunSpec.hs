@@ -2,17 +2,17 @@ module Hydra.Node.RunSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (generate)
-import "hydra-node" Hydra.Node.Run (ConfigurationException, run)
-import "hydra-node" Hydra.Options (
+
+import Hydra.Node.Run (ConfigurationException, run)
+import Hydra.Options (
   CardanoChainConfig (..),
   ChainConfig (..),
   RunOptions (..),
   defaultCardanoChainConfig,
   defaultRunOptions,
  )
-import "hydra-node" Test.Hydra.Options (genFilePath)
+import Test.Hydra.Options (genFilePath)
 
 spec :: Spec
 spec =

@@ -1,14 +1,14 @@
 module Hydra.Node.Environment where
 
 import "hydra-prelude" Hydra.Prelude
-
-import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod)
-import "hydra-node" Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import "hydra-tx" Hydra.Tx.Crypto (HydraKey, SigningKey)
 import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
 import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
 import "hydra-tx" Hydra.Tx.Party (HasParty (..), Party)
+
+import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 
 data Environment = Environment
   { party :: Party

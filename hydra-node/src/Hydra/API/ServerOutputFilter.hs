@@ -7,9 +7,10 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
-import "hydra-node" Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput, output)
 import "hydra-prelude" Hydra.Prelude hiding (seq)
 import "hydra-tx" Hydra.Tx (
+
+import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput, output)
   Snapshot (..),
  )
 

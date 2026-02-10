@@ -3,21 +3,21 @@
 module Main where
 
 import "hydra-prelude" Hydra.Prelude hiding (fromList, intercalate)
-
 import "base" Control.Concurrent (mkWeakThreadId)
 import "base" Control.Exception (AsyncException (UserInterrupt), throwTo)
 import "base" GHC.Weak (deRefWeak)
 import "bytestring" Data.ByteString (intercalate)
 import "hydra-cardano-api" Hydra.Cardano.Api (serialiseToRawBytesHex)
-import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..))
-import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
-import "hydra-node" Hydra.Chain.ScriptRegistry (publishHydraScripts)
-import "hydra-node" Hydra.Logging (Verbosity (..))
-import "hydra-node" Hydra.Node.Run (run)
-import "hydra-node" Hydra.Node.Util (readKeyPair)
-import "hydra-node" Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
-import "hydra-node" Hydra.Utils (genHydraKeys)
 import "unix" System.Posix.Signals qualified as Signals
+
+import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.ScriptRegistry (publishHydraScripts)
+import Hydra.Logging (Verbosity (..))
+import Hydra.Node.Run (run)
+import Hydra.Node.Util (readKeyPair)
+import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Utils (genHydraKeys)
 
 main :: IO ()
 main = do

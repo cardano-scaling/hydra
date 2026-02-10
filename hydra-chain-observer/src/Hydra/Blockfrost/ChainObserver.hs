@@ -3,7 +3,6 @@
 module Hydra.Blockfrost.ChainObserver where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
 import "blockfrost-client" Blockfrost.Client (
   BlockfrostClientT,
@@ -25,7 +24,7 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
 import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (
+import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),

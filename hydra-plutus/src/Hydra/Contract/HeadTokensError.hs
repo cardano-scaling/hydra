@@ -4,7 +4,8 @@ module Hydra.Contract.HeadTokensError (
 ) where
 
 import "base" Text.Show (Show)
-import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..), errorCode)
+
+import Hydra.Contract.Error (ToErrorCode (..), errorCode)
 
 data HeadTokensError
   = SeedNotSpent

@@ -4,7 +4,6 @@ module HydraNode where
 
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (STM, delete)
-
 import "aeson" Data.Aeson (Value (..), object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.KeyMap qualified as KeyMap
@@ -18,8 +17,6 @@ import "directory" System.Directory (createDirectoryIfMissing)
 import "filepath" System.FilePath ((<.>), (</>))
 import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
 import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
-import "hydra-cluster" CardanoNode (cliQueryProtocolParameters)
-import "hydra-cluster" Hydra.Cluster.Util (readConfigFile)
 import "hydra-node" Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import "hydra-node" Hydra.HeadLogic.State (SeenSnapshot)
@@ -39,6 +36,9 @@ import "req" Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody 
 import "req" Network.HTTP.Req qualified as Req
 import "text" Data.Text qualified as T
 import "typed-process" System.Process.Typed (
+
+import CardanoNode (cliQueryProtocolParameters)
+import Hydra.Cluster.Util (readConfigFile)
   ExitCode (..),
   createPipe,
   getStderr,

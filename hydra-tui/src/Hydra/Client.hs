@@ -3,7 +3,6 @@
 module Hydra.Client where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (eitherDecodeStrict, encode)
 import "async" Control.Concurrent.Async (link)
 import "base" Control.Exception (Handler (Handler), IOException, catches)
@@ -20,13 +19,14 @@ import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as BF
 import "hydra-node" Hydra.Chain.CardanoClient (submitTransaction)
 import "hydra-node" Hydra.Network (Host (Host, hostname, port))
 import "hydra-node" Hydra.Node.Util (readFileTextEnvelopeThrow)
-import "hydra-tui" Hydra.TUI.Options (Options (..))
 import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
 import "hydra-tx" Hydra.Ledger.Cardano (Tx)
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
 import "req" Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
 import "req" Network.HTTP.Req qualified as Req
 import "websockets" Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
+
+import Hydra.TUI.Options (Options (..))
 
 data HydraEvent tx
   = ClientConnected

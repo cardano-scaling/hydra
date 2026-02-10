@@ -2,12 +2,12 @@
 module Hydra.Events.UDP where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (encode)
-import "hydra-node" Hydra.Events (EventSink (..))
 import "network" Network.Socket (HostName, ServiceName)
 import "network-udp" Network.UDP (UDPSocket, clientSocket, close, send)
 import "resourcet" Control.Monad.Trans.Resource (MonadResource, allocate)
+
+import Hydra.Events (EventSink (..))
 
 -- | Create a new event sink that sends events as JSON.
 --

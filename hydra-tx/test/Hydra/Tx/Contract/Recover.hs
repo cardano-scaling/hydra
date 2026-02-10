@@ -3,7 +3,6 @@ module Hydra.Tx.Contract.Recover where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (elements, oneof, suchThat)
 import "base" Data.Fixed (Milli)
 import "base" Data.List qualified as List
@@ -13,13 +12,14 @@ import "hydra-plutus" Hydra.Contract.Deposit (DepositRedeemer (Recover))
 import "hydra-plutus" Hydra.Contract.DepositError (DepositError (..))
 import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
 import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
-import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
-import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import "hydra-tx" Hydra.Tx.Deposit (mkDepositOutput)
-import "hydra-tx" Hydra.Tx.Recover (recoverTx)
-import "hydra-tx" Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
-import "hydra-tx" Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
-import "hydra-tx" Test.Hydra.Tx.Mutation (
+
+import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx.Deposit (mkDepositOutput)
+import Hydra.Tx.Recover (recoverTx)
+import Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
+import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
+import Test.Hydra.Tx.Mutation (
   Mutation (ChangeInput, ChangeOutput, ChangeValidityLowerBound),
   SomeMutation (..),
   modifyInlineDatum,

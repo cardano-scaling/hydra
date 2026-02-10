@@ -4,17 +4,17 @@
 module Hydra.Tx.Snapshot where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import "bytestring" Data.ByteString.Lazy qualified as LBS
 import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation (..))
 import "hydra-cardano-api" Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import "hydra-plutus" Hydra.Contract.HeadState qualified as Onchain
-import "hydra-tx" Hydra.Tx.Crypto (MultiSignature)
-import "hydra-tx" Hydra.Tx.HeadId (HeadId)
-import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin, toData)
 import "serialise" Codec.Serialise (serialise)
+
+import Hydra.Tx.Crypto (MultiSignature)
+import Hydra.Tx.HeadId (HeadId)
+import Hydra.Tx.IsTx (IsTx (..))
 
 -- * SnapshotNumber and SnapshotVersion
 

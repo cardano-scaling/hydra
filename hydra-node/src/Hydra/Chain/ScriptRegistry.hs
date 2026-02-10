@@ -3,7 +3,6 @@
 module Hydra.Chain.ScriptRegistry where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.List ((!!))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "hydra-cardano-api" Hydra.Cardano.Api (
@@ -36,10 +35,11 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   pattern TxOutDatumNone,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api.Tx (signTx)
-import "hydra-node" Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
-import "hydra-node" Hydra.Chain.Backend qualified as Backend
-import "hydra-node" Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
-import "hydra-node" Hydra.Chain.CardanoClient (
+
+import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
+import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
+import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
 import "hydra-plutus" Hydra.Contract.Head qualified as Head

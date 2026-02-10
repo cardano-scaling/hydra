@@ -5,7 +5,6 @@ module Hydra.TUISpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Positive (..))
 import "blaze-builder" Blaze.ByteString.Builder.Char8 (writeChar)
 import "bytestring" Data.ByteString qualified as BS
@@ -33,15 +32,16 @@ import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
 import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
 import "hydra-node" Hydra.Network (Host (..))
 import "hydra-node" Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
-import "hydra-tui" Hydra.TUI (runWithVty)
-import "hydra-tui" Hydra.TUI.Drawing (renderTime)
-import "hydra-tui" Hydra.TUI.Options (Options (..))
 import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import "io-classes" Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
 import "io-classes" Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import "unix" System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 import "vty" Graphics.Vty (
+
+import Hydra.TUI (runWithVty)
+import Hydra.TUI.Drawing (renderTime)
+import Hydra.TUI.Options (Options (..))
   DisplayContext (..),
   Event (EvKey),
   Key (KChar, KEnter),

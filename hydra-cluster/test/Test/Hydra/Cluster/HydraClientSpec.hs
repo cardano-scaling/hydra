@@ -5,21 +5,21 @@ module Test.Hydra.Cluster.HydraClientSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson ((.=))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Set qualified as Set
 import "hydra-cardano-api" Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
-import "hydra-cluster" CardanoNode (
+
+import CardanoNode (
   withCardanoNodeDevnet,
  )
-import "hydra-cluster" Hydra.Cluster.Faucet (
+import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
   seedFromFaucet_,
  )
-import "hydra-cluster" Hydra.Cluster.Fixture (
+import Hydra.Cluster.Fixture (
   Actor (Faucet),
   alice,
   aliceSk,
@@ -28,11 +28,11 @@ import "hydra-cluster" Hydra.Cluster.Fixture (
   carol,
   carolSk,
  )
-import "hydra-cluster" Hydra.Cluster.Scenarios (
+import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsInitializingWith,
  )
-import "hydra-cluster" HydraNode (
+import HydraNode (
   HydraClient (..),
   HydraNodeLog,
   getSnapshotUTxO,

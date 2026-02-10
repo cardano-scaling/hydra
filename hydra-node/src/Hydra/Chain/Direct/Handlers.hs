@@ -8,7 +8,6 @@
 module Hydra.Chain.Direct.Handlers where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.List qualified as List
 import "base" System.IO.Error (userError)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -31,7 +30,7 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   shelleyBasedEra,
   throwError,
  )
-import "hydra-node" Hydra.Chain (
+import Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainEvent (..),
@@ -43,7 +42,7 @@ import "hydra-node" Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import "hydra-node" Hydra.Chain.Direct.State (
+import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
   abort,
@@ -59,15 +58,16 @@ import "hydra-node" Hydra.Chain.Direct.State (
   initialize,
   recover,
  )
-import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import "hydra-node" Hydra.Chain.Direct.Wallet (
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
-import "hydra-node" Hydra.Logging (Tracer, traceWith)
-import "hydra-node" Hydra.Node.Util (checkNonADAAssetsUTxO)
 import "hydra-tx" Hydra.Chain.ChainState (
+
+import Hydra.Logging (Tracer, traceWith)
+import Hydra.Node.Util (checkNonADAAssetsUTxO)
   ChainSlot,
   ChainStateType,
   IsChainState,

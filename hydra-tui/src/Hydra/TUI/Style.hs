@@ -8,8 +8,9 @@ import "brick" Brick (
   fg,
  )
 import "brick" Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
-import "hydra-tui" Hydra.TUI.Logging.Types (Severity (..))
 import "vty" Graphics.Vty (
+
+import Hydra.TUI.Logging.Types (Severity (..))
   brightBlack,
   brightBlue,
   defAttr,

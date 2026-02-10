@@ -3,19 +3,19 @@
 module Hydra.ChainObserver where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "base" Data.Version (showVersion)
 import "http-conduit" Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
 import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
-import "hydra-chain-observer" Hydra.Blockfrost.ChainObserver (blockfrostClient)
-import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
-import "hydra-chain-observer" Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
-import "hydra-chain-observer" Hydra.Ouroborus.ChainObserver (ouroborusClient)
 import "hydra-node" Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import "hydra-node" Hydra.NetworkVersions (hydraNodeVersion)
 import "hydra-plutus" Hydra.Contract qualified as Contract
 import "network-uri" Network.URI (URI)
 import "optparse-applicative" Options.Applicative (execParser)
+
+import Hydra.Blockfrost.ChainObserver (blockfrostClient)
+import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
+import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
+import Hydra.Ouroborus.ChainObserver (ouroborusClient)
 
 main :: IO ()
 main = do

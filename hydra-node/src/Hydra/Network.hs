@@ -15,7 +15,6 @@ module Hydra.Network (
 ) where
 
 import "hydra-prelude" Hydra.Prelude hiding (show)
-
 import "aeson" Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import "aeson" Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import "base" Text.Read (Read (readsPrec))

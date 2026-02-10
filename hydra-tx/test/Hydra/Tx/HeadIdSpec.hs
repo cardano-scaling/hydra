@@ -2,12 +2,12 @@ module Hydra.Tx.HeadIdSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (counterexample, (===))
 import "QuickCheck" Test.QuickCheck.Monadic (monadicIO)
 import "hydra-cardano-api" Hydra.Cardano.Api.Gen ()
 import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
-import "hydra-tx" Hydra.Tx.HeadId (currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)
+
+import Hydra.Tx.HeadId (currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)
 
 spec :: Spec
 spec =

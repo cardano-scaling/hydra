@@ -11,16 +11,15 @@
 module Hydra.Contract.Head where
 
 import "plutus-tx" PlutusTx.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api (
   PlutusScript,
   pattern PlutusScriptSerialised,
  )
-import "hydra-plutus" Hydra.Contract.Commit (Commit (..))
-import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
-import "hydra-plutus" Hydra.Contract.Deposit qualified as Deposit
-import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..), errorCode)
-import "hydra-plutus" Hydra.Contract.HeadState (
+import Hydra.Contract.Commit (Commit (..))
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.HeadError (HeadError (..), errorCode)
+import Hydra.Contract.HeadState (
   CloseRedeemer (..),
   ClosedDatum (..),
   ContestRedeemer (..),
@@ -34,14 +33,15 @@ import "hydra-plutus" Hydra.Contract.HeadState (
   SnapshotVersion,
   State (..),
  )
-import "hydra-plutus" Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
-import "hydra-plutus" Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
-import "hydra-plutus" Hydra.Data.Party (Party (vkey))
 import "hydra-plutus-extras" Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import "plutus-ledger-api" PlutusLedgerApi.Common (serialiseCompiledCode)
 import "plutus-ledger-api" PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import "plutus-ledger-api" PlutusLedgerApi.V1.Value (lovelaceValue)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
+
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
+import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
+import Hydra.Data.Party (Party (vkey))
   Address,
   CurrencySymbol,
   Datum (..),

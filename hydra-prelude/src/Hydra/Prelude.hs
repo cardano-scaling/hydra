@@ -155,7 +155,7 @@ import "si-timers" Control.Monad.Class.MonadTimer.SI (
   MonadDelay (..),
   MonadTimer (..),
  )
-import "text" Data.Text qualified as T
+import "relude" Data.Text qualified as T
 import "transformers" Control.Monad.Trans.Except (Except)
 
 -- | Pad a text-string to right with the given character until it reaches the given

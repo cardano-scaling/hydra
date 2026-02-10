@@ -2,7 +2,6 @@ module Hydra.Ledger.Cardano.TimeSpec where
 
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (classify, forAll, getPositive, (===))
 import "base" Data.Fixed (Milli)
 import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (..))

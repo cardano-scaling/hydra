@@ -11,7 +11,6 @@
 module Hydra.Ledger.Simple where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (
   object,
   withObject,
@@ -19,10 +18,11 @@ import "aeson" Data.Aeson (
   (.=),
  )
 import "containers" Data.Set qualified as Set
-import "hydra-node" Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
 import "hydra-tx" Hydra.Tx (IsTx (..))
 import "serialise" Codec.Serialise (serialise)
+
+import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 
 -- * Simple transactions
 

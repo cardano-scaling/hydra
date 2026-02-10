@@ -3,7 +3,7 @@ module Test.CardanoNodeSpec where
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
 
-import "hydra-cluster" CardanoNode (
+import CardanoNode (
   findRunningCardanoNode,
   getCardanoNodeVersion,
   withCardanoNodeDevnet,
@@ -12,11 +12,12 @@ import "hydra-cluster" CardanoNode (
 
 import "directory" System.Directory (doesFileExist)
 import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
-import "hydra-cluster" Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
-import "hydra-cluster" Test.Hydra.Cluster.Utils (chainPointToSlot, forEachKnownNetwork)
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
 import "hydra-node" Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
+
+import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
+import Test.Hydra.Cluster.Utils (chainPointToSlot, forEachKnownNetwork)
 
 supportedNetworks :: [KnownNetwork]
 supportedNetworks = [Mainnet, Preproduction, Preview]

@@ -3,19 +3,19 @@ module Hydra.Generator where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude hiding (size)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (choose, generate, sized)
 import "aeson" Data.Aeson (object, withObject, (.:), (.=))
 import "base" Control.Monad (foldM)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "hydra-cluster" CardanoClient (QueryPoint (QueryTip), mkGenesisTx, queryUTxOFor)
-import "hydra-cluster" Hydra.Cluster.Faucet (FaucetException (..))
-import "hydra-cluster" Hydra.Cluster.Fixture (availableInitialFunds)
 import "hydra-node" Hydra.Chain.Backend (buildTransaction)
 import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
 import "hydra-node" Hydra.Options qualified as Options
 import "hydra-tx" Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import "hydra-tx" Test.Hydra.Tx.Gen (genSigningKey)
+
+import CardanoClient (QueryPoint (QueryTip), mkGenesisTx, queryUTxOFor)
+import Hydra.Cluster.Faucet (FaucetException (..))
+import Hydra.Cluster.Fixture (availableInitialFunds)
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42

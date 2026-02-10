@@ -3,28 +3,29 @@
 module Main where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "directory" System.Directory (removeDirectoryRecursive)
 import "filepath" System.FilePath ((</>))
 import "hydra-cardano-api" Hydra.Cardano.Api (TxId, serialiseToRawBytesHexText)
-import "hydra-cluster" CardanoNode (
+
+import CardanoNode (
   findFileStartingAtDirectory,
   findRunningCardanoNode,
   waitForFullySynchronized,
   withCardanoNodeDevnet,
   withCardanoNodeOnKnownNetwork,
  )
-import "hydra-cluster" Hydra.Cluster.Faucet (publishHydraScriptsAs)
-import "hydra-cluster" Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
-import "hydra-cluster" Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
-import "hydra-cluster" Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
-import "hydra-cluster" Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import "hydra-node" Hydra.Chain.Backend (ChainBackend, blockfrostProjectPath)
 import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import "hydra-node" Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import "hydra-node" Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import "hydra-test-utils" Test.Hydra.Prelude (withTempDir)
 import "optparse-applicative" Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
+
+import Hydra.Cluster.Faucet (publishHydraScriptsAs)
+import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
+import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
+import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
+import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 
 main :: IO ()
 main =

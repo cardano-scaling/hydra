@@ -31,7 +31,6 @@ module Test.Hydra.Prelude (
 import "hspec" Test.Hspec
 import "hspec" Test.Hspec.QuickCheck
 import "hydra-prelude" Hydra.Prelude
-
 import "HUnit" Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import "QuickCheck" Test.QuickCheck (Arbitrary (..), Property, Testable, coverTable, forAllBlind, genericShrink, scale, tabulate)
 import "QuickCheck" Test.QuickCheck.Gen (Gen (..))

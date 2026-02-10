@@ -8,13 +8,13 @@
 -- cbits/revision.c
 module Hydra.Version where
 
-import "hydra-prelude" Hydra.Prelude
-
 import "base" Foreign.C (CString)
 import "base" GHC.Foreign (peekCStringLen)
 import "base" GHC.IO (unsafeDupablePerformIO)
 import "base" GHC.IO.Encoding (utf8)
 import "gitrev" Development.GitRev qualified as GitRev
+
+import Hydra.Prelude
 
 -- | Identifier to be used when no revision can be found.
 --

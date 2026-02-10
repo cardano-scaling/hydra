@@ -3,7 +3,6 @@
 module Hydra.Tx.HeadId where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson qualified as Aeson
 import "hydra-cardano-api" Hydra.Cardano.Api (
   HasTypeProxy (..),

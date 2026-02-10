@@ -14,7 +14,6 @@
 module Hydra.Contract.HeadTokens where
 
 import "plutus-tx" PlutusTx.Prelude
-
 import "hydra-cardano-api" Hydra.Cardano.Api (
   PolicyId,
   TxIn,
@@ -26,18 +25,18 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
 import "plutus-tx" PlutusTx.Foldable qualified as F
 import "plutus-tx" PlutusTx.List qualified as L
-
-import "hydra-plutus" Hydra.Contract.Head qualified as Head
-import "hydra-plutus" Hydra.Contract.HeadState (seed)
-import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
-import "hydra-plutus" Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
-import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
-import "hydra-plutus" Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import "hydra-plutus" Hydra.Contract.Util (hasST, scriptOutputsAt)
-import "hydra-plutus" Hydra.Plutus (initialValidatorScript)
 import "hydra-plutus-extras" Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import "plutus-core" PlutusCore.Version (plcVersion110)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
+
+import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState (seed)
+import Hydra.Contract.HeadState qualified as Head
+import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
+import Hydra.Contract.Initial qualified as Initial
+import Hydra.Contract.MintAction (MintAction (Burn, Mint))
+import Hydra.Contract.Util (hasST, scriptOutputsAt)
+import Hydra.Plutus (initialValidatorScript)
   Datum (getDatum),
   OutputDatum (..),
   ScriptContext (..),

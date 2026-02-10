@@ -4,7 +4,6 @@
 module Hydra.Tx.Party where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import "aeson" Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import "hydra-cardano-api" Hydra.Cardano.Api (
@@ -18,7 +17,8 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import "hydra-plutus" Hydra.Data.Party qualified as OnChain
-import "hydra-tx" Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
+
+import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey)
 
 -- | Identifies a party in a Hydra head by it's 'VerificationKey'.
 newtype Party = Party {vkey :: VerificationKey HydraKey}

@@ -5,7 +5,6 @@ module Hydra.Tx.Contract.ContractSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
@@ -40,40 +39,42 @@ import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
 import "hydra-plutus" Hydra.Contract.Head (verifySnapshotSignature)
 import "hydra-plutus" Hydra.Contract.Util qualified as OnChain
 import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
-import "hydra-tx" Hydra.Tx (
+
+import Hydra.Tx (
   Snapshot (..),
   deriveParty,
   hashUTxO,
   headIdToCurrencySymbol,
   partyToChain,
  )
-import "hydra-tx" Hydra.Tx.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
-import "hydra-tx" Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
-import "hydra-tx" Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
-import "hydra-tx" Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
-import "hydra-tx" Hydra.Tx.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
-import "hydra-tx" Hydra.Tx.Contract.Commit (genCommitMutation, healthyCommitTx)
-import "hydra-tx" Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
-import "hydra-tx" Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
-import "hydra-tx" Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
-import "hydra-tx" Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
-import "hydra-tx" Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
-import "hydra-tx" Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
-import "hydra-tx" Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
-import "hydra-tx" Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
-import "hydra-tx" Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
-import "hydra-tx" Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
-import "hydra-tx" Hydra.Tx.Observe (observeDepositTx)
-import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
-import "hydra-tx" Test.Hydra.Tx.Gen (
+import Hydra.Tx.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
+import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
+import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
+import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
+import Hydra.Tx.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
+import Hydra.Tx.Contract.Commit (genCommitMutation, healthyCommitTx)
+import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
+import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
+import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
+import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
+import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
+import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
+import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
+import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
+import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Observe (observeDepositTx)
+import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
   propTransactionEvaluates,
   shrinkUTxO,
  )
-import "hydra-tx" Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
 import "quickcheck-instances" Test.QuickCheck.Instances ()
+
+import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)
 
 spec :: Spec
 spec = parallel $ do

@@ -6,17 +6,17 @@ module Hydra.Tx.Contract.Deposit where
 import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (chooseEnum, chooseInteger, elements)
 import "base" Data.List qualified as List
 import "base" GHC.IsList qualified as GHC
-import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import "hydra-tx" Hydra.Tx (mkHeadId)
-import "hydra-tx" Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
-import "hydra-tx" Hydra.Tx.Deposit (depositTx)
-import "hydra-tx" Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId, testPolicyId)
-import "hydra-tx" Test.Hydra.Tx.Gen (genUTxOSized)
-import "hydra-tx" Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..))
+
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx (mkHeadId)
+import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
+import Hydra.Tx.Deposit (depositTx)
+import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Gen (genUTxOSized)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..))
 
 genHealthyDepositTx :: Gen (Tx, UTxO)
 genHealthyDepositTx = do

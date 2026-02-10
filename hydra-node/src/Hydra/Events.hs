@@ -14,7 +14,6 @@
 module Hydra.Events where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "conduit" Conduit (ConduitT, MonadUnliftIO, ResourceT, runResourceT, sourceToList)
 
 type EventId = Word64

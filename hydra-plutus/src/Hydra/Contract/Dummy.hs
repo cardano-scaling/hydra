@@ -7,7 +7,6 @@
 module Hydra.Contract.Dummy where
 
 import "hydra-prelude" Hydra.Prelude hiding (foldMap, (<$>), (==))
-
 import "hydra-cardano-api" Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import "hydra-plutus-extras" Hydra.Plutus.Extras (wrapValidator)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (

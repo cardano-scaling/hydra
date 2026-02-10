@@ -8,7 +8,6 @@ import "hydra-cardano-api" Hydra.Cardano.Api
 import "hydra-plutus" Hydra.Plutus.Gen ()
 import "hydra-prelude" Hydra.Prelude
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat, vectorOf)
 import "base" Data.List qualified as List
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -22,31 +21,32 @@ import "hydra-plutus" Hydra.Contract.HeadTokensError (HeadTokensError (..))
 import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
 import "hydra-plutus" Hydra.Contract.InitialError (InitialError (STNotBurned))
 import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import "hydra-tx" Hydra.Tx (
+
+import Hydra.Tx (
   HeadParameters (..),
   Party,
   partyToChain,
   registryUTxO,
  )
-import "hydra-tx" Hydra.Tx.Abort (abortTx)
-import "hydra-tx" Hydra.Tx.Commit (mkCommitDatum)
-import "hydra-tx" Hydra.Tx.ContestationPeriod (toChain)
-import "hydra-tx" Hydra.Tx.Init (mkHeadOutputInitial)
-import "hydra-tx" Hydra.Tx.Utils (adaOnly, hydraHeadV1AssetName, onChainIdToAssetName, verificationKeyToOnChainId)
-import "hydra-tx" Test.Hydra.Tx.Fixture (
+import Hydra.Tx.Abort (abortTx)
+import Hydra.Tx.Commit (mkCommitDatum)
+import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.Init (mkHeadOutputInitial)
+import Hydra.Tx.Utils (adaOnly, hydraHeadV1AssetName, onChainIdToAssetName, verificationKeyToOnChainId)
+import Test.Hydra.Tx.Fixture (
   cperiod,
   testNetworkId,
   testPolicyId,
   testSeedInput,
  )
-import "hydra-tx" Test.Hydra.Tx.Gen (
+import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
   genOneUTxOFor,
   genScriptRegistry,
   genVerificationKey,
  )
-import "hydra-tx" Test.Hydra.Tx.Mutation (
+import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,

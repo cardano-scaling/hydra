@@ -2,14 +2,14 @@ module Hydra.Chain.Direct.TimeHandleSpec where
 
 import "hydra-prelude" Hydra.Prelude hiding (label)
 import "hydra-test-utils" Test.Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (Property, counterexample, forAllBlind, property, (===))
 import "cardano-ledger-core" Cardano.Ledger.Slot (SlotNo (SlotNo))
 import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart))
-import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
-import "hydra-node" Test.Hydra.Chain.Direct.TimeHandle ()
 import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
+import Test.Hydra.Chain.Direct.TimeHandle ()
 
 spec :: Spec
 spec = do

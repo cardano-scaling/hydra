@@ -3,7 +3,6 @@
 module Hydra.Node.Util where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "cardano-api" Cardano.Api.UTxO (totalValue)
 import "hydra-cardano-api" Hydra.Cardano.Api (
   AssetId (..),

@@ -1,7 +1,6 @@
 module Main where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson (Value (String), object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
@@ -12,12 +11,13 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   UTxO,
   serialiseToCBOR,
  )
-import "hydra-node" Hydra.API.ClientInput (ClientInput (NewTx))
-import "hydra-node" Hydra.Ledger (Ledger (applyTransactions), ValidationError)
-import "hydra-node" Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
-import "hydra-node" Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
 import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import "hydra-tx" Hydra.Ledger.Cardano (Tx, cardanoLedger)
+
+import Hydra.API.ClientInput (ClientInput (NewTx))
+import Hydra.Ledger (Ledger (applyTransactions), ValidationError)
+import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
 
 main :: IO ()
 main = do

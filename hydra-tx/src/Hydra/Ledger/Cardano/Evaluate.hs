@@ -15,7 +15,6 @@
 module Hydra.Ledger.Cardano.Evaluate where
 
 import "hydra-prelude" Hydra.Prelude hiding (label)
-
 import "base" Data.Maybe (fromJust)
 import "base" Data.Ratio ((%))
 import "bytestring" Data.ByteString qualified as BS

@@ -3,7 +3,6 @@
 module CardanoNode where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "aeson" Data.Aeson (Value (String), (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.Types qualified as Aeson
@@ -30,10 +29,6 @@ import "hydra-cardano-api" Hydra.Cardano.Api (
   getProgress,
  )
 import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
-import "hydra-cluster" CardanoClient (QueryPoint (QueryTip))
-import "hydra-cluster" Hydra.Cluster.Faucet (delayBF)
-import "hydra-cluster" Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
-import "hydra-cluster" Hydra.Cluster.Util (readConfigFile)
 import "hydra-node" Hydra.Chain.Backend (ChainBackend)
 import "hydra-node" Hydra.Chain.Backend qualified as Backend
 import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..))
@@ -43,6 +38,11 @@ import "hydra-test-utils" Test.Hydra.Prelude
 import "lens" Control.Lens ((?~), (^?!))
 import "lens-aeson" Data.Aeson.Lens (atKey, key, _Number)
 import "process" System.Process (
+
+import CardanoClient (QueryPoint (QueryTip))
+import Hydra.Cluster.Faucet (delayBF)
+import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
+import Hydra.Cluster.Util (readConfigFile)
   CreateProcess (..),
   StdStream (CreatePipe, UseHandle),
   proc,

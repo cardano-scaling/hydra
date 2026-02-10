@@ -1,7 +1,6 @@
 module Hydra.Tx.Hash where
 
 import "hydra-prelude" Hydra.Prelude
-
 import "QuickCheck" Test.QuickCheck ((===))
 import "hspec" Test.Hspec (Spec, describe, it)
 import "hydra-plutus" Hydra.Contract.Util (hashTxOuts)

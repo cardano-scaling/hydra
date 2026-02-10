@@ -4,19 +4,20 @@
 module Test.Hydra.API.ServerOutput where
 
 import "QuickCheck" Test.QuickCheck (recursivelyShrink)
-import "hydra-node" Hydra.API.ClientInput (ClientInput)
-import "hydra-node" Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason, Greetings, HeadStatus, NetworkInfo, ServerOutput (..), TimedServerOutput)
-import "hydra-node" Hydra.Chain (PostChainTx)
-import "hydra-node" Hydra.HeadLogic.Error (SideLoadRequirementFailure)
-import "hydra-node" Test.Hydra.Chain ()
-import "hydra-node" Test.Hydra.Ledger ()
-import "hydra-node" Test.Hydra.Network ()
-import "hydra-node" Test.Hydra.Node.Environment ()
-import "hydra-node" Test.Hydra.Node.State ()
 import "hydra-test-utils" Test.Hydra.Prelude
 import "hydra-tx" Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+
+import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason, Greetings, HeadStatus, NetworkInfo, ServerOutput (..), TimedServerOutput)
+import Hydra.Chain (PostChainTx)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
+import Test.Hydra.Chain ()
+import Test.Hydra.Ledger ()
+import Test.Hydra.Network ()
+import Test.Hydra.Node.Environment ()
+import Test.Hydra.Node.State ()
 
 instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
   arbitrary = genericArbitrary
