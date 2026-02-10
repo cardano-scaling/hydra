@@ -1157,8 +1157,6 @@ spec =
             )
             shrink
             $ \noTickInputs -> monadicIO $ do
-              let catchingUp = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
-
               stillCatchingUp <-
                 run $
                   foldM
@@ -1167,7 +1165,7 @@ spec =
                           step input
                           getState
                     )
-                    catchingUp
+                    (catchingUp headState)
                     noTickInputs
 
               assert $ case stillCatchingUp of
@@ -1200,14 +1198,12 @@ spec =
       prop "node must be out of sync after full contestation period" $
         forAllShrink arbitrary shrink $ \headState ->
           monadicIO $ do
-            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
-
             now <- run getCurrentTime
             let delta = bobEnv.contestationPeriod
             -- make chain time too old: elapsed time >= full contestation period
             let oldChainTime = addUTCTime (negate $ CP.toNominalDiffTime delta) now
 
-            nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
+            nodeAfter <- run $ runHeadLogic bobEnv ledger (inSync headState) $ do
               step $ ChainInput Tick{chainTime = oldChainTime, chainPoint = 1}
               getState
 
@@ -1219,13 +1215,11 @@ spec =
       prop "node remains in sync under normal block cadence" $
         forAllShrink arbitrary shrink $ \headState ->
           monadicIO $ do
-            let inSync = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
-
             now <- run getCurrentTime
             let normalBlockInterval = 20
             let nextTime = addUTCTime normalBlockInterval now
 
-            nodeAfter <- run $ runHeadLogic bobEnv ledger inSync $ do
+            nodeAfter <- run $ runHeadLogic bobEnv ledger (inSync headState) $ do
               step $ ChainInput Tick{chainTime = nextTime, chainPoint = 1}
               getState
 
@@ -1497,30 +1491,25 @@ spec =
                   Right tx -> pure (uncurry UTxO.singleton utxo, tx)
         -- single party on empty Open state
         let st0 =
-              NodeInSync
-                { headState =
-                    Open
-                      OpenState
-                        { parameters = HeadParameters defaultContestationPeriod singleParty
-                        , coordinatedHeadState =
-                            CoordinatedHeadState
-                              { localUTxO = mempty
-                              , allTxs = mempty
-                              , localTxs = []
-                              , confirmedSnapshot = InitialSnapshot testHeadId mempty
-                              , seenSnapshot = NoSeenSnapshot
-                              , currentDepositTxId = Nothing
-                              , decommitTx = Nothing
-                              , version = 0
-                              }
-                        , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
-                        , headId = testHeadId
-                        , headSeed = testHeadSeed
-                        }
-                , pendingDeposits = mempty
-                , currentSlot = 0
-                , currentChainTime = initialChainTime
-                }
+              inSync $
+                Open
+                  OpenState
+                    { parameters = HeadParameters defaultContestationPeriod singleParty
+                    , coordinatedHeadState =
+                        CoordinatedHeadState
+                          { localUTxO = mempty
+                          , allTxs = mempty
+                          , localTxs = []
+                          , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                          , seenSnapshot = NoSeenSnapshot
+                          , currentDepositTxId = Nothing
+                          , decommitTx = Nothing
+                          , version = 0
+                          }
+                    , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
+                    , headId = testHeadId
+                    , headSeed = testHeadSeed
+                    }
         -- deposit txs
         (deposited1, depositTx1) <- pick mkDepositTx
         (deposited2, depositTx2) <- pick mkDepositTx
@@ -1743,13 +1732,7 @@ prop_ignoresUnrelatedOnInitTx =
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $
-    NodeInSync
-      { headState = Closed $ closedState{headId = testHeadId}
-      , pendingDeposits = mempty
-      , currentSlot = ChainSlot 0
-      , currentChainTime = initialChainTime
-      }
+  pure $ inSync (Closed $ closedState{headId = testHeadId})
 
 -- * Utilities
 
@@ -1796,34 +1779,21 @@ inIdleState :: NodeState SimpleTx
 inIdleState = initNodeState 0
 
 inUnsyncedIdleState :: NodeState SimpleTx
-inUnsyncedIdleState =
-  NodeCatchingUp
-    { headState = Idle IdleState{chainState}
-    , pendingDeposits = mempty
-    , currentSlot = chainStateSlot chainState
-    , currentChainTime = initialChainTime
-    }
- where
-  chainState = 0
+inUnsyncedIdleState = catchingUp (Idle IdleState{chainState = 0})
 
 -- XXX: This is always called with threeParties and simpleLedger
 inInitialState :: [Party] -> NodeState SimpleTx
 inInitialState parties =
-  NodeInSync
-    { headState =
-        Initial
-          InitialState
-            { parameters
-            , pendingCommits = Set.fromList parties
-            , committed = mempty
-            , chainState = 0
-            , headId = testHeadId
-            , headSeed = testHeadSeed
-            }
-    , pendingDeposits = mempty
-    , currentSlot = 0
-    , currentChainTime = initialChainTime
-    }
+  inSync $
+    Initial
+      InitialState
+        { parameters
+        , pendingCommits = Set.fromList parties
+        , committed = mempty
+        , chainState = 0
+        , headId = testHeadId
+        , headSeed = testHeadSeed
+        }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
@@ -1852,20 +1822,15 @@ inOpenState' ::
   CoordinatedHeadState SimpleTx ->
   NodeState SimpleTx
 inOpenState' parties coordinatedHeadState =
-  NodeInSync
-    { headState =
-        Open
-          OpenState
-            { parameters
-            , coordinatedHeadState
-            , chainState = 0
-            , headId = testHeadId
-            , headSeed = testHeadSeed
-            }
-    , pendingDeposits = mempty
-    , currentSlot = 0
-    , currentChainTime = initialChainTime
-    }
+  inSync $
+    Open
+      OpenState
+        { parameters
+        , coordinatedHeadState
+        , chainState = 0
+        , headId = testHeadId
+        , headSeed = testHeadSeed
+        }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
@@ -1878,23 +1843,18 @@ inClosedState parties = inClosedState' parties snapshot0
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
 inClosedState' parties confirmedSnapshot =
-  NodeInSync
-    { headState =
-        Closed
-          ClosedState
-            { parameters
-            , confirmedSnapshot
-            , contestationDeadline
-            , readyToFanoutSent = False
-            , chainState = 0
-            , headId = testHeadId
-            , headSeed = testHeadSeed
-            , version = 0
-            }
-    , pendingDeposits = mempty
-    , currentSlot = 0
-    , currentChainTime = initialChainTime
-    }
+  inSync $
+    Closed
+      ClosedState
+        { parameters
+        , confirmedSnapshot
+        , contestationDeadline
+        , readyToFanoutSent = False
+        , chainState = 0
+        , headId = testHeadId
+        , headSeed = testHeadSeed
+        , version = 0
+        }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
@@ -2034,3 +1994,9 @@ mkTimeHandleAt slotNo now =
 
   -- Construct an era history that's valid up to that horizon
   eraHistory = eraHistoryWithHorizonAt horizonSlot
+
+catchingUp :: IsTx tx => HeadState tx -> NodeState tx
+catchingUp headState = NodeCatchingUp{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
+
+inSync :: IsTx tx => HeadState tx -> NodeState tx
+inSync headState = NodeInSync{headState, pendingDeposits = mempty, currentSlot = ChainSlot 0, currentChainTime = initialChainTime}
