@@ -104,7 +104,7 @@ spec = parallel $ do
           [StateEvent{stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore)
           events' <- getEvents (eventSource eventStore')
           let checkpoint' = foldl' mkAggregator s0 events'
-          checkpoint `assertCheckpointAreEqual` Checkpoint checkpoint'
+          checkpoint `checkpointsEqual` Checkpoint checkpoint'
       it "a restarted and non-restarted node have consistent rotation" $ \testHydrate -> do
         -- prepare inputs
         now <- getCurrentTime
@@ -140,7 +140,7 @@ spec = parallel $ do
           -- stored events should yield consistent checkpoint events
           [StateEvent{eventId = eventId, stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore2)
           [StateEvent{eventId = eventId', stateChanged = checkpoint'}] <- getEvents (eventSource rotatingEventStore')
-          checkpoint `assertCheckpointAreEqual` checkpoint'
+          checkpoint `checkpointsEqual` checkpoint'
           -- stored events should yield consistent event id
           -- note the restarting node has more Tick events
           eventId `shouldBe` eventId' + 2
@@ -278,12 +278,12 @@ trivialCheckpoint = sum
 mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
 mkAggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
 
-assertCheckpointAreEqual ::
+checkpointsEqual ::
   IsChainState tx =>
   StateChanged tx ->
   StateChanged tx ->
   Expectation
-assertCheckpointAreEqual c1 c2 =
+checkpointsEqual c1 c2 =
   case (c1, c2) of
     (Checkpoint s1, Checkpoint s2) ->
       headState s1 == headState s2
