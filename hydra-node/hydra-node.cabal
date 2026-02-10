@@ -34,6 +34,7 @@ common project-config
     MultiWayIf
     NoImplicitPrelude
     OverloadedStrings
+    PackageImports
     PartialTypeSignatures
     PatternSynonyms
     TypeFamilies

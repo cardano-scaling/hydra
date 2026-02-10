@@ -25,6 +25,7 @@ common project-config
     LambdaCase
     MultiWayIf
     OverloadedStrings
+    PackageImports
     PartialTypeSignatures
     PatternSynonyms
     TypeFamilies
