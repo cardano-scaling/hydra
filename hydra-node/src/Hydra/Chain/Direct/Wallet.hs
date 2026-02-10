@@ -77,7 +77,7 @@ import Hydra.Cardano.Api (
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
   fromLedgerTx,
-  fromLedgerTxIn,
+  fromShelleyTxIn,
   getChainPoint,
   makeShelleyAddress,
   shelleyAddressInEra,
@@ -151,7 +151,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
+      , getSeedInput = fmap (fromShelleyTxIn . fst) . findLargestUTxO <$> getUTxO
       , sign = Api.signTx sk
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO

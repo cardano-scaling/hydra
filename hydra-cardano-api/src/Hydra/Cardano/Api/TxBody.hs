@@ -2,6 +2,7 @@ module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (toShelleyTxIn)
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import Cardano.Ledger.Api (
   AsItem (..),
@@ -13,7 +14,6 @@ import Cardano.Ledger.Babbage.Core (redeemerPointer)
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Data.Map qualified as Map
-import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import PlutusLedgerApi.V3 qualified as Plutus
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
@@ -24,7 +24,7 @@ findRedeemerSpending ::
   TxIn ->
   Maybe a
 findRedeemerSpending (getTxBody -> ShelleyTxBody _ body _ scriptData _ _) txIn = do
-  ptr <- strictMaybeToMaybe $ redeemerPointer body (ConwaySpending . AsItem $ toLedgerTxIn txIn)
+  ptr <- strictMaybeToMaybe $ redeemerPointer body (ConwaySpending . AsItem $ toShelleyTxIn txIn)
   lookupRedeemer ptr scriptData
 
 --

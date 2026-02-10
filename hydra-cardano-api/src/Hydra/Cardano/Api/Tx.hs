@@ -9,6 +9,7 @@ where
 
 import Hydra.Cardano.Api.Prelude
 
+import Cardano.Api (toShelleyTxIn)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (
   EraTx (mkBasicTx),
@@ -20,7 +21,7 @@ import Control.Lens ((&), (.~))
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
 import Data.Set qualified as Set
-import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
+import Hydra.Cardano.Api.TxIn (mkTxIn)
 
 -- * Extras
 
@@ -43,7 +44,7 @@ txSpendingUTxO utxo =
   fromLedgerTx $
     mkBasicTx
       ( mkBasicTxBody
-          & inputsTxBodyL .~ (toLedgerTxIn `Set.map` inputs)
+          & inputsTxBodyL .~ (toShelleyTxIn `Set.map` inputs)
       )
  where
   inputs = UTxO.inputSet utxo

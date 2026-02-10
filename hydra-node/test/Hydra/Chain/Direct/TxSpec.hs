@@ -352,7 +352,7 @@ prop_interestingBlueprintTx = do
   spendsFromPubKey :: (UTxO, Tx) -> Bool
   spendsFromPubKey (utxo, tx) =
     any
-      ( \txIn -> case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of
+      ( \txIn -> case UTxO.resolveTxIn (fromShelleyTxIn txIn) utxo of
           Just (TxOut (ShelleyAddressInEra (ShelleyAddress _ (KeyHashObj _) _)) _ _ _) -> True
           _ -> False
       )
@@ -364,7 +364,7 @@ prop_interestingBlueprintTx = do
   spendsFromScript :: (UTxO, Tx) -> Bool
   spendsFromScript (utxo, tx) =
     any
-      ( \txIn -> case UTxO.resolveTxIn (fromLedgerTxIn txIn) utxo of
+      ( \txIn -> case UTxO.resolveTxIn (fromShelleyTxIn txIn) utxo of
           Just (TxOut (ShelleyAddressInEra (ShelleyAddress _ (ScriptHashObj _) _)) _ _ _) -> True
           _ -> False
       )

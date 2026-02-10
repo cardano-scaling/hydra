@@ -34,14 +34,6 @@ txInputSet = Set.fromList . txIns'
 
 -- * Type Conversions
 
--- | Convert a cardano-ledger 'TxIn' into a cardano-api 'TxIn'
-fromLedgerTxIn :: Ledger.TxIn -> TxIn
-fromLedgerTxIn = fromShelleyTxIn
-
--- | Convert a cardano-api 'TxIn' into a cardano-ledger 'TxIn'
-toLedgerTxIn :: TxIn -> Ledger.TxIn
-toLedgerTxIn = toShelleyTxIn
-
 -- | Convert a plutus' 'TxOutRef' into a cardano-api 'TxIn'
 fromPlutusTxOutRef :: Plutus.TxOutRef -> TxIn
 fromPlutusTxOutRef (Plutus.TxOutRef (Plutus.TxId bytes) ix) =
@@ -54,5 +46,5 @@ toPlutusTxOutRef :: TxIn -> Plutus.TxOutRef
 toPlutusTxOutRef txIn =
   -- XXX: The upstream 'transTxIn' works only with the PlutusV1 type, so we
   -- needed to vendor its definition here.
-  let (Ledger.TxIn (Ledger.TxId safe) txIx) = toLedgerTxIn txIn
+  let (Ledger.TxIn (Ledger.TxId safe) txIx) = toShelleyTxIn txIn
    in Plutus.TxOutRef (Plutus.TxId $ transSafeHash safe) (toInteger $ Ledger.txIxToInt txIx)

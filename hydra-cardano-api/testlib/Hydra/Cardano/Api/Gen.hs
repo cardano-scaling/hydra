@@ -9,7 +9,6 @@ import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Binary qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
 import Data.ByteString qualified as BS
-import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Test.Gen.Cardano.Api.Typed qualified as Gen
 import Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, vectorOf)
 import Test.QuickCheck.Hedgehog (hedgehog)
@@ -40,7 +39,7 @@ instance Arbitrary PolicyId where
 -- latest protocol version via 'maxBound'.
 genTxIn :: Gen TxIn
 genTxIn =
-  fmap fromLedgerTxIn . Ledger.TxIn
+  fmap fromShelleyTxIn . Ledger.TxIn
     -- NOTE: [88, 32] is a CBOR prefix for a bytestring of 32 bytes.
     <$> fmap (Ledger.unsafeDeserialize' maxBound . BS.pack . ([88, 32] <>)) (vectorOf 32 arbitrary)
     <*> fmap Ledger.TxIx (choose (0, 99))
