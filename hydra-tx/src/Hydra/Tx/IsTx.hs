@@ -176,7 +176,10 @@ instance IsTx Tx where
 
   toPairList = UTxO.txOutputs
 
-  -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization
+  -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.
+  -- Uses sha2_256 (via hashTxOuts) because the haskell-accumulator library
+  -- internally applies Blake2b_224 on each element (see Accumulator.addElement).
+  -- The on-chain scalar is then blake2b_224(sha2_256(serialised)), matching exactly.
   utxoToElement txOut =
     case toPlutusTxOut txOut of
       Just plutusTxOut -> fromBuiltin (Util.hashTxOuts [plutusTxOut])

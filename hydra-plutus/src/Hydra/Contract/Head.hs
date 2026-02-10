@@ -650,43 +650,46 @@ checkFanout ::
   -- | Reference input containing crs
   TxOutRef ->
   Bool
-checkFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef =
+checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef =
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
     && hasSameDecommitUTxOHash
     && afterContestationDeadline
-    && crsRefExists
-    && checkMembership crs accumulatorCommitment subsetScalars proof
+    && checkCRSAndMembership
  where
   minted = txInfoMint txInfo
 
+  -- Serialize each output ONCE; reuse for hash checks and scalar computation.
+  totalOutputs = numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
+  allSerialized = fmap (Builtins.serialiseData . toBuiltinData) (L.take totalOutputs txInfoOutputs)
+
+  -- Helper: SHA2-256 over a list of pre-serialized output bytes.
+  hashSerialized :: [BuiltinByteString] -> BuiltinByteString
+  hashSerialized = sha2_256 . F.foldMap id
+
   hasSameUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
-      fannedOutUtxoHash == utxoHash
+      hashSerialized (L.take numberOfFanoutOutputs allSerialized) == utxoHash
 
   hasSameCommitUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
-      alphaUTxOHash == commitUtxoHash
+      alphaUTxOHash
+        == hashSerialized (L.take numberOfCommitOutputs (L.drop numberOfFanoutOutputs allSerialized))
 
   hasSameDecommitUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
-      omegaUTxOHash == decommitUtxoHash
+      omegaUTxOHash
+        == hashSerialized (L.take numberOfDecommitOutputs (L.drop (numberOfFanoutOutputs + numberOfCommitOutputs) allSerialized))
 
-  fannedOutUtxoHash = hashTxOuts $ L.take numberOfFanoutOutputs txInfoOutputs
-
-  commitUtxoHash = hashTxOuts $ L.take numberOfCommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
-
-  decommitUtxoHash = hashTxOuts $ L.take numberOfDecommitOutputs $ L.drop numberOfFanoutOutputs txInfoOutputs
-
+  -- Accumulator scalars: blake2b_224 of sha2_256 per output.
+  -- NOTE: The haskell-accumulator library internally applies Blake2b_224 on
+  -- each element when building the accumulator (see Accumulator.addElement).
+  -- Since elements are sha2_256(serialised), the scalar becomes
+  -- blake2b_224(sha2_256(serialised)), which we must match here.
   subsetScalars :: [Scalar]
   subsetScalars =
-    let
-      totalOutputs = numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
-      outputsToProve = L.take totalOutputs txInfoOutputs
-      elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-     in
-      fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) outputsToProve
+    fmap (mkScalar . Builtins.byteStringToInteger BigEndian . blake2b_224 . sha2_256) allSerialized
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, proof, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
@@ -698,16 +701,18 @@ checkFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOf
           time > contestationDeadline
       _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
 
-  crsRefExists = traceIfFalse $(errorCode MissingCRSRefInput) (isJust crsRefTxOut)
-
-  crs = decodeCRSReferenceDatum ctx crsRef
-
-  -- Find the reference input at the known CRS TxOutRef
-  crsRefTxOut :: Maybe TxInInfo
-  crsRefTxOut =
-    L.find
-      (\txin -> txInInfoOutRef txin == crsRef)
-      (txInfoReferenceInputs txInfo)
+  -- Combined CRS reference lookup and membership check.
+  -- Performs a single traversal of reference inputs and only decodes the
+  -- CRS datum when the membership proof is actually evaluated (i.e. all
+  -- prior checks have passed).
+  checkCRSAndMembership =
+    case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
+      Nothing -> traceError $(errorCode MissingCRSRefInput)
+      Just txInInfo ->
+        let crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
+              Just d -> d
+              _ -> traceError $(errorCode MissingCRSDatum)
+         in checkMembership crsData accumulatorCommitment subsetScalars proof
 {-# INLINEABLE checkFanout #-}
 
 --------------------------------------------------------------------------------
@@ -787,17 +792,6 @@ headOutputDatum ctx =
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE headOutputDatum #-}
 
-crsReferenceDatum :: ScriptContext -> TxOutRef -> Datum
-crsReferenceDatum ctx crsRef =
-  case L.find
-    (\txin -> txInInfoOutRef txin == crsRef)
-    (txInfoReferenceInputs txInfo) of
-    Nothing -> traceError $(errorCode MissingCRSDatum)
-    Just txInInfo -> getTxOutDatum (txInInfoResolved txInInfo)
- where
-  ScriptContext{scriptContextTxInfo = txInfo} = ctx
-{-# INLINEABLE crsReferenceDatum #-}
-
 getTxOutDatum :: TxOut -> Datum
 getTxOutDatum o =
   case txOutDatum o of
@@ -863,14 +857,6 @@ decodeHeadOutputOpenDatum ctx =
     Just (Open openDatum) -> openDatum
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputOpenDatum #-}
-
-decodeCRSReferenceDatum :: ScriptContext -> TxOutRef -> CRSDatum
-decodeCRSReferenceDatum ctx crsRef =
-  -- XXX: fromBuiltinData is super big (and also expensive?)
-  case fromBuiltinData @CRSDatum $ getDatum (crsReferenceDatum ctx crsRef) of
-    Just d -> d
-    _ -> traceError $(errorCode MissingCRSDatum)
-{-# INLINEABLE decodeCRSReferenceDatum #-}
 
 emptyHash :: Hash
 emptyHash = hashTxOuts []
