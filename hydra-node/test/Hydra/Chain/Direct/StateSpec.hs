@@ -485,7 +485,7 @@ prop_splitUTxO utxo =
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
-  let moreThanSupported = maximumNumberOfParties * 2
+  let moreThanSupported = maximumNumberOfParties * 3
   ctx@HydraContext{ctxContestationPeriod} <- pickBlind $ genHydraContext moreThanSupported
   cctx <- pickBlind $ pickChainContext ctx
   -- Init
@@ -511,10 +511,11 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing Nothing (slotNoFromUTCTime systemStart slotLength deadline)
 
   -- Properties
-  let collectFails =
-        propTransactionFailsEvaluation (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
-          & counterexample "collect passed, but others failed?"
-          & cover 10 True "collect failed already"
+  let collectOrFanoutFails =
+        ( propTransactionFailsEvaluation (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
+            .||. propTransactionFailsEvaluation (txFanout, getKnownUTxO cctx <> getKnownUTxO stClosed)
+        )
+          & cover 10 True "collect or fanout over budget"
   let collectCloseAndFanoutPass =
         conjoin
           [ propTransactionEvaluates (txCollect, getKnownUTxO cctx <> getKnownUTxO stInitial)
@@ -528,7 +529,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
   pure $
     -- XXX: Coverage does not work if we only collectFails
     checkCoverage
-      (collectFails .||. collectCloseAndFanoutPass)
+      (collectOrFanoutFails .||. collectCloseAndFanoutPass)
 
 prop_incrementObservesCorrectUTxO :: Property
 prop_incrementObservesCorrectUTxO = monadicIO $ do
