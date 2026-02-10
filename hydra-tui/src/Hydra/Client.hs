@@ -120,12 +120,18 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
     runReq defaultHttpConfig request
       <&> responseBody
         >>= \DraftCommitTxResponse{commitTx} ->
-          case cardanoConnection of
-            Left bfProject -> do
-              prj <- liftIO $ BF.projectFromFile bfProject
-              void $ BF.runBlockfrostM prj $ BF.submitTransaction $ signTx sk commitTx
-            Right socketPath ->
-              submitTransaction cardanoNetworkId socketPath $ signTx sk commitTx
+          let tx =
+                -- Don't sign the tx if there's nothing to commit (i.e. empty
+                -- commit).
+                if payload == mempty
+                  then commitTx
+                  else signTx sk commitTx
+           in case cardanoConnection of
+                Left bfProject -> do
+                  prj <- liftIO $ BF.projectFromFile bfProject
+                  void $ BF.runBlockfrostM prj $ BF.submitTransaction tx
+                Right socketPath ->
+                  submitTransaction cardanoNetworkId socketPath tx
    where
     request =
       Req.req
