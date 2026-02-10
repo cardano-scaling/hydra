@@ -28,7 +28,7 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
-  PostChainTx (CollectComTx, ContestTx),
+  PostChainTx (CollectComTx, ContestTx, DecrementTx, IncrementTx),
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -666,6 +666,312 @@ spec =
         outcome `shouldSatisfy` \case
           Error RequireFailed{requirementFailure} | requirementFailure == ReqSnDecommitNotSettled -> True
           _ -> False
+
+      describe "Deposit after rollback" $ do
+        let singleParty = [alice]
+            plusTime = flip addUTCTime
+
+        it "ReqSn still references stale currentDepositTxId after deposit is recovered" $ do
+          -- This test reproduced the bug where:
+          -- 1. A deposit is included in a snapshot (setting currentDepositTxId in local state)
+          -- 2. The IncrementTx is posted on-chain
+          -- 3. A chain rollback erases the IncrementTx observation
+          -- 4. The deposit is recovered on-chain (removed from pendingDeposits)
+          -- 5. The stale currentDepositTxId causes future ReqSn to reference a
+          --    deposit that no longer exists, leading to infinite WaitOnDepositObserved
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , contestationPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+          let depositTime = plusTime now
+              deadline = depositTime 600
+              depositTxId = 42 :: Integer
+              depositedUtxo = utxoRef depositTxId
+              deposit =
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId
+                  , deposited = depositedUtxo
+                  , created = depositTime 1
+                  , deadline
+                  }
+
+          -- Step 1: Start in open state, observe deposit
+          s1 <- runHeadLogic aliceEnv' ledger (inOpenState singleParty) $ do
+            step (observeTxAtSlot 1 deposit)
+            getState
+
+          -- Step 2: Tick to activate deposit and trigger ReqSn
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+              tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step tickInput
+            getState
+
+          -- Verify deposit is now active and currentDepositTxId is Nothing still
+          -- (it gets set only when ReqSn is processed)
+          case headState s2 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Nothing
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 3: Process ReqSn with the deposit (as if received from network)
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step reqSnWithDeposit
+            getState
+
+          -- Verify currentDepositTxId is now set
+          case headState s3 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Just depositTxId
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 4: AckSn from alice (single party) → SnapshotConfirmed + CommitApproved + IncrementTx posted
+          let snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUtxo
+                  , utxoToDecommit = Nothing
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+          s4 <- runHeadLogic aliceEnv' ledger s3 $ do
+            step ackSn
+            getState
+
+          -- Verify SnapshotConfirmed happened and currentDepositTxId is still set
+          case headState s4 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId, confirmedSnapshot}} -> do
+              currentDepositTxId `shouldBe` Just depositTxId
+              case confirmedSnapshot of
+                ConfirmedSnapshot{snapshot = Snapshot{number}} -> number `shouldBe` 1
+                _ -> expectationFailure "Expected ConfirmedSnapshot"
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 5: Chain rollback (erases the IncrementTx observation)
+          let rollbackInput = ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now}
+          s5 <- runHeadLogic aliceEnv' ledger s4 $ do
+            step rollbackInput
+            getState
+
+          -- currentDepositTxId should still be set (this is part of the bug)
+          case headState s5 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Just depositTxId
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 6: Deposit is recovered on-chain (removed from pendingDeposits)
+          let recoverInput =
+                observeTxAtSlot
+                  2
+                  OnRecoverTx
+                    { headId = testHeadId
+                    , recoveredTxId = depositTxId
+                    , recoveredUTxO = depositedUtxo
+                    }
+          s6 <- runHeadLogic aliceEnv' ledger s5 $ do
+            step recoverInput
+            getState
+
+          -- Verify that deposit was removed from pendingDeposits after recover (fix for the bug)
+          case headState s6 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Nothing
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          Map.lookup depositTxId s6.pendingDeposits `shouldBe` Nothing
+
+          -- Step 7: New transaction arrives, leader creates new ReqSn
+          let newTx = aValidTx 1
+          let reqTxInput = receiveMessage $ ReqTx newTx
+
+          let outcome = update aliceEnv' ledger now s6 reqTxInput
+
+          -- The ReqSn emitted by the leader does not reference the recovered deposit
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId = reqDepositTxId} ->
+              isNothing reqDepositTxId
+            _ -> False
+
+          -- Step 8: When node processes this ReqSn, it will wait forever
+          s7 <- runHeadLogic aliceEnv' ledger s6 $ do
+            step reqTxInput
+            getState
+
+          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
+          let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
+          -- Fix bug: Error out instead of waiting for deposit to be observed forever
+          reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
+
+        it "re-posts IncrementTx on chain rollback when deposit is pending" $ do
+          -- After a snapshot is confirmed with a deposit (CommitApproved + IncrementTx posted),
+          -- if a chain rollback occurs, the node should re-post the IncrementTx because
+          -- the rollback may have erased the original on-chain observation.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , contestationPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+          let depositTime = plusTime now
+              deadline = depositTime 600
+              depositTxId = 42 :: Integer
+              depositedUtxo = utxoRef depositTxId
+              deposit =
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId
+                  , deposited = depositedUtxo
+                  , created = depositTime 1
+                  , deadline
+                  }
+
+          -- Observe deposit, activate it via tick, process ReqSn and AckSn
+          -- to reach a state where CommitApproved happened and IncrementTx was posted
+          s1 <- runHeadLogic aliceEnv' ledger (inOpenState singleParty) $ do
+            step (observeTxAtSlot 1 deposit)
+            getState
+
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+              tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step tickInput
+            getState
+
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step reqSnWithDeposit
+            getState
+
+          let snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUtxo
+                  , utxoToDecommit = Nothing
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+          s4 <- runHeadLogic aliceEnv' ledger s3 $ do
+            step ackSn
+            getState
+
+          -- Verify we are in the expected state: currentDepositTxId set, snapshot confirmed
+          case headState s4 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId, confirmedSnapshot}} -> do
+              currentDepositTxId `shouldBe` Just depositTxId
+              case confirmedSnapshot of
+                ConfirmedSnapshot{snapshot = Snapshot{number}} -> number `shouldBe` 1
+                _ -> expectationFailure "Expected ConfirmedSnapshot"
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Chain rollback should re-post the IncrementTx
+          let rollbackInput = ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now}
+          let rollbackOutcome = update aliceEnv' ledger now s4 rollbackInput
+
+          rollbackOutcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx} ->
+              case postChainTx of
+                IncrementTx{} -> True
+                _ -> False
+            _ -> False
+
+        it "re-posts DecrementTx on chain rollback when decommit is pending" $ do
+          -- After a snapshot is confirmed with a decommit (DecommitApproved + DecrementTx posted),
+          -- if a chain rollback occurs, the node should re-post the DecrementTx because
+          -- the rollback may have erased the original on-chain observation.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , contestationPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+
+          -- Start with localUTxO containing utxoRef 1, so we can decommit from it.
+          -- The confirmedSnapshot must also contain this UTxO since ReqSn applies
+          -- the decommit tx against the confirmed snapshot's UTxO.
+          let initialUtxo = utxoRefs [1]
+              decommitTx' = SimpleTx 10 (utxoRef 1) (utxoRef 3)
+              s0 =
+                inOpenState' singleParty $
+                  coordinatedHeadState
+                    { localUTxO = initialUtxo
+                    , confirmedSnapshot = InitialSnapshot testHeadId initialUtxo
+                    }
+
+          -- Step 1: Submit decommit request
+          s1 <- runHeadLogic aliceEnv' ledger s0 $ do
+            step $ receiveMessage ReqDec{transaction = decommitTx'}
+            getState
+
+          -- Verify decommitTx is recorded
+          case headState s1 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}} ->
+              decommitTx `shouldBe` Just decommitTx'
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 2: Process ReqSn with the decommit tx
+          let reqSnWithDecommit = receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step reqSnWithDecommit
+            getState
+
+          -- Step 3: AckSn from alice → SnapshotConfirmed + DecommitApproved + DecrementTx posted
+          -- The snapshot after applying decommit:
+          --   confirmedUTxO = initialUtxo = {1}
+          --   applyTransactions {1} [SimpleTx 10 {1} {3}] = {3}
+          --   utxoToDecommit = utxoFromTx decommitTx' = txOutputs = {3}
+          --   activeUTxO = {3} \ {3} = {}
+          let snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty -- activeUTxO after decommit
+                  , utxoToCommit = Nothing
+                  , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step ackSn
+            getState
+
+          -- Verify SnapshotConfirmed happened and decommitTx is still set
+          case headState s3 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx, confirmedSnapshot}} -> do
+              decommitTx `shouldBe` Just decommitTx'
+              case confirmedSnapshot of
+                ConfirmedSnapshot{snapshot = Snapshot{number, utxoToDecommit}} -> do
+                  number `shouldBe` 1
+                  utxoToDecommit `shouldBe` Just (utxoRef 3)
+                _ -> expectationFailure "Expected ConfirmedSnapshot"
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Step 4: Chain rollback should re-post the DecrementTx
+          let rollbackInput = ChainInput Rollback{rolledBackChainState = SimpleChainState 0, chainTime = now}
+          let rollbackOutcome = update aliceEnv' ledger now s3 rollbackInput
+
+          rollbackOutcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx} ->
+              case postChainTx of
+                DecrementTx{} -> True
+                _ -> False
+            _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties

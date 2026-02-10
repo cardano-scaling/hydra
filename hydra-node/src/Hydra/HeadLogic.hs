@@ -293,10 +293,11 @@ onOpenNetworkReqTx ::
   ChainSlot ->
   OpenState tx ->
   TTL ->
+  PendingDeposits tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger currentSlot st ttl tx =
+onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
@@ -334,7 +335,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx currentDepositTxId)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
       else outcome
 
   Environment{party} = env
@@ -484,10 +485,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
     case mDepositTxId of
       Nothing -> cont (activeUTxOAfterDecommit, Nothing)
       Just depositTxId ->
-        -- XXX: We may need to wait quite long here and this makes losing
-        -- the 'ReqSn' due to a restart (fail-recovery) quite likely
         case Map.lookup depositTxId pendingDeposits of
-          Nothing -> wait WaitOnDepositObserved{depositTxId}
+          Nothing ->
+            -- Error out in case we receive a ReqSn that doesn't match local deposit
+            Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
@@ -686,7 +687,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx currentDepositTxId)
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -1066,6 +1067,58 @@ onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
  where
   OpenState{headId} = openState
 
+-- | On rollback, re-post the IncrementTx if there is a pending deposit whose
+-- confirmed snapshot contains a matching utxoToCommit. The rollback may have
+-- erased the original on-chain IncrementTx observation.
+maybeRepostIncrementTx ::
+  IsTx tx =>
+  HeadId ->
+  HeadParameters ->
+  PendingDeposits tx ->
+  Maybe (TxIdType tx) ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+maybeRepostIncrementTx headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
+  case (mDepositTxId, confirmedSnapshot) of
+    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit}, signatures}) ->
+      case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
+        Just (_, Deposit{}) ->
+          cause
+            OnChainEffect
+              { postChainTx =
+                  IncrementTx
+                    { headId
+                    , headParameters = parameters
+                    , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                    , depositTxId
+                    }
+              }
+        _ -> noop
+    _ -> noop
+
+-- | On rollback, re-post the DecrementTx if there is a pending decommit whose
+-- confirmed snapshot contains a matching utxoToDecommit. The rollback may have
+-- erased the original on-chain DecrementTx observation.
+maybeRepostDecrementTx ::
+  HeadId ->
+  HeadParameters ->
+  Maybe tx ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+maybeRepostDecrementTx headId parameters mDecommitTx confirmedSnapshot =
+  case (mDecommitTx, confirmedSnapshot) of
+    (Just _, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToDecommit = Just _}, signatures}) ->
+      cause
+        OnChainEffect
+          { postChainTx =
+              DecrementTx
+                { headId
+                , headParameters = parameters
+                , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                }
+          }
+    _ -> noop
+
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
@@ -1352,6 +1405,26 @@ handleOutOfSync Environment{unsyncedPeriod} now chainTime syncStatus
  where
   plus = flip addUTCTime
 
+-- | Validate whether a current deposit in the local state actually exists
+--   in the map of pending deposits.
+--
+--   * If 'currentDeposit' is 'Nothing', returns 'Nothing'.
+--   * If 'currentDeposit' is @'Just' txId@ and @txId@ is present in 'pendingDeposits',
+--     returns the original 'currentDeposit'.
+--   * Otherwise, returns 'Nothing'.
+--
+--   This is typically used to confirm that a local deposit that is to be
+--   requested in 'ReqSn' is indeed still pending and has not been processed or
+--   removed.
+setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
+setExistingDeposit pendingDeposits currentDeposit = do
+  case currentDeposit of
+    Nothing -> Nothing
+    Just depositTxId ->
+      case Map.lookup depositTxId pendingDeposits of
+        Nothing -> Nothing
+        Just _ -> currentDeposit
+
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
 -- 'aggregate' the events, resulting in a new 'HeadState'.
@@ -1500,6 +1573,24 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
     newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
   (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState}) ->
     newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+  -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
+  ( Open
+      OpenState
+        { headId
+        , parameters
+        , coordinatedHeadState =
+          CoordinatedHeadState
+            { currentDepositTxId
+            , confirmedSnapshot
+            , decommitTx
+            }
+        }
+    , ChainInput Rollback{rolledBackChainState, chainTime}
+    ) ->
+      newState ChainRolledBack{chainState = rolledBackChainState}
+        <> handleOutOfSync env now chainTime syncStatus
+        <> maybeRepostIncrementTx headId parameters pendingDeposits currentDepositTxId confirmedSnapshot
+        <> maybeRepostDecrementTx headId parameters decommitTx confirmedSnapshot
   -- General
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
@@ -1531,7 +1622,7 @@ handleNetworkInput env ledger _now currentSlot pendingDeposits st ev = case (st,
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger currentSlot openState ttl tx
+    onOpenNetworkReqTx env ledger currentSlot openState ttl pendingDeposits tx
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
@@ -1626,13 +1717,33 @@ aggregateNodeState nodeState sc =
         DepositExpired{depositTxId, deposit} ->
           nodeState
             { headState = st
-            , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
+            , -- NB: We keep expired deposits in a map since we actually need it when Recovering.
+              -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
+              pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
             }
         DepositRecovered{depositTxId} ->
-          nodeState
-            { headState = st
-            , pendingDeposits = Map.delete depositTxId currentPendingDeposits
-            }
+          case st of
+            Open
+              os@OpenState{coordinatedHeadState} ->
+                nodeState
+                  { headState =
+                      Open
+                        os
+                          { coordinatedHeadState =
+                              coordinatedHeadState
+                                { currentDepositTxId =
+                                    if coordinatedHeadState.currentDepositTxId == Just depositTxId
+                                      then Nothing
+                                      else coordinatedHeadState.currentDepositTxId
+                                }
+                          }
+                  , pendingDeposits = Map.delete depositTxId currentPendingDeposits
+                  }
+            _otherState ->
+              nodeState
+                { headState = st
+                , pendingDeposits = Map.delete depositTxId currentPendingDeposits
+                }
         CommitFinalized{chainState, newVersion, depositTxId} ->
           case st of
             Open
@@ -1858,6 +1969,8 @@ aggregate st = \case
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
+                      , decommitTx = Nothing
+                      , currentDepositTxId = Nothing
                       }
             }
       _otherState -> st
