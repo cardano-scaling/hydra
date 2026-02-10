@@ -660,27 +660,24 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
  where
   minted = txInfoMint txInfo
 
-  -- Serialize each output ONCE; reuse for hash checks and scalar computation.
   totalOutputs = numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
-  allSerialized = fmap (Builtins.serialiseData . toBuiltinData) (L.take totalOutputs txInfoOutputs)
 
-  -- Helper: SHA2-256 over a list of pre-serialized output bytes.
-  hashSerialized :: [BuiltinByteString] -> BuiltinByteString
-  hashSerialized = sha2_256 . F.foldMap id
-
+  -- Hash checks use hashTxOuts which streams via foldMap (no intermediate list retained).
+  -- Avoiding a shared allSerialized list prevents retaining all serialized ByteStrings
+  -- in memory simultaneously, which would blow the memory budget for larger UTxO sets.
   hasSameUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
-      hashSerialized (L.take numberOfFanoutOutputs allSerialized) == utxoHash
+      hashTxOuts (L.take numberOfFanoutOutputs txInfoOutputs) == utxoHash
 
   hasSameCommitUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOToCommitHashMismatch) $
       alphaUTxOHash
-        == hashSerialized (L.take numberOfCommitOutputs (L.drop numberOfFanoutOutputs allSerialized))
+        == hashTxOuts (L.take numberOfCommitOutputs (L.drop numberOfFanoutOutputs txInfoOutputs))
 
   hasSameDecommitUTxOHash =
     traceIfFalse $(errorCode FanoutUTxOToDecommitHashMismatch) $
       omegaUTxOHash
-        == hashSerialized (L.take numberOfDecommitOutputs (L.drop (numberOfFanoutOutputs + numberOfCommitOutputs) allSerialized))
+        == hashTxOuts (L.take numberOfDecommitOutputs (L.drop (numberOfFanoutOutputs + numberOfCommitOutputs) txInfoOutputs))
 
   -- Accumulator scalars: blake2b_224 of sha2_256 per output.
   -- NOTE: The haskell-accumulator library internally applies Blake2b_224 on
@@ -689,7 +686,8 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
   -- blake2b_224(sha2_256(serialised)), which we must match here.
   subsetScalars :: [Scalar]
   subsetScalars =
-    fmap (mkScalar . Builtins.byteStringToInteger BigEndian . blake2b_224 . sha2_256) allSerialized
+    let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
+     in fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) (L.take totalOutputs txInfoOutputs)
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, proof, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
