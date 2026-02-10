@@ -330,16 +330,12 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   maybeRequestSnapshot nextSn outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
       then
-        let existingDeposit = do
-              depositTxId <- currentDepositTxId
-              _ <- Map.lookup depositTxId pendingDeposits
-              currentDepositTxId
-         in outcome
-              -- XXX: This state update has no equivalence in the
-              -- spec. Do we really need to store that we have
-              -- requested a snapshot? If yes, should update spec.
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx existingDeposit)
+        outcome
+          -- XXX: This state update has no equivalence in the
+          -- spec. Do we really need to store that we have
+          -- requested a snapshot? If yes, should update spec.
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
       else outcome
 
   Environment{party} = env
@@ -689,13 +685,9 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     let nextSn = previous.number + 1
     if isLeader parameters party nextSn && not (null localTxs)
       then
-        let existingDeposit = do
-              depositTxId <- currentDepositTxId
-              _ <- Map.lookup depositTxId pendingDeposits
-              currentDepositTxId
-         in outcome
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx existingDeposit)
+        outcome
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -1412,6 +1404,26 @@ handleOutOfSync Environment{unsyncedPeriod} now chainTime syncStatus
         CatchingUp -> newState NodeSynced
  where
   plus = flip addUTCTime
+
+-- | Validate whether a current deposit in the local state actually exists
+--   in the map of pending deposits.
+--
+--   * If 'currentDeposit' is 'Nothing', returns 'Nothing'.
+--   * If 'currentDeposit' is @'Just' txId@ and @txId@ is present in 'pendingDeposits',
+--     returns the original 'currentDeposit'.
+--   * Otherwise, returns 'Nothing'.
+--
+--   This is typically used to confirm that a local deposit that is to be
+--   requested in 'ReqSn' is indeed still pending and has not been processed or
+--   removed.
+setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
+setExistingDeposit pendingDeposits currentDeposit = do
+  case currentDeposit of
+    Nothing -> Nothing
+    Just depositTxId ->
+      case Map.lookup depositTxId pendingDeposits of
+        Nothing -> Nothing
+        Just _ -> currentDeposit
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
