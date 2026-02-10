@@ -8,11 +8,6 @@ import Hydra.Tx.Crypto
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Crypto.DSIGN (SigDSIGN (SigEd25519DSIGN))
-import Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
-import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as Char8
-import Data.Map qualified as Map
 import Hydra.Tx.Party (Party (vkey), deriveParty)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Gen ()
@@ -29,6 +24,11 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Instances.UnorderedContainers ()
 import Test.Util (propCollisionResistant)
+import "bytestring" Data.ByteString qualified as BS
+import "bytestring" Data.ByteString.Char8 qualified as Char8
+import "cardano-crypto-class" Cardano.Crypto.DSIGN (SigDSIGN (SigEd25519DSIGN))
+import "cardano-crypto-class" Cardano.Crypto.PinnedSizedBytes (psbFromByteString)
+import "containers" Data.Map qualified as Map
 
 spec :: Spec
 spec = do

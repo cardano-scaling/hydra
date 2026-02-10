@@ -3,7 +3,6 @@ module Hydra.Tx.Decrement where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
@@ -18,7 +17,8 @@ import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V3 (toBuiltin)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
 

@@ -6,7 +6,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Data.Maybe (fromJust)
+import "base" Data.Maybe (fromJust)
 
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))

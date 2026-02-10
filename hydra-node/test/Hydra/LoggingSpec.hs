@@ -3,9 +3,9 @@ module Hydra.LoggingSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson (object, (.=))
 import Hydra.Logging (traceWith, withTracerOutputTo)
-import System.IO.Silently (capture_)
+import "aeson" Data.Aeson (object, (.=))
+import "silently" System.IO.Silently (capture_)
 
 spec :: Spec
 spec = do

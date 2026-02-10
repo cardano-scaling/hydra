@@ -3,15 +3,15 @@ module Test.Hydra.Cluster.MithrilSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (readTVarIO)
-import Control.Lens ((^?))
-import Data.Aeson.Lens (key)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Cluster.Mithril (MithrilLog (..), downloadLatestSnapshotTo)
 import Hydra.Logging (Envelope (..), Tracer, traceInTVar)
-import System.Directory (doesDirectoryExist)
-import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (forEachKnownNetwork)
+import "directory" System.Directory (doesDirectoryExist)
+import "filepath" System.FilePath ((</>))
+import "io-classes" Control.Concurrent.Class.MonadSTM (readTVarIO)
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key)
 
 spec :: Spec
 spec = parallel $ do

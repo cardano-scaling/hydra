@@ -21,10 +21,10 @@ import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Sce
 import Hydra.Cluster.Scenarios (EndToEndLog (..), respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
-import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
-import System.Directory (removeDirectoryRecursive)
-import System.FilePath ((</>))
 import Test.Hydra.Prelude (withTempDir)
+import "directory" System.Directory (removeDirectoryRecursive)
+import "filepath" System.FilePath ((</>))
+import "optparse-applicative" Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 
 main :: IO ()
 main =

@@ -5,8 +5,6 @@ module Hydra.OptionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Lens ((.~))
-import Data.Generics.Labels ()
 import Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
@@ -46,7 +44,9 @@ import Hydra.Options (
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Options ()
 import Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
-import Text.Regex.TDFA ((=~))
+import "generic-lens" Data.Generics.Labels ()
+import "lens" Control.Lens ((.~))
+import "regex-tdfa" Text.Regex.TDFA ((=~))
 
 spec :: Spec
 spec = parallel $

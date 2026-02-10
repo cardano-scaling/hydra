@@ -7,8 +7,6 @@ import Test.Hydra.Prelude
 -- IsChainState tx instance to serialize 'StateEvent Tx'
 import Hydra.Chain.Direct.State ()
 
-import Conduit (runConduitRes, sinkList, (.|))
-import Data.List (zipWith3)
 import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
 import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..))
@@ -29,6 +27,8 @@ import Test.Hydra.HeadLogic.StateEvent ()
 import Test.Hydra.Ledger.Simple ()
 import Test.QuickCheck (forAllShrink, ioProperty, sublistOf, (===))
 import Test.QuickCheck.Gen (listOf)
+import "base" Data.List (zipWith3)
+import "conduit" Conduit (runConduitRes, sinkList, (.|))
 
 spec :: Spec
 spec = do

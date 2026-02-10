@@ -4,17 +4,6 @@ module Hydra.Blockfrost.ChainObserver where
 
 import Hydra.Prelude
 
-import Blockfrost.Client (
-  BlockfrostClientT,
-  runBlockfrost,
- )
-import Blockfrost.Client qualified as Blockfrost
-import Control.Concurrent.Class.MonadSTM (
-  MonadSTM (readTVarIO),
-  writeTVar,
- )
-import Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
-import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (
   ChainPoint (..),
   HasTypeProxy (..),
@@ -41,6 +30,17 @@ import Hydra.ChainObserver.NodeClient (
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx (IsTx (..))
 import Hydra.Tx.Observe (HeadObservation (..))
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "blockfrost-client" Blockfrost.Client (
+  BlockfrostClientT,
+  runBlockfrost,
+ )
+import "blockfrost-client" Blockfrost.Client qualified as Blockfrost
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  MonadSTM (readTVarIO),
+  writeTVar,
+ )
+import "retry" Control.Retry (RetryPolicyM, RetryStatus, constantDelay, retrying)
 
 data APIBlockfrostError
   = BlockfrostError Text

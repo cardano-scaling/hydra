@@ -9,15 +9,7 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
-import Control.Lens ((^?))
-import Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _JSON, _String)
-import Data.ByteString (hGetLine)
-import Data.List qualified as List
-import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct (DirectBackend (..))
@@ -28,11 +20,19 @@ import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (DirectOptions (..))
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
-import System.IO.Error (isEOFError, isIllegalOperation)
-import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
+import "aeson" Data.Aeson as Aeson
+import "base" Data.List qualified as List
+import "base" System.IO.Error (isEOFError, isIllegalOperation)
+import "bytestring" Data.ByteString (hGetLine)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, _JSON, _String)
+import "process" System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
+import "text" Data.Text qualified as T
 
 spec :: Spec
 spec = do

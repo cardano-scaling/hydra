@@ -12,13 +12,6 @@ module Test.Hydra.Tx.Fixture (
 import Hydra.Cardano.Api.Gen
 import Hydra.Prelude
 
-import Cardano.Ledger.Alonzo.Core (ppPricesL)
-import Cardano.Ledger.Alonzo.Scripts (Prices (..))
-import Cardano.Ledger.BaseTypes (BoundedRational (..))
-import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
-import Control.Lens ((.~))
-import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   LedgerEra,
   NetworkId (Testnet),
@@ -39,6 +32,13 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
 import Test.Hydra.Prelude
+import "base" Data.Maybe (fromJust)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Core (ppPricesL)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (Prices (..))
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (BoundedRational (..))
+import "cardano-ledger-core" Cardano.Ledger.Coin (Coin (..))
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
+import "lens" Control.Lens ((.~))
 
 -- | Our beloved alice, bob, and carol.
 alice, bob, carol :: Party

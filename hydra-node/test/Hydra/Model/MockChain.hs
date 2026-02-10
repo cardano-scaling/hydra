@@ -7,22 +7,6 @@ import Hydra.Cardano.Api hiding (Network)
 import Hydra.Prelude hiding (Any, label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Control.Concurrent.Class.MonadSTM (
-  MonadSTM (writeTVar),
-  modifyTVar,
-  readTVarIO,
-  throwSTM,
-  tryReadTQueue,
-  writeTQueue,
-  writeTVar,
- )
-import Control.Monad.Class.MonadAsync (link)
-import Data.Sequence (Seq (Empty, (:|>)))
-import Data.Sequence qualified as Seq
-import Data.Time (secondsToNominalDiffTime)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import GHC.IO.Exception (userError)
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
@@ -85,6 +69,22 @@ import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
 import Test.QuickCheck.Hedgehog (hedgehog)
+import "base" GHC.IO.Exception (userError)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Sequence (Seq (Empty, (:|>)))
+import "containers" Data.Sequence qualified as Seq
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  MonadSTM (writeTVar),
+  modifyTVar,
+  readTVarIO,
+  throwSTM,
+  tryReadTQueue,
+  writeTQueue,
+  writeTVar,
+ )
+import "io-classes" Control.Monad.Class.MonadAsync (link)
+import "time" Data.Time (secondsToNominalDiffTime)
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on

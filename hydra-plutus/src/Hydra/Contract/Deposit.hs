@@ -9,17 +9,17 @@
 -- | The validator used to deposit and recover locked funds
 module Hydra.Contract.Deposit where
 
-import PlutusTx.Prelude
+import "plutus-tx" PlutusTx.Prelude
 
 import Hydra.Contract.Commit (Commit)
-import PlutusLedgerApi.V3 (
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (Datum),
   POSIXTime,
   Redeemer (Redeemer),
  )
-import PlutusLedgerApi.V3 qualified as PlutusV3
-import PlutusTx qualified
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as PlutusV3
+import "plutus-tx" PlutusTx qualified
 
 data DepositRedeemer
   = -- | Claims already deposited funds.

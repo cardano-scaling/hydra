@@ -7,36 +7,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
-import Cardano.Ledger.Api (
-  ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
-  IsValid (..),
-  Metadatum,
-  TxAuxData,
-  auxDataHashTxBodyL,
-  auxDataTxL,
-  bodyTxL,
-  hashTxAuxData,
-  inputsTxBodyL,
-  isValidTxL,
-  outputsTxBodyL,
-  ppProtocolVersionL,
-  rdmrsTxWitsL,
-  referenceInputsTxBodyL,
-  reqSignerHashesTxBodyL,
-  unRedeemers,
-  validateTxAuxData,
-  vldtTxBodyL,
-  witsTxL,
-  pattern ShelleyTxAuxData,
- )
-import Cardano.Ledger.Api qualified as Ledger
-import Cardano.Ledger.Credential (Credential (..))
-import Control.Lens ((.~), (^.))
-import Data.Map qualified as Map
-import Data.Maybe.Strict (StrictMaybe (..))
-import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
 import Hydra.Chain.Direct.State qualified as Transition
@@ -81,6 +51,36 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances.Semigroup ()
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
+import "cardano-ledger-api" Cardano.Ledger.Api (
+  ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
+  IsValid (..),
+  Metadatum,
+  TxAuxData,
+  auxDataHashTxBodyL,
+  auxDataTxL,
+  bodyTxL,
+  hashTxAuxData,
+  inputsTxBodyL,
+  isValidTxL,
+  outputsTxBodyL,
+  ppProtocolVersionL,
+  rdmrsTxWitsL,
+  referenceInputsTxBodyL,
+  reqSignerHashesTxBodyL,
+  unRedeemers,
+  validateTxAuxData,
+  vldtTxBodyL,
+  witsTxL,
+  pattern ShelleyTxAuxData,
+ )
+import "cardano-ledger-api" Cardano.Ledger.Api qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (..))
+import "cardano-strict-containers" Data.Maybe.Strict (StrictMaybe (..))
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "lens" Control.Lens ((.~), (^.))
 
 spec :: Spec
 spec =

@@ -1,9 +1,5 @@
 module Hydra.Network.AuthenticateSpec where
 
-import Cardano.Crypto.Util (SignableRepresentation)
-import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar')
-import Control.Monad.IOSim (runSimOrThrow)
-import Data.ByteString (pack)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (message), nullTracer, traceInTVar)
 import Hydra.Network (Network (..), NetworkCallback (..))
@@ -19,6 +15,10 @@ import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.QuickCheck (listOf)
 import Test.QuickCheck.Gen (generate)
 import Test.Util (noopCallback)
+import "bytestring" Data.ByteString (pack)
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation)
+import "io-classes" Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar')
+import "io-sim" Control.Monad.IOSim (runSimOrThrow)
 
 spec :: Spec
 spec = parallel $ do

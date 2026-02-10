@@ -3,7 +3,7 @@ module Hydra.Node.InputQueue where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (
+import "io-classes" Control.Concurrent.Class.MonadSTM (
   isEmptyTBQueue,
   modifyTVar',
   readTBQueue,

@@ -12,15 +12,6 @@ module Hydra.HeadLogicSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
-import Cardano.Slotting.Time (SystemStart (SystemStart))
-import Control.Lens ((.~))
-import Control.Monad (foldM)
-import Data.List qualified as List
-import Data.Map (notMember)
-import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
@@ -73,6 +64,15 @@ import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
+import "base" Control.Monad (foldM)
+import "base" Data.List qualified as List
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
+import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart))
+import "containers" Data.Map (notMember)
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "lens" Control.Lens ((.~))
 
 spec :: Spec
 spec =

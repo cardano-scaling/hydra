@@ -2,10 +2,6 @@ module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
 
-import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
-import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
-import Cardano.Slotting.Time (mkSlotLength)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (
@@ -62,7 +58,11 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
-import System.FilePath ((</>))
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
+import "cardano-slotting" Cardano.Slotting.EpochInfo (fixedEpochInfo)
+import "cardano-slotting" Cardano.Slotting.Time (mkSlotLength)
+import "filepath" System.FilePath ((</>))
 
 data ConfigurationException
   = -- XXX: this is not used

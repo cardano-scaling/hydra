@@ -4,10 +4,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Fixed (Milli)
-import Data.List qualified as List
-import Data.Time.Clock.POSIX qualified as POSIX
 import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.Deposit (DepositRedeemer (Recover))
 import Hydra.Contract.DepositError (DepositError (..))
@@ -17,7 +13,6 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Recover (recoverTx)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
 import Test.Hydra.Tx.Mutation (
@@ -26,6 +21,11 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
  )
 import Test.QuickCheck (elements, oneof, suchThat)
+import "base" Data.Fixed (Milli)
+import "base" Data.List qualified as List
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
+import "time" Data.Time.Clock.POSIX qualified as POSIX
 
 healthyRecoverTx :: (Tx, UTxO)
 healthyRecoverTx =

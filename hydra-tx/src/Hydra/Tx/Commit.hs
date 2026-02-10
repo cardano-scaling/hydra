@@ -3,10 +3,18 @@ module Hydra.Tx.Commit where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Core (AlonzoEraTxBody, AlonzoEraTxWits, AsIxItem (..))
-import Cardano.Ledger.Alonzo.Scripts (PlutusPurpose)
-import Cardano.Ledger.Api (
+import Hydra.Contract.Commit qualified as Commit
+import Hydra.Contract.Initial qualified as Initial
+import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.Party (Party, partyFromChain, partyToChain)
+import Hydra.Tx.ScriptRegistry (ScriptRegistry, initialReference)
+import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Core (AlonzoEraTxBody, AlonzoEraTxWits, AsIxItem (..))
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (PlutusPurpose)
+import "cardano-ledger-api" Cardano.Ledger.Api (
   AsIx (..),
   ConwayPlutusPurpose (..),
   Redeemers (..),
@@ -21,25 +29,17 @@ import Cardano.Ledger.Api (
   unRedeemers,
   witsTxL,
  )
-import Cardano.Ledger.BaseTypes (StrictMaybe (..))
-import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Plutus.Data (Data)
-import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
-import Cardano.Ledger.TxIn qualified as Ledger
-import Control.Lens ((.~), (<>~), (^.))
-import Data.Map qualified as Map
-import Data.Sequence.Strict qualified as StrictSeq
-import Data.Set qualified as Set
-import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, mkHeadId)
-import Hydra.Tx.Party (Party, partyFromChain, partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, initialReference)
-import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V3 (CurrencySymbol)
-import PlutusLedgerApi.V3 qualified as Plutus
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (StrictMaybe (..))
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Data (Data)
+import "cardano-ledger-core" Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
+import "cardano-ledger-core" Cardano.Ledger.TxIn qualified as Ledger
+import "cardano-strict-containers" Data.Sequence.Strict qualified as StrictSeq
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "lens" Control.Lens ((.~), (<>~), (^.))
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Construction
 

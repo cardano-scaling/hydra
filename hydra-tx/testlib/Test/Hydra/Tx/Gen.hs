@@ -7,20 +7,6 @@ import Hydra.Cardano.Api hiding (generateSigningKey)
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Crypto.DSIGN qualified as CC
-import Cardano.Crypto.Hash (hashToBytes)
-import Cardano.Crypto.Util (SignableRepresentation)
-import Cardano.Ledger.Api (ensureMinCoinTxOut, setMinCoinTxOut)
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Credential qualified as Ledger
-import Cardano.Ledger.Mary.Value (MaryValue (..))
-import Codec.CBOR.Magic (uintegerFromBytes)
-import Data.ByteString qualified as BS
-import Data.List (nub)
-import Data.Map.Strict qualified as Map
-import Data.Maybe (fromJust)
-import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
@@ -40,6 +26,20 @@ import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 import Test.QuickCheck.Gen (chooseWord64)
+import "base" Data.List (nub)
+import "base" Data.Maybe (fromJust)
+import "base" GHC.IsList (IsList (..))
+import "bytestring" Data.ByteString qualified as BS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-crypto-class" Cardano.Crypto.DSIGN qualified as CC
+import "cardano-crypto-class" Cardano.Crypto.Hash (hashToBytes)
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation)
+import "cardano-ledger-api" Cardano.Ledger.Api (ensureMinCoinTxOut, setMinCoinTxOut)
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Credential qualified as Ledger
+import "cardano-ledger-mary" Cardano.Ledger.Mary.Value (MaryValue (..))
+import "cborg" Codec.CBOR.Magic (uintegerFromBytes)
+import "containers" Data.Map.Strict qualified as Map
 
 -- * TxOut
 

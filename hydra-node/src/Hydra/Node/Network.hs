@@ -44,12 +44,12 @@ module Hydra.Node.Network (
 
 import Hydra.Prelude hiding (fromList, replicate)
 
-import Control.Tracer (Tracer)
 import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
 import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
 import Hydra.Network.Message (Message)
 import Hydra.Tx (IsTx)
+import "contra-tracer" Control.Tracer (Tracer)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::

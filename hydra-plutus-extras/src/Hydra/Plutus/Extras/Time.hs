@@ -5,11 +5,11 @@ module Hydra.Plutus.Extras.Time where
 
 import Hydra.Prelude
 
-import Data.Fixed (Pico)
-import Data.Ratio ((%))
-import Data.Time (nominalDiffTimeToSeconds)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import PlutusLedgerApi.V1.Time qualified as Plutus
+import "base" Data.Fixed (Pico)
+import "base" Data.Ratio ((%))
+import "plutus-ledger-api" PlutusLedgerApi.V1.Time qualified as Plutus
+import "time" Data.Time (nominalDiffTimeToSeconds)
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 
 -- | Convert given on-chain 'POSIXTime' to a 'UTCTime'.
 posixToUTCTime :: Plutus.POSIXTime -> UTCTime

@@ -6,12 +6,12 @@ module Hydra.Network.EtcdBinary where
 
 import Hydra.Prelude
 
-import Data.Bits ((.|.))
 import Hydra.Network (WhichEtcd (..))
 import Hydra.Node.EmbedTH (embedExecutable)
-import System.Directory (createDirectoryIfMissing)
-import System.FilePath (takeDirectory, (</>))
-import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
+import "base" Data.Bits ((.|.))
+import "directory" System.Directory (createDirectoryIfMissing)
+import "filepath" System.FilePath (takeDirectory, (</>))
+import "unix" System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 
 -- | Return the path of the etcd binary. Will either install it first, or just
 -- assume there is one available on the system path.

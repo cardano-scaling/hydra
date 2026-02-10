@@ -5,22 +5,22 @@
 -- validator implemented in aiken.
 module Hydra.Contract.Commit where
 
-import PlutusTx.Prelude
+import "plutus-tx" PlutusTx.Prelude
 
-import Codec.Serialise (deserialiseOrFail, serialise)
-import Data.ByteString.Lazy (fromStrict, toStrict)
 import Hydra.Cardano.Api (CtxUTxO, Network, fromPlutusTxOut, fromPlutusTxOutRef, toPlutusTxOut, toPlutusTxOutRef)
 import Hydra.Cardano.Api qualified as OffChain
 import Hydra.Data.Party (Party)
-import PlutusLedgerApi.V3 (
+import "bytestring" Data.ByteString.Lazy (fromStrict, toStrict)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
   TxOutRef,
  )
-import PlutusTx (fromData, toData)
-import PlutusTx qualified
-import Prelude qualified as Haskell
+import "plutus-tx" PlutusTx (fromData, toData)
+import "plutus-tx" PlutusTx qualified
+import "serialise" Codec.Serialise (deserialiseOrFail, serialise)
+import "base" Prelude qualified as Haskell
 
 -- | A data type representing committed outputs on-chain. Besides recording the
 -- original 'TxOutRef', it also stores a binary representation compatible

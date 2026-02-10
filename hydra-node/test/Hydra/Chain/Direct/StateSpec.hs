@@ -7,10 +7,6 @@ module Hydra.Chain.Direct.StateSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Binary (serialize)
-import Data.ByteString.Lazy qualified as LBS
-import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   NetworkId (Mainnet),
   SlotNo,
@@ -100,7 +96,6 @@ import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
-import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Chain.Direct.State (
   genChainStateWithTx,
@@ -152,7 +147,12 @@ import Test.QuickCheck (
   (==>),
  )
 import Test.QuickCheck.Monadic (assert, assertWith, monadicIO, monadicST, monitor, pick)
-import Prelude qualified
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-binary" Cardano.Binary (serialize)
+import "containers" Data.Set qualified as Set
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
+import "base" Prelude qualified
 
 spec :: Spec
 spec = parallel $ do

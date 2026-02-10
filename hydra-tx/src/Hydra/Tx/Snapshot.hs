@@ -5,16 +5,16 @@ module Hydra.Tx.Snapshot where
 
 import Hydra.Prelude
 
-import Cardano.Crypto.Util (SignableRepresentation (..))
-import Codec.Serialise (serialise)
-import Data.Aeson (object, withObject, (.:), (.:?), (.=))
-import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
-import PlutusLedgerApi.V3 (toBuiltin, toData)
+import "aeson" Data.Aeson (object, withObject, (.:), (.:?), (.=))
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation (..))
+import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin, toData)
+import "serialise" Codec.Serialise (serialise)
 
 -- * SnapshotNumber and SnapshotVersion
 

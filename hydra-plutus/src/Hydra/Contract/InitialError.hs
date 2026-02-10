@@ -4,7 +4,7 @@ module Hydra.Contract.InitialError (
 ) where
 
 import Hydra.Contract.Error (ToErrorCode (..), errorCode)
-import Text.Show (Show)
+import "base" Text.Show (Show)
 
 data InitialError
   = STNotBurned

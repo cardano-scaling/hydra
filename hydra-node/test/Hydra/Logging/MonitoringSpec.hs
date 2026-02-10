@@ -3,7 +3,7 @@ module Hydra.Logging.MonitoringSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Text qualified as Text
+import "text" Data.Text qualified as Text
 
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
@@ -16,9 +16,10 @@ import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (..))
 
 -- import Network.Socket (PortNumber(PortNumber))
-import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
+
 import Test.Hydra.Tx.Fixture (alice, testHeadId)
 import Test.Network.Ports (randomUnusedTCPPorts)
+import "req" Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 
 spec :: Spec
 spec =

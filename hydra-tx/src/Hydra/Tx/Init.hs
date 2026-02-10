@@ -3,7 +3,6 @@ module Hydra.Tx.Init where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
-import GHC.IsList (toList)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -17,7 +16,8 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
-import PlutusLedgerApi.Common (FromData)
+import "base" GHC.IsList (toList)
+import "plutus-ledger-api" PlutusLedgerApi.Common (FromData)
 
 -- * Construction
 

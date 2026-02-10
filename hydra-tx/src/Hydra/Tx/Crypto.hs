@@ -26,7 +26,27 @@ module Hydra.Tx.Crypto (
 
 import Hydra.Prelude hiding (Key, show)
 
-import Cardano.Crypto.DSIGN (
+import Hydra.Cardano.Api (
+  AsType (..),
+  BlockHeader,
+  HasTextEnvelope (..),
+  HasTypeProxy (..),
+  Hash,
+  Key (..),
+  ScriptData (..),
+  SerialiseAsCBOR,
+  SerialiseAsRawBytes (..),
+  SerialiseAsRawBytesError (..),
+  TxId (..),
+  UsingRawBytesHex (..),
+  serialiseToRawBytesHexText,
+ )
+import Hydra.Contract.HeadState qualified as OnChain
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Text.Show (Show (..))
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "cardano-crypto-class" Cardano.Crypto.DSIGN (
   ContextDSIGN,
   Ed25519DSIGN,
   SigDSIGN,
@@ -46,33 +66,13 @@ import Cardano.Crypto.DSIGN (
   signDSIGN,
   verifyDSIGN,
  )
-import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
-import Cardano.Crypto.Hash qualified as Crypto
-import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
-import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
-import Cardano.Crypto.Util (SignableRepresentation)
-import Data.Aeson qualified as Aeson
-import Data.ByteString.Base16 qualified as Base16
-import Data.ByteString.Char8 qualified as BSC
-import Data.Map qualified as Map
-import Hydra.Cardano.Api (
-  AsType (..),
-  BlockHeader,
-  HasTextEnvelope (..),
-  HasTypeProxy (..),
-  Hash,
-  Key (..),
-  ScriptData (..),
-  SerialiseAsCBOR,
-  SerialiseAsRawBytes (..),
-  SerialiseAsRawBytesError (..),
-  TxId (..),
-  UsingRawBytesHex (..),
-  serialiseToRawBytesHexText,
- )
-import Hydra.Contract.HeadState qualified as OnChain
-import PlutusLedgerApi.V3 qualified as Plutus
-import Text.Show (Show (..))
+import "cardano-crypto-class" Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashToBytes)
+import "cardano-crypto-class" Cardano.Crypto.Hash qualified as Crypto
+import "cardano-crypto-class" Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
+import "cardano-crypto-class" Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation)
+import "containers" Data.Map qualified as Map
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Hydra keys
 

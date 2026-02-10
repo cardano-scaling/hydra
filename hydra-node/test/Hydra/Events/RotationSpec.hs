@@ -3,8 +3,6 @@ module Hydra.Events.RotationSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Monad (foldM)
-import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
@@ -21,6 +19,8 @@ import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod)
 import Test.QuickCheck (Positive (..), choose, sized)
 import Test.QuickCheck.Instances.Natural ()
+import "base" Control.Monad (foldM)
+import "base" Data.List qualified as List
 
 spec :: Spec
 spec = parallel $ do

@@ -3,14 +3,14 @@ module Main where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Data.Aeson qualified as Aeson
-import Data.ByteString.Lazy qualified as BL
-import Data.Text (pack)
 import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
 import Hydra.Contract (hydraScriptCatalogue)
 import Hydra.Contract.HeadState as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import PlutusLedgerApi.V3 (Data, toData)
+import "aeson" Data.Aeson qualified as Aeson
+import "bytestring" Data.ByteString.Lazy qualified as BL
+import "plutus-ledger-api" PlutusLedgerApi.V3 (Data, toData)
+import "text" Data.Text (pack)
 
 -- | Serialise Hydra scripts to files for submission through cardano-cli.
 main :: IO ()

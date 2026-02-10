@@ -7,8 +7,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -23,12 +21,14 @@ import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+import "base" GHC.IsList (IsList (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-tx" PlutusTx.Builtins (toBuiltin)
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =

@@ -55,61 +55,45 @@ module Hydra.Prelude (
   newLabelledTBQueueIO,
 ) where
 
-import Cardano.Binary (
+import "aeson" Data.Aeson (
+  FromJSON (..),
+  ToJSON (..),
+ )
+import "aeson-pretty" Data.Aeson.Encode.Pretty (
+  encodePretty,
+ )
+import "base" Control.Exception (IOException)
+import "base" System.IO qualified
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "cardano-binary" Cardano.Binary (
   FromCBOR (..),
   ToCBOR (..),
  )
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM (..), MonadSTM (..))
-import Control.Concurrent.Class.MonadSTM.TBQueue (TBQueue)
-import Control.Concurrent.Class.MonadSTM.TMVar (TMVar)
-import Control.Concurrent.Class.MonadSTM.TQueue (TQueue)
-import Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
-import Control.Exception (IOException)
-import Control.Monad.Class.MonadAsync (
+import "io-classes" Control.Concurrent.Class.MonadSTM (MonadLabelledSTM (..), MonadSTM (..))
+import "io-classes" Control.Concurrent.Class.MonadSTM.TBQueue (TBQueue)
+import "io-classes" Control.Concurrent.Class.MonadSTM.TMVar (TMVar)
+import "io-classes" Control.Concurrent.Class.MonadSTM.TQueue (TQueue)
+import "io-classes" Control.Concurrent.Class.MonadSTM.TVar (TVar, readTVar)
+import "io-classes" Control.Monad.Class.MonadAsync (
   Async,
   MonadAsync (async, concurrently, race, withAsync),
  )
-import Control.Monad.Class.MonadEventlog (
+import "io-classes" Control.Monad.Class.MonadEventlog (
   MonadEventlog,
  )
-import Control.Monad.Class.MonadFork (MonadFork, MonadThread, labelThisThread, myThreadId)
-import Control.Monad.Class.MonadST (
+import "io-classes" Control.Monad.Class.MonadFork (MonadFork, MonadThread, labelThisThread, myThreadId)
+import "io-classes" Control.Monad.Class.MonadST (
   MonadST,
  )
-import Control.Monad.Class.MonadSTM ()
-import Control.Monad.Class.MonadThrow (
+import "io-classes" Control.Monad.Class.MonadSTM ()
+import "io-classes" Control.Monad.Class.MonadThrow (
   MonadCatch (..),
   MonadEvaluate (..),
   MonadMask (..),
   MonadThrow (..),
  )
-import Control.Monad.Class.MonadTime.SI (
-  DiffTime,
-  MonadMonotonicTime (..),
-  MonadTime (..),
-  NominalDiffTime,
-  Time (..),
-  UTCTime,
-  addTime,
-  addUTCTime,
-  diffTime,
-  diffUTCTime,
- )
-import Control.Monad.Class.MonadTimer.SI (
-  MonadDelay (..),
-  MonadTimer (..),
- )
-import Control.Monad.Trans.Except (Except)
-import Data.Aeson (
-  FromJSON (..),
-  ToJSON (..),
- )
-import Data.Aeson.Encode.Pretty (
-  encodePretty,
- )
-import Data.ByteString.Base16 qualified as Base16
-import Data.Text qualified as T
-import Relude hiding (
+import "pretty-simple" Text.Pretty.Simple (pShow)
+import "relude" Relude hiding (
   MVar,
   Nat,
   STM,
@@ -149,14 +133,30 @@ import Relude hiding (
   withFile,
   writeTVar,
  )
-import Relude.Extra.Map (
+import "relude" Relude.Extra.Map (
   DynamicMap (..),
   StaticMap (..),
   elems,
   keys,
  )
-import System.IO qualified
-import Text.Pretty.Simple (pShow)
+import "si-timers" Control.Monad.Class.MonadTime.SI (
+  DiffTime,
+  MonadMonotonicTime (..),
+  MonadTime (..),
+  NominalDiffTime,
+  Time (..),
+  UTCTime,
+  addTime,
+  addUTCTime,
+  diffTime,
+  diffUTCTime,
+ )
+import "si-timers" Control.Monad.Class.MonadTimer.SI (
+  MonadDelay (..),
+  MonadTimer (..),
+ )
+import "text" Data.Text qualified as T
+import "transformers" Control.Monad.Trans.Except (Except)
 
 -- | Pad a text-string to right with the given character until it reaches the given
 -- length.

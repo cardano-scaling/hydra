@@ -9,7 +9,7 @@ import Hydra.TUI.Options (
   Options (..),
   parseOptions,
  )
-import Options.Applicative (
+import "optparse-applicative" Options.Applicative (
   Parser,
   ParserResult (Failure, Success),
   defaultPrefs,
@@ -17,7 +17,7 @@ import Options.Applicative (
   info,
   renderFailure,
  )
-import Text.Regex.TDFA ((=~))
+import "regex-tdfa" Text.Regex.TDFA ((=~))
 
 spec :: Spec
 spec = parallel $ do

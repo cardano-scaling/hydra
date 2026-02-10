@@ -4,11 +4,6 @@ module Hydra.Chain.Cardano where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Slot (EpochInfo)
-import Cardano.Slotting.EpochInfo (hoistEpochInfo)
-import Control.Monad.Trans.Except (runExcept)
 import Hydra.Cardano.Api (
   EraHistory (EraHistory),
   Tx,
@@ -34,7 +29,12 @@ import Hydra.Logging (Tracer)
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
 import Hydra.Tx (Party)
-import Ouroboros.Consensus.HardFork.History qualified as Consensus
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-core" Cardano.Ledger.Slot (EpochInfo)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API qualified as Ledger
+import "cardano-slotting" Cardano.Slotting.EpochInfo (hoistEpochInfo)
+import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History qualified as Consensus
+import "transformers" Control.Monad.Trans.Except (runExcept)
 
 withCardanoChain ::
   forall a.

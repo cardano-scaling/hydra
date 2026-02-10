@@ -4,7 +4,6 @@ module Hydra.ChainObserver where
 
 import Hydra.Prelude
 
-import Data.Version (showVersion)
 import Hydra.Blockfrost.ChainObserver (blockfrostClient)
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
@@ -13,9 +12,10 @@ import Hydra.Contract qualified as Contract
 import Hydra.Logging (Verbosity (..), traceWith, withTracer)
 import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
-import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
-import Network.URI (URI)
-import Options.Applicative (execParser)
+import "base" Data.Version (showVersion)
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
+import "network-uri" Network.URI (URI)
+import "optparse-applicative" Options.Applicative (execParser)
 
 main :: IO ()
 main = do

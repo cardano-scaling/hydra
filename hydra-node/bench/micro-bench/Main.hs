@@ -2,11 +2,6 @@ module Main where
 
 import Hydra.Prelude
 
-import Criterion (bench, bgroup, nf, whnf)
-import Criterion.Main (defaultMain)
-import Data.Aeson (Value (String), object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.List qualified as List
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Cardano.Api (
   UTxO,
@@ -18,6 +13,11 @@ import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
 import Test.QuickCheck (generate)
+import "aeson" Data.Aeson (Value (String), object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Data.List qualified as List
+import "criterion" Criterion (bench, bgroup, nf, whnf)
+import "criterion" Criterion.Main (defaultMain)
 
 main :: IO ()
 main = do

@@ -5,8 +5,6 @@ module Test.GeneratorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Text (unpack)
 import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Cluster.Fixture (Actor (Faucet))
@@ -27,6 +25,8 @@ import Test.QuickCheck (
   forAll,
   idempotentIOProperty,
  )
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "text" Data.Text (unpack)
 
 spec :: Spec
 spec = parallel $ do

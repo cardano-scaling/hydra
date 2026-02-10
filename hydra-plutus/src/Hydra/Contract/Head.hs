@@ -10,7 +10,7 @@
 
 module Hydra.Contract.Head where
 
-import PlutusTx.Prelude
+import "plutus-tx" PlutusTx.Prelude
 
 import Hydra.Cardano.Api (
   PlutusScript,
@@ -38,10 +38,10 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import PlutusLedgerApi.Common (serialiseCompiledCode)
-import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V1.Value (lovelaceValue)
-import PlutusLedgerApi.V3 (
+import "plutus-ledger-api" PlutusLedgerApi.Common (serialiseCompiledCode)
+import "plutus-ledger-api" PlutusLedgerApi.V1.Time (fromMilliSeconds)
+import "plutus-ledger-api" PlutusLedgerApi.V1.Value (lovelaceValue)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   Address,
   CurrencySymbol,
   Datum (..),
@@ -59,13 +59,13 @@ import PlutusLedgerApi.V3 (
   UpperBound (..),
   Value (Value),
  )
-import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
-import PlutusTx (CompiledCode)
-import PlutusTx qualified
-import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Builtins qualified as Builtins
-import PlutusTx.Foldable qualified as F
-import PlutusTx.List qualified as L
+import "plutus-ledger-api" PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
+import "plutus-tx" PlutusTx (CompiledCode)
+import "plutus-tx" PlutusTx qualified
+import "plutus-tx" PlutusTx.AssocMap qualified as AssocMap
+import "plutus-tx" PlutusTx.Builtins qualified as Builtins
+import "plutus-tx" PlutusTx.Foldable qualified as F
+import "plutus-tx" PlutusTx.List qualified as L
 
 type DatumType = State
 type RedeemerType = Input

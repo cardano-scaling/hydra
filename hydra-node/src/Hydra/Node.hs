@@ -10,13 +10,6 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
-import Control.Concurrent.Class.MonadSTM (
-  stateTVar,
-  writeTVar,
- )
-import Control.Monad.Trans.Writer (execWriter, tell)
-import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
@@ -60,6 +53,13 @@ import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import "conduit" Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  stateTVar,
+  writeTVar,
+ )
+import "text" Data.Text (pack)
+import "transformers" Control.Monad.Trans.Writer (execWriter, tell)
 
 -- * Environment Handling
 

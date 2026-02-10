@@ -4,11 +4,6 @@
 
 module Hydra.API.ServerOutput where
 
-import Control.Lens ((.~))
-import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
-import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (atKey, key)
-import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
@@ -28,6 +23,11 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
+import "aeson" Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
+import "aeson" Data.Aeson.KeyMap qualified as KeyMap
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "lens" Control.Lens ((.~))
+import "lens-aeson" Data.Aeson.Lens (atKey, key)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput

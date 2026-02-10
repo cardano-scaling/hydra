@@ -3,9 +3,9 @@ module Hydra.NetworkVersionsSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Version (Version, makeVersion)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Test.QuickCheck (Property, counterexample, forAll, property)
+import "base" Data.Version (Version, makeVersion)
 
 spec :: Spec
 spec =

@@ -6,12 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (bodyTxL)
-import Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
-import Control.Lens (mapped, (%~))
-import Data.List qualified as List
-import Data.Maybe (fromJust)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadTokens (headPolicyId)
@@ -23,7 +17,6 @@ import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import PlutusLedgerApi.Common (fromBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Fixture qualified as Fixtures
 import Test.Hydra.Tx.Gen (genAddressInEra, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
@@ -35,6 +28,13 @@ import Test.Hydra.Tx.Mutation (
   replacePolicyIdWith,
  )
 import Test.QuickCheck (elements, oneof, scale, suchThat)
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
+import "lens" Control.Lens (mapped, (%~))
+import "plutus-ledger-api" PlutusLedgerApi.Common (fromBuiltin)
 
 --
 -- CommitTx

@@ -6,22 +6,22 @@ module VisualizeLogs where
 import Hydra.Cardano.Api (Tx)
 import Hydra.Prelude hiding (encodeUtf8, takeWhile)
 
-import Conduit
-import Control.Lens ((^?))
-import Control.Monad (foldM)
-import Data.Aeson (eitherDecode')
-import Data.Aeson.Lens (key, _String)
-import Data.Attoparsec.ByteString
-import Data.Attoparsec.ByteString qualified as A
-import Data.Attoparsec.ByteString.Char8 (char8, endOfLine, isEndOfLine)
-import Data.Text.Encoding (encodeUtf8)
 import Hydra.Chain (ChainEvent (..))
 import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..))
 import Hydra.Logging (Envelope (..))
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Node (HydraNodeLog (..))
-import Options.Applicative hiding (Parser)
-import Options.Applicative qualified as Options
+import "aeson" Data.Aeson (eitherDecode')
+import "attoparsec" Data.Attoparsec.ByteString
+import "attoparsec" Data.Attoparsec.ByteString qualified as A
+import "attoparsec" Data.Attoparsec.ByteString.Char8 (char8, endOfLine, isEndOfLine)
+import "base" Control.Monad (foldM)
+import "conduit" Conduit
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, _String)
+import "optparse-applicative" Options.Applicative hiding (Parser)
+import "optparse-applicative" Options.Applicative qualified as Options
+import "text" Data.Text.Encoding (encodeUtf8)
 
 data InfoLine = InfoLine {toplabel :: LogType, details :: Text} deriving (Eq, Show)
 

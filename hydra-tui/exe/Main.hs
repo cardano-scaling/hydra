@@ -4,7 +4,7 @@ import Hydra.Prelude
 
 import Hydra.TUI qualified as TUI
 import Hydra.TUI.Options (parseOptions)
-import Options.Applicative (execParser, info)
+import "optparse-applicative" Options.Applicative (execParser, info)
 
 main :: IO ()
 main =

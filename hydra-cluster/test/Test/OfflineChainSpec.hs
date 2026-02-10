@@ -5,10 +5,6 @@ module Test.OfflineChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTChanIO, readTChan, readTVarIO, writeTChan)
-import Control.Lens ((^?))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _Number)
 import Hydra.Cardano.Api (Tx, UTxO)
 import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
 import Hydra.Chain.ChainState (chainPointSlot)
@@ -17,7 +13,11 @@ import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (OfflineChainConfig (..))
-import System.FilePath ((</>))
+import "aeson" Data.Aeson qualified as Aeson
+import "filepath" System.FilePath ((</>))
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', newTChanIO, readTChan, readTVarIO, writeTChan)
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, _Number)
 
 spec :: Spec
 spec = do

@@ -5,9 +5,18 @@ module Test.Util where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
-import Control.Monad.Class.MonadSay (say)
-import Control.Monad.IOSim (
+import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Logging (Envelope (..), traceInTVar)
+import Hydra.Network (NetworkCallback (..))
+import Hydra.Node (HydraNodeLog)
+import Test.HUnit.Lang (FailureReason (ExpectedButGot))
+import Test.QuickCheck (Property, Testable, counterexample, forAll, ioProperty, property, withMaxSuccess)
+import "aeson" Data.Aeson (encode)
+import "aeson" Data.Aeson qualified as Aeson
+import "contra-tracer" Control.Tracer (Tracer (Tracer))
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
+import "io-classes" Control.Monad.Class.MonadSay (say)
+import "io-sim" Control.Monad.IOSim (
   Failure (FailureException),
   IOSim,
   SimTrace,
@@ -16,17 +25,8 @@ import Control.Monad.IOSim (
   traceM,
   traceResult,
  )
-import Control.Tracer (Tracer (Tracer))
-import Data.Aeson (encode)
-import Data.Aeson qualified as Aeson
-import Data.Text qualified as Text
-import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (Envelope (..), traceInTVar)
-import Hydra.Network (NetworkCallback (..))
-import Hydra.Node (HydraNodeLog)
-import System.IO.Temp (writeSystemTempFile)
-import Test.HUnit.Lang (FailureReason (ExpectedButGot))
-import Test.QuickCheck (Property, Testable, counterexample, forAll, ioProperty, property, withMaxSuccess)
+import "temporary" System.IO.Temp (writeSystemTempFile)
+import "text" Data.Text qualified as Text
 
 noopCallback :: Applicative m => NetworkCallback msg m
 noopCallback =

@@ -2,11 +2,6 @@ module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
-import Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
-import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
-import Control.Monad.Class.MonadAsync (link)
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Types qualified as Aeson
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -33,6 +28,11 @@ import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types qualified as Aeson
+import "cardano-api" Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
+import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import "io-classes" Control.Monad.Class.MonadAsync (link)
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.
 offlineHeadId :: HeadSeed -> HeadId

@@ -4,28 +4,6 @@ module Hydra.API.HTTPServer where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Core (PParams)
-import Conduit (
-  ConduitT,
-  MonadUnliftIO,
-  concatC,
-  linesUnboundedAsciiC,
-  mapMC,
-  runConduitRes,
-  sinkList,
-  sourceFileBS,
-  (.|),
- )
-import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Control.Lens ((^?))
-import Data.Aeson (KeyValue ((.=)), Value (String), object, withObject, (.:), (.:?))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _String)
-import Data.Aeson.Types (Parser, parseEither)
-import Data.ByteString.Lazy qualified as LBS
-import Data.ByteString.Short ()
-import Data.List qualified as List
-import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
@@ -40,9 +18,31 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
-import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
-import System.Directory (doesFileExist)
+import "aeson" Data.Aeson (KeyValue ((.=)), Value (String), object, withObject, (.:), (.:?))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types (Parser, parseEither)
+import "base" Data.List qualified as List
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "bytestring" Data.ByteString.Short ()
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
+import "conduit" Conduit (
+  ConduitT,
+  MonadUnliftIO,
+  concatC,
+  linesUnboundedAsciiC,
+  mapMC,
+  runConduitRes,
+  sinkList,
+  sourceFileBS,
+  (.|),
+ )
+import "directory" System.Directory (doesFileExist)
+import "http-types" Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, _String)
+import "stm" Control.Concurrent.STM (TChan, dupTChan, readTChan)
+import "text" Data.Text (pack)
+import "wai" Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx

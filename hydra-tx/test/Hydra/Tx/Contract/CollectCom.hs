@@ -8,11 +8,6 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Maybe (fromJust)
-import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
 import Hydra.Contract.Error (toErrorCode)
@@ -41,7 +36,6 @@ import Hydra.Tx.Utils (
   onChainIdToAssetName,
   verificationKeyToOnChainId,
  )
-import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (
   testNetworkId,
   testPolicyId,
@@ -64,6 +58,12 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "base" GHC.IsList (IsList (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "plutus-tx" PlutusTx.Builtins (toBuiltin)
 
 --
 -- CollectComTx

@@ -10,16 +10,11 @@ module Hydra.Options (
 
 import Hydra.Prelude
 
-import Control.Arrow (left)
-import Control.Lens ((?~))
-import Data.Aeson (Value (Object, String), withObject, (.:))
-import Data.Aeson.Lens (atKey)
+import "aeson" Data.Aeson (Value (Object, String), withObject, (.:))
+import "base" Control.Arrow (left)
+import "lens" Control.Lens ((?~))
+import "lens-aeson" Data.Aeson.Lens (atKey)
 
-import Data.ByteString.Char8 qualified as BSC
-import Data.IP (IP (IPv4), toIPv4)
-import Data.Text (unpack)
-import Data.Text qualified as T
-import Data.Version (showVersion)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   File (..),
@@ -42,7 +37,11 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
-import Options.Applicative (
+import Test.QuickCheck (Positive (..))
+import "base" Data.Version (showVersion)
+import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "iproute" Data.IP (IP (IPv4), toIPv4)
+import "optparse-applicative" Options.Applicative (
   Parser,
   ParserInfo,
   ParserResult (..),
@@ -76,9 +75,10 @@ import Options.Applicative (
   strOption,
   value,
  )
-import Options.Applicative.Builder (str)
-import Options.Applicative.Help (vsep)
-import Test.QuickCheck (Positive (..))
+import "optparse-applicative" Options.Applicative.Builder (str)
+import "optparse-applicative" Options.Applicative.Help (vsep)
+import "text" Data.Text (unpack)
+import "text" Data.Text qualified as T
 
 data Command
   = Run RunOptions

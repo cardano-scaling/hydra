@@ -5,14 +5,6 @@ module Hydra.API.Server where
 
 import Hydra.Prelude hiding (catMaybes, map, mapM_, seq, state)
 
-import Cardano.Ledger.Core (PParams)
-import Conduit (mapM_C, runConduitRes, (.|))
-import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
-import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
-import Control.Exception (IOException)
-import Data.Conduit.Combinators (map)
-import Data.Conduit.List (catMaybes)
-import Data.Map qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
@@ -47,9 +39,19 @@ import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
 import Hydra.Tx (IsTx (..), Party, txId)
-import Network.HTTP.Types (status500)
-import Network.Wai (responseLBS)
-import Network.Wai.Handler.Warp (
+import "base" Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
+import "base" Control.Exception (IOException)
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
+import "conduit" Conduit (mapM_C, runConduitRes, (.|))
+import "conduit" Data.Conduit.Combinators (map)
+import "conduit" Data.Conduit.List (catMaybes)
+import "containers" Data.Map qualified as Map
+import "http-types" Network.HTTP.Types (status500)
+import "stm" Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
+import "wai" Network.Wai (responseLBS)
+import "wai-cors" Network.Wai.Middleware.Cors (simpleCors)
+import "wai-websockets" Network.Wai.Handler.WebSockets (websocketsOr)
+import "warp" Network.Wai.Handler.Warp (
   defaultSettings,
   runSettings,
   setBeforeMainLoop,
@@ -58,10 +60,8 @@ import Network.Wai.Handler.Warp (
   setOnExceptionResponse,
   setPort,
  )
-import Network.Wai.Handler.WarpTLS (runTLS, tlsSettings)
-import Network.Wai.Handler.WebSockets (websocketsOr)
-import Network.Wai.Middleware.Cors (simpleCors)
-import Network.WebSockets (
+import "warp-tls" Network.Wai.Handler.WarpTLS (runTLS, tlsSettings)
+import "websockets" Network.WebSockets (
   defaultConnectionOptions,
  )
 

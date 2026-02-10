@@ -4,15 +4,15 @@ module Hydra.Cardano.Api.Gen (
   genTxIn,
 ) where
 
-import Cardano.Api
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Binary qualified as Ledger
-import Cardano.Ledger.TxIn qualified as Ledger
-import Data.ByteString qualified as BS
 import Hydra.Cardano.Api.TxIn (fromLedgerTxIn)
 import Test.Gen.Cardano.Api.Typed qualified as Gen
 import Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, vectorOf)
 import Test.QuickCheck.Hedgehog (hedgehog)
+import "bytestring" Data.ByteString qualified as BS
+import "cardano-api" Cardano.Api
+import "cardano-ledger-binary" Cardano.Ledger.Binary qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.TxIn qualified as Ledger
 
 -- * Orphans
 

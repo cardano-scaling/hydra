@@ -4,14 +4,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (withCardanoNodeDevnet)
-import Data.Aeson ((.:))
-import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (GenesisParameters (..))
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Utils (readJsonFileThrow)
-import System.FilePath ((</>))
 import Test.EndToEndSpec (withClusterTempDir)
+import "aeson" Data.Aeson ((.:))
+import "aeson" Data.Aeson qualified as Aeson
+import "filepath" System.FilePath ((</>))
 
 spec :: Spec
 spec =

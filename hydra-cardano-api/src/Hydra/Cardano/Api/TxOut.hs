@@ -4,18 +4,18 @@ import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (mkTxIn)
 import Hydra.Cardano.Api.TxOutValue (mkTxOutValue)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api qualified as Ledger
-import Cardano.Ledger.Babbage.TxInfo qualified as Ledger
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Credential qualified as Ledger
-import Data.List qualified as List
 import Hydra.Cardano.Api.AddressInEra (fromPlutusAddress)
 import Hydra.Cardano.Api.Hash (unsafeScriptDataHashFromBytes)
 import Hydra.Cardano.Api.ScriptData (toScriptData)
 import Hydra.Cardano.Api.Value (fromPlutusValue, minUTxOValue)
-import PlutusLedgerApi.V3 (OutputDatum (..), fromBuiltin)
-import PlutusLedgerApi.V3 qualified as Plutus
+import "base" Data.List qualified as List
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api qualified as Ledger
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.TxInfo qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Credential qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V3 (OutputDatum (..), fromBuiltin)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

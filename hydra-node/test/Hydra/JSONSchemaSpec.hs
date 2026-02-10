@@ -4,12 +4,12 @@ module Hydra.JSONSchemaSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Exception (IOException)
-import Data.Aeson (Value (..), object, (.=))
-import Data.Aeson.Lens (key)
 import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
-import System.FilePath ((</>))
 import Test.QuickCheck.Instances.Time ()
+import "aeson" Data.Aeson (Value (..), object, (.=))
+import "base" Control.Exception (IOException)
+import "filepath" System.FilePath ((</>))
+import "lens-aeson" Data.Aeson.Lens (key)
 
 spec :: Spec
 spec = do

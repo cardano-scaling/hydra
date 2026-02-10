@@ -2,13 +2,13 @@ module Hydra.Plutus.Extras.TimeSpec where
 
 import Hydra.Prelude
 
-import Data.Fixed (Milli)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Test.Hspec (Spec, describe)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (Positive (Positive), collect, (===))
+import "base" Data.Fixed (Milli)
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 spec :: Spec
 spec = do

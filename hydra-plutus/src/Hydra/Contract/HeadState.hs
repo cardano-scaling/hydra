@@ -4,14 +4,14 @@
 
 module Hydra.Contract.HeadState where
 
-import PlutusTx.Prelude
+import "plutus-tx" PlutusTx.Prelude
 
-import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
-import PlutusTx qualified
-import Text.Show (Show)
+import "base" GHC.Generics (Generic)
+import "base" Text.Show (Show)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
+import "plutus-tx" PlutusTx qualified
 
 type SnapshotNumber = Integer
 

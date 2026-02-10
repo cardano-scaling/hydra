@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude
+import "base" Prelude
 
 import Spec qualified
 import Test.Hspec (hspec)

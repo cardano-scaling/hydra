@@ -8,7 +8,7 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Data.Maybe (fromJust)
+import "base" Data.Maybe (fromJust)
 
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -38,8 +38,6 @@ import Hydra.Tx.Contract.Contest.Healthy (
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Snapshot (Snapshot (..))
-import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -69,6 +67,8 @@ import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, s
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances ()
+import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation

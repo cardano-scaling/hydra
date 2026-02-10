@@ -9,21 +9,21 @@ module Hydra.Tx.IsTx where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
-import Cardano.Ledger.Shelley.UTxO qualified as Ledger
-import Codec.CBOR.Decoding qualified as CBOR
-import Codec.CBOR.Encoding qualified as CBOR
-import Data.Aeson ((.:), (.:?))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Types (withObject)
-import Data.Text.Lazy.Builder (toLazyText)
-import Formatting.Buildable (build)
 import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
-import PlutusLedgerApi.V3 (fromBuiltin)
+import "aeson" Data.Aeson ((.:), (.:?))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.KeyMap qualified as KeyMap
+import "aeson" Data.Aeson.Types (withObject)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-binary" Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.UTxO qualified as Ledger
+import "cborg" Codec.CBOR.Decoding qualified as CBOR
+import "cborg" Codec.CBOR.Encoding qualified as CBOR
+import "formatting" Formatting.Buildable (build)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (fromBuiltin)
+import "text" Data.Text.Lazy.Builder (toLazyText)
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what

@@ -6,15 +6,9 @@ module Test.Hydra.Cluster.HydraClientSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (
   withCardanoNodeDevnet,
  )
-import Control.Lens ((^?))
-import Data.Aeson ((.=))
-import Data.Aeson.Lens (key)
-import Data.Set qualified as Set
-import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
@@ -61,7 +55,13 @@ import HydraNode (
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
-import Prelude qualified
+import "aeson" Data.Aeson ((.=))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Set qualified as Set
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key)
+import "text" Data.Text qualified as Text
+import "base" Prelude qualified
 
 spec :: Spec
 spec = around (showLogsOnFailure "HydraClientSpec") $ do

@@ -20,12 +20,6 @@ module Hydra.Tx.Observe (
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
-import Control.Lens ((^.))
-import Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withObject, (.:))
-import Data.Aeson qualified as Aeson (Value)
-import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (key, _Object, _String)
 import Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
 import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
 import Hydra.Tx.CollectCom (CollectComObservation (..), observeCollectComTx)
@@ -37,6 +31,12 @@ import Hydra.Tx.Fanout (FanoutObservation (..), observeFanoutTx)
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
+import "aeson" Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withObject, (.:))
+import "aeson" Data.Aeson qualified as Aeson (Value)
+import "aeson" Data.Aeson.KeyMap qualified as KeyMap
+import "cardano-ledger-api" Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import "lens" Control.Lens ((^.))
+import "lens-aeson" Data.Aeson.Lens (key, _Object, _String)
 
 -- * Observe Hydra Head transactions
 

@@ -2,8 +2,8 @@
 
 module Hydra.Cardano.Api.NetworkMagic where
 
-import Cardano.Api (NetworkMagic (..))
-import Data.Aeson (FromJSON (..), ToJSON (..))
+import "aeson" Data.Aeson (FromJSON (..), ToJSON (..))
+import "cardano-api" Cardano.Api (NetworkMagic (..))
 
 -- * Orphans
 

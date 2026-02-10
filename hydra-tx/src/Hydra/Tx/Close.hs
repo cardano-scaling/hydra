@@ -27,7 +27,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V3 (toBuiltin)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
 

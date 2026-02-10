@@ -1,31 +1,9 @@
 import Hydra.Prelude hiding (catch)
 
-import Data.ByteString (hPut)
-import Data.Fixed (Centi)
 import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
 import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Hydra.Plutus.Orphans ()
-import Options.Applicative (
-  Parser,
-  ParserInfo,
-  auto,
-  execParser,
-  fullDesc,
-  header,
-  help,
-  helper,
-  info,
-  long,
-  metavar,
-  option,
-  progDesc,
-  short,
-  strOption,
- )
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
-import System.FilePath ((</>))
-import System.IO.Unsafe (unsafePerformIO)
 import Test.QuickCheck.Gen (Gen (MkGen), chooseAny, generate)
 import Test.QuickCheck.Random (mkQCGen)
 import TxCost (
@@ -43,6 +21,28 @@ import TxCost (
   computeFanOutCost,
   computeIncrementCost,
   computeInitCost,
+ )
+import "base" Data.Fixed (Centi)
+import "base" System.IO.Unsafe (unsafePerformIO)
+import "bytestring" Data.ByteString (hPut)
+import "directory" System.Directory (createDirectoryIfMissing, doesDirectoryExist)
+import "filepath" System.FilePath ((</>))
+import "optparse-applicative" Options.Applicative (
+  Parser,
+  ParserInfo,
+  auto,
+  execParser,
+  fullDesc,
+  header,
+  help,
+  helper,
+  info,
+  long,
+  metavar,
+  option,
+  progDesc,
+  short,
+  strOption,
  )
 
 data Options = Options {outputDirectory :: Maybe FilePath, seed :: Maybe Int}

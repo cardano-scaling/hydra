@@ -4,10 +4,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
-import Control.Lens ((^?))
-import Data.Aeson (encodeFile)
-import Data.Aeson.Lens (key, _String)
-import Data.Aeson.Types (parseEither)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (LedgerEra, PParams, Tx)
 import Hydra.Chain.Direct (DirectBackend (..))
@@ -16,10 +12,14 @@ import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (
   DirectOptions (..),
  )
-import System.Exit (ExitCode (..))
-import System.FilePath ((</>))
-import System.Process (proc, readCreateProcessWithExitCode, readProcess)
 import Test.QuickCheck (generate)
+import "aeson" Data.Aeson (encodeFile)
+import "aeson" Data.Aeson.Types (parseEither)
+import "base" System.Exit (ExitCode (..))
+import "filepath" System.FilePath ((</>))
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, _String)
+import "process" System.Process (proc, readCreateProcessWithExitCode, readProcess)
 
 spec :: Spec
 spec =

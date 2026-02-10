@@ -2,12 +2,6 @@ module Hydra.Chain.Blockfrost where
 
 import Hydra.Prelude
 
-import Blockfrost.Client qualified as BlockfrostAPI
-import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
-import Control.Exception (IOException)
-import Control.Retry (RetryPolicyM, constantDelay, retrying)
-import Data.ByteString.Base16 qualified as Base16
-import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
@@ -35,6 +29,12 @@ import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
+import "base" Control.Exception (IOException)
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "blockfrost-client" Blockfrost.Client qualified as BlockfrostAPI
+import "io-classes" Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
+import "retry" Control.Retry (RetryPolicyM, constantDelay, retrying)
+import "text" Data.Text qualified as T
 
 newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions} deriving (Eq, Show)
 

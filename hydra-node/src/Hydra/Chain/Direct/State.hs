@@ -10,11 +10,6 @@ module Hydra.Chain.Direct.State where
 
 import Hydra.Prelude hiding (init)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Maybe (fromJust)
-import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
   AssetName (..),
@@ -106,6 +101,11 @@ import Hydra.Tx.Observe (
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "base" GHC.IsList qualified as IsList
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.

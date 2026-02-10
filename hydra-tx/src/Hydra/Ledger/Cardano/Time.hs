@@ -8,8 +8,8 @@ module Hydra.Ledger.Cardano.Time where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.Slot (SlotNo (..))
-import Cardano.Slotting.Time (RelativeTime (..), SlotLength, SystemStart, getSlotLength, getSystemStart, toRelativeTime)
+import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (..))
+import "cardano-slotting" Cardano.Slotting.Time (RelativeTime (..), SlotLength, SystemStart, getSlotLength, getSystemStart, toRelativeTime)
 
 -- | Convert a 'SlotNo' to a 'UTCTime' using given 'SystemStart' and
 -- 'SlotLength'. This assumes the slot length never changes!

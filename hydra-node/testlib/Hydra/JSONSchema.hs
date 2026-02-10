@@ -7,25 +7,25 @@ module Hydra.JSONSchema where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Arrow (left)
-import Control.Lens (Traversal', at, (?~), (^..), (^?))
-import Data.Aeson (Value, (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _Array, _String)
-import Data.List qualified as List
-import Data.Map.Strict qualified as Map
-import Data.Text (pack)
-import Data.Versions (SemVer (SemVer), prettySemVer, semver)
-import Data.Yaml qualified as Yaml
 import Paths_hydra_node qualified as Pkg
-import System.Directory (copyFile, listDirectory)
-import System.Exit (ExitCode (..))
-import System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
-import System.IO.Error (IOError, isDoesNotExistError)
-import System.Process (readProcessWithExitCode)
 import Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf, withMaxSuccess)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
-import Prelude qualified
+import "aeson" Data.Aeson (Value, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Control.Arrow (left)
+import "base" Data.List qualified as List
+import "base" System.Exit (ExitCode (..))
+import "base" System.IO.Error (IOError, isDoesNotExistError)
+import "containers" Data.Map.Strict qualified as Map
+import "directory" System.Directory (copyFile, listDirectory)
+import "filepath" System.FilePath (normalise, takeBaseName, takeDirectory, takeExtension, takeFileName, (<.>), (</>))
+import "lens" Control.Lens (Traversal', at, (?~), (^..), (^?))
+import "lens-aeson" Data.Aeson.Lens (key, _Array, _String)
+import "process" System.Process (readProcessWithExitCode)
+import "text" Data.Text (pack)
+import "versions" Data.Versions (SemVer (SemVer), prettySemVer, semver)
+import "yaml" Data.Yaml qualified as Yaml
+import "base" Prelude qualified
 
 -- | Validate a specific JSON value against a given JSON schema and throws an
 -- HUnitFailure exception if validation did not pass.

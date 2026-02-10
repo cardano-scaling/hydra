@@ -10,11 +10,11 @@ module Hydra.Version where
 
 import Hydra.Prelude
 
-import Development.GitRev qualified as GitRev
-import Foreign.C (CString)
-import GHC.Foreign (peekCStringLen)
-import GHC.IO (unsafeDupablePerformIO)
-import GHC.IO.Encoding (utf8)
+import "base" Foreign.C (CString)
+import "base" GHC.Foreign (peekCStringLen)
+import "base" GHC.IO (unsafeDupablePerformIO)
+import "base" GHC.IO.Encoding (utf8)
+import "gitrev" Development.GitRev qualified as GitRev
 
 -- | Identifier to be used when no revision can be found.
 --

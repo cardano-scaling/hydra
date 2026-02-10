@@ -5,13 +5,13 @@ module Test.Hydra.Chain.Direct.TimeHandle where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Slotting.Slot (SlotNo (SlotNo))
-import Cardano.Slotting.Time (SystemStart (..))
-import Data.Time (secondsToNominalDiffTime)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.TimeHandle
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Test.QuickCheck (getPositive)
+import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (SlotNo))
+import "cardano-slotting" Cardano.Slotting.Time (SystemStart (..))
+import "time" Data.Time (secondsToNominalDiffTime)
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has
 -- a horizon at the returned SlotNo as well as some UTCTime before that

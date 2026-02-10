@@ -4,19 +4,7 @@ module CardanoNode where
 
 import Hydra.Prelude
 
-import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip))
-import Control.Lens ((?~), (^?!))
-import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (Value (String), (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (atKey, key, _Number)
-import Data.Aeson.Types qualified as Aeson
-import Data.Fixed (Centi)
-import Data.Text (pack)
-import Data.Text qualified as Text
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Data.Vector qualified as Vector
 import Hydra.Cardano.Api (
   File (..),
   NetworkId,
@@ -33,27 +21,39 @@ import Hydra.Cluster.Faucet (delayBF)
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
-import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
-import System.Directory (
+import Test.Hydra.Prelude
+import "aeson" Data.Aeson (Value (String), (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types qualified as Aeson
+import "base" Data.Fixed (Centi)
+import "base" System.Exit (ExitCode (..))
+import "cardano-slotting" Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
+import "contra-tracer" Control.Tracer (Tracer, traceWith)
+import "directory" System.Directory (
   createDirectoryIfMissing,
   doesFileExist,
   getCurrentDirectory,
   removeFile,
  )
-import System.Exit (ExitCode (..))
-import System.FilePath (
+import "filepath" System.FilePath (
   takeDirectory,
   (</>),
  )
-import System.Posix (ownerReadMode, setFileMode)
-import System.Process (
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
+import "lens" Control.Lens ((?~), (^?!))
+import "lens-aeson" Data.Aeson.Lens (atKey, key, _Number)
+import "process" System.Process (
   CreateProcess (..),
   StdStream (CreatePipe, UseHandle),
   proc,
   readProcess,
   withCreateProcess,
  )
-import Test.Hydra.Prelude
+import "text" Data.Text (pack)
+import "text" Data.Text qualified as Text
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
+import "unix" System.Posix (ownerReadMode, setFileMode)
+import "vector" Data.Vector qualified as Vector
 
 data NodeLog
   = MsgNodeCmdSpec {cmd :: Text}

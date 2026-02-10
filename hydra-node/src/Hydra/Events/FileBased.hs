@@ -5,12 +5,12 @@ module Hydra.Events.FileBased where
 
 import Hydra.Prelude
 
-import Conduit (mapMC, (.|))
-import Control.Concurrent.Class.MonadSTM (writeTVar)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Persistence (PersistenceIncremental (..))
-import System.Directory (renameFile)
+import "conduit" Conduit (mapMC, (.|))
+import "directory" System.Directory (renameFile)
+import "io-classes" Control.Concurrent.Class.MonadSTM (writeTVar)
 
 -- | A basic file based event source and sink defined using a rotated
 -- 'PersistenceIncremental' handle.

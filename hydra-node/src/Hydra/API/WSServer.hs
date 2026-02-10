@@ -6,14 +6,6 @@ module Hydra.API.WSServer where
 
 import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
-import Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
-import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Control.Concurrent.STM qualified as STM
-import Control.Lens ((.~))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (atKey)
-import Data.Conduit.Combinators (filter)
-import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput (SafeClose))
 import Hydra.API.Projection (Projection (..))
@@ -47,7 +39,17 @@ import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
-import Network.WebSockets (
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Data.Version (showVersion)
+import "conduit" Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
+import "conduit" Data.Conduit.Combinators (filter)
+import "lens" Control.Lens ((.~))
+import "lens-aeson" Data.Aeson.Lens (atKey)
+import "modern-uri" Text.URI hiding (ParseException)
+import "modern-uri" Text.URI.QQ (queryKey, queryValue)
+import "stm" Control.Concurrent.STM (TChan, dupTChan, readTChan)
+import "stm" Control.Concurrent.STM qualified as STM
+import "websockets" Network.WebSockets (
   PendingConnection (pendingRequest),
   RequestHead (..),
   acceptRequest,
@@ -55,8 +57,6 @@ import Network.WebSockets (
   sendTextData,
   withPingThread,
  )
-import Text.URI hiding (ParseException)
-import Text.URI.QQ (queryKey, queryValue)
 
 wsApp ::
   forall tx.

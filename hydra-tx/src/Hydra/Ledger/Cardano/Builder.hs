@@ -1,11 +1,11 @@
 -- | Utilities to building transactions on top of the cardano-api.
 module Hydra.Ledger.Cardano.Builder where
 
-import Data.MonoTraversable (omap)
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import "mono-traversable" Data.MonoTraversable (omap)
 
-import Data.Map qualified as Map
+import "containers" Data.Map qualified as Map
 
 -- * Executing
 

@@ -14,8 +14,6 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
  )
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Maybe (fromJust)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -35,12 +33,14 @@ import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-tx" PlutusTx.Builtins (toBuiltin)
 
 healthyDecrementTx :: (Tx, UTxO)
 healthyDecrementTx =

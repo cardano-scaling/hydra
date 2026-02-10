@@ -3,18 +3,18 @@ module Hydra.Painter where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Control.Exception (IOException)
-import Data.Aeson qualified as Aeson
-import Data.Text (unpack)
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.Chain.Direct.State ()
 import Hydra.Network (Host (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Network.HTTP.Conduit (parseUrlThrow)
-import Network.HTTP.Simple (getResponseBody, httpJSON)
-import Network.WebSockets (Connection, runClient, sendTextData)
-import Network.WebSockets.Connection (receive)
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Control.Exception (IOException)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON)
+import "text" Data.Text (unpack)
+import "websockets" Network.WebSockets (Connection, runClient, sendTextData)
+import "websockets" Network.WebSockets.Connection (receive)
 
 data Pixel = Pixel
   { x, y, red, green, blue :: Word8

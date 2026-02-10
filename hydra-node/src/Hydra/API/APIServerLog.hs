@@ -2,9 +2,9 @@ module Hydra.API.APIServerLog where
 
 import Hydra.Prelude hiding (encodeUtf8)
 
-import Data.Aeson qualified as Aeson
-import Data.Text.Encoding (encodeUtf8)
 import Hydra.Network (PortNumber)
+import "aeson" Data.Aeson qualified as Aeson
+import "text" Data.Text.Encoding (encodeUtf8)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}

@@ -2,14 +2,14 @@
 
 module Hydra.Cluster.Options where
 
-import Data.ByteString.Char8 qualified as BSC
 import Hydra.Cardano.Api (TxId, deserialiseFromRawBytesHex)
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Hydra.Options (persistenceRotateAfterParser)
 import Hydra.Prelude
-import Options.Applicative (Parser, eitherReader, flag, flag', help, long, metavar, strOption)
-import Options.Applicative.Builder (option)
 import Test.QuickCheck (Positive)
+import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "optparse-applicative" Options.Applicative (Parser, eitherReader, flag, flag', help, long, metavar, strOption)
+import "optparse-applicative" Options.Applicative.Builder (option)
 
 data Options = Options
   { knownNetwork :: Maybe KnownNetwork

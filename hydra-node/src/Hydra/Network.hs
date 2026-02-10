@@ -16,18 +16,18 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Ledger.Orphans ()
-import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
-import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
-import Data.IP (IP)
-import Data.Text (pack, unpack)
-import Data.Text qualified as T
 import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
-import Network.Socket (PortNumber)
-import Text.Read (Read (readsPrec))
-import Text.Show (Show (show))
+import "aeson" Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
+import "aeson" Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
+import "base" Text.Read (Read (readsPrec))
+import "base" Text.Show (Show (show))
+import "cardano-ledger-core" Cardano.Ledger.Orphans ()
+import "iproute" Data.IP (IP)
+import "network" Network.Socket (PortNumber)
+import "text" Data.Text (pack, unpack)
+import "text" Data.Text qualified as T
 
 -- * Hydra network interface
 

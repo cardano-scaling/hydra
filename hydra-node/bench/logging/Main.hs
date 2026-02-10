@@ -2,19 +2,19 @@ module Main where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (
+import "aeson" Data.Aeson (Value, object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "base" System.IO (hClose, openTempFile)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "contra-tracer" Control.Tracer (Tracer (..), traceWith)
+import "criterion" Criterion (bench, bgroup, nfIO)
+import "criterion" Criterion.Main (defaultMain)
+import "directory" System.Directory (getTemporaryDirectory, removeFile)
+import "io-classes" Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
   readTBQueue,
   writeTBQueue,
  )
-import Control.Tracer (Tracer (..), traceWith)
-import Criterion (bench, bgroup, nfIO)
-import Criterion.Main (defaultMain)
-import Data.Aeson (Value, object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.ByteString.Lazy qualified as LBS
-import System.Directory (getTemporaryDirectory, removeFile)
-import System.IO (hClose, openTempFile)
 
 import Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
 

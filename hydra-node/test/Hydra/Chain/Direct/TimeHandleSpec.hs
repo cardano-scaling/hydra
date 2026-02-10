@@ -3,13 +3,13 @@ module Hydra.Chain.Direct.TimeHandleSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Slot (SlotNo (SlotNo))
-import Cardano.Slotting.Time (SystemStart (SystemStart))
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..), mkTimeHandle)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import Test.Hydra.Chain.Direct.TimeHandle ()
 import Test.QuickCheck (Property, counterexample, forAllBlind, property, (===))
+import "cardano-ledger-core" Cardano.Ledger.Slot (SlotNo (SlotNo))
+import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart))
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 spec :: Spec
 spec = do

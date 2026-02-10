@@ -26,9 +26,9 @@ import Hydra.Cardano.Api (
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
-import PlutusLedgerApi.V3 (serialiseCompiledCode)
-import System.Process.Typed (runProcess_, shell)
 import Test.Hspec.Golden (Golden (..))
+import "plutus-ledger-api" PlutusLedgerApi.V3 (serialiseCompiledCode)
+import "typed-process" System.Process.Typed (runProcess_, shell)
 
 aikenBuildCommand :: String
 aikenBuildCommand = "aiken build -t compact"

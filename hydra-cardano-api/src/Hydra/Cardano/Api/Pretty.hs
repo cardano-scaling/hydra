@@ -4,20 +4,20 @@ module Hydra.Cardano.Api.Pretty where
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Binary (serialize)
-import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
-import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Data.Aeson qualified as Aeson
-import Data.ByteString.Lazy qualified as BL
-import Data.Function (on)
-import Data.List (intercalate, sort, sortBy)
-import Data.Map.Strict qualified as Map
-import Data.Text qualified as T
-import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.ScriptData (fromLedgerData)
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Data.Function (on)
+import "base" Data.List (intercalate, sort, sortBy)
+import "base" GHC.IsList (IsList (..))
+import "bytestring" Data.ByteString.Lazy qualified as BL
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-binary" Cardano.Binary (serialize)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Data qualified as Ledger
+import "containers" Data.Map.Strict qualified as Map
+import "text" Data.Text qualified as T
 
 -- | Obtain a human-readable pretty text representation of a transaction.
 renderTx :: Api.Tx -> String

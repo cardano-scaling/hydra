@@ -5,9 +5,7 @@ module Test.Hydra.Cluster.FaucetSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (withCardanoNodeDevnet)
-import Control.Concurrent.Async (replicateConcurrently)
 import Hydra.Cardano.Api (Coin (..), lovelaceToValue, selectLovelace)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient (QueryPoint (..))
@@ -19,6 +17,8 @@ import Hydra.Cluster.Util (keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Test.Hydra.Tx.Gen (genVerificationKey)
 import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
+import "async" Control.Concurrent.Async (replicateConcurrently)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 
 setupDevnet :: ((Tracer IO FaucetLog, DirectBackend) -> IO a) -> IO a
 setupDevnet action =

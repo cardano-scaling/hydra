@@ -5,20 +5,6 @@ module Hydra.BehaviorSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
-import Control.Concurrent.Class.MonadSTM (
-  modifyTVar,
-  modifyTVar',
-  readTQueue,
-  readTVarIO,
-  retry,
-  stateTVar,
-  writeTQueue,
-  writeTVar,
- )
-import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
-import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
-import Data.List ((!!))
-import Data.List qualified as List
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
@@ -87,6 +73,20 @@ import Test.Util (
   shouldSatisfy,
   traceInIOSim,
  )
+import "base" Data.List ((!!))
+import "base" Data.List qualified as List
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  modifyTVar,
+  modifyTVar',
+  readTQueue,
+  readTVarIO,
+  retry,
+  stateTVar,
+  writeTQueue,
+  writeTVar,
+ )
+import "io-classes" Control.Monad.Class.MonadAsync (cancel, forConcurrently)
+import "io-sim" Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 
 spec :: Spec
 spec = parallel $ do

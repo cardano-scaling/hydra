@@ -21,10 +21,6 @@ module Hydra.Chain.Direct.TxTraceSpec where
 import Hydra.Prelude hiding (Any, State, label, show)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.List (nub, (\\))
-import Data.Map.Strict qualified as Map
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   CtxUTxO,
   PaymentKey,
@@ -62,7 +58,6 @@ import Hydra.Tx.Observe qualified as Tx
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
-import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
@@ -91,7 +86,12 @@ import Test.QuickCheck.StateModel (
   counterexamplePost,
   runActions,
  )
-import Text.Show (Show (..))
+import "base" Data.List (nub, (\\))
+import "base" Text.Show (Show (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map.Strict qualified as Map
+import "plutus-tx" PlutusTx.Builtins (toBuiltin)
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 spec :: Spec
 spec = do

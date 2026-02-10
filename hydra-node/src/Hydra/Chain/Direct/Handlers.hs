@@ -9,12 +9,6 @@ module Hydra.Chain.Direct.Handlers where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Core (PParams)
-import Cardano.Slotting.Slot (SlotNo (..))
-import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
-import Control.Monad.Class.MonadSTM (throwSTM)
-import Data.List qualified as List
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
@@ -98,7 +92,13 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
-import System.IO.Error (userError)
+import "base" Data.List qualified as List
+import "base" System.IO.Error (userError)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
+import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (..))
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
+import "io-classes" Control.Monad.Class.MonadSTM (throwSTM)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState

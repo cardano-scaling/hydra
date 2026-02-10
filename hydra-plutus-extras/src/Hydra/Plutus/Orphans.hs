@@ -7,12 +7,12 @@ module Hydra.Plutus.Orphans where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson (object, withObject, (.:), (.=))
-import Data.Aeson qualified as Aeson
-import Data.ByteString.Base16 qualified as Base16
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..))
-import PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
 import Test.QuickCheck.Instances.ByteString ()
+import "aeson" Data.Aeson (object, withObject, (.:), (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..))
+import "plutus-tx" PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
 
 instance Arbitrary BuiltinByteString where
   arbitrary = toBuiltin <$> (arbitrary :: Gen ByteString)

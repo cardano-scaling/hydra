@@ -5,8 +5,6 @@ module Hydra.NodeSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
@@ -61,6 +59,8 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
+import "conduit" Conduit (MonadUnliftIO, yieldMany)
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 
 spec :: Spec
 spec = parallel $ do

@@ -1,7 +1,5 @@
 module Hydra.Model.MockChainSpec where
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Text (unpack)
 import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON)
 import Hydra.Cardano.Api.Pretty (renderTx, renderUTxO)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
@@ -12,6 +10,8 @@ import Hydra.Tx.IsTx (IsTx (txId))
 import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Prelude
 import Test.QuickCheck (Property, Testable (property), counterexample, forAllBlind, (===))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "text" Data.Text (unpack)
 
 spec :: Spec
 spec =

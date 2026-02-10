@@ -12,17 +12,17 @@ module Hydra.Ledger.Simple where
 
 import Hydra.Prelude
 
-import Codec.Serialise (serialise)
-import Data.Aeson (
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
+import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
+import Hydra.Tx (IsTx (..))
+import "aeson" Data.Aeson (
   object,
   withObject,
   (.:),
   (.=),
  )
-import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
-import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
-import Hydra.Tx (IsTx (..))
+import "containers" Data.Set qualified as Set
+import "serialise" Codec.Serialise (serialise)
 
 -- * Simple transactions
 

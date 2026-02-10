@@ -15,8 +15,8 @@ import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
-import System.Directory (doesFileExist)
 import Test.Hydra.Cluster.Utils (chainPointToSlot, forEachKnownNetwork)
+import "directory" System.Directory (doesFileExist)
 
 supportedNetworks :: [KnownNetwork]
 supportedNetworks = [Mainnet, Preproduction, Preview]

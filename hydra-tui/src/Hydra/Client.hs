@@ -4,10 +4,6 @@ module Hydra.Client where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Async (link)
-import Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
-import Control.Exception (Handler (Handler), IOException, catches)
-import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
@@ -24,9 +20,13 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.TUI.Options (Options (..))
-import Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
-import Network.HTTP.Req qualified as Req
-import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
+import "aeson" Data.Aeson (eitherDecodeStrict, encode)
+import "async" Control.Concurrent.Async (link)
+import "base" Control.Exception (Handler (Handler), IOException, catches)
+import "io-classes" Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
+import "req" Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
+import "req" Network.HTTP.Req qualified as Req
+import "websockets" Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 
 data HydraEvent tx
   = ClientConnected

@@ -4,8 +4,6 @@ module Hydra.Tx.ScriptRegistry where
 
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Map qualified as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
   ScriptHash,
@@ -18,6 +16,8 @@ import Hydra.Cardano.Api (
   pattern ReferenceScriptNone,
  )
 import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry

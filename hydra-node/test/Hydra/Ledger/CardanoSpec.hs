@@ -6,13 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Api (ensureMinCoinTxOut)
-import Cardano.Ledger.Credential (Credential (..))
-import Data.Aeson (eitherDecode, encode)
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key)
-import Data.Text (unpack)
-import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
@@ -37,6 +30,13 @@ import Test.QuickCheck (
  )
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.Util (propCollisionResistant)
+import "aeson" Data.Aeson (eitherDecode, encode)
+import "aeson" Data.Aeson qualified as Aeson
+import "base" GHC.IsList (IsList (..))
+import "cardano-ledger-api" Cardano.Ledger.Api (ensureMinCoinTxOut)
+import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (..))
+import "lens-aeson" Data.Aeson.Lens (key)
+import "text" Data.Text (unpack)
 
 spec :: Spec
 spec =

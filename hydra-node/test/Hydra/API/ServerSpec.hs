@@ -5,24 +5,6 @@ module Hydra.API.ServerSpec where
 import Hydra.Prelude hiding (decodeUtf8, seq)
 import Test.Hydra.Prelude
 
-import Conduit (yieldMany)
-import Control.Concurrent.Class.MonadSTM (
-  check,
-  modifyTVar',
-  readTQueue,
-  readTVarIO,
-  tryReadTQueue,
-  writeTQueue,
- )
-import Control.Lens ((^?))
-import Data.Aeson (Value)
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _Number)
-import Data.List qualified as List
-import Data.Text qualified as T
-import Data.Text.Encoding (decodeUtf8)
-import Data.Text.IO (hPutStrLn)
-import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
 import Hydra.API.ServerOutput (InvalidInput (..), input)
@@ -44,10 +26,6 @@ import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
-import Network.Simple.WSS qualified as WSS
-import Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
-import Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
-import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Node.Fixture (testEnvironment)
@@ -56,6 +34,28 @@ import Test.Hydra.Tx.Gen ()
 import Test.Network.Ports (withFreePort)
 import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import "aeson" Data.Aeson (Value)
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Data.List qualified as List
+import "base" Data.Version (showVersion)
+import "base" System.IO.Error (isAlreadyInUseError)
+import "conduit" Conduit (yieldMany)
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  check,
+  modifyTVar',
+  readTQueue,
+  readTVarIO,
+  tryReadTQueue,
+  writeTQueue,
+ )
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, _Number)
+import "network-simple-wss" Network.Simple.WSS qualified as WSS
+import "text" Data.Text qualified as T
+import "text" Data.Text.Encoding (decodeUtf8)
+import "text" Data.Text.IO (hPutStrLn)
+import "tls" Network.TLS (ClientHooks (onServerCertificate), ClientParams (clientHooks), defaultParamsClient)
+import "websockets" Network.WebSockets (Connection, ConnectionException, receiveData, runClient, sendBinaryData)
 
 spec :: Spec
 spec =

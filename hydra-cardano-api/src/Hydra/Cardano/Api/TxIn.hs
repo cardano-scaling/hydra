@@ -4,11 +4,11 @@ module Hydra.Cardano.Api.TxIn where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Plutus (transSafeHash)
-import Cardano.Ledger.TxIn qualified as Ledger
-import Data.Set qualified as Set
-import PlutusLedgerApi.V3 qualified as Plutus
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Plutus (transSafeHash)
+import "cardano-ledger-core" Cardano.Ledger.TxIn qualified as Ledger
+import "containers" Data.Set qualified as Set
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

@@ -3,8 +3,6 @@ module Hydra.Cluster.Util where
 
 import Hydra.Prelude
 
-import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   Key (VerificationKey, getVerificationKey),
   NetworkId,
@@ -30,10 +28,12 @@ import Hydra.Options (
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
-import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (generate)
+import "aeson" Data.Aeson qualified as Aeson
+import "bytestring" Data.ByteString qualified as BS
+import "filepath" System.FilePath ((<.>), (</>))
 
 -- | Lookup a config file similar reading a file from disk.
 -- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be

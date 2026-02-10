@@ -2,15 +2,15 @@ module Hydra.Utils where
 
 import Hydra.Prelude
 
-import Crypto.Random (getRandomBytes)
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Types qualified as Aeson
-import GHC.IO.Exception (userError)
 import Hydra.Cardano.Api (File (..), FileError (FileIOError), Key (SigningKey), getVerificationKey, writeFileTextEnvelope)
 import Hydra.Options (GenerateKeyPair (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
-import System.Directory (doesFileExist)
-import System.FilePath ((<.>))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types qualified as Aeson
+import "base" GHC.IO.Exception (userError)
+import "crypto-api" Crypto.Random (getRandomBytes)
+import "directory" System.Directory (doesFileExist)
+import "filepath" System.FilePath ((<.>))
 
 genHydraKeys :: GenerateKeyPair -> IO (Either (FileError ()) ())
 genHydraKeys GenerateKeyPair{outputFile} = do

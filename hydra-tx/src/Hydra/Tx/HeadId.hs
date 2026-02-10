@@ -4,7 +4,6 @@ module Hydra.Tx.HeadId where
 
 import Hydra.Prelude
 
-import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (
   HasTypeProxy (..),
   PolicyId,
@@ -13,7 +12,8 @@ import Hydra.Cardano.Api (
   UsingRawBytesHex (..),
   fromPlutusCurrencySymbol,
  )
-import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
+import "aeson" Data.Aeson qualified as Aeson
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
 
 -- * HeadId
 

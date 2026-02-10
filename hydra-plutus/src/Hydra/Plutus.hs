@@ -13,17 +13,17 @@ module Hydra.Plutus where
 
 import Hydra.Prelude
 
-import Control.Lens ((^.))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, nth, _String)
-import Data.ByteString.Base16 qualified as Base16
-import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (scriptValidatorHash)
-import PlutusCore.Core (plcVersion110)
-import PlutusCore.MkPlc qualified as UPLC
-import PlutusLedgerApi.Common (serialiseUPLC, toData, uncheckedDeserialiseUPLC)
-import UntypedPlutusCore qualified as UPLC
+import "aeson" Data.Aeson qualified as Aeson
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "file-embed" Data.FileEmbed (embedFile, makeRelativeToProject)
+import "lens" Control.Lens ((^.))
+import "lens-aeson" Data.Aeson.Lens (key, nth, _String)
+import "plutus-core" PlutusCore.Core (plcVersion110)
+import "plutus-core" PlutusCore.MkPlc qualified as UPLC
+import "plutus-core" UntypedPlutusCore qualified as UPLC
+import "plutus-ledger-api" PlutusLedgerApi.Common (serialiseUPLC, toData, uncheckedDeserialiseUPLC)
 
 -- | Loads the embedded "plutus.json" blueprint and provides the decoded JSON.
 blueprintJSON :: Aeson.Value

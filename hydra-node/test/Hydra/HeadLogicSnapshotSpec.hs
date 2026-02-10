@@ -6,8 +6,6 @@ module Hydra.HeadLogicSnapshotSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Data.List qualified as List
-import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
@@ -32,6 +30,8 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicIO, pick, run)
+import "base" Data.List qualified as List
+import "containers" Data.Map.Strict qualified as Map
 
 spec :: Spec
 spec = do

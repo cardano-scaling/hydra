@@ -5,7 +5,7 @@
 -- of TemplateHaskell stage restriction.
 module Hydra.Contract.MintAction where
 
-import PlutusTx qualified
+import "plutus-tx" PlutusTx qualified
 
 data MintAction = Mint | Burn
 

@@ -3,10 +3,10 @@ module Test.Network.Ports where
 
 import Hydra.Prelude
 
-import Network.Socket (
+import "network" Network.Socket (
   PortNumber,
  )
-import Network.Socket.Free (getFreePort)
+import "port-utils" Network.Socket.Free (getFreePort)
 
 -- | Find a TCPv4 port which is likely to be free for listening on
 -- @localhost@. This binds a socket, receives an OS-assigned port, then closes

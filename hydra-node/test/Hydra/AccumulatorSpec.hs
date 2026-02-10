@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 -- Import this to make compiler happy
-import Accumulator ()
+import "haskell-accumulator" Accumulator ()
 
 spec :: Spec
 spec =

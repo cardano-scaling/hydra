@@ -13,7 +13,7 @@
 -- | Minting policy for a single head tokens.
 module Hydra.Contract.HeadTokens where
 
-import PlutusTx.Prelude
+import "plutus-tx" PlutusTx.Prelude
 
 import Hydra.Cardano.Api (
   PolicyId,
@@ -24,8 +24,8 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Cardano.Api qualified as Api
-import PlutusTx.Foldable qualified as F
-import PlutusTx.List qualified as L
+import "plutus-tx" PlutusTx.Foldable qualified as F
+import "plutus-tx" PlutusTx.List qualified as L
 
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState (seed)
@@ -36,8 +36,8 @@ import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST, scriptOutputsAt)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
-import PlutusCore.Version (plcVersion110)
-import PlutusLedgerApi.V3 (
+import "plutus-core" PlutusCore.Version (plcVersion110)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   Datum (getDatum),
   OutputDatum (..),
   ScriptContext (..),
@@ -49,10 +49,10 @@ import PlutusLedgerApi.V3 (
   mintValueToMap,
   serialiseCompiledCode,
  )
-import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol)
-import PlutusTx (CompiledCode)
-import PlutusTx qualified
-import PlutusTx.AssocMap qualified as AssocMap
+import "plutus-ledger-api" PlutusLedgerApi.V3.Contexts (ownCurrencySymbol)
+import "plutus-tx" PlutusTx (CompiledCode)
+import "plutus-tx" PlutusTx qualified
+import "plutus-tx" PlutusTx.AssocMap qualified as AssocMap
 
 validate ::
   ScriptHash ->

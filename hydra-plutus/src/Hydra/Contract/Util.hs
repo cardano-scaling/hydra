@@ -8,8 +8,8 @@ import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
-import PlutusLedgerApi.V1.Value (isZero)
-import PlutusLedgerApi.V3 (
+import "plutus-ledger-api" PlutusLedgerApi.V1.Value (isZero)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol,
@@ -25,12 +25,12 @@ import PlutusLedgerApi.V3 (
   mintValueMinted,
   mintValueToMap,
  )
-import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Builtins qualified as Builtins
-import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
-import PlutusTx.Foldable qualified as F
-import PlutusTx.List qualified as L
-import PlutusTx.Prelude
+import "plutus-tx" PlutusTx.AssocMap qualified as AssocMap
+import "plutus-tx" PlutusTx.Builtins qualified as Builtins
+import "plutus-tx" PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
+import "plutus-tx" PlutusTx.Foldable qualified as F
+import "plutus-tx" PlutusTx.List qualified as L
+import "plutus-tx" PlutusTx.Prelude
 
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = stringToBuiltinByteString "HydraHeadV1"

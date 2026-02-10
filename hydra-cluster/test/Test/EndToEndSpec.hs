@@ -6,7 +6,6 @@ module Test.EndToEndSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   waitForUTxO,
  )
@@ -14,18 +13,6 @@ import CardanoNode (
   withBackend,
   withCardanoNodeDevnet,
  )
-import Control.Lens ((^..), (^?))
-import Control.Monad (foldM_)
-import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
-import Data.Aeson.Types (parseMaybe)
-import Data.ByteString qualified as BS
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Set qualified as Set
-import Data.Text (isInfixOf)
-import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
@@ -107,15 +94,28 @@ import HydraNode (
   withHydraNode,
   withPreparedHydraNodeInSync,
  )
-import Network.HTTP.Conduit (parseUrlThrow)
-import Network.HTTP.Simple (getResponseBody, httpJSON)
-import System.Directory (removeDirectoryRecursive, removeFile)
-import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
 import Test.QuickCheck (Positive (..), generate)
-import Prelude qualified
+import "aeson" Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types (parseMaybe)
+import "base" Control.Monad (foldM_)
+import "base" Data.List qualified as List
+import "bytestring" Data.ByteString qualified as BS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "directory" System.Directory (removeDirectoryRecursive, removeFile)
+import "filepath" System.FilePath ((</>))
+import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON)
+import "lens" Control.Lens ((^..), (^?))
+import "lens-aeson" Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
+import "text" Data.Text (isInfixOf)
+import "time" Data.Time (secondsToDiffTime)
+import "base" Prelude qualified
 
 allNodeIds :: [Int]
 allNodeIds = [1 .. 3]

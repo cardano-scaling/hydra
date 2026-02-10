@@ -9,14 +9,6 @@ module Hydra.Chain.Direct (
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (
-  putTMVar,
-  readTQueue,
-  takeTMVar,
-  writeTQueue,
- )
-import Control.Exception (IOException)
-import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
@@ -64,19 +56,27 @@ import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
-import Ouroboros.Network.Magic (NetworkMagic (..))
-import Ouroboros.Network.Protocol.ChainSync.Client (
+import "base" Control.Exception (IOException)
+import "base" Text.Printf (printf)
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  putTMVar,
+  readTQueue,
+  takeTMVar,
+  writeTQueue,
+ )
+import "ouroboros-network-api" Ouroboros.Network.Magic (NetworkMagic (..))
+import "ouroboros-network-protocols" Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
   ClientStIntersect (..),
   ClientStNext (..),
  )
-import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
+import "ouroboros-network-protocols" Ouroboros.Network.Protocol.LocalTxSubmission.Client (
   LocalTxClientStIdle (..),
   LocalTxSubmissionClient (..),
   SubmitResult (..),
  )
-import Text.Printf (printf)
+import "text" Data.Text qualified as T
 
 newtype DirectBackend = DirectBackend {options :: DirectOptions} deriving (Eq, Show)
 

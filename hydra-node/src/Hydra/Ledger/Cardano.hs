@@ -12,34 +12,34 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Rules (
+import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Tx (IsTx (..))
+import "base" System.IO.Unsafe (unsafeDupablePerformIO)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),
   TagMismatchDescription (FailedUnexpectedly),
  )
-import Cardano.Ledger.Api (bodyTxL, raCredential, unWithdrawals, withdrawalsTxBodyL)
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.CertState (dsUnifiedL)
-import Cardano.Ledger.Conway.Rules (
+import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, raCredential, unWithdrawals, withdrawalsTxBodyL)
+import "cardano-ledger-conway" Cardano.Ledger.Conway.Rules (
   ConwayLedgerPredFailure (ConwayUtxowFailure),
   ConwayUtxoPredFailure (UtxosFailure),
   ConwayUtxosPredFailure (ValidationTagMismatch),
   ConwayUtxowPredFailure (UtxoFailure),
  )
-import Cardano.Ledger.Plutus (PlutusDebugOverrides (..), debugPlutus)
-import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
-import Cardano.Ledger.Shelley.Genesis qualified as Ledger
-import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
-import Cardano.Ledger.Shelley.Rules qualified as Ledger
-import Cardano.Ledger.UMap qualified as UM
-import Control.Lens ((%~), (.~), (^.))
-import Data.Default (def)
-import Data.Map qualified as Map
-import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Ledger (Ledger (..), ValidationError (..))
-import Hydra.Tx (IsTx (..))
-import System.IO.Unsafe (unsafeDupablePerformIO)
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.CertState (dsUnifiedL)
+import "cardano-ledger-core" Cardano.Ledger.Plutus (PlutusDebugOverrides (..), debugPlutus)
+import "cardano-ledger-core" Cardano.Ledger.UMap qualified as UM
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.Genesis qualified as Ledger
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.LedgerState qualified as Ledger
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.Rules qualified as Ledger
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "data-default" Data.Default (def)
+import "lens" Control.Lens ((%~), (.~), (^.))
 
 -- * Ledger
 

@@ -4,14 +4,14 @@
 -- validator implemented in aiken.
 module Hydra.Contract.Initial where
 
-import PlutusLedgerApi.V3 (
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   CurrencySymbol,
   Datum (..),
   Redeemer (Redeemer),
   ToData (toBuiltinData),
   TxOutRef,
  )
-import PlutusTx qualified
+import "plutus-tx" PlutusTx qualified
 
 type DatumType = CurrencySymbol
 

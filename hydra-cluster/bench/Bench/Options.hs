@@ -6,7 +6,7 @@ import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host, readHost)
 import Hydra.Options (networkIdParser, nodeSocketParser)
-import Options.Applicative (
+import "optparse-applicative" Options.Applicative (
   Parser,
   ParserInfo,
   auto,
@@ -27,7 +27,7 @@ import Options.Applicative (
   strOption,
   value,
  )
-import Options.Applicative.Builder (argument)
+import "optparse-applicative" Options.Applicative.Builder (argument)
 
 data UTxOSize = Constant | Growing deriving (Eq, Show, Read)
 

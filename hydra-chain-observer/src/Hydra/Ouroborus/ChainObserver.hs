@@ -37,7 +37,7 @@ import Hydra.ChainObserver.NodeClient (
  )
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Tx.Observe (HeadObservation (..))
-import Ouroboros.Network.Protocol.ChainSync.Client (
+import "ouroboros-network-protocols" Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),
   ClientStIntersect (..),

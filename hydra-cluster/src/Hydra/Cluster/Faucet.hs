@@ -6,19 +6,12 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
   buildAddress,
   sign,
  )
-import Control.Exception (IOException)
-import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
-import Control.Tracer (Tracer, traceWith)
-import Data.Set qualified as Set
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
-import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
@@ -30,6 +23,13 @@ import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Tx (balance, txId)
+import "base" Control.Exception (IOException)
+import "base" GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Set qualified as Set
+import "contra-tracer" Control.Tracer (Tracer, traceWith)
+import "io-classes" Control.Monad.Class.MonadThrow (Handler (Handler), catches)
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}

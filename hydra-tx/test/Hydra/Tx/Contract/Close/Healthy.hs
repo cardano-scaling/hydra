@@ -22,7 +22,6 @@ import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Utils (splitUTxO)
-import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -30,6 +29,7 @@ import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genValidityBoundsFromConte
 import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (elements)
 import Test.QuickCheck.Instances ()
+import "plutus-ledger-api" PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
 
 healthySeed :: Int
 healthySeed = 42

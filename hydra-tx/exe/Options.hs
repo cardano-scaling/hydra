@@ -3,12 +3,12 @@ module Options where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Data.Attoparsec.ByteString.Char8 qualified as Atto
-import Data.ByteString.Char8 qualified as BSC
-import Data.Char qualified as Char
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Tx.HeadId (HeadId (..))
-import Options.Applicative
+import "attoparsec" Data.Attoparsec.ByteString.Char8 qualified as Atto
+import "base" Data.Char qualified as Char
+import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "optparse-applicative" Options.Applicative
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 data Command
   = Deposit DepositOptions

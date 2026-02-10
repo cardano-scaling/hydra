@@ -4,9 +4,6 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
-import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
-import Control.Tracer (nullTracer)
-import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
@@ -21,9 +18,10 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
+import "base" Data.Maybe (fromJust)
+import "contra-tracer" Control.Tracer (nullTracer)
+import "io-classes" Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
-import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
@@ -79,6 +77,8 @@ import Test.QuickCheck.Monadic (
   run,
   stop,
  )
+import "cardano-ledger-api" Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import "lens" Control.Lens ((.~))
 
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotInsideHorizon = do

@@ -2,11 +2,11 @@ module Hydra.Events.Rotation where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
-import Data.Conduit.Combinators qualified as C
 import Hydra.Events (EventId, EventSink (..), EventSource (..), HasEventId (..))
 import Test.QuickCheck (Positive (..))
+import "conduit" Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
+import "conduit" Data.Conduit.Combinators qualified as C
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
 
 newtype RotationConfig = RotateAfter (Positive Natural)
 

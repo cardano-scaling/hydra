@@ -2,11 +2,11 @@ module Hydra.Cardano.Api.Hash where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
-import Cardano.Ledger.Keys qualified as Ledger
-import Cardano.Ledger.Plutus.TxInfo (transKeyHash)
-import Data.ByteString qualified as BS
-import PlutusLedgerApi.V3 qualified as Plutus
+import "bytestring" Data.ByteString qualified as BS
+import "cardano-ledger-core" Cardano.Ledger.Hashes (unsafeMakeSafeHash)
+import "cardano-ledger-core" Cardano.Ledger.Keys qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Plutus.TxInfo (transKeyHash)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Type conversions
 

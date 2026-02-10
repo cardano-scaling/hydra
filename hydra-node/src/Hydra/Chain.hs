@@ -13,9 +13,6 @@ module Hydra.Chain where
 
 import Hydra.Prelude
 
-import Cardano.Ledger.Core (PParams)
-import Data.List.NonEmpty ((<|))
-import Data.List.NonEmpty qualified as NE
 import Hydra.Cardano.Api (
   Address,
   AddressInEra,
@@ -40,6 +37,9 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.OnChainId (OnChainId)
+import "base" Data.List.NonEmpty ((<|))
+import "base" Data.List.NonEmpty qualified as NE
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
 
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Coin

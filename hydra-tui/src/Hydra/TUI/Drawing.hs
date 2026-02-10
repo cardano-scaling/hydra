@@ -7,20 +7,9 @@ module Hydra.TUI.Drawing where
 
 import Hydra.Prelude hiding (Down, State)
 
-import Brick
 import Hydra.Cardano.Api hiding (Active)
+import "brick" Brick
 
-import Brick.Forms (
-  renderForm,
- )
-import Brick.Widgets.Border (hBorder, vBorder)
-import Brick.Widgets.Border.Style (ascii)
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Map qualified as Map
-import Data.Text (chunksOf)
-import Data.Time (defaultTimeLocale, formatTime)
-import Data.Time.Format (FormatTime)
-import Data.Version (Version, showVersion)
 import Hydra.Cardano.Api.Pretty (renderUTxO)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
@@ -31,8 +20,19 @@ import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL
 import Hydra.TUI.Model
 import Hydra.TUI.Style
 import Hydra.Tx (HeadId, IsTx (..), Party (..))
-import Lens.Micro ((^.), (^?), _head)
 import Paths_hydra_tui (version)
+import "base" Data.Version (Version, showVersion)
+import "brick" Brick.Forms (
+  renderForm,
+ )
+import "brick" Brick.Widgets.Border (hBorder, vBorder)
+import "brick" Brick.Widgets.Border.Style (ascii)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "microlens" Lens.Micro ((^.), (^?), _head)
+import "text" Data.Text (chunksOf)
+import "time" Data.Time (defaultTimeLocale, formatTime)
+import "time" Data.Time.Format (FormatTime)
 
 -- | Main draw function
 draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]

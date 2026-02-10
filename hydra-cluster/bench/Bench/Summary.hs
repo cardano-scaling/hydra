@@ -4,16 +4,16 @@ module Bench.Summary where
 
 import Hydra.Prelude
 
-import Data.Fixed (Nano)
-import Data.Text (pack)
-import Data.Time (nominalDiffTimeToSeconds)
-import Data.Vector (Vector, (!))
 import Hydra.Generator (ClientDataset (..), Dataset (..))
-import Statistics.Quantile (def)
-import Statistics.Quantile qualified as Statistics
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Prelude (HUnitFailure (..))
-import Text.Printf (printf)
+import "base" Data.Fixed (Nano)
+import "base" Text.Printf (printf)
+import "statistics" Statistics.Quantile (def)
+import "statistics" Statistics.Quantile qualified as Statistics
+import "text" Data.Text (pack)
+import "time" Data.Time (nominalDiffTimeToSeconds)
+import "vector" Data.Vector (Vector, (!))
 
 type Percent = Double
 

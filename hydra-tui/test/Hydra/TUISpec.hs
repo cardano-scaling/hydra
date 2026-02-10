@@ -6,29 +6,7 @@ module Hydra.TUISpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
-import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
-import Control.Monad.Class.MonadAsync (cancel, waitCatch)
-import Data.ByteString qualified as BS
-import Graphics.Vty (
-  DisplayContext (..),
-  Event (EvKey),
-  Key (KChar, KEnter),
-  Output (..),
-  Vty (..),
-  defaultConfig,
-  displayContext,
-  initialAssumedState,
-  outputPicture,
-  shutdownInput,
- )
-import Graphics.Vty.Config (userConfig)
-import Graphics.Vty.Image (DisplayRegion)
-import Graphics.Vty.Platform.Unix.Input (buildInput)
-import Graphics.Vty.Platform.Unix.Output (buildOutput)
-import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (
@@ -55,9 +33,31 @@ import HydraNode (
   withHydraNode,
   withPreparedHydraNode,
  )
-import System.FilePath ((</>))
-import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
 import Test.QuickCheck (Positive (..))
+import "blaze-builder" Blaze.ByteString.Builder.Char8 (writeChar)
+import "bytestring" Data.ByteString qualified as BS
+import "filepath" System.FilePath ((</>))
+import "io-classes" Control.Concurrent.Class.MonadMVar (MonadMVar (..))
+import "io-classes" Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
+import "io-classes" Control.Monad.Class.MonadAsync (cancel, waitCatch)
+import "unix" System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import "vty" Graphics.Vty (
+  DisplayContext (..),
+  Event (EvKey),
+  Key (KChar, KEnter),
+  Output (..),
+  Vty (..),
+  defaultConfig,
+  displayContext,
+  initialAssumedState,
+  outputPicture,
+  shutdownInput,
+ )
+import "vty" Graphics.Vty.Config (userConfig)
+import "vty" Graphics.Vty.Image (DisplayRegion)
+import "vty-unix" Graphics.Vty.Platform.Unix.Input (buildInput)
+import "vty-unix" Graphics.Vty.Platform.Unix.Output (buildOutput)
+import "vty-unix" Graphics.Vty.Platform.Unix.Settings (defaultSettings)
 
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = 10

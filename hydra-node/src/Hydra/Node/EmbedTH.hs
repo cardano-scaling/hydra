@@ -3,9 +3,9 @@ module Hydra.Node.EmbedTH where
 
 import Hydra.Prelude
 
-import Data.FileEmbed (embedFile)
-import Language.Haskell.TH (Exp, Q, runIO)
-import System.Directory (findExecutable)
+import "directory" System.Directory (findExecutable)
+import "file-embed" Data.FileEmbed (embedFile)
+import "template-haskell" Language.Haskell.TH (Exp, Q, runIO)
 
 -- | Template haskell expression to find and embed an executable with given name.
 embedExecutable :: String -> Q Exp

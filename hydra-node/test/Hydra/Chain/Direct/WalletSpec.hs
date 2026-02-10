@@ -6,24 +6,6 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
-import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
-import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
-import Cardano.Ledger.Core (Tx, Value)
-import Cardano.Ledger.Hashes (hashAnnotated)
-import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Slot (EpochInfo)
-import Cardano.Ledger.Val (Val (..), invert)
-import Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
-import Control.Lens (view, (.~), (<>~), (^.))
-import Control.Tracer (nullTracer)
-import Data.Map.Strict qualified as Map
-import Data.Sequence.Strict qualified as StrictSeq
-import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   LedgerEra,
   PaymentCredential (PaymentCredentialByKey),
@@ -73,7 +55,25 @@ import Test.QuickCheck (
   vectorOf,
   (.&&.),
  )
-import Prelude qualified
+import "base" Control.Concurrent (MVar, newEmptyMVar, putMVar, takeMVar)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
+import "cardano-ledger-conway" Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Coin (Coin (..))
+import "cardano-ledger-core" Cardano.Ledger.Core (Tx, Value)
+import "cardano-ledger-core" Cardano.Ledger.Hashes (hashAnnotated)
+import "cardano-ledger-core" Cardano.Ledger.Slot (EpochInfo)
+import "cardano-ledger-core" Cardano.Ledger.Val (Val (..), invert)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API qualified as Ledger
+import "cardano-strict-containers" Data.Sequence.Strict qualified as StrictSeq
+import "containers" Data.Map.Strict qualified as Map
+import "containers" Data.Set qualified as Set
+import "contra-tracer" Control.Tracer (nullTracer)
+import "lens" Control.Lens (view, (.~), (<>~), (^.))
+import "base" Prelude qualified
 
 spec :: Spec
 spec = parallel $ do

@@ -13,9 +13,6 @@ module Hydra.Logging.Monitoring (
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
-import Control.Tracer (Tracer (Tracer))
-import Data.Map.Strict as Map
 import Hydra.HeadLogic (
   Input (NetworkInput),
  )
@@ -25,13 +22,16 @@ import Hydra.Network (PortNumber)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
-import System.Metrics.Prometheus.Http.Scrape (serveMetrics)
-import System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))
-import System.Metrics.Prometheus.Metric.Counter (add, inc)
-import System.Metrics.Prometheus.Metric.Gauge qualified as Gauge
-import System.Metrics.Prometheus.Metric.Histogram (observe)
-import System.Metrics.Prometheus.MetricId (Name (Name))
-import System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerGauge, registerHistogram, sample)
+import "containers" Data.Map.Strict as Map
+import "contra-tracer" Control.Tracer (Tracer (Tracer))
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
+import "prometheus" System.Metrics.Prometheus.Http.Scrape (serveMetrics)
+import "prometheus" System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))
+import "prometheus" System.Metrics.Prometheus.Metric.Counter (add, inc)
+import "prometheus" System.Metrics.Prometheus.Metric.Gauge qualified as Gauge
+import "prometheus" System.Metrics.Prometheus.Metric.Histogram (observe)
+import "prometheus" System.Metrics.Prometheus.MetricId (Name (Name))
+import "prometheus" System.Metrics.Prometheus.Registry (Registry, new, registerCounter, registerGauge, registerHistogram, sample)
 
 -- | Wraps a monadic action using a `Tracer` and capture metrics based on traces.
 -- Given a `portNumber`, this wrapper starts a Prometheus-compliant server on this port.

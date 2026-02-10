@@ -9,18 +9,18 @@ where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (
+import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
+import "base" Data.Bifunctor (bimap)
+import "base" Data.Functor ((<&>))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (
   EraTx (mkBasicTx),
   inputsTxBodyL,
   mkBasicTxBody,
  )
-import Cardano.Ledger.Api qualified as Ledger
-import Control.Lens ((&), (.~))
-import Data.Bifunctor (bimap)
-import Data.Functor ((<&>))
-import Data.Set qualified as Set
-import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
+import "cardano-ledger-api" Cardano.Ledger.Api qualified as Ledger
+import "containers" Data.Set qualified as Set
+import "lens" Control.Lens ((&), (.~))
 
 -- * Extras
 

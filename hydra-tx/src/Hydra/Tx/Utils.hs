@@ -6,19 +6,19 @@ module Hydra.Tx.Utils (
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx qualified as Ledger
-import Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)
-import Control.Lens ((.~), (^.))
-import Data.Map.Strict qualified as Map
-import Data.Maybe.Strict (StrictMaybe (..))
-import GHC.IsList (IsList (..))
 import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Util (hydraHeadV1)
 import Hydra.Tx.HeadId (HeadId, mkHeadId)
 import Hydra.Tx.OnChainId (OnChainId (..))
-import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
-import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
+import "base" GHC.IsList (IsList (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Tx qualified as Ledger
+import "cardano-ledger-api" Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)
+import "cardano-strict-containers" Data.Maybe.Strict (StrictMaybe (..))
+import "containers" Data.Map.Strict qualified as Map
+import "lens" Control.Lens ((.~), (^.))
+import "ouroboros-consensus-cardano" Ouroboros.Consensus.Shelley.Eras qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
 hydraHeadV1AssetName :: AssetName
 hydraHeadV1AssetName = UnsafeAssetName (fromBuiltin hydraHeadV1)

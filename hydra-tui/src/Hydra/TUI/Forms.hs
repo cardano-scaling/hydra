@@ -10,8 +10,9 @@ import Hydra.Prelude hiding (Down, State)
 import Hydra.Cardano.Api
 import Hydra.Cardano.Api.Pretty (renderUTxO)
 
-import Brick (BrickEvent (..), vBox, withDefAttr)
-import Brick.Forms (
+import Hydra.Chain.Direct.State ()
+import "brick" Brick (BrickEvent (..), vBox, withDefAttr)
+import "brick" Brick.Forms (
   Form (..),
   FormField (..),
   FormFieldState (..),
@@ -20,15 +21,14 @@ import Brick.Forms (
   newForm,
   radioField,
  )
-import Brick.Types (Location (..), Widget)
-import Brick.Widgets.Core (clickable, putCursor, txt, (<+>))
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Map.Strict qualified as Map
-import Data.Text qualified as Text
-import Graphics.Vty (Event (..), Key (..))
-import Hydra.Chain.Direct.State ()
-import Lens.Micro (Lens', (^.))
-import Prelude qualified
+import "brick" Brick.Types (Location (..), Widget)
+import "brick" Brick.Widgets.Core (clickable, putCursor, txt, (<+>))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map.Strict qualified as Map
+import "microlens" Lens.Micro (Lens', (^.))
+import "text" Data.Text qualified as Text
+import "vty" Graphics.Vty (Event (..), Key (..))
+import "base" Prelude qualified
 
 utxoCheckboxField ::
   forall s e n.

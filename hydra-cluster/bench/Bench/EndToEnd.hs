@@ -6,28 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
-import Control.Concurrent.Class.MonadSTM (
-  MonadSTM (readTVarIO),
-  check,
-  lengthTBQueue,
-  modifyTVar,
-  tryReadTBQueue,
-  writeTBQueue,
- )
-import Control.Lens (to, (^..), (^?))
-import Control.Monad.Class.MonadAsync (mapConcurrently)
-import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
-import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
-import Data.Aeson.Types (parseEither)
-import Data.ByteString.Lazy qualified as LBS
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Scientific (Scientific)
-import Data.Set ((\\))
-import Data.Set qualified as Set
-import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
@@ -59,9 +38,30 @@ import HydraNode (
   withConnectionToNodeHost,
   withHydraCluster,
  )
-import System.FilePath ((</>))
 import Test.HUnit.Lang (formatFailureReason)
-import Text.Printf (printf)
+import "aeson" Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
+import "aeson" Data.Aeson.Types (parseEither)
+import "base" Data.List qualified as List
+import "base" Text.Printf (printf)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set ((\\))
+import "containers" Data.Set qualified as Set
+import "filepath" System.FilePath ((</>))
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  MonadSTM (readTVarIO),
+  check,
+  lengthTBQueue,
+  modifyTVar,
+  tryReadTBQueue,
+  writeTBQueue,
+ )
+import "io-classes" Control.Monad.Class.MonadAsync (mapConcurrently)
+import "lens" Control.Lens (to, (^..), (^?))
+import "lens-aeson" Data.Aeson.Lens (key, values, _JSON, _Number, _String)
+import "scientific" Data.Scientific (Scientific)
+import "time" Data.Time (UTCTime (UTCTime), utctDayTime)
 
 bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemStats)
 bench startingNodeId timeoutSeconds workDir dataset = do

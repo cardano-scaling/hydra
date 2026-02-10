@@ -2,15 +2,15 @@ module Hydra.Cardano.Api.Value where
 
 import Hydra.Cardano.Api.Prelude hiding (toLedgerValue)
 
-import Cardano.Api.Ledger (PParams)
-import Cardano.Ledger.Core (getMinCoinTxOut)
-import Cardano.Ledger.Mary.Value qualified as Ledger
-import Data.Word (Word64)
-import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.PolicyId (fromPlutusCurrencySymbol)
-import PlutusLedgerApi.V1.Value (flattenValue)
-import PlutusLedgerApi.V3 (adaSymbol, adaToken, fromBuiltin, unTokenName)
-import PlutusLedgerApi.V3 qualified as Plutus
+import "base" Data.Word (Word64)
+import "base" GHC.IsList (IsList (..))
+import "cardano-api" Cardano.Api.Ledger (PParams)
+import "cardano-ledger-core" Cardano.Ledger.Core (getMinCoinTxOut)
+import "cardano-ledger-mary" Cardano.Ledger.Mary.Value qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V1.Value (flattenValue)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (adaSymbol, adaToken, fromBuiltin, unTokenName)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

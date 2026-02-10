@@ -22,10 +22,6 @@ module Hydra.HeadLogic (
 
 import Hydra.Prelude
 
-import Data.List (elemIndex, minimumBy)
-import Data.Map.Strict qualified as Map
-import Data.Set ((\\))
-import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -100,6 +96,10 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import "base" Data.List (elemIndex, minimumBy)
+import "containers" Data.Map.Strict qualified as Map
+import "containers" Data.Set ((\\))
+import "containers" Data.Set qualified as Set
 
 -- * The Coordinated Head protocol
 

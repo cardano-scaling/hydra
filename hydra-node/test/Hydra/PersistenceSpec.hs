@@ -5,9 +5,6 @@ module Hydra.PersistenceSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Data.Aeson (Value (..))
-import Data.Aeson qualified as Aeson
-import Data.Text qualified as Text
 import Hydra.Logging (Envelope (..), Verbosity (Verbose), withTracer)
 import Hydra.Persistence (Persistence (..), PersistenceIncremental (..), createPersistence, createPersistenceIncremental, loadAll)
 import Hydra.PersistenceLog
@@ -15,6 +12,9 @@ import Test.QuickCheck (checkCoverage, cover, elements, oneof, suchThat, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 import Test.Util (captureTracer)
+import "aeson" Data.Aeson (Value (..))
+import "aeson" Data.Aeson qualified as Aeson
+import "text" Data.Text qualified as Text
 
 spec :: Spec
 spec = do

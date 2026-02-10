@@ -8,8 +8,6 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -39,8 +37,6 @@ import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
-import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
-import PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
@@ -67,6 +63,10 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-ledger-api" PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
 
 healthyCurrentSnapshotNumber :: Snapshot.SnapshotNumber
 healthyCurrentSnapshotNumber = 1

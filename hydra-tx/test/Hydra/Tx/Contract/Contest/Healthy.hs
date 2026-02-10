@@ -6,7 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
@@ -27,7 +26,6 @@ import Hydra.Tx.Utils (
   setIncrementalActionMaybe,
   splitUTxO,
  )
-import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genForParty,
@@ -40,6 +38,8 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.QuickCheck (elements, suchThat)
 import Test.QuickCheck.Instances ()
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-ledger-api" PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 
 --
 -- ContestTx

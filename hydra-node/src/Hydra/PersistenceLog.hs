@@ -1,7 +1,7 @@
 module Hydra.PersistenceLog where
 
-import Data.Aeson (defaultOptions, genericParseJSON, genericToJSON, tagSingleConstructors)
 import Hydra.Prelude
+import "aeson" Data.Aeson (defaultOptions, genericParseJSON, genericToJSON, tagSingleConstructors)
 
 data PersistenceLog
   = FailedToDecodeJson {reason :: String, filepath :: FilePath, contents :: String}

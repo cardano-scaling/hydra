@@ -6,14 +6,14 @@ module Test.Hydra.Options where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.ByteString qualified as BS
-import Data.IP (IP (IPv4), toIPv4w)
 import Hydra.Cardano.Api (
   ChainPoint (..),
   SlotNo (..),
   deserialiseFromRawBytes,
   proxyToAsType,
  )
+import "bytestring" Data.ByteString qualified as BS
+import "iproute" Data.IP (IP (IPv4), toIPv4w)
 
 import Hydra.Logging (Verbosity (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), LedgerConfig (..), OfflineChainConfig (..), RunOptions (..), defaultBlockfrostOptions, defaultDirectOptions)

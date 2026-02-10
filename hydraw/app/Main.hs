@@ -5,18 +5,18 @@ import Hydra.Prelude
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.Network (Host, readHost)
 import Hydra.Painter (Pixel (..), paintPixel, withClient, withClientNoRetry)
-import Network.HTTP.Types.Status (status200, status400, status404)
-import Network.Wai (
+import "http-types" Network.HTTP.Types.Status (status200, status400, status404)
+import "safe" Safe (readMay)
+import "wai" Network.Wai (
   Application,
   pathInfo,
   requestMethod,
   responseFile,
   responseLBS,
  )
-import Network.Wai.Handler.Warp qualified as Warp
-import Network.Wai.Handler.WebSockets qualified as Wai
-import Network.WebSockets qualified as WS
-import Safe (readMay)
+import "wai-websockets" Network.Wai.Handler.WebSockets qualified as Wai
+import "warp" Network.Wai.Handler.Warp qualified as Warp
+import "websockets" Network.WebSockets qualified as WS
 
 main :: IO ()
 main = do

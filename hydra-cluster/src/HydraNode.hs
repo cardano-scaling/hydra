@@ -6,19 +6,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
 import CardanoNode (cliQueryProtocolParameters)
-import Control.Concurrent.Async (forConcurrently_)
-import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
-import Control.Exception (Handler (..), IOException, catches)
-import Control.Lens ((?~))
-import Control.Monad.Class.MonadAsync (forConcurrently)
-import Data.Aeson (Value (..), object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (atKey, key)
-import Data.Aeson.Types (Pair)
-import Data.ByteString (hGetContents)
-import Data.List qualified as List
-import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
@@ -30,15 +17,28 @@ import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBack
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
-import Network.HTTP.Conduit (parseUrlThrow)
-import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
-import Network.HTTP.Req qualified as Req
-import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
-import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
-import System.Directory (createDirectoryIfMissing)
-import System.FilePath ((<.>), (</>))
-import System.Info (os)
-import System.Process.Typed (
+import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
+import "aeson" Data.Aeson (Value (..), object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.KeyMap qualified as KeyMap
+import "aeson" Data.Aeson.Types (Pair)
+import "async" Control.Concurrent.Async (forConcurrently_)
+import "base" Control.Exception (Handler (..), IOException, catches)
+import "base" Data.List qualified as List
+import "base" System.Info (os)
+import "bytestring" Data.ByteString (hGetContents)
+import "directory" System.Directory (createDirectoryIfMissing)
+import "filepath" System.FilePath ((<.>), (</>))
+import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
+import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
+import "io-classes" Control.Monad.Class.MonadAsync (forConcurrently)
+import "lens" Control.Lens ((?~))
+import "lens-aeson" Data.Aeson.Lens (atKey, key)
+import "req" Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
+import "req" Network.HTTP.Req qualified as Req
+import "text" Data.Text qualified as T
+import "typed-process" System.Process.Typed (
   ExitCode (..),
   createPipe,
   getStderr,
@@ -49,8 +49,8 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
-import Prelude qualified
+import "websockets" Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendClose, sendTextData)
+import "base" Prelude qualified
 
 -- * Client to interact with a hydra-node
 

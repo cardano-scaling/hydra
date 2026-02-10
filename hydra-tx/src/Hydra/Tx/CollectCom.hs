@@ -4,9 +4,9 @@
 
 module Hydra.Tx.CollectCom where
 
-import Data.Map qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import "containers" Data.Map qualified as Map
 
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
@@ -20,8 +20,8 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
-import PlutusLedgerApi.Common (fromBuiltin)
-import PlutusLedgerApi.V3 (toBuiltin)
+import "plutus-ledger-api" PlutusLedgerApi.Common (fromBuiltin)
+import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
 

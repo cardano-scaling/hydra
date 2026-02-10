@@ -30,9 +30,9 @@ import Hydra.Options (ChainBackendOptions (..), defaultBlockfrostOptions)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api.PParams (emptyPParams)
 import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api.PParams (emptyPParams)
 
 spec :: Spec
 spec = describe "publishHydraScripts" $ do

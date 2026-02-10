@@ -1,19 +1,21 @@
 {-# LANGUAGE ExtendedDefaultRules #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports #-}
 
-import Control.Lens (asIndex, to, (&), (^.), (^?))
-import Data.Aeson
-import qualified Data.Aeson.Key as Key
-import Data.Aeson.Lens
-import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as LBS
-import Data.Maybe (fromJust)
-import Data.String
-import Data.Text (Text)
-import qualified Data.Text.Lazy as Text
-import Data.Text.Lazy.Encoding (decodeLatin1)
-import Shh
-import System.Environment
+import "aeson" Data.Aeson
+import "aeson" Data.Aeson.Key qualified as Key
+import "base" Data.Maybe (fromJust)
+import "base" Data.String
+import "base" System.Environment
+import "bytestring" Data.ByteString.Lazy (ByteString)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "lens" Control.Lens (asIndex, to, (&), (^.), (^?))
+import "lens-aeson" Data.Aeson.Lens
+import "shh" Shh
+import "text" Data.Text (Text)
+import "text" Data.Text.Lazy qualified as Text
+import "text" Data.Text.Lazy.Encoding (decodeLatin1)
 
 runRemoteTxCost :: ByteString -> Integer -> IO ByteString
 runRemoteTxCost revision seed = do

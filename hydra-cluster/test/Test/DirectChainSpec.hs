@@ -5,18 +5,11 @@ module Test.DirectChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
 import CardanoClient (
   buildAddress,
   waitForUTxO,
  )
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Control.Concurrent.STM (takeTMVar)
-import Control.Concurrent.STM.TMVar (putTMVar)
-import Control.Lens ((<>~))
-import Data.List.Split (splitWhen)
-import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   ChainPoint (..),
   Key (SigningKey),
@@ -76,10 +69,17 @@ import Hydra.Tx.Utils (
   splitUTxO,
   verificationKeyToOnChainId,
  )
-import System.FilePath ((</>))
-import System.Process (proc, readCreateProcess)
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose, generate)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
+import "containers" Data.Set qualified as Set
+import "filepath" System.FilePath ((</>))
+import "lens" Control.Lens ((<>~))
+import "process" System.Process (proc, readCreateProcess)
+import "split" Data.List.Split (splitWhen)
+import "stm" Control.Concurrent.STM (takeTMVar)
+import "stm" Control.Concurrent.STM.TMVar (putTMVar)
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do

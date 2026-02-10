@@ -3,8 +3,6 @@ module Hydra.API.ClientInputSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.Aeson (Result (..), fromJSON)
-import Data.Aeson.Lens (key)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Cardano.Api (serialiseToTextEnvelope)
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
@@ -17,6 +15,8 @@ import Test.Aeson.GenericSpecs (
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (counterexample, forAll, property)
+import "aeson" Data.Aeson (Result (..), fromJSON)
+import "lens-aeson" Data.Aeson.Lens (key)
 
 spec :: Spec
 spec = parallel $ do

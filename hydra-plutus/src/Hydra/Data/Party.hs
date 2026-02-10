@@ -2,10 +2,10 @@ module Hydra.Data.Party where
 
 import Hydra.Prelude hiding (init)
 
-import PlutusTx qualified
-import PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
-import PlutusTx.IsData
-import PlutusTx.Prelude qualified as PlutusTx
+import "plutus-tx" PlutusTx qualified
+import "plutus-tx" PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)
+import "plutus-tx" PlutusTx.IsData
+import "plutus-tx" PlutusTx.Prelude qualified as PlutusTx
 
 -- | On-chain representation of a Hydra party.
 --

@@ -3,14 +3,6 @@ module Hydra.API.HTTPServerSpec where
 import Hydra.Prelude hiding (delete, get)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Control.Concurrent.STM (newTChanIO, writeTChan)
-import Control.Lens ((^?))
-import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, nth)
-import Data.ByteString.Lazy qualified as LBS
-import Data.Text qualified as Text
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
@@ -47,8 +39,6 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
-import System.FilePath ((</>))
-import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), delete, get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
@@ -66,6 +56,16 @@ import Test.QuickCheck (
   property,
   withMaxSuccess,
  )
+import "aeson" Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "base" System.IO.Unsafe (unsafePerformIO)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "filepath" System.FilePath ((</>))
+import "lens" Control.Lens ((^?))
+import "lens-aeson" Data.Aeson.Lens (key, nth)
+import "stm" Control.Concurrent.STM (newTChanIO, writeTChan)
+import "text" Data.Text qualified as Text
 
 dummyStatePath :: FilePath
 dummyStatePath = "~"

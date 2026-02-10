@@ -6,65 +6,6 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api.Ledger (Data, ExUnits)
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Address qualified as Ledger
-import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
-import Cardano.Ledger.Alonzo.Scripts (
-  AlonzoEraScript (..),
-  AsIx (..),
-  plutusScriptLanguage,
- )
-import Cardano.Ledger.Alonzo.TxWits (
-  Redeemers (..),
-  datsTxWitsL,
- )
-import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
-import Cardano.Ledger.Api (
-  AlonzoEraTx,
-  BabbageEraTxBody,
-  ConwayEra,
-  PParams,
-  TransactionScriptFailure,
-  Tx,
-  bodyTxL,
-  calcMinFeeTx,
-  coinTxOutL,
-  collateralInputsTxBodyL,
-  ensureMinCoinTxOut,
-  evalTxExUnits,
-  feeTxBodyL,
-  inputsTxBodyL,
-  outputsTxBodyL,
-  rdmrsTxWitsL,
-  referenceInputsTxBodyL,
-  scriptIntegrityHashTxBodyL,
-  scriptTxWitsL,
-  witsTxL,
-  pattern SpendingPurpose,
- )
-import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
-import Cardano.Ledger.Babbage.TxBody qualified as Babbage
-import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (
-  TxUpgradeError,
- )
-import Cardano.Ledger.Core qualified as Core
-import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Shelley.API (unUTxO)
-import Cardano.Ledger.Shelley.API qualified as Ledger
-import Cardano.Ledger.Val (invert)
-import Cardano.Slotting.EpochInfo (EpochInfo)
-import Cardano.Slotting.Time (SystemStart (..))
-import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
-import Control.Lens (view, (%~), (.~), (^.))
-import Data.List qualified as List
-import Data.Map.Strict qualified as Map
-import Data.Sequence.Strict ((|>))
-import Data.Set qualified as Set
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint,
@@ -89,6 +30,65 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
 import Hydra.Logging (Tracer, traceWith)
+import "base" Data.List qualified as List
+import "cardano-api" Cardano.Api.Ledger (Data, ExUnits)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (
+  AlonzoEraScript (..),
+  AsIx (..),
+  plutusScriptLanguage,
+ )
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxWits (
+  Redeemers (..),
+  datsTxWitsL,
+ )
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
+import "cardano-ledger-api" Cardano.Ledger.Api (
+  AlonzoEraTx,
+  BabbageEraTxBody,
+  ConwayEra,
+  PParams,
+  TransactionScriptFailure,
+  Tx,
+  bodyTxL,
+  calcMinFeeTx,
+  coinTxOutL,
+  collateralInputsTxBodyL,
+  ensureMinCoinTxOut,
+  evalTxExUnits,
+  feeTxBodyL,
+  inputsTxBodyL,
+  outputsTxBodyL,
+  rdmrsTxWitsL,
+  referenceInputsTxBodyL,
+  scriptIntegrityHashTxBodyL,
+  scriptTxWitsL,
+  witsTxL,
+  pattern SpendingPurpose,
+ )
+import "cardano-ledger-api" Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.TxBody qualified as Babbage
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
+import "cardano-ledger-core" Cardano.Ledger.Address qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Coin (Coin (..))
+import "cardano-ledger-core" Cardano.Ledger.Core (
+  TxUpgradeError,
+ )
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Core
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Val (invert)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API (unUTxO)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API qualified as Ledger
+import "cardano-slotting" Cardano.Slotting.EpochInfo (EpochInfo)
+import "cardano-slotting" Cardano.Slotting.Time (SystemStart (..))
+import "cardano-strict-containers" Data.Sequence.Strict ((|>))
+import "containers" Data.Map.Strict qualified as Map
+import "containers" Data.Set qualified as Set
+import "io-classes" Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
+import "lens" Control.Lens (view, (%~), (.~), (^.))
 
 type Address = Ledger.Addr
 type TxIn = Ledger.TxIn

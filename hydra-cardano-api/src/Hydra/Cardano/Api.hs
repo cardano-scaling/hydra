@@ -30,7 +30,13 @@ module Hydra.Cardano.Api (
   module X,
 ) where
 
-import Cardano.Api as X hiding (
+import Hydra.Cardano.Api.Prelude (
+  Era,
+  LedgerEra,
+  Map,
+  ledgerEraVersion,
+ )
+import "cardano-api" Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
   BalancedTxBody (..),
@@ -79,14 +85,8 @@ import Cardano.Api as X hiding (
   toLedgerValue,
   (<+>),
  )
-import Cardano.Api.Ledger as X (
+import "cardano-api" Cardano.Api.Ledger as X (
   PParams,
- )
-import Hydra.Cardano.Api.Prelude (
-  Era,
-  LedgerEra,
-  Map,
-  ledgerEraVersion,
  )
 
 import Hydra.Cardano.Api.AddressInEra as Extras
@@ -114,14 +114,14 @@ import Hydra.Cardano.Api.ValidityInterval as Extras
 import Hydra.Cardano.Api.Value as Extras
 import Hydra.Cardano.Api.Witness as Extras
 
-import Cardano.Api qualified
-import Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
-import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.BaseTypes as X (Network)
-import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Keys qualified as Ledger
-import Data.ByteString.Short (ShortByteString)
-import Prelude
+import "bytestring" Data.ByteString.Short (ShortByteString)
+import "cardano-api" Cardano.Api qualified
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxAuxData qualified as Ledger
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes as X (Network)
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Keys qualified as Ledger
+import "base" Prelude
 
 -- ** AddressInEra
 

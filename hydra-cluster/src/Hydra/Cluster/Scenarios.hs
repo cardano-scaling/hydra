@@ -6,36 +6,12 @@ module Hydra.Cluster.Scenarios where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
-import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
-import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
-import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
-import Cardano.Ledger.Api.Tx qualified as Ledger
-import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
-import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
-import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
-import Cardano.Ledger.Credential (Credential (ScriptHashObj))
-import Cardano.Ledger.Plutus (ExUnits (..))
-import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
   waitForUTxO,
  )
 import CardanoNode (NodeLog)
-import Control.Concurrent.Async (mapConcurrently_)
-import Control.Lens ((.~), (?~), (^.), (^..), (^?))
-import Data.Aeson (Value, object, (.=))
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (atKey, key, values, _JSON, _String)
-import Data.Aeson.Types (parseMaybe)
-import Data.ByteString (isInfixOf)
-import Data.ByteString qualified as B
-import Data.ByteString.Char8 qualified as BSC
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
@@ -149,9 +125,40 @@ import HydraNode (
   withHydraNodeCatchingUp,
   withPreparedHydraNodeInSync,
  )
-import Network.HTTP.Conduit (parseUrlThrow)
-import Network.HTTP.Conduit qualified as L
-import Network.HTTP.Req (
+import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
+import Test.QuickCheck (Positive, choose, elements, generate)
+import "aeson" Data.Aeson (Value, object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types (parseMaybe)
+import "async" Control.Concurrent.Async (mapConcurrently_)
+import "base" Data.List qualified as List
+import "base" System.Environment (setEnv, unsetEnv)
+import "bytestring" Data.ByteString (isInfixOf)
+import "bytestring" Data.ByteString qualified as B
+import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import "cardano-ledger-api" Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
+import "cardano-ledger-api" Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx qualified as Ledger
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
+import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (ScriptHashObj))
+import "cardano-ledger-core" Cardano.Ledger.Plutus (ExUnits (..))
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Language (Language (PlutusV3))
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "filepath" System.FilePath ((</>))
+import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
+import "http-conduit" Network.HTTP.Conduit qualified as L
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
+import "lens" Control.Lens ((.~), (?~), (^.), (^..), (^?))
+import "lens-aeson" Data.Aeson.Lens (atKey, key, values, _JSON, _String)
+import "process" System.Process (callProcess)
+import "req" Network.HTTP.Req (
   HttpException (VanillaHttpException),
   JsonResponse,
   POST (POST),
@@ -164,13 +171,6 @@ import Network.HTTP.Req (
   runReq,
   (/:),
  )
-import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
-import System.Environment (setEnv, unsetEnv)
-import System.FilePath ((</>))
-import System.Process (callProcess)
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
-import Test.QuickCheck (Positive, choose, elements, generate)
 
 data EndToEndLog
   = ClusterOptions {options :: Options}

@@ -8,11 +8,11 @@ import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Aeson (eitherDecode', encode)
-import Data.Set qualified as Set
-import Data.Text qualified as Text
-import Text.Printf (printf)
+import "aeson" Data.Aeson (eitherDecode', encode)
+import "base" Text.Printf (printf)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Set qualified as Set
+import "text" Data.Text qualified as Text
 
 -- XXX: This should be re-exported by cardano-api
 -- https://github.com/IntersectMBO/cardano-api/issues/447

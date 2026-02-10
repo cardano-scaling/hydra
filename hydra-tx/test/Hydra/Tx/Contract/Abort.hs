@@ -9,9 +9,6 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
-import Data.Map qualified as Map
 import Hydra.Contract.CommitError (CommitError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -56,6 +53,9 @@ import Test.Hydra.Tx.Mutation (
   replacePolicyIdWith,
  )
 import Test.QuickCheck (Property, choose, counterexample, elements, oneof, shuffle, suchThat, vectorOf)
+import "base" Data.List qualified as List
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
 
 --
 -- AbortTx

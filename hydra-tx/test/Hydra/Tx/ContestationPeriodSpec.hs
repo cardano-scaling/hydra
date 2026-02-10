@@ -2,12 +2,12 @@ module Hydra.Tx.ContestationPeriodSpec where
 
 import Hydra.Prelude hiding (label)
 
-import Data.Time (secondsToNominalDiffTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Test.Hspec (Spec, describe, shouldThrow)
 import Test.Hspec.QuickCheck (prop)
 import Test.QuickCheck (getNonPositive, getPositive, (===))
 import Test.QuickCheck.Instances.Time ()
+import "time" Data.Time (secondsToNominalDiffTime)
 
 spec :: Spec
 spec = do

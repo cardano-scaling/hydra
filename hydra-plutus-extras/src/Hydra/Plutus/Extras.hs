@@ -9,14 +9,14 @@ import Hydra.Prelude
 
 import Hydra.Plutus.Extras.Time
 
-import Cardano.Api (
+import "cardano-api" Cardano.Api (
   IsPlutusScriptLanguage (plutusScriptVersion),
   PlutusScript,
   Script (PlutusScript),
   SerialiseAsRawBytes (serialiseToRawBytes),
   hashScript,
  )
-import PlutusLedgerApi.V3 (
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   Datum (..),
   ScriptContext (..),
   ScriptHash (..),
@@ -25,8 +25,8 @@ import PlutusLedgerApi.V3 (
   scriptContextRedeemer,
   scriptContextScriptInfo,
  )
-import PlutusTx (BuiltinData, UnsafeFromData (..))
-import PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
+import "plutus-tx" PlutusTx (BuiltinData, UnsafeFromData (..))
+import "plutus-tx" PlutusTx.Prelude (BuiltinUnit, check, toBuiltin)
 
 -- * Vendored from plutus-ledger
 

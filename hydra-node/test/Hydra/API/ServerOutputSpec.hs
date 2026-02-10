@@ -3,9 +3,6 @@ module Hydra.API.ServerOutputSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Lens (toListOf, (^.))
-import Data.Aeson (Value)
-import Data.Aeson.Lens (key, values, _Array)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
@@ -20,6 +17,9 @@ import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.Chain.Direct.State ()
 import Test.QuickCheck (conjoin, withMaxSuccess)
+import "aeson" Data.Aeson (Value)
+import "lens" Control.Lens (toListOf, (^.))
+import "lens-aeson" Data.Aeson.Lens (key, values, _Array)
 
 spec :: Spec
 spec = parallel $ do

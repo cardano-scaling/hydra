@@ -32,29 +32,29 @@ import Hydra.Prelude
 import Test.Hspec
 import Test.Hspec.QuickCheck
 
-import Data.List (isInfixOf)
-import Data.Ratio ((%))
-import Data.Text qualified as Text
-import Data.Text.IO (hGetContents)
-import Data.Typeable (typeRep)
-import GHC.Exception (SrcLoc (..))
-import GHC.Generics (Rep)
-import GHC.IO.Exception (IOErrorType (..), IOException (..))
-import Generic.Random qualified as Random
-import Generic.Random.Internal.Generic qualified as Random
-import System.Directory (createDirectoryIfMissing, removePathForcibly)
-import System.Environment (getEnv, setEnv)
-import System.Exit (ExitCode (..))
-import System.FilePath (takeDirectory)
-import System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
-import System.Info (os)
-import System.Process (ProcessHandle, waitForProcess)
 import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
 import Test.QuickCheck (Arbitrary (..), Property, Testable, coverTable, forAllBlind, genericShrink, scale, tabulate)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ADTArbitrarySingleton (..), ConstructorArbitraryPair (..), ToADTArbitrary (..))
 import Test.QuickCheck.Gen (Gen (..))
 import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
 import Test.QuickCheck.Random (mkQCGen)
+import "base" Data.List (isInfixOf)
+import "base" Data.Ratio ((%))
+import "base" Data.Typeable (typeRep)
+import "base" GHC.Exception (SrcLoc (..))
+import "base" GHC.Generics (Rep)
+import "base" GHC.IO.Exception (IOErrorType (..), IOException (..))
+import "base" System.Environment (getEnv, setEnv)
+import "base" System.Exit (ExitCode (..))
+import "base" System.Info (os)
+import "directory" System.Directory (createDirectoryIfMissing, removePathForcibly)
+import "filepath" System.FilePath (takeDirectory)
+import "generic-random" Generic.Random qualified as Random
+import "generic-random" Generic.Random.Internal.Generic qualified as Random
+import "process" System.Process (ProcessHandle, waitForProcess)
+import "temporary" System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
+import "text" Data.Text qualified as Text
+import "text" Data.Text.IO (hGetContents)
 
 -- | Create a unique directory in the caonical, system-specific temporary path,
 -- e.g. in /tmp.

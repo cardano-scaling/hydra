@@ -21,22 +21,6 @@ import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Binary (serialize', unsafeDeserialize')
-import Control.Concurrent.Class.MonadSTM (
-  modifyTVar,
-  readTVarIO,
-  retry,
- )
-import Control.Monad.Class.MonadAsync (cancel, link)
-import Data.List (nub, (\\))
-import Data.List qualified as List
-import Data.Map ((!))
-import Data.Map qualified as Map
-import Data.Maybe (fromJust)
-import Data.Set qualified as Set
-import GHC.IsList (IsList (..))
-import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
 import Hydra.API.ServerOutput (ServerOutput (..))
@@ -73,7 +57,23 @@ import Test.QuickCheck (choose, chooseEnum, elements, frequency, listOf, resize,
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
-import Prelude qualified
+import "base" Data.List (nub, (\\))
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "base" GHC.IsList (IsList (..))
+import "base" GHC.Natural (wordToNatural)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-binary" Cardano.Binary (serialize', unsafeDeserialize')
+import "containers" Data.Map ((!))
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  modifyTVar,
+  readTVarIO,
+  retry,
+ )
+import "io-classes" Control.Monad.Class.MonadAsync (cancel, link)
+import "base" Prelude qualified
 
 -- * The Model
 

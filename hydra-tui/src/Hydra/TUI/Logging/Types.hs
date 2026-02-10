@@ -3,7 +3,7 @@
 module Hydra.TUI.Logging.Types where
 
 import Hydra.Prelude
-import Lens.Micro.TH (makeLensesFor)
+import "microlens-th" Lens.Micro.TH (makeLensesFor)
 
 type Severity :: Type
 data Severity

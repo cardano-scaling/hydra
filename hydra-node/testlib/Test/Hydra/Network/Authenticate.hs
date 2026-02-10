@@ -2,10 +2,10 @@
 
 module Test.Hydra.Network.Authenticate where
 
-import Cardano.Crypto.Util (SignableRepresentation)
 import Hydra.Network.Authenticate (AuthLog, Signed)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Gen ()
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation)
 
 instance (Arbitrary msg, SignableRepresentation msg) => Arbitrary (Signed msg) where
   arbitrary = genericArbitrary

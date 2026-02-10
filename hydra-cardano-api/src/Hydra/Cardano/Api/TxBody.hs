@@ -2,19 +2,19 @@ module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (
+import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import "cardano-ledger-api" Cardano.Ledger.Api (
   AsItem (..),
   AsIx,
   ConwayPlutusPurpose (..),
   PlutusPurpose,
  )
-import Cardano.Ledger.Babbage.Core (redeemerPointer)
-import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
-import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Data.Map qualified as Map
-import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
-import PlutusLedgerApi.V3 qualified as Plutus
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.Core (redeemerPointer)
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Data qualified as Ledger
+import "containers" Data.Map qualified as Map
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction
 -- associated to the given input.

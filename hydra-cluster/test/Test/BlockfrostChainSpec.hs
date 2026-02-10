@@ -5,11 +5,6 @@ module Test.BlockfrostChainSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Control.Concurrent.STM (takeTMVar)
-import Control.Concurrent.STM.TMVar (putTMVar)
-import Control.Exception (IOException)
-import Data.Time (secondsToNominalDiffTime)
 import Hydra.Chain (
   Chain (Chain, draftCommitTx, postTx),
   ChainEvent (..),
@@ -63,6 +58,11 @@ import Test.DirectChainSpec (
  )
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (generate)
+import "base" Control.Exception (IOException)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "stm" Control.Concurrent.STM (takeTMVar)
+import "stm" Control.Concurrent.STM.TMVar (putTMVar)
+import "time" Data.Time (secondsToNominalDiffTime)
 
 spec :: Spec
 spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChainSpec") $ do

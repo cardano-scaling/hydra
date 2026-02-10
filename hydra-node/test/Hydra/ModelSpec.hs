@@ -81,13 +81,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Control.Monad.Class.MonadTimer ()
-import Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
-import Data.Map ((!))
-import Data.Map qualified as Map
-import Data.Set qualified as Set
-import Data.Typeable (cast)
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -111,8 +104,6 @@ import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
-import System.IO.Temp (writeSystemTempFile)
-import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
 import Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, vectorOf, withMaxSuccess, within)
@@ -142,6 +133,15 @@ import Test.QuickCheck.StateModel (
   pattern Actions,
  )
 import Test.Util (printTrace, traceInIOSim)
+import "base" Data.Typeable (cast)
+import "base" System.IO.Unsafe (unsafePerformIO)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map ((!))
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "io-classes" Control.Monad.Class.MonadTimer ()
+import "io-sim" Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
+import "temporary" System.IO.Temp (writeSystemTempFile)
 
 instance HasVariables (SigningKey PaymentKey) where
   getAllVariables = mempty

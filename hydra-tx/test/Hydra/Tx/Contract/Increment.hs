@@ -7,8 +7,6 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Maybe (fromJust)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Commit (Commit)
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
@@ -33,8 +31,6 @@ import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly)
-import PlutusLedgerApi.V2 qualified as Plutus
-import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
@@ -47,6 +43,10 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-ledger-api" PlutusLedgerApi.V2 qualified as Plutus
+import "plutus-tx" PlutusTx.Builtins (toBuiltin)
 
 healthyIncrementTx :: (Tx, UTxO)
 healthyIncrementTx =

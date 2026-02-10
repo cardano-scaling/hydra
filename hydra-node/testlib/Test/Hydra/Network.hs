@@ -14,13 +14,13 @@ import Hydra.Network
 import Hydra.Prelude hiding (show)
 import Test.Hydra.Prelude
 
-import Cardano.Ledger.Orphans ()
-import Data.IP (toIPv4w)
-import Data.Text (pack)
 import Test.QuickCheck (elements, listOf, suchThat)
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
-import Text.Show (Show (show))
+import "base" Text.Show (Show (show))
+import "cardano-ledger-core" Cardano.Ledger.Orphans ()
+import "iproute" Data.IP (toIPv4w)
+import "text" Data.Text (pack)
 
 instance Arbitrary WhichEtcd where
   shrink = genericShrink

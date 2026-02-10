@@ -7,8 +7,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Data.List qualified as List
-import GHC.IsList qualified as GHC
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (mkHeadId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
@@ -17,6 +15,8 @@ import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetwo
 import Test.Hydra.Tx.Gen (genUTxOSized)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..))
 import Test.QuickCheck (chooseEnum, chooseInteger, elements)
+import "base" Data.List qualified as List
+import "base" GHC.IsList qualified as GHC
 
 genHealthyDepositTx :: Gen (Tx, UTxO)
 genHealthyDepositTx = do

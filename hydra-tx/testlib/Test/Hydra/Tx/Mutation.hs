@@ -130,21 +130,6 @@ module Test.Hydra.Tx.Mutation where
 
 import Hydra.Cardano.Api hiding (label)
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
-import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
-import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
-import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Credential (Credential (..))
-import Cardano.Ledger.Mary.Value qualified as Ledger
-import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Control.Exception (assert)
-import Control.Lens (set, view, (.~), (^.))
-import Data.Map qualified as Map
-import Data.Sequence.Strict qualified as StrictSeq
-import Data.Set qualified as Set
-import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -154,9 +139,6 @@ import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
-import PlutusLedgerApi.V3 qualified as Plutus
-import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -170,6 +152,24 @@ import Test.QuickCheck (
   suchThat,
  )
 import Test.QuickCheck.Instances ()
+import "base" Control.Exception (assert)
+import "base" GHC.IsList (IsList (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts qualified as Ledger
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxWits qualified as Ledger
+import "cardano-ledger-api" Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
+import "cardano-ledger-conway" Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (..))
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Data qualified as Ledger
+import "cardano-ledger-mary" Cardano.Ledger.Mary.Value qualified as Ledger
+import "cardano-strict-containers" Data.Sequence.Strict qualified as StrictSeq
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "directory" System.Directory.Internal.Prelude qualified as Prelude
+import "lens" Control.Lens (set, view, (.~), (^.))
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Properties
 

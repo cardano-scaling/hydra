@@ -2,12 +2,13 @@ module Hydra.TUI.Options where
 
 import Hydra.Prelude
 
-import Data.Version (Version (Version), showVersion)
 import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Network (Host (Host))
 import Hydra.Options (networkIdParser)
 import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
-import Options.Applicative (
+import Paths_hydra_tui (version)
+import "base" Data.Version (Version (Version), showVersion)
+import "optparse-applicative" Options.Applicative (
   Parser,
   auto,
   help,
@@ -20,7 +21,6 @@ import Options.Applicative (
   strOption,
   value,
  )
-import Paths_hydra_tui (version)
 
 data Options = Options
   { hydraNodeHost :: Host

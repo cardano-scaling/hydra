@@ -2,17 +2,17 @@ module Hydra.Cardano.Api.AddressInEra where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Address qualified as Ledger
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.Credential qualified as Ledger
-import Cardano.Ledger.Hashes qualified as Ledger
-import PlutusLedgerApi.V3 (
+import "cardano-ledger-core" Cardano.Ledger.Address qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Credential qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Hashes qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   StakingCredential (StakingHash, StakingPtr),
   fromBuiltin,
  )
-import PlutusLedgerApi.V3 qualified as Plutus
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

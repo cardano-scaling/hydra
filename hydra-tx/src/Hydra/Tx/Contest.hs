@@ -17,9 +17,9 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
-import PlutusLedgerApi.V1.Crypto qualified as Plutus
-import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusLedgerApi.V3 qualified as Plutus
+import "plutus-ledger-api" PlutusLedgerApi.V1.Crypto qualified as Plutus
+import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 import Hydra.Plutus.Orphans ()
 

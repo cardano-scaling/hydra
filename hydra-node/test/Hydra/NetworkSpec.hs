@@ -6,12 +6,6 @@ module Hydra.NetworkSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Codec.CBOR.Read (deserialiseFromBytes)
-import Codec.CBOR.Write (toLazyByteString)
-import Control.Concurrent.Class.MonadSTM (
-  readTQueue,
-  writeTQueue,
- )
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (
@@ -25,9 +19,6 @@ import Hydra.Network (
 import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
-import System.Directory (removeFile)
-import System.FilePath ((</>))
-import System.Process.Typed (readProcessStdout_, runProcess_, shell)
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Network.Message ()
@@ -36,6 +27,15 @@ import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
+import "cborg" Codec.CBOR.Read (deserialiseFromBytes)
+import "cborg" Codec.CBOR.Write (toLazyByteString)
+import "directory" System.Directory (removeFile)
+import "filepath" System.FilePath ((</>))
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  readTQueue,
+  writeTQueue,
+ )
+import "typed-process" System.Process.Typed (readProcessStdout_, runProcess_, shell)
 
 spec :: Spec
 spec = do

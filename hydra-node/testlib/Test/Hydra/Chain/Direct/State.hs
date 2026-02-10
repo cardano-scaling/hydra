@@ -8,10 +8,10 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Prelude hiding (init)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Maybe (fromJust)
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 
-import GHC.IsList qualified as IsList
+import "base" GHC.IsList qualified as IsList
 
 import Hydra.Cardano.Api (
   Key (VerificationKey),

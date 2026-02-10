@@ -7,18 +7,6 @@ module Hydra.TUI.Handlers where
 
 import Hydra.Prelude hiding (Down)
 
-import Brick
-import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
-import Cardano.Api.UTxO qualified as UTxO
-import Data.List (nub, (\\))
-import Data.Map qualified as Map
-import Data.Text qualified as T
-import Graphics.Vty (
-  Event (EvKey),
-  Key (..),
-  Modifier (MCtrl),
- )
-import Graphics.Vty qualified as Vty
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
@@ -39,7 +27,19 @@ import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severit
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
-import Lens.Micro.Mtl (use, (%=), (.=))
+import "base" Data.List (nub, (\\))
+import "brick" Brick
+import "brick" Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "microlens-mtl" Lens.Micro.Mtl (use, (%=), (.=))
+import "text" Data.Text qualified as T
+import "vty" Graphics.Vty (
+  Event (EvKey),
+  Key (..),
+  Modifier (MCtrl),
+ )
+import "vty" Graphics.Vty qualified as Vty
 
 handleEvent ::
   CardanoClient ->

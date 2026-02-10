@@ -16,26 +16,6 @@ module Hydra.Ledger.Cardano.Evaluate where
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
-import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
-import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
-import Cardano.Ledger.Coin (Coin (Coin))
-import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
-import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
-import Cardano.Ledger.Plutus (Language (..))
-import Cardano.Ledger.Val (Val ((<+>)), (<×>))
-import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
-import Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
-import Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength, SystemStart (SystemStart), mkSlotLength)
-import Control.Lens ((.~))
-import Control.Lens.Getter
-import Data.ByteString qualified as BS
-import Data.Default (def)
-import Data.Map qualified as Map
-import Data.Maybe (fromJust)
-import Data.Ratio ((%))
-import Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (
   Era,
   EraHistory (EraHistory),
@@ -56,9 +36,26 @@ import Hydra.Cardano.Api (
   prettyError,
   toLedgerExUnits,
  )
-import Ouroboros.Consensus.Block (GenesisWindow (..))
-import Ouroboros.Consensus.Cardano.Block (CardanoEras)
-import Ouroboros.Consensus.HardFork.History (
+import "base" Data.Maybe (fromJust)
+import "base" Data.Ratio ((%))
+import "bytestring" Data.ByteString qualified as BS
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModel, mkCostModels, txscriptfee)
+import "cardano-ledger-api" Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
+import "cardano-ledger-conway" Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
+import "cardano-ledger-core" Cardano.Ledger.Coin (Coin (Coin))
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
+import "cardano-ledger-core" Cardano.Ledger.Plutus (Language (..))
+import "cardano-ledger-core" Cardano.Ledger.Val (Val ((<+>)), (<×>))
+import "cardano-slotting" Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
+import "cardano-slotting" Cardano.Slotting.Slot (EpochNo (EpochNo), EpochSize (EpochSize), SlotNo (SlotNo))
+import "cardano-slotting" Cardano.Slotting.Time (RelativeTime (RelativeTime), SlotLength, SystemStart (SystemStart), mkSlotLength)
+import "containers" Data.Map qualified as Map
+import "data-default" Data.Default (def)
+import "lens" Control.Lens ((.~))
+import "lens" Control.Lens.Getter
+import "ouroboros-consensus" Ouroboros.Consensus.Block (GenesisWindow (..))
+import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History (
   Bound (Bound, boundEpoch, boundSlot, boundTime),
   EraEnd (..),
   EraParams (..),
@@ -68,9 +65,12 @@ import Ouroboros.Consensus.HardFork.History (
   initBound,
   mkInterpreter,
  )
-import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
-import Prettyprinter (defaultLayoutOptions, layoutPretty)
-import Prettyprinter.Render.Text (renderStrict)
+import "ouroboros-consensus-cardano" Ouroboros.Consensus.Cardano.Block (CardanoEras)
+import "ouroboros-consensus-cardano" Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
+import "prettyprinter" Prettyprinter (defaultLayoutOptions, layoutPretty)
+import "prettyprinter" Prettyprinter.Render.Text (renderStrict)
+import "sop-extras" Data.SOP.NonEmpty (NonEmpty (NonEmptyOne))
+import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 -- * Evaluate transactions
 

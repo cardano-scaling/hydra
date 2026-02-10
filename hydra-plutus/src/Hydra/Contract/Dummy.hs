@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (foldMap, (<$>), (==))
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (wrapValidator)
-import PlutusLedgerApi.V3 (
+import "plutus-ledger-api" PlutusLedgerApi.V3 (
   CurrencySymbol,
   ScriptContext (..),
   ScriptInfo (..),
@@ -21,13 +21,13 @@ import PlutusLedgerApi.V3 (
   txOutValue,
   unsafeFromBuiltinData,
  )
-import PlutusTx (compile, unstableMakeIsData)
-import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Eq ((==))
-import PlutusTx.Foldable (foldMap)
-import PlutusTx.Functor ((<$>))
-import PlutusTx.List qualified as L
-import PlutusTx.Prelude (check, traceIfFalse)
+import "plutus-tx" PlutusTx (compile, unstableMakeIsData)
+import "plutus-tx" PlutusTx.AssocMap qualified as AssocMap
+import "plutus-tx" PlutusTx.Eq ((==))
+import "plutus-tx" PlutusTx.Foldable (foldMap)
+import "plutus-tx" PlutusTx.Functor ((<$>))
+import "plutus-tx" PlutusTx.List qualified as L
+import "plutus-tx" PlutusTx.Prelude (check, traceIfFalse)
 
 dummyValidatorScript :: PlutusScript
 dummyValidatorScript =

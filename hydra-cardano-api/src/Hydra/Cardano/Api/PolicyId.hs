@@ -4,10 +4,10 @@ module Hydra.Cardano.Api.PolicyId where
 
 import Hydra.Cardano.Api.Prelude
 
-import Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
-import Cardano.Ledger.Mary.Value qualified as Ledger
 import Hydra.Cardano.Api.ScriptHash ()
-import PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Plutus.TxInfo qualified as Ledger
+import "cardano-ledger-mary" Cardano.Ledger.Mary.Value qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, fromBuiltin, unCurrencySymbol)
 
 -- * Type conversions
 

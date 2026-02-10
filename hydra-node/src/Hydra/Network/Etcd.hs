@@ -40,28 +40,6 @@ module Hydra.Network.Etcd where
 
 import Hydra.Prelude
 
-import Cardano.Binary (decodeFull', serialize')
-import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
-import Control.Concurrent.Class.MonadSTM (
-  modifyTVar',
-  peekTBQueue,
-  readTBQueue,
-  swapTVar,
-  writeTBQueue,
-  writeTVar,
- )
-import Control.Exception (IOException)
-import Control.Lens ((^.), (^..), (^?))
-import Data.Aeson (decodeFileStrict', encodeFile)
-import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens qualified as Aeson
-import Data.Aeson.Types (Value)
-import Data.ByteString qualified as BS
-import Data.ByteString.Char8 qualified as BS8
-import Data.List ((\\))
-import Data.List qualified as List
-import Data.Map qualified as Map
-import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (
   Connectivity (..),
@@ -73,7 +51,22 @@ import Hydra.Network (
   ProtocolVersion,
  )
 import Hydra.Network.EtcdBinary (getEtcdBinary)
-import Network.GRPC.Client (
+import "aeson" Data.Aeson (decodeFileStrict', encodeFile)
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types (Value)
+import "base" Control.Exception (IOException)
+import "base" Data.List ((\\))
+import "base" Data.List qualified as List
+import "base" System.Environment.Blank (getEnvironment)
+import "base" System.IO.Error (isDoesNotExistError)
+import "bytestring" Data.ByteString qualified as BS
+import "bytestring" Data.ByteString.Char8 qualified as BS8
+import "cardano-binary" Cardano.Binary (decodeFull', serialize')
+import "cardano-crypto-class" Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
+import "containers" Data.Map qualified as Map
+import "directory" System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
+import "filepath" System.FilePath ((</>))
+import "grapesy" Network.GRPC.Client (
   Address (..),
   ConnParams (..),
   Connection,
@@ -86,23 +79,30 @@ import Network.GRPC.Client (
   rpc,
   withConnection,
  )
-import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
-import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
-import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
-import Network.GRPC.Etcd (
+import "grapesy" Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
+import "grapesy" Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
+import "grapesy" Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
+import "grapesy-etcd" Network.GRPC.Etcd (
   Compare'CompareResult (..),
   Compare'CompareTarget (..),
   KV,
   Lease,
   Watch,
  )
-import Network.Socket (PortNumber)
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
-import System.Environment.Blank (getEnvironment)
-import System.FilePath ((</>))
-import System.IO.Error (isDoesNotExistError)
-import System.Process (interruptProcessGroupOf)
-import System.Process.Typed (
+import "io-classes" Control.Concurrent.Class.MonadSTM (
+  modifyTVar',
+  peekTBQueue,
+  readTBQueue,
+  swapTVar,
+  writeTBQueue,
+  writeTVar,
+ )
+import "lens" Control.Lens ((^.), (^..), (^?))
+import "lens-aeson" Data.Aeson.Lens qualified as Aeson
+import "network" Network.Socket (PortNumber)
+import "process" System.Process (interruptProcessGroupOf)
+import "text" Data.Text qualified as T
+import "typed-process" System.Process.Typed (
   Process,
   ProcessConfig,
   createPipe,

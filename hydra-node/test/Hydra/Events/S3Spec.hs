@@ -4,12 +4,12 @@ module Hydra.Events.S3Spec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Amazonka qualified as AWS
-import Amazonka.Auth qualified as AWS
-import Amazonka.S3 qualified as AWS
 import Hydra.Events (EventId, EventSink (..), EventSource, HasEventId, getEvents)
 import Hydra.Events.S3 (fromObjectKey, newS3EventStore, purgeEvents, toObjectKey)
 import Test.QuickCheck (chooseBoundedIntegral, counterexample, forAllShrink, ioProperty, sized, sublistOf, withMaxSuccess, (===))
+import "amazonka" Amazonka qualified as AWS
+import "amazonka" Amazonka.Auth qualified as AWS
+import "amazonka-s3" Amazonka.S3 qualified as AWS
 
 spec :: Spec
 spec = around_ onlyNightly $ describe "AWS S3 @nightly" $ do

@@ -5,15 +5,9 @@ module Hydra.TUI where
 
 import Hydra.Prelude hiding (Down, State)
 
-import Brick
 import Hydra.Cardano.Api
+import "brick" Brick
 
-import Brick.BChan (BChan, newBChan, writeBChan)
-import Graphics.Vty (
-  Vty,
-  defaultConfig,
- )
-import Graphics.Vty.Platform.Unix (mkVty)
 import Hydra.Chain.Blockfrost.Client as BF
 import Hydra.Chain.CardanoClient as CC
 import Hydra.Chain.Direct.State ()
@@ -25,6 +19,12 @@ import Hydra.TUI.Logging.Types
 import Hydra.TUI.Model
 import Hydra.TUI.Options (Options (..))
 import Hydra.TUI.Style
+import "brick" Brick.BChan (BChan, newBChan, writeBChan)
+import "vty" Graphics.Vty (
+  Vty,
+  defaultConfig,
+ )
+import "vty-unix" Graphics.Vty.Platform.Unix (mkVty)
 
 -- | Construct a 'CardanoClient' handle.
 mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient

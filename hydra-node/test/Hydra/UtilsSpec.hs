@@ -4,8 +4,8 @@ import Hydra.Cardano.Api (FileError)
 import Hydra.Options (GenerateKeyPair (GenerateKeyPair))
 import Hydra.Prelude
 import Hydra.Utils (genHydraKeys)
-import System.FilePath ((</>))
 import Test.Hydra.Prelude
+import "filepath" System.FilePath ((</>))
 
 spec :: Spec
 spec = do

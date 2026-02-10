@@ -26,25 +26,25 @@ module Hydra.Logging (
 
 import Hydra.Prelude
 
-import Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
-import Control.Concurrent.Class.MonadSTM (
+import "aeson" Data.Aeson (pairs, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "contra-tracer" Control.Tracer (
+  Tracer (..),
+  natTracer,
+  nullTracer,
+  traceWith,
+ )
+import "io-classes" Control.Concurrent.Class.MonadSTM (
   flushTBQueue,
   modifyTVar,
   readTBQueue,
   readTVarIO,
   writeTBQueue,
  )
-import Control.Monad.Class.MonadSay (MonadSay, say)
-import Control.Tracer (
-  Tracer (..),
-  natTracer,
-  nullTracer,
-  traceWith,
- )
-import Data.Aeson (pairs, (.=))
-import Data.Aeson qualified as Aeson
-import Data.ByteString.Lazy qualified as LBS
-import Data.Text qualified as Text
+import "io-classes" Control.Monad.Class.MonadSay (MonadSay, say)
+import "iohk-monitoring" Cardano.BM.Tracing (ToObject (..), TracingVerbosity (..))
+import "text" Data.Text qualified as Text
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)

@@ -7,8 +7,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Maybe (fromJust)
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -37,12 +35,14 @@ import Hydra.Tx.Contract.Close.Healthy (
  )
 import Hydra.Tx.Snapshot (getSnapshot)
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
-import PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genScriptRegistry)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "plutus-ledger-api" PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'

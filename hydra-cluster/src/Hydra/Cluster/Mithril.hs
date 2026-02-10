@@ -3,14 +3,14 @@ module Hydra.Cluster.Mithril where
 
 import Hydra.Prelude
 
-import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (Value)
-import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
 import Hydra.Cluster.Fixture (KnownNetwork (..))
-import Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
-import System.IO.Error (isEOFError)
-import System.Process.Typed (createPipe, getStderr, proc, setStderr, withProcessWait_)
+import "aeson" Data.Aeson (Value)
+import "aeson" Data.Aeson qualified as Aeson
+import "base" System.IO.Error (isEOFError)
+import "bytestring" Data.ByteString qualified as BS
+import "contra-tracer" Control.Tracer (Tracer, traceWith)
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
+import "typed-process" System.Process.Typed (createPipe, getStderr, proc, setStderr, withProcessWait_)
 
 data MithrilLog
   = StartSnapshotDownload {network :: KnownNetwork, directory :: FilePath}

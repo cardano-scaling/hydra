@@ -4,9 +4,9 @@ module Hydra.Cardano.Api.ScriptData where
 
 import Hydra.Cardano.Api.Prelude hiding (left)
 
-import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Plutus.Data qualified as Ledger
-import PlutusLedgerApi.V3 qualified as Plutus
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Data qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
 

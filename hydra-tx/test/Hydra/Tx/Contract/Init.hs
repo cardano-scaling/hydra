@@ -8,8 +8,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadState (State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
@@ -17,7 +15,6 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
 import Test.Hydra.Tx.Mutation (
@@ -29,7 +26,10 @@ import Test.Hydra.Tx.Mutation (
   replaceHeadId,
  )
 import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
-import Prelude qualified
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "z-plutus-ledger-api-z-plutus-ledger-api-testlib" PlutusLedgerApi.Test.Examples qualified as Plutus
+import "base" Prelude qualified
 
 --
 -- InitTx

@@ -19,24 +19,24 @@ module Hydra.Cardano.Api.Prelude (
   unsafeHashFromBytes,
 ) where
 
-import Cardano.Api hiding (
+import "aeson" Data.Aeson (FromJSON (..), ToJSON (..))
+import "base" Data.Typeable (Typeable)
+import "base" GHC.Stack (HasCallStack)
+import "bytestring" Data.ByteString (ByteString)
+import "bytestring" Data.ByteString.Lazy (fromStrict, toStrict)
+import "cardano-api" Cardano.Api hiding (
   UTxO,
   scriptLanguageSupportedInEra,
   toLedgerUTxO,
  )
-import Cardano.Api.UTxO (UTxO (..))
-import Cardano.Crypto.Hash.Class qualified as CC
-import Cardano.Ledger.Binary qualified as Ledger
-import Cardano.Ledger.Core qualified as Ledger
-import Data.Aeson (FromJSON (..), ToJSON (..))
-import Data.ByteString (ByteString)
-import Data.ByteString.Lazy (fromStrict, toStrict)
-import Data.Map (Map)
-import Data.Set (Set)
-import Data.Text (Text)
-import Data.Text.Encoding (decodeUtf8, encodeUtf8)
-import Data.Typeable (Typeable)
-import GHC.Stack (HasCallStack)
+import "cardano-api" Cardano.Api.UTxO (UTxO (..))
+import "cardano-crypto-class" Cardano.Crypto.Hash.Class qualified as CC
+import "cardano-ledger-binary" Cardano.Ledger.Binary qualified as Ledger
+import "cardano-ledger-core" Cardano.Ledger.Core qualified as Ledger
+import "containers" Data.Map (Map)
+import "containers" Data.Set (Set)
+import "text" Data.Text (Text)
+import "text" Data.Text.Encoding (decodeUtf8, encodeUtf8)
 
 type Era = ConwayEra
 

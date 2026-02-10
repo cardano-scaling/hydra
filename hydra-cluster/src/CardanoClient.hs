@@ -15,10 +15,10 @@ import Hydra.Cardano.Api hiding (Block)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
 
-import Cardano.Api.UTxO qualified as UTxO
-import Data.Map qualified as Map
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
 

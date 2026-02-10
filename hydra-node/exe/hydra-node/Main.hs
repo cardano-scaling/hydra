@@ -4,10 +4,6 @@ module Main where
 
 import Hydra.Prelude hiding (fromList, intercalate)
 
-import Control.Concurrent (mkWeakThreadId)
-import Control.Exception (AsyncException (UserInterrupt), throwTo)
-import Data.ByteString (intercalate)
-import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
@@ -17,7 +13,11 @@ import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
 import Hydra.Utils (genHydraKeys)
-import System.Posix.Signals qualified as Signals
+import "base" Control.Concurrent (mkWeakThreadId)
+import "base" Control.Exception (AsyncException (UserInterrupt), throwTo)
+import "base" GHC.Weak (deRefWeak)
+import "bytestring" Data.ByteString (intercalate)
+import "unix" System.Posix.Signals qualified as Signals
 
 main :: IO ()
 main = do

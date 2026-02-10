@@ -6,13 +6,6 @@ module Hydra.Tx.Contract.ContractSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
-import Cardano.Ledger.Alonzo.Plutus.TxInfo (TxOutSource (TxOutFromOutput))
-import Cardano.Ledger.Babbage.TxInfo (transTxOutV2)
-import Cardano.Ledger.BaseTypes qualified as Ledger
-import Data.ByteString.Base16 qualified as Base16
-import Data.List qualified as List
 import Hydra.Cardano.Api (
   Tx,
   UTxO,
@@ -50,7 +43,6 @@ import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Observe (observeDepositTx)
-import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,
@@ -74,6 +66,14 @@ import Test.QuickCheck (
   (==>),
  )
 import Test.QuickCheck.Instances ()
+import "base" Data.List qualified as List
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Plutus.TxInfo (TxOutSource (TxOutFromOutput))
+import "cardano-ledger-babbage" Cardano.Ledger.Babbage.TxInfo (transTxOutV2)
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "plutus-ledger-api" PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
 
 spec :: Spec
 spec = parallel $ do

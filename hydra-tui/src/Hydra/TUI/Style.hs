@@ -1,14 +1,15 @@
 module Hydra.TUI.Style where
 
-import Brick (
+import Hydra.TUI.Logging.Types (Severity (..))
+import "brick" Brick (
   AttrMap,
   AttrName,
   attrMap,
   attrName,
   fg,
  )
-import Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
-import Graphics.Vty (
+import "brick" Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
+import "vty" Graphics.Vty (
   brightBlack,
   brightBlue,
   defAttr,
@@ -16,7 +17,6 @@ import Graphics.Vty (
   red,
   yellow,
  )
-import Hydra.TUI.Logging.Types (Severity (..))
 
 severityToAttr :: Severity -> AttrName
 severityToAttr = \case

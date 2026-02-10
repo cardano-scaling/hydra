@@ -4,10 +4,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (size)
 import Test.Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (QueryTip), mkGenesisTx, queryUTxOFor)
-import Control.Monad (foldM)
-import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Chain.Backend (buildTransaction)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetException (..))
@@ -16,6 +13,9 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Options qualified as Options
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, generate, sized)
+import "aeson" Data.Aeson (object, withObject, (.:), (.=))
+import "base" Control.Monad (foldM)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 
 networkId :: NetworkId
 networkId = Testnet $ NetworkMagic 42

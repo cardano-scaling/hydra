@@ -9,9 +9,6 @@ import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api hiding (Active)
 
-import Brick.Forms (Form)
-import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
@@ -23,8 +20,11 @@ import Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.HeadParameters as HeadParameters
 import Hydra.Tx.Snapshot qualified as Snapshot
-import Lens.Micro ((^?))
-import Lens.Micro.TH (makeLensesFor)
+import "brick" Brick.Forms (Form)
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "microlens" Lens.Micro ((^?))
+import "microlens-th" Lens.Micro.TH (makeLensesFor)
 
 data RootState = RootState
   { nodeHost :: Host
