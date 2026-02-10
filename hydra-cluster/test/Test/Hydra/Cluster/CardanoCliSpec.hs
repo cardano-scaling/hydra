@@ -1,22 +1,22 @@
 module Test.Hydra.Cluster.CardanoCliSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
-import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
-import Hydra.Cardano.Api (LedgerEra, PParams, Tx)
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
-import Hydra.Logging (showLogsOnFailure)
-import Hydra.Options (
-  DirectOptions (..),
- )
-import Test.QuickCheck (generate)
+import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson (encodeFile)
 import "aeson" Data.Aeson.Types (parseEither)
 import "base" System.Exit (ExitCode (..))
 import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra, PParams, Tx)
+import "hydra-cluster" CardanoNode (cliQueryProtocolParameters, withCardanoNodeDevnet)
+import "hydra-node" Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.JSONSchema (validateJSON, withJsonSpecifications)
+import "hydra-node" Hydra.Logging (showLogsOnFailure)
+import "hydra-node" Hydra.Options (
+  DirectOptions (..),
+ )
 import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key, _String)
 import "process" System.Process (proc, readCreateProcessWithExitCode, readProcess)

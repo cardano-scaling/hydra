@@ -5,9 +5,8 @@ module Hydra.Chain.Blockfrost.Client (
   module Blockfrost.Client,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
 import "blockfrost-client" Blockfrost.Client (
   Block (..),
   BlockHash (..),
@@ -33,11 +32,9 @@ import "blockfrost-client" Blockfrost.Client qualified as Blockfrost
 import "cardano-crypto-wrapper" Cardano.Crypto.ProtocolMagic (ProtocolMagicId (..))
 import "cardano-ledger-byron" Cardano.Chain.Genesis (mainnetProtocolMagicId)
 import "containers" Data.Map.Strict qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
 import "time" Data.Time.Clock.POSIX
 
-import Hydra.Cardano.Api.Prelude (fromNetworkMagic)
-import Hydra.Options (BlockfrostOptions (..))
-import Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import "base" Data.List qualified as List
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-api" Cardano.Ledger.Api.PParams
@@ -61,6 +58,9 @@ import "cardano-ledger-core" Cardano.Ledger.Plutus.CostModels (CostModels, mkCos
 import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API (ProtVer (..))
 import "cardano-slotting" Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import "containers" Data.Set qualified as Set
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (fromNetworkMagic)
+import "hydra-node" Hydra.Options (BlockfrostOptions (..))
+import "hydra-tx" Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import "lens" Control.Lens ((.~), (^.))
 import "ouroboros-consensus" Ouroboros.Consensus.Block (GenesisWindow (..))
 import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter)

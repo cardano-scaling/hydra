@@ -2,9 +2,15 @@
 
 module Hydra.Blockfrost.ChainObserver where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "blockfrost-client" Blockfrost.Client (
+  BlockfrostClientT,
+  runBlockfrost,
+ )
+import "blockfrost-client" Blockfrost.Client qualified as Blockfrost
+import "hydra-cardano-api" Hydra.Cardano.Api (
   ChainPoint (..),
   HasTypeProxy (..),
   Hash,
@@ -16,10 +22,10 @@ import Hydra.Cardano.Api (
   UTxO,
   serialiseToRawBytes,
  )
-import Hydra.Cardano.Api.Prelude (
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (
   BlockHeader (..),
  )
-import Hydra.ChainObserver.NodeClient (
+import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
@@ -27,15 +33,9 @@ import Hydra.ChainObserver.NodeClient (
   logObservation,
   observeAll,
  )
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Tx (IsTx (..))
-import Hydra.Tx.Observe (HeadObservation (..))
-import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
-import "blockfrost-client" Blockfrost.Client (
-  BlockfrostClientT,
-  runBlockfrost,
- )
-import "blockfrost-client" Blockfrost.Client qualified as Blockfrost
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-tx" Hydra.Tx (IsTx (..))
+import "hydra-tx" Hydra.Tx.Observe (HeadObservation (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   writeTVar,

@@ -1,15 +1,15 @@
 -- | Tests our JSON schema test utilities.
 module Hydra.JSONSchemaSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
-import Test.QuickCheck.Instances.Time ()
 import "aeson" Data.Aeson (Value (..), object, (.=))
 import "base" Control.Exception (IOException)
 import "filepath" System.FilePath ((</>))
+import "hydra-node" Hydra.JSONSchema (prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import "lens-aeson" Data.Aeson.Lens (key)
+import "quickcheck-instances" Test.QuickCheck.Instances.Time ()
 
 spec :: Spec
 spec = do

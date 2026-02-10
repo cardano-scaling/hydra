@@ -38,19 +38,8 @@
 -- advance unless all participants are present.
 module Hydra.Network.Etcd where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Network (
-  Connectivity (..),
-  Host (..),
-  Network (..),
-  NetworkCallback (..),
-  NetworkComponent,
-  NetworkConfiguration (..),
-  ProtocolVersion,
- )
-import Hydra.Network.EtcdBinary (getEtcdBinary)
 import "aeson" Data.Aeson (decodeFileStrict', encodeFile)
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.Types (Value)
@@ -89,6 +78,17 @@ import "grapesy-etcd" Network.GRPC.Etcd (
   Lease,
   Watch,
  )
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-node" Hydra.Network (
+  Connectivity (..),
+  Host (..),
+  Network (..),
+  NetworkCallback (..),
+  NetworkComponent,
+  NetworkConfiguration (..),
+  ProtocolVersion,
+ )
+import "hydra-node" Hydra.Network.EtcdBinary (getEtcdBinary)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   peekTBQueue,

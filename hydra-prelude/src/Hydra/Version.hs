@@ -8,7 +8,7 @@
 -- cbits/revision.c
 module Hydra.Version where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "base" Foreign.C (CString)
 import "base" GHC.Foreign (peekCStringLen)

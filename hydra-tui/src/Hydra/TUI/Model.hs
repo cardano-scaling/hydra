@@ -5,24 +5,24 @@
 
 module Hydra.TUI.Model where
 
-import Hydra.Prelude hiding (Down, State)
+import "hydra-prelude" Hydra.Prelude hiding (Down, State)
 
-import Hydra.Cardano.Api hiding (Active)
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Active)
 
-import Hydra.Chain.Direct.State ()
-import Hydra.Client (HydraEvent (..))
-import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
-import Hydra.HeadLogic.State qualified as State
-import Hydra.Network (Host (..))
-import Hydra.Node.State (Deposit (..), NodeState (..))
-import Hydra.TUI.Logging.Types (LogState)
-import Hydra.Tx (HeadId, Party (..), Snapshot (..))
-import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.HeadParameters as HeadParameters
-import Hydra.Tx.Snapshot qualified as Snapshot
 import "brick" Brick.Forms (Form)
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
+import "hydra-node" Hydra.HeadLogic.State qualified as State
+import "hydra-node" Hydra.Network (Host (..))
+import "hydra-node" Hydra.Node.State (Deposit (..), NodeState (..))
+import "hydra-tui" Hydra.Client (HydraEvent (..))
+import "hydra-tui" Hydra.TUI.Logging.Types (LogState)
+import "hydra-tx" Hydra.Tx (HeadId, Party (..), Snapshot (..))
+import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as CP
+import "hydra-tx" Hydra.Tx.HeadParameters as HeadParameters
+import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
 import "microlens" Lens.Micro ((^?))
 import "microlens-th" Lens.Micro.TH (makeLensesFor)
 

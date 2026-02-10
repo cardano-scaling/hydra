@@ -4,24 +4,24 @@
 
 module Hydra.HeadLogic.State where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Tx (
+import "containers" Data.Map qualified as Map
+import "hydra-tx" Hydra.Chain.ChainState (IsChainState (..))
+import "hydra-tx" Hydra.Tx (
   HeadId,
   HeadParameters,
   HeadSeed,
   IsTx (..),
   Party,
  )
-import Hydra.Tx.Crypto (Signature)
-import Hydra.Tx.Snapshot (
+import "hydra-tx" Hydra.Tx.Crypto (Signature)
+import "hydra-tx" Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
  )
-import "containers" Data.Map qualified as Map
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.

@@ -2,10 +2,10 @@
 
 module Hydra.Tx.Contract.Decrement where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
-import Test.Hydra.Tx.Mutation (
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
@@ -14,33 +14,33 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
  )
 
-import Hydra.Contract.Error (ToErrorCode (..))
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.CollectCom (extractHeadOutputValue)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
-import Hydra.Tx.Decrement (
-  decrementTx,
- )
-import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
-import Hydra.Tx.Party (Party, deriveParty, partyToChain)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
-import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
-import Test.QuickCheck.Gen (suchThat)
-import Test.QuickCheck.Instances ()
+import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
+import "QuickCheck" Test.QuickCheck.Gen (suchThat)
 import "base" Data.Maybe (fromJust)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..))
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import "hydra-tx" Hydra.Tx.Contract.CollectCom (extractHeadOutputValue)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
+import "hydra-tx" Hydra.Tx.Decrement (
+  decrementTx,
+ )
+import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
+import "hydra-tx" Hydra.Tx.Party (Party, deriveParty, partyToChain)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import "hydra-tx" Hydra.Tx.Utils (adaOnly, splitUTxO)
+import "hydra-tx" Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import "plutus-tx" PlutusTx.Builtins (toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 healthyDecrementTx :: (Tx, UTxO)
 healthyDecrementTx =

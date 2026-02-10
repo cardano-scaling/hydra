@@ -1,17 +1,17 @@
 module Hydra.Painter where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput (NewTx))
-import Hydra.Chain.Direct.State ()
-import Hydra.Network (Host (..))
-import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import "aeson" Data.Aeson qualified as Aeson
 import "base" Control.Exception (IOException)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
 import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON)
+import "hydra-node" Hydra.API.ClientInput (ClientInput (NewTx))
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.Network (Host (..))
+import "hydra-node" Hydra.Node.Util (readFileTextEnvelopeThrow)
 import "text" Data.Text (unpack)
 import "websockets" Network.WebSockets (Connection, runClient, sendTextData)
 import "websockets" Network.WebSockets.Connection (receive)

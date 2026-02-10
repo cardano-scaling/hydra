@@ -3,13 +3,13 @@
 -- This is currently used as the main event source and sink in the hydra-node.
 module Hydra.Events.FileBased where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
-import Hydra.Events.Rotation (EventStore (..))
-import Hydra.Persistence (PersistenceIncremental (..))
 import "conduit" Conduit (mapMC, (.|))
 import "directory" System.Directory (renameFile)
+import "hydra-node" Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
+import "hydra-node" Hydra.Events.Rotation (EventStore (..))
+import "hydra-node" Hydra.Persistence (PersistenceIncremental (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (writeTVar)
 
 -- | A basic file based event source and sink defined using a rotated

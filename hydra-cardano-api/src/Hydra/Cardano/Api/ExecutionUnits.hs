@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.ExecutionUnits where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 

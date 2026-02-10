@@ -1,6 +1,6 @@
 module Hydra.Data.Party where
 
-import Hydra.Prelude hiding (init)
+import "hydra-prelude" Hydra.Prelude hiding (init)
 
 import "plutus-tx" PlutusTx qualified
 import "plutus-tx" PlutusTx.Builtins (BuiltinByteString, fromBuiltin, toBuiltin)

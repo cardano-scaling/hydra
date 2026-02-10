@@ -1,11 +1,11 @@
 module Hydra.TUI.OptionsSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
-import Hydra.Network (Host (Host))
-import Hydra.TUI.Options (
+import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
+import "hydra-node" Hydra.Network (Host (Host))
+import "hydra-tui" Hydra.TUI.Options (
   Options (..),
   parseOptions,
  )

@@ -2,25 +2,25 @@
 
 module Hydra.ChainObserverSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (utxoFromTx)
-import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
-import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
-import Hydra.Tx.Observe (HeadObservation (..))
-import Test.Aeson.GenericSpecs (
+import "QuickCheck" Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
+import "QuickCheck" Test.QuickCheck.Property (checkCoverage)
+import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
   roundtripAndGoldenSpecsWithSettings,
  )
-import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
-import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
-import Test.QuickCheck.Property (checkCoverage)
+import "hydra-cardano-api" Hydra.Cardano.Api (utxoFromTx)
+import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
+import "hydra-node" Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
+import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
+import "hydra-node" Test.Hydra.Chain.Direct.State (genChainStateWithTx)
+import "hydra-node" Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
+import "hydra-tx" Hydra.Tx.Observe (HeadObservation (..))
+import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
 
 instance Arbitrary ChainObservation where
   arbitrary = genericArbitrary

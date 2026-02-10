@@ -1,29 +1,29 @@
 module Hydra.Tx.Contract.Recover where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Contract.Commit (Commit)
-import Hydra.Contract.Deposit (DepositRedeemer (Recover))
-import Hydra.Contract.DepositError (DepositError (..))
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
-import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Tx.Deposit (mkDepositOutput)
-import Hydra.Tx.Recover (recoverTx)
-import Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
-import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
-import Test.Hydra.Tx.Mutation (
+import "QuickCheck" Test.QuickCheck (elements, oneof, suchThat)
+import "base" Data.Fixed (Milli)
+import "base" Data.List qualified as List
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Commit (Commit)
+import "hydra-plutus" Hydra.Contract.Deposit (DepositRedeemer (Recover))
+import "hydra-plutus" Hydra.Contract.DepositError (DepositError (..))
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import "hydra-tx" Hydra.Tx.Deposit (mkDepositOutput)
+import "hydra-tx" Hydra.Tx.Recover (recoverTx)
+import "hydra-tx" Test.Hydra.Tx.Fixture (testHeadId, testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize, genValue)
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (ChangeInput, ChangeOutput, ChangeValidityLowerBound),
   SomeMutation (..),
   modifyInlineDatum,
  )
-import Test.QuickCheck (elements, oneof, suchThat)
-import "base" Data.Fixed (Milli)
-import "base" Data.List qualified as List
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
 import "time" Data.Time.Clock.POSIX qualified as POSIX
 

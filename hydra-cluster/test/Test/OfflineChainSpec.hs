@@ -2,19 +2,19 @@
 -- hydra-node. Part of hydra-cluster as it uses files from config/
 module Test.OfflineChainSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (Tx, UTxO)
-import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
-import Hydra.Chain.ChainState (chainPointSlot)
-import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (withOfflineChain)
-import Hydra.Cluster.Fixture (alice)
-import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Options (OfflineChainConfig (..))
 import "aeson" Data.Aeson qualified as Aeson
 import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (Tx, UTxO)
+import "hydra-cluster" Hydra.Cluster.Fixture (alice)
+import "hydra-cluster" Hydra.Cluster.Util (readConfigFile)
+import "hydra-node" Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
+import "hydra-node" Hydra.Chain.Direct.State (initialChainState)
+import "hydra-node" Hydra.Chain.Offline (withOfflineChain)
+import "hydra-node" Hydra.Options (OfflineChainConfig (..))
+import "hydra-tx" Hydra.Chain.ChainState (chainPointSlot)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', newTChanIO, readTChan, readTVarIO, writeTChan)
 import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key, _Number)

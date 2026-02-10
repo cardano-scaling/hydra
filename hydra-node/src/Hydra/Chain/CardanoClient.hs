@@ -4,9 +4,9 @@
 -- cardano-cli's API, using cardano-api types.
 module Hydra.Chain.CardanoClient where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import "aeson" Data.Aeson (eitherDecode', encode)
 import "base" Text.Printf (printf)

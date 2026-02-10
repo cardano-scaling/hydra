@@ -1,7 +1,7 @@
 -- | Utility module providing functions to find and allocate random ports.
 module Test.Network.Ports where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "network" Network.Socket (
   PortNumber,

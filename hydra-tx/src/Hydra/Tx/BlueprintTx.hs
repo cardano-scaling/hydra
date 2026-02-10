@@ -1,6 +1,6 @@
 module Hydra.Tx.BlueprintTx where
 
-import Hydra.Tx.IsTx (IsTx, UTxOType, txSpendingUTxO)
+import "hydra-tx" Hydra.Tx.IsTx (IsTx, UTxOType, txSpendingUTxO)
 
 -- | _Blueprint/Draft_ transaction paired with the related 'UTxO' and used for
 -- resolving the inputs and committing/depositing into a Head.

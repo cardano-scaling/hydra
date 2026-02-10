@@ -2,12 +2,12 @@
 
 module Hydra.Plutus.Gen where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Data.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Data.Party (Party (..), partyFromVerificationKeyBytes)
-import Test.QuickCheck (Arbitrary (..), vector)
+import "QuickCheck" Test.QuickCheck (Arbitrary (..), vector)
 import "bytestring" Data.ByteString qualified as BS
+import "hydra-plutus" Hydra.Data.ContestationPeriod (ContestationPeriod (..))
+import "hydra-plutus" Hydra.Data.Party (Party (..), partyFromVerificationKeyBytes)
 
 instance Arbitrary ContestationPeriod where
   arbitrary = fromInteger <$> arbitrary

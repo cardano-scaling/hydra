@@ -1,8 +1,11 @@
 module Hydra.Chain.Blockfrost where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base" Control.Exception (IOException)
+import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
+import "blockfrost-client" Blockfrost.Client qualified as BlockfrostAPI
+import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
   Hash,
@@ -14,24 +17,21 @@ import Hydra.Cardano.Api (
   proxyToAsType,
   serialiseToRawBytes,
  )
-import Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
-import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.Direct.Handlers (
+import "hydra-node" Hydra.Chain (ChainComponent, ChainStateHistory, PostTxError (..), prefixOf)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
+import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import "hydra-node" Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler (..),
   chainSyncHandler,
   mkChain,
   newLocalChainState,
  )
-import Hydra.Chain.Direct.State (ChainContext)
-import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
-import "base" Control.Exception (IOException)
-import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
-import "blockfrost-client" Blockfrost.Client qualified as BlockfrostAPI
+import "hydra-node" Hydra.Chain.Direct.State (ChainContext)
+import "hydra-node" Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import "hydra-node" Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-node" Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import "retry" Control.Retry (RetryPolicyM, constantDelay, retrying)
 import "text" Data.Text qualified as T

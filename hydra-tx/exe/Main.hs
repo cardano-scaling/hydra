@@ -1,14 +1,14 @@
 module Main where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (LedgerEra, PParams, TxIx (..), UTxO, textEnvelopeToJSON, toShelleyNetwork, pattern TxIn)
-import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
-import Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
-import Hydra.Tx.Recover (recoverTx)
 import Options (Command (..), DepositOptions (..), RecoverOptions (..), parseHydraCommand)
 import "aeson" Data.Aeson (eitherDecodeFileStrict)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra, PParams, TxIx (..), UTxO, textEnvelopeToJSON, toShelleyNetwork, pattern TxIn)
+import "hydra-tx" Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
+import "hydra-tx" Hydra.Tx.Deposit (depositTx, observeDepositTxOut)
+import "hydra-tx" Hydra.Tx.Recover (recoverTx)
 
 main :: IO ()
 main =

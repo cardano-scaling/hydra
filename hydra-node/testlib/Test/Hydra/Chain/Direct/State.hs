@@ -4,16 +4,17 @@
 
 module Test.Hydra.Chain.Direct.State where
 
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Prelude hiding (init)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-prelude" Hydra.Prelude hiding (init)
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import "base" Data.Maybe (fromJust)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 
 import "base" GHC.IsList qualified as IsList
 
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Key (VerificationKey),
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -26,11 +27,11 @@ import Hydra.Cardano.Api (
   getTxId,
   modifyTxOutValue,
  )
-import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ChainStateAt (..), ChainTransition (..), ClosedState (..), HasKnownUTxO (..), HydraContext (..), InitialState (..), OpenState (..), ctxHeadParameters, ctxParticipants, ctxParties, initialize, observeClose, observeCollect, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeContest, unsafeDecrement, unsafeFanout, unsafeIncrement, unsafeObserveInit, unsafeObserveInitAndCommits)
-import Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Tx (
+import "hydra-node" Hydra.Chain (maximumNumberOfParties)
+import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ChainStateAt (..), ChainTransition (..), ClosedState (..), HasKnownUTxO (..), HydraContext (..), InitialState (..), OpenState (..), ctxHeadParameters, ctxParticipants, ctxParties, initialize, observeClose, observeCollect, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeContest, unsafeDecrement, unsafeFanout, unsafeIncrement, unsafeObserveInit, unsafeObserveInitAndCommits)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (slotLength, systemStart)
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import "hydra-tx" Hydra.Tx (
   ConfirmedSnapshot (..),
   Snapshot (..),
   SnapshotNumber,
@@ -38,12 +39,12 @@ import Hydra.Tx (
   mkSimpleBlueprintTx,
   utxoFromTx,
  )
-import Hydra.Tx.Close (PointInTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
-import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Utils (splitUTxO)
-import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
-import Test.Hydra.Tx.Gen (
+import "hydra-tx" Hydra.Tx.Close (PointInTime)
+import "hydra-tx" Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
+import "hydra-tx" Hydra.Tx.Recover (recoverTx)
+import "hydra-tx" Hydra.Tx.Utils (splitUTxO)
+import "hydra-tx" Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (
   genConfirmedSnapshot,
   genOneUTxOFor,
   genPointInTimeBefore,
@@ -54,7 +55,6 @@ import Test.Hydra.Tx.Gen (
   genValidityBoundsFromContestationPeriod,
   genVerificationKey,
  )
-import Test.QuickCheck (choose, chooseEnum, elements, frequency, oneof, suchThat, vector)
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary

@@ -1,9 +1,9 @@
 module Hydra.API.APIServerLog where
 
-import Hydra.Prelude hiding (encodeUtf8)
+import "hydra-prelude" Hydra.Prelude hiding (encodeUtf8)
 
-import Hydra.Network (PortNumber)
 import "aeson" Data.Aeson qualified as Aeson
+import "hydra-node" Hydra.Network (PortNumber)
 import "text" Data.Text.Encoding (encodeUtf8)
 
 data APIServerLog

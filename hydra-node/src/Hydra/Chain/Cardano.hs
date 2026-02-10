@@ -2,37 +2,37 @@
 
 module Hydra.Chain.Cardano where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
-  EraHistory (EraHistory),
-  Tx,
-  shelleyBasedEra,
- )
-import Hydra.Chain (ChainComponent, ChainStateHistory)
-import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
-import Hydra.Chain.CardanoClient (
-  QueryPoint (..),
- )
-import Hydra.Chain.Direct (DirectBackend (..), withDirectChain)
-import Hydra.Chain.Direct.Handlers (CardanoChainLog (..))
-import Hydra.Chain.Direct.State (
-  ChainContext (..),
- )
-import Hydra.Chain.Direct.Wallet (
-  TinyWallet (..),
-  WalletInfoOnChain (..),
-  newTinyWallet,
- )
-import Hydra.Logging (Tracer)
-import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
-import Hydra.Tx (Party)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-core" Cardano.Ledger.Slot (EpochInfo)
 import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API qualified as Ledger
 import "cardano-slotting" Cardano.Slotting.EpochInfo (hoistEpochInfo)
+import "hydra-cardano-api" Hydra.Cardano.Api (
+  EraHistory (EraHistory),
+  Tx,
+  shelleyBasedEra,
+ )
+import "hydra-node" Hydra.Chain (ChainComponent, ChainStateHistory)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
+import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
+import "hydra-node" Hydra.Chain.CardanoClient (
+  QueryPoint (..),
+ )
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..), withDirectChain)
+import "hydra-node" Hydra.Chain.Direct.Handlers (CardanoChainLog (..))
+import "hydra-node" Hydra.Chain.Direct.State (
+  ChainContext (..),
+ )
+import "hydra-node" Hydra.Chain.Direct.Wallet (
+  TinyWallet (..),
+  WalletInfoOnChain (..),
+  newTinyWallet,
+ )
+import "hydra-node" Hydra.Logging (Tracer)
+import "hydra-node" Hydra.Node.Util (readKeyPair)
+import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
+import "hydra-tx" Hydra.Tx (Party)
 import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History qualified as Consensus
 import "transformers" Control.Monad.Trans.Except (runExcept)
 

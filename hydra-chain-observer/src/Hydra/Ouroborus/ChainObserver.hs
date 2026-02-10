@@ -3,9 +3,9 @@
 
 module Hydra.Ouroborus.ChainObserver where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockHeader (BlockHeader),
   BlockInMode (..),
   CardanoEra (..),
@@ -26,8 +26,7 @@ import Hydra.Cardano.Api (
   getTxId,
   pattern Block,
  )
-import Hydra.Chain.CardanoClient (queryTip)
-import Hydra.ChainObserver.NodeClient (
+import "hydra-chain-observer" Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
   NodeClient (..),
@@ -35,8 +34,9 @@ import Hydra.ChainObserver.NodeClient (
   logObservation,
   observeAll,
  )
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Tx.Observe (HeadObservation (..))
+import "hydra-node" Hydra.Chain.CardanoClient (queryTip)
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-tx" Hydra.Tx.Observe (HeadObservation (..))
 import "ouroboros-network-protocols" Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
   ClientStIdle (..),

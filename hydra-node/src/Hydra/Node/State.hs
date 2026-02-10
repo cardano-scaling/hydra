@@ -2,15 +2,15 @@
 
 module Hydra.Node.State where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
-import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
-import Hydra.Tx (
+import "containers" Data.Map qualified as Map
+import "hydra-node" Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
+import "hydra-tx" Hydra.Tx (
   HeadId,
   IsTx (..),
  )
-import "containers" Data.Map qualified as Map
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 

@@ -3,7 +3,7 @@
 -- XXX: Ideally, these functions would be upstreamed into plutus directly.
 module Hydra.Plutus.Extras.Time where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "base" Data.Fixed (Pico)
 import "base" Data.Ratio ((%))

@@ -3,39 +3,11 @@
 -- XXX: This does not have a corresponding "source" module which it tests.
 module Hydra.Chain.Direct.TxSpec where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
-import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
-import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.Init (mkInitialOutput)
-import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
-import Test.Gen.Cardano.Api.Typed qualified as Gen
-import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
-import Test.Hydra.Tx.Fixture (
-  pparams,
-  testNetworkId,
- )
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (
-  genSigningKey,
-  genTxOutWithReferenceScript,
-  genUTxO1,
-  genUTxOAdaOnlyOfSize,
-  genValue,
-  propTransactionEvaluates,
- )
-import Test.QuickCheck (
+import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
   choose,
@@ -49,8 +21,6 @@ import Test.QuickCheck (
   (.&&.),
   (===),
  )
-import Test.QuickCheck.Hedgehog (hedgehog)
-import Test.QuickCheck.Instances.Semigroup ()
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import "cardano-ledger-api" Cardano.Ledger.Api (
@@ -80,7 +50,37 @@ import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (..))
 import "cardano-strict-containers" Data.Maybe.Strict (StrictMaybe (..))
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
+import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
+import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
+import "hydra-node" Test.Hydra.Chain.Direct.State (genChainStateWithTx)
+import "hydra-plutus" Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
+import "hydra-tx" Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
+import "hydra-tx" Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import "hydra-tx" Hydra.Tx.Commit (commitTx)
+import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
+import "hydra-tx" Hydra.Tx.Init (mkInitialOutput)
+import "hydra-tx" Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
+import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
+import "hydra-tx" Test.Hydra.Tx.Fixture (
+  pparams,
+  testNetworkId,
+ )
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (
+  genSigningKey,
+  genTxOutWithReferenceScript,
+  genUTxO1,
+  genUTxOAdaOnlyOfSize,
+  genValue,
+  propTransactionEvaluates,
+ )
 import "lens" Control.Lens ((.~), (^.))
+import "quickcheck-instances" Test.QuickCheck.Instances.Semigroup ()
+import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed qualified as Gen
+import "z-cardano-ledger-shelley-z-testlib" Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 
 spec :: Spec
 spec =

@@ -2,15 +2,15 @@
 
 module Test.DirectChainSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoClient (
-  buildAddress,
-  waitForUTxO,
- )
-import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (choose, generate)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
+import "containers" Data.Set qualified as Set
+import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (
   ChainPoint (..),
   Key (SigningKey),
   PaymentKey,
@@ -24,27 +24,18 @@ import Hydra.Cardano.Api (
   unFile,
   verificationKeyHash,
  )
-import Hydra.Chain (
-  Chain (Chain, draftCommitTx, postTx),
-  ChainEvent (..),
-  OnChainTx (..),
-  PostChainTx (..),
-  PostTxError (..),
-  initHistory,
+import "hydra-cluster" CardanoClient (
+  buildAddress,
+  waitForUTxO,
  )
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
-import Hydra.Chain.Direct (DirectBackend (..), IntersectionNotFoundException (..), withDirectChain)
-import Hydra.Chain.Direct.Handlers (CardanoChainLog)
-import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Cluster.Faucet (
+import "hydra-cluster" CardanoNode (NodeLog, withCardanoNodeDevnet)
+import "hydra-cluster" Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
   seedFromFaucet,
   seedFromFaucet_,
  )
-import Hydra.Cluster.Fixture (
+import "hydra-cluster" Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol, Faucet),
   alice,
   aliceSk,
@@ -52,29 +43,38 @@ import Hydra.Cluster.Fixture (
   carol,
   cperiod,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile)
-import Hydra.Ledger.Cardano (Tx)
-import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.Crypto (aggregate, sign)
-import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Hydra.Tx.Snapshot qualified as Snapshot
-import Hydra.Tx.Utils (
+import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile)
+import "hydra-node" Hydra.Chain (
+  Chain (Chain, draftCommitTx, postTx),
+  ChainEvent (..),
+  OnChainTx (..),
+  PostChainTx (..),
+  PostTxError (..),
+  initHistory,
+ )
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..), IntersectionNotFoundException (..), withDirectChain)
+import "hydra-node" Hydra.Chain.Direct.Handlers (CardanoChainLog)
+import "hydra-node" Hydra.Chain.Direct.State (initialChainState)
+import "hydra-node" Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
+import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
+import "hydra-tx" Hydra.Ledger.Cardano (Tx)
+import "hydra-tx" Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import "hydra-tx" Hydra.Tx.Crypto (aggregate, sign)
+import "hydra-tx" Hydra.Tx.HeadId (HeadId, HeadSeed (..))
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.Party (Party)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
+import "hydra-tx" Hydra.Tx.Utils (
   splitUTxO,
   verificationKeyToOnChainId,
  )
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (choose, generate)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL, reqSignerHashesTxBodyL)
-import "containers" Data.Set qualified as Set
-import "filepath" System.FilePath ((</>))
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair)
 import "lens" Control.Lens ((<>~))
 import "process" System.Process (proc, readCreateProcess)
 import "split" Data.List.Split (splitWhen)

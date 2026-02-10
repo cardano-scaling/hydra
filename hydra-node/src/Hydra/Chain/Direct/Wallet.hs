@@ -4,32 +4,8 @@
 -- some useful utilities to tracking the wallet's UTXO, and accessing it
 module Hydra.Chain.Direct.Wallet where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
-  BlockHeader,
-  ChainPoint,
-  LedgerEra,
-  NetworkId,
-  PaymentCredential (PaymentCredentialByKey),
-  PaymentKey,
-  ShelleyAddr,
-  SigningKey,
-  StakeAddressReference (NoStakeAddress),
-  VerificationKey,
-  fromLedgerTx,
-  fromLedgerTxIn,
-  getChainPoint,
-  makeShelleyAddress,
-  shelleyAddressInEra,
-  toLedgerAddr,
-  toLedgerTx,
-  verificationKeyHash,
- )
-import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Ledger.Cardano ()
-import Hydra.Logging (Tracer, traceWith)
 import "base" Data.List qualified as List
 import "cardano-api" Cardano.Api.Ledger (Data, ExUnits)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -87,6 +63,30 @@ import "cardano-slotting" Cardano.Slotting.Time (SystemStart (..))
 import "cardano-strict-containers" Data.Sequence.Strict ((|>))
 import "containers" Data.Map.Strict qualified as Map
 import "containers" Data.Set qualified as Set
+import "hydra-cardano-api" Hydra.Cardano.Api (
+  BlockHeader,
+  ChainPoint,
+  LedgerEra,
+  NetworkId,
+  PaymentCredential (PaymentCredentialByKey),
+  PaymentKey,
+  ShelleyAddr,
+  SigningKey,
+  StakeAddressReference (NoStakeAddress),
+  VerificationKey,
+  fromLedgerTx,
+  fromLedgerTxIn,
+  getChainPoint,
+  makeShelleyAddress,
+  shelleyAddressInEra,
+  toLedgerAddr,
+  toLedgerTx,
+  verificationKeyHash,
+ )
+import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
+import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (..))
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-tx" Hydra.Ledger.Cardano ()
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import "lens" Control.Lens (view, (%~), (.~), (^.))
 

@@ -2,9 +2,9 @@
 
 module Hydra.Node.UnsyncedPeriod where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 
 -- | Period of time after which we consider the node becoming unsynced with the chain.
 -- Beyond this period the node will refuse to process new transactions and signing snapshots.

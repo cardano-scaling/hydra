@@ -3,13 +3,15 @@
 
 module Hydra.Tx.Contract.Close.Healthy where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (label)
 
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx (
+import "QuickCheck" Test.QuickCheck (elements)
+import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-test-utils" Test.Hydra.Prelude
+import "hydra-tx" Hydra.Tx (
   ConfirmedSnapshot (..),
   Party,
   Snapshot,
@@ -17,19 +19,17 @@ import Hydra.Tx (
   hashUTxO,
   partyToChain,
  )
-import Hydra.Tx.Close (PointInTime)
-import Hydra.Tx.ContestationPeriod (fromChain)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
-import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.Utils (splitUTxO)
-import Test.Hydra.Prelude
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genValidityBoundsFromContestationPeriod, genVerificationKey)
-import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (elements)
-import Test.QuickCheck.Instances ()
+import "hydra-tx" Hydra.Tx.Close (PointInTime)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (fromChain)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
+import "hydra-tx" Hydra.Tx.Utils (splitUTxO)
+import "hydra-tx" Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genValidityBoundsFromContestationPeriod, genVerificationKey)
+import "hydra-tx" Test.Hydra.Tx.Mutation (addParticipationTokens)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 healthySeed :: Int
 healthySeed = 42

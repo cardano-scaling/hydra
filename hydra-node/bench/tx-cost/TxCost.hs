@@ -3,18 +3,23 @@
 
 module TxCost where
 
-import Hydra.Prelude hiding (catch)
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude hiding (catch)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (oneof)
+import "base" Data.Maybe (fromJust)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-binary" Cardano.Binary (serialize)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Coin (..),
   ExecutionUnits (..),
   Tx,
   UTxO,
  )
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
-import Hydra.Chain.Direct.State (
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-cardano-api" Hydra.Cardano.Api.TxOut (toPlutusTxOut)
+import "hydra-node" Hydra.Chain.Direct.State (
   ClosedState (..),
   InitialState (..),
   OpenState (..),
@@ -34,17 +39,7 @@ import Hydra.Chain.Direct.State (
   unsafeFanout,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Ledger.Cardano.Evaluate (
-  estimateMinFee,
-  evaluateTx,
-  maxTxSize,
-  slotLength,
-  systemStart,
-  usedExecutionUnits,
- )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Test.Hydra.Chain.Direct.State (
+import "hydra-node" Test.Hydra.Chain.Direct.State (
   genCloseTx,
   genCommits,
   genCommits',
@@ -57,12 +52,17 @@ import Test.Hydra.Chain.Direct.State (
   genStOpen,
   pickChainContext,
  )
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
-import Test.QuickCheck (oneof)
-import "base" Data.Maybe (fromJust)
-import "bytestring" Data.ByteString.Lazy qualified as LBS
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "cardano-binary" Cardano.Binary (serialize)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (
+  estimateMinFee,
+  evaluateTx,
+  maxTxSize,
+  slotLength,
+  systemStart,
+  usedExecutionUnits,
+ )
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import "hydra-tx" Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltinData)
 import "plutus-tx" PlutusTx.Builtins (lengthOfByteString, serialiseData)
 

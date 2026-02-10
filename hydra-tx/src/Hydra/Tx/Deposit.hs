@@ -1,18 +1,18 @@
 module Hydra.Tx.Deposit where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (toList)
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (toList)
 
-import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Plutus (depositValidatorScript)
-import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
-import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
-import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-api" Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..), bodyTxL, outputsTxBodyL)
 import "cardano-strict-containers" Data.Maybe.Strict (StrictMaybe (..))
 import "cardano-strict-containers" Data.Sequence.Strict qualified as StrictSeq
+import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
+import "hydra-plutus" Hydra.Contract.Deposit qualified as Deposit
+import "hydra-plutus" Hydra.Plutus (depositValidatorScript)
+import "hydra-plutus-extras" Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
+import "hydra-tx" Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
+import "hydra-tx" Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
 import "lens" Control.Lens ((.~))
 import "plutus-ledger-api" PlutusLedgerApi.V3 (POSIXTime)
 

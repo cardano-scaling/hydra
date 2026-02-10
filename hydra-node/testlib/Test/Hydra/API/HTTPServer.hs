@@ -4,11 +4,11 @@
 
 module Test.Hydra.API.HTTPServer where
 
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SideLoadSnapshotRequest (..), SubmitL2TxRequest (..), SubmitL2TxResponse, SubmitTxRequest (..), TransactionSubmitted)
-import Hydra.Prelude
-import Hydra.Tx (IsTx (..), UTxOType)
-import Test.Hydra.Prelude
-import Test.Hydra.Tx.Gen ()
+import "hydra-node" Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), SideLoadSnapshotRequest (..), SubmitL2TxRequest (..), SubmitL2TxResponse, SubmitTxRequest (..), TransactionSubmitted)
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
+import "hydra-tx" Hydra.Tx (IsTx (..), UTxOType)
+import "hydra-tx" Test.Hydra.Tx.Gen ()
 
 instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
   arbitrary = genericArbitrary

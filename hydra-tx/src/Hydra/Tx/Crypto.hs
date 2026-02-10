@@ -24,24 +24,8 @@ module Hydra.Tx.Crypto (
   module Hydra.Tx.Crypto,
 ) where
 
-import Hydra.Prelude hiding (Key, show)
+import "hydra-prelude" Hydra.Prelude hiding (Key, show)
 
-import Hydra.Cardano.Api (
-  AsType (..),
-  BlockHeader,
-  HasTextEnvelope (..),
-  HasTypeProxy (..),
-  Hash,
-  Key (..),
-  ScriptData (..),
-  SerialiseAsCBOR,
-  SerialiseAsRawBytes (..),
-  SerialiseAsRawBytesError (..),
-  TxId (..),
-  UsingRawBytesHex (..),
-  serialiseToRawBytesHexText,
- )
-import Hydra.Contract.HeadState qualified as OnChain
 import "aeson" Data.Aeson qualified as Aeson
 import "base" Text.Show (Show (..))
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
@@ -72,6 +56,22 @@ import "cardano-crypto-class" Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import "cardano-crypto-class" Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
 import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation)
 import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api (
+  AsType (..),
+  BlockHeader,
+  HasTextEnvelope (..),
+  HasTypeProxy (..),
+  Hash,
+  Key (..),
+  ScriptData (..),
+  SerialiseAsCBOR,
+  SerialiseAsRawBytes (..),
+  SerialiseAsRawBytesError (..),
+  TxId (..),
+  UsingRawBytesHex (..),
+  serialiseToRawBytesHexText,
+ )
+import "hydra-plutus" Hydra.Contract.HeadState qualified as OnChain
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Hydra keys

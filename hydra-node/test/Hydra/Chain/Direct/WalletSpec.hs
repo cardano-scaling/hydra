@@ -2,42 +2,11 @@
 
 module Hydra.Chain.Direct.WalletSpec where
 
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
-  LedgerEra,
-  PaymentCredential (PaymentCredentialByKey),
-  PaymentKey,
-  VerificationKey,
-  fromLedgerTx,
-  fromLedgerTxOut,
-  selectLovelace,
-  shelleyBasedEra,
-  toLedgerTxIn,
-  txOutValue,
-  verificationKeyHash,
- )
-import Hydra.Cardano.Api qualified as Api
-import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
-import Hydra.Cardano.Api.Pretty (renderTx)
-import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct.Wallet (
-  Address,
-  ChainQuery,
-  TinyWallet (..),
-  TxIn,
-  TxOut,
-  WalletInfoOnChain (..),
-  applyTxs,
-  coverFee_,
-  findLargestUTxO,
-  newTinyWallet,
- )
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
-import Test.QuickCheck (
+import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
   conjoin,
@@ -72,6 +41,37 @@ import "cardano-strict-containers" Data.Sequence.Strict qualified as StrictSeq
 import "containers" Data.Map.Strict qualified as Map
 import "containers" Data.Set qualified as Set
 import "contra-tracer" Control.Tracer (nullTracer)
+import "hydra-cardano-api" Hydra.Cardano.Api (
+  LedgerEra,
+  PaymentCredential (PaymentCredentialByKey),
+  PaymentKey,
+  VerificationKey,
+  fromLedgerTx,
+  fromLedgerTxOut,
+  selectLovelace,
+  shelleyBasedEra,
+  toLedgerTxIn,
+  txOutValue,
+  verificationKeyHash,
+ )
+import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTx)
+import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (..))
+import "hydra-node" Hydra.Chain.Direct.Wallet (
+  Address,
+  ChainQuery,
+  TinyWallet (..),
+  TxIn,
+  TxOut,
+  WalletInfoOnChain (..),
+  applyTxs,
+  coverFee_,
+  findLargestUTxO,
+  newTinyWallet,
+ )
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import "lens" Control.Lens (view, (.~), (<>~), (^.))
 import "base" Prelude qualified
 

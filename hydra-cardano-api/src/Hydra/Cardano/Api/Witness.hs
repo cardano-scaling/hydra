@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.Witness where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 -- | Construct a full script witness from a datum, a redeemer and a full
 -- 'PlutusScript'. That witness has no execution budget.

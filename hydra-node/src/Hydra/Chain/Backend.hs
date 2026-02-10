@@ -1,14 +1,14 @@
 module Hydra.Chain.Backend where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api
-import Hydra.Chain.CardanoClient qualified as CardanoClient
-import Hydra.Contract.Dummy (dummyMintingScript)
-import Hydra.Options (ChainBackendOptions)
-import Hydra.Tx (ScriptRegistry)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map.Strict qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-node" Hydra.Chain.CardanoClient qualified as CardanoClient
+import "hydra-node" Hydra.Options (ChainBackendOptions)
+import "hydra-plutus" Hydra.Contract.Dummy (dummyMintingScript)
+import "hydra-tx" Hydra.Tx (ScriptRegistry)
 
 blockfrostProjectPath :: FilePath
 blockfrostProjectPath = "blockfrost-project.txt"

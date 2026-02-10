@@ -7,9 +7,11 @@ module Hydra.Chain.Direct (
   module Hydra.Chain.Direct,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base" Control.Exception (IOException)
+import "base" Text.Printf (printf)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockInMode (..),
   CardanoEra (..),
   ChainPoint (..),
@@ -33,15 +35,15 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
  )
-import Hydra.Chain (
+import "hydra-node" Hydra.Chain (
   ChainComponent,
   ChainStateHistory (..),
   PostTxError (..),
   prefixOf,
  )
-import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.CardanoClient qualified as CardanoClient
-import Hydra.Chain.Direct.Handlers (
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
+import "hydra-node" Hydra.Chain.CardanoClient qualified as CardanoClient
+import "hydra-node" Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler,
   chainSyncHandler,
@@ -50,14 +52,12 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..))
-import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
-import "base" Control.Exception (IOException)
-import "base" Text.Printf (printf)
+import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..))
+import "hydra-node" Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
+import "hydra-node" Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import "hydra-node" Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   putTMVar,
   readTQueue,

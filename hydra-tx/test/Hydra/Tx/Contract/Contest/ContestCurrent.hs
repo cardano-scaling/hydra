@@ -3,24 +3,27 @@
 
 module Hydra.Tx.Contract.Contest.ContestCurrent where
 
-import Hydra.Cardano.Api
-import Hydra.Plutus.Gen ()
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-plutus" Hydra.Plutus.Gen ()
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import "base" Data.Maybe (fromJust)
 
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Data.Party (partyFromVerificationKeyBytes)
-import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
-import Hydra.Tx.Contract.Contest.Healthy (
+import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
+import "QuickCheck" Test.QuickCheck.Gen (choose)
+import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
+import "hydra-plutus" Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import "hydra-plutus" Hydra.Data.Party (partyFromVerificationKeyBytes)
+import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import "hydra-tx" Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
+import "hydra-tx" Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
   healthyClosedHeadTxOut,
@@ -36,18 +39,17 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyParties,
   healthySignature,
  )
-import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
-import Hydra.Tx.Snapshot (Snapshot (..))
-import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..))
+import "hydra-tx" Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
   genValue,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
@@ -63,12 +65,10 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
   replaceUTxOHash,
  )
-import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
-import Test.QuickCheck.Gen (choose)
-import Test.QuickCheck.Hedgehog (hedgehog)
-import Test.QuickCheck.Instances ()
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
+import "quickcheck-instances" Test.QuickCheck.Instances ()
+import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation

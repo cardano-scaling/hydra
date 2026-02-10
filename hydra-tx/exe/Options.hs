@@ -1,12 +1,12 @@
 module Options where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Tx.HeadId (HeadId (..))
 import "attoparsec" Data.Attoparsec.ByteString.Char8 qualified as Atto
 import "base" Data.Char qualified as Char
 import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "hydra-tx" Hydra.Tx.HeadId (HeadId (..))
 import "optparse-applicative" Options.Applicative
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 

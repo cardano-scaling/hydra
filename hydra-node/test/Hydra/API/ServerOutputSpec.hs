@@ -1,23 +1,23 @@
 module Hydra.API.ServerOutputSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
-import Hydra.Chain.Direct.State ()
-import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
-import Hydra.Ledger.Cardano (Tx)
-import Hydra.Utils (readJsonFileThrow)
-import Test.Aeson.GenericSpecs (
+import "QuickCheck" Test.QuickCheck (conjoin, withMaxSuccess)
+import "aeson" Data.Aeson (Value)
+import "hspec-golden-aeson" Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
   roundtripAndGoldenADTSpecsWithSettings,
  )
-import Test.Hydra.API.ClientInput ()
-import Test.Hydra.API.ServerOutput ()
-import Test.Hydra.Chain.Direct.State ()
-import Test.QuickCheck (conjoin, withMaxSuccess)
-import "aeson" Data.Aeson (Value)
+import "hydra-node" Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
+import "hydra-node" Hydra.Utils (readJsonFileThrow)
+import "hydra-node" Test.Hydra.API.ClientInput ()
+import "hydra-node" Test.Hydra.API.ServerOutput ()
+import "hydra-node" Test.Hydra.Chain.Direct.State ()
+import "hydra-tx" Hydra.Ledger.Cardano (Tx)
 import "lens" Control.Lens (toListOf, (^.))
 import "lens-aeson" Data.Aeson.Lens (key, values, _Array)
 

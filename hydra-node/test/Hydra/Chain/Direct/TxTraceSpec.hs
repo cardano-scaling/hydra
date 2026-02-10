@@ -18,10 +18,17 @@
 -- are generated, along with occasional Contest and consequential Fanout.
 module Hydra.Chain.Direct.TxTraceSpec where
 
-import Hydra.Prelude hiding (Any, State, label, show)
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude hiding (Any, State, label, show)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import Hydra.ModelSpec (propIsDistributive)
+import "QuickCheck" Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
+import "QuickCheck" Test.QuickCheck.Monadic (monadic)
+import "base" Data.List (nub, (\\))
+import "base" Text.Show (Show (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map.Strict qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api (
   CtxUTxO,
   PaymentKey,
   SlotNo (..),
@@ -40,37 +47,35 @@ import Hydra.Cardano.Api (
   txOutValue,
   txSpendingUTxO,
  )
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError, DecrementTxError, FanoutTxError, IncrementTxError (..), close, contest, decrement, fanout, increment)
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Ledger.Cardano (Tx, adjustUTxO)
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.ModelSpec (propIsDistributive)
-import Hydra.Tx (CommitBlueprintTx (..))
-import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
-import Hydra.Tx.Deposit (depositTx)
-import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
-import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
-import Hydra.Tx.Observe (HeadObservation (NoHeadTx), observeHeadTx)
-import Hydra.Tx.Observe qualified as Tx
-import Hydra.Tx.Party (partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
-import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), CloseTxError, ContestTxError, DecrementTxError, FanoutTxError, IncrementTxError (..), close, contest, decrement, fanout, increment)
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-tx" Hydra.Ledger.Cardano (Tx, adjustUTxO)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import "hydra-tx" Hydra.Tx (CommitBlueprintTx (..))
+import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as CP
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
+import "hydra-tx" Hydra.Tx.Deposit (depositTx)
+import "hydra-tx" Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
+import "hydra-tx" Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
+import "hydra-tx" Hydra.Tx.Observe (HeadObservation (NoHeadTx), observeHeadTx)
+import "hydra-tx" Hydra.Tx.Observe qualified as Tx
+import "hydra-tx" Hydra.Tx.Party (partyToChain)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
+import "hydra-tx" Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (
   genForParty,
   genScriptRegistry,
   genTxOut,
   genUTxO1,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (addParticipationTokens)
-import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
-import Test.QuickCheck.Monadic (monadic)
-import Test.QuickCheck.StateModel (
+import "hydra-tx" Test.Hydra.Tx.Mutation (addParticipationTokens)
+import "plutus-tx" PlutusTx.Builtins (toBuiltin)
+import "quickcheck-dynamic" Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions (..),
   Any (..),
@@ -86,11 +91,6 @@ import Test.QuickCheck.StateModel (
   counterexamplePost,
   runActions,
  )
-import "base" Data.List (nub, (\\))
-import "base" Text.Show (Show (..))
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map.Strict qualified as Map
-import "plutus-tx" PlutusTx.Builtins (toBuiltin)
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 spec :: Spec

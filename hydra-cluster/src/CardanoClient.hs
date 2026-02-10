@@ -9,16 +9,16 @@ module CardanoClient (
   module CardanoClient,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.CardanoClient
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Block)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.CardanoClient
 
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.CardanoClient qualified as CardanoClient
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map qualified as Map
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.CardanoClient qualified as CardanoClient
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
 

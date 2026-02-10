@@ -1,6 +1,5 @@
 module Hydra.TUI.Style where
 
-import Hydra.TUI.Logging.Types (Severity (..))
 import "brick" Brick (
   AttrMap,
   AttrName,
@@ -9,6 +8,7 @@ import "brick" Brick (
   fg,
  )
 import "brick" Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
+import "hydra-tui" Hydra.TUI.Logging.Types (Severity (..))
 import "vty" Graphics.Vty (
   brightBlack,
   brightBlue,

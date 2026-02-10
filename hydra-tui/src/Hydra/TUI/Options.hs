@@ -1,13 +1,13 @@
 module Hydra.TUI.Options where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId, SocketPath)
-import Hydra.Network (Host (Host))
-import Hydra.Options (networkIdParser)
-import Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import Paths_hydra_tui (version)
 import "base" Data.Version (Version (Version), showVersion)
+import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId, SocketPath)
+import "hydra-node" Hydra.Network (Host (Host))
+import "hydra-node" Hydra.Options (networkIdParser)
+import "hydra-prelude" Hydra.Version (embeddedRevision, gitRevision, unknownVersion)
 import "optparse-applicative" Options.Applicative (
   Parser,
   auto,

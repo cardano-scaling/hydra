@@ -2,13 +2,13 @@
 
 module Bench.Summary where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Generator (ClientDataset (..), Dataset (..))
-import Test.HUnit.Lang (formatFailureReason)
-import Test.Hydra.Prelude (HUnitFailure (..))
+import "HUnit" Test.HUnit.Lang (formatFailureReason)
 import "base" Data.Fixed (Nano)
 import "base" Text.Printf (printf)
+import "hydra-cluster" Hydra.Generator (ClientDataset (..), Dataset (..))
+import "hydra-test-utils" Test.Hydra.Prelude (HUnitFailure (..))
 import "statistics" Statistics.Quantile (def)
 import "statistics" Statistics.Quantile qualified as Statistics
 import "text" Data.Text (pack)

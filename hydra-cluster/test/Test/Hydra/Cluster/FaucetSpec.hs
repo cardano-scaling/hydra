@@ -2,23 +2,23 @@
 
 module Test.Hydra.Cluster.FaucetSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoNode (withCardanoNodeDevnet)
-import Hydra.Cardano.Api (Coin (..), lovelaceToValue, selectLovelace)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Scenarios (EndToEndLog (..))
-import Hydra.Cluster.Util (keysFor)
-import Hydra.Logging (Tracer, showLogsOnFailure)
-import Test.Hydra.Tx.Gen (genVerificationKey)
-import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
+import "QuickCheck" Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
 import "async" Control.Concurrent.Async (replicateConcurrently)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cardano-api" Hydra.Cardano.Api (Coin (..), lovelaceToValue, selectLovelace)
+import "hydra-cluster" CardanoNode (withCardanoNodeDevnet)
+import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet)
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..))
+import "hydra-cluster" Hydra.Cluster.Scenarios (EndToEndLog (..))
+import "hydra-cluster" Hydra.Cluster.Util (keysFor)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (..))
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
+import "hydra-tx" Test.Hydra.Tx.Gen (genVerificationKey)
 
 setupDevnet :: ((Tracer IO FaucetLog, DirectBackend) -> IO a) -> IO a
 setupDevnet action =

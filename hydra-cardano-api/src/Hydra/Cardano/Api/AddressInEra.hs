@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.AddressInEra where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 import "cardano-ledger-core" Cardano.Ledger.Address qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger

@@ -1,17 +1,17 @@
 module Test.CardanoClientSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoNode (withCardanoNodeDevnet)
-import Hydra.Cardano.Api (GenesisParameters (..))
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Logging (showLogsOnFailure)
-import Hydra.Utils (readJsonFileThrow)
 import Test.EndToEndSpec (withClusterTempDir)
 import "aeson" Data.Aeson ((.:))
 import "aeson" Data.Aeson qualified as Aeson
 import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (GenesisParameters (..))
+import "hydra-cluster" CardanoNode (withCardanoNodeDevnet)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Logging (showLogsOnFailure)
+import "hydra-node" Hydra.Utils (readJsonFileThrow)
 
 spec :: Spec
 spec =

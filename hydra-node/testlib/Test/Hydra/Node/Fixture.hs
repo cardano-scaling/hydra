@@ -5,15 +5,15 @@ module Test.Hydra.Node.Fixture (
   module Fixture,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (LedgerEra, SystemStart (..))
-import Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Test.Hydra.Tx.Fixture as Fixture
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes qualified as Ledger
+import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra, SystemStart (..))
+import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import "hydra-tx" Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv)
+import "hydra-tx" Test.Hydra.Tx.Fixture as Fixture
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with

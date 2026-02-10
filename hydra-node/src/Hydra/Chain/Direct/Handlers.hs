@@ -7,9 +7,14 @@
 -- `PostChainTx` and `OnChainTx`, and maintenance of on-chain relevant state.
 module Hydra.Chain.Direct.Handlers where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base" Data.List qualified as List
+import "base" System.IO.Error (userError)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
+import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (..))
+import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
   LedgerEra,
@@ -26,7 +31,7 @@ import Hydra.Cardano.Api (
   shelleyBasedEra,
   throwError,
  )
-import Hydra.Chain (
+import "hydra-node" Hydra.Chain (
   Chain (..),
   ChainCallback,
   ChainEvent (..),
@@ -38,12 +43,7 @@ import Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import Hydra.Chain.ChainState (
-  ChainSlot,
-  ChainStateType,
-  IsChainState,
- )
-import Hydra.Chain.Direct.State (
+import "hydra-node" Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
   abort,
@@ -59,25 +59,30 @@ import Hydra.Chain.Direct.State (
   initialize,
   recover,
  )
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import Hydra.Chain.Direct.Wallet (
+import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import "hydra-node" Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
   TinyWalletLog,
  )
-import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node.Util (checkNonADAAssetsUTxO)
-import Hydra.Tx (
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-node" Hydra.Node.Util (checkNonADAAssetsUTxO)
+import "hydra-tx" Hydra.Chain.ChainState (
+  ChainSlot,
+  ChainStateType,
+  IsChainState,
+ )
+import "hydra-tx" Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
+import "hydra-tx" Hydra.Tx (
   CommitBlueprintTx (..),
   HeadParameters (..),
   IsTx (..),
   UTxOType,
   headSeedToTxIn,
  )
-import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
-import Hydra.Tx.Observe (
+import "hydra-tx" Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import "hydra-tx" Hydra.Tx.Deposit (DepositObservation (..), depositTx)
+import "hydra-tx" Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
   CollectComObservation (..),
@@ -90,13 +95,8 @@ import Hydra.Tx.Observe (
   InitObservation (..),
   observeHeadTx,
  )
-import Hydra.Tx.Recover (RecoverObservation (..))
-import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
-import "base" Data.List qualified as List
-import "base" System.IO.Error (userError)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
-import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (..))
+import "hydra-tx" Hydra.Tx.Recover (RecoverObservation (..))
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import "io-classes" Control.Monad.Class.MonadSTM (throwSTM)
 

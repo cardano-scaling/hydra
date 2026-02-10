@@ -2,7 +2,7 @@
 
 module Hydra.Cardano.Api.ValidityInterval where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 import "cardano-ledger-allegra" Cardano.Ledger.Allegra.Scripts qualified as Ledger
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes (StrictMaybe (..), maybeToStrictMaybe)

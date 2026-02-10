@@ -1,8 +1,12 @@
 module Hydra.Chain.Offline where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types qualified as Aeson
+import "cardano-api" Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
+import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
   GenesisParameters (..),
@@ -12,7 +16,7 @@ import Hydra.Cardano.Api (
   Tx,
   unsafeBlockHeaderHashFromBytes,
  )
-import Hydra.Chain (
+import "hydra-node" Hydra.Chain (
   Chain (..),
   ChainComponent,
   ChainEvent (..),
@@ -22,16 +26,12 @@ import Hydra.Chain (
   chainTime,
   initHistory,
  )
-import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Node.Util (checkNonADAAssetsUTxO)
-import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
-import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
-import Hydra.Utils (readJsonFileThrow)
-import "aeson" Data.Aeson qualified as Aeson
-import "aeson" Data.Aeson.Types qualified as Aeson
-import "cardano-api" Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
-import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
+import "hydra-node" Hydra.Chain.Direct.State (initialChainState)
+import "hydra-node" Hydra.Node.Util (checkNonADAAssetsUTxO)
+import "hydra-node" Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
+import "hydra-node" Hydra.Utils (readJsonFileThrow)
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import "hydra-tx" Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import "io-classes" Control.Monad.Class.MonadAsync (link)
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.

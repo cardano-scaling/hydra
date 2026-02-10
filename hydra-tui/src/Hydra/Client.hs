@@ -2,27 +2,27 @@
 
 module Hydra.Client where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput)
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
-import Hydra.Cardano.Api (TxId, UTxO)
-import Hydra.Cardano.Api.Prelude (
-  PaymentKey,
-  SigningKey,
- )
-import Hydra.Cardano.Api.Tx (signTx)
-import Hydra.Chain.Blockfrost.Client qualified as BF
-import Hydra.Chain.CardanoClient (submitTransaction)
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Ledger.Cardano (Tx)
-import Hydra.Network (Host (Host, hostname, port))
-import Hydra.Node.Util (readFileTextEnvelopeThrow)
-import Hydra.TUI.Options (Options (..))
 import "aeson" Data.Aeson (eitherDecodeStrict, encode)
 import "async" Control.Concurrent.Async (link)
 import "base" Control.Exception (Handler (Handler), IOException, catches)
+import "hydra-cardano-api" Hydra.Cardano.Api (TxId, UTxO)
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (
+  PaymentKey,
+  SigningKey,
+ )
+import "hydra-cardano-api" Hydra.Cardano.Api.Tx (signTx)
+import "hydra-node" Hydra.API.ClientInput (ClientInput)
+import "hydra-node" Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import "hydra-node" Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
+import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as BF
+import "hydra-node" Hydra.Chain.CardanoClient (submitTransaction)
+import "hydra-node" Hydra.Network (Host (Host, hostname, port))
+import "hydra-node" Hydra.Node.Util (readFileTextEnvelopeThrow)
+import "hydra-tui" Hydra.TUI.Options (Options (..))
+import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
+import "hydra-tx" Hydra.Ledger.Cardano (Tx)
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTBQueue, writeTBQueue)
 import "req" Network.HTTP.Req (defaultHttpConfig, responseBody, runReq)
 import "req" Network.HTTP.Req qualified as Req

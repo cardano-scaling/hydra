@@ -1,8 +1,7 @@
 module Hydra.Cardano.Api.TxBody where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.TxWits qualified as Ledger
 import "cardano-ledger-api" Cardano.Ledger.Api (
   AsItem (..),
@@ -14,6 +13,7 @@ import "cardano-ledger-babbage" Cardano.Ledger.Babbage.Core (redeemerPointer)
 import "cardano-ledger-core" Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import "cardano-ledger-core" Cardano.Ledger.Plutus.Data qualified as Ledger
 import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 
 -- | Find and deserialise from 'ScriptData', a redeemer from the transaction

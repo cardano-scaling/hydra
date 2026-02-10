@@ -3,14 +3,22 @@
 
 module Hydra.Model.MockChain where
 
-import Hydra.Cardano.Api hiding (Network)
-import Hydra.Prelude hiding (Any, label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Network)
+import "hydra-prelude" Hydra.Prelude hiding (Any, label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain (
+import Hydra.Model.Payment (CardanoSigningKey (..))
+import Hydra.NodeSpec (mockServer)
+import "QuickCheck" Test.QuickCheck (getPositive)
+import "base" GHC.IO.Exception (userError)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Sequence (Seq (Empty, (:|>)))
+import "containers" Data.Sequence qualified as Seq
+import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import "hydra-node" Hydra.Chain (
   Chain (..),
   PostChainTx (
     CloseTx,
@@ -21,8 +29,7 @@ import Hydra.Chain (
   ),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Chain.Direct.Handlers (
+import "hydra-node" Hydra.Chain.Direct.Handlers (
   CardanoChainLog,
   ChainSyncHandler (..),
   LocalChainState,
@@ -33,10 +40,10 @@ import Hydra.Chain.Direct.Handlers (
   onRollBackward,
   onRollForward,
  )
-import Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
-import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
-import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.HeadLogic (
+import "hydra-node" Hydra.Chain.Direct.State (ChainContext (..), initialChainState)
+import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
+import "hydra-node" Hydra.Chain.Direct.Wallet (TinyWallet (..))
+import "hydra-node" Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
   IdleState (..),
@@ -44,35 +51,27 @@ import Hydra.HeadLogic (
   Input (..),
   OpenState (..),
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
-import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
-import Hydra.Logging (Tracer)
-import Hydra.Model.Payment (CardanoSigningKey (..))
-import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message (..))
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
-import Hydra.Node.Environment (Environment (Environment, participants, party))
-import Hydra.Node.InputQueue (InputQueue (..))
-import Hydra.Node.State (NodeState (..))
-import Hydra.NodeSpec (mockServer)
-import Hydra.Tx (txId)
-import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
-import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.HeadId (HeadId)
-import Hydra.Tx.Party (Party (..), deriveParty, getParty)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
-import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
-import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
-import Test.QuickCheck (getPositive)
-import Test.QuickCheck.Hedgehog (hedgehog)
-import "base" GHC.IO.Exception (userError)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Sequence (Seq (Empty, (:|>)))
-import "containers" Data.Sequence qualified as Seq
+import "hydra-node" Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
+import "hydra-node" Hydra.Logging (Tracer)
+import "hydra-node" Hydra.Network (Network (..))
+import "hydra-node" Hydra.Network.Message (Message (..))
+import "hydra-node" Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
+import "hydra-node" Hydra.Node.Environment (Environment (Environment, participants, party))
+import "hydra-node" Hydra.Node.InputQueue (InputQueue (..))
+import "hydra-node" Hydra.Node.State (NodeState (..))
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (..))
+import "hydra-tx" Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
+import "hydra-tx" Hydra.Tx (txId)
+import "hydra-tx" Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey)
+import "hydra-tx" Hydra.Tx.HeadId (HeadId)
+import "hydra-tx" Hydra.Tx.Party (Party (..), deriveParty, getParty)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
+import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
+import "hydra-tx" Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   MonadSTM (writeTVar),
   modifyTVar,
@@ -85,6 +84,7 @@ import "io-classes" Control.Concurrent.Class.MonadSTM (
 import "io-classes" Control.Monad.Class.MonadAsync (link)
 import "time" Data.Time (secondsToNominalDiffTime)
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
 
 -- | Create a mocked chain which connects nodes through 'ChainSyncHandler' and
 -- 'Chain' interfaces. It calls connected chain sync handlers 'onRollForward' on

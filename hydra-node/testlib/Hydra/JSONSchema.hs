@@ -4,12 +4,12 @@
 -- | Test utilities to work with JSON schemas.
 module Hydra.JSONSchema where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import Paths_hydra_node qualified as Pkg
-import Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf, withMaxSuccess)
-import Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
+import "QuickCheck" Test.QuickCheck (Property, counterexample, forAllShrink, vectorOf, withMaxSuccess)
+import "QuickCheck" Test.QuickCheck.Monadic (assert, monadicIO, monitor, run)
 import "aeson" Data.Aeson (Value, (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "base" Control.Arrow (left)

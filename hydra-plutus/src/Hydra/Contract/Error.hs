@@ -23,7 +23,7 @@
 -- can match for using 'toErrorCode CaseA' in Haskell.
 module Hydra.Contract.Error where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "template-haskell" Language.Haskell.TH (Exp (..), Lit (StringL), Q)
 

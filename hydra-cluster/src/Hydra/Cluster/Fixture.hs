@@ -3,13 +3,13 @@
 -- | Example values and utilities used across hydra-cluster tests and benchmarks.
 module Hydra.Cluster.Fixture where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId)
-import Hydra.Cardano.Api qualified as Api
-import Hydra.Tx (Party, deriveParty)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
+import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId)
+import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
+import "hydra-tx" Hydra.Tx (Party, deriveParty)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, SigningKey, VerificationKey, generateSigningKey, getVerificationKey)
 
 alice, bob, carol :: Party
 alice = deriveParty aliceSk

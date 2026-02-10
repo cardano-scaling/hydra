@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.Hash where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 import "bytestring" Data.ByteString qualified as BS
 import "cardano-ledger-core" Cardano.Ledger.Hashes (unsafeMakeSafeHash)

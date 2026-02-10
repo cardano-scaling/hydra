@@ -1,10 +1,10 @@
 module Test.Hydra.Cluster.Utils where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (ChainPoint, SlotNo, chainPointToSlotNo)
-import Hydra.Cluster.Fixture (KnownNetwork (..))
+import "hydra-cardano-api" Hydra.Cardano.Api (ChainPoint, SlotNo, chainPointToSlotNo)
+import "hydra-cluster" Hydra.Cluster.Fixture (KnownNetwork (..))
 
 -- | Creates test cases for each 'KnownNetwork'.
 forEachKnownNetwork :: String -> (KnownNetwork -> IO ()) -> Spec

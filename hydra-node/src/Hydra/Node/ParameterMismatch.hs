@@ -4,10 +4,10 @@
 -- provided as parameters to the node and what's persisted.
 module Hydra.Node.ParameterMismatch where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Tx (Party)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import "hydra-tx" Hydra.Tx (Party)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
 
 -- | Exception used to indicate command line options not matching the persisted
 -- state.

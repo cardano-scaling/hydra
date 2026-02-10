@@ -2,23 +2,10 @@
 
 module Test.GeneratorSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
-import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (
-  ClientDataset (..),
-  Dataset (..),
-  generateConstantUTxODataset,
- )
-import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Cardano (Globals, LedgerEnv, Tx, cardanoLedger, newLedgerEnv)
-import Test.Aeson.GenericSpecs (roundtripSpecs)
-import Test.Hydra.Node.Fixture (defaultGlobals, defaultPParams)
-import Test.QuickCheck (
+import "QuickCheck" Test.QuickCheck (
   Positive (Positive),
   Property,
   counterexample,
@@ -26,6 +13,19 @@ import Test.QuickCheck (
   idempotentIOProperty,
  )
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripSpecs)
+import "hydra-cardano-api" Hydra.Cardano.Api (LedgerEra, UTxO, prettyPrintJSON, utxoFromTx)
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (Faucet))
+import "hydra-cluster" Hydra.Cluster.Util (keysFor)
+import "hydra-cluster" Hydra.Generator (
+  ClientDataset (..),
+  Dataset (..),
+  generateConstantUTxODataset,
+ )
+import "hydra-node" Hydra.Ledger (applyTransactions)
+import "hydra-node" Test.Hydra.Node.Fixture (defaultGlobals, defaultPParams)
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import "hydra-tx" Hydra.Ledger.Cardano (Globals, LedgerEnv, Tx, cardanoLedger, newLedgerEnv)
 import "text" Data.Text (unpack)
 
 spec :: Spec

@@ -1,7 +1,7 @@
 -- | The general input queue from which the Hydra head is fed with inputs.
 module Hydra.Node.InputQueue where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   isEmptyTBQueue,

@@ -1,11 +1,11 @@
 module Bench.Options where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId, SocketPath)
-import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Network (Host, readHost)
-import Hydra.Options (networkIdParser, nodeSocketParser)
+import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId, SocketPath)
+import "hydra-node" Hydra.Chain (maximumNumberOfParties)
+import "hydra-node" Hydra.Network (Host, readHost)
+import "hydra-node" Hydra.Options (networkIdParser, nodeSocketParser)
 import "optparse-applicative" Options.Applicative (
   Parser,
   ParserInfo,

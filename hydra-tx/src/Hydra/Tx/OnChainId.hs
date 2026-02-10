@@ -4,9 +4,9 @@
 -- Hydra Head protocol which authorizes protocol transitions on-chain.
 module Hydra.Tx.OnChainId where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "hydra-cardano-api" Hydra.Cardano.Api (
   HasTypeProxy (..),
   SerialiseAsRawBytes (..),
   UsingRawBytesHex (..),

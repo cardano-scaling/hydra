@@ -6,7 +6,7 @@
 -- cardano-node provided 'EraSummary' to do "correct" translation on time.
 module Hydra.Ledger.Cardano.Time where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (..))
 import "cardano-slotting" Cardano.Slotting.Time (RelativeTime (..), SlotLength, SystemStart, getSlotLength, getSystemStart, toRelativeTime)

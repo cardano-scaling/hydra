@@ -1,17 +1,17 @@
 module Hydra.Tx.Recover where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api
-import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Ledger.Cardano.Builder (
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
+import "hydra-plutus" Hydra.Contract.Deposit qualified as Deposit
+import "hydra-plutus" Hydra.Plutus (depositValidatorScript)
+import "hydra-tx" Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
-import Hydra.Plutus (depositValidatorScript)
-import Hydra.Tx (HeadId, mkHeadId)
-import Hydra.Tx.Utils (mkHydraHeadV1TxName)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-tx" Hydra.Tx (HeadId, mkHeadId)
+import "hydra-tx" Hydra.Tx.Utils (mkHydraHeadV1TxName)
 
 -- | Builds a recover transaction to recover locked funds from the v_deposit script.
 recoverTx ::

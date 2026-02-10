@@ -6,28 +6,28 @@
 -- also 'hydra-node' on a devnet and assert correct observation.
 module Test.ChainObserverSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
-import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Logging (showLogsOnFailure)
-import Hydra.Options (DirectOptions (..))
-import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
-import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
+import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson as Aeson
 import "base" Data.List qualified as List
 import "base" System.IO.Error (isEOFError, isIllegalOperation)
 import "bytestring" Data.ByteString (hGetLine)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
+import "hydra-cluster" CardanoNode (NodeLog, withCardanoNodeDevnet)
+import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..))
+import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, keysFor)
+import "hydra-cluster" HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.Logging (showLogsOnFailure)
+import "hydra-node" Hydra.Options (DirectOptions (..))
+import "hydra-tx" Hydra.Ledger.Cardano (mkSimpleTx)
+import "hydra-tx" Test.Hydra.Tx.Fixture (aliceSk, cperiod)
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key, _JSON, _String)

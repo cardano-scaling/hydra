@@ -3,21 +3,24 @@
 
 module Hydra.Tx.Contract.Close.CloseUnused where
 
-import Hydra.Cardano.Api
-import Hydra.Plutus.Gen ()
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-plutus" Hydra.Plutus.Gen ()
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
-import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
-import Hydra.Tx.Contract.Close.Healthy (
+import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
+import "hydra-plutus" Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
+import "hydra-tx" Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
+import "hydra-tx" Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUpperBoundPointInTime,
   healthyConfirmedSnapshot,
@@ -32,20 +35,20 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
-import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
-import Hydra.Tx.Snapshot (getSnapshot)
-import Hydra.Tx.Snapshot qualified as Snapshot
-import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (
+import "hydra-tx" Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import "hydra-tx" Hydra.Tx.Snapshot (getSnapshot)
+import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
+import "hydra-tx" Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
   genScriptRegistry,
   genValue,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
@@ -61,12 +64,9 @@ import Test.Hydra.Tx.Mutation (
   replaceSnapshotVersion,
   replaceUTxOHash,
  )
-import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
-import Test.QuickCheck.Instances ()
-import "base" Data.Maybe (fromJust)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "plutus-ledger-api" PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (POSIXTime, PubKeyHash (PubKeyHash), toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 healthyCurrentSnapshotNumber :: Snapshot.SnapshotNumber
 healthyCurrentSnapshotNumber = 1

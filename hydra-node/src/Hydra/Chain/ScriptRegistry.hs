@@ -2,9 +2,11 @@
 -- and needed to construct transactions leveraging reference inputs.
 module Hydra.Chain.ScriptRegistry where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base" Data.List ((!!))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Era,
   EraHistory,
   Key (..),
@@ -33,19 +35,17 @@ import Hydra.Cardano.Api (
   txOuts',
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Tx (signTx)
-import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
-import Hydra.Chain.CardanoClient (
+import "hydra-cardano-api" Hydra.Cardano.Api.Tx (signTx)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
+import "hydra-node" Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
-import Hydra.Contract.Head qualified as Head
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import Hydra.Tx (txId)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
-import "base" Data.List ((!!))
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import "hydra-tx" Hydra.Tx (txId)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.

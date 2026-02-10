@@ -2,14 +2,22 @@
 
 module Hydra.API.ServerSpec where
 
-import Hydra.Prelude hiding (decodeUtf8, seq)
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude hiding (decodeUtf8, seq)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.API.APIServerLog (APIServerLog)
-import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.API.ServerOutput (InvalidInput (..), input)
-import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
-import Hydra.Chain (
+import "QuickCheck" Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
+import "QuickCheck" Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
+import "aeson" Data.Aeson (Value)
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Data.List qualified as List
+import "base" Data.Version (showVersion)
+import "base" System.IO.Error (isAlreadyInUseError)
+import "conduit" Conduit (yieldMany)
+import "hydra-node" Hydra.API.APIServerLog (APIServerLog)
+import "hydra-node" Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
+import "hydra-node" Hydra.API.ServerOutput (InvalidInput (..), input)
+import "hydra-node" Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
+import "hydra-node" Hydra.Chain (
   Chain (Chain),
   checkNonADAAssets,
   draftCommitTx,
@@ -17,29 +25,21 @@ import Hydra.Chain (
   postTx,
   submitTx,
  )
-import Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
-import Hydra.HeadLogic.Outcome qualified as Outcome
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (PortNumber)
-import Hydra.NetworkVersions qualified as NetworkVersions
-import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
-import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
-import Test.Hydra.Ledger.Simple ()
-import Test.Hydra.Node.Fixture (testEnvironment)
-import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
-import Test.Hydra.Tx.Gen ()
-import Test.Network.Ports (withFreePort)
-import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
-import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
-import "aeson" Data.Aeson (Value)
-import "aeson" Data.Aeson qualified as Aeson
-import "base" Data.List qualified as List
-import "base" Data.Version (showVersion)
-import "base" System.IO.Error (isAlreadyInUseError)
-import "conduit" Conduit (yieldMany)
+import "hydra-node" Hydra.Events (EventSink (..), EventSource (..), HasEventId (getEventId))
+import "hydra-node" Hydra.HeadLogic.Outcome qualified as Outcome
+import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (..))
+import "hydra-node" Hydra.Ledger.Simple (SimpleTx (..))
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
+import "hydra-node" Hydra.Network (PortNumber)
+import "hydra-node" Hydra.NetworkVersions qualified as NetworkVersions
+import "hydra-node" Test.Hydra.HeadLogic.StateEvent (genStateEvent)
+import "hydra-node" Test.Hydra.Ledger.Simple ()
+import "hydra-node" Test.Hydra.Node.Fixture (testEnvironment)
+import "hydra-test-utils" Test.Network.Ports (withFreePort)
+import "hydra-tx" Hydra.Tx.Party (Party)
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
+import "hydra-tx" Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
+import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',

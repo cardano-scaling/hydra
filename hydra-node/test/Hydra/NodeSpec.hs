@@ -2,27 +2,28 @@
 
 module Hydra.NodeSpec where
 
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
-import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
-import Hydra.Cardano.Api (SigningKey)
-import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Events (EventSink (..), EventSource (..), getEventId)
-import Hydra.Events.Rotation (EventStore (..), LogId)
-import Hydra.HeadLogic (Input (..), TTL)
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized))
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
-import Hydra.Logging qualified as Logging
-import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node (
+import "QuickCheck" Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
+import "conduit" Conduit (MonadUnliftIO, yieldMany)
+import "hydra-cardano-api" Hydra.Cardano.Api (SigningKey)
+import "hydra-node" Hydra.API.ClientInput (ClientInput (..))
+import "hydra-node" Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import "hydra-node" Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
+import "hydra-node" Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
+import "hydra-node" Hydra.Events (EventSink (..), EventSource (..), getEventId)
+import "hydra-node" Hydra.Events.Rotation (EventStore (..), LogId)
+import "hydra-node" Hydra.HeadLogic (Input (..), TTL)
+import "hydra-node" Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized))
+import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (..))
+import "hydra-node" Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
+import "hydra-node" Hydra.Logging qualified as Logging
+import "hydra-node" Hydra.Network (Network (..))
+import "hydra-node" Hydra.Network.Message (Message (..), NetworkEvent (..))
+import "hydra-node" Hydra.Node (
   DraftHydraNode,
   HydraNode (..),
   HydraNodeLog (..),
@@ -32,20 +33,22 @@ import Hydra.Node (
   hydrate,
   stepHydraNode,
  )
-import Hydra.Node.Environment as Environment
-import Hydra.Node.InputQueue (InputQueue (..))
-import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (NodeState (..))
-import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.Crypto (HydraKey, sign)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Party (Party, deriveParty)
-import Test.Hydra.HeadLogic.Outcome (genStateChanged)
-import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
-import Test.Hydra.Node.Fixture (testEnvironment)
-import Test.Hydra.Tx.Fixture (
+import "hydra-node" Hydra.Node.Environment as Environment
+import "hydra-node" Hydra.Node.InputQueue (InputQueue (..))
+import "hydra-node" Hydra.Node.ParameterMismatch (ParameterMismatch (..))
+import "hydra-node" Hydra.Node.State (NodeState (..))
+import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import "hydra-node" Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import "hydra-node" Test.Hydra.HeadLogic.Outcome (genStateChanged)
+import "hydra-node" Test.Hydra.HeadLogic.StateEvent (genStateEvent)
+import "hydra-node" Test.Hydra.Node.Fixture (testEnvironment)
+import "hydra-node" Test.Util (isStrictlyMonotonic)
+import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, sign)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.Party (Party, deriveParty)
+import "hydra-tx" Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
   bob,
@@ -57,9 +60,6 @@ import Test.Hydra.Tx.Fixture (
   testHeadId,
   testHeadSeed,
  )
-import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
-import Test.Util (isStrictlyMonotonic)
-import "conduit" Conduit (MonadUnliftIO, yieldMany)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
 
 spec :: Spec

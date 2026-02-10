@@ -1,15 +1,15 @@
 module Hydra.API.ServerOutputFilter where
 
-import Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput, output)
-import Hydra.Cardano.Api (
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Tx,
   serialiseToBech32,
   txOuts',
   pattern ShelleyAddressInEra,
   pattern TxOut,
  )
-import Hydra.Prelude hiding (seq)
-import Hydra.Tx (
+import "hydra-node" Hydra.API.ServerOutput (ServerOutput (..), TimedServerOutput, output)
+import "hydra-prelude" Hydra.Prelude hiding (seq)
+import "hydra-tx" Hydra.Tx (
   Snapshot (..),
  )
 

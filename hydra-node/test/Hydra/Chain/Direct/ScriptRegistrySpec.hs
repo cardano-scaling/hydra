@@ -1,14 +1,14 @@
 module Hydra.Chain.Direct.ScriptRegistrySpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Tx.ScriptRegistry (
+import "QuickCheck" Test.QuickCheck (forAllBlind, (===))
+import "hydra-tx" Hydra.Tx.ScriptRegistry (
   newScriptRegistry,
   registryUTxO,
  )
-import Test.Hydra.Tx.Gen (genScriptRegistry)
-import Test.QuickCheck (forAllBlind, (===))
+import "hydra-tx" Test.Hydra.Tx.Gen (genScriptRegistry)
 
 spec :: Spec
 spec =

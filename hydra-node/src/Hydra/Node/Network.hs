@@ -42,14 +42,14 @@ module Hydra.Node.Network (
   NetworkLog,
 ) where
 
-import Hydra.Prelude hiding (fromList, replicate)
+import "hydra-prelude" Hydra.Prelude hiding (fromList, replicate)
 
-import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
-import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
-import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
-import Hydra.Network.Message (Message)
-import Hydra.Tx (IsTx)
 import "contra-tracer" Control.Tracer (Tracer)
+import "hydra-node" Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
+import "hydra-node" Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
+import "hydra-node" Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
+import "hydra-node" Hydra.Network.Message (Message)
+import "hydra-tx" Hydra.Tx (IsTx)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::

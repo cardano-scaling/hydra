@@ -4,20 +4,23 @@
 -- 'healthyInitTx' gets mutated by an arbitrary 'InitMutation'.
 module Hydra.Tx.Contract.Init where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadState (State (..))
-import Hydra.Contract.HeadTokensError (HeadTokensError (..))
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Init (initTx)
-import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Party (Party)
-import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
-import Test.Hydra.Tx.Mutation (
+import "QuickCheck" Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadState (State (..))
+import "hydra-plutus" Hydra.Contract.HeadTokensError (HeadTokensError (..))
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.Init (initTx)
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.Party (Party)
+import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
+import "hydra-tx" Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   addPTWithQuantity,
@@ -25,9 +28,6 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
   replaceHeadId,
  )
-import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
-import "base" Data.Maybe (fromJust)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "z-plutus-ledger-api-z-plutus-ledger-api-testlib" PlutusLedgerApi.Test.Examples qualified as Plutus
 import "base" Prelude qualified
 

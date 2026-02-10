@@ -3,22 +3,26 @@
 
 module Hydra.HeadLogicSnapshotSpec where
 
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
-import Hydra.Network.Message (Message (..))
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (headState), currentSlot)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Tx.Crypto (sign)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (txId)
-import Hydra.Tx.Party (Party, deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
-import Test.Hydra.Tx.Fixture (
+import "QuickCheck" Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
+import "QuickCheck" Test.QuickCheck.Monadic (monadicIO, pick, run)
+import "base" Data.List qualified as List
+import "containers" Data.Map.Strict qualified as Map
+import "hydra-node" Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import "hydra-node" Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
+import "hydra-node" Hydra.Network.Message (Message (..))
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.State (NodeState (headState), currentSlot)
+import "hydra-node" Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import "hydra-tx" Hydra.Tx.Crypto (sign)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.IsTx (txId)
+import "hydra-tx" Hydra.Tx.Party (Party, deriveParty)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import "hydra-tx" Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
   bob,
@@ -28,10 +32,6 @@ import Test.Hydra.Tx.Fixture (
   deriveOnChainId,
   testHeadId,
  )
-import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
-import Test.QuickCheck.Monadic (monadicIO, pick, run)
-import "base" Data.List qualified as List
-import "containers" Data.Map.Strict qualified as Map
 
 spec :: Spec
 spec = do

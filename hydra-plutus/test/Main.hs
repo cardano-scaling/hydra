@@ -1,8 +1,8 @@
 module Main where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Test.Hspec.Runner (hspec)
+import "hspec" Test.Hspec.Runner (hspec)
 
 import Spec qualified
 

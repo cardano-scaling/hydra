@@ -2,9 +2,10 @@
 
 module Hydra.Node.Util where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "cardano-api" Cardano.Api.UTxO (totalValue)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   AssetId (..),
   File (..),
   HasTextEnvelope,
@@ -17,7 +18,6 @@ import Hydra.Cardano.Api (
   getVerificationKey,
   readFileTextEnvelope,
  )
-import "cardano-api" Cardano.Api.UTxO (totalValue)
 
 readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 readKeyPair keyPath = do

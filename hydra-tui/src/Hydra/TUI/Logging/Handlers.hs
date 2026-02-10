@@ -1,8 +1,8 @@
 module Hydra.TUI.Logging.Handlers where
 
-import Hydra.Prelude
-import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
 import "brick" Brick (EventM)
+import "hydra-prelude" Hydra.Prelude
+import "hydra-tui" Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
 import "microlens-mtl" Lens.Micro.Mtl ((%=))
 
 report :: Severity -> UTCTime -> Text -> EventM n [LogMessage] ()

@@ -3,8 +3,8 @@ module Hydra.Contract.DepositError (
   module Hydra.Contract.DepositError,
 ) where
 
-import Hydra.Contract.Error (ToErrorCode (..), errorCode)
 import "base" Text.Show (Show)
+import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..), errorCode)
 
 data DepositError
   = DepositPeriodSurpassed

@@ -2,32 +2,32 @@
 
 module Hydra.Cluster.Faucet where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoClient (
-  QueryPoint (QueryTip),
-  SubmitTransactionException,
-  buildAddress,
-  sign,
- )
-import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.ScriptRegistry (
-  publishHydraScripts,
- )
-import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Util (keysFor)
-import Hydra.Ledger.Cardano ()
-import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)
-import Hydra.Tx (balance, txId)
 import "base" Control.Exception (IOException)
 import "base" GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Set qualified as Set
 import "contra-tracer" Control.Tracer (Tracer, traceWith)
+import "hydra-cluster" CardanoClient (
+  QueryPoint (QueryTip),
+  SubmitTransactionException,
+  buildAddress,
+  sign,
+ )
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (Faucet))
+import "hydra-cluster" Hydra.Cluster.Util (keysFor)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import "hydra-node" Hydra.Chain.ScriptRegistry (
+  publishHydraScripts,
+ )
+import "hydra-node" Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)
+import "hydra-tx" Hydra.Ledger.Cardano ()
+import "hydra-tx" Hydra.Tx (balance, txId)
 import "io-classes" Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 

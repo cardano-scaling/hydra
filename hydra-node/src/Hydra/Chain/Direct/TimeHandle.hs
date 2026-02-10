@@ -3,16 +3,16 @@
 -- 'queryTimeHandle'.
 module Hydra.Chain.Direct.TimeHandle where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (EraHistory (EraHistory))
-import Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
-import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
-import Hydra.Tx.Close (PointInTime)
 import "base" Data.Fixed (Pico)
 import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (SlotNo))
 import "cardano-slotting" Cardano.Slotting.Time (SystemStart (..), fromRelativeTime, toRelativeTime)
+import "hydra-cardano-api" Hydra.Cardano.Api (EraHistory (EraHistory))
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (ChainPoint (ChainPoint, ChainPointAtGenesis))
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
+import "hydra-node" Hydra.Chain.CardanoClient (QueryPoint (QueryTip))
+import "hydra-tx" Hydra.Tx.Close (PointInTime)
 import "ouroboros-consensus" Ouroboros.Consensus.HardFork.History.Qry (interpretQuery, slotToWallclock, wallclockToSlot)
 
 data TimeHandle = TimeHandle

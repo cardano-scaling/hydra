@@ -1,9 +1,9 @@
 -- | Parse hydra-node logs format more easy on the eyes. Parser works with regular json logs as well as journalctl format.
 module Main where
 
-import Hydra.Prelude
-import VisualizeLogs
+import "hydra-prelude" Hydra.Prelude
 import "optparse-applicative" Options.Applicative (execParser)
+import "visualize-logs" VisualizeLogs
 
 main :: IO ()
 main = do

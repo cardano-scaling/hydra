@@ -14,16 +14,16 @@ module Hydra.Network (
   PortNumber,
 ) where
 
-import Hydra.Prelude hiding (show)
+import "hydra-prelude" Hydra.Prelude hiding (show)
 
-import Hydra.Cardano.Api (Key (SigningKey))
-import Hydra.Tx (Party)
-import Hydra.Tx.Crypto (HydraKey)
 import "aeson" Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import "aeson" Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import "base" Text.Read (Read (readsPrec))
 import "base" Text.Show (Show (show))
 import "cardano-ledger-core" Cardano.Ledger.Orphans ()
+import "hydra-cardano-api" Hydra.Cardano.Api (Key (SigningKey))
+import "hydra-tx" Hydra.Tx (Party)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey)
 import "iproute" Data.IP (IP)
 import "network" Network.Socket (PortNumber)
 import "text" Data.Text (pack, unpack)

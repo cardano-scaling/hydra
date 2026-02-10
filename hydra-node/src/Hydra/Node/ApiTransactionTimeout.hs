@@ -1,6 +1,6 @@
 module Hydra.Node.ApiTransactionTimeout where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 -- | A new type wrapped period of time to be used in API transaction timeout.
 newtype ApiTransactionTimeout = ApiTransactionTimeout

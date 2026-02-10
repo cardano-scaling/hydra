@@ -2,28 +2,28 @@
 
 module Bench.EndToEnd where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
-import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
-import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
-import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Scenarios (EndToEndLog (..))
-import Hydra.Generator (ClientDataset (..), Dataset (..))
-import Hydra.Logging (
-  Tracer,
-  traceWith,
-  withTracerOutputTo,
- )
-import Hydra.Network (Host)
-import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
-import Hydra.Tx (HeadId, txId)
-import Hydra.Tx.Crypto (generateSigningKey)
-import HydraNode (
+import "HUnit" Test.HUnit.Lang (formatFailureReason)
+import "aeson" Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
+import "aeson" Data.Aeson.Types (parseEither)
+import "base" Data.List qualified as List
+import "base" Text.Printf (printf)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set ((\\))
+import "containers" Data.Set qualified as Set
+import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
+import "hydra-cluster" CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
+import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..))
+import "hydra-cluster" Hydra.Cluster.Scenarios (EndToEndLog (..))
+import "hydra-cluster" Hydra.Generator (ClientDataset (..), Dataset (..))
+import "hydra-cluster" HydraNode (
   HydraClient,
   HydraNodeLog,
   hydraNodeId,
@@ -38,17 +38,17 @@ import HydraNode (
   withConnectionToNodeHost,
   withHydraCluster,
  )
-import Test.HUnit.Lang (formatFailureReason)
-import "aeson" Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
-import "aeson" Data.Aeson.Types (parseEither)
-import "base" Data.List qualified as List
-import "base" Text.Printf (printf)
-import "bytestring" Data.ByteString.Lazy qualified as LBS
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map qualified as Map
-import "containers" Data.Set ((\\))
-import "containers" Data.Set qualified as Set
-import "filepath" System.FilePath ((</>))
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Logging (
+  Tracer,
+  traceWith,
+  withTracerOutputTo,
+ )
+import "hydra-node" Hydra.Network (Host)
+import "hydra-node" Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
+import "hydra-tx" Hydra.Tx (HeadId, txId)
+import "hydra-tx" Hydra.Tx.Crypto (generateSigningKey)
 import "io-classes" Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,

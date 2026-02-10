@@ -3,7 +3,7 @@ module Hydra.Contract.HeadError (
   module Hydra.Contract.HeadError,
 ) where
 
-import Hydra.Contract.Error (ToErrorCode (..), errorCode)
+import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..), errorCode)
 
 data HeadError
   = InvalidHeadStateTransition

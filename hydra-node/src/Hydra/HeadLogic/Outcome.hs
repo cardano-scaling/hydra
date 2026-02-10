@@ -3,17 +3,17 @@
 
 module Hydra.HeadLogic.Outcome where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
-import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
-import Hydra.HeadLogic.Error (LogicError)
-import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host, ProtocolVersion)
-import Hydra.Network.Message (Message)
-import Hydra.Node.State (Deposit, NodeState)
-import Hydra.Tx (
+import "hydra-node" Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
+import "hydra-node" Hydra.Chain (PostChainTx)
+import "hydra-node" Hydra.HeadLogic.Error (LogicError)
+import "hydra-node" Hydra.Ledger (ValidationError)
+import "hydra-node" Hydra.Network (Host, ProtocolVersion)
+import "hydra-node" Hydra.Network.Message (Message)
+import "hydra-node" Hydra.Node.State (Deposit, NodeState)
+import "hydra-tx" Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
+import "hydra-tx" Hydra.Tx (
   HeadId,
   HeadParameters,
   HeadSeed,
@@ -25,9 +25,9 @@ import Hydra.Tx (
   TxIdType,
   UTxOType,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.Crypto (MultiSignature, Signature)
-import Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, Signature)
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emitted to
 -- the "shell" layers and we distinguish the same: effects onto the client, the

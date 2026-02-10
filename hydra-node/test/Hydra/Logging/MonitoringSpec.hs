@@ -1,24 +1,24 @@
 module Hydra.Logging.MonitoringSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import "text" Data.Text qualified as Text
 
-import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
-import Hydra.Ledger.Simple (aValidTx, utxoRefs)
-import Hydra.Logging (nullTracer, traceWith)
-import Hydra.Logging.Messages (HydraLog (Node))
-import Hydra.Logging.Monitoring
-import Hydra.Network (Host (Host))
-import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node (HydraNodeLog (..))
+import "hydra-node" Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
+import "hydra-node" Hydra.Ledger.Simple (aValidTx, utxoRefs)
+import "hydra-node" Hydra.Logging (nullTracer, traceWith)
+import "hydra-node" Hydra.Logging.Messages (HydraLog (Node))
+import "hydra-node" Hydra.Logging.Monitoring
+import "hydra-node" Hydra.Network (Host (Host))
+import "hydra-node" Hydra.Network.Message (Message (ReqTx))
+import "hydra-node" Hydra.Node (HydraNodeLog (..))
 
 -- import Network.Socket (PortNumber(PortNumber))
 
-import Test.Hydra.Tx.Fixture (alice, testHeadId)
-import Test.Network.Ports (randomUnusedTCPPorts)
+import "hydra-test-utils" Test.Network.Ports (randomUnusedTCPPorts)
+import "hydra-tx" Test.Hydra.Tx.Fixture (alice, testHeadId)
 import "req" Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 
 spec :: Spec

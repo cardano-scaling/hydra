@@ -2,20 +2,23 @@
 
 module Hydra.OptionsSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
+import "generic-lens" Data.Generics.Labels ()
+import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   ChainPoint (..),
   NetworkId (..),
   NetworkMagic (..),
   TxId,
   serialiseToRawBytesHexText,
  )
-import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Network (Host (Host))
-import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Hydra.Options (
+import "hydra-node" Hydra.Chain (maximumNumberOfParties)
+import "hydra-node" Hydra.Network (Host (Host))
+import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import "hydra-node" Hydra.Options (
   BlockfrostOptions (..),
   CardanoChainConfig (..),
   ChainBackendOptions (..),
@@ -41,10 +44,7 @@ import Hydra.Options (
   toArgs,
   validateRunOptions,
  )
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Options ()
-import Test.QuickCheck (Positive (..), Property, chooseEnum, counterexample, forAll, property, vectorOf, (===))
-import "generic-lens" Data.Generics.Labels ()
+import "hydra-node" Test.Hydra.Options ()
 import "lens" Control.Lens ((.~))
 import "regex-tdfa" Text.Regex.TDFA ((=~))
 

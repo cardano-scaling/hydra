@@ -1,23 +1,23 @@
 module Hydra.Tx.Decrement where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Ledger.Cardano.Builder (
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-tx" Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
-import Hydra.Tx.ContestationPeriod (toChain)
-import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
-import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (hashUTxO)
-import Hydra.Tx.Party (partyToChain)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
-import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-tx" Hydra.Tx.ContestationPeriod (toChain)
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
+import "hydra-tx" Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.IsTx (hashUTxO)
+import "hydra-tx" Hydra.Tx.Party (partyToChain)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import "hydra-tx" Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction

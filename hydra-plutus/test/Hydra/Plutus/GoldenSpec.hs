@@ -10,10 +10,11 @@
 -- have the exact same version of plutus-tx, all its dependencies, and GHC.
 module Hydra.Plutus.GoldenSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "hspec-golden" Test.Hspec.Golden (Golden (..))
+import "hydra-cardano-api" Hydra.Cardano.Api (
   File (..),
   PlutusScript,
   Script,
@@ -23,10 +24,9 @@ import Hydra.Cardano.Api (
   pattern PlutusScript,
   pattern PlutusScriptSerialised,
  )
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Version (gitDescribe)
-import Test.Hspec.Golden (Golden (..))
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
+import "hydra-prelude" Hydra.Version (gitDescribe)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (serialiseCompiledCode)
 import "typed-process" System.Process.Typed (runProcess_, shell)
 

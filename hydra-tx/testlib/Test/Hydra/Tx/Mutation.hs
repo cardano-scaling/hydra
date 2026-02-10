@@ -128,22 +128,9 @@
 -- In the case of a failure we get a detailed report on the context of the failure.
 module Test.Hydra.Tx.Mutation where
 
-import Hydra.Cardano.Api hiding (label)
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (label)
 
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.ContestationPeriod
-import Hydra.Data.Party qualified as Data (Party)
-import Hydra.Ledger.Cardano.Evaluate (evaluateTx)
-import Hydra.Plutus.Orphans ()
-import Hydra.Prelude hiding (label, toList)
-import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
-import Test.Hydra.Prelude
-import Test.Hydra.Tx.Fixture (testPolicyId)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (
+import "QuickCheck" Test.QuickCheck (
   Property,
   checkCoverage,
   counterexample,
@@ -151,7 +138,6 @@ import Test.QuickCheck (
   property,
   suchThat,
  )
-import Test.QuickCheck.Instances ()
 import "base" Control.Exception (assert)
 import "base" GHC.IsList (IsList (..))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -167,9 +153,23 @@ import "cardano-strict-containers" Data.Sequence.Strict qualified as StrictSeq
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
 import "directory" System.Directory.Internal.Prelude qualified as Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Data.ContestationPeriod
+import "hydra-plutus" Hydra.Data.Party qualified as Data (Party)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-prelude" Hydra.Prelude hiding (label, toList)
+import "hydra-test-utils" Test.Hydra.Prelude
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (evaluateTx)
+import "hydra-tx" Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
+import "hydra-tx" Test.Hydra.Tx.Fixture (testPolicyId)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen ()
 import "lens" Control.Lens (set, view, (.~), (^.))
 import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 -- * Properties
 

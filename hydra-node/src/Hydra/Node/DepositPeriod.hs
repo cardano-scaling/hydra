@@ -1,6 +1,6 @@
 module Hydra.Node.DepositPeriod where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 -- | A new type wrapped period of time to be used in deposit validity.
 newtype DepositPeriod = DepositPeriod {toNominalDiffTime :: NominalDiffTime}

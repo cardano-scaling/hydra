@@ -1,8 +1,8 @@
 module Hydra.Cardano.Api.ScriptDatum where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
-import Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
+import "hydra-cardano-api" Hydra.Cardano.Api.ScriptData (ToScriptData, toScriptData)
 
 -- * Extras
 

@@ -5,12 +5,11 @@
 
 module Hydra.TUI.Forms where
 
-import Hydra.Prelude hiding (Down, State)
+import "hydra-prelude" Hydra.Prelude hiding (Down, State)
 
-import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Pretty (renderUTxO)
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderUTxO)
 
-import Hydra.Chain.Direct.State ()
 import "brick" Brick (BrickEvent (..), vBox, withDefAttr)
 import "brick" Brick.Forms (
   Form (..),
@@ -25,6 +24,7 @@ import "brick" Brick.Types (Location (..), Widget)
 import "brick" Brick.Widgets.Core (clickable, putCursor, txt, (<+>))
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map.Strict qualified as Map
+import "hydra-node" Hydra.Chain.Direct.State ()
 import "microlens" Lens.Micro (Lens', (^.))
 import "text" Data.Text qualified as Text
 import "vty" Graphics.Vty (Event (..), Key (..))

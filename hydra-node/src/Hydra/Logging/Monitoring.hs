@@ -11,19 +11,19 @@ module Hydra.Logging.Monitoring (
   withMonitoring,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.HeadLogic (
-  Input (NetworkInput),
- )
-import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
-import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Network (PortNumber)
-import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
-import Hydra.Node (HydraNodeLog (..))
-import Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
 import "containers" Data.Map.Strict as Map
 import "contra-tracer" Control.Tracer (Tracer (Tracer))
+import "hydra-node" Hydra.HeadLogic (
+  Input (NetworkInput),
+ )
+import "hydra-node" Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
+import "hydra-node" Hydra.Logging.Messages (HydraLog (..))
+import "hydra-node" Hydra.Network (PortNumber)
+import "hydra-node" Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
+import "hydra-node" Hydra.Node (HydraNodeLog (..))
+import "hydra-tx" Hydra.Tx (IsTx (TxIdType), Snapshot (..), txId)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import "prometheus" System.Metrics.Prometheus.Http.Scrape (serveMetrics)
 import "prometheus" System.Metrics.Prometheus.Metric (Metric (CounterMetric, GaugeMetric, HistogramMetric))

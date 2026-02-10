@@ -3,29 +3,12 @@
 
 module Test.Hydra.Tx.Gen where
 
-import Hydra.Cardano.Api hiding (generateSigningKey)
-import Hydra.Prelude hiding (toList)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (generateSigningKey)
+import "hydra-prelude" Hydra.Prelude hiding (toList)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.ChainState
-import Hydra.Contract.Head qualified as Head
-import Hydra.Ledger.Cardano.Evaluate
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx
-import Hydra.Tx.Close (CloseObservation)
-import Hydra.Tx.CollectCom
-import Hydra.Tx.ContestationPeriod
-import Hydra.Tx.Crypto
-import Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
-import Hydra.Tx.OnChainId
-import Test.Cardano.Ledger.Conway.Arbitrary ()
-import Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
-import Test.QuickCheck.Gen (chooseWord64)
+import "QuickCheck" Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
+import "QuickCheck" Test.QuickCheck.Gen (chooseWord64)
 import "base" Data.List (nub)
 import "base" Data.Maybe (fromJust)
 import "base" GHC.IsList (IsList (..))
@@ -40,6 +23,23 @@ import "cardano-ledger-core" Cardano.Ledger.Credential qualified as Ledger
 import "cardano-ledger-mary" Cardano.Ledger.Mary.Value (MaryValue (..))
 import "cborg" Codec.CBOR.Magic (uintegerFromBytes)
 import "containers" Data.Map.Strict qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Chain.ChainState
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import "hydra-tx" Hydra.Tx
+import "hydra-tx" Hydra.Tx.Close (CloseObservation)
+import "hydra-tx" Hydra.Tx.CollectCom
+import "hydra-tx" Hydra.Tx.ContestationPeriod
+import "hydra-tx" Hydra.Tx.Crypto
+import "hydra-tx" Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
+import "hydra-tx" Hydra.Tx.OnChainId
+import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
+import "z-cardano-ledger-conway-z-testlib" Test.Cardano.Ledger.Conway.Arbitrary ()
 
 -- * TxOut
 

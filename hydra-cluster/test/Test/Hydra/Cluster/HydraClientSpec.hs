@@ -3,23 +3,23 @@
 
 module Test.Hydra.Cluster.HydraClientSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoNode (
+import "QuickCheck" Test.QuickCheck (generate)
+import "aeson" Data.Aeson ((.=))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Set qualified as Set
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
+import "hydra-cluster" CardanoNode (
   withCardanoNodeDevnet,
  )
-import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Chain.Direct.State ()
-import Hydra.Cluster.Faucet (
+import "hydra-cluster" Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
   seedFromFaucet_,
  )
-import Hydra.Cluster.Fixture (
+import "hydra-cluster" Hydra.Cluster.Fixture (
   Actor (Faucet),
   alice,
   aliceSk,
@@ -28,15 +28,11 @@ import Hydra.Cluster.Fixture (
   carol,
   carolSk,
  )
-import Hydra.Cluster.Scenarios (
+import "hydra-cluster" Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsInitializingWith,
  )
-import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
-import Hydra.Tx (HeadId, IsTx (..))
-import HydraNode (
+import "hydra-cluster" HydraNode (
   HydraClient (..),
   HydraNodeLog,
   getSnapshotUTxO,
@@ -52,12 +48,16 @@ import HydraNode (
   withConnectionToNodeHost,
   withHydraCluster,
  )
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
-import "aeson" Data.Aeson ((.=))
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Set qualified as Set
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
+import "hydra-node" Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
+import "hydra-tx" Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
+import "hydra-tx" Hydra.Tx (HeadId, IsTx (..))
+import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair)
 import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key)
 import "text" Data.Text qualified as Text

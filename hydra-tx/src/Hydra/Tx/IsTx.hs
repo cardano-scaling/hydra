@@ -6,12 +6,9 @@
 
 module Hydra.Tx.IsTx where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api.Tx qualified as Api
-import Hydra.Cardano.Api.UTxO qualified as Api
-import Hydra.Contract.Util qualified as Util
 import "aeson" Data.Aeson ((.:), (.:?))
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.KeyMap qualified as KeyMap
@@ -22,6 +19,9 @@ import "cardano-ledger-shelley" Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import "cborg" Codec.CBOR.Decoding qualified as CBOR
 import "cborg" Codec.CBOR.Encoding qualified as CBOR
 import "formatting" Formatting.Buildable (build)
+import "hydra-cardano-api" Hydra.Cardano.Api.Tx qualified as Api
+import "hydra-cardano-api" Hydra.Cardano.Api.UTxO qualified as Api
+import "hydra-plutus" Hydra.Contract.Util qualified as Util
 import "plutus-ledger-api" PlutusLedgerApi.V3 (fromBuiltin)
 import "text" Data.Text.Lazy.Builder (toLazyText)
 

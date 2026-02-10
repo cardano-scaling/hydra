@@ -30,12 +30,6 @@ module Hydra.Cardano.Api (
   module X,
 ) where
 
-import Hydra.Cardano.Api.Prelude (
-  Era,
-  LedgerEra,
-  Map,
-  ledgerEraVersion,
- )
 import "cardano-api" Cardano.Api as X hiding (
   AddressInEra (..),
   AddressTypeInEra (..),
@@ -88,31 +82,37 @@ import "cardano-api" Cardano.Api as X hiding (
 import "cardano-api" Cardano.Api.Ledger as X (
   PParams,
  )
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (
+  Era,
+  LedgerEra,
+  Map,
+  ledgerEraVersion,
+ )
 
-import Hydra.Cardano.Api.AddressInEra as Extras
-import Hydra.Cardano.Api.ChainPoint as Extras
-import Hydra.Cardano.Api.ExecutionUnits as Extras
-import Hydra.Cardano.Api.Hash as Extras
-import Hydra.Cardano.Api.NetworkId ()
-import Hydra.Cardano.Api.NetworkMagic ()
-import Hydra.Cardano.Api.PolicyAssets ()
-import Hydra.Cardano.Api.PolicyId as Extras
-import Hydra.Cardano.Api.ReferenceScript as Extras
-import Hydra.Cardano.Api.ScriptData as Extras
-import Hydra.Cardano.Api.ScriptDatum as Extras
-import Hydra.Cardano.Api.ScriptHash as Extras
-import Hydra.Cardano.Api.StakeAddress as Extras
-import Hydra.Cardano.Api.Tx as Extras hiding (Tx)
-import Hydra.Cardano.Api.TxBody as Extras
-import Hydra.Cardano.Api.TxId ()
-import Hydra.Cardano.Api.TxIn as Extras
-import Hydra.Cardano.Api.TxOut as Extras
-import Hydra.Cardano.Api.TxOutDatum as Extras
-import Hydra.Cardano.Api.TxOutValue as Extras
-import Hydra.Cardano.Api.UTxO as Extras
-import Hydra.Cardano.Api.ValidityInterval as Extras
-import Hydra.Cardano.Api.Value as Extras
-import Hydra.Cardano.Api.Witness as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.AddressInEra as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ChainPoint as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ExecutionUnits as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.Hash as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.NetworkId ()
+import "hydra-cardano-api" Hydra.Cardano.Api.NetworkMagic ()
+import "hydra-cardano-api" Hydra.Cardano.Api.PolicyAssets ()
+import "hydra-cardano-api" Hydra.Cardano.Api.PolicyId as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ReferenceScript as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ScriptData as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ScriptDatum as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ScriptHash as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.StakeAddress as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.Tx as Extras hiding (Tx)
+import "hydra-cardano-api" Hydra.Cardano.Api.TxBody as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.TxId ()
+import "hydra-cardano-api" Hydra.Cardano.Api.TxIn as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.TxOut as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.TxOutDatum as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.TxOutValue as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.UTxO as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.ValidityInterval as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.Value as Extras
+import "hydra-cardano-api" Hydra.Cardano.Api.Witness as Extras
 
 import "bytestring" Data.ByteString.Short (ShortByteString)
 import "cardano-api" Cardano.Api qualified

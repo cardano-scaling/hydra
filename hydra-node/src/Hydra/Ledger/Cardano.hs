@@ -7,14 +7,11 @@ module Hydra.Ledger.Cardano (
   Tx,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
-import Hydra.Ledger.Cardano.Builder
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
+import "hydra-tx" Hydra.Ledger.Cardano.Builder
 
-import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Ledger (Ledger (..), ValidationError (..))
-import Hydra.Tx (IsTx (..))
 import "base" System.IO.Unsafe (unsafeDupablePerformIO)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Rules (
@@ -39,6 +36,9 @@ import "cardano-ledger-shelley" Cardano.Ledger.Shelley.Rules qualified as Ledger
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
 import "data-default" Data.Default (def)
+import "hydra-node" Hydra.Ledger (Ledger (..), ValidationError (..))
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (..))
+import "hydra-tx" Hydra.Tx (IsTx (..))
 import "lens" Control.Lens ((%~), (.~), (^.))
 
 -- * Ledger

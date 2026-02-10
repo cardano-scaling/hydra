@@ -4,11 +4,11 @@
 
 module Test.Hydra.Ledger where
 
-import Test.Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Ledger (ValidationError (..))
-import Test.QuickCheck.Instances.Natural ()
-import Test.QuickCheck.Instances.Text ()
+import "hydra-node" Hydra.Ledger (ValidationError (..))
+import "quickcheck-instances" Test.QuickCheck.Instances.Natural ()
+import "quickcheck-instances" Test.QuickCheck.Instances.Text ()
 
 instance Arbitrary ValidationError where
   arbitrary = genericArbitrary

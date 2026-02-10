@@ -5,17 +5,17 @@
 -- to `CardanoSigningKey`.
 module Hydra.Model.Payment where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (Any, label, toList)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (Any, label, toList)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Tx.IsTx (IsTx (..))
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (choose)
+import "QuickCheck" Test.QuickCheck (choose)
 import "base" Data.List qualified as List
 import "base" GHC.IsList (IsList (..))
 import "containers" Data.Set ((\\))
 import "containers" Data.Set qualified as Set
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair)
 import "base" Prelude qualified
 
 -- NOTE: New type wrapper to add Ord and Eq instances to signing keys

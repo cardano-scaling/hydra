@@ -1,23 +1,23 @@
 module Main where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput (NewTx))
-import Hydra.Cardano.Api (
-  UTxO,
-  serialiseToCBOR,
- )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
-import Hydra.Ledger (Ledger (applyTransactions), ValidationError)
-import Hydra.Ledger.Cardano (Tx, cardanoLedger)
-import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
-import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
-import Test.QuickCheck (generate)
+import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson (Value (String), object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "base" Data.List qualified as List
 import "criterion" Criterion (bench, bgroup, nf, whnf)
 import "criterion" Criterion.Main (defaultMain)
+import "hydra-cardano-api" Hydra.Cardano.Api (
+  UTxO,
+  serialiseToCBOR,
+ )
+import "hydra-node" Hydra.API.ClientInput (ClientInput (NewTx))
+import "hydra-node" Hydra.Ledger (Ledger (applyTransactions), ValidationError)
+import "hydra-node" Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
+import "hydra-node" Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import "hydra-tx" Hydra.Ledger.Cardano (Tx, cardanoLedger)
 
 main :: IO ()
 main = do

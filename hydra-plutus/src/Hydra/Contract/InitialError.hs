@@ -3,8 +3,8 @@ module Hydra.Contract.InitialError (
   module Hydra.Contract.InitialError,
 ) where
 
-import Hydra.Contract.Error (ToErrorCode (..), errorCode)
 import "base" Text.Show (Show)
+import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..), errorCode)
 
 data InitialError
   = STNotBurned

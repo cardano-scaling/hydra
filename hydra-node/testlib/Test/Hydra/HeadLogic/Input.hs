@@ -3,16 +3,16 @@
 
 module Test.Hydra.HeadLogic.Input where
 
-import Test.Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
-import Hydra.HeadLogic.Input (Input)
+import "hydra-node" Hydra.HeadLogic.Input (Input)
+import "hydra-tx" Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
 
-import Test.Hydra.API.ClientInput ()
-import Test.Hydra.Chain ()
-import Test.Hydra.Network ()
-import Test.Hydra.Network.Message ()
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import "hydra-node" Test.Hydra.API.ClientInput ()
+import "hydra-node" Test.Hydra.Chain ()
+import "hydra-node" Test.Hydra.Network ()
+import "hydra-node" Test.Hydra.Network.Message ()
+import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
 instance
   ( ArbitraryIsTx tx

@@ -1,11 +1,11 @@
 module Main where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
-import Hydra.Network (Host, readHost)
-import Hydra.Painter (Pixel (..), paintPixel, withClient, withClientNoRetry)
 import "http-types" Network.HTTP.Types.Status (status200, status400, status404)
+import "hydra-cardano-api" Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
+import "hydra-node" Hydra.Network (Host, readHost)
+import "hydraw" Hydra.Painter (Pixel (..), paintPixel, withClient, withClientNoRetry)
 import "safe" Safe (readMay)
 import "wai" Network.Wai (
   Application,

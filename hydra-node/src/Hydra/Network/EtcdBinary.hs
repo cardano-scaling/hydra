@@ -4,13 +4,13 @@
 -- tends to choke on $(embedExecutable "etcd").
 module Hydra.Network.EtcdBinary where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Network (WhichEtcd (..))
-import Hydra.Node.EmbedTH (embedExecutable)
 import "base" Data.Bits ((.|.))
 import "directory" System.Directory (createDirectoryIfMissing)
 import "filepath" System.FilePath (takeDirectory, (</>))
+import "hydra-node" Hydra.Network (WhichEtcd (..))
+import "hydra-node" Hydra.Node.EmbedTH (embedExecutable)
 import "unix" System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 
 -- | Return the path of the etcd binary. Will either install it first, or just

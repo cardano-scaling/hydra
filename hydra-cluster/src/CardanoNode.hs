@@ -2,26 +2,8 @@
 
 module CardanoNode where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import CardanoClient (QueryPoint (QueryTip))
-import Hydra.Cardano.Api (
-  File (..),
-  NetworkId,
-  NetworkMagic (..),
-  SocketPath,
-  getProgress,
- )
-import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (delayBF)
-import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
-import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
-import Test.Hydra.Prelude
 import "aeson" Data.Aeson (Value (String), (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.Types qualified as Aeson
@@ -40,6 +22,24 @@ import "filepath" System.FilePath (
   (</>),
  )
 import "http-conduit" Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
+import "hydra-cardano-api" Hydra.Cardano.Api (
+  File (..),
+  NetworkId,
+  NetworkMagic (..),
+  SocketPath,
+  getProgress,
+ )
+import "hydra-cardano-api" Hydra.Cardano.Api qualified as Api
+import "hydra-cluster" CardanoClient (QueryPoint (QueryTip))
+import "hydra-cluster" Hydra.Cluster.Faucet (delayBF)
+import "hydra-cluster" Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
+import "hydra-cluster" Hydra.Cluster.Util (readConfigFile)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
+import "hydra-test-utils" Test.Hydra.Prelude
 import "lens" Control.Lens ((?~), (^?!))
 import "lens-aeson" Data.Aeson.Lens (atKey, key, _Number)
 import "process" System.Process (

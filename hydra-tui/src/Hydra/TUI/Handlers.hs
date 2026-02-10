@@ -5,33 +5,33 @@
 
 module Hydra.TUI.Handlers where
 
-import Hydra.Prelude hiding (Down)
+import "hydra-prelude" Hydra.Prelude hiding (Down)
 
-import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
-import Hydra.API.ServerOutput qualified as API
-import Hydra.Cardano.Api hiding (Active)
-import Hydra.Cardano.Api.Prelude ()
-import Hydra.Cardano.Api.Pretty (renderUTxO)
-import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
-import Hydra.Chain.CardanoClient (CardanoClient (..))
-import Hydra.Chain.Direct.State ()
-import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
-import Hydra.Ledger.Cardano (mkSimpleTx)
-import Hydra.Network (Host, readHost)
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State qualified as NodeState
-import Hydra.TUI.Forms
-import Hydra.TUI.Logging.Handlers (info, report, warn)
-import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
-import Hydra.TUI.Model
-import Hydra.TUI.Style (own)
-import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
 import "base" Data.List (nub, (\\))
 import "brick" Brick
 import "brick" Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Active)
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude ()
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderUTxO)
+import "hydra-node" Hydra.API.ClientInput (ClientInput (..))
+import "hydra-node" Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
+import "hydra-node" Hydra.API.ServerOutput qualified as API
+import "hydra-node" Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
+import "hydra-node" Hydra.Chain.CardanoClient (CardanoClient (..))
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.Network (Host, readHost)
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.State qualified as NodeState
+import "hydra-tui" Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
+import "hydra-tui" Hydra.TUI.Forms
+import "hydra-tui" Hydra.TUI.Logging.Handlers (info, report, warn)
+import "hydra-tui" Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
+import "hydra-tui" Hydra.TUI.Model
+import "hydra-tui" Hydra.TUI.Style (own)
+import "hydra-tx" Hydra.Ledger.Cardano (mkSimpleTx)
+import "hydra-tx" Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
 import "microlens-mtl" Lens.Micro.Mtl (use, (%=), (.=))
 import "text" Data.Text qualified as T
 import "vty" Graphics.Vty (

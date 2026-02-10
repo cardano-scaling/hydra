@@ -1,8 +1,8 @@
 module Hydra.TUI.Drawing.Utils where
 
-import Hydra.Cardano.Api (SerialiseAsRawBytes, serialiseToRawBytesHexText)
-import Hydra.Prelude
 import "brick" Brick (Widget, emptyWidget, txt)
+import "hydra-cardano-api" Hydra.Cardano.Api (SerialiseAsRawBytes, serialiseToRawBytesHexText)
+import "hydra-prelude" Hydra.Prelude
 import "text" Data.Text qualified as Text
 
 drawHex :: SerialiseAsRawBytes a => a -> Widget n

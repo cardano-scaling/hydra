@@ -2,21 +2,21 @@
 
 module Main where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import Bench.EndToEnd (bench, benchDemo)
 import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, textReport)
-import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (keysFor)
-import Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset)
-import Test.HUnit.Lang (formatFailureReason)
-import Test.QuickCheck (generate)
+import "HUnit" Test.HUnit.Lang (formatFailureReason)
+import "QuickCheck" Test.QuickCheck (generate)
 import "aeson" Data.Aeson (eitherDecodeFileStrict', encodeFile)
 import "base" System.Environment (withArgs)
 import "directory" System.Directory (createDirectoryIfMissing, listDirectory, removeDirectoryRecursive)
 import "filepath" System.FilePath (takeDirectory, (</>))
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..))
+import "hydra-cluster" Hydra.Cluster.Util (keysFor)
+import "hydra-cluster" Hydra.Generator (Dataset (..), generateConstantUTxODataset, generateDemoUTxODataset, generateGrowingUTxODataset)
 import "optparse-applicative" Options.Applicative (execParser)
 
 main :: IO ()

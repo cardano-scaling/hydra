@@ -10,16 +10,16 @@
 -- Incoming and outgoing messages are modelled as 'Message' data type.
 module Test.Hydra.Network where
 
-import Hydra.Network
-import Hydra.Prelude hiding (show)
-import Test.Hydra.Prelude
+import "hydra-node" Hydra.Network
+import "hydra-prelude" Hydra.Prelude hiding (show)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Test.QuickCheck (elements, listOf, suchThat)
-import Test.QuickCheck.Instances.Natural ()
-import Test.QuickCheck.Instances.Text ()
+import "QuickCheck" Test.QuickCheck (elements, listOf, suchThat)
 import "base" Text.Show (Show (show))
 import "cardano-ledger-core" Cardano.Ledger.Orphans ()
 import "iproute" Data.IP (toIPv4w)
+import "quickcheck-instances" Test.QuickCheck.Instances.Natural ()
+import "quickcheck-instances" Test.QuickCheck.Instances.Text ()
 import "text" Data.Text (pack)
 
 instance Arbitrary WhichEtcd where

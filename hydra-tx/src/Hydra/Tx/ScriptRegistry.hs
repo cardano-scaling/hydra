@@ -2,9 +2,11 @@
 -- and needed to construct transactions leveraging reference inputs.
 module Hydra.Tx.ScriptRegistry where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api (
   CtxUTxO,
   ScriptHash,
   TxIn (..),
@@ -15,9 +17,7 @@ import Hydra.Cardano.Api (
   pattern ReferenceScript,
   pattern ReferenceScriptNone,
  )
-import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map qualified as Map
+import "hydra-plutus" Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
 data ScriptRegistry = ScriptRegistry

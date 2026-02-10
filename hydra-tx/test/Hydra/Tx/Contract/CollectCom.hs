@@ -3,45 +3,51 @@
 
 module Hydra.Tx.Contract.CollectCom where
 
-import Hydra.Cardano.Api
-import Hydra.Plutus.Gen ()
-import Hydra.Prelude hiding (label, toList)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-plutus" Hydra.Plutus.Gen ()
+import "hydra-prelude" Hydra.Prelude hiding (label, toList)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput, LockedValueDoesNotMatch))
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
-import Hydra.Tx (HeadParameters (..), Party, partyToChain)
-import Hydra.Tx.CollectCom (
+import "QuickCheck" Test.QuickCheck (choose, elements, oneof, suchThat)
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "base" GHC.IsList (IsList (..))
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-plutus" Hydra.Contract.CommitError (CommitError (STIsMissingInTheOutput))
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
+import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
+import "hydra-plutus" Hydra.Contract.InitialError (InitialError (ExpectedSingleCommitOutput, LockedValueDoesNotMatch))
+import "hydra-plutus" Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus" Hydra.Plutus (commitValidatorScript, initialValidatorScript)
+import "hydra-tx" Hydra.Tx (HeadParameters (..), Party, partyToChain)
+import "hydra-tx" Hydra.Tx.CollectCom (
   collectComTx,
  )
-import Hydra.Tx.Commit (mkCommitDatum)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
-import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.Init (mkHeadOutput, mkInitialOutput)
-import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Utils (
+import "hydra-tx" Hydra.Tx.Commit (mkCommitDatum)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import "hydra-tx" Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
+import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
+import "hydra-tx" Hydra.Tx.Init (mkHeadOutput, mkInitialOutput)
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
+import "hydra-tx" Hydra.Tx.Utils (
   hydraHeadV1AssetName,
   onChainIdToAssetName,
   verificationKeyToOnChainId,
  )
-import Test.Hydra.Tx.Fixture (
+import "hydra-tx" Test.Hydra.Tx.Fixture (
   testNetworkId,
   testPolicyId,
   testSeedInput,
  )
-import Test.Hydra.Tx.Gen (
+import "hydra-tx" Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
   genHash,
@@ -49,21 +55,15 @@ import Test.Hydra.Tx.Gen (
   genUTxOAdaOnlyOfSize,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
   replaceParties,
  )
-import Test.QuickCheck (choose, elements, oneof, suchThat)
-import Test.QuickCheck.Instances ()
-import "base" Data.List qualified as List
-import "base" Data.Maybe (fromJust)
-import "base" GHC.IsList (IsList (..))
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map qualified as Map
 import "plutus-tx" PlutusTx.Builtins (toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 --
 -- CollectComTx

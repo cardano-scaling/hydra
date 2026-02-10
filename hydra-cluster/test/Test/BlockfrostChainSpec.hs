@@ -2,50 +2,9 @@
 
 module Test.BlockfrostChainSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain (
-  Chain (Chain, draftCommitTx, postTx),
-  ChainEvent (..),
-  OnChainTx (..),
-  PostChainTx (..),
-  initHistory,
- )
-import Hydra.Chain.Backend (blockfrostProjectPath)
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
-import Hydra.Chain.Direct.Handlers (CardanoChainLog)
-import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.ScriptRegistry (publishHydraScripts)
-import Hydra.Cluster.Faucet (
-  seedFromFaucetBlockfrost,
- )
-import Hydra.Cluster.Fixture (
-  Actor (Alice, Faucet),
-  alice,
-  aliceSk,
-  blockfrostcperiod,
- )
-import Hydra.Cluster.Util (chainConfigFor', keysFor)
-import Hydra.Ledger.Cardano (Tx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Options (
-  BlockfrostOptions (..),
-  CardanoChainConfig (..),
-  ChainBackendOptions (..),
-  ChainConfig (..),
-  defaultBlockfrostOptions,
- )
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.Crypto (aggregate, sign)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.DirectChainSpec (
   CardanoChainTest (..),
   DirectChainTestLog (..),
@@ -56,10 +15,51 @@ import Test.DirectChainSpec (
   observesInTimeSatisfying',
   waitMatch,
  )
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
+import "QuickCheck" Test.QuickCheck (generate)
 import "base" Control.Exception (IOException)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cluster" Hydra.Cluster.Faucet (
+  seedFromFaucetBlockfrost,
+ )
+import "hydra-cluster" Hydra.Cluster.Fixture (
+  Actor (Alice, Faucet),
+  alice,
+  aliceSk,
+  blockfrostcperiod,
+ )
+import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor', keysFor)
+import "hydra-node" Hydra.Chain (
+  Chain (Chain, draftCommitTx, postTx),
+  ChainEvent (..),
+  OnChainTx (..),
+  PostChainTx (..),
+  initHistory,
+ )
+import "hydra-node" Hydra.Chain.Backend (blockfrostProjectPath)
+import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
+import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import "hydra-node" Hydra.Chain.Cardano (loadChainContext, mkTinyWallet)
+import "hydra-node" Hydra.Chain.Direct.Handlers (CardanoChainLog)
+import "hydra-node" Hydra.Chain.Direct.State (initialChainState)
+import "hydra-node" Hydra.Chain.ScriptRegistry (publishHydraScripts)
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
+import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
+import "hydra-node" Hydra.Options (
+  BlockfrostOptions (..),
+  CardanoChainConfig (..),
+  ChainBackendOptions (..),
+  ChainConfig (..),
+  defaultBlockfrostOptions,
+ )
+import "hydra-tx" Hydra.Ledger.Cardano (Tx)
+import "hydra-tx" Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import "hydra-tx" Hydra.Tx.Crypto (aggregate, sign)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
+import "hydra-tx" Hydra.Tx.Party (Party)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair)
 import "stm" Control.Concurrent.STM (takeTMVar)
 import "stm" Control.Concurrent.STM.TMVar (putTMVar)
 import "time" Data.Time (secondsToNominalDiffTime)

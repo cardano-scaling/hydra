@@ -3,20 +3,20 @@
 -- | Parse hydra-node logs format more easy on the eyes. Parser works with regular json logs as well as journalctl format.
 module VisualizeLogs where
 
-import Hydra.Cardano.Api (Tx)
-import Hydra.Prelude hiding (encodeUtf8, takeWhile)
+import "hydra-cardano-api" Hydra.Cardano.Api (Tx)
+import "hydra-prelude" Hydra.Prelude hiding (encodeUtf8, takeWhile)
 
-import Hydra.Chain (ChainEvent (..))
-import Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..))
-import Hydra.Logging (Envelope (..))
-import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Node (HydraNodeLog (..))
 import "aeson" Data.Aeson (eitherDecode')
 import "attoparsec" Data.Attoparsec.ByteString
 import "attoparsec" Data.Attoparsec.ByteString qualified as A
 import "attoparsec" Data.Attoparsec.ByteString.Char8 (char8, endOfLine, isEndOfLine)
 import "base" Control.Monad (foldM)
 import "conduit" Conduit
+import "hydra-node" Hydra.Chain (ChainEvent (..))
+import "hydra-node" Hydra.HeadLogic (Effect (..), Input (..), Outcome (..), StateChanged (..))
+import "hydra-node" Hydra.Logging (Envelope (..))
+import "hydra-node" Hydra.Logging.Messages (HydraLog (..))
+import "hydra-node" Hydra.Node (HydraNodeLog (..))
 import "lens" Control.Lens ((^?))
 import "lens-aeson" Data.Aeson.Lens (key, _String)
 import "optparse-applicative" Options.Applicative hiding (Parser)

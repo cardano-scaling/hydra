@@ -2,14 +2,14 @@
 
 module Test.Hydra.Chain.Direct.TimeHandle where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain.Direct.TimeHandle
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
-import Test.QuickCheck (getPositive)
+import "QuickCheck" Test.QuickCheck (getPositive)
 import "cardano-slotting" Cardano.Slotting.Slot (SlotNo (SlotNo))
 import "cardano-slotting" Cardano.Slotting.Time (SystemStart (..))
+import "hydra-node" Hydra.Chain.Direct.TimeHandle
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
 import "time" Data.Time (secondsToNominalDiffTime)
 import "time" Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 

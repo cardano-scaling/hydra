@@ -2,38 +2,41 @@
 
 module Hydra.Tx.Contract.Increment where
 
-import Hydra.Cardano.Api
-import Hydra.Plutus.Gen ()
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-plutus" Hydra.Plutus.Gen ()
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Contract.Commit (Commit)
-import Hydra.Contract.Deposit (DepositRedeemer (Claim))
-import Hydra.Contract.DepositError (DepositError (..))
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.Deposit (healthyDeadline)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
-import Hydra.Tx.Deposit (mkDepositOutput)
-import Hydra.Tx.Deposit qualified as Deposit
-import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Increment (incrementTx)
-import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
-import Hydra.Tx.Party (Party, deriveParty, partyToChain)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (
+import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-plutus" Hydra.Contract.Commit (Commit)
+import "hydra-plutus" Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import "hydra-plutus" Hydra.Contract.DepositError (DepositError (..))
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import "hydra-tx" Hydra.Tx.Contract.Deposit (healthyDeadline)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
+import "hydra-tx" Hydra.Tx.Deposit (mkDepositOutput)
+import "hydra-tx" Hydra.Tx.Deposit qualified as Deposit
+import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.Increment (incrementTx)
+import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (hashUTxO))
+import "hydra-tx" Hydra.Tx.Party (Party, deriveParty, partyToChain)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import "hydra-tx" Hydra.Tx.Utils (adaOnly)
+import "hydra-tx" Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   addParticipationTokens,
@@ -41,12 +44,9 @@ import Test.Hydra.Tx.Mutation (
   replaceParties,
   replaceSnapshotVersion,
  )
-import Test.QuickCheck (arbitrarySizedNatural, elements, oneof, suchThat)
-import Test.QuickCheck.Instances ()
-import "base" Data.Maybe (fromJust)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "plutus-ledger-api" PlutusLedgerApi.V2 qualified as Plutus
 import "plutus-tx" PlutusTx.Builtins (toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 healthyIncrementTx :: (Tx, UTxO)
 healthyIncrementTx =

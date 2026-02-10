@@ -5,21 +5,11 @@
 
 module Hydra.TUI.Drawing where
 
-import Hydra.Prelude hiding (Down, State)
+import "hydra-prelude" Hydra.Prelude hiding (Down, State)
 
-import Hydra.Cardano.Api hiding (Active)
 import "brick" Brick
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Active)
 
-import Hydra.Cardano.Api.Pretty (renderUTxO)
-import Hydra.Chain.CardanoClient (CardanoClient (..))
-import Hydra.Chain.Direct.State ()
-import Hydra.Client (Client (..))
-import Hydra.Network (Host)
-import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
-import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
-import Hydra.TUI.Model
-import Hydra.TUI.Style
-import Hydra.Tx (HeadId, IsTx (..), Party (..))
 import Paths_hydra_tui (version)
 import "base" Data.Version (Version, showVersion)
 import "brick" Brick.Forms (
@@ -29,6 +19,16 @@ import "brick" Brick.Widgets.Border (hBorder, vBorder)
 import "brick" Brick.Widgets.Border.Style (ascii)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderUTxO)
+import "hydra-node" Hydra.Chain.CardanoClient (CardanoClient (..))
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.Network (Host)
+import "hydra-tui" Hydra.Client (Client (..))
+import "hydra-tui" Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
+import "hydra-tui" Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
+import "hydra-tui" Hydra.TUI.Model
+import "hydra-tui" Hydra.TUI.Style
+import "hydra-tx" Hydra.Tx (HeadId, IsTx (..), Party (..))
 import "microlens" Lens.Micro ((^.), (^?), _head)
 import "text" Data.Text (chunksOf)
 import "time" Data.Time (defaultTimeLocale, formatTime)

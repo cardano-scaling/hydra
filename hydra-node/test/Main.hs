@@ -1,8 +1,8 @@
 module Main where
 
-import Hydra.Prelude
 import Spec qualified
-import Test.Hspec.Runner
+import "hspec" Test.Hspec.Runner
+import "hydra-prelude" Hydra.Prelude
 
 main :: IO ()
 main = hspec Spec.spec

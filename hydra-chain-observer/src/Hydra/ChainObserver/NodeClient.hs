@@ -2,9 +2,9 @@
 
 module Hydra.ChainObserver.NodeClient where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "hydra-cardano-api" Hydra.Cardano.Api (
   BlockNo,
   ChainPoint,
   NetworkId,
@@ -12,11 +12,11 @@ import Hydra.Cardano.Api (
   Tx,
   UTxO,
  )
-import Hydra.Cardano.Api.Prelude (TxId)
-import Hydra.Contract (HydraScriptCatalogue)
-import Hydra.Ledger.Cardano (adjustUTxO)
-import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Observe (
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (TxId)
+import "hydra-plutus" Hydra.Contract (HydraScriptCatalogue)
+import "hydra-tx" Hydra.Ledger.Cardano (adjustUTxO)
+import "hydra-tx" Hydra.Tx.HeadId (HeadId (..))
+import "hydra-tx" Hydra.Tx.Observe (
   AbortObservation (..),
   CloseObservation (..),
   CollectComObservation (..),

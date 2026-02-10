@@ -2,18 +2,18 @@
 
 module Test.Util where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude hiding (shouldBe)
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude hiding (shouldBe)
 
-import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (Envelope (..), traceInTVar)
-import Hydra.Network (NetworkCallback (..))
-import Hydra.Node (HydraNodeLog)
-import Test.HUnit.Lang (FailureReason (ExpectedButGot))
-import Test.QuickCheck (Property, Testable, counterexample, forAll, ioProperty, property, withMaxSuccess)
+import "HUnit" Test.HUnit.Lang (FailureReason (ExpectedButGot))
+import "QuickCheck" Test.QuickCheck (Property, Testable, counterexample, forAll, ioProperty, property, withMaxSuccess)
 import "aeson" Data.Aeson (encode)
 import "aeson" Data.Aeson qualified as Aeson
 import "contra-tracer" Control.Tracer (Tracer (Tracer))
+import "hydra-node" Hydra.Ledger.Simple (SimpleTx)
+import "hydra-node" Hydra.Logging (Envelope (..), traceInTVar)
+import "hydra-node" Hydra.Network (NetworkCallback (..))
+import "hydra-node" Hydra.Node (HydraNodeLog)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import "io-classes" Control.Monad.Class.MonadSay (say)
 import "io-sim" Control.Monad.IOSim (

@@ -3,40 +3,40 @@
 
 module Hydra.TUISpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoNode (NodeLog, withCardanoNodeDevnet)
-import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (
+import "QuickCheck" Test.QuickCheck (Positive (..))
+import "blaze-builder" Blaze.ByteString.Builder.Char8 (writeChar)
+import "bytestring" Data.ByteString qualified as BS
+import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (Coin, Key (getVerificationKey))
+import "hydra-cluster" CardanoNode (NodeLog, withCardanoNodeDevnet)
+import "hydra-cluster" Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
   seedFromFaucet_,
  )
-import Hydra.Cluster.Fixture (
+import "hydra-cluster" Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
  )
-import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
-import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Network (Host (..))
-import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
-import Hydra.TUI (runWithVty)
-import Hydra.TUI.Drawing (renderTime)
-import Hydra.TUI.Options (Options (..))
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
-import HydraNode (
+import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
+import "hydra-cluster" HydraNode (
   HydraClient (HydraClient, hydraNodeId),
   HydraNodeLog,
   prepareHydraNode,
   withHydraNode,
   withPreparedHydraNode,
  )
-import Test.QuickCheck (Positive (..))
-import "blaze-builder" Blaze.ByteString.Builder.Char8 (writeChar)
-import "bytestring" Data.ByteString qualified as BS
-import "filepath" System.FilePath ((</>))
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
+import "hydra-node" Hydra.Network (Host (..))
+import "hydra-node" Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
+import "hydra-tui" Hydra.TUI (runWithVty)
+import "hydra-tui" Hydra.TUI.Drawing (renderTime)
+import "hydra-tui" Hydra.TUI.Options (Options (..))
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import "io-classes" Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import "io-classes" Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
 import "io-classes" Control.Monad.Class.MonadAsync (cancel, waitCatch)

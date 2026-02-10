@@ -6,10 +6,10 @@
 -- | Simple asserting validators that are primarily useful for testing.
 module Hydra.Contract.Dummy where
 
-import Hydra.Prelude hiding (foldMap, (<$>), (==))
+import "hydra-prelude" Hydra.Prelude hiding (foldMap, (<$>), (==))
 
-import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
-import Hydra.Plutus.Extras (wrapValidator)
+import "hydra-cardano-api" Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+import "hydra-plutus-extras" Hydra.Plutus.Extras (wrapValidator)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (
   CurrencySymbol,
   ScriptContext (..),

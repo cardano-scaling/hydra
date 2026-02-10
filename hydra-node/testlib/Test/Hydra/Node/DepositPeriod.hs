@@ -2,11 +2,11 @@
 
 module Test.Hydra.Node.DepositPeriod where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Node.DepositPeriod
-import Test.QuickCheck (choose)
+import "QuickCheck" Test.QuickCheck (choose)
+import "hydra-node" Hydra.Node.DepositPeriod
 
 instance Arbitrary DepositPeriod where
   arbitrary = DepositPeriod . fromInteger <$> choose (1, 86400)

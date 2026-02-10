@@ -1,10 +1,13 @@
 module Hydra.Node.Run where
 
-import Hydra.Prelude hiding (fromList)
+import "hydra-prelude" Hydra.Prelude hiding (fromList)
 
-import Hydra.API.Server (APIServerConfig (..), withAPIServer)
-import Hydra.API.ServerOutputFilter (serverOutputFilter)
-import Hydra.Cardano.Api (
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
+import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
+import "cardano-slotting" Cardano.Slotting.EpochInfo (fixedEpochInfo)
+import "cardano-slotting" Cardano.Slotting.Time (mkSlotLength)
+import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (
   GenesisParameters (..),
   LedgerEra,
   PParams,
@@ -14,25 +17,25 @@ import Hydra.Cardano.Api (
   Tx,
   toShelleyNetwork,
  )
-import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
-import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
-import Hydra.Chain.Cardano (withCardanoChain)
-import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events (EventSink)
-import Hydra.Events.FileBased (mkFileBasedEventStore)
-import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Hydra.HeadLogic (aggregateNodeState)
-import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
-import Hydra.Ledger (Ledger)
-import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
-import Hydra.Logging (Tracer, traceWith, withTracer)
-import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Logging.Monitoring (withMonitoring)
-import Hydra.Node (
+import "hydra-node" Hydra.API.Server (APIServerConfig (..), withAPIServer)
+import "hydra-node" Hydra.API.ServerOutputFilter (serverOutputFilter)
+import "hydra-node" Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
+import "hydra-node" Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import "hydra-node" Hydra.Chain.Cardano (withCardanoChain)
+import "hydra-node" Hydra.Chain.Direct (DirectBackend (..))
+import "hydra-node" Hydra.Chain.Direct.State (initialChainState)
+import "hydra-node" Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
+import "hydra-node" Hydra.Events (EventSink)
+import "hydra-node" Hydra.Events.FileBased (mkFileBasedEventStore)
+import "hydra-node" Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import "hydra-node" Hydra.HeadLogic (aggregateNodeState)
+import "hydra-node" Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
+import "hydra-node" Hydra.Ledger (Ledger)
+import "hydra-node" Hydra.Logging (Tracer, traceWith, withTracer)
+import "hydra-node" Hydra.Logging.Messages (HydraLog (..))
+import "hydra-node" Hydra.Logging.Monitoring (withMonitoring)
+import "hydra-node" Hydra.Node (
   HydraNode (eventSinks),
   chainStateHistory,
   connect,
@@ -43,10 +46,10 @@ import Hydra.Node (
   wireClientInput,
   wireNetworkInput,
  )
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
-import Hydra.Node.State (NodeState (..), initNodeState)
-import Hydra.Options (
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
+import "hydra-node" Hydra.Node.State (NodeState (..), initNodeState)
+import "hydra-node" Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
@@ -56,13 +59,10 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental)
-import Hydra.Utils (readJsonFileThrow)
-import "cardano-ledger-core" Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
-import "cardano-ledger-shelley" Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
-import "cardano-slotting" Cardano.Slotting.EpochInfo (fixedEpochInfo)
-import "cardano-slotting" Cardano.Slotting.Time (mkSlotLength)
-import "filepath" System.FilePath ((</>))
+import "hydra-node" Hydra.Persistence (createPersistenceIncremental)
+import "hydra-node" Hydra.Utils (readJsonFileThrow)
+import "hydra-tx" Hydra.Chain.ChainState (IsChainState (..))
+import "hydra-tx" Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 
 data ConfigurationException
   = -- XXX: this is not used

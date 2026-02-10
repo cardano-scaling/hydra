@@ -9,61 +9,12 @@
 -- 'Hydra.BehaviorSpec'.
 module Hydra.HeadLogicSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
-import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Chain (
-  ChainEvent (..),
-  OnChainTx (..),
-  PostChainTx (CollectComTx, ContestTx),
- )
-import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
-import Hydra.Chain.Direct.State (ChainStateAt (..))
-import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
-import Hydra.Ledger (Ledger (..), ValidationError (..))
-import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
-import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
-import Hydra.Network (Connectivity)
-import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node (mkNetworkInput)
-import Hydra.Node.DepositPeriod (toNominalDiffTime)
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initNodeState)
-import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
-import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Prelude qualified as Prelude
-import Hydra.Tx (HeadId)
-import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
-import Hydra.Tx.Crypto qualified as Crypto
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.Party (Party (..), deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
-import Test.Hydra.API.ClientInput ()
-import Test.Hydra.Chain ()
-import Test.Hydra.HeadLogic.Input ()
-import Test.Hydra.HeadLogic.State ()
-import Test.Hydra.Ledger.Simple ()
-import Test.Hydra.Network.Message ()
-import Test.Hydra.Node.Environment ()
-import Test.Hydra.Node.Fixture qualified as Fixture
-import Test.Hydra.Node.State ()
-import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
-import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
-import Test.QuickCheck.Gen (generate)
-import Test.QuickCheck.Hedgehog (hedgehog)
-import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
+import "QuickCheck" Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
+import "QuickCheck" Test.QuickCheck.Gen (generate)
+import "QuickCheck" Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
 import "base" Control.Monad (foldM)
 import "base" Data.List qualified as List
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
@@ -72,7 +23,56 @@ import "cardano-slotting" Cardano.Slotting.Time (SystemStart (SystemStart))
 import "containers" Data.Map (notMember)
 import "containers" Data.Map qualified as Map
 import "containers" Data.Set qualified as Set
+import "hedgehog-quickcheck" Test.QuickCheck.Hedgehog (hedgehog)
+import "hydra-cardano-api" Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-node" Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
+import "hydra-node" Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
+import "hydra-node" Hydra.Chain (
+  ChainEvent (..),
+  OnChainTx (..),
+  PostChainTx (CollectComTx, ContestTx),
+ )
+import "hydra-node" Hydra.Chain.Direct.State (ChainStateAt (..))
+import "hydra-node" Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
+import "hydra-node" Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
+import "hydra-node" Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
+import "hydra-node" Hydra.Ledger (Ledger (..), ValidationError (..))
+import "hydra-node" Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import "hydra-node" Hydra.Network (Connectivity)
+import "hydra-node" Hydra.Network.Message (Message (..), NetworkEvent (..))
+import "hydra-node" Hydra.Node (mkNetworkInput)
+import "hydra-node" Hydra.Node.DepositPeriod (toNominalDiffTime)
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initNodeState)
+import "hydra-node" Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
+import "hydra-node" Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
+import "hydra-node" Test.Hydra.API.ClientInput ()
+import "hydra-node" Test.Hydra.Chain ()
+import "hydra-node" Test.Hydra.HeadLogic.Input ()
+import "hydra-node" Test.Hydra.HeadLogic.State ()
+import "hydra-node" Test.Hydra.Ledger.Simple ()
+import "hydra-node" Test.Hydra.Network.Message ()
+import "hydra-node" Test.Hydra.Node.Environment ()
+import "hydra-node" Test.Hydra.Node.Fixture qualified as Fixture
+import "hydra-node" Test.Hydra.Node.State ()
+import "hydra-prelude" Hydra.Prelude qualified as Prelude
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
+import "hydra-tx" Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
+import "hydra-tx" Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
+import "hydra-tx" Hydra.Tx (HeadId)
+import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as CP
+import "hydra-tx" Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
+import "hydra-tx" Hydra.Tx.Crypto qualified as Crypto
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
+import "hydra-tx" Hydra.Tx.Party (Party (..), deriveParty)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import "hydra-tx" Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
 import "lens" Control.Lens ((.~))
+import "z-cardano-api-z-gen" Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 
 spec :: Spec
 spec =

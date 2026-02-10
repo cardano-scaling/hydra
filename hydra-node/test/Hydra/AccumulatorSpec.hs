@@ -1,7 +1,7 @@
 module Hydra.AccumulatorSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
 -- Import this to make compiler happy
 import "haskell-accumulator" Accumulator ()

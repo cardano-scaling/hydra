@@ -2,37 +2,37 @@
 -- 'healthyCommitTx' gets mutated by an arbitrary 'CommitMutation'.
 module Hydra.Tx.Contract.Commit where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Contract.Commit qualified as Commit
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Contract.InitialError (InitialError (..))
-import Hydra.Contract.Util (hydraHeadV1)
-import Hydra.Tx (CommitBlueprintTx (..), Party, mkHeadId)
-import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.Init (mkInitialOutput)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Fixture qualified as Fixtures
-import Test.Hydra.Tx.Gen (genAddressInEra, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (
+import "QuickCheck" Test.QuickCheck (elements, oneof, scale, suchThat)
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
+import "hydra-plutus" Hydra.Contract.Commit qualified as Commit
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
+import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
+import "hydra-plutus" Hydra.Contract.InitialError (InitialError (..))
+import "hydra-plutus" Hydra.Contract.Util (hydraHeadV1)
+import "hydra-tx" Hydra.Tx (CommitBlueprintTx (..), Party, mkHeadId)
+import "hydra-tx" Hydra.Tx.Commit (commitTx)
+import "hydra-tx" Hydra.Tx.Init (mkInitialOutput)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (registryUTxO)
+import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixtures
+import "hydra-tx" Test.Hydra.Tx.Gen (genAddressInEra, genScriptRegistry, genSigningKey, genUTxOAdaOnlyOfSize, genValue, genVerificationKey)
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
   replacePolicyIdWith,
  )
-import Test.QuickCheck (elements, oneof, scale, suchThat)
-import "base" Data.List qualified as List
-import "base" Data.Maybe (fromJust)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "cardano-ledger-api" Cardano.Ledger.Api (bodyTxL)
-import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Body (EraTxBody (outputsTxBodyL), setMinCoinTxOut)
 import "lens" Control.Lens (mapped, (%~))
 import "plutus-ledger-api" PlutusLedgerApi.Common (fromBuiltin)
 

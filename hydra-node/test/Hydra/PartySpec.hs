@@ -1,13 +1,13 @@
 module Hydra.PartySpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Tx.Party (Party (..))
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Tx.Fixture (alice, bob, carol)
-import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck ((==>))
+import "QuickCheck" Test.QuickCheck ((==>))
+import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import "hydra-tx" Hydra.Tx.Party (Party (..))
+import "hydra-tx" Test.Hydra.Tx.Fixture (alice, bob, carol)
+import "hydra-tx" Test.Hydra.Tx.Gen ()
 
 spec :: Spec
 spec = do

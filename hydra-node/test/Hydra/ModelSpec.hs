@@ -77,12 +77,11 @@
 -- @@
 module Hydra.ModelSpec where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
-import Test.Hydra.Prelude hiding (after)
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude hiding (after)
 
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
-import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (..),
   GlobalState (..),
@@ -102,12 +101,25 @@ import Hydra.Model (
 import Hydra.Model qualified as Model
 import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.Party (Party (..), deriveParty)
-import Test.HUnit.Lang (formatFailureReason)
-import Test.Hydra.Node.Fixture (alice, aliceSk)
-import Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, vectorOf, withMaxSuccess, within)
-import Test.QuickCheck.DynamicLogic (
+import "HUnit" Test.HUnit.Lang (formatFailureReason)
+import "QuickCheck" Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, vectorOf, withMaxSuccess, within)
+import "QuickCheck" Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
+import "QuickCheck" Test.QuickCheck.Monadic (PropertyM, assert, monadic', run, stop)
+import "QuickCheck" Test.QuickCheck.Property ((===))
+import "base" Data.Typeable (cast)
+import "base" System.IO.Unsafe (unsafePerformIO)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map ((!))
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "hydra-node" Hydra.Logging.Messages (HydraLog)
+import "hydra-node" Test.Hydra.Node.Fixture (alice, aliceSk)
+import "hydra-node" Test.Util (printTrace, traceInIOSim)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import "hydra-tx" Hydra.Tx.Party (Party (..), deriveParty)
+import "io-classes" Control.Monad.Class.MonadTimer ()
+import "io-sim" Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
+import "quickcheck-dynamic" Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
   action,
@@ -119,10 +131,7 @@ import Test.QuickCheck.DynamicLogic (
   whereQ,
   withGenQ,
  )
-import Test.QuickCheck.Gen.Unsafe (Capture (Capture), capture)
-import Test.QuickCheck.Monadic (PropertyM, assert, monadic', run, stop)
-import Test.QuickCheck.Property ((===))
-import Test.QuickCheck.StateModel (
+import "quickcheck-dynamic" Test.QuickCheck.StateModel (
   ActionWithPolarity (..),
   Actions,
   Annotated (..),
@@ -132,15 +141,6 @@ import Test.QuickCheck.StateModel (
   runActions,
   pattern Actions,
  )
-import Test.Util (printTrace, traceInIOSim)
-import "base" Data.Typeable (cast)
-import "base" System.IO.Unsafe (unsafePerformIO)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map ((!))
-import "containers" Data.Map qualified as Map
-import "containers" Data.Set qualified as Set
-import "io-classes" Control.Monad.Class.MonadTimer ()
-import "io-sim" Control.Monad.IOSim (Failure (FailureException), IOSim, SimTrace, runSimTrace, traceResult)
 import "temporary" System.IO.Temp (writeSystemTempFile)
 
 instance HasVariables (SigningKey PaymentKey) where

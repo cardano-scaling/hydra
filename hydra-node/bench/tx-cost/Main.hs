@@ -1,11 +1,5 @@
-import Hydra.Prelude hiding (catch)
+import "hydra-prelude" Hydra.Prelude hiding (catch)
 
-import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
-import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
-import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
-import Hydra.Plutus.Orphans ()
-import Test.QuickCheck.Gen (Gen (MkGen), chooseAny, generate)
-import Test.QuickCheck.Random (mkQCGen)
 import TxCost (
   CpuUnit,
   MemUnit,
@@ -22,11 +16,17 @@ import TxCost (
   computeIncrementCost,
   computeInitCost,
  )
+import "QuickCheck" Test.QuickCheck.Gen (Gen (MkGen), chooseAny, generate)
+import "QuickCheck" Test.QuickCheck.Random (mkQCGen)
 import "base" Data.Fixed (Centi)
 import "base" System.IO.Unsafe (unsafePerformIO)
 import "bytestring" Data.ByteString (hPut)
 import "directory" System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import "filepath" System.FilePath ((</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
+import "hydra-plutus" Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import "optparse-applicative" Options.Applicative (
   Parser,
   ParserInfo,

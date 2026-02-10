@@ -3,19 +3,19 @@
 -- | Error types used in the Hydra.HeadLogic module.
 module Hydra.HeadLogic.Error where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.HeadLogic.Input (Input)
-import Hydra.HeadLogic.State (HeadState)
-import Hydra.Ledger (ValidationError)
-import Hydra.Tx (
+import "hydra-node" Hydra.HeadLogic.Input (Input)
+import "hydra-node" Hydra.HeadLogic.State (HeadState)
+import "hydra-node" Hydra.Ledger (ValidationError)
+import "hydra-tx" Hydra.Tx (
   HeadId,
   IsTx (TxIdType, UTxOType),
   Party,
   SnapshotNumber,
   SnapshotVersion,
  )
-import Hydra.Tx.Crypto (HydraKey, VerificationKey)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, VerificationKey)
 
 data LogicError tx
   = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}

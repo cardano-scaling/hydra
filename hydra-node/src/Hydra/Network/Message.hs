@@ -2,10 +2,12 @@
 
 module Hydra.Network.Message where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Network (Connectivity)
-import Hydra.Tx (
+import "cardano-binary" Cardano.Binary (serialize')
+import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
+import "hydra-node" Hydra.Network (Connectivity)
+import "hydra-tx" Hydra.Tx (
   IsTx (TxIdType),
   Party,
   Snapshot,
@@ -13,9 +15,7 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
-import Hydra.Tx.Crypto (Signature)
-import "cardano-binary" Cardano.Binary (serialize')
-import "cardano-crypto-class" Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
+import "hydra-tx" Hydra.Tx.Crypto (Signature)
 
 data NetworkEvent msg
   = ConnectivityEvent Connectivity

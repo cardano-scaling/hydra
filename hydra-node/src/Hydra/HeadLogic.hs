@@ -20,12 +20,16 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.Outcome,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput (DecommitInvalidReason (..))
-import Hydra.API.ServerOutput qualified as ServerOutput
-import Hydra.Chain (
+import "base" Data.List (elemIndex, minimumBy)
+import "containers" Data.Map.Strict qualified as Map
+import "containers" Data.Set ((\\))
+import "containers" Data.Set qualified as Set
+import "hydra-node" Hydra.API.ClientInput (ClientInput (..))
+import "hydra-node" Hydra.API.ServerOutput (DecommitInvalidReason (..))
+import "hydra-node" Hydra.API.ServerOutput qualified as ServerOutput
+import "hydra-node" Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   OnChainTx (..),
@@ -35,14 +39,13 @@ import Hydra.Chain (
   rollbackHistory,
   setLastKnown,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
-import Hydra.HeadLogic.Error (
+import "hydra-node" Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
   SideLoadRequirementFailure (..),
  )
-import Hydra.HeadLogic.Input (Input (..), TTL)
-import Hydra.HeadLogic.Outcome (
+import "hydra-node" Hydra.HeadLogic.Input (Input (..), TTL)
+import "hydra-node" Hydra.HeadLogic.Outcome (
   Effect (..),
   Outcome (..),
   StateChanged (..),
@@ -54,7 +57,7 @@ import Hydra.HeadLogic.Outcome (
   noop,
   wait,
  )
-import Hydra.HeadLogic.State (
+import "hydra-node" Hydra.HeadLogic.State (
   ClosedState (..),
   Committed,
   CoordinatedHeadState (..),
@@ -68,14 +71,15 @@ import Hydra.HeadLogic.State (
   seenSnapshotNumber,
   setChainState,
  )
-import Hydra.Ledger (Ledger (..), applyTransactions)
-import Hydra.Network qualified as Network
-import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), depositsForHead, syncedStatus)
-import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
-import Hydra.Tx (
+import "hydra-node" Hydra.Ledger (Ledger (..), applyTransactions)
+import "hydra-node" Hydra.Network qualified as Network
+import "hydra-node" Hydra.Network.Message (Message (..), NetworkEvent (..))
+import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
+import "hydra-node" Hydra.Node.Environment (Environment (..), mkHeadParameters)
+import "hydra-node" Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), depositsForHead, syncedStatus)
+import "hydra-node" Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
+import "hydra-tx" Hydra.Tx (
   HeadId,
   HeadSeed,
   IsTx (..),
@@ -85,21 +89,17 @@ import Hydra.Tx (
   utxoFromTx,
   withoutUTxO,
  )
-import Hydra.Tx.Crypto (
+import "hydra-tx" Hydra.Tx.Crypto (
   Signature,
   Verified (..),
   aggregateInOrder,
   sign,
   verifyMultiSignature,
  )
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Party (Party (vkey))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import "base" Data.List (elemIndex, minimumBy)
-import "containers" Data.Map.Strict qualified as Map
-import "containers" Data.Set ((\\))
-import "containers" Data.Set qualified as Set
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.Party (Party (vkey))
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
 -- * The Coordinated Head protocol
 

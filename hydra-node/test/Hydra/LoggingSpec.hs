@@ -1,10 +1,10 @@
 module Hydra.LoggingSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Logging (traceWith, withTracerOutputTo)
 import "aeson" Data.Aeson (object, (.=))
+import "hydra-node" Hydra.Logging (traceWith, withTracerOutputTo)
 import "silently" System.IO.Silently (capture_)
 
 spec :: Spec

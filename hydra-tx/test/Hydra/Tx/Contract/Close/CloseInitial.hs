@@ -3,17 +3,20 @@
 
 module Hydra.Tx.Contract.Close.CloseInitial where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Contract.Error (ToErrorCode (..))
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadState qualified as HeadState
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx (
+import "QuickCheck" Test.QuickCheck (oneof, suchThat)
+import "base" Data.Maybe (fromJust)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Error (ToErrorCode (..))
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadState qualified as HeadState
+import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Tx (
   ConfirmedSnapshot (..),
   Snapshot (utxoToCommit, utxoToDecommit),
   SnapshotVersion,
@@ -21,8 +24,8 @@ import Hydra.Tx (
   mkHeadId,
   registryUTxO,
  )
-import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
-import Hydra.Tx.Contract.Close.Healthy (
+import "hydra-tx" Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
+import "hydra-tx" Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
   healthyCloseUpperBoundPointInTime,
   healthyContestationDeadline,
@@ -33,16 +36,13 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyUTxO,
   somePartyCardanoVerificationKey,
  )
-import Hydra.Tx.Snapshot (getSnapshot)
-import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
-import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genScriptRegistry)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
-import Test.QuickCheck (oneof, suchThat)
-import Test.QuickCheck.Instances ()
-import "base" Data.Maybe (fromJust)
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-tx" Hydra.Tx.Snapshot (getSnapshot)
+import "hydra-tx" Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
+import "hydra-tx" Test.Hydra.Tx.Fixture qualified as Fixture
+import "hydra-tx" Test.Hydra.Tx.Gen (genScriptRegistry)
+import "hydra-tx" Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'

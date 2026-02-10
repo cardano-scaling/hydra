@@ -11,9 +11,12 @@
 -- of the transaction.
 module Hydra.Chain where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base" Data.List.NonEmpty ((<|))
+import "base" Data.List.NonEmpty qualified as NE
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Address,
   AddressInEra,
   ByronAddr,
@@ -23,8 +26,8 @@ import Hydra.Cardano.Api (
   PolicyId,
   Value,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
-import Hydra.Tx (
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
+import "hydra-tx" Hydra.Tx (
   CommitBlueprintTx,
   ConfirmedSnapshot,
   HeadId,
@@ -36,10 +39,7 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
-import Hydra.Tx.OnChainId (OnChainId)
-import "base" Data.List.NonEmpty ((<|))
-import "base" Data.List.NonEmpty qualified as NE
-import "cardano-ledger-core" Cardano.Ledger.Core (PParams)
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
 
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Coin

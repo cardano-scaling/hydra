@@ -28,16 +28,15 @@ module Test.Hydra.Prelude (
   getHydraBackend,
 ) where
 
-import Hydra.Prelude
-import Test.Hspec
-import Test.Hspec.QuickCheck
+import "hspec" Test.Hspec
+import "hspec" Test.Hspec.QuickCheck
+import "hydra-prelude" Hydra.Prelude
 
-import Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
-import Test.QuickCheck (Arbitrary (..), Property, Testable, coverTable, forAllBlind, genericShrink, scale, tabulate)
-import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ADTArbitrarySingleton (..), ConstructorArbitraryPair (..), ToADTArbitrary (..))
-import Test.QuickCheck.Gen (Gen (..))
-import Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
-import Test.QuickCheck.Random (mkQCGen)
+import "HUnit" Test.HUnit.Lang (FailureReason (Reason), HUnitFailure (HUnitFailure))
+import "QuickCheck" Test.QuickCheck (Arbitrary (..), Property, Testable, coverTable, forAllBlind, genericShrink, scale, tabulate)
+import "QuickCheck" Test.QuickCheck.Gen (Gen (..))
+import "QuickCheck" Test.QuickCheck.Monadic (PropertyM (MkPropertyM))
+import "QuickCheck" Test.QuickCheck.Random (mkQCGen)
 import "base" Data.List (isInfixOf)
 import "base" Data.Ratio ((%))
 import "base" Data.Typeable (typeRep)
@@ -52,6 +51,7 @@ import "filepath" System.FilePath (takeDirectory)
 import "generic-random" Generic.Random qualified as Random
 import "generic-random" Generic.Random.Internal.Generic qualified as Random
 import "process" System.Process (ProcessHandle, waitForProcess)
+import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ADTArbitrarySingleton (..), ConstructorArbitraryPair (..), ToADTArbitrary (..))
 import "temporary" System.IO.Temp (createTempDirectory, getCanonicalTemporaryDirectory)
 import "text" Data.Text qualified as Text
 import "text" Data.Text.IO (hGetContents)

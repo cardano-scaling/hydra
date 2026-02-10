@@ -1,11 +1,11 @@
 module Hydra.HeadLogic.Input where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.API.ClientInput (ClientInput)
-import Hydra.Chain (ChainEvent)
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.Network.Message (Message, NetworkEvent)
+import "hydra-node" Hydra.API.ClientInput (ClientInput)
+import "hydra-node" Hydra.Chain (ChainEvent)
+import "hydra-node" Hydra.Network.Message (Message, NetworkEvent)
+import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
 
 type TTL = Natural
 

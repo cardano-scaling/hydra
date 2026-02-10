@@ -3,21 +3,38 @@
 
 module Hydra.Cluster.Scenarios where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoClient (
-  QueryPoint (QueryTip),
-  SubmitTransactionException,
-  waitForUTxO,
- )
-import CardanoNode (NodeLog)
-import Hydra.API.HTTPServer (
-  DraftCommitTxResponse (..),
-  TransactionSubmitted (..),
- )
-import Hydra.API.ServerOutput (HeadStatus (..))
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (Positive, choose, elements, generate)
+import "aeson" Data.Aeson (Value, object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types (parseMaybe)
+import "async" Control.Concurrent.Async (mapConcurrently_)
+import "base" Data.List qualified as List
+import "base" System.Environment (setEnv, unsetEnv)
+import "bytestring" Data.ByteString (isInfixOf)
+import "bytestring" Data.ByteString qualified as B
+import "bytestring" Data.ByteString.Char8 qualified as BSC
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import "cardano-ledger-api" Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
+import "cardano-ledger-api" Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx qualified as Ledger
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
+import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
+import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (ScriptHashObj))
+import "cardano-ledger-core" Cardano.Ledger.Plutus (ExUnits (..))
+import "cardano-ledger-core" Cardano.Ledger.Plutus.Language (Language (PlutusV3))
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "filepath" System.FilePath ((</>))
+import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
+import "http-conduit" Network.HTTP.Conduit qualified as L
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Coin (..),
   Era,
   File (File),
@@ -78,30 +95,20 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api qualified as CAPI
-import Hydra.Chain (PostTxError (..))
-import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.ChainState (ChainSlot)
-import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
-import Hydra.Cluster.Faucet qualified as Faucet
-import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Mithril (MithrilLog)
-import Hydra.Cluster.Options (Options)
-import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
-import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
-import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
-import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Node.State (SyncedStatus (..))
-import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
-import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
-import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Deposit (constructDepositUTxO)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
-import HydraNode (
+import "hydra-cardano-api" Hydra.Cardano.Api qualified as CAPI
+import "hydra-cluster" CardanoClient (
+  QueryPoint (QueryTip),
+  SubmitTransactionException,
+  waitForUTxO,
+ )
+import "hydra-cluster" CardanoNode (NodeLog)
+import "hydra-cluster" Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
+import "hydra-cluster" Hydra.Cluster.Faucet qualified as Faucet
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
+import "hydra-cluster" Hydra.Cluster.Mithril (MithrilLog)
+import "hydra-cluster" Hydra.Cluster.Options (Options)
+import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
+import "hydra-cluster" HydraNode (
   HydraClient (..),
   HydraNodeLog,
   getProtocolParameters,
@@ -125,36 +132,29 @@ import HydraNode (
   withHydraNodeCatchingUp,
   withPreparedHydraNodeInSync,
  )
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
-import Test.QuickCheck (Positive, choose, elements, generate)
-import "aeson" Data.Aeson (Value, object, (.=))
-import "aeson" Data.Aeson qualified as Aeson
-import "aeson" Data.Aeson.Types (parseMaybe)
-import "async" Control.Concurrent.Async (mapConcurrently_)
-import "base" Data.List qualified as List
-import "base" System.Environment (setEnv, unsetEnv)
-import "bytestring" Data.ByteString (isInfixOf)
-import "bytestring" Data.ByteString qualified as B
-import "bytestring" Data.ByteString.Char8 qualified as BSC
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
-import "cardano-ledger-api" Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
-import "cardano-ledger-api" Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
-import "cardano-ledger-api" Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
-import "cardano-ledger-api" Cardano.Ledger.Api.Tx qualified as Ledger
-import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
-import "cardano-ledger-api" Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
-import "cardano-ledger-core" Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
-import "cardano-ledger-core" Cardano.Ledger.Credential (Credential (ScriptHashObj))
-import "cardano-ledger-core" Cardano.Ledger.Plutus (ExUnits (..))
-import "cardano-ledger-core" Cardano.Ledger.Plutus.Language (Language (PlutusV3))
-import "containers" Data.Map qualified as Map
-import "containers" Data.Set qualified as Set
-import "filepath" System.FilePath ((</>))
-import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
-import "http-conduit" Network.HTTP.Conduit qualified as L
-import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
+import "hydra-node" Hydra.API.HTTPServer (
+  DraftCommitTxResponse (..),
+  TransactionSubmitted (..),
+ )
+import "hydra-node" Hydra.API.ServerOutput (HeadStatus (..))
+import "hydra-node" Hydra.Chain (PostTxError (..))
+import "hydra-node" Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod (..))
+import "hydra-node" Hydra.Node.State (SyncedStatus (..))
+import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
+import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
+import "hydra-plutus" Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot)
+import "hydra-tx" Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
+import "hydra-tx" Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
+import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as CP
+import "hydra-tx" Hydra.Tx.Deposit (constructDepositUTxO)
+import "hydra-tx" Hydra.Tx.Utils (verificationKeyToOnChainId)
+import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
 import "lens" Control.Lens ((.~), (?~), (^.), (^..), (^?))
 import "lens-aeson" Data.Aeson.Lens (atKey, key, values, _JSON, _String)
 import "process" System.Process (callProcess)

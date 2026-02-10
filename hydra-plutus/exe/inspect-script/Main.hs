@@ -1,14 +1,14 @@
 module Main where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
-import Hydra.Contract (hydraScriptCatalogue)
-import Hydra.Contract.HeadState as Head
-import Hydra.Contract.HeadTokens qualified as HeadTokens
 import "aeson" Data.Aeson qualified as Aeson
 import "bytestring" Data.ByteString.Lazy qualified as BL
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude (unsafeHashFromBytes)
+import "hydra-plutus" Hydra.Contract (hydraScriptCatalogue)
+import "hydra-plutus" Hydra.Contract.HeadState as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
 import "plutus-ledger-api" PlutusLedgerApi.V3 (Data, toData)
 import "text" Data.Text (pack)
 

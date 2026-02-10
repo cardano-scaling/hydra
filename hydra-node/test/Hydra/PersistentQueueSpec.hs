@@ -1,12 +1,12 @@
 -- | Tests of the 'PersistentQueue'.
 module Hydra.PersistentQueueSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
-import Test.QuickCheck (counterexample, generate, ioProperty)
-import Test.QuickCheck.Instances.Natural ()
+import "QuickCheck" Test.QuickCheck (counterexample, generate, ioProperty)
+import "hydra-node" Hydra.Network.Etcd (newPersistentQueue, peekPersistentQueue, writePersistentQueue)
+import "quickcheck-instances" Test.QuickCheck.Instances.Natural ()
 
 spec :: Spec
 spec = do

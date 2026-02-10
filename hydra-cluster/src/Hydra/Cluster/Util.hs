@@ -1,9 +1,14 @@
 -- | Utilities used across hydra-cluster
 module Hydra.Cluster.Util where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import Paths_hydra_cluster qualified as Pkg
+import "QuickCheck" Test.QuickCheck (generate)
+import "aeson" Data.Aeson qualified as Aeson
+import "bytestring" Data.ByteString qualified as BS
+import "filepath" System.FilePath ((<.>), (</>))
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Key (VerificationKey, getVerificationKey),
   NetworkId,
   PaymentKey,
@@ -13,12 +18,12 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
-import Hydra.Node.DepositPeriod (DepositPeriod)
-import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Hydra.Options (
+import "hydra-cluster" Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Node.DepositPeriod (DepositPeriod)
+import "hydra-node" Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import "hydra-node" Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
@@ -26,14 +31,9 @@ import Hydra.Options (
   defaultCardanoChainConfig,
   defaultDepositPeriod,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Paths_hydra_cluster qualified as Pkg
-import Test.Hydra.Prelude (failure)
-import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (generate)
-import "aeson" Data.Aeson qualified as Aeson
-import "bytestring" Data.ByteString qualified as BS
-import "filepath" System.FilePath ((<.>), (</>))
+import "hydra-test-utils" Test.Hydra.Prelude (failure)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import "hydra-tx" Test.Hydra.Tx.Gen (genSigningKey)
 
 -- | Lookup a config file similar reading a file from disk.
 -- If the env variable `HYDRA_CONFIG_DIR` is set, filenames will be

@@ -3,17 +3,17 @@
 
 module Test.Hydra.HeadLogic.Outcome where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
-import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import Test.Hydra.API.ServerOutput ()
-import Test.Hydra.Chain ()
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck (oneof)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+import "QuickCheck" Test.QuickCheck (oneof)
+import "hydra-node" Hydra.HeadLogic.Outcome (StateChanged (..))
+import "hydra-node" Hydra.Node.Environment (Environment (..), mkHeadParameters)
+import "hydra-node" Test.Hydra.API.ServerOutput ()
+import "hydra-node" Test.Hydra.Chain ()
+import "hydra-tx" Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 instance
   ( ArbitraryIsTx tx

@@ -1,16 +1,16 @@
 module Hydra.Tx.Fanout where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.MintAction (MintAction (..))
-import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
-import Hydra.Tx.HeadId (HeadId)
-import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Contract.MintAction (MintAction (..))
+import "hydra-tx" Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
+import "hydra-tx" Hydra.Tx.HeadId (HeadId)
+import "hydra-tx" Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
+import "hydra-tx" Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
 
 -- * Creation
 

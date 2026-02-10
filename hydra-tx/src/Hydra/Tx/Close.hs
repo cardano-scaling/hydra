@@ -2,17 +2,17 @@
 
 module Hydra.Tx.Close where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.ContestationPeriod (addContestationPeriod)
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
-import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
-import Hydra.Tx (
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Data.ContestationPeriod (addContestationPeriod)
+import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus-extras" Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
+import "hydra-tx" Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import "hydra-tx" Hydra.Tx (
   ConfirmedSnapshot (..),
   HeadId,
   ScriptRegistry (headReference),
@@ -25,8 +25,8 @@ import Hydra.Tx (
   headIdToCurrencySymbol,
   headReference,
  )
-import Hydra.Tx.Crypto (toPlutusSignatures)
-import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import "hydra-tx" Hydra.Tx.Crypto (toPlutusSignatures)
+import "hydra-tx" Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction

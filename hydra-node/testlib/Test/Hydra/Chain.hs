@@ -5,15 +5,15 @@
 
 module Test.Hydra.Chain where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain (ChainEvent, ChainStateHistory, OnChainTx, PostChainTx (..), PostTxError)
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
-import Test.Cardano.Ledger.Core.Arbitrary ()
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Instances.Time ()
+import "hydra-node" Hydra.Chain (ChainEvent, ChainStateHistory, OnChainTx, PostChainTx (..), PostTxError)
+import "hydra-tx" Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import "quickcheck-instances" Test.QuickCheck.Instances.Semigroup ()
+import "quickcheck-instances" Test.QuickCheck.Instances.Time ()
+import "z-cardano-ledger-core-z-testlib" Test.Cardano.Ledger.Core.Arbitrary ()
 
 instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary

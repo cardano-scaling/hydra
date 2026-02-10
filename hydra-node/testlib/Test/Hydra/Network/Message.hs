@@ -3,12 +3,12 @@
 
 module Test.Hydra.Network.Message where
 
-import Test.Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Network.Message (Message, NetworkEvent)
-import Test.Hydra.Network ()
-import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+import "hydra-node" Hydra.Network.Message (Message, NetworkEvent)
+import "hydra-node" Test.Hydra.Network ()
+import "hydra-tx" Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import "quickcheck-arbitrary-adt" Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
   arbitrary = genericArbitrary

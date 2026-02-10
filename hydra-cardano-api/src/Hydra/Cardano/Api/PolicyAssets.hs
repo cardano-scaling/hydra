@@ -2,7 +2,7 @@
 
 module Hydra.Cardano.Api.PolicyAssets where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 -- * Orphans
 

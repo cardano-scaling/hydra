@@ -4,28 +4,28 @@
 
 module Hydra.API.ServerOutput where
 
-import Hydra.API.ClientInput (ClientInput)
-import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainSlot, IsChainState)
-import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
-import Hydra.HeadLogic.State qualified as HeadState
-import Hydra.Ledger (ValidationError)
-import Hydra.Network (Host, ProtocolVersion)
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState, SyncedStatus)
-import Hydra.Prelude hiding (seq)
-import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
-import Hydra.Tx qualified as Tx
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Hydra.Tx.Snapshot qualified as HeadState
 import "aeson" Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
 import "aeson" Data.Aeson.KeyMap qualified as KeyMap
 import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "hydra-node" Hydra.API.ClientInput (ClientInput)
+import "hydra-node" Hydra.Chain (PostChainTx, PostTxError)
+import "hydra-node" Hydra.HeadLogic.Error (SideLoadRequirementFailure)
+import "hydra-node" Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
+import "hydra-node" Hydra.HeadLogic.State qualified as HeadState
+import "hydra-node" Hydra.Ledger (ValidationError)
+import "hydra-node" Hydra.Network (Host, ProtocolVersion)
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.State (NodeState, SyncedStatus)
+import "hydra-prelude" Hydra.Prelude hiding (seq)
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, IsChainState)
+import "hydra-tx" Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
+import "hydra-tx" Hydra.Tx qualified as Tx
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature)
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import "hydra-tx" Hydra.Tx.Snapshot qualified as HeadState
 import "lens" Control.Lens ((.~))
 import "lens-aeson" Data.Aeson.Lens (atKey, key)
 

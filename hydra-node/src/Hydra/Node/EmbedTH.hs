@@ -1,7 +1,7 @@
 -- | Template haskell expression to embed executables.
 module Hydra.Node.EmbedTH where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "directory" System.Directory (findExecutable)
 import "file-embed" Data.FileEmbed (embedFile)

@@ -9,10 +9,16 @@ module Test.Hydra.Tx.Fixture (
   epochInfo,
 ) where
 
-import Hydra.Cardano.Api.Gen
-import Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "base" Data.Maybe (fromJust)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Core (ppPricesL)
+import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (Prices (..))
+import "cardano-ledger-core" Cardano.Ledger.BaseTypes (BoundedRational (..))
+import "cardano-ledger-core" Cardano.Ledger.Coin (Coin (..))
+import "cardano-ledger-core" Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   LedgerEra,
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
@@ -23,21 +29,15 @@ import Hydra.Cardano.Api (
   serialiseToRawBytes,
   verificationKeyHash,
  )
-import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
-import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
-import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.OnChainId (AsType (..), OnChainId)
-import Hydra.Tx.Party (deriveParty)
-import Test.Hydra.Prelude
-import "base" Data.Maybe (fromJust)
-import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Core (ppPricesL)
-import "cardano-ledger-alonzo" Cardano.Ledger.Alonzo.Scripts (Prices (..))
-import "cardano-ledger-core" Cardano.Ledger.BaseTypes (BoundedRational (..))
-import "cardano-ledger-core" Cardano.Ledger.Coin (Coin (..))
-import "cardano-ledger-core" Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
+import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId)
+import "hydra-test-utils" Test.Hydra.Prelude
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
+import "hydra-tx" Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, generateSigningKey)
+import "hydra-tx" Hydra.Tx.HeadParameters (HeadParameters (..))
+import "hydra-tx" Hydra.Tx.OnChainId (AsType (..), OnChainId)
+import "hydra-tx" Hydra.Tx.Party (deriveParty)
 import "lens" Control.Lens ((.~))
 
 -- | Our beloved alice, bob, and carol.

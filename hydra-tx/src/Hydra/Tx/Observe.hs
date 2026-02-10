@@ -17,24 +17,24 @@ module Hydra.Tx.Observe (
   module Hydra.Tx.Fanout,
 ) where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (toList)
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (toList)
 
-import Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
-import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
-import Hydra.Tx.CollectCom (CollectComObservation (..), observeCollectComTx)
-import Hydra.Tx.Commit (CommitObservation (..), observeCommitTx)
-import Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
-import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
-import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
-import Hydra.Tx.Fanout (FanoutObservation (..), observeFanoutTx)
-import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
-import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
-import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import "aeson" Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withObject, (.:))
 import "aeson" Data.Aeson qualified as Aeson (Value)
 import "aeson" Data.Aeson.KeyMap qualified as KeyMap
 import "cardano-ledger-api" Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import "hydra-tx" Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
+import "hydra-tx" Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
+import "hydra-tx" Hydra.Tx.CollectCom (CollectComObservation (..), observeCollectComTx)
+import "hydra-tx" Hydra.Tx.Commit (CommitObservation (..), observeCommitTx)
+import "hydra-tx" Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
+import "hydra-tx" Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
+import "hydra-tx" Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import "hydra-tx" Hydra.Tx.Fanout (FanoutObservation (..), observeFanoutTx)
+import "hydra-tx" Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
+import "hydra-tx" Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
+import "hydra-tx" Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import "lens" Control.Lens ((^.))
 import "lens-aeson" Data.Aeson.Lens (key, _Object, _String)
 

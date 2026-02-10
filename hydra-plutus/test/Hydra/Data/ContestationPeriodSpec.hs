@@ -2,16 +2,16 @@
 
 module Hydra.Data.ContestationPeriodSpec where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Data.ContestationPeriod (
+import "QuickCheck" Test.QuickCheck ((===))
+import "hspec" Test.Hspec (Spec, describe)
+import "hspec" Test.Hspec.QuickCheck (prop)
+import "hydra-plutus" Hydra.Data.ContestationPeriod (
   contestationPeriodFromDiffTime,
   contestationPeriodToDiffTime,
  )
-import Hydra.Plutus.Gen ()
-import Test.Hspec (Spec, describe)
-import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck ((===))
+import "hydra-plutus" Hydra.Plutus.Gen ()
 
 spec :: Spec
 spec = do

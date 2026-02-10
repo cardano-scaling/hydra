@@ -3,26 +3,37 @@
 
 module Test.EndToEndSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import CardanoClient (
+import "QuickCheck" Test.QuickCheck (Positive (..), generate)
+import "aeson" Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
+import "aeson" Data.Aeson qualified as Aeson
+import "aeson" Data.Aeson.Types (parseMaybe)
+import "base" Control.Monad (foldM_)
+import "base" Data.List qualified as List
+import "bytestring" Data.ByteString qualified as BS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "containers" Data.Set qualified as Set
+import "directory" System.Directory (removeDirectoryRecursive, removeFile)
+import "filepath" System.FilePath ((</>))
+import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
+import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON)
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
+import "hydra-cluster" CardanoClient (
   waitForUTxO,
  )
-import CardanoNode (
+import "hydra-cluster" CardanoNode (
   withBackend,
   withCardanoNodeDevnet,
  )
-import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Direct.State ()
-import Hydra.Cluster.Faucet (
+import "hydra-cluster" Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
   seedFromFaucet_,
  )
-import Hydra.Cluster.Fixture (
+import "hydra-cluster" Hydra.Cluster.Fixture (
   Actor (Alice, Bob, Carol, Faucet),
   alice,
   aliceSk,
@@ -34,7 +45,7 @@ import Hydra.Cluster.Fixture (
   carolSk,
   carolVk,
  )
-import Hydra.Cluster.Scenarios (
+import "hydra-cluster" Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   canCloseWithLongContestationPeriod,
   canCommit,
@@ -72,12 +83,8 @@ import Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
   waitsForChainInSyncAndSecure,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
-import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
-import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options
-import Hydra.Tx.IsTx (txId)
-import HydraNode (
+import "hydra-cluster" Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
+import "hydra-cluster" HydraNode (
   HydraClient (..),
   getMetrics,
   getSnapshotUTxO,
@@ -94,23 +101,16 @@ import HydraNode (
   withHydraNode,
   withPreparedHydraNodeInSync,
  )
-import Test.Hydra.Cluster.Utils (chainPointToSlot)
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
-import Test.QuickCheck (Positive (..), generate)
-import "aeson" Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
-import "aeson" Data.Aeson qualified as Aeson
-import "aeson" Data.Aeson.Types (parseMaybe)
-import "base" Control.Monad (foldM_)
-import "base" Data.List qualified as List
-import "bytestring" Data.ByteString qualified as BS
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map qualified as Map
-import "containers" Data.Set qualified as Set
-import "directory" System.Directory (removeDirectoryRecursive, removeFile)
-import "filepath" System.FilePath ((</>))
-import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
-import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON)
+import "hydra-cluster" Test.Hydra.Cluster.Utils (chainPointToSlot)
+import "hydra-node" Hydra.Chain.Backend (ChainBackend)
+import "hydra-node" Hydra.Chain.Backend qualified as Backend
+import "hydra-node" Hydra.Chain.Direct.State ()
+import "hydra-node" Hydra.Logging (Tracer, showLogsOnFailure)
+import "hydra-node" Hydra.Options
+import "hydra-tx" Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
+import "hydra-tx" Hydra.Tx.IsTx (txId)
+import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
 import "lens" Control.Lens ((^..), (^?))
 import "lens-aeson" Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
 import "text" Data.Text (isInfixOf)

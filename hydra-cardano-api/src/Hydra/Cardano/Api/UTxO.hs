@@ -1,7 +1,7 @@
 module Hydra.Cardano.Api.UTxO where
 
-import Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
-import Hydra.Cardano.Api.TxIn (txIns')
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude hiding (fromLedgerUTxO)
+import "hydra-cardano-api" Hydra.Cardano.Api.TxIn (txIns')
 
 import "base" Data.Foldable (toList)
 import "base" Data.Maybe (mapMaybe)

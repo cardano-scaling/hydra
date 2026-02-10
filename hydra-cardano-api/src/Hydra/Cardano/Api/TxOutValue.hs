@@ -1,6 +1,6 @@
 module Hydra.Cardano.Api.TxOutValue where
 
-import Hydra.Cardano.Api.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api.Prelude
 
 -- | Inject some 'Value' into a 'TxOutValue'
 mkTxOutValue ::

@@ -15,7 +15,7 @@
 --    depending on event we are currently dealing with we might want to alter our existing model.
 module Hydra.API.Projection where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar')
 

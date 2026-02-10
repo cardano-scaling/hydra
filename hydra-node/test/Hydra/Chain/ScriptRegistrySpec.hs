@@ -1,11 +1,12 @@
 module Hydra.Chain.ScriptRegistrySpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScripts)
+import "hydra-node" Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScripts)
 
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (generate)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   Address,
   NetworkId (..),
   PaymentKey,
@@ -21,18 +22,17 @@ import Hydra.Cardano.Api (
   pattern TxOut,
   pattern TxOutDatumNone,
  )
-import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost.Client (
+import "hydra-node" Hydra.Chain.Backend (ChainBackend (..))
+import "hydra-node" Hydra.Chain.Blockfrost.Client (
   APIBlockfrostError (..),
   BlockfrostException (..),
  )
-import Hydra.Options (ChainBackendOptions (..), defaultBlockfrostOptions)
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
+import "hydra-node" Hydra.Options (ChainBackendOptions (..), defaultBlockfrostOptions)
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair)
 
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon)
 import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "cardano-ledger-api" Cardano.Ledger.Api.PParams (emptyPParams)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon)
 
 spec :: Spec
 spec = describe "publishHydraScripts" $ do

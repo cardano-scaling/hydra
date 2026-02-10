@@ -1,12 +1,12 @@
 module Hydra.Node.InputQueueSpec where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Node.InputQueue (Queued (queuedId), createInputQueue, dequeue, enqueue)
-import Test.Hspec (Spec)
-import Test.Hspec.QuickCheck (prop)
-import Test.QuickCheck (NonEmptyList (NonEmpty), Property, counterexample)
-import Test.Util (isContinuous)
+import "QuickCheck" Test.QuickCheck (NonEmptyList (NonEmpty), Property, counterexample)
+import "hspec" Test.Hspec (Spec)
+import "hspec" Test.Hspec.QuickCheck (prop)
+import "hydra-node" Hydra.Node.InputQueue (Queued (queuedId), createInputQueue, dequeue, enqueue)
+import "hydra-node" Test.Util (isContinuous)
 import "io-sim" Control.Monad.IOSim (IOSim, runSimOrThrow)
 
 spec :: Spec

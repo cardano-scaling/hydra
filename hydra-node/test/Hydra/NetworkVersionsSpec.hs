@@ -1,11 +1,11 @@
 module Hydra.NetworkVersionsSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
-import Test.QuickCheck (Property, counterexample, forAll, property)
+import "QuickCheck" Test.QuickCheck (Property, counterexample, forAll, property)
 import "base" Data.Version (Version, makeVersion)
+import "hydra-node" Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 
 spec :: Spec
 spec =

@@ -1,11 +1,11 @@
 module Hydra.Tx.ContestationPeriod where
 
-import Hydra.Prelude hiding (Show, show)
+import "hydra-prelude" Hydra.Prelude hiding (Show, show)
 
-import Hydra.Data.ContestationPeriod qualified as OnChain
 import "base" Data.Fixed (Pico)
 import "base" Data.Ratio ((%))
 import "base" Text.Show (Show (..))
+import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
 import "time" Data.Time (secondsToNominalDiffTime)
 
 -- | A positive, non-zero number of seconds. Use 'fromInteger' on positive

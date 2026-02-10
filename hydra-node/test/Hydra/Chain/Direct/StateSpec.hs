@@ -4,10 +4,37 @@
 
 module Hydra.Chain.Direct.StateSpec where
 
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "QuickCheck" Test.QuickCheck (
+  Property,
+  Testable (property),
+  checkCoverage,
+  classify,
+  conjoin,
+  counterexample,
+  cover,
+  forAll,
+  forAllBlind,
+  forAllShow,
+  forAllShrink,
+  getPositive,
+  label,
+  sublistOf,
+  tabulate,
+  (.&&.),
+  (.||.),
+  (===),
+  (==>),
+ )
+import "QuickCheck" Test.QuickCheck.Monadic (assert, assertWith, monadicIO, monadicST, monitor, pick)
+import "bytestring" Data.ByteString.Lazy qualified as LBS
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "cardano-binary" Cardano.Binary (serialize)
+import "containers" Data.Set qualified as Set
+import "hspec-golden-aeson" Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import "hydra-cardano-api" Hydra.Cardano.Api (
   NetworkId (Mainnet),
   SlotNo,
   Tx,
@@ -34,10 +61,10 @@ import Hydra.Cardano.Api (
   valueSize,
   pattern PlutusScript,
  )
-import Hydra.Cardano.Api.Gen (genTxIn)
-import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
-import Hydra.Chain.Direct.State (
+import "hydra-cardano-api" Hydra.Cardano.Api.Gen (genTxIn)
+import "hydra-cardano-api" Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
+import "hydra-node" Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
+import "hydra-node" Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
   ClosedState (..),
@@ -63,41 +90,8 @@ import Hydra.Chain.Direct.State (
   unsafeIncrement,
   unsafeObserveInitAndCommits,
  )
-import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Contract.Dummy (dummyMintingScript)
-import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano.Evaluate (
-  evaluateTx,
-  maxTxSize,
- )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus (initialValidatorScript)
-import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
-import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
-import Hydra.Tx.Observe (
-  AbortObservation (..),
-  CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
-  ContestObservation (..),
-  DecrementObservation (..),
-  FanoutObservation (..),
-  HeadObservation (..),
-  IncrementObservation (..),
-  NotAnInitReason (..),
-  observeCommitTx,
-  observeDecrementTx,
-  observeHeadTx,
-  observeIncrementTx,
-  observeInitTx,
- )
-import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
-import Hydra.Tx.Snapshot qualified as Snapshot
-import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
-import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.Hydra.Chain.Direct.State (
+import "hydra-node" Hydra.Chain.Direct.State qualified as Transition
+import "hydra-node" Test.Hydra.Chain.Direct.State (
   genChainStateWithTx,
   genCloseTx,
   genCollectComTx,
@@ -116,41 +110,47 @@ import Test.Hydra.Chain.Direct.State (
   maxGenParties,
   pickChainContext,
  )
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
-import Test.Hydra.Tx.Mutation (
+import "hydra-plutus" Hydra.Contract.Dummy (dummyMintingScript)
+import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
+import "hydra-plutus" Hydra.Contract.Initial qualified as Initial
+import "hydra-plutus" Hydra.Plutus (initialValidatorScript)
+import "hydra-tx" Hydra.Ledger.Cardano.Evaluate (
+  evaluateTx,
+  maxTxSize,
+ )
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (toNominalDiffTime)
+import "hydra-tx" Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import "hydra-tx" Hydra.Tx.Observe (
+  AbortObservation (..),
+  CloseObservation (..),
+  CollectComObservation (..),
+  CommitObservation (..),
+  ContestObservation (..),
+  DecrementObservation (..),
+  FanoutObservation (..),
+  HeadObservation (..),
+  IncrementObservation (..),
+  NotAnInitReason (..),
+  observeCommitTx,
+  observeDecrementTx,
+  observeHeadTx,
+  observeIncrementTx,
+  observeInitTx,
+ )
+import "hydra-tx" Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
+import "hydra-tx" Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot, initialUTxO))
+import "hydra-tx" Hydra.Tx.Snapshot qualified as Snapshot
+import "hydra-tx" Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
+import "hydra-tx" Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
   modifyInlineDatum,
   replaceHeadId,
   replacePolicyIdWith,
  )
-import Test.QuickCheck (
-  Property,
-  Testable (property),
-  checkCoverage,
-  classify,
-  conjoin,
-  counterexample,
-  cover,
-  forAll,
-  forAllBlind,
-  forAllShow,
-  forAllShrink,
-  getPositive,
-  label,
-  sublistOf,
-  tabulate,
-  (.&&.),
-  (.||.),
-  (===),
-  (==>),
- )
-import Test.QuickCheck.Monadic (assert, assertWith, monadicIO, monadicST, monitor, pick)
-import "bytestring" Data.ByteString.Lazy qualified as LBS
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "cardano-binary" Cardano.Binary (serialize)
-import "containers" Data.Set qualified as Set
 import "plutus-ledger-api" PlutusLedgerApi.V3 qualified as Plutus
 import "base" Prelude qualified
 

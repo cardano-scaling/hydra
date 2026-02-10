@@ -1,10 +1,10 @@
 -- | Event sink example that sends events as JSON via udp.
 module Hydra.Events.UDP where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Events (EventSink (..))
 import "aeson" Data.Aeson (encode)
+import "hydra-node" Hydra.Events (EventSink (..))
 import "network" Network.Socket (HostName, ServiceName)
 import "network-udp" Network.UDP (UDPSocket, clientSocket, close, send)
 import "resourcet" Control.Monad.Trans.Resource (MonadResource, allocate)

@@ -2,7 +2,7 @@
 
 module Hydra.Data.ContestationPeriod where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "plutus-tx" PlutusTx.Prelude qualified as Plutus
 

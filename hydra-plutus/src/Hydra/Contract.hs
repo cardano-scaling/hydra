@@ -1,18 +1,18 @@
 -- | Things related to the Hydra smart contracts / script validators.
 module Hydra.Contract where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "bytestring" Data.ByteString qualified as BS
+import "hydra-cardano-api" Hydra.Cardano.Api (
   ScriptHash,
   hashScript,
   serialiseToRawBytes,
   pattern PlutusScript,
  )
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
-import "bytestring" Data.ByteString qualified as BS
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens qualified as HeadTokens
+import "hydra-plutus" Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.

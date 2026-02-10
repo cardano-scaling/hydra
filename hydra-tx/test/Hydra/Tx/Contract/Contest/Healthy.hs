@@ -2,44 +2,44 @@
 
 module Hydra.Tx.Contract.Contest.Healthy where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
-import Hydra.Plutus.Extras (posixFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx (registryUTxO)
-import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
-import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO)
-import Hydra.Tx.Party (Party, deriveParty, partyToChain)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (
+import "QuickCheck" Test.QuickCheck (elements, suchThat)
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus-extras" Hydra.Plutus.Extras (posixFromUTCTime)
+import "hydra-plutus-extras" Hydra.Plutus.Orphans ()
+import "hydra-tx" Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import "hydra-tx" Hydra.Tx (registryUTxO)
+import "hydra-tx" Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
+import "hydra-tx" Hydra.Tx.HeadId (mkHeadId)
+import "hydra-tx" Hydra.Tx.Init (mkHeadOutput)
+import "hydra-tx" Hydra.Tx.IsTx (hashUTxO)
+import "hydra-tx" Hydra.Tx.Party (Party, deriveParty, partyToChain)
+import "hydra-tx" Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
+import "hydra-tx" Hydra.Tx.Utils (
   IncrementalAction (..),
   setIncrementalActionMaybe,
   splitUTxO,
  )
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (
+import "hydra-tx" Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
+import "hydra-tx" Test.Hydra.Tx.Gen (
   genForParty,
   genOneUTxOFor,
   genScriptRegistry,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   addParticipationTokens,
  )
-import Test.QuickCheck (elements, suchThat)
-import Test.QuickCheck.Instances ()
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
 import "plutus-ledger-api" PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 --
 -- ContestTx

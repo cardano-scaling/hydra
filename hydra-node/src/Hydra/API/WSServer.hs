@@ -4,12 +4,16 @@
 
 module Hydra.API.WSServer where
 
-import Hydra.Prelude hiding (TVar, filter, readTVar, seq)
+import "hydra-prelude" Hydra.Prelude hiding (TVar, filter, readTVar, seq)
 
-import Hydra.API.APIServerLog (APIServerLog (..))
-import Hydra.API.ClientInput (ClientInput (SafeClose))
-import Hydra.API.Projection (Projection (..))
-import Hydra.API.ServerOutput (
+import "aeson" Data.Aeson qualified as Aeson
+import "base" Data.Version (showVersion)
+import "conduit" Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
+import "conduit" Data.Conduit.Combinators (filter)
+import "hydra-node" Hydra.API.APIServerLog (APIServerLog (..))
+import "hydra-node" Hydra.API.ClientInput (ClientInput (SafeClose))
+import "hydra-node" Hydra.API.Projection (Projection (..))
+import "hydra-node" Hydra.API.ServerOutput (
   ClientMessage,
   Greetings (..),
   HeadStatus (..),
@@ -27,22 +31,18 @@ import Hydra.API.ServerOutput (
   removeSnapshotUTxO,
   snapshotUtxo,
  )
-import Hydra.API.ServerOutputFilter (
+import "hydra-node" Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
-import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
-import Hydra.HeadLogic.State qualified as HeadState
-import Hydra.Logging (Tracer, traceWith)
-import Hydra.NetworkVersions qualified as NetworkVersions
-import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (..), syncedStatus)
-import Hydra.Tx (HeadId, Party)
-import "aeson" Data.Aeson qualified as Aeson
-import "base" Data.Version (showVersion)
-import "conduit" Conduit (ConduitT, ResourceT, mapM_C, runConduitRes, (.|))
-import "conduit" Data.Conduit.Combinators (filter)
+import "hydra-node" Hydra.Chain (Chain (..))
+import "hydra-node" Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
+import "hydra-node" Hydra.HeadLogic.State qualified as HeadState
+import "hydra-node" Hydra.Logging (Tracer, traceWith)
+import "hydra-node" Hydra.NetworkVersions qualified as NetworkVersions
+import "hydra-node" Hydra.Node.Environment (Environment (..))
+import "hydra-node" Hydra.Node.State (NodeState (..), syncedStatus)
+import "hydra-tx" Hydra.Chain.ChainState (IsChainState)
+import "hydra-tx" Hydra.Tx (HeadId, Party)
 import "lens" Control.Lens ((.~))
 import "lens-aeson" Data.Aeson.Lens (atKey)
 import "modern-uri" Text.URI hiding (ParseException)

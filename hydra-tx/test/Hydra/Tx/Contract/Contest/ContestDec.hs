@@ -2,32 +2,32 @@
 
 module Hydra.Tx.Contract.Contest.ContestDec where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (label)
+import "hydra-test-utils" Test.Hydra.Prelude
 
 import "base" Data.Maybe (fromJust)
 
-import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (..))
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import "hydra-plutus" Hydra.Contract.Error (toErrorCode)
+import "hydra-plutus" Hydra.Contract.HeadError (HeadError (..))
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-tx" Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
 
-import Hydra.Tx (Snapshot)
-import Hydra.Tx.Contract.Contest.Healthy (
+import "QuickCheck" Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
+import "hydra-tx" Hydra.Tx (Snapshot)
+import "hydra-tx" Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyContestSnapshotNumber,
   healthySignature,
  )
-import Test.Hydra.Tx.Mutation (
+import "hydra-tx" Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
   modifyInlineDatum,
   replaceOmegaUTxOHash,
   replaceSnapshotVersion,
  )
-import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
-import Test.QuickCheck.Instances ()
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 data ContestDecMutation
   = ContestUsedDecAlterRedeemerDecommitHash

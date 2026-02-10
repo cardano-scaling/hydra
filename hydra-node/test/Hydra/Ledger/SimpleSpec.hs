@@ -1,15 +1,15 @@
 module Hydra.Ledger.SimpleSpec where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
-import Hydra.Ledger (applyTransactions)
-import Hydra.Ledger.Simple
-import Hydra.Tx.IsTx (IsTx (..))
-import Test.QuickCheck (Property, choose, forAllShrink, getSize, shrinkList, sublistOf)
+import "QuickCheck" Test.QuickCheck (Property, choose, forAllShrink, getSize, shrinkList, sublistOf)
 import "base" Data.Foldable (maximum)
 import "containers" Data.Set qualified as Set
+import "hydra-node" Hydra.Ledger (applyTransactions)
+import "hydra-node" Hydra.Ledger.Simple
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import "hydra-tx" Hydra.Tx.IsTx (IsTx (..))
 
 spec :: Spec
 spec =

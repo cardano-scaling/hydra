@@ -6,10 +6,10 @@ module Hydra.Contract.HeadState where
 
 import "plutus-tx" PlutusTx.Prelude
 
-import Hydra.Data.ContestationPeriod (ContestationPeriod)
-import Hydra.Data.Party (Party)
 import "base" GHC.Generics (Generic)
 import "base" Text.Show (Show)
+import "hydra-plutus" Hydra.Data.ContestationPeriod (ContestationPeriod)
+import "hydra-plutus" Hydra.Data.Party (Party)
 import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
 import "plutus-tx" PlutusTx qualified
 

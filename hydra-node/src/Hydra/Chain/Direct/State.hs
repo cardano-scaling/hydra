@@ -8,9 +8,14 @@
 -- layer and it's constituents.
 module Hydra.Chain.Direct.State where
 
-import Hydra.Prelude hiding (init)
+import "hydra-prelude" Hydra.Prelude hiding (init)
 
-import Hydra.Cardano.Api (
+import "base" Data.List qualified as List
+import "base" Data.Maybe (fromJust)
+import "base" GHC.IsList qualified as IsList
+import "cardano-api" Cardano.Api.UTxO qualified as UTxO
+import "containers" Data.Map qualified as Map
+import "hydra-cardano-api" Hydra.Cardano.Api (
   AssetId (..),
   AssetName (..),
   ChainPoint (..),
@@ -45,20 +50,20 @@ import Hydra.Cardano.Api (
   pattern TxIn,
   pattern TxOut,
  )
-import Hydra.Chain (
+import "hydra-node" Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
   maxMainnetLovelace,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
-import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
-import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano (adjustUTxO)
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
-import Hydra.Tx (
+import "hydra-plutus" Hydra.Contract.Head qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadState qualified as Head
+import "hydra-plutus" Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import "hydra-plutus" Hydra.Data.ContestationPeriod qualified as OnChain
+import "hydra-plutus" Hydra.Data.Party qualified as OnChain
+import "hydra-plutus" Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
+import "hydra-tx" Hydra.Ledger.Cardano (adjustUTxO)
+import "hydra-tx" Hydra.Tx (
   CommitBlueprintTx (..),
   ConfirmedSnapshot (..),
   HeadId (..),
@@ -74,20 +79,20 @@ import Hydra.Tx (
   partyToChain,
   registryUTxO,
  )
-import Hydra.Tx.Abort (AbortTxError (..), abortTx)
-import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
-import Hydra.Tx.CollectCom (UTxOHash, collectComTx)
-import Hydra.Tx.Commit (commitTx)
-import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
-import Hydra.Tx.Crypto (HydraKey)
-import Hydra.Tx.Decrement (decrementTx)
-import Hydra.Tx.Deposit (observeDepositTxOut)
-import Hydra.Tx.Fanout (fanoutTx)
-import Hydra.Tx.Increment (incrementTx)
-import Hydra.Tx.Init (initTx)
-import Hydra.Tx.Observe (
+import "hydra-tx" Hydra.Tx.Abort (AbortTxError (..), abortTx)
+import "hydra-tx" Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
+import "hydra-tx" Hydra.Tx.CollectCom (UTxOHash, collectComTx)
+import "hydra-tx" Hydra.Tx.Commit (commitTx)
+import "hydra-tx" Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import "hydra-tx" Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey)
+import "hydra-tx" Hydra.Tx.Decrement (decrementTx)
+import "hydra-tx" Hydra.Tx.Deposit (observeDepositTxOut)
+import "hydra-tx" Hydra.Tx.Fanout (fanoutTx)
+import "hydra-tx" Hydra.Tx.Increment (incrementTx)
+import "hydra-tx" Hydra.Tx.Init (initTx)
+import "hydra-tx" Hydra.Tx.Observe (
   CloseObservation (..),
   CollectComObservation (..),
   CommitObservation (..),
@@ -98,14 +103,9 @@ import Hydra.Tx.Observe (
   observeCommitTx,
   observeInitTx,
  )
-import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Recover (recoverTx)
-import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
-import "base" Data.List qualified as List
-import "base" Data.Maybe (fromJust)
-import "base" GHC.IsList qualified as IsList
-import "cardano-api" Cardano.Api.UTxO qualified as UTxO
-import "containers" Data.Map qualified as Map
+import "hydra-tx" Hydra.Tx.OnChainId (OnChainId)
+import "hydra-tx" Hydra.Tx.Recover (recoverTx)
+import "hydra-tx" Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.

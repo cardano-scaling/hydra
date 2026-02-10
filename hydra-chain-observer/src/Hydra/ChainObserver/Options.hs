@@ -2,16 +2,16 @@
 
 module Hydra.ChainObserver.Options where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Cardano.Api (ChainPoint, NetworkId, SocketPath)
-import Hydra.NetworkVersions (hydraNodeVersion)
-import Hydra.Options (
+import "base" Data.Version (showVersion)
+import "hydra-cardano-api" Hydra.Cardano.Api (ChainPoint, NetworkId, SocketPath)
+import "hydra-node" Hydra.NetworkVersions (hydraNodeVersion)
+import "hydra-node" Hydra.Options (
   networkIdParser,
   nodeSocketParser,
   startChainFromParser,
  )
-import "base" Data.Version (showVersion)
 import "network-uri" Network.URI (URI, parseURI)
 import "optparse-applicative" Options.Applicative (
   Parser,

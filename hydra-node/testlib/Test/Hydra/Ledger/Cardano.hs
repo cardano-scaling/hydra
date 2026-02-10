@@ -2,19 +2,19 @@
 
 module Test.Hydra.Ledger.Cardano where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
-import Hydra.Ledger.Cardano (mkTransferTx)
-import Hydra.Tx (IsTx (..))
-import Test.Cardano.Ledger.Babbage.Arbitrary ()
-import Test.Cardano.Ledger.Conway.Arbitrary ()
-import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
-import Test.QuickCheck (choose, getSize, vectorOf)
+import "QuickCheck" Test.QuickCheck (choose, getSize, vectorOf)
 import "base" Control.Monad (foldM)
 import "bytestring" Data.ByteString qualified as BS
+import "hydra-cardano-api" Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
+import "hydra-tx" Hydra.Ledger.Cardano (mkTransferTx)
+import "hydra-tx" Hydra.Tx (IsTx (..))
+import "hydra-tx" Test.Hydra.Tx.Fixture (testNetworkId)
+import "hydra-tx" Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
+import "z-cardano-ledger-babbage-z-testlib" Test.Cardano.Ledger.Babbage.Arbitrary ()
+import "z-cardano-ledger-conway-z-testlib" Test.Cardano.Ledger.Conway.Arbitrary ()
 
 -- * Generators
 

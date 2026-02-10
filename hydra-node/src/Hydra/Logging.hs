@@ -24,7 +24,7 @@ module Hydra.Logging (
   defaultQueueSize,
 ) where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
 import "aeson" Data.Aeson (pairs, (.=))
 import "aeson" Data.Aeson qualified as Aeson

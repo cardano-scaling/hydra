@@ -2,22 +2,9 @@
 
 module HydraNode where
 
-import Hydra.Cardano.Api
-import Hydra.Prelude hiding (STM, delete)
+import "hydra-cardano-api" Hydra.Cardano.Api
+import "hydra-prelude" Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (cliQueryProtocolParameters)
-import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (readConfigFile)
-import Hydra.HeadLogic.State (SeenSnapshot)
-import Hydra.Logging (Tracer, Verbosity (..), traceWith)
-import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
-import Hydra.Network qualified as Network
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
-import Hydra.Tx (ConfirmedSnapshot)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.Crypto (HydraKey)
-import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
 import "aeson" Data.Aeson (Value (..), object, (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "aeson" Data.Aeson.KeyMap qualified as KeyMap
@@ -31,6 +18,19 @@ import "directory" System.Directory (createDirectoryIfMissing)
 import "filepath" System.FilePath ((<.>), (</>))
 import "http-conduit" Network.HTTP.Conduit (parseUrlThrow)
 import "http-conduit" Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJSON)
+import "hydra-cluster" CardanoNode (cliQueryProtocolParameters)
+import "hydra-cluster" Hydra.Cluster.Util (readConfigFile)
+import "hydra-node" Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
+import "hydra-node" Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import "hydra-node" Hydra.HeadLogic.State (SeenSnapshot)
+import "hydra-node" Hydra.Logging (Tracer, Verbosity (..), traceWith)
+import "hydra-node" Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
+import "hydra-node" Hydra.Network qualified as Network
+import "hydra-node" Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
+import "hydra-test-utils" Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
+import "hydra-tx" Hydra.Tx (ConfirmedSnapshot)
+import "hydra-tx" Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import "hydra-tx" Hydra.Tx.Crypto (HydraKey)
 import "io-classes" Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import "io-classes" Control.Monad.Class.MonadAsync (forConcurrently)
 import "lens" Control.Lens ((?~))

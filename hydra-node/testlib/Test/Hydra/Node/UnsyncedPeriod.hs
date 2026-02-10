@@ -2,11 +2,11 @@
 
 module Test.Hydra.Node.UnsyncedPeriod where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Node.UnsyncedPeriod
-import Test.QuickCheck (choose)
+import "QuickCheck" Test.QuickCheck (choose)
+import "hydra-node" Hydra.Node.UnsyncedPeriod
 
 instance Arbitrary UnsyncedPeriod where
   arbitrary = UnsyncedPeriod . fromInteger <$> choose (1, 86400)

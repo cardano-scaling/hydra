@@ -4,15 +4,15 @@
 -- purpose.
 module Hydra.Plutus.Orphans where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Test.QuickCheck.Instances.ByteString ()
 import "aeson" Data.Aeson (object, withObject, (.:), (.=))
 import "aeson" Data.Aeson qualified as Aeson
 import "base16-bytestring" Data.ByteString.Base16 qualified as Base16
 import "plutus-ledger-api" PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime (..), PubKeyHash (..))
 import "plutus-tx" PlutusTx.Prelude (BuiltinByteString, fromBuiltin, toBuiltin)
+import "quickcheck-instances" Test.QuickCheck.Instances.ByteString ()
 
 instance Arbitrary BuiltinByteString where
   arbitrary = toBuiltin <$> (arbitrary :: Gen ByteString)

@@ -6,11 +6,11 @@
 -- generic logging framework. All logs are output in [JSON](https://www.json.org/json-en.html).
 module Test.Hydra.Logging where
 
-import Test.Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Logging
+import "hydra-node" Hydra.Logging
 
-import Test.QuickCheck.Instances.Text ()
+import "quickcheck-instances" Test.QuickCheck.Instances.Text ()
 
 instance Arbitrary Verbosity where
   arbitrary = genericArbitrary

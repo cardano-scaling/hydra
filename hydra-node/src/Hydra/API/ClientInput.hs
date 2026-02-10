@@ -1,8 +1,8 @@
 module Hydra.API.ClientInput where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
+import "hydra-tx" Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 
 data ClientInput tx
   = Init

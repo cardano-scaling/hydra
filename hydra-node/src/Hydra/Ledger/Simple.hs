@@ -10,11 +10,8 @@
 -- will never depend on the L1 slot.
 module Hydra.Ledger.Simple where
 
-import Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
-import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
-import Hydra.Tx (IsTx (..))
 import "aeson" Data.Aeson (
   object,
   withObject,
@@ -22,6 +19,9 @@ import "aeson" Data.Aeson (
   (.=),
  )
 import "containers" Data.Set qualified as Set
+import "hydra-node" Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
+import "hydra-tx" Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
+import "hydra-tx" Hydra.Tx (IsTx (..))
 import "serialise" Codec.Serialise (serialise)
 
 -- * Simple transactions

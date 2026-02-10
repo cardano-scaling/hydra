@@ -3,28 +3,28 @@
 
 module Test.Hydra.Options where
 
-import Hydra.Prelude
-import Test.Hydra.Prelude
+import "hydra-prelude" Hydra.Prelude
+import "hydra-test-utils" Test.Hydra.Prelude
 
-import Hydra.Cardano.Api (
+import "bytestring" Data.ByteString qualified as BS
+import "hydra-cardano-api" Hydra.Cardano.Api (
   ChainPoint (..),
   SlotNo (..),
   deserialiseFromRawBytes,
   proxyToAsType,
  )
-import "bytestring" Data.ByteString qualified as BS
 import "iproute" Data.IP (IP (IPv4), toIPv4w)
 
-import Hydra.Logging (Verbosity (..))
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), LedgerConfig (..), OfflineChainConfig (..), RunOptions (..), defaultBlockfrostOptions, defaultDirectOptions)
-import Test.Hydra.Logging ()
-import Test.Hydra.Network ()
-import Test.Hydra.Node.ApiTransactionTimeout ()
-import Test.Hydra.Node.DepositPeriod ()
-import Test.Hydra.Node.UnsyncedPeriod ()
-import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (Positive (..), choose, elements, listOf, listOf1, oneof, vectorOf)
-import Test.QuickCheck.Instances ()
+import "QuickCheck" Test.QuickCheck (Positive (..), choose, elements, listOf, listOf1, oneof, vectorOf)
+import "hydra-node" Hydra.Logging (Verbosity (..))
+import "hydra-node" Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), LedgerConfig (..), OfflineChainConfig (..), RunOptions (..), defaultBlockfrostOptions, defaultDirectOptions)
+import "hydra-node" Test.Hydra.Logging ()
+import "hydra-node" Test.Hydra.Network ()
+import "hydra-node" Test.Hydra.Node.ApiTransactionTimeout ()
+import "hydra-node" Test.Hydra.Node.DepositPeriod ()
+import "hydra-node" Test.Hydra.Node.UnsyncedPeriod ()
+import "hydra-tx" Test.Hydra.Tx.Gen ()
+import "quickcheck-instances" Test.QuickCheck.Instances ()
 
 instance Arbitrary IP where
   arbitrary = IPv4 . toIPv4w <$> arbitrary
