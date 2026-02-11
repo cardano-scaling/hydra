@@ -134,12 +134,13 @@ spec = parallel $ do
   describe "stepHydraNode" $ do
     around setupHydrate $ do
       it "events are sent to all sinks" $ \testHydrate -> do
+        now <- getCurrentTime
         (mockSink1, getMockSinkEvents1) <- createRecordingSink
         (mockSink2, getMockSinkEvents2) <- createRecordingSink
 
         testHydrate (mockEventStore []) [mockSink1, mockSink2]
           >>= notConnect
-          >>= primeWith inputsToOpenHead
+          >>= primeWith now inputsToOpenHead
           >>= runToCompletion
 
         events <- getMockSinkEvents1
@@ -156,10 +157,11 @@ spec = parallel $ do
 
         forAllShrinkBlind genInputs shrink $ \someInputs ->
           idempotentIOProperty $ do
+            now <- getCurrentTime
             (sink, getSinkEvents) <- createRecordingSink
             testHydrate (mockEventStore []) [sink]
               >>= notConnect
-              >>= primeWith someInputs
+              >>= primeWith now someInputs
               >>= runToCompletion
 
             events <- getSinkEvents
@@ -174,11 +176,12 @@ spec = parallel $ do
 
       it "can continue after re-hydration" $ \testHydrate ->
         failAfter 1 $ do
+          now <- getCurrentTime
           eventStore <- createMockEventStore
 
           testHydrate eventStore []
             >>= notConnect
-            >>= primeWith inputsToOpenHead
+            >>= primeWith now inputsToOpenHead
             >>= runToCompletion
 
           let reqTx = receiveMessage ReqTx{transaction = tx1}
@@ -189,7 +192,7 @@ spec = parallel $ do
           (node, getServerOutputs) <-
             testHydrate eventStore [recordingSink]
               >>= notConnect
-              >>= primeWith [reqTx]
+              >>= primeWith now [reqTx]
               >>= recordServerOutputs
           runToCompletion node
 
@@ -341,9 +344,8 @@ spec = parallel $ do
 -- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
 -- to advance the chain slot and ensure the 'NodeState' is in sync. This is
 -- returning the node to allow for chaining with 'runToCompletion'.
-primeWith :: (MonadSTM m, MonadTime m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
-primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
-  now <- getCurrentTime
+primeWith :: MonadSTM m => UTCTime -> [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWith now inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
   chainSlot <- currentSlot <$> atomically queryNodeState
   let tick = ChainInput $ Tick now (chainSlot + 1)
   forM_ (tick : inputs) enqueue
@@ -461,11 +463,12 @@ testHydraNode ::
   [Input SimpleTx] ->
   m (HydraNode SimpleTx m)
 testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
+  now <- getCurrentTime
   let eventStore :: Monad m => EventStore (StateEvent SimpleTx) m
       eventStore = mockEventStore []
   hydrate tracer env simpleLedger 0 eventStore []
     >>= notConnect
-    >>= primeWith inputs
+    >>= primeWith now inputs
  where
   env =
     Environment
