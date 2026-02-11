@@ -30,7 +30,7 @@ import Hydra.Chain (
   OnChainTx (..),
   PostChainTx (CollectComTx, ContestTx, DecrementTx, IncrementTx),
  )
-import Hydra.Chain.ChainState (ChainSlot (..), IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)

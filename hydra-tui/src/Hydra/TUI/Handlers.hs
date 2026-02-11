@@ -246,7 +246,7 @@ handleHydraEventsInfo = \case
         <> show chainTime
         <> ", Drift: "
         <> show drift
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime}}) ->
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime, drift}}) ->
     warn time $
       "Node state is back in sync with chain backend. Chain time: "
         <> show chainTime

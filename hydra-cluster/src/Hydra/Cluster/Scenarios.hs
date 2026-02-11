@@ -36,7 +36,6 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as T
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),

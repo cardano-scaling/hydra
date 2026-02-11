@@ -1600,7 +1600,7 @@ handleChainInput env _ledger now _currentSlot pendingDeposits st ev syncStatus =
     , ChainInput Rollback{rolledBackChainState, chainTime}
     ) ->
       newState ChainRolledBack{chainState = rolledBackChainState}
-        <> handleOutOfSync env now chainTime syncStatus
+        <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
         <> maybeRepostIncrementTx headId parameters pendingDeposits currentDepositTxId confirmedSnapshot
         <> maybeRepostDecrementTx headId parameters decommitTx confirmedSnapshot
   -- General
