@@ -450,9 +450,14 @@ withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions acti
   let waitTime = blockTime * waitFactor
   withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
  where
-  waitFactor = 5
-  action' waitTime client = do
-    waitForNodesSynced waitTime $ client :| []
+  action' client = do
+    syncTimeout <-
+      getHydraTestnet <&> \case
+        LocalDevnet -> 5
+        BlockfrostTesting -> 10
+        -- Public testnets need more time to find chain intersection and sync
+        _ -> 60
+    waitForNodesSynced tracer syncTimeout $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
