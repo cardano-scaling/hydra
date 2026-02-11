@@ -1111,7 +1111,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
-                  , accumulator = Accumulator.build [hashUTxO @SimpleTx mempty, hashUTxO depositedUtxo, hashUTxO @SimpleTx mempty]
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1233,7 +1233,7 @@ spec =
                   , utxo = mempty
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
-                  , accumulator = Accumulator.build [hashUTxO @SimpleTx mempty, hashUTxO depositedUtxo, hashUTxO @SimpleTx mempty]
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1309,7 +1309,7 @@ spec =
                   , utxo = mempty -- activeUTxO after decommit
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
-                  , accumulator = Accumulator.build [hashUTxO @SimpleTx mempty, hashUTxO (utxoRef 3), hashUTxO @SimpleTx mempty]
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
