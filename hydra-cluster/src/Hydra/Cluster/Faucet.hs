@@ -16,6 +16,7 @@ import CardanoClient (
 import Control.Exception (IOException)
 import Control.Monad.Class.MonadThrow (Handler (Handler), catches)
 import Control.Tracer (Tracer, traceWith)
+import Data.Aeson qualified as Aeson
 import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
@@ -24,12 +25,15 @@ import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
+  queryScriptRegistry,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Tx (balance, txId)
+import System.Directory (doesFileExist)
+import System.FilePath ((</>))
 
 data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
@@ -278,3 +282,32 @@ publishHydraScriptsAs backend actor = do
   txids <- publishHydraScripts backend sk
   delayBF backend
   pure txids
+
+-- | Like 'publishHydraScriptsAs', but caches the resulting 'TxId's to a file
+-- in the given directory. On subsequent calls, the cached 'TxId's are validated
+-- against the chain (using 'queryScriptRegistry') and reused if still valid.
+-- This avoids re-publishing identical scripts on every test run, saving funds
+-- and time especially on public testnets.
+publishOrReuseHydraScripts :: ChainBackend backend => backend -> Actor -> FilePath -> IO [TxId]
+publishOrReuseHydraScripts backend actor cacheDir = do
+  let cacheFile = cacheDir </> ".hydra-scripts-tx-ids"
+  readCachedTxIds cacheFile >>= \case
+    Just txIds -> do
+      result <- try $ queryScriptRegistry backend txIds
+      case result of
+        Right _registry -> pure txIds
+        Left (_ :: SomeException) -> publishAndCache cacheFile
+    Nothing -> publishAndCache cacheFile
+ where
+  readCachedTxIds :: FilePath -> IO (Maybe [TxId])
+  readCachedTxIds path = do
+    exists <- doesFileExist path
+    if exists
+      then either (const Nothing) Just <$> Aeson.eitherDecodeFileStrict path
+      else pure Nothing
+
+  publishAndCache :: FilePath -> IO [TxId]
+  publishAndCache path = do
+    txIds <- publishHydraScriptsAs backend actor
+    Aeson.encodeFile path txIds
+    pure txIds
