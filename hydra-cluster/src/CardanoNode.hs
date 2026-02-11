@@ -41,9 +41,9 @@ import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfr
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (
   createDirectoryIfMissing,
+  doesDirectoryExist,
   doesFileExist,
   getCurrentDirectory,
-  removeDirectoryRecursive,
   removeFile,
  )
 import System.Exit (ExitCode (..))
@@ -257,13 +257,26 @@ withBackend ::
 withBackend tracer stateDirectory action = do
   getHydraTestnet >>= \case
     LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
-    PreviewTestnet -> withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) stateDirectory Preview action
-    PreproductionTestnet -> do
-      removeDirectoryRecursive (stateDirectory </> "db") `catch` (\(_ :: SomeException) -> pure ())
-      downloadLatestSnapshotTo (contramap FromMithril tracer) Preproduction stateDirectory
-      withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) stateDirectory Preproduction action
-    MainnetTesting -> withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) stateDirectory Mainnet action
+    PreviewTestnet -> withPublicTestnetNode Preview action
+    PreproductionTestnet -> withPublicTestnetNode Preproduction action
+    MainnetTesting -> withPublicTestnetNode Mainnet action
     BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory action
+ where
+  withPublicTestnetNode network action' = do
+    nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
+    createDirectoryIfMissing True nodeDir
+    let syncAndRun blockTime backend = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
+          action' blockTime backend
+    findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
+      Just (blockTime, backend) ->
+        syncAndRun blockTime backend
+      Nothing -> do
+        let dbDir = nodeDir </> "db"
+        dbExists <- doesDirectoryExist dbDir
+        unless dbExists $ do
+          downloadLatestSnapshotTo (contramap FromMithril tracer) network nodeDir
+        withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) nodeDir network syncAndRun
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
