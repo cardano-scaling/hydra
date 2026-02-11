@@ -225,7 +225,6 @@ coverFee_ ::
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , EraUTxO era
-  , Ledger.AtMostEra "Conway" era
   ) =>
   PParams era ->
   SystemStart ->
