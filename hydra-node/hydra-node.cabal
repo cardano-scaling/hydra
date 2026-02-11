@@ -38,6 +38,7 @@ common project-config
     PatternSynonyms
     TypeFamilies
     ViewPatterns
+    StrictData
 
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-record-updates
