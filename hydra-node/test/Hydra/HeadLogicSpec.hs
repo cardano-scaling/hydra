@@ -354,6 +354,67 @@ spec =
           let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
           s1 `hasEffect` NetworkEffect reqSn
 
+        it "does not get stuck when DecommitFinalized races with in-flight ReqSn" $ do
+          -- Scenario: A decommit snapshot was just confirmed, the leader sent
+          -- ReqSn(v=3, sn=2) and seenSnapshot = RequestedSnapshot. At the same
+          -- moment, the DecommitFinalized chain event arrives bumping version 3→4.
+          -- Without the fix, seenSnapshot stays RequestedSnapshot (snapshotInFlight
+          -- = True) forever, because the stale ReqSn(v=3) is rejected by all
+          -- parties and no new snapshot can ever be requested.
+          let localUTxO = utxoRefs [1]
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              -- State just after leader sent ReqSn(v=3, sn=1): snapshot in flight
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    , decommitTx = Just (SimpleTx 10 mempty (utxoRef 99))
+                    }
+
+          -- 1. DecommitFinalized arrives, bumping version to 4
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          now <- nowFromSlot s0.currentSlot
+          let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
+          let s1 = aggregateState s0 decommitFinalizedOutcome
+
+          -- Verify seenSnapshot was reset (not stuck as RequestedSnapshot)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
+              chs.decommitTx `shouldBe` Nothing
+            _ -> fail "expected Open state"
+
+          -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
+          let staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
+          now' <- nowFromSlot s1.currentSlot
+          update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
+            Error (RequireFailed ReqSvNumberInvalid{}) -> True
+            _ -> False
+
+          -- 3. A new ReqTx arrives — alice (leader for sn=2) can request a new
+          -- snapshot because snapshotInFlight is now False after the reset
+          let newTx = aValidTx 42
+              reqTx = receiveMessage $ ReqTx newTx
+          s2 <- runHeadLogic aliceEnv ledger s1 $ do
+            step reqTx
+            getState
+
+          -- Verify the head is not stuck: seenSnapshot should have advanced
+          case s2 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldSatisfy` \case
+                RequestedSnapshot{} -> True
+                _ -> False
+            _ -> fail "expected Open state"
+
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
           let s0 = inOpenState threeParties
