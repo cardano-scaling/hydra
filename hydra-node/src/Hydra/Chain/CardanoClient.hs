@@ -62,15 +62,12 @@ data CardanoClient = CardanoClient
 --
 -- Throws 'SubmitTransactionException' if submission fails.
 submitTransaction ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   -- | A signed transaction.
   Tx ->
   IO ()
-submitTransaction networkId socket tx =
-  submitTxToNodeLocal (localNodeConnectInfo networkId socket) txInMode >>= \case
+submitTransaction connectInfo tx =
+  submitTxToNodeLocal connectInfo txInMode >>= \case
     SubmitSuccess ->
       pure ()
     SubmitFail (TxValidationEraMismatch e) ->
@@ -101,19 +98,16 @@ instance Exception SubmitTransactionException
 -- Note that this function loops forever; hence, one probably wants to couple it
 -- with a surrounding timeout.
 awaitTransaction ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   -- | The transaction to watch / await
   Tx ->
   IO UTxO
-awaitTransaction networkId socket tx =
+awaitTransaction connectInfo tx =
   go
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
   go = do
-    utxo <- queryUTxOByTxIn networkId socket QueryTip ins
+    utxo <- queryUTxOByTxIn connectInfo QueryTip ins
     if UTxO.null utxo
       then go
       else pure utxo
@@ -125,34 +119,33 @@ data QueryPoint = QueryTip | QueryAt ChainPoint
   deriving stock (Eq, Show, Generic)
 
 -- | Query the latest chain point aka "the tip".
-queryTip :: NetworkId -> SocketPath -> IO ChainPoint
-queryTip networkId socket =
-  chainTipToChainPoint <$> getLocalChainTip (localNodeConnectInfo networkId socket)
+queryTip :: LocalNodeConnectInfo -> IO ChainPoint
+queryTip connectInfo =
+  chainTipToChainPoint <$> getLocalChainTip connectInfo
 
 -- | Query the system start parameter at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-querySystemStart :: NetworkId -> SocketPath -> QueryPoint -> IO SystemStart
-querySystemStart networkId socket queryPoint =
-  runQuery networkId socket queryPoint QuerySystemStart
+querySystemStart :: LocalNodeConnectInfo -> QueryPoint -> IO SystemStart
+querySystemStart connectInfo queryPoint =
+  runQuery connectInfo queryPoint QuerySystemStart
 
 -- | Query the era history at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO EraHistory
-queryEraHistory networkId socket queryPoint =
-  runQuery networkId socket queryPoint QueryEraHistory
+queryEraHistory :: LocalNodeConnectInfo -> QueryPoint -> IO EraHistory
+queryEraHistory connectInfo queryPoint =
+  runQuery connectInfo queryPoint QueryEraHistory
 
 -- | Query the current epoch number.
 --
 -- Throws at least 'QueryException' if query fails.
 queryEpochNo ::
-  NetworkId ->
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   IO EpochNo
-queryEpochNo networkId socket queryPoint = do
-  runQueryExpr networkId socket queryPoint $ do
+queryEpochNo connectInfo queryPoint = do
+  runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryEpoch)
 
 -- | Query the protocol parameters at given point and convert them to Babbage
@@ -160,14 +153,11 @@ queryEpochNo networkId socket queryPoint = do
 --
 -- Throws at least 'QueryException' if query fails.
 queryProtocolParameters ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   IO (PParams LedgerEra)
-queryProtocolParameters networkId socket queryPoint =
-  runQueryExpr networkId socket queryPoint $ do
+queryProtocolParameters connectInfo queryPoint =
+  runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInShelleyBasedEraExpr $ \sbe -> do
       eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
       liftIO $ coercePParamsToLedgerEra (convert sbe) eraPParams
@@ -193,22 +183,19 @@ queryProtocolParameters networkId socket queryPoint =
 --
 -- Throws at least 'QueryException' if query fails.
 queryGenesisParameters ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   IO (GenesisParameters ShelleyEra)
-queryGenesisParameters networkId socket queryPoint =
-  runQueryExpr networkId socket queryPoint $ do
+queryGenesisParameters connectInfo queryPoint =
+  runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryGenesisParameters)
 
 -- | Query UTxO for all given addresses at given point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
-queryUTxO networkId socket queryPoint addresses =
-  runQueryExpr networkId socket queryPoint $ do
+queryUTxO :: LocalNodeConnectInfo -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
+queryUTxO connectInfo queryPoint addresses =
+  runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInConwayEraOnwardsExpr
       (`queryUTxOExpr` addresses)
 
@@ -220,15 +207,12 @@ queryUTxOExpr ceo addresses = case ceo of
 --
 -- Throws at least 'QueryException' if query fails.
 queryUTxOByTxIn ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   [TxIn] ->
   IO UTxO
-queryUTxOByTxIn networkId socket queryPoint inputs =
-  runQueryExpr networkId socket queryPoint $
+queryUTxOByTxIn connectInfo queryPoint inputs =
+  runQueryExpr connectInfo queryPoint $
     queryForCurrentEraInConwayEraOnwardsExpr
       ( \(ceo :: ConwayEraOnwards era) -> case ceo of
           ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
@@ -259,14 +243,11 @@ queryForCurrentEraInConwayEraOnwardsExpr = queryForCurrentEraInEonExpr (throwIO 
 --
 -- Throws at least 'QueryException' if query fails.
 queryUTxOWhole ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   IO UTxO
-queryUTxOWhole networkId socket queryPoint = do
-  runQueryExpr networkId socket queryPoint $ do
+queryUTxOWhole connectInfo queryPoint = do
+  runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInConwayEraOnwardsExpr
       ( \(ceo :: ConwayEraOnwards era) -> case ceo of
           ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) (QueryUTxO QueryUTxOWhole)
@@ -275,11 +256,11 @@ queryUTxOWhole networkId socket queryPoint = do
 -- | Query UTxO for the address of given verification key at point.
 --
 -- Throws at least 'QueryException' if query fails.
-queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
-queryUTxOFor networkId nodeSocket queryPoint vk =
-  case mkVkAddress networkId vk of
+queryUTxOFor :: LocalNodeConnectInfo -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
+queryUTxOFor connectInfo queryPoint vk =
+  case mkVkAddress (localNodeNetworkId connectInfo) vk of
     ShelleyAddressInEra addr ->
-      queryUTxO networkId nodeSocket queryPoint [addr]
+      queryUTxO connectInfo queryPoint [addr]
     ByronAddressInEra{} ->
       fail "impossible: mkVkAddress returned Byron address."
 
@@ -287,14 +268,11 @@ queryUTxOFor networkId nodeSocket queryPoint vk =
 --
 -- Throws at least 'QueryException' if query fails.
 queryStakePools ::
-  -- | Current network discriminant
-  NetworkId ->
-  -- | Filepath to the cardano-node's domain socket
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   IO (Set PoolId)
-queryStakePools networkId socket queryPoint =
-  runQueryExpr networkId socket queryPoint $ do
+queryStakePools connectInfo queryPoint =
+  runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryStakePools)
 
 -- * Helpers
@@ -318,9 +296,9 @@ queryInShelleyBasedEraExpr sbe query =
     . throwOnEraMismatch
 
 -- | Throws at least 'QueryException' if query fails.
-runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode a -> IO a
-runQuery networkId socket point query =
-  runExceptT (queryNodeLocalState (localNodeConnectInfo networkId socket) queryTarget query) >>= \case
+runQuery :: LocalNodeConnectInfo -> QueryPoint -> QueryInMode a -> IO a
+runQuery connectInfo point query =
+  runExceptT (queryNodeLocalState connectInfo queryTarget query) >>= \case
     Left err -> throwIO $ QueryAcquireException err
     Right result -> pure result
  where
@@ -331,13 +309,12 @@ runQuery networkId socket point query =
 
 -- | Throws at least 'QueryException' if query fails.
 runQueryExpr ::
-  NetworkId ->
-  SocketPath ->
+  LocalNodeConnectInfo ->
   QueryPoint ->
   LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a ->
   IO a
-runQueryExpr networkId socket point query =
-  executeLocalStateQueryExpr (localNodeConnectInfo networkId socket) queryTarget query >>= \case
+runQueryExpr connectInfo point query =
+  executeLocalStateQueryExpr connectInfo queryTarget query >>= \case
     Left err -> throwIO $ QueryAcquireException err
     Right result -> pure result
  where

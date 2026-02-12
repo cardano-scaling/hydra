@@ -54,7 +54,7 @@ ouroborusClient tracer nodeSocket networkId =
     { follow = \startChainFrom observerHandler -> do
         traceWith tracer ConnectingToNode{nodeSocket, networkId}
         chainPoint <- case startChainFrom of
-          Nothing -> queryTip networkId nodeSocket
+          Nothing -> queryTip (connectInfo nodeSocket networkId)
           Just x -> pure x
         traceWith tracer StartObservingFrom{chainPoint}
         connectToLocalNode
