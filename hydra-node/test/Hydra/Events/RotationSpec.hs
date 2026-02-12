@@ -15,7 +15,7 @@ import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState)
-import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
+import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, primeWithTime, runToCompletion)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod)
@@ -40,7 +40,6 @@ spec = parallel $ do
             action testHydrate
     around setupHydrate $ do
       it "rotates while running" $ \testHydrate -> do
-        now <- getCurrentTime
         failAfter 1 $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 5 inputs processed in total, after ticks,
@@ -50,12 +49,12 @@ spec = parallel $ do
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
-            >>= primeWith now inputsToOpenHead
+            >>= primeWithTime
+            >>= primeWith inputsToOpenHead
             >>= runToCompletion
           rotatedHistory <- getEvents (eventSource rotatingEventStore)
           length rotatedHistory `shouldBe` 2
       it "consistent state after restarting with rotation" $ \testHydrate -> do
-        now <- getCurrentTime
         failAfter 1 $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 6 inputs processed in total, after ticks,
@@ -65,13 +64,15 @@ spec = parallel $ do
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
-            >>= primeWith now inputsToOpenHead
+            >>= primeWithTime
+            >>= primeWith inputsToOpenHead
             >>= runToCompletion
+          now <- getCurrentTime
           let contestationDeadline = toNominalDiffTime cperiod `addUTCTime` now
           let closeInput = observationInput $ OnCloseTx testHeadId 0 contestationDeadline
           testHydrate rotatingEventStore []
             >>= notConnect
-            >>= primeWith now [closeInput]
+            >>= primeWith [closeInput]
             >>= runToCompletion
           [checkpoint] <- getEvents (eventSource rotatingEventStore)
           case stateChanged checkpoint of
@@ -93,13 +94,13 @@ spec = parallel $ do
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
-            >>= primeWith now inputs
+            >>= primeWith inputs
             >>= runToCompletion
           -- run non-rotated event store with prepared inputs
           eventStore' <- createMockEventStore
           testHydrate eventStore' []
             >>= notConnect
-            >>= primeWith now inputs
+            >>= primeWith inputs
             >>= runToCompletion
           -- aggregating stored events should yield consistent states
           [StateEvent{stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore)
@@ -124,19 +125,22 @@ spec = parallel $ do
           rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore1 []
             >>= notConnect
-            >>= primeWith now inputs1
+            >>= primeWithTime
+            >>= primeWith inputs1
             >>= runToCompletion
           rotatingEventStore2 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint rotatingEventStore1
           testHydrate rotatingEventStore2 []
             >>= notConnect
-            >>= primeWith now inputs2
+            >>= primeWithTime
+            >>= primeWith inputs2
             >>= runToCompletion
           -- run non-restarted node with prepared inputs
           eventStore' <- createMockEventStore
           rotatingEventStore' <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore'
           testHydrate rotatingEventStore' []
             >>= notConnect
-            >>= primeWith now inputs
+            >>= primeWithTime
+            >>= primeWith inputs
             >>= runToCompletion
           -- stored events should yield consistent checkpoint events
           [StateEvent{eventId = eventId, stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore2)
