@@ -387,7 +387,8 @@ spec =
             _ -> fail "expected Open state"
 
           -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
-          let staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
+          let staleReqSn :: Input SimpleTx
+              staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.currentSlot
           update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
             Error (RequireFailed ReqSvNumberInvalid{}) -> True
