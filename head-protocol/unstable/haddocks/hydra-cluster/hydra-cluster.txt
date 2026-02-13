@@ -52,7 +52,6 @@ data KnownNetwork
 Preview :: KnownNetwork
 Preproduction :: KnownNetwork
 Mainnet :: KnownNetwork
-Sanchonet :: KnownNetwork
 BlockfrostPreview :: KnownNetwork
 BlockfrostPreprod :: KnownNetwork
 BlockfrostMainnet :: KnownNetwork
