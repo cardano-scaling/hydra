@@ -267,13 +267,12 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
           >>= writeFileBS (stateDirectory </> fn)
-    case knownNetwork of
-      Mainnet -> forM_ ["checkpoints.json"] $
+    when (knownNetwork `elem` [Mainnet, Preview]) $ do
+      forM_ ["checkpoints.json"] $
         \fn -> do
           createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
           fetchConfigFile (knownNetworkPath </> fn)
             >>= writeFileBS (stateDirectory </> fn)
-      _ -> pure ()
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
@@ -286,7 +285,6 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
     Preview -> "environments-pre/preview"
     Preproduction -> "environments-pre/preprod"
     Mainnet -> "environments/mainnet"
-    Sanchonet -> "environments/sanchonet"
     -- NOTE: Here we map blockfrost networks to cardano ones since we expect to find actor keys
     -- in known locations when running smoke-tests.
     BlockfrostPreview -> "environments-pre/preview"

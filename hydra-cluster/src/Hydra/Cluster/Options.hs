@@ -48,7 +48,6 @@ parseOptions =
     flag' (Just Preview) (long "preview" <> help "The preview testnet")
       <|> flag' (Just Preproduction) (long "preprod" <> help "The pre-production testnet")
       <|> flag' (Just Mainnet) (long "mainnet" <> help "The mainnet")
-      <|> flag' (Just Sanchonet) (long "sanchonet" <> help "The sanchonet preview testnet")
       <|> flag' (Just BlockfrostPreview) (long "blockfrost-preview" <> help "The preview testnet using Blockfrost")
       <|> flag' (Just BlockfrostPreprod) (long "blockfrost-preprod" <> help "The pre-production testnet using Blockfrost")
       <|> flag' (Just BlockfrostMainnet) (long "blockfrost-mainnet" <> help "The mainnet using Blockfrost")
