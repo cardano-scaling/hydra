@@ -1762,6 +1762,10 @@ aggregateNodeState nodeState sc =
                                       -- depositTxId, but we should not verify this here.
                                       currentDepositTxId = Nothing
                                     , localUTxO = localUTxO <> newUTxO
+                                    , seenSnapshot =
+                                        LastSeenSnapshot
+                                          { lastSeen = seenSnapshotNumber (seenSnapshot coordinatedHeadState)
+                                          }
                                     }
                               }
                       , pendingDeposits = Map.delete depositTxId currentPendingDeposits
@@ -2005,6 +2009,10 @@ aggregate st = \case
                   coordinatedHeadState
                     { decommitTx = Nothing
                     , version = newVersion
+                    , seenSnapshot =
+                        LastSeenSnapshot
+                          { lastSeen = seenSnapshotNumber (seenSnapshot coordinatedHeadState)
+                          }
                     }
               }
       _otherState -> st
