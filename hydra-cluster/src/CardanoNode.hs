@@ -262,12 +262,17 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
       , "alonzo-genesis.json"
       , "conway-genesis.json"
       , "peer-snapshot.json"
-      , "checkpoints.json"
       ]
       $ \fn -> do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
           >>= writeFileBS (stateDirectory </> fn)
+    when (knownNetwork `elem` [Mainnet, Preview]) $ do
+      forM_ ["checkpoints.json"] $
+        \fn -> do
+          createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
+          fetchConfigFile (knownNetworkPath </> fn)
+            >>= writeFileBS (stateDirectory </> fn)
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
