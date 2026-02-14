@@ -129,7 +129,7 @@ run opts = do
                 node <-
                   connect chain network server wetHydraNode
                     <&> addEventSink apiSink
-                traceWith tracer' StartingMainLoop
+                traceWith tracer' EnteringMainloop
                 runHydraNode node
  where
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m

@@ -28,7 +28,6 @@ data HydraLog tx
   | NodeHydrated
   | ChainBackendStarted
   | NetworkStarted
-  | StartingMainLoop
   deriving stock (Generic)
 
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)
