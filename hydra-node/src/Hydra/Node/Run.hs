@@ -54,12 +54,14 @@ import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
+  DirectOptions (..),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
   RunOptions (..),
   validateRunOptions,
  )
+import Hydra.Chain.CardanoClient (localNodeConnectInfo)
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
 import System.FilePath ((</>))
@@ -181,8 +183,11 @@ getGlobalsForChain = \case
       >>= newGlobals
   Cardano CardanoChainConfig{chainBackendOptions} ->
     case chainBackendOptions of
-      Direct directOptions -> queryGenesisParameters (DirectBackend directOptions)
-      Blockfrost blockfrostOptions -> queryGenesisParameters (BlockfrostBackend blockfrostOptions)
+      Direct DirectOptions{networkId, nodeSocket} -> do
+        let connectInfo = localNodeConnectInfo networkId nodeSocket
+        runReaderT (runDirectBackend queryGenesisParameters) connectInfo
+      Blockfrost blockfrostOptions ->
+        runReaderT (runBlockfrostBackend queryGenesisParameters) blockfrostOptions
       >>= newGlobals
 
 data GlobalsTranslationException = GlobalsTranslationException

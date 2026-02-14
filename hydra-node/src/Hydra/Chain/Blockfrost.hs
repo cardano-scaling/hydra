@@ -34,30 +34,36 @@ import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), defaultBFQueryTimeout)
 
-newtype BlockfrostBackend = BlockfrostBackend {options :: BlockfrostOptions} deriving (Eq, Show)
+newtype BlockfrostBackend a = BlockfrostBackend {runBlockfrostBackend :: ReaderT BlockfrostOptions IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadReader BlockfrostOptions, MonadIO, MonadThrow, MonadCatch)
 
 instance ChainBackend BlockfrostBackend where
-  queryGenesisParameters (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+  queryGenesisParameters = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
-  queryScriptRegistry (BlockfrostBackend opts@BlockfrostOptions{projectPath}) txIds = do
+  queryScriptRegistry txIds = do
+    opts@BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry opts txIds
 
-  queryNetworkId (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+  queryNetworkId = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
     Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
 
-  queryTip (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+  queryTip = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO (BlockfrostBackend opts@BlockfrostOptions{projectPath}) addresses = do
+  queryUTxO addresses = do
+    opts@BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.Genesis
       { _genesisNetworkMagic
@@ -67,7 +73,8 @@ instance ChainBackend BlockfrostBackend where
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO opts networkId addresses
 
-  queryUTxOByTxIn (BlockfrostBackend opts@BlockfrostOptions{projectPath}) txins = do
+  queryUTxOByTxIn txins = do
+    opts@BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.Genesis
       { _genesisNetworkMagic
@@ -77,43 +84,51 @@ instance ChainBackend BlockfrostBackend where
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn opts networkId txins
 
-  queryEraHistory (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+  queryEraHistory _ = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
 
-  querySystemStart (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+  querySystemStart _ = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.querySystemStart
 
-  queryProtocolParameters (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+  queryProtocolParameters _ = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
 
-  queryStakePools (BlockfrostBackend BlockfrostOptions{projectPath}) _ = do
+  queryStakePools _ = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor (BlockfrostBackend opts@BlockfrostOptions{projectPath}) _ vk = do
+  queryUTxOFor _ vk = do
+    opts@BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor opts vk
 
-  submitTransaction (BlockfrostBackend BlockfrostOptions{projectPath}) tx = do
+  submitTransaction tx = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction (BlockfrostBackend opts@BlockfrostOptions{projectPath}) tx vk = do
+  awaitTransaction tx vk = do
+    opts@BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction opts tx vk
 
-  getOptions (BlockfrostBackend blockfrostOptions) = Blockfrost blockfrostOptions
-
-  getBlockTime (BlockfrostBackend BlockfrostOptions{projectPath}) = do
+  getBlockTime = do
+    BlockfrostOptions{projectPath} <- ask
     prj <- liftIO $ Blockfrost.projectFromFile projectPath
     Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ fromInteger _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
+  getQueryDelay = pure $ fromIntegral defaultBFQueryTimeout
+
 withBlockfrostChain ::
-  BlockfrostBackend ->
+  BlockfrostOptions ->
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -121,7 +136,7 @@ withBlockfrostChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback action = do
+withBlockfrostChain blockfrostOptions tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
   let persistedPoints = prefixOf chainStateHistory
 
@@ -137,10 +152,10 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
   -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
   prefix <-
     case head startFromPrefix of
-      ChainPointAtGenesis -> queryTip backend <&> (:| [])
+      ChainPointAtGenesis -> runReaderT (runBlockfrostBackend queryTip) blockfrostOptions <&> (:| [])
       _ -> pure startFromPrefix
 
-  let getTimeHandle = queryTimeHandle backend
+  let getTimeHandle = runReaderT (runBlockfrostBackend queryTimeHandle) blockfrostOptions
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "blockfrost-chain-queue"
   let chainHandle =
@@ -165,7 +180,7 @@ withBlockfrostChain backend tracer config ctx wallet chainStateHistory callback 
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  BlockfrostBackend{options = BlockfrostOptions{projectPath}} = backend
+  BlockfrostOptions{projectPath} = blockfrostOptions
   CardanoChainConfig{startChainFrom} = config
 
   submitTx :: TQueue IO (Tx, TMVar IO (Maybe (PostTxError Tx))) -> Tx -> IO ()

@@ -15,7 +15,8 @@ import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), DirectOptions (..), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Chain.CardanoClient (localNodeConnectInfo)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
@@ -36,10 +37,11 @@ main = do
   publish PublishOptions{chainBackendOptions, publishSigningKey} = do
     (_, sk) <- readKeyPair publishSigningKey
     txIds <- case chainBackendOptions of
-      Direct directOptions ->
-        publishHydraScripts (DirectBackend directOptions) sk
+      Direct DirectOptions{networkId, nodeSocket} -> do
+        let connectInfo = localNodeConnectInfo networkId nodeSocket
+        runReaderT (runDirectBackend (publishHydraScripts sk)) connectInfo
       Blockfrost blockfrostOptions ->
-        publishHydraScripts (BlockfrostBackend blockfrostOptions) sk
+        runReaderT (runBlockfrostBackend (publishHydraScripts sk)) blockfrostOptions
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT

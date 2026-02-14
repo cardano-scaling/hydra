@@ -22,8 +22,6 @@ import Hydra.Cardano.Api (
   CardanoEra (..),
   ChainPoint (..),
   ChainTip,
-  ConsensusModeParams (..),
-  EpochSlots (..),
   GenesisParameters (..),
   IsShelleyBasedEra (..),
   LocalChainSyncClient (..),
@@ -63,7 +61,7 @@ import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Options (CardanoChainConfig (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -78,54 +76,66 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Text.Printf (printf)
 
-newtype DirectBackend = DirectBackend {options :: DirectOptions} deriving (Eq, Show)
+newtype DirectBackend a = DirectBackend {runDirectBackend :: ReaderT LocalNodeConnectInfo IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadReader LocalNodeConnectInfo, MonadIO, MonadThrow, MonadCatch)
 
 instance ChainBackend DirectBackend where
-  queryGenesisParameters (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    liftIO $ CardanoClient.queryGenesisParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip
+  queryGenesisParameters = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryGenesisParameters connectInfo CardanoClient.QueryTip
 
   queryScriptRegistry = ScriptRegistry.queryScriptRegistry
 
-  queryNetworkId (DirectBackend DirectOptions{networkId}) = pure networkId
+  queryNetworkId = ask >>= pure . localNodeNetworkId
 
-  queryTip (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    liftIO $ CardanoClient.queryTip (CardanoClient.localNodeConnectInfo networkId nodeSocket)
+  queryTip = ask >>= liftIO . CardanoClient.queryTip
 
-  queryUTxO (DirectBackend DirectOptions{networkId, nodeSocket}) addresses =
-    liftIO $ CardanoClient.queryUTxO (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip addresses
+  queryUTxO addresses = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryUTxO connectInfo CardanoClient.QueryTip addresses
 
-  queryUTxOByTxIn (DirectBackend DirectOptions{networkId, nodeSocket}) txins =
-    liftIO $ CardanoClient.queryUTxOByTxIn (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip txins
+  queryUTxOByTxIn txins = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryUTxOByTxIn connectInfo CardanoClient.QueryTip txins
 
-  queryEraHistory (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryEraHistory (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
+  queryEraHistory queryPoint = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryEraHistory connectInfo queryPoint
 
-  querySystemStart (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.querySystemStart (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
+  querySystemStart queryPoint = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.querySystemStart connectInfo queryPoint
 
-  queryProtocolParameters (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryProtocolParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
-  queryStakePools (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryStakePools (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
+  queryProtocolParameters queryPoint = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryProtocolParameters connectInfo queryPoint
 
-  queryUTxOFor (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint vk =
-    liftIO $ CardanoClient.queryUTxOFor (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint vk
+  queryStakePools queryPoint = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryStakePools connectInfo queryPoint
 
-  submitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
-    liftIO $ CardanoClient.submitTransaction (CardanoClient.localNodeConnectInfo networkId nodeSocket) tx
+  queryUTxOFor queryPoint vk = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.queryUTxOFor connectInfo queryPoint vk
 
-  awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx _ =
-    liftIO $ CardanoClient.awaitTransaction (CardanoClient.localNodeConnectInfo networkId nodeSocket) tx
+  submitTransaction tx = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.submitTransaction connectInfo tx
 
-  getOptions (DirectBackend directOptions) = Direct directOptions
+  awaitTransaction tx _ = do
+    connectInfo <- ask
+    liftIO $ CardanoClient.awaitTransaction connectInfo tx
 
-  getBlockTime (DirectBackend DirectOptions{networkId, nodeSocket}) = do
+  getBlockTime = do
+    connectInfo <- ask
     GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
-      liftIO $ CardanoClient.queryGenesisParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip
+      liftIO $ CardanoClient.queryGenesisParameters connectInfo CardanoClient.QueryTip
     pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
 
+  getQueryDelay = pure 1
+
 withDirectChain ::
-  DirectBackend ->
+  LocalNodeConnectInfo ->
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -133,7 +143,7 @@ withDirectChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
+withDirectChain connectInfo tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
   let persistedPoints = prefixOf chainStateHistory
 
@@ -149,10 +159,10 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
   prefix <-
     case head startFromPrefix of
-      ChainPointAtGenesis -> queryTip backend <&> (:| [])
+      ChainPointAtGenesis -> CardanoClient.queryTip connectInfo <&> (:| [])
       _ -> pure startFromPrefix
 
-  let getTimeHandle = queryTimeHandle backend
+  let getTimeHandle = runReaderT (runDirectBackend queryTimeHandle) connectInfo
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
@@ -170,7 +180,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
       ( "direct-chain-connection"
       , handle onIOException $ do
           connectToLocalNode
-            (connectInfo networkId nodeSocket)
+            connectInfo
             (clientProtocols prefix queue handler)
       )
       ("direct-chain-chain-handle", action chainHandle)
@@ -178,18 +188,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
   CardanoChainConfig{startChainFrom} = config
-
-  connectInfo networkId' nodeSocket' =
-    LocalNodeConnectInfo
-      { -- REVIEW: This was 432000 before, but all usages in the
-        -- cardano-node repository are using this value. This is only
-        -- relevant for the Byron era.
-        localConsensusModeParams = CardanoModeParams (EpochSlots 21600)
-      , localNodeNetworkId = networkId'
-      , localNodeSocketPath = nodeSocket'
-      }
 
   clientProtocols prefix queue handler =
     LocalNodeClientProtocols
@@ -213,8 +212,8 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     throwIO $
       DirectConnectException
         { ioException
-        , nodeSocket
-        , networkId
+        , nodeSocket = localNodeSocketPath connectInfo
+        , networkId = localNodeNetworkId connectInfo
         }
 
 data DirectConnectException = DirectConnectException

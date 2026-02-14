@@ -48,72 +48,72 @@ spec = describe "publishHydraScripts" $ do
                 TxOutDatumNone
                 ReferenceScriptNone
             )
-    let backend = SuccessfulBackend vk utxo
-    txIds <- publishHydraScripts backend sk
+    txIds <- runReaderT (runSuccessfulBackend (publishHydraScripts sk)) (vk, utxo)
     length txIds `shouldBe` 3
 
   it "throws PublishingFundsMissing error if no UTxO is found for the given address" $ do
     (vk, sk) <- generate genKeyPair
-    let backend = ATestBackend vk
-    publishHydraScripts backend sk `shouldThrow` \case
+    runReaderT (runATestBackend (publishHydraScripts sk)) vk `shouldThrow` \case
       PublishingFundsMissing{} -> True
       _ -> False
 
 -- | A test backend that will throw 'NoUTxOFound' on 'queryUTxOFor' call.
-newtype ATestBackend = ATestBackend (VerificationKey PaymentKey)
+newtype ATestBackend a = ATestBackend {runATestBackend :: ReaderT (VerificationKey PaymentKey) IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader (VerificationKey PaymentKey), MonadThrow, MonadCatch)
 
 instance ChainBackend ATestBackend where
-  queryUTxOFor (ATestBackend vk) _ vk'
-    | vk == vk' =
-        throwIO $ BlockfrostError (NoUTxOFound (toAddress vk))
-  queryUTxOFor _ _ vk' =
-    failure $ "queryUTxOFor received unexpected VerificationKey: " <> show vk'
+  queryUTxOFor _ vk' = do
+    vk <- ask
+    if vk == vk'
+      then throwIO $ BlockfrostError (NoUTxOFound (toAddress vk))
+      else failure $ "queryUTxOFor received unexpected VerificationKey: " <> show vk'
 
   -- Other methods are not needed for this test.
   -- These are functions that are not directly called by 'publishHydraScripts'.
-  queryGenesisParameters _ = error "queryGenesisParameters"
-  queryScriptRegistry _ _ = error "queryScriptRegistry"
-  queryUTxO _ _ = error "queryUTxO"
-  queryUTxOByTxIn _ _ = error "queryUTxOByTxIn"
-  queryTip _ = error "queryTip"
-  submitTransaction _ _ = error "submitTransaction"
+  queryGenesisParameters = error "queryGenesisParameters"
+  queryScriptRegistry _ = error "queryScriptRegistry"
+  queryUTxO _ = error "queryUTxO"
+  queryUTxOByTxIn _ = error "queryUTxOByTxIn"
+  queryTip = error "queryTip"
+  submitTransaction _ = error "submitTransaction"
   awaitTransaction _ _ = error "awaitTransaction"
-  getBlockTime _ = error "getBlockTime"
-  getOptions _ = Blockfrost defaultBlockfrostOptions
-  queryNetworkId _ = pure Mainnet
-  queryProtocolParameters _ _ = pure emptyPParams
-  querySystemStart _ _ = SystemStart <$> liftIO getCurrentTime
-  queryEraHistory _ _ = pure eraHistoryWithoutHorizon
-  queryStakePools _ _ = pure mempty
+  getBlockTime = error "getBlockTime"
+  getQueryDelay = error "getQueryDelay"
+  queryNetworkId = pure Mainnet
+  queryProtocolParameters _ = pure emptyPParams
+  querySystemStart _ = SystemStart <$> liftIO getCurrentTime
+  queryEraHistory _ = pure eraHistoryWithoutHorizon
+  queryStakePools _ = pure mempty
 
 -- | A test backend that simulates a successful script publishing.
-data SuccessfulBackend = SuccessfulBackend (VerificationKey PaymentKey) UTxO
+newtype SuccessfulBackend a = SuccessfulBackend {runSuccessfulBackend :: ReaderT (VerificationKey PaymentKey, UTxO) IO a}
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadReader (VerificationKey PaymentKey, UTxO), MonadThrow, MonadCatch)
 
 instance ChainBackend SuccessfulBackend where
-  queryUTxOFor (SuccessfulBackend vk u) _ vk'
-    | vk == vk' =
-        pure u
-  queryUTxOFor _ _ vk' =
-    failure $ "queryUTxOFor received unexpected VerificationKey: " <> show vk'
+  queryUTxOFor _ vk' = do
+    (vk, u) <- ask
+    if vk == vk'
+      then pure u
+      else failure $ "queryUTxOFor received unexpected VerificationKey: " <> show vk'
 
-  submitTransaction _ _ = pure ()
+  submitTransaction _ = pure ()
 
-  awaitTransaction _ _ _ = pure mempty
+  awaitTransaction _ _ = pure mempty
 
-  queryNetworkId _ = pure Mainnet
-  queryProtocolParameters _ _ = pure emptyPParams
-  querySystemStart _ _ = SystemStart <$> liftIO getCurrentTime
-  queryEraHistory _ _ = pure eraHistoryWithoutHorizon
-  queryStakePools _ _ = pure mempty
-  getOptions _ = Blockfrost defaultBlockfrostOptions
+  queryNetworkId = pure Mainnet
+  queryProtocolParameters _ = pure emptyPParams
+  querySystemStart _ = SystemStart <$> liftIO getCurrentTime
+  queryEraHistory _ = pure eraHistoryWithoutHorizon
+  queryStakePools _ = pure mempty
 
   -- Other methods are not needed for this test.
-  queryGenesisParameters _ = error "queryGenesisParameters"
-  queryScriptRegistry _ _ = error "queryScriptRegistry"
-  queryUTxO _ _ = error "queryUTxO"
-  queryUTxOByTxIn _ _ = error "queryUTxOByTxIn"
-  queryTip _ = error "queryTip"
-  getBlockTime _ = error "getBlockTime"
+  queryGenesisParameters = error "queryGenesisParameters"
+  queryScriptRegistry _ = error "queryScriptRegistry"
+  queryUTxO _ = error "queryUTxO"
+  queryUTxOByTxIn _ = error "queryUTxOByTxIn"
+  queryTip = error "queryTip"
+  getBlockTime = error "getBlockTime"
+  getQueryDelay = error "getQueryDelay"
 
 toAddress :: VerificationKey PaymentKey -> Address ShelleyAddr
 toAddress vk =

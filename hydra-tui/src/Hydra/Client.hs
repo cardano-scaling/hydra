@@ -18,7 +18,7 @@ import Hydra.Cardano.Api.Prelude (
  )
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Blockfrost.Client qualified as BF
-import Hydra.Chain.CardanoClient (submitTransaction)
+import Hydra.Chain.CardanoClient (localNodeConnectInfo, submitTransaction)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Network (Host (Host, hostname, port))
@@ -124,8 +124,9 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
             Left bfProject -> do
               prj <- liftIO $ BF.projectFromFile bfProject
               void $ BF.runBlockfrostM prj $ BF.submitTransaction $ signTx sk commitTx
-            Right socketPath ->
-              submitTransaction cardanoNetworkId socketPath $ signTx sk commitTx
+            Right socketPath -> do
+              let connectInfo = localNodeConnectInfo cardanoNetworkId socketPath
+              submitTransaction connectInfo $ signTx sk commitTx
    where
     request =
       Req.req

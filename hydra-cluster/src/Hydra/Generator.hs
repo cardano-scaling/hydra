@@ -5,10 +5,10 @@ import Hydra.Prelude hiding (size)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (QueryTip), mkGenesisTx, queryUTxOFor)
+import CardanoClient (QueryPoint (QueryTip), mkGenesisTx)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
-import Hydra.Chain.Backend (buildTransaction)
+import Hydra.Chain.Backend (ChainBackend (..), buildTransaction)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (availableInitialFunds)
@@ -176,24 +176,27 @@ generateDemoUTxODataset ::
   Int ->
   IO Dataset
 generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
+  let connectInfo = LocalNodeConnectInfo{localConsensusModeParams = CardanoModeParams (EpochSlots 21600), localNodeNetworkId = network, localNodeSocketPath = nodeSocket}
+  let runDirect = flip runReaderT connectInfo . runDirectBackend
+
   -- Query available funds
-  faucetUTxO <- queryUTxOFor network nodeSocket QueryTip faucetVk
+  faucetUTxO <- runDirect $ queryUTxOFor QueryTip faucetVk
   let (Coin fundsAvailable) = UTxO.totalLovelace faucetUTxO
   -- Generate client datasets
   allPaymentKeys <- generate $ replicateM nClients genSigningKey
   clientFunds <- generate $ genClientFunds allPaymentKeys fundsAvailable
   -- XXX: DRY with 'seedFromFaucet'
-  fundingTransaction <- do
-    let recipientOutputs =
-          flip map clientFunds $ \(vk, ll) ->
-            TxOut
-              (mkVkAddress network vk)
-              (lovelaceToValue ll)
-              TxOutDatumNone
-              ReferenceScriptNone
+  let recipientOutputs =
+        flip map clientFunds $ \(vk, ll) ->
+          TxOut
+            (mkVkAddress network vk)
+            (lovelaceToValue ll)
+            TxOutDatumNone
+            ReferenceScriptNone
 
-    buildTransaction (DirectBackend $ Options.DirectOptions{Options.networkId = network, Options.nodeSocket}) faucetAddress faucetUTxO [] recipientOutputs >>= \case
-      Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
+  fundingTransaction :: Tx <- runDirect $ do
+    buildTransaction faucetAddress faucetUTxO [] recipientOutputs >>= \case
+      Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ signTx faucetSk tx
   generate $ do
     clientDatasets <- forM allPaymentKeys (generateClientDataset network fundingTransaction nTxs)

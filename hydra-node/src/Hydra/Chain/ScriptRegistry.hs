@@ -55,12 +55,11 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 --
 -- Can throw at least 'NewScriptRegistryException' on failure.
 queryScriptRegistry ::
-  (MonadIO m, MonadThrow m, ChainBackend backend) =>
-  backend ->
+  (MonadIO m, MonadThrow m, ChainBackend m) =>
   [TxId] ->
   m ScriptRegistry
-queryScriptRegistry backend txIds = do
-  utxo <- Backend.queryUTxOByTxIn backend candidates
+queryScriptRegistry txIds = do
+  utxo <- Backend.queryUTxOByTxIn candidates
   case newScriptRegistry utxo of
     Left e -> throwIO e
     Right sr -> pure sr
@@ -68,30 +67,31 @@ queryScriptRegistry backend txIds = do
   candidates = map (\txid -> TxIn txid (TxIx 0)) txIds
 
 publishHydraScripts ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackend m =>
+  MonadIO m =>
+  MonadCatch m =>
   -- | Keys assumed to hold funds to pay for the publishing transaction.
   SigningKey PaymentKey ->
-  IO [TxId]
-publishHydraScripts backend sk = do
-  networkId <- queryNetworkId backend
-  pparams <- queryProtocolParameters backend QueryTip
-  systemStart <- querySystemStart backend QueryTip
-  eraHistory <- queryEraHistory backend QueryTip
-  stakePools <- queryStakePools backend QueryTip
+  m [TxId]
+publishHydraScripts sk = do
+  networkId <- queryNetworkId
+  pparams <- queryProtocolParameters QueryTip
+  systemStart <- querySystemStart QueryTip
+  eraHistory <- queryEraHistory QueryTip
+  stakePools <- queryStakePools QueryTip
   utxo <-
-    queryUTxOFor backend QueryTip vk
+    queryUTxOFor QueryTip vk
       `catch` handleError
 
   txs <- buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools utxo sk
   forM txs $ \tx -> do
-    submitTransaction backend tx
-    void $ awaitTransaction backend tx vk
+    submitTransaction tx
+    void $ awaitTransaction tx vk
     pure $ txId tx
  where
   vk = getVerificationKey sk
 
-handleError :: SomeException -> IO a
+handleError :: MonadThrow m => SomeException -> m a
 handleError e =
   case fromException e of
     Just (BlockfrostError (NoUTxOFound addr)) ->
