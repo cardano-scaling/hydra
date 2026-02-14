@@ -17,8 +17,6 @@ import Hydra.Cardano.Api (
   deserialiseFromTextEnvelope,
   textEnvelopeToJSON,
  )
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Node.DepositPeriod qualified as DP
@@ -101,11 +99,10 @@ depositTimeout Timing{blockTime, depositPeriod} =
 
 -- | Create a (test) chain config for a given actor.
 chainConfigFor ::
-  ChainBackend backend =>
   HasCallStack =>
   Actor ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
@@ -117,18 +114,17 @@ chainConfigFor me targetDir backend txids actors timing =
   Timing{contestationPeriod, depositPeriod} = timing
 
 chainConfigFor' ::
-  ChainBackend backend =>
   HasCallStack =>
   Actor ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
   ContestationPeriod ->
   DepositPeriod ->
   IO ChainConfig
-chainConfigFor' me targetDir backend hydraScriptsTxId them contestationPeriod depositPeriod = do
+chainConfigFor' me targetDir backendOptions hydraScriptsTxId them contestationPeriod depositPeriod = do
   when (me `elem` them) $
     failure $
       show me <> " must not be in " <> show them
@@ -149,7 +145,7 @@ chainConfigFor' me targetDir backend hydraScriptsTxId them contestationPeriod de
         , contestationPeriod
         , depositPeriod
         , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
-        , chainBackendOptions = Backend.getOptions backend
+        , chainBackendOptions = backendOptions
         }
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType

@@ -47,12 +47,14 @@ import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
+  DirectOptions (..),
   InvalidOptions (..),
   LedgerConfig (..),
   OfflineChainConfig (..),
   RunOptions (..),
   validateRunOptions,
  )
+import Hydra.Chain.CardanoClient (localNodeConnectInfo)
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
@@ -183,13 +185,16 @@ getGlobalsForChain = \case
     -- Online mode: query era history from the chain for correct
     -- slot-to-time conversions in Plutus script evaluation.
     case chainBackendOptions of
-      Direct directOptions -> globalsFromBackend (DirectBackend directOptions)
-      Blockfrost blockfrostOptions -> globalsFromBackend (BlockfrostBackend blockfrostOptions)
+      Direct DirectOptions{networkId, nodeSocket} -> do
+        let connectInfo = localNodeConnectInfo networkId nodeSocket
+        runReaderT (runDirectBackend (globalsFromBackend (DirectBackend directOptions)) connectInfo
+      Blockfrost blockfrostOptions ->
+        runReaderT (runBlockfrostBackend (globalsFromBackend (BlockfrostBackend blockfrostOptions)) blockfrostOptions
  where
-  globalsFromBackend :: ChainBackend b => b -> IO Globals
+  globalsFromBackend :: ChainBackend m => m Globals
   globalsFromBackend b = do
-    genesis <- queryGenesisParameters b
-    eraHistory <- queryEraHistory b QueryTip
+    genesis <- queryGenesisParameters
+    eraHistory <- queryEraHistory QueryTip
     newGlobalsWithEraHistory genesis eraHistory
 
 data GlobalsTranslationException = GlobalsTranslationException

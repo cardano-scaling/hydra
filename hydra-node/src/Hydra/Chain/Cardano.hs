@@ -19,6 +19,7 @@ import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..), withBlockfrostChain)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
+  localNodeConnectInfo,
  )
 import Hydra.Chain.Direct (DirectBackend (..), withDirectChain)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog (..))
@@ -32,7 +33,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Logging (Tracer)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (Party)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 
@@ -46,33 +47,36 @@ withCardanoChain ::
   ChainComponent Tx IO a
 withCardanoChain tracer cfg party chainStateHistory callback action =
   case chainBackendOptions of
-    Direct directOptions -> do
-      let directBackend = DirectBackend directOptions
-      wallet <- mkTinyWallet directBackend tracer cfg
-      ctx <- loadChainContext directBackend cfg party
-      withDirectChain directBackend tracer cfg ctx wallet chainStateHistory callback action
+    Direct DirectOptions{networkId, nodeSocket} -> do
+      let connectInfo = localNodeConnectInfo networkId nodeSocket
+      let runDirect :: forall b. DirectBackend b -> IO b
+          runDirect = flip runReaderT connectInfo . runDirectBackend
+      wallet <- mkTinyWallet runDirect tracer cfg
+      ctx <- loadChainContext runDirect cfg party
+      withDirectChain connectInfo tracer cfg ctx wallet chainStateHistory callback action
     Blockfrost blockfrostOptions -> do
-      let blockfrostBackend = BlockfrostBackend blockfrostOptions
-      wallet <- mkTinyWallet blockfrostBackend tracer cfg
-      ctx <- loadChainContext blockfrostBackend cfg party
-      withBlockfrostChain blockfrostBackend tracer cfg ctx wallet chainStateHistory callback action
+      let runBlockfrost :: forall b. BlockfrostBackend b -> IO b
+          runBlockfrost = flip runReaderT blockfrostOptions . runBlockfrostBackend
+      wallet <- mkTinyWallet runBlockfrost tracer cfg
+      ctx <- loadChainContext runBlockfrost cfg party
+      withBlockfrostChain blockfrostOptions tracer cfg ctx wallet chainStateHistory callback action
  where
   CardanoChainConfig{chainBackendOptions} = cfg
 
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
-  forall backend.
-  ChainBackend backend =>
-  backend ->
+  forall backend r.
+  (ChainBackend backend, MonadIO backend, MonadReader r backend) =>
+  (forall a. backend a -> IO a) ->
   CardanoChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->
   -- | The current running era we can use to query the node
   IO ChainContext
-loadChainContext backend config party = do
+loadChainContext runBackend config party = do
   (vk, _) <- readKeyPair cardanoSigningKey
-  scriptRegistry <- queryScriptRegistry backend hydraScriptsTxId
-  networkId <- queryNetworkId backend
+  scriptRegistry <- runBackend $ queryScriptRegistry hydraScriptsTxId
+  networkId <- runBackend queryNetworkId
   pure $
     ChainContext
       { networkId
@@ -87,28 +91,28 @@ loadChainContext backend config party = do
     } = config
 
 mkTinyWallet ::
-  forall backend.
-  ChainBackend backend =>
-  backend ->
+  forall backend r.
+  (ChainBackend backend, MonadIO backend, MonadReader r backend) =>
+  (forall a. backend a -> IO a) ->
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   IO (TinyWallet IO)
-mkTinyWallet backend tracer config = do
+mkTinyWallet runBackend tracer config = do
   keyPair <- readKeyPair cardanoSigningKey
-  networkId <- queryNetworkId backend
+  networkId <- runBackend queryNetworkId
   newTinyWallet (contramap Wallet tracer) networkId keyPair queryWalletInfo queryEpochInfo querySomePParams
  where
   CardanoChainConfig{cardanoSigningKey} = config
 
-  queryEpochInfo = toEpochInfo <$> queryEraHistory backend QueryTip
+  queryEpochInfo = toEpochInfo <$> runBackend (queryEraHistory QueryTip)
 
-  querySomePParams = queryProtocolParameters backend QueryTip
-  queryWalletInfo queryPoint address = do
+  querySomePParams = runBackend (queryProtocolParameters QueryTip)
+  queryWalletInfo queryPoint address = runBackend $ do
     point <- case queryPoint of
       QueryAt point -> pure point
-      QueryTip -> queryTip backend
-    walletUTxO <- Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra <$> queryUTxO backend [address]
-    systemStart <- querySystemStart backend QueryTip
+      QueryTip -> queryTip
+    walletUTxO <- Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra <$> queryUTxO [address]
+    systemStart <- querySystemStart QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
   toEpochInfo :: EraHistory -> EpochInfo (Either Text)

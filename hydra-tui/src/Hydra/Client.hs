@@ -130,9 +130,9 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
                 Left bfProject -> do
                   prj <- liftIO $ BF.projectFromFile bfProject
                   void $ BF.runBlockfrostM prj $ BF.submitTransaction tx
-                Right socketPath ->
-                  runCardanoNode (localNodeConnectInfo cardanoNetworkId socketPath) shelleyBasedEra $
-                    submitTransaction tx
+                Right socketPath -> do
+                  let connectInfo = localNodeConnectInfo cardanoNetworkId socketPath
+                  submitTransaction connectInfo $ signTx sk commitTx
    where
     request =
       Req.req

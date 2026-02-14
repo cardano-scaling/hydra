@@ -30,9 +30,7 @@ import Hydra.TUI.Style
 mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient Era
 mkCardanoClient networkId nodeSocket =
   CardanoClient
-    { queryUTxOByAddress =
-        CC.runCardanoNode (CC.localNodeConnectInfo networkId nodeSocket) shelleyBasedEra
-          . CC.queryUTxO CC.QueryTip
+    { queryUTxOByAddress = CC.queryUTxO (CC.localNodeConnectInfo networkId nodeSocket) CC.QueryTip
     , networkId
     }
 

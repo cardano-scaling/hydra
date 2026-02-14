@@ -44,16 +44,18 @@ sign signingKey body =
 -- Note that this function loops indefinitely; therefore, it's recommended to use
 -- it with a surrounding timeout mechanism.
 waitForPayments ::
-  ChainBackend backend =>
-  backend ->
+  forall m.
+  ChainBackend m =>
+  MonadIO m =>
+  MonadDelay m =>
   Coin ->
   Address ShelleyAddr ->
-  IO UTxO
-waitForPayments backend amount addr =
+  m UTxO
+waitForPayments amount addr =
   go
  where
   go = do
-    utxo <- Backend.queryUTxO backend [addr]
+    utxo <- Backend.queryUTxO [addr]
     let expectedPayments = selectPayments utxo
     if expectedPayments /= mempty
       then pure $ UTxO expectedPayments
@@ -65,19 +67,20 @@ waitForPayments backend amount addr =
 -- | Wait for transaction outputs with matching lovelace value and addresses of
 -- the whole given UTxO
 waitForUTxO ::
-  ChainBackend backend =>
-  backend ->
+  forall m.
+  ChainBackend m =>
+  MonadIO m =>
+  MonadDelay m =>
   UTxO ->
-  IO ()
-waitForUTxO backend utxo =
+  m ()
+waitForUTxO utxo =
   forM_ (snd <$> UTxO.toList utxo) forEachUTxO
  where
-  forEachUTxO :: TxOut CtxUTxO -> IO ()
+  forEachUTxO :: TxOut CtxUTxO -> m ()
   forEachUTxO = \case
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
         waitForPayments
-          backend
           (selectLovelace value)
           addr
     txOut ->
