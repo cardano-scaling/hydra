@@ -347,7 +347,7 @@ setupNodeAndTUI' hostname lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
         let DirectBackend DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (contramap FromHydra tracer) backend chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do

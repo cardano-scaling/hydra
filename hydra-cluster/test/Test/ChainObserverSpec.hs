@@ -47,7 +47,7 @@ spec = do
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             (aliceCardanoVk, _) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] cperiod
-            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
+            withHydraNode hydraTracer backend aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver backend $ \observer -> do
                 seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 

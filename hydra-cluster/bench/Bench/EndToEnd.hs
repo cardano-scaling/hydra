@@ -84,7 +84,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           putStrLn $ "Starting hydra cluster in " <> workDir
           let hydraTracer = contramap FromHydraNode tracer
 
-          withHydraCluster hydraTracer workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
+          withHydraCluster hydraTracer backend workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
             scenario hydraTracer backend workDir dataset clients
         systemStats <- readTVarIO statsTvar
