@@ -13,7 +13,7 @@ import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying,
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (headState), currentSlot)
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -80,7 +80,7 @@ spec = do
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
             s0 = inOpenState' [alice, bob] coordinatedHeadState
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
 
         outcome
@@ -90,7 +90,7 @@ spec = do
         let tx = aValidTx 1
             st = coordinatedHeadState{localTxs = [tx]}
             s0 = inOpenState' [alice, bob] st
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor bobSk) simpleLedger now s0 $ receiveMessageFrom bob $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
@@ -100,7 +100,7 @@ spec = do
             sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
             st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
             s0 = inOpenState' [alice, bob] st
-        now <- nowFromSlot (currentSlot s0)
+        now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
 
         outcome `hasNoEffectSatisfying` sendReqSn
@@ -133,7 +133,7 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        now <- nowFromSlot (currentSlot headState)
+        now <- nowFromSlot (currentSlot . chainPointTime $ headState)
         update bobEnv simpleLedger now headState (ackFrom bobSk bob)
           `hasEffectSatisfying` sendReqSn
 
@@ -144,7 +144,7 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        now <- nowFromSlot (currentSlot headState)
+        now <- nowFromSlot (currentSlot . chainPointTime $ headState)
         update bobEnv simpleLedger now headState (ackFrom bobSk bob)
           `hasNoEffectSatisfying` sendReqSn
 
@@ -165,7 +165,7 @@ spec = do
           step (ackFrom aliceSk alice)
           getState
 
-        now <- nowFromSlot (currentSlot headState)
+        now <- nowFromSlot (currentSlot . chainPointTime $ headState)
         let everybodyAcknowledged = update notLeaderEnv simpleLedger now headState $ ackFrom bobSk bob
         everybodyAcknowledged `hasNoEffectSatisfying` sendReqSn
 
@@ -220,7 +220,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         , version
         }
     s0 = inOpenState' [alice] st
-  now <- run $ nowFromSlot (currentSlot s0)
+  now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
   let outcome = update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
       Snapshot{number = confirmedSn} = getSnapshot sn
       nextSn = confirmedSn + 1

@@ -2,36 +2,203 @@
     "samples": [
         {
             "state": {
-                "currentChainTime": "1864-05-10T22:54:22.336737417819Z",
-                "currentSlot": 0,
+                "chainPointTime": {
+                    "currentChainTime": "1864-05-10T20:19:35.748949974178Z",
+                    "currentSlot": 1,
+                    "drift": 0
+                },
                 "headState": {
                     "contents": {
                         "chainState": {
                             "recordedAt": {
-                                "blockHash": "0100000000000000000100000001000001000100000001010100000000000001",
-                                "slot": 0,
+                                "blockHash": "0101010100010100000000010101010101000000000001010000000000000100",
+                                "slot": 1,
                                 "tag": "ChainPoint"
                             },
                             "spendableUTxO": {
-                                "0001000001010101000001000000000101000000000100010001010100010001#16": {
-                                    "address": "addr_test1qpyh0fzqppux2cek44aw0qpk0lm6p0sfc5l6njst5srfp6y46ytnzg9jy4y5nyktpzfxx473775t0p0tcl9xpqqesxdqghpxhq",
+                                "0101000001010000000100010001000000010000000101010000000000010000#99": {
+                                    "address": "addr_test1yzvasm8rxynepx7023sphpa49yjs9y6ydpqmhky8evfz2tvukytngpt39agujrtfllmgpfn03vps08vwqjzl63fst4jsme8v9j",
                                     "datum": null,
                                     "inlineDatum": {
-                                        "bytes": "f5b02fa8"
+                                        "int": 1
                                     },
-                                    "inlineDatumRaw": "44f5b02fa8",
-                                    "inlineDatumhash": "51df4083b9d33beed619dd150db1b57875c1a22ff3570b2fb60803612068da6a",
+                                    "inlineDatumRaw": "01",
+                                    "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
                                     "referenceScript": null,
                                     "value": {
-                                        "lovelace": 45000000000000000
+                                        "481cd7447b5d09b585aba19b58eb81fbacc8a7208335f7e7dfb77499": {
+                                            "7ba4d40bf22df1efbe8ae290e6337c3cde": 3478201231635291610
+                                        },
+                                        "lovelace": 1267140
                                     }
                                 }
                             }
-                        }
+                        },
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": []
+                            },
+                            "snapshot": {
+                                "confirmed": [],
+                                "headId": "01010101010101010000000001000100",
+                                "number": 1,
+                                "utxo": {
+                                    "0001010000010101010101010001000000000100010000010101010001000001#0": {
+                                        "address": "addr_test1qptt33znmjzg2vy02ga44afzf0krk460qcpvqjv86e340zjvhse8s4j7khv9th55dun8tseyuumu4x496028t0f8r57q4y5gk3",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 45000000000000000
+                                        }
+                                    }
+                                },
+                                "utxoToCommit": {
+                                    "0001010101010100000101000001000100010101010000000001010100000100#66": {
+                                        "address": "addr_test1vq27c8rxsz4ffvcgep7z4c8c38ujsea67kly9m9n32u0l2seqdx87",
+                                        "datum": null,
+                                        "inlineDatum": {
+                                            "bytes": ""
+                                        },
+                                        "inlineDatumRaw": "40",
+                                        "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 45000000000000000
+                                        }
+                                    }
+                                },
+                                "utxoToDecommit": {
+                                    "0101000101000101000001010100010100010101000101010001000101000000#60": {
+                                        "address": "addr_test1zruhv6un25qfeedft8zj8ncd0fm5qknzaa9wsy4rln78j4uddh00p3f0ccjnxuaw60ht29gm67c7r5x2xv4u6qy2mpjqd7maz5",
+                                        "datum": null,
+                                        "inlineDatum": {
+                                            "int": 0
+                                        },
+                                        "inlineDatumRaw": "00",
+                                        "inlineDatumhash": "03170a2e7597b7b7e3d84c05391d139a62b157e78786d8c082f29dcf4c111314",
+                                        "referenceScript": null,
+                                        "value": {
+                                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                                "38": 1
+                                            },
+                                            "lovelace": 1163700
+                                        }
+                                    }
+                                },
+                                "version": 0
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "contestationDeadline": "1864-05-10T10:34:59.469366230652Z",
+                        "headId": "01010101000100010100000101000101",
+                        "headSeed": "01000000000001000000000001010101",
+                        "parameters": {
+                            "contestationPeriod": 77065,
+                            "parties": [
+                                {
+                                    "vkey": "9bfa598f5c8511daa741a02e3e8ddf8a81d0bf3562c6ced4dc825cc98ec3b415"
+                                }
+                            ]
+                        },
+                        "readyToFanoutSent": true,
+                        "version": 0
                     },
-                    "tag": "Idle"
+                    "tag": "Closed"
                 },
-                "pendingDeposits": {},
+                "pendingDeposits": {
+                    "0001000000010001000001000101010101000101000100000001010001000000": {
+                        "created": "1864-05-08T22:41:14.973758656225Z",
+                        "deadline": "1864-05-08T04:31:53.726828864033Z",
+                        "deposited": {
+                            "0100000101000101000101000001000101000100010001000101010101000001#65": {
+                                "address": "addr_test1yztevqk2292eca5lgd0vz6z250a5yveh4lechz59zgh8n8xu7lmg8zkfyj6m6u2u7ghj5umkc34wthmr4hh7d7x495zs7wpu4e",
+                                "datum": null,
+                                "inlineDatum": {
+                                    "constructor": 2,
+                                    "fields": [
+                                        {
+                                            "int": 5
+                                        },
+                                        {
+                                            "constructor": 4,
+                                            "fields": [
+                                                {
+                                                    "list": []
+                                                },
+                                                {
+                                                    "constructor": 5,
+                                                    "fields": [
+                                                        {
+                                                            "bytes": "47b8d8"
+                                                        },
+                                                        {
+                                                            "bytes": ""
+                                                        },
+                                                        {
+                                                            "int": -2
+                                                        },
+                                                        {
+                                                            "bytes": "b930fa8b"
+                                                        },
+                                                        {
+                                                            "bytes": "932ae465"
+                                                        }
+                                                    ]
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "list": [
+                                                {
+                                                    "constructor": 2,
+                                                    "fields": [
+                                                        {
+                                                            "int": 0
+                                                        },
+                                                        {
+                                                            "int": 4
+                                                        },
+                                                        {
+                                                            "bytes": "3eb83e"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "constructor": 1,
+                                                    "fields": [
+                                                        {
+                                                            "int": -2
+                                                        },
+                                                        {
+                                                            "bytes": "19"
+                                                        },
+                                                        {
+                                                            "bytes": "a453ebc2"
+                                                        }
+                                                    ]
+                                                },
+                                                {
+                                                    "bytes": "5c"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                "inlineDatumRaw": "d87b9f05d87d9f80d87e9f4347b8d8402144b930fa8b44932ae465ffff9fd87b9f0004433eb83effd87a9f21411944a453ebc2ff415cffff",
+                                "inlineDatumhash": "5e1dcbc496d4ff88d17637caeafaaef686553e6fcea4e16af21e24e79b591550",
+                                "referenceScript": null,
+                                "value": {
+                                    "lovelace": 1249900
+                                }
+                            }
+                        },
+                        "headId": "01010100010001000100000000010001",
+                        "status": "Active"
+                    }
+                },
                 "tag": "NodeCatchingUp"
             },
             "tag": "Checkpoint"

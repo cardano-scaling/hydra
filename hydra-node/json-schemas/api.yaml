@@ -3765,6 +3765,23 @@ components:
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
 
+    ChainPointTime:
+      type: object
+      additionalProperties: false
+      required:
+        - currentSlot
+        - currentChainTime
+        - drift
+      properties:
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        currentChainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          # XXX: UInt64 in cardanonical, but Natural in cardano-api
+          type: integer
+          minimum: 0
+
     NodeState:
       oneOf:
         - title: NodeInSync
@@ -3774,7 +3791,7 @@ components:
             - tag
             - headState
             - pendingDeposits
-            - currentSlot
+            - chainPointTime
           properties:
             tag:
               type: string
@@ -3787,10 +3804,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TxId"
               items:
                 $ref: "api.yaml#/components/schemas/Deposit"
-            currentSlot:
-              $ref: "api.yaml#/components/schemas/ChainSlot"
-            currentChainTime:
-              $ref: "api.yaml#/components/schemas/UTCTime"
+            chainPointTime:
+              $ref: "api.yaml#/components/schemas/ChainPointTime"
         - title: NodeCatchingUp
           type: object
           additionalProperties: false
@@ -3798,7 +3813,7 @@ components:
             - tag
             - headState
             - pendingDeposits
-            - currentSlot
+            - chainPointTime
           properties:
             tag:
               type: string
@@ -3811,10 +3826,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TxId"
               items:
                 $ref: "api.yaml#/components/schemas/Deposit"
-            currentSlot:
-              $ref: "api.yaml#/components/schemas/ChainSlot"
-            currentChainTime:
-              $ref: "api.yaml#/components/schemas/UTCTime"
+            chainPointTime:
+              $ref: "api.yaml#/components/schemas/ChainPointTime"
 
     SubmitL2TxResponse:
       oneOf:

@@ -37,7 +37,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -351,8 +351,8 @@ primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
 -- returning the node to allow for chaining with 'runToCompletion'.
 primeWithTime :: MonadSTM m => HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 primeWithTime node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
-  knownChainTime <- currentChainTime <$> atomically queryNodeState
-  knownChainSlot <- currentSlot <$> atomically queryNodeState
+  knownChainTime <- currentChainTime . chainPointTime <$> atomically queryNodeState
+  knownChainSlot <- currentSlot . chainPointTime <$> atomically queryNodeState
   let chainSlot = knownChainSlot + 1
       chainTime = addUTCTime 1 knownChainTime
       tick = ChainInput $ Tick chainTime chainSlot
@@ -458,7 +458,7 @@ runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}, nodeStateHandle
  where
   go =
     unlessM isEmpty $ do
-      knownChainTime <- currentChainTime <$> atomically queryNodeState
+      knownChainTime <- currentChainTime . chainPointTime <$> atomically queryNodeState
       let nextChainTime = addUTCTime 1 knownChainTime
       stepHydraNode nextChainTime node >> go
 
