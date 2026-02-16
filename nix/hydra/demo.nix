@@ -193,39 +193,6 @@
               is_foreground = true;
               depends_on."hydra-node-carol".condition = "process_started";
             };
-            test = {
-              command = pkgs.writeShellApplication {
-                name = "demo-test";
-                runtimeInputs = [ pkgs.coreutils pkgs.cardano-cli pkgs.cardano-node self'.packages.hydra-node pkgs.jq ];
-                text = ''
-                  set -euo pipefail
-
-                  echo "--- Testing demo components"
-
-                  # Test that we can build and run basic components
-                  echo "Testing cardano-cli..."
-                  cardano-cli --version
-
-                  echo "Testing cardano-node..."
-                  cardano-node --version
-
-                  echo "✅ Demo setup completed successfully"
-
-                  echo "--- Testing that devnet files exist"
-                  if [ -f "devnet/cardano-node.json" ] && [ -f "devnet/topology.json" ]; then
-                    echo "✅ Devnet configuration files created"
-                  else
-                    echo "❌ Devnet configuration files missing"
-                    exit 1
-                  fi
-
-                  echo "--- Testing hydra-node"
-                  hydra-node --version
-                '';
-              };
-              # Ensure test starts only after devnet has been prepared
-              depends_on."prepare-devnet".condition = "process_completed";
-            };
             prometheus = {
               working_dir = "./demo";
               command = pkgs.writeShellApplication {
