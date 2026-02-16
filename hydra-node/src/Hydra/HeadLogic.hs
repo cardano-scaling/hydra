@@ -1408,7 +1408,8 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus
  where
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
-  drift = fromInteger $ floor (now `diffUTCTime` chainTime)
+  delta = now `diffUTCTime` chainTime
+  drift = if delta < 0 then 0 else fromInteger (floor delta)
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.
