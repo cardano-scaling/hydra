@@ -282,20 +282,3 @@ trivialCheckpoint = sum
 
 mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
 mkAggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
-
-checkpointsEqual ::
-  IsChainState tx =>
-  StateChanged tx ->
-  StateChanged tx ->
-  Expectation
-checkpointsEqual c1 c2 =
-  case (c1, c2) of
-    (Checkpoint s1, Checkpoint s2) ->
-      headState s1 == headState s2
-        && pendingDeposits s1 == pendingDeposits s2
-        && chainPointTime s1
-          == chainPointTime s2
-          `shouldBe` True
-    _ ->
-      expectationFailure $
-        "Expected both states to be Checkpoint, but got: " <> show c1 <> " and " <> show c2
