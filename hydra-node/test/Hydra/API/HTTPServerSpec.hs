@@ -37,13 +37,13 @@ import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
-import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState)
+import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState, zeroChainPointTime)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
@@ -378,7 +378,7 @@ apiServerSpec = do
                   testEnvironment
                   dummyStatePath
                   defaultPParams
-                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -496,11 +496,11 @@ apiServerSpec = do
             post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot))
               `shouldRespondWith` 400{matchBody = matchJSON expectedBody}
 
-      it "returns 503 on RejectedInput" $ do
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
         let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
         SideLoadSnapshotRequest snapshot <- reqGen
-        let clientFailed = RejectedInput{clientInput = SideLoadSnapshot snapshot, reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot snapshot, drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -596,7 +596,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -631,7 +631,7 @@ apiServerSpec = do
               testEnvironment
               dummyStatePath
               defaultPParams
-              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -679,7 +679,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -727,7 +727,7 @@ apiServerSpec = do
               ]
           let statePath = tmpDir </> "state"
           writeFileText statePath (unlines stateLines)
-
+          chainTime <- getCurrentTime
           withApplication
             ( httpApp @Tx
                 nullTracer
@@ -735,7 +735,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
+                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -837,9 +837,9 @@ apiServerSpec = do
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 400
 
-      prop "returns 503 on RejectedInput" $ do
+      prop "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
-        let clientFailed = RejectedInput{clientInput = NewTx testTx, reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = NewTx testTx, drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -932,10 +932,10 @@ apiServerSpec = do
           $ do
             post "/decommit" (encode tx) `shouldRespondWith` 400
 
-      it "returns 503 on RejectedInput" $ do
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
         let tx = SimpleTx 1 mempty mempty
-        let clientFailed = RejectedInput{clientInput = Decommit tx, reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Decommit tx, drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer
@@ -1023,11 +1023,11 @@ apiServerSpec = do
           $ do
             delete ("/commits/" <> txidText) `shouldRespondWith` 200
 
-      it "returns 503 on RejectedInput" $ do
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
         let tx = SimpleTx 1 mempty mempty
         let txidText = LBS.toStrict (encode (txId tx))
-        let clientFailed = RejectedInput{clientInput = Recover (txId tx), reason = "chain out of sync"}
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Recover (txId tx), drift = 10}
         withApplication
           ( httpApp @SimpleTx
               nullTracer

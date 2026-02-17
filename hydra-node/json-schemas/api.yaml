@@ -74,7 +74,7 @@ channels:
         oneOf:
           - $ref: "api.yaml#/components/messages/Greetings"
           - $ref: "api.yaml#/components/messages/CommandFailed"
-          - $ref: "api.yaml#/components/messages/RejectedInput"
+          - $ref: "api.yaml#/components/messages/RejectedInputBecauseUnsynced"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshotRejected"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
@@ -735,12 +735,12 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/CommandFailed"
 
-    RejectedInput:
-      title: RejectedInput
+    RejectedInputBecauseUnsynced:
+      title: RejectedInputBecauseUnsynced
       description: |
         Emitted by the server when a well-formed client input was not processable because the node-state is catching up with the chain-state.
       payload:
-        $ref: "api.yaml#/components/schemas/RejectedInput"
+        $ref: "api.yaml#/components/schemas/RejectedInputBecauseUnsynced"
 
     SideLoadSnapshotRejected:
       title: SideLoadSnapshotRejected
@@ -935,7 +935,7 @@ components:
       oneOf:
         - $ref: "api.yaml#/components/schemas/PostTxOnChainFailed"
         - $ref: "api.yaml#/components/schemas/CommandFailed"
-        - $ref: "api.yaml#/components/schemas/RejectedInput"
+        - $ref: "api.yaml#/components/schemas/RejectedInputBecauseUnsynced"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
 
     Greetings:
@@ -1499,15 +1499,16 @@ components:
         state:
           $ref: "api.yaml#/components/schemas/HeadState"
 
-    RejectedInput:
+    RejectedInputBecauseUnsynced:
       type: object
       required:
       - tag
       - clientInput
+      - drift
       properties:
         tag:
           type: string
-          enum: ["RejectedInput"]
+          enum: ["RejectedInputBecauseUnsynced"]
         clientInput:
           oneOf:
             - $ref: "api.yaml#/components/messages/Init/payload"
@@ -1520,8 +1521,8 @@ components:
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
-        reason:
-          type: string
+        drift:
+          $ref: "api.yaml#/components/schemas/Natural"
 
     SideLoadSnapshotRejected:
       type: object
@@ -2038,15 +2039,34 @@ components:
       type: object
       required:
         - tag
+        - chainSlot
+        - chainTime
+        - drift
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeUnsynced"]
+        chainSlot:
+          description: |
+            Slot of the latest observed chain point.
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        chainTime:
+          description: |
+            Wall-clock time corresponding to the latest observed chain point,
+            derived deterministically from the chain slot.
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          description: |
+            Difference between the current system wall-clock time and the chain time
+            of the latest observed chain point (now − chainTime).
+          $ref: "api.yaml#/components/schemas/Natural"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
+          description: |
+            System wall-clock time at which this event was emitted.
           $ref: "api.yaml#/components/schemas/UTCTime"
 
     NodeSynced:
@@ -2057,15 +2077,34 @@ components:
       type: object
       required:
         - tag
+        - chainSlot
+        - chainTime
+        - drift
         - seq
         - timestamp
       properties:
         tag:
           type: string
           enum: ["NodeSynced"]
+        chainSlot:
+          description: |
+            Slot of the latest observed chain point.
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        chainTime:
+          description: |
+            Wall-clock time corresponding to the latest observed chain point,
+            derived deterministically from the chain slot.
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          description: |
+            Difference between the current system wall-clock time and the chain time
+            of the latest observed chain point (now − chainTime).
+          $ref: "api.yaml#/components/schemas/Natural"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
+          description: |
+            System wall-clock time at which this event was emitted.
           $ref: "api.yaml#/components/schemas/UTCTime"
 
     # END OF SERVER OUTPUT SCHEMAS
@@ -3236,6 +3275,11 @@ components:
       description: |
         A length of time, measured in whole seconds, to be used in deposit validity.
       example: 60
+    
+    Natural:
+      # XXX: UInt64 in cardanonical, but Natural in cardano-api
+      type: integer
+      minimum: 0
 
     UnsyncedPeriod:
       type: number
@@ -3720,6 +3764,21 @@ components:
         status:
           $ref: "api.yaml#/components/schemas/DepositStatus"
 
+    ChainPointTime:
+      type: object
+      additionalProperties: false
+      required:
+        - currentSlot
+        - currentChainTime
+        - drift
+      properties:
+        currentSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        currentChainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          $ref: "api.yaml#/components/schemas/Natural"
+
     NodeState:
       oneOf:
         - title: NodeInSync
@@ -3729,7 +3788,7 @@ components:
             - tag
             - headState
             - pendingDeposits
-            - currentSlot
+            - chainPointTime
           properties:
             tag:
               type: string
@@ -3742,8 +3801,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TxId"
               items:
                 $ref: "api.yaml#/components/schemas/Deposit"
-            currentSlot:
-              $ref: "api.yaml#/components/schemas/ChainSlot"
+            chainPointTime:
+              $ref: "api.yaml#/components/schemas/ChainPointTime"
         - title: NodeCatchingUp
           type: object
           additionalProperties: false
@@ -3751,7 +3810,7 @@ components:
             - tag
             - headState
             - pendingDeposits
-            - currentSlot
+            - chainPointTime
           properties:
             tag:
               type: string
@@ -3764,8 +3823,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TxId"
               items:
                 $ref: "api.yaml#/components/schemas/Deposit"
-            currentSlot:
-              $ref: "api.yaml#/components/schemas/ChainSlot"
+            chainPointTime:
+              $ref: "api.yaml#/components/schemas/ChainPointTime"
 
     SubmitL2TxResponse:
       oneOf:

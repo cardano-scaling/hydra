@@ -12,7 +12,7 @@ import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), TTL)
@@ -37,7 +37,7 @@ import Hydra.Node (
 import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -178,6 +178,7 @@ spec = parallel $ do
 
           testHydrate eventStore []
             >>= notConnect
+            >>= primeWithTime
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
 
@@ -341,12 +342,21 @@ spec = parallel $ do
 -- | Add given list of inputs to the 'InputQueue'. A preceding 'Tick' is enqueued
 -- to advance the chain slot and ensure the 'NodeState' is in sync. This is
 -- returning the node to allow for chaining with 'runToCompletion'.
-primeWith :: (MonadSTM m, MonadTime m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
-primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
-  now <- getCurrentTime
-  chainSlot <- currentSlot <$> atomically queryNodeState
-  let tick = ChainInput $ Tick now (chainSlot + 1)
-  forM_ (tick : inputs) enqueue
+primeWith :: MonadSTM m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+primeWith inputs node@HydraNode{inputQueue = InputQueue{enqueue}} = do
+  forM_ inputs enqueue
+  pure node
+
+-- | A preceding 'Tick' is enqueued to advance the chain slot and ensure the 'NodeState' is in sync. This is
+-- returning the node to allow for chaining with 'runToCompletion'.
+primeWithTime :: MonadSTM m => HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWithTime node@HydraNode{inputQueue = InputQueue{enqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}} = do
+  knownChainTime <- currentChainTime . chainPointTime <$> atomically queryNodeState
+  knownChainSlot <- currentSlot . chainPointTime <$> atomically queryNodeState
+  let chainSlot = knownChainSlot + 1
+      chainTime = addUTCTime 1 knownChainTime
+      tick = ChainInput $ Tick chainTime chainSlot
+  enqueue tick
   pure node
 
 -- | Convert a 'DraftHydraNode' to a 'HydraNode' by providing mock implementations.
@@ -444,11 +454,13 @@ runToCompletion ::
   IsChainState tx =>
   HydraNode tx IO ->
   IO ()
-runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}} = go
+runToCompletion node@HydraNode{inputQueue = InputQueue{isEmpty}, nodeStateHandler = NodeStateHandler{queryNodeState}} = go
  where
   go =
-    unlessM isEmpty $
-      stepHydraNode node >> go
+    unlessM isEmpty $ do
+      knownChainTime <- currentChainTime . chainPointTime <$> atomically queryNodeState
+      let nextChainTime = addUTCTime 1 knownChainTime
+      stepHydraNode nextChainTime node >> go
 
 -- | Creates a full 'HydraNode' with given parameters and primed 'Input's. Note
 -- that this node is 'notConnect'ed to any components.
@@ -465,6 +477,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       eventStore = mockEventStore []
   hydrate tracer env simpleLedger 0 eventStore []
     >>= notConnect
+    >>= primeWithTime
     >>= primeWith inputs
  where
   env =

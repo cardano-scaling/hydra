@@ -379,8 +379,8 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
                 pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
               Right (CommandFailed{clientInput = Recover{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
-              Right (RejectedInput{clientInput = Recover{}, reason}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String reason)
+              Right (RejectedInputBecauseUnsynced{clientInput = Recover{}, drift}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Recover failed because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -450,8 +450,8 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
               Right (CommandFailed{clientInput = Decommit{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
-              Right (RejectedInput{clientInput = Decommit{}, reason}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String reason)
+              Right (RejectedInputBecauseUnsynced{clientInput = Decommit{}, drift}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Decommit failed because because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -492,8 +492,8 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
                 pure $ responseLBS status400 jsonContent (Aeson.encode requirementFailure)
               Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
-              Right (RejectedInput{clientInput = SideLoadSnapshot{}, reason}) ->
-                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String reason)
+              Right (RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot{}, drift}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -564,8 +564,8 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
     go = do
       event <- atomically $ readTChan dupChannel
       case event of
-        Right (RejectedInput{clientInput = NewTx{}, reason}) -> do
-          pure $ SubmitTxRejectedResponse reason
+        Right (RejectedInputBecauseUnsynced{clientInput = NewTx{}, drift}) -> do
+          pure $ SubmitTxRejectedResponse $ "Node is out of sync with chain, drift: " <> show drift
         Left (TimedServerOutput{output}) -> case output of
           TxValid{transactionId}
             | transactionId == txid ->

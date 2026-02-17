@@ -300,7 +300,9 @@ runHydraNode ::
 runHydraNode node =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ stepHydraNode node
+  forever $ do
+    now <- getCurrentTime
+    stepHydraNode now node
 
 stepHydraNode ::
   ( MonadCatch m
@@ -308,12 +310,12 @@ stepHydraNode ::
   , MonadTime m
   , IsChainState tx
   ) =>
+  UTCTime ->
   HydraNode tx m ->
   m ()
-stepHydraNode node = do
+stepHydraNode now node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  now <- getCurrentTime
   outcome <- atomically $ processNextInput node queuedItem now
   traceWith tracer (LogicOutcome party outcome)
   case outcome of

@@ -67,7 +67,7 @@ instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitI
 data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
-  | RejectedInput {clientInput :: ClientInput tx, reason :: Text}
+  | RejectedInputBecauseUnsynced {clientInput :: ClientInput tx, drift :: Natural}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
   deriving (Eq, Show, Generic)
 
@@ -204,8 +204,8 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
-  | NodeUnsynced
-  | NodeSynced
+  | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: Natural}
+  | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: Natural}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)

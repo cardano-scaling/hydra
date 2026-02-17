@@ -5,6 +5,7 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
@@ -13,6 +14,17 @@ import Hydra.Tx (
  )
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+
+data ChainPointTime = ChainPointTime
+  { currentSlot :: ChainSlot
+  -- ^ Latest chain slot as observed on chain.
+  , currentChainTime :: UTCTime
+  -- ^ Time corresponding to `currentSlot`.
+  , drift :: Natural
+  -- ^ Time difference with current system wall-clock measured in seconds
+  }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
 data NodeState tx
   = -- | Normal operation of the node where it is connected and has a recent
@@ -23,14 +35,17 @@ data NodeState tx
       -- ^ Pending deposits as observed on chain.
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
-      , currentSlot :: ChainSlot
+      , chainPointTime :: ChainPointTime
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
     NodeCatchingUp
       { headState :: HeadState tx
       , pendingDeposits :: PendingDeposits tx
-      , currentSlot :: ChainSlot
+      -- ^ Pending deposits as observed on chain.
+      -- TODO: could even move the chain state here (also see todo below)
+      -- , chainState :: ChainStateType tx
+      , chainPointTime :: ChainPointTime
       }
   deriving stock (Generic)
 
@@ -44,8 +59,19 @@ initNodeState chainState =
   NodeCatchingUp
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
-    , currentSlot = chainStateSlot chainState
+    , chainPointTime = initialChainPointTime chainState
     }
+
+initialChainPointTime :: IsChainState tx => ChainStateType tx -> ChainPointTime
+initialChainPointTime chainState =
+  ChainPointTime
+    { currentSlot = chainStateSlot chainState
+    , currentChainTime = initialChainTime
+    , drift = 0
+    }
+
+initialChainTime :: UTCTime
+initialChainTime = posixSecondsToUTCTime 0
 
 data SyncedStatus = InSync | CatchingUp
   deriving (Generic, Eq, Show, ToJSON, FromJSON)

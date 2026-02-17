@@ -2,13 +2,17 @@
     "samples": [
         {
             "state": {
-                "currentSlot": 1,
+                "chainPointTime": {
+                    "currentChainTime": "1864-05-10T20:19:35.748949974178Z",
+                    "currentSlot": 1,
+                    "drift": 0
+                },
                 "headState": {
                     "contents": {
                         "chainState": {
                             "recordedAt": {
-                                "blockHash": "0100000101010000000000010000010101010101000000010100010101000001",
-                                "slot": 0,
+                                "blockHash": "0101010100010100000000010101010101000000000001010000000000000100",
+                                "slot": 1,
                                 "tag": "ChainPoint"
                             },
                             "spendableUTxO": {

@@ -2,7 +2,11 @@
     "samples": [
         {
             "checkpoint": {
-                "currentSlot": 1,
+                "chainPointTime": {
+                    "currentChainTime": "1864-05-09T21:40:40.53348049031Z",
+                    "currentSlot": 1,
+                    "drift": 1
+                },
                 "headState": {
                     "contents": {
                         "chainState": {

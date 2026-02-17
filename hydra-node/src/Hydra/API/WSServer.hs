@@ -45,7 +45,7 @@ import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (..), syncedStatus)
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
@@ -114,7 +114,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
             , env
             , networkInfo
             , chainSyncedStatus = syncedStatus nodeState
-            , currentSlot = nodeState.currentSlot
+            , currentSlot = nodeState.chainPointTime.currentSlot
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP

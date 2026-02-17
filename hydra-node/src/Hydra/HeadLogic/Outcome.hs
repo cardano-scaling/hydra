@@ -142,8 +142,8 @@ data StateChanged tx
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | Checkpoint {state :: NodeState tx}
-  | NodeUnsynced
-  | NodeSynced
+  | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: Natural}
+  | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: Natural}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
