@@ -24,9 +24,8 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (..), traceInTVar)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
-import System.IO.Temp (writeSystemTempFile)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
-import Test.QuickCheck (Property, Testable, counterexample, forAll, ioProperty, property, withMaxSuccess)
+import Test.QuickCheck (forAll, withMaxSuccess)
 
 noopCallback :: Applicative m => NetworkCallback msg m
 noopCallback =
