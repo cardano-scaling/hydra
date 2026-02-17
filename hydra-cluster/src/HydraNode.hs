@@ -455,7 +455,7 @@ withPreparedHydraNodeInSync tracer backend workDir hydraNodeId runOptions action
  where
   waitFactor = 5
   action' waitTime client = do
-    waitForNodesSynced tracer waitTime $ client :| []
+    waitForNodesSynced waitTime $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
