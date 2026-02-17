@@ -76,6 +76,7 @@ channels:
           - $ref: "api.yaml#/components/messages/CommandFailed"
           - $ref: "api.yaml#/components/messages/RejectedInputBecauseUnsynced"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshotRejected"
+          - $ref: "api.yaml#/components/messages/SyncedStatusReport"
           - $ref: "api.yaml#/components/messages/PostTxOnChainFailed"
           - $ref: "api.yaml#/components/messages/PeerConnected"
           - $ref: "api.yaml#/components/messages/PeerDisconnected"
@@ -749,6 +750,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
 
+    SyncedStatusReport:
+      title: SyncedStatusReport
+      description: |
+        Emitted by the server while the node is catching-up with the chain or while in sync but near to become unsynced.
+      payload:
+        $ref: "api.yaml#/components/schemas/SyncedStatusReport"
+
     IgnoredHeadInitializing:
       title: IgnoredHeadInitializing
       description: |
@@ -937,6 +945,7 @@ components:
         - $ref: "api.yaml#/components/schemas/CommandFailed"
         - $ref: "api.yaml#/components/schemas/RejectedInputBecauseUnsynced"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshotRejected"
+        - $ref: "api.yaml#/components/schemas/SyncedStatusReport"
 
     Greetings:
       type: object
@@ -1548,6 +1557,27 @@ components:
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         requirementFailure:
           $ref: "api.yaml#/components/schemas/SideLoadRequirementFailure"
+
+    SyncedStatusReport:
+      type: object
+      required:
+        - tag
+        - chainSlot
+        - chainTime
+        - drift
+        - synced
+      properties:
+        tag:
+          type: string
+          enum: ["SyncedStatusReport"]
+        chainSlot:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
+        chainTime:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+        drift:
+          $ref: "api.yaml#/components/schemas/Natural"
+        synced:
+          $ref: "api.yaml#/components/schemas/SyncedStatus"
 
     SideLoadRequirementFailure:
       oneOf:
