@@ -491,7 +491,7 @@ withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient 
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
 waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
-waitForNodesSynced :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog
 [$sel:cmd:HydraNodeCommandSpec] :: HydraNodeLog -> Text

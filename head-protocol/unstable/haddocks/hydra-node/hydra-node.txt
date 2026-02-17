@@ -2071,28 +2071,41 @@ instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
 
 module Hydra.Node.State
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+data ChainPointTime
+ChainPointTime :: ChainSlot -> UTCTime -> Natural -> ChainPointTime
+
+-- | Latest chain slot as observed on chain.
+[$sel:currentSlot:ChainPointTime] :: ChainPointTime -> ChainSlot
+
+-- | Time corresponding to <a>$sel:currentSlot:ChainPointTime</a>.
+[$sel:currentChainTime:ChainPointTime] :: ChainPointTime -> UTCTime
+
+-- | Time difference with current system wall-clock measured in seconds
+[$sel:drift:ChainPointTime] :: ChainPointTime -> Natural
 data NodeState tx
 
 -- | Normal operation of the node where it is connected and has a recent
 --   view of the chain.
-NodeInSync :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
+NodeInSync :: HeadState tx -> PendingDeposits tx -> ChainPointTime -> NodeState tx
 [$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
 -- | Pending deposits as observed on chain. TODO: could even move the chain
 --   state here (also see todo below) , chainState :: ChainStateType tx
 [$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
-[$sel:currentSlot:NodeInSync] :: NodeState tx -> ChainSlot
+[$sel:chainPointTime:NodeInSync] :: NodeState tx -> ChainPointTime
 
 -- | Node is catching up on its view of the chain and should behave
 --   differently.
-NodeCatchingUp :: HeadState tx -> PendingDeposits tx -> ChainSlot -> NodeState tx
+NodeCatchingUp :: HeadState tx -> PendingDeposits tx -> ChainPointTime -> NodeState tx
 [$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
 -- | Pending deposits as observed on chain. TODO: could even move the chain
 --   state here (also see todo below) , chainState :: ChainStateType tx
 [$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
-[$sel:currentSlot:NodeInSync] :: NodeState tx -> ChainSlot
+[$sel:chainPointTime:NodeInSync] :: NodeState tx -> ChainPointTime
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
+initialChainPointTime :: IsChainState tx => ChainStateType tx -> ChainPointTime
+initialChainTime :: UTCTime
 data SyncedStatus
 InSync :: SyncedStatus
 CatchingUp :: SyncedStatus
@@ -2112,6 +2125,11 @@ Inactive :: DepositStatus
 Active :: DepositStatus
 Expired :: DepositStatus
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.State.ChainPointTime
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.State.ChainPointTime
+instance GHC.Generics.Generic Hydra.Node.State.ChainPointTime
+instance GHC.Show.Show Hydra.Node.State.ChainPointTime
+instance GHC.Classes.Eq Hydra.Node.State.ChainPointTime
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Node.State.SyncedStatus
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.State.SyncedStatus
 instance GHC.Show.Show Hydra.Node.State.SyncedStatus
@@ -2212,9 +2230,9 @@ CommandFailed :: ClientInput tx -> HeadState tx -> ClientMessage tx
 PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 [$sel:postChainTx:CommandFailed] :: ClientMessage tx -> PostChainTx tx
 [$sel:postTxError:CommandFailed] :: ClientMessage tx -> PostTxError tx
-RejectedInput :: ClientInput tx -> Text -> ClientMessage tx
+RejectedInputBecauseUnsynced :: ClientInput tx -> Natural -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
-[$sel:reason:CommandFailed] :: ClientMessage tx -> Text
+[$sel:drift:CommandFailed] :: ClientMessage tx -> Natural
 SideLoadSnapshotRejected :: ClientInput tx -> SideLoadRequirementFailure tx -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:requirementFailure:CommandFailed] :: ClientMessage tx -> SideLoadRequirementFailure tx
@@ -2366,8 +2384,14 @@ SnapshotSideLoaded :: HeadId -> SnapshotNumber -> ServerOutput tx
 [$sel:snapshotNumber:NetworkConnected] :: ServerOutput tx -> SnapshotNumber
 EventLogRotated :: NodeState tx -> ServerOutput tx
 [$sel:checkpoint:NetworkConnected] :: ServerOutput tx -> NodeState tx
-NodeUnsynced :: ServerOutput tx
-NodeSynced :: ServerOutput tx
+NodeUnsynced :: ChainSlot -> UTCTime -> Natural -> ServerOutput tx
+[$sel:chainSlot:NetworkConnected] :: ServerOutput tx -> ChainSlot
+[$sel:chainTime:NetworkConnected] :: ServerOutput tx -> UTCTime
+[$sel:drift:NetworkConnected] :: ServerOutput tx -> Natural
+NodeSynced :: ChainSlot -> UTCTime -> Natural -> ServerOutput tx
+[$sel:chainSlot:NetworkConnected] :: ServerOutput tx -> ChainSlot
+[$sel:chainTime:NetworkConnected] :: ServerOutput tx -> UTCTime
+[$sel:drift:NetworkConnected] :: ServerOutput tx -> Natural
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO
@@ -2631,8 +2655,14 @@ LocalStateCleared :: HeadId -> SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
-NodeUnsynced :: StateChanged tx
-NodeSynced :: StateChanged tx
+NodeUnsynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+[$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
+[$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
+[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
+NodeSynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+[$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
+[$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
+[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
 data Outcome tx
 
 -- | Continue with the given state updates and side effects.
@@ -3085,12 +3115,12 @@ onClosedChainFanoutTx :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> O
 
 -- | Detect our view of the chain going out of sync and issue a
 --   <a>NodeUnsynced</a> event when this is the case.
-handleOutOfSync :: Environment -> UTCTime -> UTCTime -> SyncedStatus -> Outcome tx
-updateUnsyncedHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
-updateSyncedHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
-handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
-handleClientInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
-handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainSlot -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
+handleOutOfSync :: IsChainState tx => Environment -> UTCTime -> ChainPointType tx -> UTCTime -> SyncedStatus -> Outcome tx
+updateCatchingUpHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
+updateInSyncHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
+handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
+handleClientInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
+handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 onConnectionEvent :: Text -> Connectivity -> Outcome tx
 
 -- | Inputs that are processed by the head logic (the "core").
@@ -3488,8 +3518,14 @@ LocalStateCleared :: HeadId -> SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
-NodeUnsynced :: StateChanged tx
-NodeSynced :: StateChanged tx
+NodeUnsynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+[$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
+[$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
+[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
+NodeSynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+[$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
+[$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
+[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
 data WaitReason tx
 WaitOnNotApplicableTx :: ValidationError -> WaitReason tx
 [$sel:validationError:WaitOnNotApplicableTx] :: WaitReason tx -> ValidationError
@@ -4442,7 +4478,7 @@ HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeState
 [$sel:hn:HydraNode] :: HydraNode tx m -> Network m (Message tx)
 [$sel:server:HydraNode] :: HydraNode tx m -> Server tx m
 runHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
-stepHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
+stepHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => UTCTime -> HydraNode tx m -> m ()
 
 -- | The maximum number of times to re-enqueue a network messages upon
 --   <a>Wait</a>. outcome.

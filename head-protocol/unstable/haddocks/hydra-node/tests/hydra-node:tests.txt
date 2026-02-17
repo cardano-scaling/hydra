@@ -284,6 +284,9 @@ nowFromSlot :: (MonadFail m, MonadTime m) => ChainSlot -> m UTCTime
 --   EraHistory is constructed to have a horizon sufficiently far in the
 --   future to accommodate time conversions.
 mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
+catchingUp :: IsTx tx => HeadState tx -> NodeState tx
+inSync :: IsTx tx => HeadState tx -> NodeState tx
+zeroChainPointTime :: ChainPointTime
 
 module Hydra.HeadLogicSnapshotSpec
 spec :: Spec
@@ -396,10 +399,6 @@ noopCallback :: Applicative m => NetworkCallback msg m
 -- | Run given <tt>action</tt> in <a>IOSim</a> and rethrow any exceptions.
 shouldRunInSim :: (forall s. IOSim s a) -> IO a
 
--- | Run given <tt>action</tt> in <a>IOSim</a> as a <a>Property</a>
---   including the whole <a>HydraNodeLog</a> trace as a counterexample.
-propRunInSim :: Testable prop => (forall s. IOSim s prop) -> Property
-
 -- | Utility function to dump logs given a <a>SimTrace</a>.
 printTrace :: forall log a. (Typeable log, ToJSON log) => Proxy log -> SimTrace a -> Text
 
@@ -464,7 +463,12 @@ spec :: Spec
 --   <a>Tick</a> is enqueued to advance the chain slot and ensure the
 --   <a>NodeState</a> is in sync. This is returning the node to allow for
 --   chaining with <a>runToCompletion</a>.
-primeWith :: (MonadSTM m, MonadTime m) => [Input SimpleTx] -> HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
+primeWith :: MonadSTM m => [Input tx] -> HydraNode tx m -> m (HydraNode tx m)
+
+-- | A preceding <a>Tick</a> is enqueued to advance the chain slot and
+--   ensure the <a>NodeState</a> is in sync. This is returning the node to
+--   allow for chaining with <a>runToCompletion</a>.
+primeWithTime :: MonadSTM m => HydraNode SimpleTx m -> m (HydraNode SimpleTx m)
 
 -- | Convert a <a>DraftHydraNode</a> to a <a>HydraNode</a> by providing
 --   mock implementations.

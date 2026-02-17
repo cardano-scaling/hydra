@@ -27,20 +27,20 @@ forall a. SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">parallel</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-25"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679647897"><span id="local-6989586621679647899"><span id="local-6989586621679647901"><span id="local-6989586621679647903"><span class="annot"><a href="#local-6989586621679648167"><span class="hs-identifier hs-type">captureOutgoing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679647897"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679647897"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679647899"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679647901"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span> </span><span class="annot"><a href="#local-6989586621679647897"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679647899"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679647903"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679647903"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
-</span><span id="line-26"></span><span>      </span><span id="local-6989586621679648167"><span class="annot"><span class="annottext">captureOutgoing :: forall (m :: * -&gt; *) a p b.
+</span><span id="line-25"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648733"><span id="local-6989586621679648735"><span id="local-6989586621679648737"><span id="local-6989586621679648739"><span class="annot"><a href="#local-6989586621679649003"><span class="hs-identifier hs-type">captureOutgoing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679648733"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679648733"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679648735"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679648737"><span class="hs-identifier hs-type">p</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span> </span><span class="annot"><a href="#local-6989586621679648733"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679648735"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679648739"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679648739"><span class="hs-identifier hs-type">b</span></a></span></span></span></span></span><span>
+</span><span id="line-26"></span><span>      </span><span id="local-6989586621679649003"><span class="annot"><span class="annottext">captureOutgoing :: forall (m :: * -&gt; *) a p b.
 MonadSTM m =&gt;
 TVar m [a] -&gt; p -&gt; (Network m a -&gt; b) -&gt; b
-</span><a href="#local-6989586621679648167"><span class="hs-identifier hs-var hs-var">captureOutgoing</span></a></span></span><span> </span><span id="local-6989586621679648173"><span class="annot"><span class="annottext">TVar m [a]
-</span><a href="#local-6989586621679648173"><span class="hs-identifier hs-var">msgqueue</span></a></span></span><span> </span><span id="local-6989586621679648174"><span class="annot"><span class="annottext">p
-</span><a href="#local-6989586621679648174"><span class="hs-identifier hs-var">_cb</span></a></span></span><span> </span><span id="local-6989586621679648175"><span class="annot"><span class="annottext">Network m a -&gt; b
-</span><a href="#local-6989586621679648175"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679649003"><span class="hs-identifier hs-var hs-var">captureOutgoing</span></a></span></span><span> </span><span id="local-6989586621679649009"><span class="annot"><span class="annottext">TVar m [a]
+</span><a href="#local-6989586621679649009"><span class="hs-identifier hs-var">msgqueue</span></a></span></span><span> </span><span id="local-6989586621679649010"><span class="annot"><span class="annottext">p
+</span><a href="#local-6989586621679649010"><span class="hs-identifier hs-var">_cb</span></a></span></span><span> </span><span id="local-6989586621679649011"><span class="annot"><span class="annottext">Network m a -&gt; b
+</span><a href="#local-6989586621679649011"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-27"></span><span>        </span><span class="annot"><span class="annottext">Network m a -&gt; b
-</span><a href="#local-6989586621679648175"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">(Network m a -&gt; b) -&gt; Network m a -&gt; b
+</span><a href="#local-6989586621679649011"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">(Network m a -&gt; b) -&gt; Network m a -&gt; b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:broadcast:Network :: a -&gt; m ()
-</span><span class="hs-identifier hs-var">broadcast</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679648178"><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679648178"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
+</span><span class="hs-identifier hs-var">broadcast</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679649014"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679649014"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
 (MonadSTM m, HasCallStack) =&gt;
@@ -53,19 +53,19 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m [a]
-</span><a href="#local-6989586621679648173"><span class="hs-identifier hs-var">msgqueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
-</span><a href="#local-6989586621679648178"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621679649009"><span class="hs-identifier hs-var">msgqueue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679649014"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span class="hs-special">}</span><span>
 </span><span id="line-28"></span><span>
-</span><span id="line-29"></span><span>      </span><span id="local-6989586621679647912"><span id="local-6989586621679647913"><span class="annot"><a href="#local-6989586621679648180"><span class="hs-identifier hs-type">captureIncoming</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679647912"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679647912"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679647913"><span class="hs-identifier hs-type">mes</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span> </span><span class="annot"><a href="#local-6989586621679647913"><span class="hs-identifier hs-type">mes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679647912"><span class="hs-identifier hs-type">m</span></a></span></span></span><span>
-</span><span id="line-30"></span><span>      </span><span id="local-6989586621679648180"><span class="annot"><span class="annottext">captureIncoming :: forall (m :: * -&gt; *) mes.
+</span><span id="line-29"></span><span>      </span><span id="local-6989586621679648748"><span id="local-6989586621679648749"><span class="annot"><a href="#local-6989586621679649016"><span class="hs-identifier hs-type">captureIncoming</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679648748"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679648748"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><a href="#local-6989586621679648749"><span class="hs-identifier hs-type">mes</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span> </span><span class="annot"><a href="#local-6989586621679648749"><span class="hs-identifier hs-type">mes</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679648748"><span class="hs-identifier hs-type">m</span></a></span></span></span><span>
+</span><span id="line-30"></span><span>      </span><span id="local-6989586621679649016"><span class="annot"><span class="annottext">captureIncoming :: forall (m :: * -&gt; *) mes.
 MonadSTM m =&gt;
 TVar m [mes] -&gt; NetworkCallback mes m
-</span><a href="#local-6989586621679648180"><span class="hs-identifier hs-var hs-var">captureIncoming</span></a></span></span><span> </span><span id="local-6989586621679648191"><span class="annot"><span class="annottext">TVar m [mes]
-</span><a href="#local-6989586621679648191"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679649016"><span class="hs-identifier hs-var hs-var">captureIncoming</span></a></span></span><span> </span><span id="local-6989586621679649027"><span class="annot"><span class="annottext">TVar m [mes]
+</span><a href="#local-6989586621679649027"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-31"></span><span>        </span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span>
 </span><span id="line-32"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:deliver:NetworkCallback :: mes -&gt; m ()
-</span><span class="hs-identifier hs-var">deliver</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679648194"><span class="annot"><span class="annottext">mes
-</span><a href="#local-6989586621679648194"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span class="hs-identifier hs-var">deliver</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679649030"><span class="annot"><span class="annottext">mes
+</span><a href="#local-6989586621679649030"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-33"></span><span>              </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -79,8 +79,8 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m [mes]
-</span><a href="#local-6989586621679648191"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">mes
-</span><a href="#local-6989586621679648194"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679649027"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">mes
+</span><a href="#local-6989586621679649030"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">:</span><span class="hs-special">)</span><span>
 </span><span id="line-34"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:onConnectivity:NetworkCallback :: Connectivity -&gt; m ()
 </span><span class="hs-identifier hs-var">onConnectivity</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m () -&gt; Connectivity -&gt; m ()
 forall a b. a -&gt; b -&gt; a
@@ -92,8 +92,8 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-35"></span><span>          </span><span class="hs-special">}</span><span>
 </span><span id="line-36"></span><span>
-</span><span id="line-37"></span><span>  </span><span id="local-6989586621679648197"><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Message SimpleTx) -&gt; SpecM () (Message SimpleTx)
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679649033"><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Message SimpleTx) -&gt; SpecM () (Message SimpleTx)
 forall r a. IO r -&gt; SpecM a r
 </span><span class="hs-identifier hs-var">runIO</span></span><span> </span><span class="annot"><span class="annottext">(IO (Message SimpleTx) -&gt; SpecM () (Message SimpleTx))
 -&gt; IO (Message SimpleTx) -&gt; SpecM () (Message SimpleTx)
@@ -112,8 +112,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-40"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648201"><span class="annot"><span class="annottext">receivedMsgs :: [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648201"><span class="hs-identifier hs-var hs-var">receivedMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Authenticated (Message SimpleTx)])
+</span><span id="line-40"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649037"><span class="annot"><span class="annottext">receivedMsgs :: [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649037"><span class="hs-identifier hs-var hs-var">receivedMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Authenticated (Message SimpleTx)])
 -&gt; [Authenticated (Message SimpleTx)]
 forall a. (forall s. IOSim s a) -&gt; a
 </span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Authenticated (Message SimpleTx)])
@@ -122,8 +122,8 @@ forall a. (forall s. IOSim s a) -&gt; a
 -&gt; [Authenticated (Message SimpleTx)]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-41"></span><span>          </span><span id="local-6989586621679648220"><span class="annot"><span class="annottext">TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648220"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-41"></span><span>          </span><span id="local-6989586621679649056"><span class="annot"><span class="annottext">TVar s [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649056"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; [Authenticated (Message SimpleTx)]
 -&gt; IOSim s (TVar (IOSim s) [Authenticated (Message SimpleTx)])
 forall (m :: * -&gt; *) a.
@@ -150,26 +150,26 @@ forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span>
 </span><span id="line-48"></span><span>            </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span>
-</span><span id="line-49"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679648222"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
+</span><span id="line-49"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679649058"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
 $sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
 deliver :: Signed (Message SimpleTx) -&gt; IOSim s ()
 </span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Signed (Message SimpleTx)) -&gt; IOSim s ()
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-50"></span><span>                </span><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
-</span><a href="#local-6989586621679648222"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649058"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx)
 -&gt; Party
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">)</span><span>
 </span><span id="line-51"></span><span>            </span><span class="hs-special">)</span><span>
 </span><span id="line-52"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
@@ -177,9 +177,9 @@ SigningKey HydraKey -&gt; a -&gt; Signature a
 forall (m :: * -&gt; *) mes.
 MonadSTM m =&gt;
 TVar m [mes] -&gt; NetworkCallback mes m
-</span><a href="#local-6989586621679648180"><span class="hs-identifier hs-var">captureIncoming</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649016"><span class="hs-identifier hs-var">captureIncoming</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
 TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648220"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679649056"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-53"></span><span>            </span><span class="annot"><span class="annottext">((Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
  -&gt; IOSim s ())
 -&gt; (Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
@@ -198,16 +198,16 @@ forall a. TVar (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
 TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648220"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span>
+</span><a href="#local-6989586621679649056"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span>
 </span><span id="line-57"></span><span>
 </span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648201"><span class="hs-identifier hs-var">receivedMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649037"><span class="hs-identifier hs-var">receivedMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
 -&gt; [Authenticated (Message SimpleTx)] -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Message SimpleTx -&gt; Party -&gt; Authenticated (Message SimpleTx)
 forall msg. msg -&gt; Party -&gt; Authenticated msg
 </span><span class="hs-identifier hs-var">Authenticated</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span>
 </span><span id="line-59"></span><span>
 </span><span id="line-60"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
@@ -219,8 +219,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-61"></span><span>    </span><span id="local-6989586621679648226"><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648226"><span class="hs-identifier hs-var">unexpectedMessage</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
+</span><span id="line-61"></span><span>    </span><span id="local-6989586621679649062"><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649062"><span class="hs-identifier hs-var">unexpectedMessage</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SimpleTx -&gt; Message SimpleTx
 forall tx. tx -&gt; Message tx
 </span><span class="hs-identifier hs-var">ReqTx</span></span><span> </span><span class="annot"><span class="annottext">(SimpleTx -&gt; Message SimpleTx)
 -&gt; IO SimpleTx -&gt; IO (Message SimpleTx)
@@ -230,8 +230,8 @@ forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">Gen SimpleTx
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
-</span><span id="line-62"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648228"><span class="annot"><span class="annottext">receivedMsgs :: [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648228"><span class="hs-identifier hs-var hs-var">receivedMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Authenticated (Message SimpleTx)])
+</span><span id="line-62"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649064"><span class="annot"><span class="annottext">receivedMsgs :: [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649064"><span class="hs-identifier hs-var hs-var">receivedMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Authenticated (Message SimpleTx)])
 -&gt; [Authenticated (Message SimpleTx)]
 forall a. (forall s. IOSim s a) -&gt; a
 </span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Authenticated (Message SimpleTx)])
@@ -240,8 +240,8 @@ forall a. (forall s. IOSim s a) -&gt; a
 -&gt; [Authenticated (Message SimpleTx)]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-63"></span><span>          </span><span id="local-6989586621679648245"><span class="annot"><span class="annottext">TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648245"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-63"></span><span>          </span><span id="local-6989586621679649081"><span class="annot"><span class="annottext">TVar s [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649081"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; [Authenticated (Message SimpleTx)]
 -&gt; IOSim s (TVar (IOSim s) [Authenticated (Message SimpleTx)])
 forall (m :: * -&gt; *) a.
@@ -268,58 +268,58 @@ forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span>
 </span><span id="line-70"></span><span>            </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span>
-</span><span id="line-71"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679648246"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
+</span><span id="line-71"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679649082"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
 $sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
 deliver :: Signed (Message SimpleTx) -&gt; IOSim s ()
 </span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Signed (Message SimpleTx)) -&gt; IOSim s ()
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-72"></span><span>                </span><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
-</span><a href="#local-6989586621679648246"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649082"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx)
 -&gt; Party
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">)</span><span>
 </span><span id="line-73"></span><span>                </span><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
-</span><a href="#local-6989586621679648246"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649082"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx)
 -&gt; Party
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">)</span><span>
 </span><span id="line-74"></span><span>                </span><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
-</span><a href="#local-6989586621679648246"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649082"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx)
 -&gt; Party
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648226"><span class="hs-identifier hs-var">unexpectedMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679649062"><span class="hs-identifier hs-var">unexpectedMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648226"><span class="hs-identifier hs-var">unexpectedMessage</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649062"><span class="hs-identifier hs-var">unexpectedMessage</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">)</span><span>
 </span><span id="line-75"></span><span>            </span><span class="hs-special">)</span><span>
 </span><span id="line-76"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
@@ -327,9 +327,9 @@ SigningKey HydraKey -&gt; a -&gt; Signature a
 forall (m :: * -&gt; *) mes.
 MonadSTM m =&gt;
 TVar m [mes] -&gt; NetworkCallback mes m
-</span><a href="#local-6989586621679648180"><span class="hs-identifier hs-var">captureIncoming</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649016"><span class="hs-identifier hs-var">captureIncoming</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
 TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648245"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679649081"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>            </span><span class="annot"><span class="annottext">((Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
  -&gt; IOSim s ())
 -&gt; (Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
@@ -348,20 +348,20 @@ forall a. TVar (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
 TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648245"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span>
+</span><a href="#local-6989586621679649081"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span>
 </span><span id="line-81"></span><span>
 </span><span id="line-82"></span><span>    </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648228"><span class="hs-identifier hs-var">receivedMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649064"><span class="hs-identifier hs-var">receivedMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
 -&gt; [Authenticated (Message SimpleTx)] -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Message SimpleTx -&gt; Party -&gt; Authenticated (Message SimpleTx)
 forall msg. msg -&gt; Party -&gt; Authenticated msg
 </span><span class="hs-identifier hs-var">Authenticated</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Message SimpleTx -&gt; Party -&gt; Authenticated (Message SimpleTx)
 forall msg. msg -&gt; Party -&gt; Authenticated msg
 </span><span class="hs-identifier hs-var">Authenticated</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">]</span><span>
 </span><span id="line-83"></span><span>
 </span><span id="line-84"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
@@ -373,8 +373,8 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-85"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648247"><span class="annot"><span class="annottext">receivedMsgs :: [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648247"><span class="hs-identifier hs-var hs-var">receivedMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Authenticated (Message SimpleTx)])
+</span><span id="line-85"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649083"><span class="annot"><span class="annottext">receivedMsgs :: [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649083"><span class="hs-identifier hs-var hs-var">receivedMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Authenticated (Message SimpleTx)])
 -&gt; [Authenticated (Message SimpleTx)]
 forall a. (forall s. IOSim s a) -&gt; a
 </span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Authenticated (Message SimpleTx)])
@@ -383,8 +383,8 @@ forall a. (forall s. IOSim s a) -&gt; a
 -&gt; [Authenticated (Message SimpleTx)]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-86"></span><span>          </span><span id="local-6989586621679648260"><span class="annot"><span class="annottext">TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648260"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-86"></span><span>          </span><span id="local-6989586621679649096"><span class="annot"><span class="annottext">TVar s [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649096"><span class="hs-identifier hs-var">receivedMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; [Authenticated (Message SimpleTx)]
 -&gt; IOSim s (TVar (IOSim s) [Authenticated (Message SimpleTx)])
 forall (m :: * -&gt; *) a.
@@ -412,26 +412,26 @@ forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
 </span><span id="line-93"></span><span>            </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">]</span><span>
-</span><span id="line-94"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679648261"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
+</span><span id="line-94"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679649097"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
 $sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
 deliver :: Signed (Message SimpleTx) -&gt; IOSim s ()
 </span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Signed (Message SimpleTx)) -&gt; IOSim s ()
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-95"></span><span>                </span><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
-</span><a href="#local-6989586621679648261"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649097"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx)
 -&gt; Party
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">)</span><span>
 </span><span id="line-96"></span><span>            </span><span class="hs-special">)</span><span>
 </span><span id="line-97"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
@@ -439,9 +439,9 @@ SigningKey HydraKey -&gt; a -&gt; Signature a
 forall (m :: * -&gt; *) mes.
 MonadSTM m =&gt;
 TVar m [mes] -&gt; NetworkCallback mes m
-</span><a href="#local-6989586621679648180"><span class="hs-identifier hs-var">captureIncoming</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649016"><span class="hs-identifier hs-var">captureIncoming</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
 TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648260"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679649096"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-98"></span><span>            </span><span class="annot"><span class="annottext">((Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
  -&gt; IOSim s ())
 -&gt; (Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
@@ -460,10 +460,10 @@ forall a. TVar (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Authenticated (Message SimpleTx)]
 TVar s [Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648260"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span>
+</span><a href="#local-6989586621679649096"><span class="hs-identifier hs-var">receivedMessages</span></a></span><span>
 </span><span id="line-102"></span><span>
 </span><span id="line-103"></span><span>    </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
-</span><a href="#local-6989586621679648247"><span class="hs-identifier hs-var">receivedMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
+</span><a href="#local-6989586621679649083"><span class="hs-identifier hs-var">receivedMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Authenticated (Message SimpleTx)]
 -&gt; [Authenticated (Message SimpleTx)] -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
@@ -477,11 +477,11 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-106"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648262"><span class="annot"><span class="annottext">someMessage :: Message SimpleTx
-</span><a href="#local-6989586621679648262"><span class="hs-identifier hs-var hs-var">someMessage</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span>
-</span><span id="line-107"></span><span>        </span><span id="local-6989586621679648263"><span class="annot"><span class="annottext">sentMsgs :: [Signed (Message SimpleTx)]
-</span><a href="#local-6989586621679648263"><span class="hs-identifier hs-var hs-var">sentMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Signed (Message SimpleTx)])
+</span><span id="line-106"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649098"><span class="annot"><span class="annottext">someMessage :: Message SimpleTx
+</span><a href="#local-6989586621679649098"><span class="hs-identifier hs-var hs-var">someMessage</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-107"></span><span>        </span><span id="local-6989586621679649099"><span class="annot"><span class="annottext">sentMsgs :: [Signed (Message SimpleTx)]
+</span><a href="#local-6989586621679649099"><span class="hs-identifier hs-var hs-var">sentMsgs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Signed (Message SimpleTx)])
 -&gt; [Signed (Message SimpleTx)]
 forall a. (forall s. IOSim s a) -&gt; a
 </span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Signed (Message SimpleTx)])
@@ -490,8 +490,8 @@ forall a. (forall s. IOSim s a) -&gt; a
 -&gt; [Signed (Message SimpleTx)]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-108"></span><span>          </span><span id="local-6989586621679648281"><span class="annot"><span class="annottext">TVar s [Signed (Message SimpleTx)]
-</span><a href="#local-6989586621679648281"><span class="hs-identifier hs-var">sentMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-108"></span><span>          </span><span id="local-6989586621679649117"><span class="annot"><span class="annottext">TVar s [Signed (Message SimpleTx)]
+</span><a href="#local-6989586621679649117"><span class="hs-identifier hs-var">sentMessages</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; [Signed (Message SimpleTx)]
 -&gt; IOSim s (TVar (IOSim s) [Signed (Message SimpleTx)])
 forall (m :: * -&gt; *) a.
@@ -526,9 +526,9 @@ forall (m :: * -&gt; *) a. Applicative m =&gt; Tracer m a
 forall (m :: * -&gt; *) a p b.
 MonadSTM m =&gt;
 TVar m [a] -&gt; p -&gt; (Network m a -&gt; b) -&gt; b
-</span><a href="#local-6989586621679648167"><span class="hs-identifier hs-var">captureOutgoing</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Signed (Message SimpleTx)]
+</span><a href="#local-6989586621679649003"><span class="hs-identifier hs-var">captureOutgoing</span></a></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Signed (Message SimpleTx)]
 TVar s [Signed (Message SimpleTx)]
-</span><a href="#local-6989586621679648281"><span class="hs-identifier hs-var">sentMessages</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679649117"><span class="hs-identifier hs-var">sentMessages</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-117"></span><span>            </span><span class="annot"><span class="annottext">NetworkCallback (Authenticated (Message SimpleTx)) (IOSim s)
 forall (m :: * -&gt; *) msg. Applicative m =&gt; NetworkCallback msg m
 </span><a href="Test.Util.html#noopCallback"><span class="hs-identifier hs-var">noopCallback</span></a></span><span>
@@ -537,7 +537,7 @@ forall (m :: * -&gt; *) msg. Applicative m =&gt; NetworkCallback msg m
 -&gt; (Network (IOSim s) (Message SimpleTx) -&gt; IOSim s ())
 -&gt; IOSim s ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span id="local-6989586621679648282"><span class="annot"><span class="annottext">Message SimpleTx -&gt; IOSim s ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">Network</span></span><span class="hs-special">{</span><span id="local-6989586621679649118"><span class="annot"><span class="annottext">Message SimpleTx -&gt; IOSim s ()
 $sel:broadcast:Network :: forall (m :: * -&gt; *) msg. Network m msg -&gt; msg -&gt; m ()
 broadcast :: Message SimpleTx -&gt; IOSim s ()
 </span><span class="hs-identifier hs-var hs-var">broadcast</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -546,8 +546,8 @@ forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">0.6</span></span><span>
 </span><span id="line-120"></span><span>              </span><span class="annot"><span class="annottext">Message SimpleTx -&gt; IOSim s ()
-</span><a href="#local-6989586621679648282"><span class="hs-identifier hs-var">broadcast</span></a></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648262"><span class="hs-identifier hs-var">someMessage</span></a></span><span>
+</span><a href="#local-6989586621679649118"><span class="hs-identifier hs-var">broadcast</span></a></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649098"><span class="hs-identifier hs-var">someMessage</span></a></span><span>
 </span><span id="line-121"></span><span>              </span><span class="annot"><span class="annottext">DiffTime -&gt; IOSim s ()
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
@@ -559,10 +559,10 @@ forall a. TVar (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Signed (Message SimpleTx)]
 TVar s [Signed (Message SimpleTx)]
-</span><a href="#local-6989586621679648281"><span class="hs-identifier hs-var">sentMessages</span></a></span><span>
+</span><a href="#local-6989586621679649117"><span class="hs-identifier hs-var">sentMessages</span></a></span><span>
 </span><span id="line-124"></span><span>
 </span><span id="line-125"></span><span>    </span><span class="annot"><span class="annottext">[Signed (Message SimpleTx)]
-</span><a href="#local-6989586621679648263"><span class="hs-identifier hs-var">sentMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Signed (Message SimpleTx)]
+</span><a href="#local-6989586621679649099"><span class="hs-identifier hs-var">sentMsgs</span></a></span><span> </span><span class="annot"><span class="annottext">[Signed (Message SimpleTx)]
 -&gt; [Signed (Message SimpleTx)] -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Message SimpleTx
@@ -571,14 +571,14 @@ forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">bobSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span>
 </span><span id="line-126"></span><span>
 </span><span id="line-127"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
@@ -590,34 +590,34 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-128"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648283"><span class="annot"><span class="annottext">signature :: Signature (Message SimpleTx)
-</span><a href="#local-6989586621679648283"><span class="hs-keyword hs-var hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
+</span><span id="line-128"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649119"><span class="annot"><span class="annottext">signature :: Signature (Message SimpleTx)
+</span><a href="#local-6989586621679649119"><span class="hs-keyword hs-var hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 -&gt; Message SimpleTx -&gt; Signature (Message SimpleTx)
 forall a.
 SignableRepresentation a =&gt;
 SigningKey HydraKey -&gt; a -&gt; Signature a
 </span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">carolSk</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span>
-</span><span id="line-129"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648284"><span class="annot"><span class="annottext">signedMsg :: Signed (Message SimpleTx)
-</span><a href="#local-6989586621679648284"><span class="hs-identifier hs-var hs-var">signedMsg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span>
+</span><span id="line-129"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649120"><span class="annot"><span class="annottext">signedMsg :: Signed (Message SimpleTx)
+</span><a href="#local-6989586621679649120"><span class="hs-identifier hs-var hs-var">signedMsg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx)
 -&gt; Party
 -&gt; Signed (Message SimpleTx)
 forall msg. msg -&gt; Signature msg -&gt; Party -&gt; Signed msg
 </span><span class="hs-identifier hs-var">Signed</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Message SimpleTx)
-</span><a href="#local-6989586621679648283"><span class="hs-keyword hs-var">signature</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Message SimpleTx)
+</span><a href="#local-6989586621679649119"><span class="hs-keyword hs-var">signature</span></a></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span>
-</span><span id="line-130"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648285"><span class="annot"><span class="annottext">traced :: [Envelope AuthLog]
-</span><a href="#local-6989586621679648285"><span class="hs-identifier hs-var hs-var">traced</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Envelope AuthLog]) -&gt; [Envelope AuthLog]
+</span><span id="line-130"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649121"><span class="annot"><span class="annottext">traced :: [Envelope AuthLog]
+</span><a href="#local-6989586621679649121"><span class="hs-identifier hs-var hs-var">traced</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall s. IOSim s [Envelope AuthLog]) -&gt; [Envelope AuthLog]
 forall a. (forall s. IOSim s a) -&gt; a
 </span><span class="hs-identifier hs-var">runSimOrThrow</span></span><span> </span><span class="annot"><span class="annottext">((forall s. IOSim s [Envelope AuthLog]) -&gt; [Envelope AuthLog])
 -&gt; (forall s. IOSim s [Envelope AuthLog]) -&gt; [Envelope AuthLog]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-131"></span><span>          </span><span id="local-6989586621679648303"><span class="annot"><span class="annottext">TVar s [Envelope AuthLog]
-</span><a href="#local-6989586621679648303"><span class="hs-identifier hs-var">traces</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-131"></span><span>          </span><span id="local-6989586621679649139"><span class="annot"><span class="annottext">TVar s [Envelope AuthLog]
+</span><a href="#local-6989586621679649139"><span class="hs-identifier hs-var">traces</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; [Envelope AuthLog]
 -&gt; IOSim s (TVar (IOSim s) [Envelope AuthLog])
 forall (m :: * -&gt; *) a.
@@ -626,15 +626,15 @@ String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;traces&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-132"></span><span>
-</span><span id="line-133"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679648304"><span class="annot"><span class="annottext">tracer :: Tracer (IOSim s) AuthLog
-</span><a href="#local-6989586621679648304"><span class="hs-identifier hs-var hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Envelope AuthLog]
+</span><span id="line-133"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679649140"><span class="annot"><span class="annottext">tracer :: Tracer (IOSim s) AuthLog
+</span><a href="#local-6989586621679649140"><span class="hs-identifier hs-var hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Envelope AuthLog]
 -&gt; Text -&gt; Tracer (IOSim s) AuthLog
 forall (m :: * -&gt; *) msg.
 (MonadFork m, MonadTime m, MonadSTM m) =&gt;
 TVar m [Envelope msg] -&gt; Text -&gt; Tracer m msg
 </span><span class="hs-identifier hs-var">traceInTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Envelope AuthLog]
 TVar s [Envelope AuthLog]
-</span><a href="#local-6989586621679648303"><span class="hs-identifier hs-var">traces</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679649139"><span class="hs-identifier hs-var">traces</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;AuthenticateSpec&quot;</span></span><span>
 </span><span id="line-134"></span><span>          </span><span class="annot"><span class="annottext">forall inbound outbound (m :: * -&gt; *) a.
 (SignableRepresentation inbound, ToJSON inbound,
@@ -648,19 +648,19 @@ Tracer m AuthLog
 </span><span id="line-135"></span><span>            </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Message</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span>
 </span><span id="line-136"></span><span>            </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Message</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span>
 </span><span id="line-137"></span><span>            </span><span class="annot"><span class="annottext">Tracer (IOSim s) AuthLog
-</span><a href="#local-6989586621679648304"><span class="hs-identifier hs-var">tracer</span></a></span><span>
+</span><a href="#local-6989586621679649140"><span class="hs-identifier hs-var">tracer</span></a></span><span>
 </span><span id="line-138"></span><span>            </span><span class="annot"><span class="annottext">SigningKey HydraKey
 </span><span class="hs-identifier hs-var">aliceSk</span></span><span>
 </span><span id="line-139"></span><span>            </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">carol</span></span><span class="hs-special">]</span><span>
-</span><span id="line-140"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679648305"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
+</span><span id="line-140"></span><span>            </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">NetworkCallback</span></span><span class="hs-special">{</span><span id="local-6989586621679649141"><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
 $sel:deliver:NetworkCallback :: forall msg (m :: * -&gt; *). NetworkCallback msg m -&gt; msg -&gt; m ()
 deliver :: Signed (Message SimpleTx) -&gt; IOSim s ()
 </span><span class="hs-identifier hs-var hs-var">deliver</span></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">Network (IOSim s) (Signed (Message SimpleTx)) -&gt; IOSim s ()
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Signed (Message SimpleTx) -&gt; IOSim s ()
-</span><a href="#local-6989586621679648305"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="annot"><span class="annottext">Signed (Message SimpleTx)
-</span><a href="#local-6989586621679648284"><span class="hs-identifier hs-var">signedMsg</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679649141"><span class="hs-identifier hs-var">deliver</span></a></span><span> </span><span class="annot"><span class="annottext">Signed (Message SimpleTx)
+</span><a href="#local-6989586621679649120"><span class="hs-identifier hs-var">signedMsg</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-141"></span><span>            </span><span class="annot"><span class="annottext">NetworkCallback (Authenticated (Message SimpleTx)) (IOSim s)
 forall (m :: * -&gt; *) msg. Applicative m =&gt; NetworkCallback msg m
 </span><a href="Test.Util.html#noopCallback"><span class="hs-identifier hs-var">noopCallback</span></a></span><span>
@@ -681,14 +681,14 @@ forall a. TVar (IOSim s) a -&gt; IOSim s a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar (IOSim s) [Envelope AuthLog]
 TVar s [Envelope AuthLog]
-</span><a href="#local-6989586621679648303"><span class="hs-identifier hs-var">traces</span></a></span><span>
+</span><a href="#local-6989586621679649139"><span class="hs-identifier hs-var">traces</span></a></span><span>
 </span><span id="line-146"></span><span>
 </span><span id="line-147"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Envelope AuthLog -&gt; AuthLog
 forall a. Envelope a -&gt; a
 </span><span class="hs-identifier hs-var">message</span></span><span> </span><span class="annot"><span class="annottext">(Envelope AuthLog -&gt; AuthLog) -&gt; [Envelope AuthLog] -&gt; [AuthLog]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Envelope AuthLog]
-</span><a href="#local-6989586621679648285"><span class="hs-identifier hs-var">traced</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[AuthLog] -&gt; [AuthLog] -&gt; Expectation
+</span><a href="#local-6989586621679649121"><span class="hs-identifier hs-var">traced</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[AuthLog] -&gt; [AuthLog] -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Message SimpleTx
 -&gt; Signature (Message SimpleTx) -&gt; Party -&gt; AuthLog
@@ -696,8 +696,8 @@ forall msg signature.
 (ToJSON msg, Show signature) =&gt;
 msg -&gt; signature -&gt; Party -&gt; AuthLog
 </span><span class="hs-identifier hs-var">mkAuthLog</span></span><span> </span><span class="annot"><span class="annottext">Message SimpleTx
-</span><a href="#local-6989586621679648197"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Message SimpleTx)
-</span><a href="#local-6989586621679648283"><span class="hs-keyword hs-var">signature</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621679649033"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Message SimpleTx)
+</span><a href="#local-6989586621679649119"><span class="hs-keyword hs-var">signature</span></a></span><span> </span><span class="annot"><span class="annottext">Party
 </span><span class="hs-identifier hs-var">bob</span></span><span class="hs-special">]</span><span>
 </span><span id="line-148"></span><span>
 </span><span id="line-149"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
@@ -727,14 +727,14 @@ forall {k} (t :: k). Proxy t
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">AuthLog</span></span><span class="hs-special">)</span><span>
 </span><span id="line-154"></span><span>
 </span><span id="line-155"></span><span class="hs-keyword">newtype</span><span> </span><span id="Msg"><span class="annot"><a href="Hydra.Network.AuthenticateSpec.html#Msg"><span class="hs-identifier hs-var">Msg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Msg"><span class="annot"><a href="Hydra.Network.AuthenticateSpec.html#Msg"><span class="hs-identifier hs-var">Msg</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
-</span><span id="line-156"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679648312"><span id="local-6989586621679648317"><span class="annot"><span class="annottext">Msg -&gt; Msg -&gt; Bool
+</span><span id="line-156"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679649148"><span id="local-6989586621679649153"><span class="annot"><span class="annottext">Msg -&gt; Msg -&gt; Bool
 (Msg -&gt; Msg -&gt; Bool) -&gt; (Msg -&gt; Msg -&gt; Bool) -&gt; Eq Msg
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Msg -&gt; Msg -&gt; Bool
 == :: Msg -&gt; Msg -&gt; Bool
 $c/= :: Msg -&gt; Msg -&gt; Bool
 /= :: Msg -&gt; Msg -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679648322"><span id="local-6989586621679648327"><span id="local-6989586621679648331"><span class="annot"><span class="annottext">Int -&gt; Msg -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679649158"><span id="local-6989586621679649163"><span id="local-6989586621679649167"><span class="annot"><span class="annottext">Int -&gt; Msg -&gt; ShowS
 [Msg] -&gt; ShowS
 Msg -&gt; String
 (Int -&gt; Msg -&gt; ShowS)
@@ -747,7 +747,7 @@ $cshow :: Msg -&gt; String
 show :: Msg -&gt; String
 $cshowList :: [Msg] -&gt; ShowS
 showList :: [Msg] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679648338"><span id="local-6989586621679648343"><span id="local-6989586621679648347"><span class="annot"><span class="annottext">Typeable Msg
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679649174"><span id="local-6989586621679649179"><span id="local-6989586621679649183"><span class="annot"><span class="annottext">Typeable Msg
 Typeable Msg =&gt;
 (Msg -&gt; Encoding)
 -&gt; ((forall t. ToCBOR t =&gt; Proxy t -&gt; Size) -&gt; Proxy Msg -&gt; Size)
@@ -768,7 +768,7 @@ $cencodedSizeExpr :: (forall t. ToCBOR t =&gt; Proxy t -&gt; Size) -&gt; Proxy M
 encodedSizeExpr :: (forall t. ToCBOR t =&gt; Proxy t -&gt; Size) -&gt; Proxy Msg -&gt; Size
 $cencodedListSizeExpr :: (forall t. ToCBOR t =&gt; Proxy t -&gt; Size) -&gt; Proxy [Msg] -&gt; Size
 encodedListSizeExpr :: (forall t. ToCBOR t =&gt; Proxy t -&gt; Size) -&gt; Proxy [Msg] -&gt; Size
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToCBOR</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679648354"><span id="local-6989586621679648359"><span class="annot"><span class="annottext">Typeable Msg
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToCBOR</span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679649190"><span id="local-6989586621679649195"><span class="annot"><span class="annottext">Typeable Msg
 Typeable Msg =&gt;
 (forall s. Decoder s Msg) -&gt; (Proxy Msg -&gt; Text) -&gt; FromCBOR Msg
 Proxy Msg -&gt; Text
@@ -780,15 +780,15 @@ $cfromCBOR :: forall s. Decoder s Msg
 fromCBOR :: forall s. Decoder s Msg
 $clabel :: Proxy Msg -&gt; Text
 label :: Proxy Msg -&gt; Text
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromCBOR</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679648364"><span class="annot"><span class="annottext">Msg -&gt; ByteString
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromCBOR</span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679649200"><span class="annot"><span class="annottext">Msg -&gt; ByteString
 (Msg -&gt; ByteString) -&gt; SignableRepresentation Msg
 forall a. (a -&gt; ByteString) -&gt; SignableRepresentation a
 $cgetSignableRepresentation :: Msg -&gt; ByteString
 getSignableRepresentation :: Msg -&gt; ByteString
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">SignableRepresentation</span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-157"></span><span>
-</span><span id="line-158"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679648371"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Network.AuthenticateSpec.html#Msg"><span class="hs-identifier hs-type">Msg</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-159"></span><span>  </span><span id="local-6989586621679648378"><span class="annot"><span class="annottext">arbitrary :: Gen Msg
+</span><span id="line-158"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679649207"><span class="annot"><span class="hs-identifier hs-type">Arbitrary</span></span><span> </span><span class="annot"><a href="Hydra.Network.AuthenticateSpec.html#Msg"><span class="hs-identifier hs-type">Msg</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-159"></span><span>  </span><span id="local-6989586621679649214"><span class="annot"><span class="annottext">arbitrary :: Gen Msg
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">arbitrary</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Msg
 </span><a href="Hydra.Network.AuthenticateSpec.html#Msg"><span class="hs-identifier hs-var">Msg</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Msg) -&gt; ([Word8] -&gt; ByteString) -&gt; [Word8] -&gt; Msg
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
