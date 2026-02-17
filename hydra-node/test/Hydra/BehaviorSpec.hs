@@ -80,7 +80,6 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.QuickCheck (chooseEnum, counterexample, forAll, getNegative, ioProperty)
 import Test.Util (
-  propRunInSim,
   shouldBe,
   shouldNotBe,
   shouldRunInSim,
@@ -443,20 +442,21 @@ spec = parallel $ do
           -- NOTE: Any deadline between now and deposit period should
           -- eventually result in an expired deposit.
           forAll (chooseEnum (0, depositPeriod)) $ \deadlineDiff ->
-            propRunInSim $
-              withSimulatedChainAndNetwork $ \chain ->
-                withHydraNode aliceSk [] chain $ \n1 -> do
-                  openHead chain n1
-                  deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
-                  txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
-                  asExpected <- waitUntilMatch [n1] $ \case
-                    DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
-                    CommitApproved{} -> Just False
-                    _ -> Nothing
-                  pure $
-                    asExpected
-                      & counterexample "Deposit with deadline too soon approved instead of expired"
-                      & counterexample ("Deadline: " <> show deadlineTooEarly)
+            ioProperty $
+              shouldRunInSim $
+                withSimulatedChainAndNetwork $ \chain ->
+                  withHydraNode aliceSk [] chain $ \n1 -> do
+                    openHead chain n1
+                    deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
+                    txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
+                    asExpected <- waitUntilMatch [n1] $ \case
+                      DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                      CommitApproved{} -> Just False
+                      _ -> Nothing
+                    pure $
+                      asExpected
+                        & counterexample "Deposit with deadline too soon approved instead of expired"
+                        & counterexample ("Deadline: " <> show deadlineTooEarly)
 
         it "commit snapshot only approved when deadline not too soon" $ do
           shouldRunInSim $
