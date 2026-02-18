@@ -77,6 +77,7 @@ import Hydra.Cluster.Scenarios (
   singlePartyCommitsScriptBlueprint,
   singlePartyCommitsScriptToTheRightHead,
   singlePartyDepositReferenceScript,
+  singlePartyDepositScriptWithComplexDatum,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
@@ -336,6 +337,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
               >>= singlePartyDepositReferenceScript tracer tmpDir backend
+      fit "deposit script UTxO with complex inline datum" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= singlePartyDepositScriptWithComplexDatum tracer tmpDir backend
       it "incrementally commit script with security checks" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->

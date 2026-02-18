@@ -114,6 +114,8 @@ import Hydra.Cluster.Mithril (MithrilLog)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
+import PlutusLedgerApi.V3 (Data (B, Constr, I))
+import PlutusTx.Builtins (dataToBuiltinData)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
@@ -1041,6 +1043,114 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
       ( Aeson.object
           [ "blueprintTx" .= blueprint
           , "utxo" .= (scriptUTxO <> referenceUTxO)
+          ]
+      , blueprint
+      )
+
+-- | Deposit a script UTxO that carries a complex inline datum into a running
+-- Hydra Head. This is a regression test for a community-reported issue where
+-- UTxOs with multi-field byte datums (e.g. @Constructor 0 [bytes, bytes, int,
+-- bytes]@) were silently dropped during deposit observation because
+-- 'Commit.serializeCommit' returned 'Nothing' for them, causing the value
+-- guard in 'observeDepositTxOut' to fail.
+singlePartyDepositScriptWithComplexDatum ::
+  ChainBackend backend =>
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  backend ->
+  [TxId] ->
+  IO ()
+singlePartyDepositScriptWithComplexDatum tracer workDir backend hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer backend Alice) $ do
+    refuelIfNeeded tracer backend Alice 20_000_000
+    blockTime <- Backend.getBlockTime backend
+    -- NOTE: Adapt periods to block times
+    let contestationPeriod = truncate $ 10 * blockTime
+        depositPeriod = truncate $ 50 * blockTime
+    aliceChainConfig <-
+      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+        <&> modifyConfig (\c -> c{depositPeriod})
+    let hydraNodeId = 1
+    let hydraTracer = contramap FromHydraNode tracer
+    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      send n1 $ input "Init" []
+      headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
+
+      -- Open head with an empty commit
+      res <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson (mempty :: UTxO))
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let commitTx = responseBody res
+      Backend.submitTransaction backend commitTx
+      waitMatch (10 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        guard $ v ^? key "tag" == Just "HeadIsOpen"
+
+      -- Incrementally deposit a script UTxO whose inline datum has multiple
+      -- byte-string fields — the pattern that triggered the community bug.
+      (clientPayload, blueprint) <- prepareComplexDatumDeposit
+
+      res' <-
+        runReq defaultHttpConfig $
+          req
+            POST
+            (http "127.0.0.1" /: "commit")
+            (ReqBodyJson clientPayload)
+            (Proxy :: Proxy (JsonResponse Tx))
+            (port $ 4000 + hydraNodeId)
+
+      let tx = responseBody res'
+      Backend.submitTransaction backend tx
+
+      let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
+      waitFor hydraTracer (2 * realToFrac depositPeriod) [n1] $
+        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedDeposit]
+      waitFor hydraTracer (20 * blockTime) [n1] $
+        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
+      getSnapshotUTxO n1 `shouldReturn` expectedDeposit
+ where
+  -- | Build a script UTxO at 'dummyValidatorScript' address whose inline datum
+  -- is @Constructor 0 [bytes(28), bytes(4), int(0), bytes(28)]@, mirroring the
+  -- DeFi-style @(policyId, assetName, amount, pkh)@ pattern from the report.
+  prepareComplexDatumDeposit :: IO (Value, Tx)
+  prepareComplexDatumDeposit = do
+    networkId <- Backend.queryNetworkId backend
+    let scriptAddress = mkScriptAddress networkId dummyValidatorScript
+    -- Complex datum: Constructor 0 {fields: [bytes(28), bytes(4), int(0), bytes(28)]}
+    let complexData =
+          Constr
+            0
+            [ B (B.replicate 28 0xba) -- mock policy id (28 bytes)
+            , B (B.pack [0x50, 0x55, 0x4d, 0x50]) -- "PUMP" asset name (4 bytes)
+            , I 0
+            , B (B.replicate 28 0xa0) -- mock payment key hash (28 bytes)
+            ]
+    (scriptIn, scriptOut) <-
+      createOutputAtAddress
+        networkId
+        backend
+        scriptAddress
+        (CAPI.mkTxOutDatumInline (dataToBuiltinData complexData))
+        (lovelaceToValue 5_000_000)
+    let scriptWitness =
+          BuildTxWith $
+            ScriptWitness scriptWitnessInCtx $
+              mkScriptWitness dummyValidatorScript CAPI.InlineScriptDatum (toScriptData ())
+    let blueprint =
+          unsafeBuildTransaction $
+            defaultTxBodyContent
+              & addTxIns [(scriptIn, scriptWitness)]
+              & addTxOut (fromCtxUTxOTxOut scriptOut)
+    pure
+      ( Aeson.object
+          [ "blueprintTx" .= blueprint
+          , "utxo" .= UTxO.singleton scriptIn scriptOut
           ]
       , blueprint
       )

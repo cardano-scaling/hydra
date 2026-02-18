@@ -102,6 +102,8 @@ library
     , hydra-node
     , hydra-plutus
     , hydra-prelude
+    , plutus-ledger-api
+    , plutus-tx
     , hydra-test-utils
     , hydra-tx
     , hydra-tx:testlib
