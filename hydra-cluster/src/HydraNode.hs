@@ -20,8 +20,6 @@ import Data.ByteString (hGetContents)
 import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
@@ -281,9 +279,9 @@ getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.
 withHydraCluster ::
-  (HasCallStack, ChainBackend backend) =>
+  HasCallStack =>
   Tracer IO HydraNodeLog ->
-  backend ->
+  NominalDiffTime ->
   FilePath ->
   SocketPath ->
   -- | First node id
@@ -297,7 +295,7 @@ withHydraCluster ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer backend workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
+withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -335,7 +333,7 @@ withHydraCluster tracer backend workDir nodeSocket firstNodeId allKeys hydraKeys
                 }
       withHydraNode
         tracer
-        backend
+        blockTime
         chainConfig
         workDir
         nodeId
@@ -440,16 +438,15 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
 
 -- | Run a hydra-node with given 'RunOptions' and in sync with chain backend.
 withPreparedHydraNodeInSync ::
-  (HasCallStack, ChainBackend backend) =>
+  HasCallStack =>
   Tracer IO HydraNodeLog ->
-  backend ->
+  NominalDiffTime ->
   FilePath ->
   Int ->
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNodeInSync tracer backend workDir hydraNodeId runOptions action = do
-  blockTime <- Backend.getBlockTime backend
+withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
   let waitTime = blockTime * waitFactor
   withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
  where
@@ -500,9 +497,9 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config/.
 withHydraNode ::
-  (HasCallStack, ChainBackend backend) =>
+  HasCallStack =>
   Tracer IO HydraNodeLog ->
-  backend ->
+  NominalDiffTime ->
   ChainConfig ->
   FilePath ->
   Int ->
@@ -511,9 +508,9 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer backend chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
-  withPreparedHydraNodeInSync tracer backend workDir hydraNodeId opts action
+  withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId opts action
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config and catching up with chain backend/.

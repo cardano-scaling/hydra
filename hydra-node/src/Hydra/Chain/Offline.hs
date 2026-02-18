@@ -4,7 +4,6 @@ import Hydra.Prelude
 
 import Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
-import Control.Exception (ErrorCall (..))
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
@@ -28,7 +27,6 @@ import Hydra.Chain (
   chainTime,
   initHistory,
  )
-import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
@@ -183,58 +181,3 @@ tickForever genesis callback = do
 
 offlineBlockHash :: Hash BlockHeader
 offlineBlockHash = unsafeBlockHeaderHashFromBytes "offline-blockhash-00000000000000"
-
-newtype OfflineOptions = OfflineOptions {blockTime :: NominalDiffTime}
-  deriving stock (Generic, Show, Eq)
-  deriving anyclass (ToJSON, FromJSON)
-
-newtype OfflineBackend = OfflineBackend {options :: OfflineOptions} deriving (Eq, Show)
-
-offline :: MonadIO m => String -> m a
-offline msg = liftIO $ throwIO (ErrorCall msg)
-
-instance ChainBackend OfflineBackend where
-  queryGenesisParameters _ =
-    offline "OfflineBackend: queryGenesisParameters not available"
-
-  queryScriptRegistry _ _ =
-    offline "OfflineBackend: queryScriptRegistry not available"
-
-  queryNetworkId _ =
-    offline "OfflineBackend: queryNetworkId not available"
-
-  queryTip _ =
-    offline "OfflineBackend: queryTip not available"
-
-  queryUTxO _ _ =
-    offline "OfflineBackend: queryUTxO not available"
-
-  queryUTxOByTxIn _ _ =
-    offline "OfflineBackend: queryUTxOByTxIn not available"
-
-  queryEraHistory _ _ =
-    offline "OfflineBackend: queryEraHistory not available"
-
-  querySystemStart _ _ =
-    offline "OfflineBackend: querySystemStart not available"
-
-  queryProtocolParameters _ _ =
-    offline "OfflineBackend: queryProtocolParameters not available"
-
-  queryStakePools _ _ =
-    offline "OfflineBackend: queryStakePools not available"
-
-  queryUTxOFor _ _ _ =
-    offline "OfflineBackend: queryUTxOFor not available"
-
-  submitTransaction _ _ =
-    offline "OfflineBackend: submitTransaction not available"
-
-  awaitTransaction _ _ _ =
-    offline "OfflineBackend: awaitTransaction not available"
-
-  getOptions _ =
-    error "OfflineBackend: getOptions not available"
-
-  getBlockTime (OfflineBackend OfflineOptions{blockTime}) =
-    pure blockTime

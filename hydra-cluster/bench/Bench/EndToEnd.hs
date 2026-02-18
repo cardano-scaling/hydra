@@ -73,7 +73,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newLabelledTVarIO "bench-stats" mempty
-        scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
+        scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \blockTime backend -> do
           let nodeSocket' = case Backend.getOptions backend of
                 Direct DirectOptions{nodeSocket} -> nodeSocket
                 _ -> error "Unexpected Blockfrost backend"
@@ -83,8 +83,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
           let hydraTracer = contramap FromHydraNode tracer
-
-          withHydraCluster hydraTracer backend workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
+          withHydraCluster hydraTracer blockTime workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
             scenario hydraTracer backend workDir dataset clients
         systemStats <- readTVarIO statsTvar

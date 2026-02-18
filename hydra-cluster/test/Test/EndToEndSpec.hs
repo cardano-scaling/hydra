@@ -30,7 +30,6 @@ import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct.State ()
-import Hydra.Chain.Offline (OfflineBackend (..), OfflineOptions (..))
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
   seedFromFaucet,
@@ -147,9 +146,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , initialUTxOFile = tmpDir </> "utxo.json"
                   , ledgerGenesisFile = Nothing
                   }
-        let backend = OfflineBackend (OfflineOptions 1)
+        let blockTime = 1
         -- Start a hydra-node in offline mode and submit a transaction from alice to bob
-        aliceToBob <- withHydraNode (contramap FromHydraNode tracer) backend offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        aliceToBob <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
           let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
           let Right aliceToBob =
                 mkSimpleTx
@@ -162,7 +161,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           pure aliceToBob
 
         -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
-        withHydraNode (contramap FromHydraNode tracer) backend offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
           let
             bobTxOut = toCtxUTxOTxOut $ List.head (txOuts' aliceToBob)
             Right bobToAlice =
@@ -186,9 +185,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , initialUTxOFile = tmpDir </> "utxo.json"
                   , ledgerGenesisFile = Nothing
                   }
-        let backend = OfflineBackend (OfflineOptions 1)
+        let blockTime = 1
         -- Start a hydra-node in offline mode and submit several self-txs
-        withHydraNode (contramap FromHydraNode tracer) backend offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
+        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
           foldM_
             ( \utxo i -> do
                 let Just (aliceTxIn, aliceTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) utxo
@@ -208,7 +207,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
         -- Measure restart time
         t0 <- getCurrentTime
-        diff1 <- withHydraNode (contramap FromHydraNode tracer) backend offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> do
+        diff1 <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> do
           t1 <- getCurrentTime
           let diff = diffUTCTime t1 t0
           pure diff
@@ -217,7 +216,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
-        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) backend tmpDir 1 options' $ \_ -> do
+        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) blockTime tmpDir 1 options' $ \_ -> do
           t2 <- getCurrentTime
           let diff = diffUTCTime t2 t1
           pure diff
@@ -243,10 +242,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , ledgerGenesisFile = Nothing
                   }
         let tr = contramap FromHydraNode tracer
-        let backend = OfflineBackend (OfflineOptions 1)
+        let blockTime = 1
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
-        withHydraNode tr backend offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
-          withHydraNode tr backend offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
+        withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
+          withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
             waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
             let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
             let Right aliceToBob =
@@ -393,7 +392,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
             let clusterIx = 0
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
               let nodeSocket' = case Backend.getOptions backend of
                     Direct DirectOptions{nodeSocket} -> nodeSocket
                     _ -> error "Unexpected Blockfrost backend"
@@ -410,7 +409,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let contestationPeriod = 2
               let hydraTracer = contramap FromHydraNode tracer
 
-              withHydraCluster hydraTracer backend tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+              withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
                 waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
 
@@ -459,7 +458,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- failAfter 60 $
         withClusterTempDir $ \tmpDir -> do
           let clusterIx = 0
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             let nodeSocket' = case Backend.getOptions backend of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
                   _ -> error "Unexpected Blockfrost backend"
@@ -476,7 +475,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let contestationPeriod = 2
             let hydraTracer = contramap FromHydraNode tracer
 
-            withHydraCluster hydraTracer backend tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+            withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
               waitForNodesConnected hydraTracer 20 nodes
               let [n1, n2, n3] = toList nodes
 
@@ -604,14 +603,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir $ \tmp ->
-          withBackend (contramap FromCardanoNode tracer) tmp $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) tmp $ \blockTime backend -> do
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let contestationPeriod = 10
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] contestationPeriod
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
-            (tip, aliceHeadId) <- withHydraNode hydraTracer backend aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
+            (tip, aliceHeadId) <- withHydraNode hydraTracer blockTime aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
               seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               tip <- Backend.queryTip backend
               send n1 $ input "Init" []
@@ -626,13 +625,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
 
             let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
-            withHydraNode hydraTracer backend aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
+            withHydraNode hydraTracer blockTime aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
               headId' <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
               headId' `shouldBe` aliceHeadId
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
         withClusterTempDir $ \tmp ->
-          withBackend (contramap FromCardanoNode tracer) tmp $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) tmp $ \blockTime backend -> do
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
 
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
@@ -652,9 +651,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 bobNodeId = 2
                 allNodesIds = [aliceNodeId, bobNodeId]
                 withAliceNode :: (HydraClient -> IO a) -> IO a
-                withAliceNode = withHydraNode hydraTracer backend aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds
+                withAliceNode = withHydraNode hydraTracer blockTime aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds
                 withBobNode :: (HydraClient -> IO a) -> IO a
-                withBobNode = withHydraNode hydraTracer backend bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds
+                withBobNode = withHydraNode hydraTracer blockTime bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds
 
             withAliceNode $ \n1 -> do
               headId <- withBobNode $ \n2 -> do
@@ -758,7 +757,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               let contestationPeriod = 10
@@ -766,8 +765,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
               bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice] contestationPeriod
               let hydraTracer = contramap FromHydraNode tracer
-              withHydraNode hydraTracer backend aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode hydraTracer backend bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
+                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -793,7 +792,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = 10
@@ -801,9 +800,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice, Carol] contestationPeriod
             carolChainConfig <- chainConfigFor Carol tmpDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
             failAfter 20 $
-              withHydraNode hydraTracer backend aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode hydraTracer backend bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode hydraTracer backend carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
+                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
+                  withHydraNode hydraTracer blockTime carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
@@ -816,7 +815,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "withHydraNode" $ do
       it "detects crashes" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
             let nodeSocket' = case Backend.getOptions backend of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
                   _ -> error "Unexpected Blockfrost backend"
@@ -832,26 +831,26 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                               , nodeSocket = nodeSocket'
                               }
                       }
-            withHydraNode (contramap FromHydraNode tracer) backend chainConfig dir 1 aliceSk [] [1] (const $ pure ())
+            withHydraNode (contramap FromHydraNode tracer) blockTime chainConfig dir 1 aliceSk [] [1] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->
                 "hydra-node" `isInfixOf` show e
                   && "not-existing.sk" `isInfixOf` show e
 
       it "stops gracefully" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
 
             -- XXX: Need to do something in 'action' otherwise always green?
-            withHydraNode hydraTracer backend aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+            withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
               threadDelay 0.1
 
       it "can be restarted" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 100
@@ -859,21 +858,21 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
-              withHydraNode hydraTracer backend aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
                 threadDelay 0.1
             failAfter 10 $
-              withHydraNode hydraTracer backend aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
                 threadDelay 0.1
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \_ backend -> do
+          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             refuelIfNeeded tracer backend Alice 100_000_000
             let contestationPeriod = 2
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
-            withHydraNode hydraTracer backend aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
+            withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
               send n1 $ input "Init" []
 
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
@@ -887,7 +886,8 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
   let contestationPeriod = 2
   aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer backend aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
+  blockTime <- Backend.getBlockTime backend
+  withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
     let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions
@@ -958,7 +958,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
   let nodeSocket' = case Backend.getOptions backend of
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
-  withHydraCluster hydraTracer backend tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+  blockTime <- Backend.getBlockTime backend
+  withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
@@ -1073,8 +1074,8 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
   let nodeSocket' = case Backend.getOptions backend of
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
-
-  withHydraCluster hydraTracer backend tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId contestationPeriod $ \nodes -> do
+  blockTime <- Backend.getBlockTime backend
+  withHydraCluster hydraTracer blockTime tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId contestationPeriod $ \nodes -> do
     let [node] = toList nodes
     waitForNodesConnected hydraTracer 20 $ node :| []
 

@@ -264,7 +264,7 @@ scenarioSetup tracer tmpDir action = do
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
-    withHydraCluster hydraTracer backend tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+    withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
