@@ -1522,7 +1522,7 @@ components:
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         drift:
-          $ref: "api.yaml#/components/schemas/Natural"
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
 
     SideLoadSnapshotRejected:
       type: object
@@ -2061,7 +2061,7 @@ components:
           description: |
             Difference between the current system wall-clock time and the chain time
             of the latest observed chain point (now − chainTime).
-          $ref: "api.yaml#/components/schemas/Natural"
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2099,7 +2099,7 @@ components:
           description: |
             Difference between the current system wall-clock time and the chain time
             of the latest observed chain point (now − chainTime).
-          $ref: "api.yaml#/components/schemas/Natural"
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -3275,11 +3275,12 @@ components:
       description: |
         A length of time, measured in whole seconds, to be used in deposit validity.
       example: 60
-    
-    Natural:
-      # XXX: UInt64 in cardanonical, but Natural in cardano-api
-      type: integer
-      minimum: 0
+
+    NominalDiffTime:
+      type: number
+      description: |
+        A unit of time, measured in seconds.
+      example: 5
 
     UnsyncedPeriod:
       type: number
@@ -3777,7 +3778,7 @@ components:
         currentChainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
         drift:
-          $ref: "api.yaml#/components/schemas/Natural"
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
 
     NodeState:
       oneOf:

@@ -20,7 +20,7 @@ data ChainPointTime = ChainPointTime
   -- ^ Latest chain slot as observed on chain.
   , currentChainTime :: UTCTime
   -- ^ Time corresponding to `currentSlot`.
-  , drift :: Natural
+  , drift :: NominalDiffTime
   -- ^ Time difference with current system wall-clock measured in seconds
   }
   deriving stock (Eq, Show, Generic)
