@@ -26,6 +26,7 @@ import Data.List (elemIndex, minimumBy)
 import Data.Map.Strict qualified as Map
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import Data.Time.Clock (nominalDiffTimeToSeconds)
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -1394,6 +1395,17 @@ handleOutOfSync ::
   SyncedStatus ->
   Outcome tx
 handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus
+  -- We throw an error on situations where the system clock is _behind_
+  -- the chain time.
+  | delta < 0 =
+      Error . AssertionFailed $
+        "handleOutOfSync: delta < 0. delta = "
+          <> show delta
+          <> ", now = "
+          <> show now
+          <> ", chainTime = "
+          <> show chainTime
+          <> "."
   -- We consider the node out of sync when:
   -- the last observed chainTime plus the delta allowed by the unsyncedPeriod
   -- falls behind the current system time.
@@ -1409,7 +1421,7 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
   delta = now `diffUTCTime` chainTime
-  drift = fromInteger (floor delta)
+  drift = floor $ nominalDiffTimeToSeconds delta
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.
