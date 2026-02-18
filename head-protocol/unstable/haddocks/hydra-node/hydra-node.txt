@@ -2072,7 +2072,7 @@ instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
 module Hydra.Node.State
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 data ChainPointTime
-ChainPointTime :: ChainSlot -> UTCTime -> Natural -> ChainPointTime
+ChainPointTime :: ChainSlot -> UTCTime -> NominalDiffTime -> ChainPointTime
 
 -- | Latest chain slot as observed on chain.
 [$sel:currentSlot:ChainPointTime] :: ChainPointTime -> ChainSlot
@@ -2081,7 +2081,7 @@ ChainPointTime :: ChainSlot -> UTCTime -> Natural -> ChainPointTime
 [$sel:currentChainTime:ChainPointTime] :: ChainPointTime -> UTCTime
 
 -- | Time difference with current system wall-clock measured in seconds
-[$sel:drift:ChainPointTime] :: ChainPointTime -> Natural
+[$sel:drift:ChainPointTime] :: ChainPointTime -> NominalDiffTime
 data NodeState tx
 
 -- | Normal operation of the node where it is connected and has a recent
@@ -2230,9 +2230,9 @@ CommandFailed :: ClientInput tx -> HeadState tx -> ClientMessage tx
 PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 [$sel:postChainTx:CommandFailed] :: ClientMessage tx -> PostChainTx tx
 [$sel:postTxError:CommandFailed] :: ClientMessage tx -> PostTxError tx
-RejectedInputBecauseUnsynced :: ClientInput tx -> Natural -> ClientMessage tx
+RejectedInputBecauseUnsynced :: ClientInput tx -> NominalDiffTime -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
-[$sel:drift:CommandFailed] :: ClientMessage tx -> Natural
+[$sel:drift:CommandFailed] :: ClientMessage tx -> NominalDiffTime
 SideLoadSnapshotRejected :: ClientInput tx -> SideLoadRequirementFailure tx -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:requirementFailure:CommandFailed] :: ClientMessage tx -> SideLoadRequirementFailure tx
@@ -2384,14 +2384,14 @@ SnapshotSideLoaded :: HeadId -> SnapshotNumber -> ServerOutput tx
 [$sel:snapshotNumber:NetworkConnected] :: ServerOutput tx -> SnapshotNumber
 EventLogRotated :: NodeState tx -> ServerOutput tx
 [$sel:checkpoint:NetworkConnected] :: ServerOutput tx -> NodeState tx
-NodeUnsynced :: ChainSlot -> UTCTime -> Natural -> ServerOutput tx
+NodeUnsynced :: ChainSlot -> UTCTime -> NominalDiffTime -> ServerOutput tx
 [$sel:chainSlot:NetworkConnected] :: ServerOutput tx -> ChainSlot
 [$sel:chainTime:NetworkConnected] :: ServerOutput tx -> UTCTime
-[$sel:drift:NetworkConnected] :: ServerOutput tx -> Natural
-NodeSynced :: ChainSlot -> UTCTime -> Natural -> ServerOutput tx
+[$sel:drift:NetworkConnected] :: ServerOutput tx -> NominalDiffTime
+NodeSynced :: ChainSlot -> UTCTime -> NominalDiffTime -> ServerOutput tx
 [$sel:chainSlot:NetworkConnected] :: ServerOutput tx -> ChainSlot
 [$sel:chainTime:NetworkConnected] :: ServerOutput tx -> UTCTime
-[$sel:drift:NetworkConnected] :: ServerOutput tx -> Natural
+[$sel:drift:NetworkConnected] :: ServerOutput tx -> NominalDiffTime
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO
@@ -2655,14 +2655,14 @@ LocalStateCleared :: HeadId -> SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
-NodeUnsynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+NodeUnsynced :: ChainSlot -> UTCTime -> NominalDiffTime -> StateChanged tx
 [$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
 [$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
-[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
-NodeSynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+[$sel:drift:NetworkConnected] :: StateChanged tx -> NominalDiffTime
+NodeSynced :: ChainSlot -> UTCTime -> NominalDiffTime -> StateChanged tx
 [$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
 [$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
-[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
+[$sel:drift:NetworkConnected] :: StateChanged tx -> NominalDiffTime
 data Outcome tx
 
 -- | Continue with the given state updates and side effects.
@@ -3518,14 +3518,14 @@ LocalStateCleared :: HeadId -> SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 Checkpoint :: NodeState tx -> StateChanged tx
 [$sel:state:NetworkConnected] :: StateChanged tx -> NodeState tx
-NodeUnsynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+NodeUnsynced :: ChainSlot -> UTCTime -> NominalDiffTime -> StateChanged tx
 [$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
 [$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
-[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
-NodeSynced :: ChainSlot -> UTCTime -> Natural -> StateChanged tx
+[$sel:drift:NetworkConnected] :: StateChanged tx -> NominalDiffTime
+NodeSynced :: ChainSlot -> UTCTime -> NominalDiffTime -> StateChanged tx
 [$sel:chainSlot:NetworkConnected] :: StateChanged tx -> ChainSlot
 [$sel:chainTime:NetworkConnected] :: StateChanged tx -> UTCTime
-[$sel:drift:NetworkConnected] :: StateChanged tx -> Natural
+[$sel:drift:NetworkConnected] :: StateChanged tx -> NominalDiffTime
 data WaitReason tx
 WaitOnNotApplicableTx :: ValidationError -> WaitReason tx
 [$sel:validationError:WaitOnNotApplicableTx] :: WaitReason tx -> ValidationError

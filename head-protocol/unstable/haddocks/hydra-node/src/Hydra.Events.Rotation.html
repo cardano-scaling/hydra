@@ -13,29 +13,29 @@
 </span><span id="line-13"></span><span class="hs-keyword">type</span><span> </span><span id="LogId"><span class="annot"><a href="Hydra.Events.Rotation.html#LogId"><span class="hs-identifier hs-var">LogId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventId"><span class="hs-identifier hs-type">EventId</span></a></span><span>
 </span><span id="line-14"></span><span>
 </span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- | An EventSource and EventSink combined</span></span><span>
-</span><span id="line-16"></span><span class="hs-keyword">data</span><span> </span><span id="EventStore"><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-var">EventStore</span></a></span></span><span> </span><span id="local-6989586621680418170"><span class="annot"><a href="#local-6989586621680418170"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span id="local-6989586621680418171"><span class="annot"><a href="#local-6989586621680418171"><span class="hs-identifier hs-type">m</span></a></span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">data</span><span> </span><span id="EventStore"><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-var">EventStore</span></a></span></span><span> </span><span id="local-6989586621680418131"><span class="annot"><a href="#local-6989586621680418131"><span class="hs-identifier hs-type">e</span></a></span></span><span> </span><span id="local-6989586621680418132"><span class="annot"><a href="#local-6989586621680418132"><span class="hs-identifier hs-type">m</span></a></span></span><span>
 </span><span id="line-17"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="EventStore"><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-var">EventStore</span></a></span></span><span>
 </span><span id="line-18"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AeventSource%3AEventStore"><span class="annot"><span class="annottext">forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
-</span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSource%3AEventStore"><span class="hs-identifier hs-var hs-var">eventSource</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier hs-type">EventSource</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418170"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418171"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSource%3AEventStore"><span class="hs-identifier hs-var hs-var">eventSource</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSource"><span class="hs-identifier hs-type">EventSource</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418131"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418132"><span class="hs-identifier hs-type">m</span></a></span><span>
 </span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AeventSink%3AEventStore"><span class="annot"><span class="annottext">forall e (m :: * -&gt; *). EventStore e m -&gt; EventSink e m
-</span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSink%3AEventStore"><span class="hs-identifier hs-var hs-var">eventSink</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418170"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418171"><span class="hs-identifier hs-type">m</span></a></span><span>
+</span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSink%3AEventStore"><span class="hs-identifier hs-var hs-var">eventSink</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418131"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418132"><span class="hs-identifier hs-type">m</span></a></span><span>
 </span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Arotate%3AEventStore"><span class="annot"><span class="annottext">forall e (m :: * -&gt; *). EventStore e m -&gt; LogId -&gt; e -&gt; m ()
-</span><a href="Hydra.Events.Rotation.html#%24sel%3Arotate%3AEventStore"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Events.Rotation.html#LogId"><span class="hs-identifier hs-type">LogId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418170"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418171"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="Hydra.Events.Rotation.html#%24sel%3Arotate%3AEventStore"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Events.Rotation.html#LogId"><span class="hs-identifier hs-type">LogId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418131"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418132"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Rotate existing events into a given log id and start a new log from given e.</span></span><span>
 </span><span id="line-22"></span><span>  </span><span class="hs-special">}</span><span>
 </span><span id="line-23"></span><span>
 </span><span id="line-24"></span><span class="annot"><span class="hs-comment">-- | Creates an event store that rotates according to given config and 'StateAggregate'.</span></span><span>
-</span><span id="line-25"></span><span id="local-6989586621680418182"><span id="local-6989586621680418184"><span id="local-6989586621680418189"><span class="annot"><a href="Hydra.Events.Rotation.html#newRotatedEventStore"><span class="hs-identifier hs-type">newRotatedEventStore</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-26"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#HasEventId"><span class="hs-identifier hs-type">HasEventId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418182"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadUnliftIO</span></span><span> </span><span class="annot"><a href="#local-6989586621680418184"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621680418184"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621680418184"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-25"></span><span id="local-6989586621680418143"><span id="local-6989586621680418145"><span id="local-6989586621680418150"><span class="annot"><a href="Hydra.Events.Rotation.html#newRotatedEventStore"><span class="hs-identifier hs-type">newRotatedEventStore</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.html#HasEventId"><span class="hs-identifier hs-type">HasEventId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418143"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadUnliftIO</span></span><span> </span><span class="annot"><a href="#local-6989586621680418145"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadTime</span></span><span> </span><span class="annot"><a href="#local-6989586621680418145"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621680418145"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#RotationConfig"><span class="hs-identifier hs-type">RotationConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Starting state of aggregate</span></span><span>
-</span><span id="line-29"></span><span>  </span><span class="annot"><a href="#local-6989586621680418189"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="#local-6989586621680418150"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Update aggregate state</span></span><span>
-</span><span id="line-31"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680418189"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418182"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418189"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680418150"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418143"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418150"><span class="hs-identifier hs-type">s</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Create a checkpoint event</span></span><span>
-</span><span id="line-33"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680418189"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventId"><span class="hs-identifier hs-type">EventId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418182"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418182"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418184"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-35"></span><span>  </span><span class="annot"><a href="#local-6989586621680418184"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418182"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418184"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621680418150"><span class="hs-identifier hs-type">s</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventId"><span class="hs-identifier hs-type">EventId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621680418143"><span class="hs-identifier hs-type">e</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418143"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418145"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="#local-6989586621680418145"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418143"><span class="hs-identifier hs-type">e</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680418145"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span></span></span></span><span>
 </span><span id="line-36"></span><span id="newRotatedEventStore"><span class="annot"><span class="annottext">newRotatedEventStore :: forall e (m :: * -&gt; *) s.
 (HasEventId e, MonadUnliftIO m, MonadTime m, MonadLabelledSTM m) =&gt;
 RotationConfig
@@ -44,16 +44,16 @@ RotationConfig
 -&gt; (s -&gt; LogId -&gt; UTCTime -&gt; e)
 -&gt; EventStore e m
 -&gt; m (EventStore e m)
-</span><a href="Hydra.Events.Rotation.html#newRotatedEventStore"><span class="hs-identifier hs-var hs-var">newRotatedEventStore</span></a></span></span><span> </span><span id="local-6989586621680418318"><span class="annot"><span class="annottext">RotationConfig
-</span><a href="#local-6989586621680418318"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680418319"><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418319"><span class="hs-identifier hs-var">s0</span></a></span></span><span> </span><span id="local-6989586621680418320"><span class="annot"><span class="annottext">s -&gt; e -&gt; s
-</span><a href="#local-6989586621680418320"><span class="hs-identifier hs-var">aggregator</span></a></span></span><span> </span><span id="local-6989586621680418321"><span class="annot"><span class="annottext">s -&gt; LogId -&gt; UTCTime -&gt; e
-</span><a href="#local-6989586621680418321"><span class="hs-identifier hs-var">checkpointer</span></a></span></span><span> </span><span id="local-6989586621680418322"><span class="annot"><span class="annottext">EventStore e m
-</span><a href="#local-6989586621680418322"><span class="hs-identifier hs-var">eventStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-37"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621680418323"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418323"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418324"><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418324"><span class="hs-identifier hs-var">lastEventId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418325"><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418325"><span class="hs-identifier hs-var">currentAggregateState</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span>
+</span><a href="Hydra.Events.Rotation.html#newRotatedEventStore"><span class="hs-identifier hs-var hs-var">newRotatedEventStore</span></a></span></span><span> </span><span id="local-6989586621680418279"><span class="annot"><span class="annottext">RotationConfig
+</span><a href="#local-6989586621680418279"><span class="hs-identifier hs-var">config</span></a></span></span><span> </span><span id="local-6989586621680418280"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621680418280"><span class="hs-identifier hs-var">s0</span></a></span></span><span> </span><span id="local-6989586621680418281"><span class="annot"><span class="annottext">s -&gt; e -&gt; s
+</span><a href="#local-6989586621680418281"><span class="hs-identifier hs-var">aggregator</span></a></span></span><span> </span><span id="local-6989586621680418282"><span class="annot"><span class="annottext">s -&gt; LogId -&gt; UTCTime -&gt; e
+</span><a href="#local-6989586621680418282"><span class="hs-identifier hs-var">checkpointer</span></a></span></span><span> </span><span id="local-6989586621680418283"><span class="annot"><span class="annottext">EventStore e m
+</span><a href="#local-6989586621680418283"><span class="hs-identifier hs-var">eventStore</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621680418284"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418284"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418285"><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418285"><span class="hs-identifier hs-var">lastEventId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418286"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621680418286"><span class="hs-identifier hs-var">currentAggregateState</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span>
 </span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">ResourceT m (Natural, LogId, s) -&gt; m (Natural, LogId, s)
 forall (m :: * -&gt; *) a. MonadUnliftIO m =&gt; ResourceT m a -&gt; m a
 </span><span class="hs-identifier hs-var">runResourceT</span></span><span> </span><span class="annot"><span class="annottext">(ResourceT m (Natural, LogId, s) -&gt; m (Natural, LogId, s))
@@ -75,7 +75,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall e (m :: * -&gt; *).
 EventSource e m -&gt; HasEventId e =&gt; ConduitT () e (ResourceT m) ()
 </span><a href="Hydra.Events.html#%24sel%3AsourceEvents%3AEventSource"><span class="hs-identifier hs-var">sourceEvents</span></a></span><span> </span><span class="annot"><span class="annottext">EventSource e m
-</span><a href="#local-6989586621680418328"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">ConduitT () e (ResourceT m) ()
+</span><a href="#local-6989586621680418289"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">ConduitT () e (ResourceT m) ()
 -&gt; ConduitT e Void (ResourceT m) (Natural, LogId, s)
 -&gt; ConduitT () Void (ResourceT m) (Natural, LogId, s)
 forall (m :: * -&gt; *) a b c r.
@@ -88,39 +88,39 @@ forall (m :: * -&gt; *) a b o.
 Monad m =&gt;
 (a -&gt; b -&gt; a) -&gt; a -&gt; ConduitT b o m a
 </span><span class="hs-identifier hs-var">C.foldl</span></span><span> </span><span class="annot"><span class="annottext">(Natural, LogId, s) -&gt; e -&gt; (Natural, LogId, s)
-</span><a href="#local-6989586621680418330"><span class="hs-identifier hs-var">aggregateEvents</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418291"><span class="hs-identifier hs-var">aggregateEvents</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">LogId
 </span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418319"><span class="hs-identifier hs-var">s0</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-40"></span><span>  </span><span id="local-6989586621680418331"><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418331"><span class="hs-identifier hs-var">aggregateStateV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; s -&gt; m (TVar m s)
+</span><a href="#local-6989586621680418280"><span class="hs-identifier hs-var">s0</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>  </span><span id="local-6989586621680418292"><span class="annot"><span class="annottext">TVar m s
+</span><a href="#local-6989586621680418292"><span class="hs-identifier hs-var">aggregateStateV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; s -&gt; m (TVar m s)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;rotated-event-store-aggregate-state&quot;</span></span><span> </span><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418325"><span class="hs-identifier hs-var">currentAggregateState</span></a></span><span>
-</span><span id="line-41"></span><span>  </span><span id="local-6989586621680418333"><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418333"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Natural -&gt; m (TVar m Natural)
+</span><a href="#local-6989586621680418286"><span class="hs-identifier hs-var">currentAggregateState</span></a></span><span>
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621680418294"><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418294"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; Natural -&gt; m (TVar m Natural)
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; a -&gt; m (TVar m a)
 </span><span class="hs-identifier hs-var">newLabelledTVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;rotated-event-store-number-of-events&quot;</span></span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418323"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span><span>
+</span><a href="#local-6989586621680418284"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span><span>
 </span><span id="line-42"></span><span>  </span><span class="hs-comment">-- check rotation on startup</span><span>
 </span><span id="line-43"></span><span>  </span><span class="annot"><span class="annottext">m Bool -&gt; m () -&gt; m ()
 forall (m :: * -&gt; *). Monad m =&gt; m Bool -&gt; m () -&gt; m ()
 </span><span class="hs-identifier hs-var">whenM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar m Natural -&gt; m Bool
-</span><a href="#local-6989586621680418335"><span class="hs-identifier hs-var">shouldRotate</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418333"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m () -&gt; m ()) -&gt; m () -&gt; m ()
+</span><a href="#local-6989586621680418296"><span class="hs-identifier hs-var">shouldRotate</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418294"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m () -&gt; m ()) -&gt; m () -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">TVar m Natural -&gt; TVar m s -&gt; LogId -&gt; m ()
-</span><a href="#local-6989586621680418336"><span class="hs-identifier hs-var">rotateEventLog</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418333"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418331"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418324"><span class="hs-identifier hs-var">lastEventId</span></a></span><span>
+</span><a href="#local-6989586621680418297"><span class="hs-identifier hs-var">rotateEventLog</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418294"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m s
+</span><a href="#local-6989586621680418292"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418285"><span class="hs-identifier hs-var">lastEventId</span></a></span><span>
 </span><span id="line-45"></span><span>  </span><span class="annot"><span class="annottext">EventStore e m -&gt; m (EventStore e m)
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -135,9 +135,9 @@ eventSource :: EventSource e m
 </span><span id="line-49"></span><span>          </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span>
 </span><span id="line-50"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:putEvent:EventSink :: HasEventId e =&gt; e -&gt; m ()
 </span><a href="Hydra.Events.html#%24sel%3AputEvent%3AEventSink"><span class="hs-identifier hs-var">putEvent</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; TVar m s -&gt; e -&gt; m ()
-</span><a href="#local-6989586621680418340"><span class="hs-identifier hs-var">rotatedPutEvent</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418333"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418331"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span>
+</span><a href="#local-6989586621680418301"><span class="hs-identifier hs-var">rotatedPutEvent</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418294"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m s
+</span><a href="#local-6989586621680418292"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span>
 </span><span id="line-51"></span><span>            </span><span class="hs-special">}</span><span>
 </span><span id="line-52"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-comment">-- NOTE: Don't allow rotation on-demand</span><span>
 </span><span id="line-53"></span><span>        </span><span class="annot"><span class="annottext">$sel:rotate:EventStore :: LogId -&gt; e -&gt; m ()
@@ -156,36 +156,36 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-54"></span><span>      </span><span class="hs-special">}</span><span>
 </span><span id="line-55"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-56"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#RotateAfter"><span class="hs-identifier hs-type">RotateAfter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621680418343"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418343"><span class="hs-identifier hs-var">rotateAfterX</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RotationConfig
-</span><a href="#local-6989586621680418318"><span class="hs-identifier hs-var">config</span></a></span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#RotateAfter"><span class="hs-identifier hs-type">RotateAfter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Positive</span></span><span> </span><span id="local-6989586621680418304"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418304"><span class="hs-identifier hs-var">rotateAfterX</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RotationConfig
+</span><a href="#local-6989586621680418279"><span class="hs-identifier hs-var">config</span></a></span><span>
 </span><span id="line-57"></span><span>
-</span><span id="line-58"></span><span>  </span><span id="local-6989586621680418330"><span class="annot"><span class="annottext">aggregateEvents :: (Natural, LogId, s) -&gt; e -&gt; (Natural, LogId, s)
-</span><a href="#local-6989586621680418330"><span class="hs-identifier hs-var hs-var">aggregateEvents</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">!</span><span id="local-6989586621680418344"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418344"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621680418345"><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418345"><span class="hs-identifier hs-var">_evId</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621680418346"><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418346"><span class="hs-identifier hs-var">acc</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680418347"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418347"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418344"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+</span><span id="line-58"></span><span>  </span><span id="local-6989586621680418291"><span class="annot"><span class="annottext">aggregateEvents :: (Natural, LogId, s) -&gt; e -&gt; (Natural, LogId, s)
+</span><a href="#local-6989586621680418291"><span class="hs-identifier hs-var hs-var">aggregateEvents</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">!</span><span id="local-6989586621680418305"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418305"><span class="hs-identifier hs-var">n</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621680418306"><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418306"><span class="hs-identifier hs-var">_evId</span></a></span></span><span class="hs-special">,</span><span> </span><span class="hs-glyph">!</span><span id="local-6989586621680418307"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621680418307"><span class="hs-identifier hs-var">acc</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621680418308"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680418308"><span class="hs-identifier hs-var">e</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418305"><span class="hs-identifier hs-var">n</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">e -&gt; LogId
 forall a. HasEventId a =&gt; a -&gt; LogId
 </span><a href="Hydra.Events.html#getEventId"><span class="hs-identifier hs-var">getEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418347"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">s -&gt; e -&gt; s
-</span><a href="#local-6989586621680418320"><span class="hs-identifier hs-var">aggregator</span></a></span><span> </span><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418346"><span class="hs-identifier hs-var">acc</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418347"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680418308"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">s -&gt; e -&gt; s
+</span><a href="#local-6989586621680418281"><span class="hs-identifier hs-var">aggregator</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621680418307"><span class="hs-identifier hs-var">acc</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680418308"><span class="hs-identifier hs-var">e</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-59"></span><span>
-</span><span id="line-60"></span><span>  </span><span id="local-6989586621680418335"><span class="annot"><span class="annottext">shouldRotate :: TVar m Natural -&gt; m Bool
-</span><a href="#local-6989586621680418335"><span class="hs-identifier hs-var hs-var">shouldRotate</span></a></span></span><span> </span><span id="local-6989586621680418350"><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418350"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-61"></span><span>    </span><span id="local-6989586621680418351"><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418351"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; m Natural
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621680418296"><span class="annot"><span class="annottext">shouldRotate :: TVar m Natural -&gt; m Bool
+</span><a href="#local-6989586621680418296"><span class="hs-identifier hs-var hs-var">shouldRotate</span></a></span></span><span> </span><span id="local-6989586621680418311"><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418311"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-61"></span><span>    </span><span id="local-6989586621680418312"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418312"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m Natural -&gt; m Natural
 forall a. TVar m a -&gt; m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418350"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span>
+</span><a href="#local-6989586621680418311"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span>
 </span><span id="line-62"></span><span>    </span><span class="hs-comment">-- since rotateAfterX can be any positive number (including 1),</span><span>
 </span><span id="line-63"></span><span>    </span><span class="hs-comment">-- we use (&gt;) instead of (&gt;=) to avoid triggering a rotation immediately after a checkpoint,</span><span>
 </span><span id="line-64"></span><span>    </span><span class="hs-comment">-- which would lead to an infinite loop</span><span>
@@ -195,20 +195,20 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; m Bool) -&gt; Bool -&gt; m Bool
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418351"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
+</span><a href="#local-6989586621680418312"><span class="hs-identifier hs-var">currentNumberOfEvents</span></a></span><span> </span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E"><span class="hs-operator hs-var">&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
-</span><a href="#local-6989586621680418343"><span class="hs-identifier hs-var">rotateAfterX</span></a></span><span>
+</span><a href="#local-6989586621680418304"><span class="hs-identifier hs-var">rotateAfterX</span></a></span><span>
 </span><span id="line-66"></span><span>
-</span><span id="line-67"></span><span>  </span><span id="local-6989586621680418340"><span class="annot"><span class="annottext">rotatedPutEvent :: TVar m Natural -&gt; TVar m s -&gt; e -&gt; m ()
-</span><a href="#local-6989586621680418340"><span class="hs-identifier hs-var hs-var">rotatedPutEvent</span></a></span></span><span> </span><span id="local-6989586621680418353"><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418353"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span id="local-6989586621680418354"><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418354"><span class="hs-identifier hs-var">aggregateStateV</span></a></span></span><span> </span><span id="local-6989586621680418355"><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418355"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621680418301"><span class="annot"><span class="annottext">rotatedPutEvent :: TVar m Natural -&gt; TVar m s -&gt; e -&gt; m ()
+</span><a href="#local-6989586621680418301"><span class="hs-identifier hs-var hs-var">rotatedPutEvent</span></a></span></span><span> </span><span id="local-6989586621680418314"><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418314"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span id="local-6989586621680418315"><span class="annot"><span class="annottext">TVar m s
+</span><a href="#local-6989586621680418315"><span class="hs-identifier hs-var">aggregateStateV</span></a></span></span><span> </span><span id="local-6989586621680418316"><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680418316"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">e -&gt; m ()
 HasEventId e =&gt; e -&gt; m ()
-</span><a href="#local-6989586621680418356"><span class="hs-identifier hs-var">putEvent</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418355"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><a href="#local-6989586621680418317"><span class="hs-identifier hs-var">putEvent</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680418316"><span class="hs-identifier hs-var">event</span></a></span><span>
 </span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">STM m () -&gt; m ()
 forall a. HasCallStack =&gt; STM m a -&gt; m a
 forall (m :: * -&gt; *) a.
@@ -224,9 +224,9 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418354"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; e -&gt; s
-</span><a href="#local-6989586621680418320"><span class="hs-operator hs-var">`aggregator`</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418355"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680418315"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">s -&gt; e -&gt; s
+</span><a href="#local-6989586621680418281"><span class="hs-operator hs-var">`aggregator`</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680418316"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-72"></span><span>      </span><span class="hs-comment">-- bump numberOfEvents</span><span>
 </span><span id="line-73"></span><span>      </span><span class="annot"><span class="annottext">TVar m Natural -&gt; (Natural -&gt; Natural) -&gt; STM m ()
 forall a. TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
@@ -234,7 +234,7 @@ forall (m :: * -&gt; *) a.
 MonadSTM m =&gt;
 TVar m a -&gt; (a -&gt; a) -&gt; STM m ()
 </span><span class="hs-identifier hs-var">modifyTVar'</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418353"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
+</span><a href="#local-6989586621680418314"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Natural -&gt; Natural -&gt; Natural
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
@@ -242,50 +242,50 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">m Bool -&gt; m () -&gt; m ()
 forall (m :: * -&gt; *). Monad m =&gt; m Bool -&gt; m () -&gt; m ()
 </span><span class="hs-identifier hs-var">whenM</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TVar m Natural -&gt; m Bool
-</span><a href="#local-6989586621680418335"><span class="hs-identifier hs-var">shouldRotate</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418353"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m () -&gt; m ()) -&gt; m () -&gt; m ()
+</span><a href="#local-6989586621680418296"><span class="hs-identifier hs-var">shouldRotate</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418314"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(m () -&gt; m ()) -&gt; m () -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-76"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680418358"><span class="annot"><span class="annottext">eventId :: LogId
-</span><a href="#local-6989586621680418358"><span class="hs-identifier hs-var hs-var">eventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">e -&gt; LogId
+</span><span id="line-76"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680418319"><span class="annot"><span class="annottext">eventId :: LogId
+</span><a href="#local-6989586621680418319"><span class="hs-identifier hs-var hs-var">eventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">e -&gt; LogId
 forall a. HasEventId a =&gt; a -&gt; LogId
 </span><a href="Hydra.Events.html#getEventId"><span class="hs-identifier hs-var">getEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418355"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><a href="#local-6989586621680418316"><span class="hs-identifier hs-var">event</span></a></span><span>
 </span><span id="line-77"></span><span>      </span><span class="annot"><span class="annottext">TVar m Natural -&gt; TVar m s -&gt; LogId -&gt; m ()
-</span><a href="#local-6989586621680418336"><span class="hs-identifier hs-var">rotateEventLog</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418353"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418354"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418358"><span class="hs-identifier hs-var">eventId</span></a></span><span>
+</span><a href="#local-6989586621680418297"><span class="hs-identifier hs-var">rotateEventLog</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418314"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m s
+</span><a href="#local-6989586621680418315"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418319"><span class="hs-identifier hs-var">eventId</span></a></span><span>
 </span><span id="line-78"></span><span>
-</span><span id="line-79"></span><span>  </span><span id="local-6989586621680418336"><span class="annot"><span class="annottext">rotateEventLog :: TVar m Natural -&gt; TVar m s -&gt; LogId -&gt; m ()
-</span><a href="#local-6989586621680418336"><span class="hs-identifier hs-var hs-var">rotateEventLog</span></a></span></span><span> </span><span id="local-6989586621680418359"><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418359"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span id="local-6989586621680418360"><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418360"><span class="hs-identifier hs-var">aggregateStateV</span></a></span></span><span> </span><span id="local-6989586621680418361"><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418361"><span class="hs-identifier hs-var">lastEventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621680418297"><span class="annot"><span class="annottext">rotateEventLog :: TVar m Natural -&gt; TVar m s -&gt; LogId -&gt; m ()
+</span><a href="#local-6989586621680418297"><span class="hs-identifier hs-var hs-var">rotateEventLog</span></a></span></span><span> </span><span id="local-6989586621680418320"><span class="annot"><span class="annottext">TVar m Natural
+</span><a href="#local-6989586621680418320"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span></span><span> </span><span id="local-6989586621680418321"><span class="annot"><span class="annottext">TVar m s
+</span><a href="#local-6989586621680418321"><span class="hs-identifier hs-var">aggregateStateV</span></a></span></span><span> </span><span id="local-6989586621680418322"><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418322"><span class="hs-identifier hs-var">lastEventId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-80"></span><span>    </span><span class="hs-comment">-- build the checkpoint event</span><span>
-</span><span id="line-81"></span><span>    </span><span id="local-6989586621680418362"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680418362"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m UTCTime
+</span><span id="line-81"></span><span>    </span><span id="local-6989586621680418323"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621680418323"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">m UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-82"></span><span>    </span><span id="local-6989586621680418364"><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418364"><span class="hs-identifier hs-var">aggregateState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m s -&gt; m s
+</span><span id="line-82"></span><span>    </span><span id="local-6989586621680418325"><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621680418325"><span class="hs-identifier hs-var">aggregateState</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TVar m s -&gt; m s
 forall a. TVar m a -&gt; m a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; m a
 </span><span class="hs-identifier hs-var">readTVarIO</span></span><span> </span><span class="annot"><span class="annottext">TVar m s
-</span><a href="#local-6989586621680418360"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span>
+</span><a href="#local-6989586621680418321"><span class="hs-identifier hs-var">aggregateStateV</span></a></span><span>
 </span><span id="line-83"></span><span>    </span><span class="hs-comment">-- the checkpoint has the same event id as the last event persisted</span><span>
-</span><span id="line-84"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680418365"><span class="annot"><span class="annottext">checkpoint :: e
-</span><a href="#local-6989586621680418365"><span class="hs-identifier hs-var hs-var">checkpoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">s -&gt; LogId -&gt; UTCTime -&gt; e
-</span><a href="#local-6989586621680418321"><span class="hs-identifier hs-var">checkpointer</span></a></span><span> </span><span class="annot"><span class="annottext">s
-</span><a href="#local-6989586621680418364"><span class="hs-identifier hs-var">aggregateState</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418361"><span class="hs-identifier hs-var">lastEventId</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621680418362"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><span id="line-84"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621680418326"><span class="annot"><span class="annottext">checkpoint :: e
+</span><a href="#local-6989586621680418326"><span class="hs-identifier hs-var hs-var">checkpoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">s -&gt; LogId -&gt; UTCTime -&gt; e
+</span><a href="#local-6989586621680418282"><span class="hs-identifier hs-var">checkpointer</span></a></span><span> </span><span class="annot"><span class="annottext">s
+</span><a href="#local-6989586621680418325"><span class="hs-identifier hs-var">aggregateState</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418322"><span class="hs-identifier hs-var">lastEventId</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621680418323"><span class="hs-identifier hs-var">now</span></a></span><span>
 </span><span id="line-85"></span><span>    </span><span class="hs-comment">-- the rotated log file name suffix (logId) matches the last event persisted,</span><span>
 </span><span id="line-86"></span><span>    </span><span class="hs-comment">-- while the checkpoint event is appended to the new (current) state log file</span><span>
 </span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">LogId -&gt; e -&gt; m ()
-</span><a href="#local-6989586621680418366"><span class="hs-identifier hs-var">rotate</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
-</span><a href="#local-6989586621680418361"><span class="hs-identifier hs-var">lastEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
-</span><a href="#local-6989586621680418365"><span class="hs-identifier hs-var">checkpoint</span></a></span><span>
+</span><a href="#local-6989586621680418327"><span class="hs-identifier hs-var">rotate</span></a></span><span> </span><span class="annot"><span class="annottext">LogId
+</span><a href="#local-6989586621680418322"><span class="hs-identifier hs-var">lastEventId</span></a></span><span> </span><span class="annot"><span class="annottext">e
+</span><a href="#local-6989586621680418326"><span class="hs-identifier hs-var">checkpoint</span></a></span><span>
 </span><span id="line-88"></span><span>    </span><span class="hs-comment">-- reset `numberOfEvents` to 1 because</span><span>
 </span><span id="line-89"></span><span>    </span><span class="hs-comment">-- the checkpoint event was just appended during rotation</span><span>
 </span><span id="line-90"></span><span>    </span><span class="hs-comment">-- and will be sourced from the event store on restart</span><span>
@@ -301,19 +301,19 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. TVar m a -&gt; a -&gt; STM m ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TVar m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">writeTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m Natural
-</span><a href="#local-6989586621680418359"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621680418320"><span class="hs-identifier hs-var">numberOfEventsV</span></a></span><span> </span><span class="annot"><span class="annottext">Natural
 </span><span class="hs-number">1</span></span><span>
 </span><span id="line-93"></span><span>
-</span><span id="line-94"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span class="hs-special">{</span><span id="local-6989586621680418328"><span class="annot"><span class="annottext">EventSource e m
+</span><span id="line-94"></span><span>  </span><span class="annot"><a href="Hydra.Events.Rotation.html#EventStore"><span class="hs-identifier hs-type">EventStore</span></a></span><span class="hs-special">{</span><span id="local-6989586621680418289"><span class="annot"><span class="annottext">EventSource e m
 $sel:eventSource:EventStore :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
 eventSource :: EventSource e m
 </span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSource%3AEventStore"><span class="hs-identifier hs-var hs-var">eventSource</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:eventSink:EventStore :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSink e m
-</span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSink%3AEventStore"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span class="hs-special">{</span><span id="local-6989586621680418356"><span class="annot"><span class="annottext">HasEventId e =&gt; e -&gt; m ()
+</span><a href="Hydra.Events.Rotation.html#%24sel%3AeventSink%3AEventStore"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Events.html#EventSink"><span class="hs-identifier hs-type">EventSink</span></a></span><span class="hs-special">{</span><span id="local-6989586621680418317"><span class="annot"><span class="annottext">HasEventId e =&gt; e -&gt; m ()
 $sel:putEvent:EventSink :: forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 putEvent :: HasEventId e =&gt; e -&gt; m ()
-</span><a href="Hydra.Events.html#%24sel%3AputEvent%3AEventSink"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418366"><span class="annot"><span class="annottext">LogId -&gt; e -&gt; m ()
+</span><a href="Hydra.Events.html#%24sel%3AputEvent%3AEventSink"><span class="hs-identifier hs-var hs-var">putEvent</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418327"><span class="annot"><span class="annottext">LogId -&gt; e -&gt; m ()
 $sel:rotate:EventStore :: forall e (m :: * -&gt; *). EventStore e m -&gt; LogId -&gt; e -&gt; m ()
 rotate :: LogId -&gt; e -&gt; m ()
 </span><a href="Hydra.Events.Rotation.html#%24sel%3Arotate%3AEventStore"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EventStore e m
-</span><a href="#local-6989586621680418322"><span class="hs-identifier hs-var">eventStore</span></a></span><span>
+</span><a href="#local-6989586621680418283"><span class="hs-identifier hs-var">eventStore</span></a></span><span>
 </span><span id="line-95"></span></pre></body></html>
