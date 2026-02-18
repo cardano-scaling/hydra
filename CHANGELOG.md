@@ -14,6 +14,8 @@ changes.
 
 - Hydra node now correctly handles deposits and decommits on chain rollbacks and handles its local state correctly in terms of keeping track of pending deposits. [#2491](https://github.com/cardano-scaling/hydra/pull/2491)
 
+- Improved error reporting for transactions with missing script witnesses. Users now receive a clear error message indicating which script is missing from the transaction witnesses. [#2506](https://github.com/cardano-scaling/hydra/pull/2506)
+
 - **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
   - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
   - Added `RejectedInputBecauseUnsynced` client message.

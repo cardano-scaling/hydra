@@ -259,6 +259,15 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             } ::
             PostTxError Tx
         )
+    Left ErrMissingScript{scriptHash, purpose} ->
+      throwIO
+        ( ScriptFailedInWallet
+            { redeemerPtr = purpose
+            , failureReason = "Missing script witness for " <> scriptHash
+            , failingTx = partialTx
+            } ::
+            PostTxError Tx
+        )
     Left e ->
       throwIO
         ( InternalWalletError

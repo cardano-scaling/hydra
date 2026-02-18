@@ -25,7 +25,7 @@ import Cardano.Ledger.Api (
   BabbageEraTxBody,
   ConwayEra,
   PParams,
-  TransactionScriptFailure,
+  TransactionScriptFailure (..),
   Tx,
   bodyTxL,
   calcMinFeeTx,
@@ -65,6 +65,7 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint,
@@ -218,6 +219,7 @@ data ErrCoverFee
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
   | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
+  | ErrMissingScript {scriptHash :: Text, purpose :: Text}
   deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -441,11 +443,21 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   convertResult ptr = \case
     Right exUnits -> Right exUnits
     Left failure ->
-      Left $
-        ErrScriptExecutionFailed
-          { redeemerPointer = show ptr
-          , scriptFailure = show failure
-          }
+      case failure of
+        -- Missing script witness - provide helpful error message
+        MissingScript rdmrPtr scriptHash ->
+          Left $
+            ErrMissingScript
+              { scriptHash = Text.pack $ show scriptHash
+              , purpose = Text.pack $ show ptr
+              }
+        -- Any other script execution failure
+        _ ->
+          Left $
+            ErrScriptExecutionFailed
+              { redeemerPointer = Text.pack $ show ptr
+              , scriptFailure = Text.pack $ show failure
+              }
 
 --
 -- Logs
