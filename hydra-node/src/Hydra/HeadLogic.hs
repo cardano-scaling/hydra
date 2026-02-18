@@ -1394,17 +1394,13 @@ handleOutOfSync ::
   SyncedStatus ->
   Outcome tx
 handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus =
-  case maybeDrift of
-    Nothing -> Error $ AssertionFailed "Non-positive time delta between system clock and chain time"
-    Just drift -> stateTransition drift <> outputIfNeeded drift
+  stateTransition <> outputIfNeeded
  where
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
 
   threshold = unsyncedPeriodToNominalDiffTime unsyncedPeriod
   drift = now `diffUTCTime` chainTime
-  maybeDrift =
-    if drift < 0 then Nothing else Just (floor drift)
 
   -- We consider the node out of sync when:
   -- the last observed chainTime plus the delta allowed by the unsyncedPeriod (threshold)
@@ -1412,7 +1408,7 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
   -- NOTE: this is the same as drift > threshold
   nodeOutOfSync = chainTime `plus` threshold < now
   newSyncStatus = if nodeOutOfSync then CatchingUp else InSync
-  stateTransition drift =
+  stateTransition =
     case (syncStatus, newSyncStatus) of
       (InSync, CatchingUp) -> newState NodeUnsynced{chainSlot, chainTime, drift}
       (CatchingUp, InSync) -> newState NodeSynced{chainSlot, chainTime, drift}
@@ -1424,10 +1420,10 @@ handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus 
     case newSyncStatus of
       CatchingUp -> True
       InSync -> nearThreshold
-  outputIfNeeded drift
-    | shouldOutput = output newSyncStatus drift
+  outputIfNeeded
+    | shouldOutput = output newSyncStatus
     | otherwise = noop
-  output synced drift =
+  output synced =
     cause . ClientEffect $ ServerOutput.SyncedStatusReport{chainSlot, chainTime, drift, synced}
 
 -- | Validate whether a current deposit in the local state actually exists

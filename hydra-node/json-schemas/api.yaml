@@ -1575,7 +1575,7 @@ components:
         chainTime:
           $ref: "api.yaml#/components/schemas/UTCTime"
         drift:
-          $ref: "api.yaml#/components/schemas/Natural"
+          $ref: "api.yaml#/components/schemas/NominalDiffTime"
         synced:
           $ref: "api.yaml#/components/schemas/SyncedStatus"
 
