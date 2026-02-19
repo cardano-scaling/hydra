@@ -2230,6 +2230,11 @@ RejectedInputBecauseUnsynced :: ClientInput tx -> NominalDiffTime -> ClientMessa
 SideLoadSnapshotRejected :: ClientInput tx -> SideLoadRequirementFailure tx -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:requirementFailure:CommandFailed] :: ClientMessage tx -> SideLoadRequirementFailure tx
+SyncedStatusReport :: ChainSlot -> UTCTime -> NominalDiffTime -> SyncedStatus -> ClientMessage tx
+[$sel:chainSlot:CommandFailed] :: ClientMessage tx -> ChainSlot
+[$sel:chainTime:CommandFailed] :: ClientMessage tx -> UTCTime
+[$sel:drift:CommandFailed] :: ClientMessage tx -> NominalDiffTime
+[$sel:synced:CommandFailed] :: ClientMessage tx -> SyncedStatus
 
 -- | A friendly welcome message which tells a client something about the
 --   node. Currently used for knowing what signing key the server uses (it
@@ -4253,6 +4258,15 @@ prepareTxToPost :: forall m. (MonadSTM m, MonadThrow (STM m)) => TimeHandle -> T
 --   parameter and epoch length result in a short horizon, this is
 --   problematic.
 maxGraceTime :: NominalDiffTime
+data StartingDecision
+FromProvided :: ChainPoint -> StartingDecision
+FromTip :: ChainPoint -> StartingDecision
+FromPersisted :: ChainPoint -> Bool -> StartingDecision
+[$sel:chainPoint:FromProvided] :: StartingDecision -> ChainPoint
+
+-- | Whether the user-provided --start-chain-from point was set but
+--   ignored, because it was older than persisted points.
+[$sel:startChainFromSet:FromProvided] :: StartingDecision -> Bool
 data CardanoChainLog
 ToPost :: PostChainTx Tx -> CardanoChainLog
 [$sel:toPost:ToPost] :: CardanoChainLog -> PostChainTx Tx
@@ -4269,9 +4283,15 @@ RolledForward :: ChainPoint -> [TxId] -> CardanoChainLog
 RolledBackward :: ChainPoint -> CardanoChainLog
 [$sel:point:ToPost] :: CardanoChainLog -> ChainPoint
 Wallet :: TinyWalletLog -> CardanoChainLog
+StartingChainDecision :: StartingDecision -> CardanoChainLog
 instance GHC.Exception.Type.Exception Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.TimeConversionException
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.Handlers.StartingDecision
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Handlers.StartingDecision
+instance GHC.Generics.Generic Hydra.Chain.Direct.Handlers.StartingDecision
+instance GHC.Show.Show Hydra.Chain.Direct.Handlers.StartingDecision
+instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.StartingDecision
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance GHC.Generics.Generic Hydra.Chain.Direct.Handlers.CardanoChainLog
@@ -4526,6 +4546,8 @@ LoadingState :: HydraNodeLog tx
 LoadedState :: Last EventId -> NodeState tx -> HydraNodeLog tx
 [$sel:lastEventId:BeginInput] :: HydraNodeLog tx -> Last EventId
 [$sel:nodeState:BeginInput] :: HydraNodeLog tx -> NodeState tx
+LoadedChainState :: ChainPointType tx -> HydraNodeLog tx
+[$sel:lastKnownChainPoint:BeginInput] :: HydraNodeLog tx -> ChainPointType tx
 ReplayingState :: HydraNodeLog tx
 Misconfiguration :: [ParamMismatch] -> HydraNodeLog tx
 [$sel:misconfigurationErrors:BeginInput] :: HydraNodeLog tx -> [ParamMismatch]
@@ -4558,6 +4580,9 @@ NodeOptions :: RunOptions -> HydraLog tx
 Persistence :: PersistenceLog -> HydraLog tx
 [$sel:persistenceLog:DirectChain] :: HydraLog tx -> PersistenceLog
 EnteringMainloop :: HydraLog tx
+NodeHydrated :: HydraLog tx
+ChainBackendStarted :: HydraLog tx
+NetworkStarted :: HydraLog tx
 instance GHC.Generics.Generic (Hydra.Logging.Messages.HydraLog tx)
 instance GHC.Classes.Eq (Hydra.Node.HydraNodeLog tx) => GHC.Classes.Eq (Hydra.Logging.Messages.HydraLog tx)
 instance GHC.Show.Show (Hydra.Node.HydraNodeLog tx) => GHC.Show.Show (Hydra.Logging.Messages.HydraLog tx)

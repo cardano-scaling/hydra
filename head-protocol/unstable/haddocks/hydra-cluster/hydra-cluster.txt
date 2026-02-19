@@ -463,7 +463,7 @@ getSnapshotConfirmed :: HydraClient -> IO (ConfirmedSnapshot Tx)
 -- | Get the latest seen snapshot from the hydra-node.
 getSnapshotLastSeen :: HydraClient -> IO (SeenSnapshot Tx)
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
-withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> ContestationPeriod -> (NonEmpty HydraClient -> IO a) -> IO a
+withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> ContestationPeriod -> (NonEmpty HydraClient -> IO a) -> IO a
 
 -- | Prepare protocol-parameters to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
@@ -475,14 +475,14 @@ prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey
 
 -- | Run a hydra-node with given <a>RunOptions</a> and in sync with chain
 --   backend.
-withPreparedHydraNodeInSync :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
+withPreparedHydraNodeInSync :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config/.
-withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config and catching up with chain backend/.
