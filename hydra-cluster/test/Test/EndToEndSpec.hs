@@ -146,7 +146,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , initialUTxOFile = tmpDir </> "utxo.json"
                   , ledgerGenesisFile = Nothing
                   }
-        let blockTime = 1
+        let blockTime = 5
         -- Start a hydra-node in offline mode and submit a transaction from alice to bob
         aliceToBob <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
           let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
@@ -185,7 +185,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , initialUTxOFile = tmpDir </> "utxo.json"
                   , ledgerGenesisFile = Nothing
                   }
-        let blockTime = 1
+        let blockTime = 5
         -- Start a hydra-node in offline mode and submit several self-txs
         withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
           foldM_
@@ -242,7 +242,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , ledgerGenesisFile = Nothing
                   }
         let tr = contramap FromHydraNode tracer
-        let blockTime = 1
+        let blockTime = 5
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
         withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
           withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
