@@ -2035,9 +2035,20 @@ aggregate st = \case
                     { decommitTx = Nothing
                     , version = newVersion
                     , seenSnapshot =
-                        LastSeenSnapshot
-                          { lastSeen = seenSnapshotNumber (seenSnapshot coordinatedHeadState)
-                          }
+                        case seenSnapshot coordinatedHeadState of
+                          NoSeenSnapshot ->
+                            LastSeenSnapshot{lastSeen = 0}
+                          LastSeenSnapshot{lastSeen} ->
+                            LastSeenSnapshot{lastSeen}
+                          -- IMPORTANT: Use 'requested' not 'lastSeen' to prevent infinite AckSn loop.
+                          -- When leader requests snapshot N with decommit and DecrementTx is observed
+                          -- before AckSn messages arrive, the decommit is part of snapshot N (requested),
+                          -- not snapshot N-1 (lastSeen). Using lastSeen would cause AckSn(N) messages
+                          -- to fail the guard check and be requeued infinitely.
+                          RequestedSnapshot{requested} ->
+                            LastSeenSnapshot{lastSeen = requested}
+                          SeenSnapshot{snapshot = Snapshot{number}} ->
+                            LastSeenSnapshot{lastSeen = number}
                     }
               }
       _otherState -> st
