@@ -3122,6 +3122,12 @@ handleClientInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTi
 handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 onConnectionEvent :: Text -> Connectivity -> Outcome tx
 
+-- | Convert any SeenSnapshot to LastSeenSnapshot, preserving the correct
+--   snapshot number. Used by CommitFinalized and DecommitFinalized to
+--   handle race conditions where on-chain transaction confirmation happens
+--   before AckSn messages arrive.
+toLastSeenSnapshot :: SeenSnapshot tx -> SeenSnapshot tx
+
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
 --   inputs from the client, the network and the chain.
