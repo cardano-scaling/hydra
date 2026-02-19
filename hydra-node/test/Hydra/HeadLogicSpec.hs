@@ -379,10 +379,13 @@ spec =
           let s1 = aggregateState s0 decommitFinalizedOutcome
 
           -- Verify seenSnapshot was reset (not stuck as RequestedSnapshot)
+          -- After DecommitFinalized, lastSeen should be the snapshot number that
+          -- included the decommit (snapshot 1), not the previously confirmed snapshot (0).
+          -- This prevents incoming AckSn messages for snapshot 1 from being requeued infinitely.
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
               chs.decommitTx `shouldBe` Nothing
             _ -> fail "expected Open state"
 
@@ -403,11 +406,139 @@ spec =
             getState
 
           -- Verify the head is not stuck: seenSnapshot should have advanced
+          -- (snapshot number will be based on confirmedSnapshot.number, not lastSeen)
           case s2 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.seenSnapshot `shouldSatisfy` \case
                 RequestedSnapshot{} -> True
                 _ -> False
+            _ -> fail "expected Open state"
+
+        it "DecommitFinalized with RequestedSnapshot uses requested number not lastSeen" $ do
+          let localUTxO = utxoRefs [1]
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              -- State: leader sent ReqSn(v=3, sn=1) with lastSeen=0
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    , decommitTx = Just (SimpleTx 10 mempty (utxoRef 99))
+                    }
+
+          -- DecommitFinalized arrives before AckSn messages
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
+          let s1 = aggregateState s0 decommitFinalizedOutcome
+
+          -- Verify seenSnapshot uses requested (1), not lastSeen (0)
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+              chs.decommitTx `shouldBe` Nothing
+            _ -> fail "expected Open state"
+
+        it "AckSn for decommit snapshot is noop after DecommitFinalized" $ do
+          let localUTxO = utxoRefs [1]
+              snapshot1 = testSnapshot 0 4 [] localUTxO & \s -> s{number = 1}
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              -- State after DecommitFinalized: lastSeen=1
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 4
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                    , decommitTx = Nothing
+                    }
+
+          -- AckSn for snapshot 1 arrives late
+          let ackSn = AckSn (sign aliceSk snapshot1) 1
+              input = receiveMessageFrom alice ackSn
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+
+          -- Should be noop (or error), not Wait
+          update aliceEnv ledger now s0 input `shouldSatisfy` \case
+            Continue{} -> True
+            Error{} -> True
+            Wait{} -> False -- Must NOT Wait (infinite AckSn requeue)
+        it "DecommitFinalized with SeenSnapshot state extracts correct snapshot number" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 = testSnapshot 0 3 [] localUTxO & \s -> s{number = 1}
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              -- State: follower has seen ReqSn and is collecting signatures
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , decommitTx = Just decommitTx
+                    }
+
+          -- DecommitFinalized arrives while collecting signatures
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let decommitFinalizedOutcome = update bobEnv ledger now s0 decrementObservation
+          let s1 = aggregateState s0 decommitFinalizedOutcome
+
+          -- Verify DecommitFinalized correctly extracted snapshot number from SeenSnapshot
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.decommitTx `shouldBe` Nothing
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+            _ -> fail "expected Open state"
+
+        it "CommitFinalized with RequestedSnapshot should use requested number not lastSeen" $ do
+          let localUTxO = utxoRefs [1]
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              depositTxId = 42
+              -- State after leader sent ReqSn(sn=1) with pending deposit: snapshot in flight
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    , currentDepositTxId = Just depositTxId
+                    }
+
+          -- CommitFinalized arrives before AckSn messages (race condition)
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let commitFinalizedOutcome = update aliceEnv ledger now s0 incrementObservation
+          let s1 = aggregateState s0 commitFinalizedOutcome
+
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.currentDepositTxId `shouldBe` Nothing
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
             _ -> fail "expected Open state"
 
       describe "Tracks Transaction Ids" $ do
