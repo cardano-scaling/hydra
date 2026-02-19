@@ -1317,6 +1317,9 @@ ErrScriptExecutionFailed :: Text -> Text -> ErrCoverFee
 [$sel:scriptFailure:ErrNotEnoughFunds] :: ErrCoverFee -> Text
 ErrTranslationError :: ContextError LedgerEra -> ErrCoverFee
 ErrConwayUpgradeError :: TxUpgradeError ConwayEra -> ErrCoverFee
+ErrMissingScript :: Text -> Text -> ErrCoverFee
+[$sel:scriptHash:ErrNotEnoughFunds] :: ErrCoverFee -> Text
+[$sel:purpose:ErrNotEnoughFunds] :: ErrCoverFee -> Text
 data ChangeError
 ChangeError :: Coin -> Coin -> ChangeError
 [$sel:inputBalance:ChangeError] :: ChangeError -> Coin
