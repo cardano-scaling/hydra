@@ -7,7 +7,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL)
+import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
+import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose)
 import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -15,6 +17,7 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
 import Cardano.Ledger.Core (Tx, Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
+import Cardano.Ledger.Plutus (Data, ExUnits (..))
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Slot (EpochInfo)
 import Cardano.Ledger.Val (Val (..), invert)
@@ -44,6 +47,7 @@ import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
+  ErrCoverFee (..),
   TinyWallet (..),
   TxIn,
   TxOut,
@@ -88,6 +92,7 @@ spec = parallel $ do
     prop "sets min utxo values" prop_setsMinUTxOValue
     prop "balances transaction with fees" prop_balanceTransaction
     prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
+    prop "reports ErrMissingScript when script witness is missing" prop_detectsMissingScript
 
   describe "newTinyWallet" $ do
     prop "initialises wallet by querying UTxO" $
@@ -410,3 +415,51 @@ knownInputBalance utxo = foldMap resolve . toList . view (bodyTxL . inputsTxBody
 outputBalance :: Tx LedgerEra -> Value LedgerEra
 outputBalance =
   foldMap getValue . view (bodyTxL . outputsTxBodyL)
+
+-- | Test that coverFee detects missing script witnesses.
+-- Generates transactions that spend from script-locked UTxOs but omit the script witness.
+prop_detectsMissingScript :: Property
+prop_detectsMissingScript =
+  forAllBlind genScriptSpendingTx $ \(tx, scriptUTxO) ->
+    forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+      forAll arbitrary $ \(arbitraryData :: Data LedgerEra) -> do
+        let
+          -- Add a redeemer for the script input but DON'T add the script witness.
+          -- This creates the missing script scenario: redeemer present but script absent.
+          -- NB: ExUnits are irrelevant since script execution will fail due to missing script.
+          redeemers = Redeemers $ Map.singleton (SpendingPurpose (AsIx 0)) (arbitraryData, ExUnits 0 0)
+          txWithRedeemer = tx & witsTxL . rdmrsTxWitsL .~ redeemers
+
+        case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo scriptUTxO walletUTxO txWithRedeemer of
+          Left (ErrMissingScript scriptHash purpose) ->
+            property True
+              & counterexample "✓ Correctly detected missing script"
+              & counterexample ("  Script hash: " <> toString scriptHash)
+              & counterexample ("  Purpose: " <> toString purpose)
+          Left otherError ->
+            property False
+              & counterexample ("Expected ErrMissingScript but got: " <> show otherError)
+          Right _balancedTx ->
+            property False
+              & counterexample "Expected ErrMissingScript but transaction succeeded"
+ where
+  -- Generate a transaction that spends from a script-locked UTxO
+  genScriptSpendingTx :: Gen (Tx LedgerEra, Map TxIn TxOut)
+  genScriptSpendingTx = do
+    -- Generate a dummy script hash
+    scriptHash <- arbitrary
+
+    -- Create a script-locked output
+    baseOutput <- arbitrary
+    let scriptAddress = Ledger.Addr Ledger.Testnet (Ledger.ScriptHashObj scriptHash) Ledger.StakeRefNull
+        scriptTxOut = baseOutput & (\(BabbageTxOut _ val dat ref) -> BabbageTxOut scriptAddress val dat ref)
+
+    -- Create an input spending from this script output
+    scriptTxIn <- toLedgerTxIn <$> genTxIn
+
+    -- Generate a transaction with this input
+    baseTx <- genLedgerTx
+    let txSpendingScript = baseTx & bodyTxL . inputsTxBodyL .~ Set.singleton scriptTxIn
+        lookupUTxO = Map.singleton scriptTxIn scriptTxOut
+
+    pure (txSpendingScript, lookupUTxO)
