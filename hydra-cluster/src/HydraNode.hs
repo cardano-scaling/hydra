@@ -281,6 +281,7 @@ getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
 withHydraCluster ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
   FilePath ->
   SocketPath ->
   -- | First node id
@@ -294,7 +295,7 @@ withHydraCluster ::
   ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
+withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -332,6 +333,7 @@ withHydraCluster tracer workDir nodeSocket firstNodeId allKeys hydraKeys hydraSc
                 }
       withHydraNode
         tracer
+        blockTime
         chainConfig
         workDir
         nodeId
@@ -438,18 +440,19 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
 withPreparedHydraNodeInSync ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
   FilePath ->
   Int ->
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNodeInSync tracer workDir hydraNodeId runOptions action =
-  withPreparedHydraNode tracer workDir hydraNodeId runOptions action'
+withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
+  let waitTime = blockTime * waitFactor
+  withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
  where
-  action' client = do
-    getHydraBackend >>= \case
-      DirectBackendType -> waitForNodesSynced 5 $ client :| []
-      BlockfrostBackendType -> waitForNodesSynced 10 $ client :| []
+  waitFactor = 5
+  action' waitTime client = do
+    waitForNodesSynced waitTime $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
@@ -496,6 +499,7 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
 withHydraNode ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
   ChainConfig ->
   FilePath ->
   Int ->
@@ -504,9 +508,9 @@ withHydraNode ::
   [Int] ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
-  withPreparedHydraNodeInSync tracer workDir hydraNodeId opts action
+  withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId opts action
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config and catching up with chain backend/.

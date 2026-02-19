@@ -25,6 +25,9 @@ data HydraLog tx
   | NodeOptions {runOptions :: RunOptions}
   | Persistence {persistenceLog :: PersistenceLog}
   | EnteringMainloop
+  | NodeHydrated
+  | ChainBackendStarted
+  | NetworkStarted
   deriving stock (Generic)
 
 deriving stock instance Eq (HydraNodeLog tx) => Eq (HydraLog tx)

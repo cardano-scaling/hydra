@@ -52,6 +52,7 @@ import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog (..),
   ChainSyncHandler,
+  StartingDecision (..),
   chainSyncHandler,
   mkChain,
   newLocalChainState,
@@ -138,20 +139,23 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   let persistedPoints = prefixOf chainStateHistory
 
   -- Select a prefix chain from which to start synchronizing
-  let startFromPrefix =
+  let (startFromPrefix, startingDecision) =
         -- Only use start chain from if its more recent than persisted points.
         case startChainFrom of
           Just sc
-            | sc > head persistedPoints -> sc :| []
-            | otherwise -> persistedPoints -- TODO: should warn the user about this
-          _ -> persistedPoints
+            | sc > head persistedPoints -> (sc :| [], FromProvided sc)
+            | otherwise -> (persistedPoints, FromPersisted (head persistedPoints) True)
+          _ -> (persistedPoints, FromPersisted (head persistedPoints) False)
 
   -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
-  prefix <-
+  (prefix, startingDecision') <-
     case head startFromPrefix of
-      ChainPointAtGenesis -> queryTip backend <&> (:| [])
-      _ -> pure startFromPrefix
+      ChainPointAtGenesis -> do
+        tip <- queryTip backend
+        pure (tip :| [], FromTip tip)
+      _ -> pure (startFromPrefix, startingDecision)
 
+  traceWith tracer $ StartingChainDecision startingDecision'
   let getTimeHandle = queryTimeHandle backend
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"

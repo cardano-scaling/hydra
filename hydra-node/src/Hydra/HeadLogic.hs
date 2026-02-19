@@ -1393,22 +1393,38 @@ handleOutOfSync ::
   UTCTime ->
   SyncedStatus ->
   Outcome tx
-handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus
-  -- We consider the node out of sync when:
-  -- the last observed chainTime plus the delta allowed by the unsyncedPeriod
-  -- falls behind the current system time.
-  | chainTime `plus` unsyncedPeriodToNominalDiffTime unsyncedPeriod < now =
-      case syncStatus of
-        InSync -> newState (NodeUnsynced{chainSlot, chainTime, drift})
-        CatchingUp -> noop
-  | otherwise =
-      case syncStatus of
-        InSync -> noop
-        CatchingUp -> newState (NodeSynced{chainSlot, chainTime, drift})
+handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus =
+  stateTransition <> outputIfNeeded
  where
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
+
+  threshold = unsyncedPeriodToNominalDiffTime unsyncedPeriod
   drift = now `diffUTCTime` chainTime
+
+  -- We consider the node out of sync when:
+  -- the last observed chainTime plus the delta allowed by the unsyncedPeriod (threshold)
+  -- falls behind the current system time (now).
+  -- NOTE: this is the same as drift > threshold
+  nodeOutOfSync = chainTime `plus` threshold < now
+  newSyncStatus = if nodeOutOfSync then CatchingUp else InSync
+  stateTransition =
+    case (syncStatus, newSyncStatus) of
+      (InSync, CatchingUp) -> newState NodeUnsynced{chainSlot, chainTime, drift}
+      (CatchingUp, InSync) -> newState NodeSynced{chainSlot, chainTime, drift}
+      _ -> noop
+
+  -- We have consumed 80% of the allowed drift
+  nearThreshold = drift >= threshold * 0.8
+  shouldOutput =
+    case newSyncStatus of
+      CatchingUp -> True
+      InSync -> nearThreshold
+  outputIfNeeded
+    | shouldOutput = output newSyncStatus
+    | otherwise = noop
+  output synced =
+    cause . ClientEffect $ ServerOutput.SyncedStatusReport{chainSlot, chainTime, drift, synced}
 
 -- | Validate whether a current deposit in the local state actually exists
 --   in the map of pending deposits.

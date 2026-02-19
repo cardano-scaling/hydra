@@ -231,6 +231,7 @@ processLogs decoded =
         DroppedFromQueue{} -> pure DropLog
         LoadingState -> logIt (Other "Loading state...") ()
         LoadedState{} -> logIt (Other "Loaded.") ()
+        LoadedChainState{} -> logIt (Other "LoadedChainState ...") ()
         ReplayingState -> logIt (Other "Replaying state...") ()
         details@Misconfiguration{} -> logIt (Other "MISCONFIG!") details
     _ -> pure DropLog

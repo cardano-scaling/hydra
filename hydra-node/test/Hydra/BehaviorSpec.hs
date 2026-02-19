@@ -1003,15 +1003,15 @@ waitUntilMatch nodes predicate = do
             , unlines (show <$> msgs)
             ]
  where
-  go seenOutputs (nid, n) = do
-    out <-
-      raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
-        Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
-        Right out -> pure out
-    atomically (modifyTVar' seenOutputs ((nid, out) :))
-    case predicate out of
-      Just x -> pure x
-      Nothing -> go seenOutputs (nid, n)
+  go seenOutputs (nid, n) =
+    raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
+      Left SyncedStatusReport{} -> go seenOutputs (nid, n)
+      Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
+      Right out -> do
+        atomically (modifyTVar' seenOutputs ((nid, out) :))
+        case predicate out of
+          Just x -> pure x
+          Nothing -> go seenOutputs (nid, n)
 
   oneMonth = 3600 * 24 * 30
 
