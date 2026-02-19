@@ -39,7 +39,7 @@
                                 "multiSignature": []
                             },
                             "snapshot": {
-                                "accumulator": "a3582088f85db80c37fbd35ff71ab367f216f4f8addb31c59f950aabe15538c107d20782581c1d92e7aa4333a42fa83d1a8e120e00adff32a58ee88196c06fef23020158209a7eb0991ead7243cce3cea8721358c39ab8e85b8c467f0afd055be0fa2558bc82581c885ca4c84f23a09411e62a615a55a22985bd9194984e65f1a4d317d7015820e80657acf1683fc5fbf18d56a3563406a042ed402c391e6b7bbdcf1a0f6f3a3082581cf15525a71e0b13e393b9d8e5b6c610f686174b366168ca48985a888401",
+                                "accumulator": "a3582002fca1487902e2e193016f7e8ce85cc3a140d3b1c88ba6c9ce9294d16582ca0582581cc8758eb49049eeeb21c8f186e3b15341c384d3e4fa15274ac69cceba0158209a7eb0991ead7243cce3cea8721358c39ab8e85b8c467f0afd055be0fa2558bc82581c885ca4c84f23a09411e62a615a55a22985bd9194984e65f1a4d317d7015820e80657acf1683fc5fbf18d56a3563406a042ed402c391e6b7bbdcf1a0f6f3a3082581cf15525a71e0b13e393b9d8e5b6c610f686174b366168ca48985a888401",
                                 "confirmed": [],
                                 "headId": "01010101010101010000000001000100",
                                 "number": 1,
@@ -60,11 +60,9 @@
                                     "0001010101010100000101000001000100010101010000000001010100000100#66": {
                                         "address": "addr_test1vq27c8rxsz4ffvcgep7z4c8c38ujsea67kly9m9n32u0l2seqdx87",
                                         "datum": null,
-                                        "inlineDatum": {
-                                            "bytes": ""
-                                        },
-                                        "inlineDatumRaw": "40",
-                                        "inlineDatumhash": "39df024ac52722fe8ae4c1a8740e4c5624a38c3820e504a059aae8728421f8bd",
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
                                         "referenceScript": null,
                                         "value": {
                                             "lovelace": 45000000000000000
@@ -117,82 +115,12 @@
                             "0100000101000101000101000001000101000100010001000101010101000001#65": {
                                 "address": "addr_test1yztevqk2292eca5lgd0vz6z250a5yveh4lechz59zgh8n8xu7lmg8zkfyj6m6u2u7ghj5umkc34wthmr4hh7d7x495zs7wpu4e",
                                 "datum": null,
-                                "inlineDatum": {
-                                    "constructor": 2,
-                                    "fields": [
-                                        {
-                                            "int": 5
-                                        },
-                                        {
-                                            "constructor": 4,
-                                            "fields": [
-                                                {
-                                                    "list": []
-                                                },
-                                                {
-                                                    "constructor": 5,
-                                                    "fields": [
-                                                        {
-                                                            "bytes": "47b8d8"
-                                                        },
-                                                        {
-                                                            "bytes": ""
-                                                        },
-                                                        {
-                                                            "int": -2
-                                                        },
-                                                        {
-                                                            "bytes": "b930fa8b"
-                                                        },
-                                                        {
-                                                            "bytes": "932ae465"
-                                                        }
-                                                    ]
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "list": [
-                                                {
-                                                    "constructor": 2,
-                                                    "fields": [
-                                                        {
-                                                            "int": 0
-                                                        },
-                                                        {
-                                                            "int": 4
-                                                        },
-                                                        {
-                                                            "bytes": "3eb83e"
-                                                        }
-                                                    ]
-                                                },
-                                                {
-                                                    "constructor": 1,
-                                                    "fields": [
-                                                        {
-                                                            "int": -2
-                                                        },
-                                                        {
-                                                            "bytes": "19"
-                                                        },
-                                                        {
-                                                            "bytes": "a453ebc2"
-                                                        }
-                                                    ]
-                                                },
-                                                {
-                                                    "bytes": "5c"
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                },
-                                "inlineDatumRaw": "d87b9f05d87d9f80d87e9f4347b8d8402144b930fa8b44932ae465ffff9fd87b9f0004433eb83effd87a9f21411944a453ebc2ff415cffff",
-                                "inlineDatumhash": "5e1dcbc496d4ff88d17637caeafaaef686553e6fcea4e16af21e24e79b591550",
+                                "datumhash": null,
+                                "inlineDatum": null,
+                                "inlineDatumRaw": null,
                                 "referenceScript": null,
                                 "value": {
-                                    "lovelace": 1249900
+                                    "lovelace": 969750
                                 }
                             }
                         },
