@@ -1,0 +1,47 @@
+name: "Claude Code Review"
+
+# This workflow enables Claude AI to review pull requests and respond to comments
+on:
+  # Trigger on PR comments for interactive code review
+  issue_comment:
+    types: [created]
+
+  # Trigger on PR events for automatic review
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  # Trigger on issue assignments
+  issues:
+    types: [assigned]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude-review:
+    name: "Claude Code Review"
+    # Only run on comments that mention @claude or when PR is opened
+    if: |
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issues' && github.event.assignee.login == 'claude[bot]')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better context
+          fetch-depth: 0
+
+      - name: 🤖 Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          # For PR reviews, ask Claude to review the changes
+          prompt: |
+            ${{ github.event_name == 'pull_request' && 'Review this pull request for code quality, potential bugs, and adherence to Haskell best practices. Pay special attention to the Hydra head logic, transaction handling, and Plutus scripts.' || '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
