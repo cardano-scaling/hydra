@@ -82,46 +82,46 @@ newtype DirectBackend = DirectBackend {options :: DirectOptions} deriving (Eq, S
 
 instance ChainBackend DirectBackend where
   queryGenesisParameters (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
+    liftIO $ CardanoClient.queryGenesisParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip
 
   queryScriptRegistry = ScriptRegistry.queryScriptRegistry
 
   queryNetworkId (DirectBackend DirectOptions{networkId}) = pure networkId
 
   queryTip (DirectBackend DirectOptions{networkId, nodeSocket}) =
-    liftIO $ CardanoClient.queryTip networkId nodeSocket
+    liftIO $ CardanoClient.queryTip (CardanoClient.localNodeConnectInfo networkId nodeSocket)
 
   queryUTxO (DirectBackend DirectOptions{networkId, nodeSocket}) addresses =
-    liftIO $ CardanoClient.queryUTxO networkId nodeSocket CardanoClient.QueryTip addresses
+    liftIO $ CardanoClient.queryUTxO (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip addresses
 
   queryUTxOByTxIn (DirectBackend DirectOptions{networkId, nodeSocket}) txins =
-    liftIO $ CardanoClient.queryUTxOByTxIn networkId nodeSocket CardanoClient.QueryTip txins
+    liftIO $ CardanoClient.queryUTxOByTxIn (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip txins
 
   queryEraHistory (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryEraHistory networkId nodeSocket queryPoint
+    liftIO $ CardanoClient.queryEraHistory (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
 
   querySystemStart (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.querySystemStart networkId nodeSocket queryPoint
+    liftIO $ CardanoClient.querySystemStart (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
 
   queryProtocolParameters (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryProtocolParameters networkId nodeSocket queryPoint
+    liftIO $ CardanoClient.queryProtocolParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
   queryStakePools (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
-    liftIO $ CardanoClient.queryStakePools networkId nodeSocket queryPoint
+    liftIO $ CardanoClient.queryStakePools (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint
 
   queryUTxOFor (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint vk =
-    liftIO $ CardanoClient.queryUTxOFor networkId nodeSocket queryPoint vk
+    liftIO $ CardanoClient.queryUTxOFor (CardanoClient.localNodeConnectInfo networkId nodeSocket) queryPoint vk
 
   submitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
-    liftIO $ CardanoClient.submitTransaction networkId nodeSocket tx
+    liftIO $ CardanoClient.submitTransaction (CardanoClient.localNodeConnectInfo networkId nodeSocket) tx
 
   awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx _ =
-    liftIO $ CardanoClient.awaitTransaction networkId nodeSocket tx
+    liftIO $ CardanoClient.awaitTransaction (CardanoClient.localNodeConnectInfo networkId nodeSocket) tx
 
   getOptions (DirectBackend directOptions) = Direct directOptions
 
   getBlockTime (DirectBackend DirectOptions{networkId, nodeSocket}) = do
     GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
-      liftIO $ CardanoClient.queryGenesisParameters networkId nodeSocket CardanoClient.QueryTip
+      liftIO $ CardanoClient.queryGenesisParameters (CardanoClient.localNodeConnectInfo networkId nodeSocket) CardanoClient.QueryTip
     pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
 
 withDirectChain ::
