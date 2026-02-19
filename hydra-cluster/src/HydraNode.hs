@@ -9,7 +9,7 @@ import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
-import Control.Lens ((?~), (^?))
+import Control.Lens ((?~))
 import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
@@ -584,17 +584,7 @@ waitForNodesDisconnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkDisconnected" []
 
-waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
-waitForNodesSynced delay clients = do
-  waitForAllMatch delay (toList clients) $ \v -> do
-    guard $ v ^? key "tag" == Just "NodeSynced"
-
-data HydraNodeLog
-  = HydraNodeCommandSpec {cmd :: Text}
-  | NodeStarted {nodeId :: Int}
-  | SentMessage {nodeId :: Int, message :: Aeson.Value}
-  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
-  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
-  | EndWaiting {nodeId :: Int}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
+waitForNodesSynced :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced tracer delay clients = do
+  waitFor tracer delay (toList clients) $
+    output "NodeSynced" []
