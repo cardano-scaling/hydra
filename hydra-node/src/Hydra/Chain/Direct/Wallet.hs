@@ -445,7 +445,7 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
     Left failure ->
       case failure of
         -- Missing script witness - provide helpful error message
-        MissingScript rdmrPtr scriptHash ->
+        MissingScript _ scriptHash ->
           Left $
             ErrMissingScript
               { scriptHash = Text.pack $ show scriptHash
