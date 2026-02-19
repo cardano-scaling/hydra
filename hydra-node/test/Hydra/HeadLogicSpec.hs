@@ -475,7 +475,6 @@ spec =
             Continue{} -> True
             Error{} -> True
             Wait{} -> False -- Must NOT Wait (infinite AckSn requeue)
-
         it "DecommitFinalized with SeenSnapshot state extracts correct snapshot number" $ do
           let localUTxO = utxoRefs [1]
               decommitTx = SimpleTx 10 mempty (utxoRef 99)
