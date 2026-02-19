@@ -509,6 +509,38 @@ spec =
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
             _ -> fail "expected Open state"
 
+        it "CommitFinalized with RequestedSnapshot should use requested number not lastSeen" $ do
+          let localUTxO = utxoRefs [1]
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              depositTxId = 42
+              -- State after leader sent ReqSn(sn=1) with pending deposit: snapshot in flight
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    , currentDepositTxId = Just depositTxId
+                    }
+
+          -- CommitFinalized arrives before AckSn messages (race condition)
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let commitFinalizedOutcome = update aliceEnv ledger now s0 incrementObservation
+          let s1 = aggregateState s0 commitFinalizedOutcome
+
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.currentDepositTxId `shouldBe` Nothing
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+            _ -> fail "expected Open state"
+
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
           let s0 = inOpenState threeParties

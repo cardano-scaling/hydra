@@ -1787,10 +1787,7 @@ aggregateNodeState nodeState sc =
                                       -- depositTxId, but we should not verify this here.
                                       currentDepositTxId = Nothing
                                     , localUTxO = localUTxO <> newUTxO
-                                    , seenSnapshot =
-                                        LastSeenSnapshot
-                                          { lastSeen = seenSnapshotNumber (seenSnapshot coordinatedHeadState)
-                                          }
+                                    , seenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
                                     }
                               }
                       , pendingDeposits = Map.delete depositTxId currentPendingDeposits
@@ -1814,6 +1811,25 @@ aggregateNodeState nodeState sc =
           nodeState{headState = st}
 
 -- * HeadState aggregate
+
+-- | Convert any SeenSnapshot to LastSeenSnapshot, preserving the correct snapshot number.
+-- Used by CommitFinalized and DecommitFinalized to handle race conditions where
+-- on-chain transaction confirmation happens before AckSn messages arrive.
+toLastSeenSnapshot :: SeenSnapshot tx -> SeenSnapshot tx
+toLastSeenSnapshot = \case
+  NoSeenSnapshot ->
+    LastSeenSnapshot{lastSeen = 0}
+  LastSeenSnapshot{lastSeen} ->
+    LastSeenSnapshot{lastSeen}
+  -- NB: Use 'requested' not 'lastSeen' to prevent infinite AckSn loop.
+  -- When leader requests snapshot N with commit/decommit and the on-chain transaction
+  -- is observed before AckSn messages arrive, the transaction is part of snapshot N
+  -- (requested), not snapshot N-1 (lastSeen). Using lastSeen would cause AckSn(N)
+  -- messages to fail the guard check and be requeued infinitely.
+  RequestedSnapshot{requested} ->
+    LastSeenSnapshot{lastSeen = requested}
+  SeenSnapshot{snapshot = Snapshot{number}} ->
+    LastSeenSnapshot{lastSeen = number}
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
@@ -2034,21 +2050,7 @@ aggregate st = \case
                   coordinatedHeadState
                     { decommitTx = Nothing
                     , version = newVersion
-                    , seenSnapshot =
-                        case seenSnapshot coordinatedHeadState of
-                          NoSeenSnapshot ->
-                            LastSeenSnapshot{lastSeen = 0}
-                          LastSeenSnapshot{lastSeen} ->
-                            LastSeenSnapshot{lastSeen}
-                          -- IMPORTANT: Use 'requested' not 'lastSeen' to prevent infinite AckSn loop.
-                          -- When leader requests snapshot N with decommit and DecrementTx is observed
-                          -- before AckSn messages arrive, the decommit is part of snapshot N (requested),
-                          -- not snapshot N-1 (lastSeen). Using lastSeen would cause AckSn(N) messages
-                          -- to fail the guard check and be requeued infinitely.
-                          RequestedSnapshot{requested} ->
-                            LastSeenSnapshot{lastSeen = requested}
-                          SeenSnapshot{snapshot = Snapshot{number}} ->
-                            LastSeenSnapshot{lastSeen = number}
+                    , seenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
                     }
               }
       _otherState -> st
