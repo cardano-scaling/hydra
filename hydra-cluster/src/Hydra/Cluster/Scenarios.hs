@@ -2350,13 +2350,19 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
 
       -- Carol restarts
       withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- The node reports that it is in the Open state and out of sync with the chain
+        -- The node reports that it is in the Open state when restarting.
+        -- NOTE: chainSyncedStatus in Greetings reflects the persisted sync status
+        -- (InSync from last session), not the current one. The node may not have
+        -- processed any Ticks yet to detect it is out of sync.
         waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "Greetings"
           guard $ v ^? key "headStatus" == Just (toJSON Open)
           guard $ v ^? key "me" == Just (toJSON carol)
-          guard $ v ^? key "chainSyncedStatus" == Just (toJSON CatchingUp)
           guard $ isJust (v ^? key "hydraNodeVersion")
+        -- The node detects it is out of sync with the chain
+        waitMatch 5 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "SyncedStatusReport"
+          guard $ v ^? key "synced" == Just (toJSON CatchingUp)
 
         -- Then, Carol attempts submits a new transaction,
         -- without waiting for head to be closed
