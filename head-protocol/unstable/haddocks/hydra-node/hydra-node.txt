@@ -387,18 +387,17 @@ QueryProtocolParamsEraNotSupported :: AnyCardanoEra -> QueryException
 QueryProtocolParamsEncodingFailureOnEra :: AnyCardanoEra -> Text -> QueryException
 QueryEraNotInCardanoModeFailure :: AnyCardanoEra -> QueryException
 QueryNotShelleyBasedEraException :: AnyCardanoEra -> QueryException
-QueryNotConwayEraOnwardsException :: AnyCardanoEra -> QueryException
 
 -- | Handle interface for abstract querying of a cardano node.
 data CardanoClient
-CardanoClient :: ([Address ShelleyAddr] -> IO UTxO) -> NetworkId -> CardanoClient
-[$sel:queryUTxOByAddress:CardanoClient] :: CardanoClient -> [Address ShelleyAddr] -> IO UTxO
+CardanoClient :: ([Address ShelleyAddr] -> IO (UTxO ConwayEra)) -> NetworkId -> CardanoClient
+[$sel:queryUTxOByAddress:CardanoClient] :: CardanoClient -> [Address ShelleyAddr] -> IO (UTxO ConwayEra)
 [$sel:networkId:CardanoClient] :: CardanoClient -> NetworkId
 
 -- | Submit a (signed) transaction to the node.
 --   
 --   Throws <a>SubmitTransactionException</a> if submission fails.
-submitTransaction :: NetworkId -> SocketPath -> Tx -> IO ()
+submitTransaction :: LocalNodeConnectInfo -> Tx -> IO ()
 
 -- | Exceptions that <tt>can</tt> occur during a transaction submission.
 --   
@@ -416,7 +415,7 @@ SubmitTxValidationError :: TxValidationErrorInCardanoMode -> SubmitTransactionEx
 --   
 --   Note that this function loops forever; hence, one probably wants to
 --   couple it with a surrounding timeout.
-awaitTransaction :: NetworkId -> SocketPath -> Tx -> IO UTxO
+awaitTransaction :: IsShelleyBasedEra era => LocalNodeConnectInfo -> Tx -> IO (UTxO era)
 
 -- | Describes whether to query at the tip or at a specific point.
 data QueryPoint
@@ -424,75 +423,67 @@ QueryTip :: QueryPoint
 QueryAt :: ChainPoint -> QueryPoint
 
 -- | Query the latest chain point aka "the tip".
-queryTip :: NetworkId -> SocketPath -> IO ChainPoint
+queryTip :: LocalNodeConnectInfo -> IO ChainPoint
 
 -- | Query the system start parameter at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-querySystemStart :: NetworkId -> SocketPath -> QueryPoint -> IO SystemStart
+querySystemStart :: LocalNodeConnectInfo -> QueryPoint -> IO SystemStart
 
 -- | Query the era history at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryEraHistory :: NetworkId -> SocketPath -> QueryPoint -> IO EraHistory
+queryEraHistory :: LocalNodeConnectInfo -> QueryPoint -> IO EraHistory
 
 -- | Query the current epoch number.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryEpochNo :: NetworkId -> SocketPath -> QueryPoint -> IO EpochNo
+queryEpochNo :: LocalNodeConnectInfo -> QueryPoint -> IO EpochNo
 
 -- | Query the protocol parameters at given point and convert them to
 --   Babbage era protocol parameters.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryProtocolParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (PParams LedgerEra)
+queryProtocolParameters :: LocalNodeConnectInfo -> QueryPoint -> IO (PParams LedgerEra)
 
 -- | Query <a>GenesisParameters</a> at a given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryGenesisParameters :: NetworkId -> SocketPath -> QueryPoint -> IO (GenesisParameters ShelleyEra)
+queryGenesisParameters :: LocalNodeConnectInfo -> QueryPoint -> IO (GenesisParameters ShelleyEra)
 
 -- | Query UTxO for all given addresses at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxO :: NetworkId -> SocketPath -> QueryPoint -> [Address ShelleyAddr] -> IO UTxO
-queryUTxOExpr :: ConwayEraOnwards era -> [Address ShelleyAddr] -> LocalStateQueryExpr b p QueryInMode r IO UTxO
+queryUTxO :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> [Address ShelleyAddr] -> IO (UTxO era)
 
 -- | Query UTxO for given tx inputs at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxOByTxIn :: NetworkId -> SocketPath -> QueryPoint -> [TxIn] -> IO UTxO
+queryUTxOByTxIn :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> [TxIn] -> IO (UTxO era)
 queryForCurrentEraInEonExpr :: Eon eon => (AnyCardanoEra -> IO a) -> (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
 queryForCurrentEraInShelleyBasedEraExpr :: (forall era. ShelleyBasedEra era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
-queryForCurrentEraInConwayEraOnwardsExpr :: Eon eon => (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
 
 -- | Query the whole UTxO from node at given point. Useful for debugging,
 --   but should obviously not be used in production code.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxOWhole :: NetworkId -> SocketPath -> QueryPoint -> IO UTxO
+queryUTxOWhole :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> IO (UTxO era)
 
 -- | Query UTxO for the address of given verification key at point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxOFor :: NetworkId -> SocketPath -> QueryPoint -> VerificationKey PaymentKey -> IO UTxO
+queryUTxOFor :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> VerificationKey PaymentKey -> IO (UTxO era)
 
 -- | Query the current set of registered stake pools.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryStakePools :: NetworkId -> SocketPath -> QueryPoint -> IO (Set PoolId)
+queryStakePools :: LocalNodeConnectInfo -> QueryPoint -> IO (Set PoolId)
 
 -- | Monadic query expression to get current era.
 queryCurrentEraExpr :: LocalStateQueryExpr b p QueryInMode r IO AnyCardanoEra
 
--- | Monadic query expression for a <a>QueryInShelleyBasedEra</a>.
-queryInShelleyBasedEraExpr :: ShelleyBasedEra era -> QueryInShelleyBasedEra era a -> LocalStateQueryExpr b p QueryInMode r IO a
-
 -- | Throws at least <a>QueryException</a> if query fails.
-runQuery :: NetworkId -> SocketPath -> QueryPoint -> QueryInMode a -> IO a
-
--- | Throws at least <a>QueryException</a> if query fails.
-runQueryExpr :: NetworkId -> SocketPath -> QueryPoint -> LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a -> IO a
+runQueryExpr :: LocalNodeConnectInfo -> QueryPoint -> LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a -> IO a
 throwOnEraMismatch :: MonadThrow m => Either EraMismatch a -> m a
 throwOnUnsupportedNtcVersion :: MonadThrow m => Either UnsupportedNtcVersionError a -> m a
 localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
