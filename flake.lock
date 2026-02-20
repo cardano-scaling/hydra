@@ -627,6 +627,21 @@
         "type": "github"
       }
     },
+    "flake-root": {
+      "locked": {
+        "lastModified": 1723604017,
+        "narHash": "sha256-rBtQ8gg+Dn4Sx/s+pvjdq3CB2wQNzx9XGFq/JVGCB6k=",
+        "owner": "srid",
+        "repo": "flake-root",
+        "rev": "b759a56851e10cb13f6b8e5698af7b59c44be26e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "srid",
+        "repo": "flake-root",
+        "type": "github"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -1822,6 +1837,21 @@
         "type": "github"
       }
     },
+    "mission-control": {
+      "locked": {
+        "lastModified": 1733438716,
+        "narHash": "sha256-1tt43rwHk0N5fwEhbpsHWO4nBVFCQN0w1KM427DNycM=",
+        "owner": "Platonic-Systems",
+        "repo": "mission-control",
+        "rev": "65d04c4ab9db076eff09824d2936a5c215c21f36",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Platonic-Systems",
+        "repo": "mission-control",
+        "type": "github"
+      }
+    },
     "mithril": {
       "inputs": {
         "crane": "crane",
@@ -2680,11 +2710,13 @@
         "aiken": "aiken",
         "cardano-node": "cardano-node",
         "flake-parts": "flake-parts",
+        "flake-root": "flake-root",
         "haskellNix": "haskellNix_2",
         "hydra-coding-standards": "hydra-coding-standards",
         "hydra-spec": "hydra-spec",
         "import-tree": "import-tree_8",
         "iohk-nix": "iohk-nix",
+        "mission-control": "mission-control",
         "mithril": "mithril",
         "nix-npm-buildpackage": "nix-npm-buildpackage",
         "nixpkgs": [

@@ -7,11 +7,13 @@
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
     cardano-node.url = "github:intersectmbo/cardano-node/10.6.2";
     flake-parts.url = "github:hercules-ci/flake-parts";
+    flake-root.url = "github:srid/flake-root";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.5";
     hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/895bd8a8ce5ad2911aee8add207bea2a87bc73aa";
     import-tree.url = "github:vic/import-tree";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
+    mission-control.url = "github:Platonic-Systems/mission-control";
     mithril.url = "github:input-output-hk/mithril/2524.0";
     nixpkgs.follows = "haskellNix/nixpkgs";
     nixpkgs-2411.url = "github:NixOS/nixpkgs/nixos-24.11";
