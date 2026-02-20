@@ -78,9 +78,6 @@ data QueryPoint = QueryTip | QueryAt ChainPoint
 -- | Monad transformer for interacting with a local Cardano node.  Carries
 -- both 'LocalNodeConnectInfo' and an era witness so individual query and
 -- submission functions need not accept them as explicit arguments.
---
--- 'QueryException' and 'SubmitTransactionException' propagate naturally
--- through the underlying 'MonadThrow' \/ 'MonadCatch' instances.
 newtype CardanoNodeT eon era m a = CardanoNodeT
   { fromCardanoNodeT :: ReaderT LocalNodeConnectInfo (EraT eon era m) a
   }
@@ -198,11 +195,7 @@ queryEpochNo ::
 queryEpochNo point = do
   sbe <- askEra
   runQuery point $
-    Query.queryEpoch sbe
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    Query.queryEpoch sbe >>= liftIO . liftQueryResult
 
 -- | Query the protocol parameters at given point.
 --
@@ -214,11 +207,7 @@ queryProtocolParameters ::
 queryProtocolParameters point = do
   sbe <- askEra
   runQuery point $
-    Query.queryProtocolParameters sbe
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    Query.queryProtocolParameters sbe >>= liftIO . liftQueryResult
 
 -- | Query 'GenesisParameters' at a given point.
 --
@@ -230,11 +219,7 @@ queryGenesisParameters ::
 queryGenesisParameters point = do
   sbe <- askEra
   runQuery point $
-    Query.queryGenesisParameters sbe
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    Query.queryGenesisParameters sbe >>= liftIO . liftQueryResult
 
 -- | Query UTxO for all given addresses at given point.
 --
@@ -249,9 +234,7 @@ queryUTxO point addresses = do
   runQuery point $
     Query.queryUtxo sbe (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
       >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+      . liftQueryResult
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -266,9 +249,7 @@ queryUTxOByTxIn point inputs = do
   runQuery point $
     Query.queryUtxo sbe (QueryUTxOByTxIn (Set.fromList inputs))
       >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+      . liftQueryResult
 
 -- | Query the whole UTxO from node at given point. Useful for debugging, but
 -- should obviously not be used in production code.
@@ -281,11 +262,7 @@ queryUTxOWhole ::
 queryUTxOWhole point = do
   sbe <- askEra
   runQuery point $
-    Query.queryUtxo sbe QueryUTxOWhole
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    Query.queryUtxo sbe QueryUTxOWhole >>= liftIO . liftQueryResult
 
 -- | Query UTxO for the address of given verification key at point.
 --
@@ -313,11 +290,7 @@ queryStakePools ::
 queryStakePools point = do
   sbe <- askEra
   runQuery point $
-    Query.queryStakePools sbe
-      >>= liftIO
-      . throwOnUnsupportedNtcVersion
-      >>= liftIO
-      . throwOnEraMismatch
+    Query.queryStakePools sbe >>= liftIO . liftQueryResult
 
 -- * Helpers
 
@@ -332,6 +305,15 @@ throwOnUnsupportedNtcVersion res =
   case res of
     Left unsupportedNtcVersion -> throwIO $ QueryUnsupportedNtcVersionException unsupportedNtcVersion
     Right result -> pure result
+
+-- | Lift a query result that may have NTC version or era mismatch errors into the monad.
+-- This combines the common pattern of checking both error types.
+liftQueryResult ::
+  MonadThrow m =>
+  Either UnsupportedNtcVersionError (Either EraMismatch a) ->
+  m a
+liftQueryResult result =
+  throwOnUnsupportedNtcVersion result >>= throwOnEraMismatch
 
 localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
 localNodeConnectInfo = LocalNodeConnectInfo cardanoModeParams
@@ -355,7 +337,7 @@ runQuery point query = do
   liftIO $
     executeLocalStateQueryExpr ci target query >>= \case
       Left err -> throwIO $ QueryAcquireException err
-      Right result -> pure result
+      Right value -> pure value
  where
   target =
     case point of
@@ -378,10 +360,11 @@ runNodeIOWithCurrentEra ::
   IO a
 runNodeIOWithCurrentEra networkId nodeSocket action = do
   let ci = localNodeConnectInfo networkId nodeSocket
-  executeLocalStateQueryExpr ci VolatileTip queryCurrentEraExpr >>= \case
+  result <- executeLocalStateQueryExpr ci VolatileTip queryCurrentEraExpr
+  AnyCardanoEra era <- case result of
     Left err -> throwIO $ QueryAcquireException err
-    Right (AnyCardanoEra era) ->
-      inEonForEra
-        (throwIO $ QueryNotShelleyBasedEraException (anyCardanoEra era))
-        (\sbe -> runCardanoNode ci sbe (action sbe))
-        era
+    Right value -> pure value
+  inEonForEra
+    (throwIO $ QueryNotShelleyBasedEraException (anyCardanoEra era))
+    (\sbe -> runCardanoNode ci sbe (action sbe))
+    era
