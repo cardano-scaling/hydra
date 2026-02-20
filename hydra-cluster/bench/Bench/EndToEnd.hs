@@ -45,9 +45,8 @@ import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
-  HydraClient,
+  HydraClient (..),
   HydraNodeLog,
-  hydraNodeId,
   input,
   output,
   requestCommitTx,
@@ -310,6 +309,7 @@ processTransactions clients clientDatasets = do
 
   clientProcessDataset (ClientDataset{txSequence}, client) clientId = do
     let numberOfTxs = length txSequence
+        nodeId = hydraNodeId client
     submissionQ <- newLabelledTBQueueIO "submission" (fromIntegral numberOfTxs)
     registry <- newRegistry
     atomically $ forM_ txSequence $ writeTBQueue submissionQ
@@ -318,7 +318,7 @@ processTransactions clients clientDatasets = do
       ( "confirm-txs"
       , concurrentlyLabelled_
           ("wait-for-all-confirmations", waitForAllConfirmations client registry (Set.fromList $ map txId txSequence))
-          ("progress-report", progressReport (hydraNodeId client) clientId numberOfTxs submissionQ)
+          ("progress-report", progressReport nodeId clientId numberOfTxs submissionQ)
       )
       `catch` \(HUnitFailure sourceLocation reason) ->
         putStrLn ("Something went wrong while waiting for all confirmations: " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason)
