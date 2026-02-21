@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Data.Foldable (maximum)
 import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import Hydra.Tx.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Simple
 import Hydra.Tx.IsTx (IsTx (..))

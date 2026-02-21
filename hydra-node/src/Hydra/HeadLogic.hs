@@ -39,7 +39,7 @@ import Hydra.Chain (
   rollbackHistory,
   setLastKnown,
  )
-import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
+import Hydra.Tx.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),

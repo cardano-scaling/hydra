@@ -37,7 +37,7 @@ import Hydra.Chain (
   ),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Tx.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Handlers (
   CardanoChainLog,
   ChainSyncHandler (..),
@@ -62,7 +62,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
+import Hydra.Tx.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))

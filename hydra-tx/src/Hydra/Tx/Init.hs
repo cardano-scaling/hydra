@@ -9,7 +9,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (..))
-import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
+import Hydra.Tx.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (fromChain, toChain)
 import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)

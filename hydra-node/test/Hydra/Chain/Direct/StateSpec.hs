@@ -71,11 +71,11 @@ import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano.Evaluate (
+import Hydra.Tx.Evaluate (
   evaluateTx,
   maxTxSize,
  )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Tx.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)

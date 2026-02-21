@@ -6,7 +6,7 @@ module Test.Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import Hydra.Tx.ChainState (ChainStateType (..), IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()

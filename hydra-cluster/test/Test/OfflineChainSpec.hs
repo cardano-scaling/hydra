@@ -11,7 +11,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _Number)
 import Hydra.Cardano.Api (Tx, UTxO)
 import Hydra.Chain (ChainCallback, ChainEvent (..), ChainStateHistory, OnChainTx (..), initHistory)
-import Hydra.Chain.ChainState (chainPointSlot)
+import Hydra.Tx.ChainState (chainPointSlot)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (withOfflineChain)
 import Hydra.Cluster.Fixture (alice)

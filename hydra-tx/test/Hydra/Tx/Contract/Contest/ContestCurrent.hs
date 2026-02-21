@@ -16,7 +16,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
-import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)

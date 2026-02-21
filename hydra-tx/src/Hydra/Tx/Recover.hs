@@ -6,7 +6,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Cardano.Api
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
-import Hydra.Ledger.Cardano.Builder (
+import Hydra.Tx.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (depositValidatorScript)

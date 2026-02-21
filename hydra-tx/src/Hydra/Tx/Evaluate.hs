@@ -12,7 +12,7 @@
 --
 -- __NOTE__: The reason this module is here instead of part of `test/` directory
 -- is to be used in @tx-cost@ executable.
-module Hydra.Ledger.Cardano.Evaluate where
+module Hydra.Tx.Evaluate where
 
 import Hydra.Prelude hiding (label)
 

@@ -3,7 +3,7 @@
 
 module Hydra.HeadLogic.StateEvent where
 
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Tx.ChainState (IsChainState)
 import Hydra.Events (EventId, HasEventId (..))
 import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Node.State (NodeState)

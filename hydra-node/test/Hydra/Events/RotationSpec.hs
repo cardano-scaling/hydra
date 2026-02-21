@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import Control.Monad (foldM)
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Tx.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)

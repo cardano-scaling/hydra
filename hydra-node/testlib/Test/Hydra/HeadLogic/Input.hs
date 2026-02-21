@@ -5,7 +5,7 @@ module Test.Hydra.HeadLogic.Input where
 
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import Hydra.Tx.ChainState (ChainStateType (..), IsChainState)
 import Hydra.HeadLogic.Input (Input)
 
 import Test.Hydra.API.ClientInput ()

@@ -1,5 +1,5 @@
 -- | Utilities to building transactions on top of the cardano-api.
-module Hydra.Ledger.Cardano.Builder where
+module Hydra.Tx.Builder where
 
 import Data.MonoTraversable (omap)
 import Hydra.Cardano.Api

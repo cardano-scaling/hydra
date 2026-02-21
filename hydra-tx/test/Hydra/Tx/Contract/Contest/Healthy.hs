@@ -10,7 +10,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)

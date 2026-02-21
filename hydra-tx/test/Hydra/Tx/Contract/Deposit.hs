@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import GHC.IsList qualified as GHC
-import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx.Time (slotNoToUTCTime)
 import Hydra.Tx (mkHeadId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx)

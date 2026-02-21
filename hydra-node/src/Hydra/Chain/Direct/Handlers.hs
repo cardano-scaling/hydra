@@ -44,7 +44,7 @@ import Hydra.Chain (
   pushNewState,
   rollbackHistory,
  )
-import Hydra.Chain.ChainState (
+import Hydra.Tx.ChainState (
   ChainSlot,
   ChainStateType,
   IsChainState,

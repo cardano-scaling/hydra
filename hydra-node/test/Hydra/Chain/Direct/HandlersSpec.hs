@@ -25,7 +25,7 @@ import Test.QuickCheck.Hedgehog (hedgehog)
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
-import Hydra.Chain.ChainState (chainStateSlot)
+import Hydra.Tx.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,

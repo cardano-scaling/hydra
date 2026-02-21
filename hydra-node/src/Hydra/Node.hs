@@ -23,7 +23,7 @@ import Hydra.Cardano.Api (
   getVerificationKey,
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Tx.ChainState (IsChainState (..))
 import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (

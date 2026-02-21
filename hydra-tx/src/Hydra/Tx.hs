@@ -6,11 +6,11 @@ module Hydra.Tx (
   module Hydra.Tx.Party,
   module Hydra.Tx.ScriptRegistry,
   module Hydra.Tx.Snapshot,
-  module Hydra.Ledger.Cardano.Builder,
+  module Hydra.Tx.Builder,
 )
 where
 
-import Hydra.Ledger.Cardano.Builder
+import Hydra.Tx.Builder
 import Hydra.Tx.BlueprintTx
 import Hydra.Tx.HeadId
 import Hydra.Tx.HeadParameters

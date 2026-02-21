@@ -5,7 +5,7 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Tx.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
 
 -- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'

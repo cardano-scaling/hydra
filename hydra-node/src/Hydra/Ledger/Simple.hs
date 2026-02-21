@@ -20,7 +20,7 @@ import Data.Aeson (
   (.=),
  )
 import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
+import Hydra.Tx.ChainState (ChainSlot, ChainStateType, IsChainState (..))
 import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 import Hydra.Tx (IsTx (..))
 

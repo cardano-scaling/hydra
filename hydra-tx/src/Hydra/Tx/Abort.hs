@@ -10,7 +10,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn))
-import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
+import Hydra.Tx.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (ScriptRegistry (..))
 import Hydra.Tx.HeadId (HeadId (..))

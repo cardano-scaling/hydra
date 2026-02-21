@@ -4,7 +4,7 @@
 --
 -- See Hydra.Chain.Direct.TimeHandle for an alternative that uses the
 -- cardano-node provided 'EraSummary' to do "correct" translation on time.
-module Hydra.Ledger.Cardano.Time where
+module Hydra.Tx.Time where
 
 import Hydra.Prelude
 

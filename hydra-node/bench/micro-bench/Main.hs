@@ -12,7 +12,7 @@ import Hydra.Cardano.Api (
   UTxO,
   serialiseToCBOR,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import Hydra.Tx.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (Ledger (applyTransactions), ValidationError)
 import Hydra.Ledger.Cardano (Tx, cardanoLedger)
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)

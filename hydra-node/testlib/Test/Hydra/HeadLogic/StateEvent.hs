@@ -3,7 +3,7 @@
 
 module Test.Hydra.HeadLogic.StateEvent where
 
-import Hydra.Chain.ChainState (ChainPointType, ChainStateType, IsChainState)
+import Hydra.Tx.ChainState (ChainPointType, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Prelude

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilyDependencies #-}
 
-module Hydra.Chain.ChainState where
+module Hydra.Tx.ChainState where
 
 import Hydra.Prelude
 

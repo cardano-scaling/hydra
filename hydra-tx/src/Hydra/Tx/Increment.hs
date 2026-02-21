@@ -8,7 +8,7 @@ import Data.List qualified as List
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Ledger.Cardano.Builder (
+import Hydra.Tx.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (depositValidatorScript)

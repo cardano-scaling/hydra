@@ -6,7 +6,7 @@ module Test.Hydra.HeadLogic.State where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Tx.ChainState (IsChainState (..))
 import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 

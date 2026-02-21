@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
 import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
+import Hydra.Tx.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)

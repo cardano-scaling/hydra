@@ -5,7 +5,7 @@ module Test.Hydra.Node.State where
 
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Tx.ChainState (IsChainState (..))
 import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus)
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)

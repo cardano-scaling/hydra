@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Ledger.Cardano.Builder (
+import Hydra.Tx.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)

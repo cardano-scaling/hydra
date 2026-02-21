@@ -10,7 +10,7 @@ import Cardano.Slotting.Time (SystemStart (..))
 import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.Direct.TimeHandle
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithHorizonAt)
+import Hydra.Tx.Evaluate (eraHistoryWithHorizonAt)
 import Test.QuickCheck (getPositive)
 
 -- | Generate consistent values for 'SystemStart' and 'EraHistory' which has

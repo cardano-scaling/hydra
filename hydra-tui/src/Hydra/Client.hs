@@ -19,7 +19,7 @@ import Hydra.Cardano.Api.Prelude (
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Blockfrost.Client qualified as BF
 import Hydra.Chain.CardanoClient (localNodeConnectInfo, submitTransaction)
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Tx.ChainState (IsChainState)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Network (Host (Host, hostname, port))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)

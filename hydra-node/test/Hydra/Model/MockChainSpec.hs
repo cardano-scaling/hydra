@@ -4,7 +4,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Text (unpack)
 import Hydra.Cardano.Api (Tx, TxIn (TxIn), UTxO, prettyPrintJSON)
 import Hydra.Cardano.Api.Pretty (renderTx, renderUTxO)
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
+import Hydra.Tx.ChainState (ChainSlot (ChainSlot))
 import Hydra.Ledger (Ledger (applyTransactions))
 import Hydra.Model.MockChain (scriptLedger)
 import Hydra.Prelude

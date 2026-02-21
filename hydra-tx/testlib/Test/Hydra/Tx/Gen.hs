@@ -23,10 +23,10 @@ import Data.Maybe (fromJust)
 import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.ChainState
+import Hydra.Tx.ChainState
 import Hydra.Contract.Head qualified as Head
-import Hydra.Ledger.Cardano.Evaluate
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Tx.Evaluate
+import Hydra.Tx.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx

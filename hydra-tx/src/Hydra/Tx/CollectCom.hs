@@ -11,7 +11,7 @@ import Hydra.Prelude
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import Hydra.Tx.Builder (unsafeBuildTransaction)
 import Hydra.Plutus (commitValidatorScript)
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)

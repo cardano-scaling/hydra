@@ -10,7 +10,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
+import Hydra.Tx.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (
   ConfirmedSnapshot (..),

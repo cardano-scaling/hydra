@@ -30,7 +30,7 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.API.WSServer (wsApp)
 import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Tx.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (

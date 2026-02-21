@@ -39,7 +39,7 @@ import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Tx.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)

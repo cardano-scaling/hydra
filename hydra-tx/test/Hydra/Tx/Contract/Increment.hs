@@ -17,7 +17,7 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Tx.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Contract.Deposit (healthyDeadline)

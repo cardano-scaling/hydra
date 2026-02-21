@@ -1,6 +1,6 @@
 module Hydra.Ledger.Cardano (
   module Hydra.Ledger.Cardano,
-  module Hydra.Ledger.Cardano.Builder,
+  module Hydra.Tx.Builder,
   Ledger.ShelleyGenesis (..),
   Ledger.Globals,
   Ledger.LedgerEnv,
@@ -10,7 +10,7 @@ module Hydra.Ledger.Cardano (
 import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
-import Hydra.Ledger.Cardano.Builder
+import Hydra.Tx.Builder
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Rules (
@@ -36,7 +36,7 @@ import Control.Lens ((%~), (.~), (^.))
 import Data.Default (def)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot (..))
+import Hydra.Tx.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
 import System.IO.Unsafe (unsafeDupablePerformIO)

@@ -55,7 +55,7 @@ import Hydra.Chain (
   PostTxError (..),
   maxMainnetLovelace,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
+import Hydra.Tx.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)

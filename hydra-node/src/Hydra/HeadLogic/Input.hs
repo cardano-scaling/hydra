@@ -4,7 +4,7 @@ import Hydra.Prelude
 
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (ChainEvent)
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Tx.ChainState (IsChainState)
 import Hydra.Network.Message (Message, NetworkEvent)
 
 type TTL = Natural

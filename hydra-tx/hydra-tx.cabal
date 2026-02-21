@@ -42,11 +42,11 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
-    Hydra.Chain.ChainState
-    Hydra.Ledger.Cardano.Builder
-    Hydra.Ledger.Cardano.Evaluate
-    Hydra.Ledger.Cardano.Time
     Hydra.Tx
+    Hydra.Tx.Builder
+    Hydra.Tx.ChainState
+    Hydra.Tx.Evaluate
+    Hydra.Tx.Time
     Hydra.Tx.Abort
     Hydra.Tx.BlueprintTx
     Hydra.Tx.Close

@@ -66,7 +66,7 @@ import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Ledger.Cardano.Evaluate (
+import Hydra.Tx.Evaluate (
   estimateMinFee,
   evaluateTx,
   maxTxSize,
@@ -74,7 +74,7 @@ import Hydra.Ledger.Cardano.Evaluate (
   systemStart,
   usedExecutionUnits,
  )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Tx.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.Abort (abortTx, observeAbortTx)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))

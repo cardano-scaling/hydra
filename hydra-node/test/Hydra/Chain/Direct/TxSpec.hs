@@ -41,7 +41,7 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
-import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
+import Hydra.Tx.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.HeadId (mkHeadId)

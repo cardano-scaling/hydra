@@ -6,7 +6,7 @@ module Test.Hydra.API.ServerOutput where
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason, Greetings, HeadStatus, NetworkInfo, ServerOutput (..), TimedServerOutput)
 import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Tx.ChainState (ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Test.Hydra.Chain ()
 import Test.Hydra.Ledger ()
