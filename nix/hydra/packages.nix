@@ -126,7 +126,7 @@
           ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
         '';
 
-        inherit (nativePkgs.hydra-node.components.benchmarks) tx-cost;
+        tx-cost = nativePkgs.hydra-tx.components.benchmarks.tx-cost;
 
         hydra-tui =
           embedRevision
@@ -190,7 +190,7 @@
         hydra-node-bench = pkgs.mkShellNoCC {
           name = "hydra-node-bench";
           buildInputs = [
-            nativePkgs.hydra-node.components.benchmarks.tx-cost
+            nativePkgs.hydra-tx.components.benchmarks.tx-cost
             nativePkgs.hydra-node.components.benchmarks.micro
           ];
         };

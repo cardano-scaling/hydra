@@ -232,3 +232,33 @@ executable hydra-tx
     , time
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
+
+benchmark tx-cost
+  import:         project-config
+  hs-source-dirs: bench/tx-cost
+  main-is:        Main.hs
+  other-modules:  TxCost
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , base
+    , bytestring
+    , cardano-api
+    , cardano-binary
+    , containers
+    , directory
+    , filepath
+    , hydra-cardano-api
+    , hydra-cardano-api:testlib
+    , hydra-plutus
+    , hydra-plutus-extras
+    , hydra-prelude
+    , hydra-test-utils
+    , hydra-tx
+    , hydra-tx:testlib
+    , optparse-applicative
+    , plutus-ledger-api
+    , plutus-tx
+    , QuickCheck
+    , time
+
+  ghc-options:    -threaded -rtsopts

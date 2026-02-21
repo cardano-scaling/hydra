@@ -83,7 +83,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - package: hydra-node
+          - package: hydra-tx
             bench: tx-cost
             options: '--output-directory $(pwd)/../benchmarks'
           - package: hydra-node
