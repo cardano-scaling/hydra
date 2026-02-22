@@ -565,7 +565,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- See <https://github.com/cardano-scaling/hydra/issues/1468> for work
         -- on addressing this.
 
-        let ledgerSizeLimit = 41
+        let ledgerSizeLimit = 47
 
         it "reaches the fan out limit" $ \tracer ->
           failAfter 60 $
