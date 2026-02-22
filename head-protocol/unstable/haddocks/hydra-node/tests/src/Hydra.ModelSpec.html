@@ -238,7 +238,7 @@ String -&gt; prop -&gt; Spec
 </span><span class="hs-identifier hs-var">prop</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;check model balances&quot;</span></span><span> </span><span class="annot"><span class="annottext">Property
 </span><a href="Hydra.ModelSpec.html#propCheckModelBalances"><span class="hs-identifier hs-var">propCheckModelBalances</span></a></span><span>
-</span><span id="line-159"></span><span>  </span><span class="hs-comment">-- This scenario seeds a head with a single party and an UTxO set of 42 elements,</span><span>
+</span><span id="line-159"></span><span>  </span><span class="hs-comment">-- This scenario seeds a head with a single party and an UTxO set of 47 elements,</span><span>
 </span><span id="line-160"></span><span>  </span><span class="hs-comment">-- which is over the budget of the mocked chain implementation.</span><span>
 </span><span id="line-161"></span><span>  </span><span class="hs-comment">-- See https://github.com/cardano-scaling/hydra/issues/2270</span><span>
 </span><span id="line-162"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
@@ -252,7 +252,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall prop. Testable prop =&gt; prop -&gt; Property
 </span><span class="hs-identifier hs-var">expectFailure</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Property
 </span><a href="Hydra.ModelSpec.html#propFanoutLimit"><span class="hs-identifier hs-var">propFanoutLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><span class="hs-number">42</span></span><span class="hs-special">)</span><span>
+</span><span class="hs-number">48</span></span><span class="hs-special">)</span><span>
 </span><span id="line-163"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
 (HasCallStack, Testable prop) =&gt;
@@ -262,7 +262,7 @@ String -&gt; prop -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Property
 </span><a href="Hydra.ModelSpec.html#propFanoutLimit"><span class="hs-identifier hs-var">propFanoutLimit</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><span class="hs-number">41</span></span><span>
+</span><span class="hs-number">47</span></span><span>
 </span><span id="line-164"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
 forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
 </span><span class="hs-identifier hs-var">context</span></span><span> </span><span class="annot"><span class="annottext">String
