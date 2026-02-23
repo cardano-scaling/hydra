@@ -330,12 +330,16 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   maybeRequestSnapshot nextSn outcome =
     if not snapshotInFlight && isLeader parameters party nextSn
       then
-        outcome
-          -- XXX: This state update has no equivalence in the
-          -- spec. Do we really need to store that we have
-          -- requested a snapshot? If yes, should update spec.
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
+        let previousSnapshot = getSnapshot confirmedSnapshot
+            -- Skip decommit/deposit if already posted in previous snapshot
+            decommitToInclude = skipPostedDecommit decommitTx previousSnapshot.utxoToDecommit
+            depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previousSnapshot.utxoToCommit
+         in outcome
+              -- XXX: This state update has no equivalence in the
+              -- spec. Do we really need to store that we have
+              -- requested a snapshot? If yes, should update spec.
+              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitToInclude (setExistingDeposit pendingDeposits depositToInclude))
       else outcome
 
   Environment{party} = env
@@ -683,11 +687,14 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 
   maybeRequestNextSnapshot previous outcome = do
     let nextSn = previous.number + 1
+        -- Skip decommit/deposit if already posted in previous snapshot
+        decommitToInclude = skipPostedDecommit decommitTx previous.utxoToDecommit
+        depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previous.utxoToCommit
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitToInclude (setExistingDeposit pendingDeposits depositToInclude))
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -890,9 +897,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   Ledger{applyTransactions} = ledger
 
-  Snapshot{number} = getSnapshot confirmedSnapshot
-
-  nextSn = number + 1
+  nextSn = seenSnapshotNumber seenSnapshot + 1
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
@@ -902,7 +907,6 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   CoordinatedHeadState
     { decommitTx = mExistingDecommitTx
-    , confirmedSnapshot
     , localTxs
     , localUTxO
     , version
@@ -1445,6 +1449,27 @@ setExistingDeposit pendingDeposits currentDeposit = do
       case Map.lookup depositTxId pendingDeposits of
         Nothing -> Nothing
         Just _ -> currentDeposit
+
+-- | Skip a decommit transaction if it was already posted in a previous snapshot.
+-- This prevents including the same decommit in multiple snapshot requests.
+skipPostedDecommit :: IsTx tx => Maybe tx -> Maybe (UTxOType tx) -> Maybe tx
+skipPostedDecommit decommit previousUtxoToDecommit =
+  case (decommit, previousUtxoToDecommit) of
+    (Just tx, Just prevUtxo)
+      | utxoFromTx tx == prevUtxo -> Nothing -- Already posted
+    _ -> decommit -- Keep it
+
+-- | Skip a deposit if it was already posted in a previous snapshot.
+-- This prevents including the same deposit in multiple snapshot requests.
+skipPostedDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
+skipPostedDeposit pendingDeposits depositTxId previousUtxoToCommit =
+  case (depositTxId, previousUtxoToCommit) of
+    (Just txId, Just prevUtxo) ->
+      case Map.lookup txId pendingDeposits of
+        Just Deposit{deposited}
+          | deposited == prevUtxo -> Nothing -- Already posted
+        _ -> depositTxId -- Keep it
+    _ -> depositTxId -- Keep it
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
