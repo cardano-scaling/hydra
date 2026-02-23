@@ -131,6 +131,10 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
 
   Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator} = getSnapshot confirmedSnapshot
 
+  snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
+
+  crs = Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1
+
   proof =
     let utxoToCloseWith =
           utxo
@@ -140,13 +144,12 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               Head.CloseUnusedDec{} ->
                 fromMaybe mempty utxoToDecommit
               _ -> mempty
-        snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
      in bls12_381_G2_uncompress $
           toBuiltin $
             Accumulator.createMembershipProofFromUTxO @Tx
               utxoToCloseWith
               accumulator
-              (Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1)
+              crs
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -176,7 +179,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           }
    where
     closedAccumulatorHash = Accumulator.getAccumulatorHash accumulator
-    accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+    accumulatorCommitment = Accumulator.getAccumulatorCommitmentWithCRS crs accumulator
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
