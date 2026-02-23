@@ -160,8 +160,8 @@ spec = do
   -- which is over the budget of the mocked chain implementation.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
-    prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 29)
-    prop "succeeds fanout under the limit" $ propFanoutLimit 28
+    prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 20)
+    prop "succeeds fanout under the limit" $ propFanoutLimit 19
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "check head opens if all participants commit" $ propDL headOpensIfAllPartiesCommit

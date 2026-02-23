@@ -120,7 +120,6 @@ library
     , cardano-crypto-wrapper
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage
     , cardano-ledger-binary
     , cardano-ledger-byron
     , cardano-ledger-conway

@@ -731,7 +731,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
             txBody <- either (failure . show) pure (createAndValidateTransactionBody body)
 
             let spendTx' = makeSignedTransaction [] txBody
-                spendTx = fromLedgerTx $ recomputeIntegrityHash pparams utxoToCommit (toLedgerTx spendTx')
+                spendTx = fromLedgerTx $ recomputeIntegrityHash pparams (utxoFromTx signedL2tx) (toLedgerTx spendTx')
             let signedTx = signTx walletSk spendTx
 
             send n1 $ input "NewTx" ["transaction" .= signedTx]
@@ -1511,7 +1511,7 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
           -- Get some L1 funds
           (walletVk, walletSk) <- generate genKeyPair
           commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-          commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_001) (contramap FromFaucet tracer)
 
           resp <-
             parseUrlThrow ("POST " <> hydraNodeBaseUrl n2 <> "/commit")
