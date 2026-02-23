@@ -1192,7 +1192,7 @@ canDepositConcurrently tracer workDir opts hydraScriptsTxId =
           -- Seed both UTxOs before drafting deposits so L1 confirmations don't
           -- eat into the deposit deadline window.
           commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-          commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_001) (contramap FromFaucet tracer)
 
           -- Draft and submit both deposits concurrently.
           (tx, tx2) <-

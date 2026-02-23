@@ -11,6 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (AlonzoEraScript (..), AsIx (..))
+import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity, mkScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
@@ -34,9 +35,6 @@ import Cardano.Ledger.Api (
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (hashScriptIntegrity)
-import Cardano.Ledger.Babbage.Tx qualified as Babbage
-import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core qualified as Core
@@ -197,8 +195,8 @@ applyTxs txs isOurs utxo =
             let outs = toList $ tx ^. bodyTxL . outputsTxBodyL
                 maxIx = fromIntegral $ length outs
              in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
-      forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
-        when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
+      forM_ indexedOutputs $ \(ix, out) ->
+        when (isOurs (out ^. Ledger.addrTxOutL)) $ modify (Map.insert (Ledger.TxIn txId ix) out)
 
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
@@ -274,7 +272,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         let ledgerUTxO = Ledger.UTxO utxo
             scriptsProvided = getScriptsProvided ledgerUTxO txWithAdjustedRedeemers
             scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO body
-         in hashScriptIntegrity <$> Babbage.mkScriptIntegrity pparams txWithAdjustedRedeemers scriptsProvided scriptsNeeded
+         in hashScriptIntegrity <$> mkScriptIntegrity pparams txWithAdjustedRedeemers scriptsProvided scriptsNeeded
 
   let
     unbalancedBody =
