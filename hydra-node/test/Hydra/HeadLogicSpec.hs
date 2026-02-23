@@ -541,6 +541,101 @@ spec =
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
             _ -> fail "expected Open state"
 
+        it "does not request same decommit twice across snapshots" $ do
+          let localUTxO = utxoRefs [1, 2, 3]
+              decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
+              utxoToDecommit' = utxoFromTx decommitTx'
+
+              -- Snapshot 0: initial snapshot
+              snapshot0 = testSnapshot 0 0 [] localUTxO
+
+          -- Snapshot 1 was just confirmed WITH decommit
+          let snapshot1 = snapshot0{number = 1, confirmed = [aValidTx 1], utxoToDecommit = Just utxoToDecommit'}
+              confirmedSn1 =
+                ConfirmedSnapshot
+                  { snapshot = snapshot1
+                  , signatures = Crypto.aggregate []
+                  }
+
+          -- State after snapshot 1 confirmed:
+          -- - localUTxO updated (decommitted UTxO removed, but decommitTx outputs not added)
+          -- - decommitTx still present (waiting for DecommitFinalized)
+          let localUTxOAfterDecommit = utxoRefs [1, 2] -- ref 3 was decommitted
+              s1 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO = localUTxOAfterDecommit
+                    , version = 0
+                    , confirmedSnapshot = confirmedSn1
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                    , decommitTx = Just decommitTx' -- Decommit still there!
+                    , localTxs = [] -- No pending txs initially
+                    }
+
+          -- Leader (bob) requests snapshot 2 (before DecommitFinalized)
+          let reqTx3 = receiveMessage $ ReqTx (aValidTx 3)
+          now <- nowFromSlot s1.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now s1 reqTx3
+
+          -- Should NOT include the decommit that was already posted in snapshot 1
+          outcome `shouldNotHaveEffect` NetworkEffect (ReqSn 0 2 [3] (Just decommitTx') Nothing)
+
+          -- Should send ReqSn WITHOUT the decommit
+          outcome `hasEffect` NetworkEffect (ReqSn 0 2 [3] Nothing Nothing)
+
+        it "does not request same deposit twice across snapshots" $ do
+          let localUTxO = utxoRefs [1, 2]
+              depositTxId = 42
+              depositedUTxO = utxoRefs [99]
+
+              snapshot0 = testSnapshot 0 0 [] localUTxO
+
+              -- Snapshot 1 was just confirmed WITH deposit
+              snapshot1 = snapshot0{number = 1, confirmed = [aValidTx 1], utxoToCommit = Just depositedUTxO}
+              confirmedSn1 =
+                ConfirmedSnapshot
+                  { snapshot = snapshot1
+                  , signatures = Crypto.aggregate []
+                  }
+
+              -- State after snapshot 1 confirmed: currentDepositTxId still present
+              s0 =
+                ( inOpenState' threeParties $
+                    coordinatedHeadState
+                      { localUTxO
+                      , version = 0
+                      , confirmedSnapshot = confirmedSn1
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , currentDepositTxId = Just depositTxId -- Deposit still there!
+                      , localTxs = [] -- No pending txs initially
+                      }
+                )
+                  { pendingDeposits =
+                      Map.fromList
+                        [
+                          ( depositTxId
+                          , Deposit
+                              { headId = testHeadId
+                              , deposited = depositedUTxO
+                              , created = arbitrary `generateWith` 42
+                              , deadline = arbitrary `generateWith` 42
+                              , status = Active
+                              }
+                          )
+                        ]
+                  }
+
+          -- Leader (bob) requests snapshot 2 (before CommitFinalized)
+          let reqTx3 = receiveMessage $ ReqTx (aValidTx 3)
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now s0 reqTx3
+
+          -- Should NOT include the deposit that was already posted in snapshot 1
+          outcome `shouldNotHaveEffect` NetworkEffect (ReqSn 0 2 [3] Nothing (Just depositTxId))
+
+          -- Should send ReqSn WITHOUT the deposit
+          outcome `hasEffect` NetworkEffect (ReqSn 0 2 [3] Nothing Nothing)
+
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
           let s0 = inOpenState threeParties
@@ -2040,6 +2135,9 @@ step input = do
 
 hasEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
 hasEffect outcome effect = hasEffectSatisfying outcome (== effect)
+
+shouldNotHaveEffect :: (HasCallStack, IsChainState tx) => Outcome tx -> Effect tx -> IO ()
+shouldNotHaveEffect outcome effect = hasNoEffectSatisfying outcome (== effect)
 
 assertWait :: (HasCallStack, IsChainState tx) => Outcome tx -> WaitReason tx -> IO ()
 assertWait outcome waitReason =
