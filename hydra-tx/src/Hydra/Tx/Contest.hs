@@ -126,6 +126,10 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       then closedContestationDeadline
       else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
+  fullSnapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
+
+  crs = Accumulator.generateCRS $ UTxO.size fullSnapshotUTxO + 1
+
   proof =
     let snapshotUTxO =
           utxo
@@ -137,7 +141,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
               _ -> mempty
      in bls12_381_G2_uncompress $
           toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator (Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1)
+            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator crs
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -167,7 +171,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           }
    where
     contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
-    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
+    accumulatorCommitment = Accumulator.getAccumulatorCommitmentWithCRS crs (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
 
 -- * Observation
 
