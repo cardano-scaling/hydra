@@ -179,7 +179,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           }
    where
     closedAccumulatorHash = Accumulator.getAccumulatorHash accumulator
-    accumulatorCommitment = Accumulator.getAccumulatorCommitmentWithCRS crs accumulator
+    accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod
