@@ -49,6 +49,7 @@ changes.
 - Fixed the internal wallet fee estimation, which was more often than not using maximum plutus execution units. This reduces costs for initializing, open, etc. of a head by a factor of ~4x [#2473](https://github.com/cardano-scaling/hydra/pull/2473).
 - Fixed another race-condition around incremental commits/decommits [#2500](https://github.com/cardano-scaling/hydra/issues/2500)
 - Fixed infinite AckSn requeue loop after decommit when DecommitFinalized arrives before snapshot confirmation on the leader node [#2510](https://github.com/cardano-scaling/hydra/pull/2510)
+- Fix snapshots getting stuck under high L2 load by preventing duplicate snapshot requests and duplicate deposit/decommit inclusion across consecutive snapshots [#2519](https://github.com/cardano-scaling/hydra/pull/2519)
 - **BREAKING** Improved reporting of chain synchronization status by exposing the node's chain time and drift.
   - `NodeSynced` and `NodeUnsynced` state-changed events, and their corresponding server outputs, now include the observed chain time and drift.
   - `NodeState` now tracks the latest observed chan slot in addition to the chain time (`UTCTime`) and its drift measured in seconds.
