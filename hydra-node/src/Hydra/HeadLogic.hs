@@ -908,7 +908,9 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   Ledger{applyTransactions} = ledger
 
-  nextSn = seenSnapshotNumber seenSnapshot + 1
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+
+  nextSn = confirmedSn + 1
 
   snapshotInFlight = case seenSnapshot of
     NoSeenSnapshot -> False
@@ -918,6 +920,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   CoordinatedHeadState
     { decommitTx = mExistingDecommitTx
+    , confirmedSnapshot
     , localTxs
     , localUTxO
     , version
