@@ -565,7 +565,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- See <https://github.com/cardano-scaling/hydra/issues/1468> for work
         -- on addressing this.
 
-        let ledgerSizeLimit = 28
+        let ledgerSizeLimit = 20
 
         it "reaches the fan out limit" $ \tracer ->
           failAfter 60 $
@@ -1094,13 +1094,16 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
 
     waitFor hydraTracer 10 [node] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
-    -- Create many transactions to reach the ledger limit
+    -- Create many transactions to reach the ledger limit.
+    -- Each output must have a unique value so that the on-chain accumulator
+    -- membership proof works correctly (duplicate TxOuts collapse into one
+    -- accumulator element, breaking the pairing check).
     let loop 0 _ res = return res
         loop n utxo _ = do
           let Right tx =
                 mkSimpleTx
                   utxo
-                  (inHeadAddress aliceExternalVk, lovelaceToValue 1_000_000)
+                  (inHeadAddress aliceExternalVk, lovelaceToValue (1_000_000 + fromInteger n))
                   aliceExternalSk
               Just out' = viaNonEmpty last (txOuts' tx)
               txId' = TxIn (txId tx) (toEnum 1)
