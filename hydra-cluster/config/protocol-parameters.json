@@ -698,7 +698,7 @@
         "ppSecurityGroup": 0.51
     },
     "protocolVersion": {
-        "major": 10,
+        "major": 11,
         "minor": 0
     },
     "stakeAddressDeposit": 2000000,
