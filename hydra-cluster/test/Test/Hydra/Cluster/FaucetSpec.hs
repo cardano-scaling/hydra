@@ -70,8 +70,8 @@ spec =
       it "squash the UTxO to get a suitable output" $ \(tracer, backend) -> do
         -- NOTE: Note use 'Faucet' as this has a very big initial amount
         (vk, _) <- keysFor Alice
-        -- NOTE: 83 ADA is just enough to pay for reference scripts deposits.
-        forM_ [1_000_000, 2_000_000, 83_000_000] $ \c -> seedFromFaucet backend vk (lovelaceToValue c) tracer
+        -- NOTE: 86 ADA is just enough to pay for reference scripts deposits.
+        forM_ [1_000_000, 2_000_000, 86_000_000] $ \c -> seedFromFaucet backend vk (lovelaceToValue c) tracer
 
         void $ publishHydraScriptsAs backend Alice
 
