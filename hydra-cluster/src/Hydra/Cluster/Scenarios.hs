@@ -8,16 +8,21 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
-import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
-import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
+import Cardano.Ledger.Api.PParams (PParams)
+import Cardano.Ledger.Api.Tx (AsIx (..), Redeemers (..), bodyTxL, rdmrsTxWitsL, witsTxL)
 import Cardano.Ledger.Api.Tx qualified as Ledger
 import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
 import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
+import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
+import Cardano.Ledger.Babbage.Tx qualified as Babbage
 import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
 import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Plutus (ExUnits (..))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
+import Cardano.Ledger.Shelley.API qualified as Shelley
+import Cardano.Ledger.State (getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
 import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
@@ -815,19 +820,21 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
 
 -- | Compute the integrity hash of a transaction using a list of plutus languages.
 recomputeIntegrityHash ::
-  (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
-  PParams ppera ->
+  (AlonzoEraTxWits era, AlonzoEraTxBody era, EraUTxO era, ScriptsNeeded era ~ AlonzoScriptsNeeded era) =>
+  PParams era ->
   [Language] ->
-  Ledger.Tx txera ->
-  Ledger.Tx txera
-recomputeIntegrityHash pp languages tx = do
+  Ledger.Tx era ->
+  Ledger.Tx era
+recomputeIntegrityHash pp _languages tx = do
   tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
  where
+  body = tx ^. bodyTxL
   integrityHash =
-    hashScriptIntegrity
-      (Set.fromList $ getLanguageView pp <$> languages)
-      (tx ^. witsTxL . rdmrsTxWitsL)
-      (tx ^. witsTxL . datsTxWitsL)
+    let ledgerUTxO :: Shelley.UTxO era
+        ledgerUTxO = Shelley.UTxO mempty
+        scriptsProvided = getScriptsProvided ledgerUTxO tx
+        scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO body
+     in hashScriptIntegrity <$> Babbage.mkScriptIntegrity pp tx scriptsProvided scriptsNeeded
 
 singlePartyCommitsScriptBlueprint ::
   ChainBackend backend =>

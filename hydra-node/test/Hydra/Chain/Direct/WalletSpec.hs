@@ -14,8 +14,8 @@ import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
-import Cardano.Ledger.Core (Tx, Value)
+import Cardano.Ledger.Conway.Tx (Tx (MkConwayTx))
+import Cardano.Ledger.Core (TxBody, Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
 import Cardano.Ledger.Shelley.API qualified as Ledger
@@ -325,15 +325,17 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
           ]
     body <- genBody
     lift $
-      AlonzoTx body
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+      MkConwayTx
+        <$> ( AlonzoTx body
+                <$> arbitrary
+                <*> arbitrary
+                <*> arbitrary
+            )
 
   -- Generate a TxBody by consuming a UTXO from the state, and generating a new
   -- one. The number of UTXO in the state after calling this function remains
   -- identical.
-  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (ConwayTxBody LedgerEra)
+  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (TxBody LedgerEra)
   genBodyFromUTxO = do
     base <- lift arbitrary
     (input, output) <- gets Map.findMax
