@@ -298,7 +298,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
-            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_001) (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -349,7 +349,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 , contestationDeadline = deadline
                 }
             let expectedUTxO =
-                  (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                  ( Snapshot.utxo snapshot
+                      <> if snapshotVersion /= v
+                        then fromMaybe mempty (Snapshot.utxoToCommit snapshot)
+                        else mempty
+                  )
                     `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
             aliceChain `observesInTimeSatisfying` \case
               OnFanoutTx _ finalUTxO ->
