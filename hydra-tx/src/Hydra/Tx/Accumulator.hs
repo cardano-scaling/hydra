@@ -4,7 +4,6 @@ module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
   getAccumulatorHash,
   getAccumulatorCommitment,
-  getAccumulatorCommitmentWithCRS,
   build,
   buildFromUTxO,
   buildFromSnapshotUTxOs,
@@ -133,14 +132,6 @@ getAccumulatorCommitment (HydraAccumulator acc) =
       tau = mkScalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
       k = 1024
       crsG2 = map (\x -> bls12_381_G2_scalarMul (unScalar (scale x tau)) g2) [0 .. k + 10]
-   in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
-        Map.elems
-          acc
-
-getAccumulatorCommitmentWithCRS :: [Point2] -> HydraAccumulator -> BuiltinBLS12_381_G2_Element
-getAccumulatorCommitmentWithCRS crs (HydraAccumulator acc) =
-  let crsG2 =
-        bls12_381_G2_uncompress . toBuiltin . blsCompress <$> crs
    in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
         Map.elems
           acc

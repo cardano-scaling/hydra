@@ -171,7 +171,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           }
    where
     contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
-    accumulatorCommitment = Accumulator.getAccumulatorCommitmentWithCRS crs (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
+    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
 
 -- * Observation
 

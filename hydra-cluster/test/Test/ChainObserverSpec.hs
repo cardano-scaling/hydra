@@ -17,7 +17,7 @@ import Data.Aeson.Lens (key, _JSON, _String)
 import Data.ByteString (hGetLine)
 import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, txOutValue, unFile, utxoFromTx)
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
@@ -52,7 +52,9 @@ spec = do
 
                 (walletVk, walletSk) <- generate genKeyPair
 
-                commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+                commitUTxO1 <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+                commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+                let commitUTxO = commitUTxO1 <> commitUTxO2
 
                 send hydraNode $ input "Init" []
 
@@ -76,11 +78,11 @@ spec = do
                 let walletAddress = mkVkAddress networkId walletVk
 
                 decommitTx <-
-                  let (i, o) = List.head $ UTxO.toList commitUTxO
+                  let (i, o) = List.head $ UTxO.toList commitUTxO1
                    in either (failure . show) pure $
                         mkSimpleTx
                           (i, o)
-                          (walletAddress, txOutValue o)
+                          (walletAddress, lovelaceToValue 2_000_000)
                           walletSk
 
                 send hydraNode $ input "Decommit" ["decommitTx" .= decommitTx]
