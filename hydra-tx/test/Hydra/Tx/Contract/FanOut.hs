@@ -91,7 +91,7 @@ accumulator =
     (Just $ snd healthyFanoutSnapshotUTxO)
 
 crsSize :: Int
-crsSize = Accumulator.requiredCRSSize accumulator
+crsSize = Accumulator.requiredCRSSize accumulator + 1
 
 crs :: [Point2]
 crs = Accumulator.generateCRS crsSize
@@ -122,7 +122,7 @@ healthyFanoutDatum =
                 toBuiltin $
                   Accumulator.createMembershipProof subsetElements accumulator crs
       , accumulatorCommitment =
-          Accumulator.getAccumulatorCommitmentWithCRS crs $
+          Accumulator.getAccumulatorCommitment $
             Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) mempty (Just $ snd healthyFanoutSnapshotUTxO)
       }
  where
