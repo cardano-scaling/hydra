@@ -690,7 +690,13 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
         -- Skip decommit/deposit if already posted in previous snapshot
         decommitToInclude = skipPostedDecommit decommitTx previous.utxoToDecommit
         depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previous.utxoToCommit
-    if isLeader parameters party nextSn && not (null localTxs)
+    -- NB: Check if nextSn was already requested to prevent duplicate ReqSn.
+    -- Without this check, when a snapshot confirms, we might request the next snapshot
+    -- multiple times if new L2 transactions arrive before the ReqSn is processed.
+    -- This causes ReqSnNumberInvalid errors and can make snapshots stuck.
+    -- We only check RequestedSnapshot (not SeenSnapshot) to allow requesting the next
+    -- snapshot immediately when the current one is being signed (collecting signatures).
+    if not (alreadyRequestedSnapshot nextSn) && isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
@@ -745,6 +751,11 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     } = openState
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, currentDepositTxId, version} = coordinatedHeadState
+
+  -- Check if we've already requested the next snapshot to prevent duplicates
+  alreadyRequestedSnapshot sn = case seenSnapshot of
+    RequestedSnapshot{requested} -> requested == sn
+    _ -> False
 
 -- | Client request to recover deposited UTxO.
 --
