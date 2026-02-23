@@ -74,7 +74,7 @@ library
     , aeson                   >=2
     , base                    >=4.14
     , bytestring
-    , cardano-api             ^>=10.19
+    , cardano-api             ^>=10.20
     , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-allegra
