@@ -9,6 +9,9 @@ license-files:
   LICENSE
   NOTICE
 
+extra-source-files:
+  genesis/mainnet-conway-genesis.json
+
 source-repository head
   type:     git
   location: https://github.com/cardano-scaling/hydra
@@ -113,26 +116,36 @@ library testlib
   import:          project-config
   hs-source-dirs:  testlib
   visibility:      public
+  default-extensions: TemplateHaskell
   exposed-modules:
+    Test.Hydra.Ledger.Cardano.Fixtures
+    Test.Hydra.Ledger.Cardano.Fixtures.TH
     Test.Hydra.Tx.Fixture
     Test.Hydra.Tx.Gen
     Test.Hydra.Tx.Mutation
 
   other-modules:   Paths_hydra_tx
   build-depends:
+    , aeson
     , base
     , bytestring
+    , filepath
+    , template-haskell
     , cardano-api
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
+    , cardano-ledger-binary
     , cardano-ledger-conway
     , cardano-ledger-conway:testlib
     , cardano-ledger-core
     , cardano-ledger-mary
+    , cardano-ledger-shelley
+    , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
+    , data-default
     , directory
     , hydra-cardano-api
     , hydra-cardano-api:testlib
@@ -142,10 +155,15 @@ library testlib
     , hydra-test-utils
     , hydra-tx
     , lens
+    , ouroboros-consensus
+    , ouroboros-consensus-cardano
     , plutus-ledger-api
+    , prettyprinter
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
+    , sop-extras
+    , time
 
   ghc-options:     -haddock
 

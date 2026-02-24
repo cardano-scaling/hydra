@@ -4,8 +4,8 @@ import Data.ByteString (hPut)
 import Data.Fixed (Centi)
 import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
 import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
-import Hydra.Ledger.Cardano.Evaluate (maxCpu, maxMem, maxTxSize)
 import Hydra.Plutus.Orphans ()
+import Test.Hydra.Ledger.Cardano.Fixtures (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
   Parser,
   ParserInfo,
