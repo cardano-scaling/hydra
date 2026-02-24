@@ -27,14 +27,16 @@ import Hydra.TUI.Options (Options (..))
 import Hydra.TUI.Style
 
 -- | Construct a 'CardanoClient' handle.
-mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
+mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient Era
 mkCardanoClient networkId nodeSocket =
   CardanoClient
-    { queryUTxOByAddress = CC.queryUTxO (CC.localNodeConnectInfo networkId nodeSocket) CC.QueryTip
+    { queryUTxOByAddress =
+        CC.runCardanoNode (CC.localNodeConnectInfo networkId nodeSocket) shelleyBasedEra
+          . CC.queryUTxO CC.QueryTip
     , networkId
     }
 
-mkBFClient :: NetworkId -> FilePath -> CardanoClient
+mkBFClient :: NetworkId -> FilePath -> CardanoClient Era
 mkBFClient networkId bfProject =
   CardanoClient
     { queryUTxOByAddress = \address -> do

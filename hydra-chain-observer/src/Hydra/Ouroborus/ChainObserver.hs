@@ -14,6 +14,8 @@ import Hydra.Cardano.Api (
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
+  Era,
+  IsShelleyBasedEra (shelleyBasedEra),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
@@ -26,7 +28,7 @@ import Hydra.Cardano.Api (
   getTxId,
   pattern Block,
  )
-import Hydra.Chain.CardanoClient (queryTip)
+import Hydra.Chain.CardanoClient (queryTip, runCardanoNode)
 import Hydra.ChainObserver.NodeClient (
   ChainObservation (..),
   ChainObserverLog (..),
@@ -54,7 +56,7 @@ ouroborusClient tracer nodeSocket networkId =
     { follow = \startChainFrom observerHandler -> do
         traceWith tracer ConnectingToNode{nodeSocket, networkId}
         chainPoint <- case startChainFrom of
-          Nothing -> queryTip (connectInfo nodeSocket networkId)
+          Nothing -> runCardanoNode (connectInfo nodeSocket networkId) (shelleyBasedEra @Era) queryTip
           Just x -> pure x
         traceWith tracer StartObservingFrom{chainPoint}
         connectToLocalNode
