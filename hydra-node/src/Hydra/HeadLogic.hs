@@ -332,7 +332,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
       then
         let previousSnapshot = getSnapshot confirmedSnapshot
             -- Skip decommit/deposit if already posted in previous snapshot
-            decommitToInclude = skipPostedDecommit decommitTx previousSnapshot.utxoToDecommit
+            decommitToInclude = skipPostedDecommit previousSnapshot decommitTx
             depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previousSnapshot.utxoToCommit
          in outcome
               -- XXX: This state update has no equivalence in the
@@ -688,7 +688,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
   maybeRequestNextSnapshot previous outcome = do
     let nextSn = previous.number + 1
         -- Skip decommit/deposit if already posted in previous snapshot
-        decommitToInclude = skipPostedDecommit decommitTx previous.utxoToDecommit
+        decommitToInclude = skipPostedDecommit previous decommitTx
         depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previous.utxoToCommit
     -- NB: Check if nextSn was already requested to prevent duplicate ReqSn.
     -- Without this check, when a snapshot confirms, we might request the next snapshot
@@ -1466,11 +1466,11 @@ setExistingDeposit pendingDeposits currentDeposit = do
 
 -- | Skip a decommit transaction if it was already posted in a previous snapshot.
 -- This prevents including the same decommit in multiple snapshot requests.
-skipPostedDecommit :: IsTx tx => Maybe tx -> Maybe (UTxOType tx) -> Maybe tx
-skipPostedDecommit decommit previousUtxoToDecommit =
-  case (decommit, previousUtxoToDecommit) of
+skipPostedDecommit :: IsTx tx => Snapshot tx -> Maybe tx -> Maybe tx
+skipPostedDecommit previousSnapshot decommit =
+  case (decommit, previousSnapshot.utxoToDecommit) of
     (Just tx, Just prevUtxo)
-      | utxoFromTx tx == prevUtxo -> Nothing -- Already posted
+      | resolveInputsUTxO previousSnapshot.utxo tx == prevUtxo -> Nothing -- Already posted
     _ -> decommit -- Keep it
 
 -- | Skip a deposit if it was already posted in a previous snapshot.
