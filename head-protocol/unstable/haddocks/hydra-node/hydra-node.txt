@@ -388,17 +388,6 @@ QueryProtocolParamsEncodingFailureOnEra :: AnyCardanoEra -> Text -> QueryExcepti
 QueryEraNotInCardanoModeFailure :: AnyCardanoEra -> QueryException
 QueryNotShelleyBasedEraException :: AnyCardanoEra -> QueryException
 
--- | Handle interface for abstract querying of a cardano node.
-data CardanoClient
-CardanoClient :: ([Address ShelleyAddr] -> IO (UTxO ConwayEra)) -> NetworkId -> CardanoClient
-[$sel:queryUTxOByAddress:CardanoClient] :: CardanoClient -> [Address ShelleyAddr] -> IO (UTxO ConwayEra)
-[$sel:networkId:CardanoClient] :: CardanoClient -> NetworkId
-
--- | Submit a (signed) transaction to the node.
---   
---   Throws <a>SubmitTransactionException</a> if submission fails.
-submitTransaction :: LocalNodeConnectInfo -> Tx -> IO ()
-
 -- | Exceptions that <tt>can</tt> occur during a transaction submission.
 --   
 --   In principle, we can only encounter an <a>EraMismatch</a> at era
@@ -410,90 +399,150 @@ data SubmitTransactionException
 SubmitEraMismatch :: EraMismatch -> SubmitTransactionException
 SubmitTxValidationError :: TxValidationErrorInCardanoMode -> SubmitTransactionException
 
--- | Await until the given transaction is visible on-chain. Returns the
---   UTxO set produced by that transaction.
---   
---   Note that this function loops forever; hence, one probably wants to
---   couple it with a surrounding timeout.
-awaitTransaction :: IsShelleyBasedEra era => LocalNodeConnectInfo -> Tx -> IO (UTxO era)
+-- | Handle interface for abstract querying of a cardano node.
+data CardanoClient era
+CardanoClient :: ([Address ShelleyAddr] -> IO (UTxO era)) -> NetworkId -> CardanoClient era
+[$sel:queryUTxOByAddress:CardanoClient] :: CardanoClient era -> [Address ShelleyAddr] -> IO (UTxO era)
+[$sel:networkId:CardanoClient] :: CardanoClient era -> NetworkId
 
 -- | Describes whether to query at the tip or at a specific point.
 data QueryPoint
 QueryTip :: QueryPoint
 QueryAt :: ChainPoint -> QueryPoint
 
+-- | Monad transformer for interacting with a local Cardano node. Carries
+--   both <a>LocalNodeConnectInfo</a> and an era witness so individual
+--   query and submission functions need not accept them as explicit
+--   arguments.
+newtype CardanoNodeT eon era m a
+CardanoNodeT :: ReaderT LocalNodeConnectInfo (EraT eon era m) a -> CardanoNodeT eon era m a
+[$sel:fromCardanoNodeT:CardanoNodeT] :: CardanoNodeT eon era m a -> ReaderT LocalNodeConnectInfo (EraT eon era m) a
+
+-- | Specialise <a>CardanoNodeT</a> to <a>IO</a>.
+type CardanoNode eon era a = CardanoNodeT eon era IO a
+
+-- | Monad transformer that carries an era witness. The <tt>eon</tt>
+--   parameter is a higher-kinded era-witness type (e.g.
+--   <a>ShelleyBasedEra</a>, <a>BabbageEraOnwards</a>,
+--   <a>ConwayEraOnwards</a>) and <tt>era</tt> is the concrete era (e.g.
+--   <a>CardanoEra</a>).
+newtype EraT eon era m a
+EraT :: ReaderT (eon era) m a -> EraT eon era m a
+[$sel:fromEraT:EraT] :: EraT eon era m a -> ReaderT (eon era) m a
+runEraT :: eon era -> EraT eon era m a -> m a
+askEra :: Monad m => CardanoNodeT eon era m (eon era)
+
+-- | Run a <tt>CardanoNodeIO</tt> action given a connection and era
+--   witness.
+runCardanoNodeT :: LocalNodeConnectInfo -> eon era -> CardanoNodeT eon era m a -> m a
+runCardanoNode :: LocalNodeConnectInfo -> eon era -> CardanoNode eon era a -> IO a
+
+-- | Submit a (signed) transaction to the node.
+--   
+--   Throws <a>SubmitTransactionException</a> if submission fails.
+submitTransaction :: MonadIO m => Tx -> CardanoNodeT ShelleyBasedEra Era m ()
+
+-- | Await until the given transaction is visible on-chain. Returns the
+--   UTxO set produced by that transaction.
+--   
+--   Note that this function loops forever; hence, one probably wants to
+--   couple it with a surrounding timeout.
+awaitTransaction :: MonadIO m => Tx -> CardanoNodeT ShelleyBasedEra era m (UTxO era)
+
 -- | Query the latest chain point aka "the tip".
-queryTip :: LocalNodeConnectInfo -> IO ChainPoint
+queryTip :: MonadIO m => CardanoNodeT eon era m ChainPoint
 
 -- | Query the system start parameter at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-querySystemStart :: LocalNodeConnectInfo -> QueryPoint -> IO SystemStart
+querySystemStart :: MonadIO m => QueryPoint -> CardanoNodeT eon era m SystemStart
 
 -- | Query the era history at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryEraHistory :: LocalNodeConnectInfo -> QueryPoint -> IO EraHistory
+queryEraHistory :: MonadIO m => QueryPoint -> CardanoNodeT eon era m EraHistory
 
 -- | Query the current epoch number.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryEpochNo :: LocalNodeConnectInfo -> QueryPoint -> IO EpochNo
+queryEpochNo :: MonadIO m => QueryPoint -> CardanoNodeT ShelleyBasedEra era m EpochNo
 
--- | Query the protocol parameters at given point and convert them to
---   Babbage era protocol parameters.
+-- | Query the protocol parameters at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryProtocolParameters :: LocalNodeConnectInfo -> QueryPoint -> IO (PParams LedgerEra)
+queryProtocolParameters :: MonadIO m => QueryPoint -> CardanoNodeT ShelleyBasedEra era m (PParams (ShelleyLedgerEra era))
 
 -- | Query <a>GenesisParameters</a> at a given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryGenesisParameters :: LocalNodeConnectInfo -> QueryPoint -> IO (GenesisParameters ShelleyEra)
+queryGenesisParameters :: MonadIO m => QueryPoint -> CardanoNodeT ShelleyBasedEra era m (GenesisParameters ShelleyEra)
 
 -- | Query UTxO for all given addresses at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxO :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> [Address ShelleyAddr] -> IO (UTxO era)
+queryUTxO :: MonadIO m => QueryPoint -> [Address ShelleyAddr] -> CardanoNodeT ShelleyBasedEra era m (UTxO era)
 
 -- | Query UTxO for given tx inputs at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxOByTxIn :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> [TxIn] -> IO (UTxO era)
-queryForCurrentEraInEonExpr :: Eon eon => (AnyCardanoEra -> IO a) -> (forall era. eon era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
-queryForCurrentEraInShelleyBasedEraExpr :: (forall era. ShelleyBasedEra era -> LocalStateQueryExpr b p QueryInMode r IO a) -> LocalStateQueryExpr b p QueryInMode r IO a
+queryUTxOByTxIn :: MonadIO m => QueryPoint -> [TxIn] -> CardanoNodeT ShelleyBasedEra era m (UTxO era)
 
 -- | Query the whole UTxO from node at given point. Useful for debugging,
 --   but should obviously not be used in production code.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxOWhole :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> IO (UTxO era)
+queryUTxOWhole :: MonadIO m => QueryPoint -> CardanoNodeT ShelleyBasedEra era m (UTxO era)
 
 -- | Query UTxO for the address of given verification key at point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryUTxOFor :: IsShelleyBasedEra era => LocalNodeConnectInfo -> QueryPoint -> VerificationKey PaymentKey -> IO (UTxO era)
+queryUTxOFor :: MonadIO m => QueryPoint -> VerificationKey PaymentKey -> CardanoNodeT ShelleyBasedEra era m (UTxO era)
 
 -- | Query the current set of registered stake pools.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
-queryStakePools :: LocalNodeConnectInfo -> QueryPoint -> IO (Set PoolId)
-
--- | Monadic query expression to get current era.
-queryCurrentEraExpr :: LocalStateQueryExpr b p QueryInMode r IO AnyCardanoEra
-
--- | Throws at least <a>QueryException</a> if query fails.
-runQueryExpr :: LocalNodeConnectInfo -> QueryPoint -> LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a -> IO a
+queryStakePools :: MonadIO m => QueryPoint -> CardanoNodeT ShelleyBasedEra era m (Set PoolId)
 throwOnEraMismatch :: MonadThrow m => Either EraMismatch a -> m a
 throwOnUnsupportedNtcVersion :: MonadThrow m => Either UnsupportedNtcVersionError a -> m a
+
+-- | Lift a query result that may have NTC version or era mismatch errors
+--   into the monad. This combines the common pattern of checking both
+--   error types.
+liftQueryResult :: MonadThrow m => Either UnsupportedNtcVersionError (Either EraMismatch a) -> m a
 localNodeConnectInfo :: NetworkId -> SocketPath -> LocalNodeConnectInfo
 cardanoModeParams :: ConsensusModeParams
+
+-- | Execute a local-state query at the given point, using the
+--   <tt>connectInfo</tt> from the reader environment. Throws
+--   <a>QueryAcquireException</a> on failure.
+runQuery :: MonadIO m => QueryPoint -> LocalStateQueryExpr BlockInMode ChainPoint QueryInMode () IO a -> CardanoNodeT eon era m a
+
+-- | Query the current era from the node without needing an era witness.
+queryCurrentEraExpr :: LocalStateQueryExpr b p QueryInMode r IO AnyCardanoEra
+
+-- | Run a <a>CardanoNode</a> action after dynamically discovering the
+--   node's current era. This is useful when connecting to a node whose era
+--   is not known in advance.
+--   
+--   Throws <a>QueryNotShelleyBasedEraException</a> if the node is in Byron
+--   era.
+runNodeIOWithCurrentEra :: NetworkId -> SocketPath -> (forall era. ShelleyBasedEra era -> CardanoNode ShelleyBasedEra era a) -> IO a
 instance GHC.Classes.Eq Hydra.Chain.CardanoClient.QueryException
 instance GHC.Show.Show Hydra.Chain.CardanoClient.QueryException
 instance GHC.Show.Show Hydra.Chain.CardanoClient.SubmitTransactionException
 instance GHC.Generics.Generic Hydra.Chain.CardanoClient.QueryPoint
 instance GHC.Show.Show Hydra.Chain.CardanoClient.QueryPoint
 instance GHC.Classes.Eq Hydra.Chain.CardanoClient.QueryPoint
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Monad m => Control.Monad.Reader.Class.MonadReader (eon era) (Hydra.Chain.CardanoClient.EraT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). Control.Monad.IO.Class.MonadIO m => Control.Monad.IO.Class.MonadIO (Hydra.Chain.CardanoClient.EraT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Monad m => GHC.Base.Monad (Hydra.Chain.CardanoClient.EraT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Applicative m => GHC.Base.Applicative (Hydra.Chain.CardanoClient.EraT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Functor m => GHC.Base.Functor (Hydra.Chain.CardanoClient.EraT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Monad m => Control.Monad.Reader.Class.MonadReader Cardano.Api.Network.IPC.Internal.LocalNodeConnectInfo (Hydra.Chain.CardanoClient.CardanoNodeT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). Control.Monad.IO.Class.MonadIO m => Control.Monad.IO.Class.MonadIO (Hydra.Chain.CardanoClient.CardanoNodeT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Monad m => GHC.Base.Monad (Hydra.Chain.CardanoClient.CardanoNodeT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Applicative m => GHC.Base.Applicative (Hydra.Chain.CardanoClient.CardanoNodeT eon era m)
+instance forall k (eon :: k -> *) (era :: k) (m :: * -> *). GHC.Base.Functor m => GHC.Base.Functor (Hydra.Chain.CardanoClient.CardanoNodeT eon era m)
 instance GHC.Exception.Type.Exception Hydra.Chain.CardanoClient.SubmitTransactionException
 instance GHC.Exception.Type.Exception Hydra.Chain.CardanoClient.QueryException
 
@@ -4338,6 +4387,10 @@ EraNotSupportedYet :: Text -> EraNotSupportedException
 [$sel:otherEraName:EraNotSupportedAnymore] :: EraNotSupportedException -> Text
 withDirectChain :: DirectBackend -> Tracer IO CardanoChainLog -> CardanoChainConfig -> ChainContext -> TinyWallet IO -> ChainStateHistory Tx -> ChainComponent Tx IO a
 chainSyncClient :: forall m. (MonadSTM m, MonadThrow m) => ChainSyncHandler m -> TinyWallet m -> NonEmpty ChainPoint -> ChainSyncClient BlockType ChainPoint ChainTip m ()
+
+-- | Run a <tt>CardanoNode</tt> action against the given network/socket
+--   using the Conway era witness.
+runNodeIO :: NetworkId -> SocketPath -> CardanoNode ShelleyBasedEra Era a -> IO a
 txSubmissionClient :: forall m. (MonadSTM m, MonadDelay m) => Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> LocalTxSubmissionClient TxInMode TxValidationErrorInCardanoMode m ()
 instance GHC.Show.Show Hydra.Chain.Direct.DirectBackend
 instance GHC.Classes.Eq Hydra.Chain.Direct.DirectBackend

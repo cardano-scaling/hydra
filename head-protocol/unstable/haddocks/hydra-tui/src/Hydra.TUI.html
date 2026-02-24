@@ -27,136 +27,153 @@
 </span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.TUI.Style.html"><span class="hs-identifier">Hydra.TUI.Style</span></a></span><span>
 </span><span id="line-28"></span><span>
 </span><span id="line-29"></span><span class="annot"><span class="hs-comment">-- | Construct a 'CardanoClient' handle.</span></span><span>
-</span><span id="line-30"></span><span class="annot"><a href="Hydra.TUI.html#mkCardanoClient"><span class="hs-identifier hs-type">mkCardanoClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span>
-</span><span id="line-31"></span><span id="mkCardanoClient"><span class="annot"><span class="annottext">mkCardanoClient :: NetworkId -&gt; SocketPath -&gt; CardanoClient
-</span><a href="Hydra.TUI.html#mkCardanoClient"><span class="hs-identifier hs-var hs-var">mkCardanoClient</span></a></span></span><span> </span><span id="local-6989586621679468758"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679468758"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679468759"><span class="annot"><span class="annottext">SocketPath
-</span><a href="#local-6989586621679468759"><span class="hs-identifier hs-var">nodeSocket</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-30"></span><span class="annot"><a href="Hydra.TUI.html#mkCardanoClient"><span class="hs-identifier hs-type">mkCardanoClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span>
+</span><span id="line-31"></span><span id="mkCardanoClient"><span class="annot"><span class="annottext">mkCardanoClient :: NetworkId -&gt; SocketPath -&gt; CardanoClient Era
+</span><a href="Hydra.TUI.html#mkCardanoClient"><span class="hs-identifier hs-var hs-var">mkCardanoClient</span></a></span></span><span> </span><span id="local-6989586621679469003"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679469003"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679469004"><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679469004"><span class="hs-identifier hs-var">nodeSocket</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span>
-</span><span id="line-33"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:queryUTxOByAddress:CardanoClient :: [Address ShelleyAddr] -&gt; IO (UTxO ConwayEra)
-</span><span class="hs-identifier hs-var">queryUTxOByAddress</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalNodeConnectInfo
--&gt; QueryPoint -&gt; [Address ShelleyAddr] -&gt; IO (UTxO ConwayEra)
-forall era.
-IsShelleyBasedEra era =&gt;
-LocalNodeConnectInfo
--&gt; QueryPoint -&gt; [Address ShelleyAddr] -&gt; IO (UTxO era)
-</span><span class="hs-identifier hs-var">CC.queryUTxO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; LocalNodeConnectInfo
+</span><span id="line-33"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:queryUTxOByAddress:CardanoClient :: [Address ShelleyAddr] -&gt; IO (UTxO Era)
+</span><span class="hs-identifier hs-var">queryUTxOByAddress</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-34"></span><span>        </span><span class="annot"><span class="annottext">LocalNodeConnectInfo
+-&gt; ShelleyBasedEra Era
+-&gt; CardanoNode ShelleyBasedEra Era (UTxO Era)
+-&gt; IO (UTxO Era)
+forall {k} (eon :: k -&gt; *) (era :: k) a.
+LocalNodeConnectInfo -&gt; eon era -&gt; CardanoNode eon era a -&gt; IO a
+</span><span class="hs-identifier hs-var">CC.runCardanoNode</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; LocalNodeConnectInfo
 </span><span class="hs-identifier hs-var">CC.localNodeConnectInfo</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679468758"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
-</span><a href="#local-6989586621679468759"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><a href="#local-6989586621679469003"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679469004"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ShelleyBasedEra Era
+forall era. IsShelleyBasedEra era =&gt; ShelleyBasedEra era
+</span><span class="hs-identifier hs-var">shelleyBasedEra</span></span><span>
+</span><span id="line-35"></span><span>          </span><span class="annot"><span class="annottext">(CardanoNode ShelleyBasedEra Era (UTxO Era) -&gt; IO (UTxO Era))
+-&gt; ([Address ShelleyAddr]
+    -&gt; CardanoNode ShelleyBasedEra Era (UTxO Era))
+-&gt; [Address ShelleyAddr]
+-&gt; IO (UTxO Era)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+-&gt; [Address ShelleyAddr]
+-&gt; CardanoNode ShelleyBasedEra Era (UTxO Era)
+forall (m :: * -&gt; *) era.
+MonadIO m =&gt;
+QueryPoint
+-&gt; [Address ShelleyAddr]
+-&gt; CardanoNodeT ShelleyBasedEra era m (UTxO era)
+</span><span class="hs-identifier hs-var">CC.queryUTxO</span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier hs-var">CC.QueryTip</span></span><span>
-</span><span id="line-34"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span id="line-36"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkId
 networkId :: NetworkId
 $sel:networkId:CardanoClient :: NetworkId
-</span><a href="#local-6989586621679468758"><span class="hs-identifier hs-var hs-var">networkId</span></a></span><span>
-</span><span id="line-35"></span><span>    </span><span class="hs-special">}</span><span>
-</span><span id="line-36"></span><span>
-</span><span id="line-37"></span><span class="annot"><a href="Hydra.TUI.html#mkBFClient"><span class="hs-identifier hs-type">mkBFClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span>
-</span><span id="line-38"></span><span id="mkBFClient"><span class="annot"><span class="annottext">mkBFClient :: NetworkId -&gt; FilePath -&gt; CardanoClient
-</span><a href="Hydra.TUI.html#mkBFClient"><span class="hs-identifier hs-var hs-var">mkBFClient</span></a></span></span><span> </span><span id="local-6989586621679468766"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679468766"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679468767"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679468767"><span class="hs-identifier hs-var">bfProject</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span>
-</span><span id="line-40"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:queryUTxOByAddress:CardanoClient :: [Address ShelleyAddr] -&gt; IO (UTxO ConwayEra)
-</span><span class="hs-identifier hs-var">queryUTxOByAddress</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679468768"><span class="annot"><span class="annottext">[Address ShelleyAddr]
-</span><a href="#local-6989586621679468768"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-41"></span><span>        </span><span id="local-6989586621679468769"><span class="annot"><span class="annottext">Project
-</span><a href="#local-6989586621679468769"><span class="hs-identifier hs-var">prj</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Project -&gt; IO Project
+</span><a href="#local-6989586621679469003"><span class="hs-identifier hs-var hs-var">networkId</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-38"></span><span>
+</span><span id="line-39"></span><span class="annot"><a href="Hydra.TUI.html#mkBFClient"><span class="hs-identifier hs-type">mkBFClient</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span>
+</span><span id="line-40"></span><span id="mkBFClient"><span class="annot"><span class="annottext">mkBFClient :: NetworkId -&gt; FilePath -&gt; CardanoClient Era
+</span><a href="Hydra.TUI.html#mkBFClient"><span class="hs-identifier hs-var hs-var">mkBFClient</span></a></span></span><span> </span><span id="local-6989586621679469014"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679469014"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679469015"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679469015"><span class="hs-identifier hs-var">bfProject</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:queryUTxOByAddress:CardanoClient :: [Address ShelleyAddr] -&gt; IO (UTxO Era)
+</span><span class="hs-identifier hs-var">queryUTxOByAddress</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679469016"><span class="annot"><span class="annottext">[Address ShelleyAddr]
+</span><a href="#local-6989586621679469016"><span class="hs-identifier hs-var">address</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-43"></span><span>        </span><span id="local-6989586621679469017"><span class="annot"><span class="annottext">Project
+</span><a href="#local-6989586621679469017"><span class="hs-identifier hs-var">prj</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Project -&gt; IO Project
 forall a. IO a -&gt; IO a
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Project -&gt; IO Project) -&gt; IO Project -&gt; IO Project
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath -&gt; IO Project
 </span><span class="hs-identifier hs-var">BF.projectFromFile</span></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679468767"><span class="hs-identifier hs-var">bfProject</span></a></span><span>
-</span><span id="line-42"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679468772"><span class="annot"><span class="annottext">bfOptions :: BlockfrostOptions
-</span><a href="#local-6989586621679468772"><span class="hs-identifier hs-var hs-var">bfOptions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-43"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">BlockfrostOptions</span></span><span>
-</span><span id="line-44"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:projectPath:BlockfrostOptions :: FilePath
-</span><a href="#local-6989586621679468774"><span class="hs-identifier hs-var">projectPath</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679468767"><span class="hs-identifier hs-var">bfProject</span></a></span><span>
-</span><span id="line-45"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:queryTimeout:BlockfrostOptions :: Int
-</span><a href="#local-6989586621679468775"><span class="hs-identifier hs-var">queryTimeout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679469015"><span class="hs-identifier hs-var">bfProject</span></a></span><span>
+</span><span id="line-44"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679469020"><span class="annot"><span class="annottext">bfOptions :: BlockfrostOptions
+</span><a href="#local-6989586621679469020"><span class="hs-identifier hs-var hs-var">bfOptions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-45"></span><span>              </span><span class="annot"><span class="hs-identifier hs-type">BlockfrostOptions</span></span><span>
+</span><span id="line-46"></span><span>                </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:projectPath:BlockfrostOptions :: FilePath
+</span><span class="hs-identifier hs-var">projectPath</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679469015"><span class="hs-identifier hs-var">bfProject</span></a></span><span>
+</span><span id="line-47"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:queryTimeout:BlockfrostOptions :: Int
+</span><a href="#local-6989586621679469023"><span class="hs-identifier hs-var">queryTimeout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">defaultBFQueryTimeout</span></span><span>
-</span><span id="line-46"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:retryTimeout:BlockfrostOptions :: Int
-</span><span class="hs-identifier hs-var">retryTimeout</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span id="line-48"></span><span>                </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:retryTimeout:BlockfrostOptions :: Int
+</span><a href="#local-6989586621679469024"><span class="hs-identifier hs-var">retryTimeout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">defaultBFRetryTimeout</span></span><span>
-</span><span id="line-47"></span><span>                </span><span class="hs-special">}</span><span>
-</span><span id="line-48"></span><span>
-</span><span id="line-49"></span><span>        </span><span class="annot"><span class="annottext">Project
--&gt; BlockfrostClientT IO (UTxO ConwayEra) -&gt; IO (UTxO ConwayEra)
+</span><span id="line-49"></span><span>                </span><span class="hs-special">}</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span>        </span><span class="annot"><span class="annottext">Project -&gt; BlockfrostClientT IO (UTxO Era) -&gt; IO (UTxO Era)
 forall (m :: * -&gt; *) a.
 (MonadIO m, MonadThrow m) =&gt;
 Project -&gt; BlockfrostClientT IO a -&gt; m a
 </span><span class="hs-identifier hs-var">BF.runBlockfrostM</span></span><span> </span><span class="annot"><span class="annottext">Project
-</span><a href="#local-6989586621679468769"><span class="hs-identifier hs-var">prj</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockfrostClientT IO (UTxO ConwayEra) -&gt; IO (UTxO ConwayEra))
--&gt; BlockfrostClientT IO (UTxO ConwayEra) -&gt; IO (UTxO ConwayEra)
+</span><a href="#local-6989586621679469017"><span class="hs-identifier hs-var">prj</span></a></span><span> </span><span class="annot"><span class="annottext">(BlockfrostClientT IO (UTxO Era) -&gt; IO (UTxO Era))
+-&gt; BlockfrostClientT IO (UTxO Era) -&gt; IO (UTxO Era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">BlockfrostOptions
 -&gt; NetworkId
 -&gt; [Address ShelleyAddr]
--&gt; BlockfrostClientT IO (UTxO ConwayEra)
+-&gt; BlockfrostClientT IO (UTxO Era)
 </span><span class="hs-identifier hs-var">BF.queryUTxO</span></span><span> </span><span class="annot"><span class="annottext">BlockfrostOptions
-</span><a href="#local-6989586621679468772"><span class="hs-identifier hs-var">bfOptions</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679468766"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">[Address ShelleyAddr]
-</span><a href="#local-6989586621679468768"><span class="hs-identifier hs-var">address</span></a></span><span>
-</span><span id="line-50"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679469020"><span class="hs-identifier hs-var">bfOptions</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679469014"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">[Address ShelleyAddr]
+</span><a href="#local-6989586621679469016"><span class="hs-identifier hs-var">address</span></a></span><span>
+</span><span id="line-52"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NetworkId
 $sel:networkId:CardanoClient :: NetworkId
 networkId :: NetworkId
 </span><span class="hs-identifier hs-var hs-var">networkId</span></span><span>
-</span><span id="line-51"></span><span>    </span><span class="hs-special">}</span><span>
-</span><span id="line-52"></span><span>
-</span><span id="line-53"></span><span class="annot"><a href="Hydra.TUI.html#runWithVty"><span class="hs-identifier hs-type">runWithVty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vty</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span>
-</span><span id="line-54"></span><span id="runWithVty"><span class="annot"><span class="annottext">runWithVty :: IO Vty -&gt; Options -&gt; IO RootState
-</span><a href="Hydra.TUI.html#runWithVty"><span class="hs-identifier hs-var hs-var">runWithVty</span></a></span></span><span> </span><span id="local-6989586621679468780"><span class="annot"><span class="annottext">IO Vty
-</span><a href="#local-6989586621679468780"><span class="hs-identifier hs-var">buildVty</span></a></span></span><span> </span><span id="local-6989586621679468781"><span class="annot"><span class="annottext">options :: Options
-</span><a href="#local-6989586621679468781"><span class="hs-identifier hs-var">options</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span class="hs-special">{</span><span id="local-6989586621679468783"><span class="annot"><span class="annottext">Host
+</span><span id="line-53"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Hydra.TUI.html#runWithVty"><span class="hs-identifier hs-type">runWithVty</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Vty</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span>
+</span><span id="line-56"></span><span id="runWithVty"><span class="annot"><span class="annottext">runWithVty :: IO Vty -&gt; Options -&gt; IO RootState
+</span><a href="Hydra.TUI.html#runWithVty"><span class="hs-identifier hs-var hs-var">runWithVty</span></a></span></span><span> </span><span id="local-6989586621679469028"><span class="annot"><span class="annottext">IO Vty
+</span><a href="#local-6989586621679469028"><span class="hs-identifier hs-var">buildVty</span></a></span></span><span> </span><span id="local-6989586621679469029"><span class="annot"><span class="annottext">options :: Options
+</span><a href="#local-6989586621679469029"><span class="hs-identifier hs-var">options</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span class="hs-special">{</span><span id="local-6989586621679469031"><span class="annot"><span class="annottext">Host
 hydraNodeHost :: Host
 hydraNodeHost :: Options -&gt; Host
-</span><a href="#local-6989586621679468783"><span class="hs-identifier hs-var hs-var">hydraNodeHost</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679468785"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679469031"><span class="hs-identifier hs-var hs-var">hydraNodeHost</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679469033"><span class="annot"><span class="annottext">NetworkId
 cardanoNetworkId :: NetworkId
 cardanoNetworkId :: Options -&gt; NetworkId
-</span><a href="#local-6989586621679468785"><span class="hs-identifier hs-var hs-var">cardanoNetworkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679468787"><span class="annot"><span class="annottext">Either FilePath SocketPath
+</span><a href="#local-6989586621679469033"><span class="hs-identifier hs-var hs-var">cardanoNetworkId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679469035"><span class="annot"><span class="annottext">Either FilePath SocketPath
 cardanoConnection :: Either FilePath SocketPath
 cardanoConnection :: Options -&gt; Either FilePath SocketPath
-</span><a href="#local-6989586621679468787"><span class="hs-identifier hs-var hs-var">cardanoConnection</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-55"></span><span>  </span><span id="local-6989586621679468789"><span class="annot"><span class="annottext">BChan (HydraEvent Tx)
-</span><a href="#local-6989586621679468789"><span class="hs-identifier hs-var">eventChan</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (BChan (HydraEvent Tx))
+</span><a href="#local-6989586621679469035"><span class="hs-identifier hs-var hs-var">cardanoConnection</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621679469037"><span class="annot"><span class="annottext">BChan (HydraEvent Tx)
+</span><a href="#local-6989586621679469037"><span class="hs-identifier hs-var">eventChan</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (BChan (HydraEvent Tx))
 forall a. Int -&gt; IO (BChan a)
 </span><span class="hs-identifier hs-var">newBChan</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">10</span></span><span>
-</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">(FilePath, IO ()) -&gt; (Async IO () -&gt; IO RootState) -&gt; IO RootState
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">(FilePath, IO ()) -&gt; (Async IO () -&gt; IO RootState) -&gt; IO RootState
 forall (m :: * -&gt; *) a b.
 MonadAsync m =&gt;
 (FilePath, m a) -&gt; (Async m a -&gt; m b) -&gt; m b
 </span><span class="hs-identifier hs-var">withAsyncLabelled</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;run-vty-timer&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">BChan (HydraEvent Tx) -&gt; IO ()
 forall tx. BChan (HydraEvent tx) -&gt; IO ()
-</span><a href="#local-6989586621679468791"><span class="hs-identifier hs-var">timer</span></a></span><span> </span><span class="annot"><span class="annottext">BChan (HydraEvent Tx)
-</span><a href="#local-6989586621679468789"><span class="hs-identifier hs-var">eventChan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO RootState) -&gt; IO RootState)
+</span><a href="#local-6989586621679469039"><span class="hs-identifier hs-var">timer</span></a></span><span> </span><span class="annot"><span class="annottext">BChan (HydraEvent Tx)
+</span><a href="#local-6989586621679469037"><span class="hs-identifier hs-var">eventChan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Async IO () -&gt; IO RootState) -&gt; IO RootState)
 -&gt; (Async IO () -&gt; IO RootState) -&gt; IO RootState
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Async IO ()
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-57"></span><span>    </span><span class="hs-comment">-- REVIEW(SN): what happens if callback blocks?</span><span>
-</span><span id="line-58"></span><span>    </span><span class="annot"><span class="annottext">forall tx a. IsChainState tx =&gt; Options -&gt; ClientComponent tx IO a
+</span><span id="line-59"></span><span>    </span><span class="hs-comment">-- REVIEW(SN): what happens if callback blocks?</span><span>
+</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">forall tx a. IsChainState tx =&gt; Options -&gt; ClientComponent tx IO a
 </span><a href="Hydra.Client.html#withClient"><span class="hs-identifier hs-var">withClient</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">Options
-</span><a href="#local-6989586621679468781"><span class="hs-identifier hs-var">options</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BChan (HydraEvent Tx) -&gt; HydraEvent Tx -&gt; IO ()
+</span><a href="#local-6989586621679469029"><span class="hs-identifier hs-var">options</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BChan (HydraEvent Tx) -&gt; HydraEvent Tx -&gt; IO ()
 forall a. BChan a -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">writeBChan</span></span><span> </span><span class="annot"><span class="annottext">BChan (HydraEvent Tx)
-</span><a href="#local-6989586621679468789"><span class="hs-identifier hs-var">eventChan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Client Tx IO -&gt; IO RootState) -&gt; IO RootState)
+</span><a href="#local-6989586621679469037"><span class="hs-identifier hs-var">eventChan</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Client Tx IO -&gt; IO RootState) -&gt; IO RootState)
 -&gt; (Client Tx IO -&gt; IO RootState) -&gt; IO RootState
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679468792"><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679468792"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-59"></span><span>      </span><span id="local-6989586621679468793"><span class="annot"><span class="annottext">Vty
-</span><a href="#local-6989586621679468793"><span class="hs-identifier hs-var">initialVty</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Vty
-</span><a href="#local-6989586621679468780"><span class="hs-identifier hs-var">buildVty</span></a></span><span>
-</span><span id="line-60"></span><span>      </span><span id="local-6989586621679468794"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679468794"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679469040"><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679469040"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-61"></span><span>      </span><span id="local-6989586621679469041"><span class="annot"><span class="annottext">Vty
+</span><a href="#local-6989586621679469041"><span class="hs-identifier hs-var">initialVty</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Vty
+</span><a href="#local-6989586621679469028"><span class="hs-identifier hs-var">buildVty</span></a></span><span>
+</span><span id="line-62"></span><span>      </span><span id="local-6989586621679469042"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679469042"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-61"></span><span>      </span><span class="annot"><span class="annottext">Vty
+</span><span id="line-63"></span><span>      </span><span class="annot"><span class="annottext">Vty
 -&gt; IO Vty
 -&gt; Maybe (BChan (HydraEvent Tx))
 -&gt; App RootState (HydraEvent Tx) Name
@@ -166,113 +183,113 @@ forall n e s.
 Ord n =&gt;
 Vty -&gt; IO Vty -&gt; Maybe (BChan e) -&gt; App s e n -&gt; s -&gt; IO s
 </span><span class="hs-identifier hs-var">customMain</span></span><span> </span><span class="annot"><span class="annottext">Vty
-</span><a href="#local-6989586621679468793"><span class="hs-identifier hs-var">initialVty</span></a></span><span> </span><span class="annot"><span class="annottext">IO Vty
-</span><a href="#local-6989586621679468780"><span class="hs-identifier hs-var">buildVty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BChan (HydraEvent Tx) -&gt; Maybe (BChan (HydraEvent Tx))
+</span><a href="#local-6989586621679469041"><span class="hs-identifier hs-var">initialVty</span></a></span><span> </span><span class="annot"><span class="annottext">IO Vty
+</span><a href="#local-6989586621679469028"><span class="hs-identifier hs-var">buildVty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BChan (HydraEvent Tx) -&gt; Maybe (BChan (HydraEvent Tx))
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">BChan (HydraEvent Tx)
-</span><a href="#local-6989586621679468789"><span class="hs-identifier hs-var">eventChan</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Client Tx IO -&gt; App RootState (HydraEvent Tx) Name
-</span><a href="#local-6989586621679468797"><span class="hs-identifier hs-var">app</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679468792"><span class="hs-identifier hs-var">hydraClient</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime -&gt; RootState
-</span><a href="#local-6989586621679468798"><span class="hs-identifier hs-var">initialState</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679468794"><span class="hs-identifier hs-var">now</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-62"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-63"></span><span>  </span><span id="local-6989586621679468797"><span class="annot"><span class="annottext">app :: Client Tx IO -&gt; App RootState (HydraEvent Tx) Name
-</span><a href="#local-6989586621679468797"><span class="hs-identifier hs-var hs-var">app</span></a></span></span><span> </span><span id="local-6989586621679468799"><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679468799"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-64"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">App</span></span><span>
-</span><span id="line-65"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">appDraw :: RootState -&gt; [Widget Name]
-</span><span class="hs-identifier hs-var">appDraw</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; [Widget Name]
-</span><a href="Hydra.TUI.Drawing.html#draw"><span class="hs-identifier hs-var">draw</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679468803"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679468799"><span class="hs-identifier hs-var">hydraClient</span></a></span><span>
-</span><span id="line-66"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appChooseCursor :: RootState -&gt; [CursorLocation Name] -&gt; Maybe (CursorLocation Name)
+</span><a href="#local-6989586621679469037"><span class="hs-identifier hs-var">eventChan</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Client Tx IO -&gt; App RootState (HydraEvent Tx) Name
+</span><a href="#local-6989586621679469045"><span class="hs-identifier hs-var">app</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679469040"><span class="hs-identifier hs-var">hydraClient</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTCTime -&gt; RootState
+</span><a href="#local-6989586621679469046"><span class="hs-identifier hs-var">initialState</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679469042"><span class="hs-identifier hs-var">now</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679469045"><span class="annot"><span class="annottext">app :: Client Tx IO -&gt; App RootState (HydraEvent Tx) Name
+</span><a href="#local-6989586621679469045"><span class="hs-identifier hs-var hs-var">app</span></a></span></span><span> </span><span id="local-6989586621679469047"><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679469047"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">App</span></span><span>
+</span><span id="line-67"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">appDraw :: RootState -&gt; [Widget Name]
+</span><span class="hs-identifier hs-var">appDraw</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoClient Era -&gt; Client Tx IO -&gt; RootState -&gt; [Widget Name]
+</span><a href="Hydra.TUI.Drawing.html#draw"><span class="hs-identifier hs-var">draw</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient Era
+</span><a href="#local-6989586621679469051"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679469047"><span class="hs-identifier hs-var">hydraClient</span></a></span><span>
+</span><span id="line-68"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appChooseCursor :: RootState -&gt; [CursorLocation Name] -&gt; Maybe (CursorLocation Name)
 </span><span class="hs-identifier hs-var">appChooseCursor</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RootState -&gt; [CursorLocation Name] -&gt; Maybe (CursorLocation Name)
 forall s n. s -&gt; [CursorLocation n] -&gt; Maybe (CursorLocation n)
 </span><span class="hs-identifier hs-var">showFirstCursor</span></span><span>
-</span><span id="line-67"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appHandleEvent :: BrickEvent Name (HydraEvent Tx) -&gt; EventM Name RootState ()
-</span><span class="hs-identifier hs-var">appHandleEvent</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoClient
+</span><span id="line-69"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appHandleEvent :: BrickEvent Name (HydraEvent Tx) -&gt; EventM Name RootState ()
+</span><span class="hs-identifier hs-var">appHandleEvent</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CardanoClient Era
 -&gt; Client Tx IO
 -&gt; BrickEvent Name (HydraEvent Tx)
 -&gt; EventM Name RootState ()
-</span><a href="Hydra.TUI.Handlers.html#handleEvent"><span class="hs-identifier hs-var">handleEvent</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679468803"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679468799"><span class="hs-identifier hs-var">hydraClient</span></a></span><span>
-</span><span id="line-68"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appStartEvent :: EventM Name RootState ()
+</span><a href="Hydra.TUI.Handlers.html#handleEvent"><span class="hs-identifier hs-var">handleEvent</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient Era
+</span><a href="#local-6989586621679469051"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679469047"><span class="hs-identifier hs-var">hydraClient</span></a></span><span>
+</span><span id="line-70"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appStartEvent :: EventM Name RootState ()
 </span><span class="hs-identifier hs-var">appStartEvent</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; EventM Name RootState ()
 forall a. a -&gt; EventM Name RootState a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-69"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appAttrMap :: RootState -&gt; AttrMap
+</span><span id="line-71"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">appAttrMap :: RootState -&gt; AttrMap
 </span><span class="hs-identifier hs-var">appAttrMap</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RootState -&gt; AttrMap
 forall s. s -&gt; AttrMap
 </span><a href="Hydra.TUI.Style.html#style"><span class="hs-identifier hs-var">Hydra.TUI.Style.style</span></a></span><span>
-</span><span id="line-70"></span><span>      </span><span class="hs-special">}</span><span>
-</span><span id="line-71"></span><span>  </span><span id="local-6989586621679468798"><span class="annot"><span class="annottext">initialState :: UTCTime -&gt; RootState
-</span><a href="#local-6989586621679468798"><span class="hs-identifier hs-var hs-var">initialState</span></a></span></span><span> </span><span id="local-6989586621679468811"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679468811"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-72"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span>
-</span><span id="line-73"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:nodeHost:RootState :: Host
+</span><span id="line-72"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679469046"><span class="annot"><span class="annottext">initialState :: UTCTime -&gt; RootState
+</span><a href="#local-6989586621679469046"><span class="hs-identifier hs-var hs-var">initialState</span></a></span></span><span> </span><span id="local-6989586621679469059"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679469059"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-74"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span>
+</span><span id="line-75"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:nodeHost:RootState :: Host
 </span><a href="Hydra.TUI.Model.html#%24sel%3AnodeHost%3ARootState"><span class="hs-identifier hs-var">nodeHost</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Host
-</span><a href="#local-6989586621679468783"><span class="hs-identifier hs-var">hydraNodeHost</span></a></span><span>
-</span><span id="line-74"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679469031"><span class="hs-identifier hs-var">hydraNodeHost</span></a></span><span>
+</span><span id="line-76"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
 now :: UTCTime
 $sel:now:RootState :: UTCTime
-</span><a href="#local-6989586621679468811"><span class="hs-identifier hs-var hs-var">now</span></a></span><span>
-</span><span id="line-75"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:connectedState:RootState :: ConnectedState
+</span><a href="#local-6989586621679469059"><span class="hs-identifier hs-var hs-var">now</span></a></span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:connectedState:RootState :: ConnectedState
 </span><a href="Hydra.TUI.Model.html#%24sel%3AconnectedState%3ARootState"><span class="hs-identifier hs-var">connectedState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConnectedState
 </span><a href="Hydra.TUI.Model.html#Disconnected"><span class="hs-identifier hs-var">Disconnected</span></a></span><span>
-</span><span id="line-76"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:logState:RootState :: LogState
+</span><span id="line-78"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:logState:RootState :: LogState
 </span><a href="Hydra.TUI.Model.html#%24sel%3AlogState%3ARootState"><span class="hs-identifier hs-var">logState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogState"><span class="hs-identifier hs-type">LogState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">logMessages :: [LogMessage]
 </span><a href="Hydra.TUI.Logging.Types.html#logMessages"><span class="hs-identifier hs-var">logMessages</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">logVerbosity :: LogVerbosity
 </span><a href="Hydra.TUI.Logging.Types.html#logVerbosity"><span class="hs-identifier hs-var">logVerbosity</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LogVerbosity
 </span><a href="Hydra.TUI.Logging.Types.html#Short"><span class="hs-identifier hs-var">Short</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-77"></span><span>      </span><span class="hs-special">}</span><span>
-</span><span id="line-78"></span><span>
-</span><span id="line-79"></span><span>  </span><span id="local-6989586621679468803"><span class="annot"><span class="annottext">cardanoClient :: CardanoClient
-</span><a href="#local-6989586621679468803"><span class="hs-identifier hs-var hs-var">cardanoClient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-80"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either FilePath SocketPath
-</span><a href="#local-6989586621679468787"><span class="hs-identifier hs-var">cardanoConnection</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-81"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679468822"><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679468822"><span class="hs-identifier hs-var">bfProject</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; FilePath -&gt; CardanoClient
+</span><span id="line-79"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679469051"><span class="annot"><span class="annottext">cardanoClient :: CardanoClient Era
+</span><a href="#local-6989586621679469051"><span class="hs-identifier hs-var hs-var">cardanoClient</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-82"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either FilePath SocketPath
+</span><a href="#local-6989586621679469035"><span class="hs-identifier hs-var">cardanoConnection</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-83"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679469070"><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679469070"><span class="hs-identifier hs-var">bfProject</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; FilePath -&gt; CardanoClient Era
 </span><a href="Hydra.TUI.html#mkBFClient"><span class="hs-identifier hs-var">mkBFClient</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679468785"><span class="hs-identifier hs-var">cardanoNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
-</span><a href="#local-6989586621679468822"><span class="hs-identifier hs-var">bfProject</span></a></span><span>
-</span><span id="line-82"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679468823"><span class="annot"><span class="annottext">SocketPath
-</span><a href="#local-6989586621679468823"><span class="hs-identifier hs-var">nodeSocket</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; CardanoClient
+</span><a href="#local-6989586621679469033"><span class="hs-identifier hs-var">cardanoNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">FilePath
+</span><a href="#local-6989586621679469070"><span class="hs-identifier hs-var">bfProject</span></a></span><span>
+</span><span id="line-84"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679469071"><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679469071"><span class="hs-identifier hs-var">nodeSocket</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SocketPath -&gt; CardanoClient Era
 </span><a href="Hydra.TUI.html#mkCardanoClient"><span class="hs-identifier hs-var">mkCardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679468785"><span class="hs-identifier hs-var">cardanoNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
-</span><a href="#local-6989586621679468823"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span>
-</span><span id="line-83"></span><span>
-</span><span id="line-84"></span><span>  </span><span id="local-6989586621679468689"><span class="annot"><a href="#local-6989586621679468791"><span class="hs-identifier hs-type">timer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BChan</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Client.html#HydraEvent"><span class="hs-identifier hs-type">HydraEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679468689"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621679468791"><span class="annot"><span class="annottext">timer :: forall tx. BChan (HydraEvent tx) -&gt; IO ()
-</span><a href="#local-6989586621679468791"><span class="hs-identifier hs-var hs-var">timer</span></a></span></span><span> </span><span id="local-6989586621679468833"><span class="annot"><span class="annottext">BChan (HydraEvent tx)
-</span><a href="#local-6989586621679468833"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><a href="#local-6989586621679469033"><span class="hs-identifier hs-var">cardanoNetworkId</span></a></span><span> </span><span class="annot"><span class="annottext">SocketPath
+</span><a href="#local-6989586621679469071"><span class="hs-identifier hs-var">nodeSocket</span></a></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679468933"><span class="annot"><a href="#local-6989586621679469039"><span class="hs-identifier hs-type">timer</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BChan</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Client.html#HydraEvent"><span class="hs-identifier hs-type">HydraEvent</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679468933"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-87"></span><span>  </span><span id="local-6989586621679469039"><span class="annot"><span class="annottext">timer :: forall tx. BChan (HydraEvent tx) -&gt; IO ()
+</span><a href="#local-6989586621679469039"><span class="hs-identifier hs-var hs-var">timer</span></a></span></span><span> </span><span id="local-6989586621679469081"><span class="annot"><span class="annottext">BChan (HydraEvent tx)
+</span><a href="#local-6989586621679469081"><span class="hs-identifier hs-var">chan</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#forever"><span class="hs-identifier hs-var">forever</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-86"></span><span>    </span><span id="local-6989586621679468835"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679468835"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><span id="line-88"></span><span>    </span><span id="local-6989586621679469083"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679469083"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">BChan (HydraEvent tx) -&gt; HydraEvent tx -&gt; IO ()
+</span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">BChan (HydraEvent tx) -&gt; HydraEvent tx -&gt; IO ()
 forall a. BChan a -&gt; a -&gt; IO ()
 </span><span class="hs-identifier hs-var">writeBChan</span></span><span> </span><span class="annot"><span class="annottext">BChan (HydraEvent tx)
-</span><a href="#local-6989586621679468833"><span class="hs-identifier hs-var">chan</span></a></span><span> </span><span class="annot"><span class="annottext">(HydraEvent tx -&gt; IO ()) -&gt; HydraEvent tx -&gt; IO ()
+</span><a href="#local-6989586621679469081"><span class="hs-identifier hs-var">chan</span></a></span><span> </span><span class="annot"><span class="annottext">(HydraEvent tx -&gt; IO ()) -&gt; HydraEvent tx -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; HydraEvent tx
 forall tx. UTCTime -&gt; HydraEvent tx
 </span><a href="Hydra.Client.html#Tick"><span class="hs-identifier hs-var">Tick</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679468835"><span class="hs-identifier hs-var">now</span></a></span><span>
-</span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">DiffTime -&gt; IO ()
+</span><a href="#local-6989586621679469083"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span class="annot"><span class="annottext">DiffTime -&gt; IO ()
 forall (m :: * -&gt; *). MonadDelay m =&gt; DiffTime -&gt; m ()
 </span><span class="hs-identifier hs-var">threadDelay</span></span><span> </span><span class="annot"><span class="annottext">DiffTime
 </span><span class="hs-number">1</span></span><span>
-</span><span id="line-89"></span><span>
-</span><span id="line-90"></span><span class="annot"><a href="Hydra.TUI.html#run"><span class="hs-identifier hs-type">run</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span>
-</span><span id="line-91"></span><span id="run"><span class="annot"><span class="annottext">run :: Options -&gt; IO RootState
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="annot"><a href="Hydra.TUI.html#run"><span class="hs-identifier hs-type">run</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span>
+</span><span id="line-93"></span><span id="run"><span class="annot"><span class="annottext">run :: Options -&gt; IO RootState
 </span><a href="Hydra.TUI.html#run"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO Vty -&gt; Options -&gt; IO RootState
 </span><a href="Hydra.TUI.html#runWithVty"><span class="hs-identifier hs-var">runWithVty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VtyUserConfig -&gt; IO Vty
 </span><span class="hs-identifier hs-var">mkVty</span></span><span> </span><span class="annot"><span class="annottext">VtyUserConfig
 </span><span class="hs-identifier hs-var">defaultConfig</span></span><span class="hs-special">)</span><span>
-</span><span id="line-92"></span></pre></body></html>
+</span><span id="line-94"></span></pre></body></html>
