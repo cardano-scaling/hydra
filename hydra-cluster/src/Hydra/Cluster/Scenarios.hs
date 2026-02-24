@@ -1,7 +1,10 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
-module Hydra.Cluster.Scenarios where
+module Hydra.Cluster.Scenarios (
+  module Hydra.Cluster.Scenarios,
+  EndToEndLog (..),
+) where
 
 import Hydra.Prelude
 import Test.Hydra.Prelude

@@ -1,6 +1,9 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module HydraNode where
+module HydraNode (
+  module HydraNode,
+  HydraNodeLog (..),
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
@@ -49,7 +52,7 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (HydraTestnet (..), failAfter, failure, getHydraTestnet, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (HydraTestnet (..), failAfter, failure, getHydraNetwork, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -90,7 +93,7 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  getHydraTestnet >>= \case
+  getHydraNetwork >>= \case
     BlockfrostTesting -> pure $ d * fromIntegral defaultBFQueryTimeout
     _backend -> pure d
 
@@ -447,17 +450,13 @@ withPreparedHydraNodeInSync ::
   (HydraClient -> IO a) ->
   IO a
 withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
-  let waitTime = blockTime * waitFactor
   withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
  where
-  action' client = do
-    syncTimeout <-
-      getHydraTestnet <&> \case
-        LocalDevnet -> 5
-        BlockfrostTesting -> 10
-        -- Public testnets need more time to find chain intersection and sync
-        _ -> 60
-    waitForNodesSynced tracer syncTimeout $ client :| []
+  waitFactor = 5
+  waitTime = blockTime * waitFactor
+
+  action' wt client = do
+    waitForNodesSynced tracer wt $ client :| []
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
@@ -545,7 +544,7 @@ withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> M
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
   (retries, delay) <-
-    getHydraTestnet >>= \case
+    getHydraNetwork >>= \case
       BlockfrostTesting -> pure (300, 1)
       _ -> pure (200, 0.1)
   tryConnect connectedOnce (retries :: Int) delay
