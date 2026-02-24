@@ -90,6 +90,10 @@ class
   -- | Get the UTxO produced by given transaction.
   utxoFromTx :: tx -> UTxOType tx
 
+  -- | Resolve transaction inputs against a UTxO set.
+  -- Returns the subset of the UTxO that the transaction consumes.
+  resolveInputsUTxO :: UTxOType tx -> tx -> UTxOType tx
+
   -- | Get only the outputs in given UTxO.
   outputsOfUTxO :: UTxOType tx -> [TxOutType tx]
 
@@ -160,6 +164,8 @@ instance IsTx Tx where
   txSpendingUTxO = Api.txSpendingUTxO
 
   utxoFromTx = Api.utxoFromTx
+
+  resolveInputsUTxO = Api.resolveInputsUTxO
 
   outputsOfUTxO = UTxO.txOutputs
 
