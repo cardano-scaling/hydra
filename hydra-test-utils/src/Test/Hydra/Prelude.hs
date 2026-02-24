@@ -25,7 +25,7 @@ module Test.Hydra.Prelude (
   shrinkListAggressively,
   MinimumSized (..),
   HydraTestnet (..),
-  getHydraTestnet,
+  getHydraNetwork,
 ) where
 
 import Hydra.Prelude
@@ -249,7 +249,7 @@ onlyNightly action = do
 --    ...
 requiresBlockfrost :: IO () -> IO ()
 requiresBlockfrost action = do
-  getHydraTestnet >>= \case
+  getHydraNetwork >>= \case
     BlockfrostTesting -> action
     _ -> pendingWith "Only runs requiresBlockfrost"
 
@@ -260,8 +260,8 @@ data HydraTestnet
   | MainnetTesting
   | BlockfrostTesting
 
-getHydraTestnet :: IO HydraTestnet
-getHydraTestnet = do
+getHydraNetwork :: IO HydraTestnet
+getHydraNetwork = do
   backend <- lookupEnv "HYDRA_BACKEND"
   pure $ case backend of
     Nothing -> LocalDevnet
