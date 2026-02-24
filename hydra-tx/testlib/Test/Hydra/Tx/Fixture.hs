@@ -31,8 +31,8 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
+import Test.Hydra.Ledger.Cardano.Fixtures (epochInfo, pparams, slotLength, systemStart)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))

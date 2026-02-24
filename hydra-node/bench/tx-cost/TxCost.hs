@@ -39,14 +39,16 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano.Evaluate (
+  usedExecutionUnits,
+ )
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Test.Hydra.Ledger.Cardano.Fixtures (
   estimateMinFee,
   evaluateTx,
   maxTxSize,
   slotLength,
   systemStart,
-  usedExecutionUnits,
  )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
