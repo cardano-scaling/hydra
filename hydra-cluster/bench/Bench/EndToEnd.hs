@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
+import CardanoNode (EndToEndLog (..), HydraNodeLog, findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
   check,

@@ -255,7 +255,7 @@ withBackend ::
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
-  getHydraTestnet >>= \case
+  getHydraNetwork >>= \case
     LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
     PreviewTestnet -> withPublicTestnetNode Preview action
     PreproductionTestnet -> withPublicTestnetNode Preproduction action
@@ -286,27 +286,27 @@ withHydraScriptsAndBackendRunning ::
   forall a.
   Tracer IO EndToEndLog ->
   FilePath ->
-  (forall backend. ChainBackend backend => NominalDiffTime -> backend -> [TxId] -> IO a) ->
+  (forall backend. ChainBackend backend => backend -> [TxId] -> IO a) ->
   IO a
 withHydraScriptsAndBackendRunning tracer stateDirectory action = do
-  getHydraTestnet >>= \case
-    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \blockTime backend -> do
+  getHydraNetwork >>= \case
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \_ backend -> do
       txIds <- publishOrReuseHydraScripts backend Faucet stateDirectory
-      action blockTime backend txIds
+      action backend txIds
     PreviewTestnet -> withPublicTestnetNode Preview
     PreproductionTestnet -> withPublicTestnetNode Preproduction
     MainnetTesting -> withPublicTestnetNode Mainnet
-    BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory $ \blockTime backend -> do
+    BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory $ \_ backend -> do
       txIds <- publishOrReuseHydraScripts backend Faucet stateDirectory
-      action blockTime backend txIds
+      action backend txIds
  where
   withPublicTestnetNode network = do
     nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
     createDirectoryIfMissing True nodeDir
-    let syncPublishAndRun blockTime backend = do
+    let syncPublishAndRun _ backend = do
           waitForFullySynchronized (contramap FromCardanoNode tracer) backend
           txIds <- publishOrReuseHydraScripts backend Faucet nodeDir
-          action blockTime backend txIds
+          action backend txIds
     findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
       Just (blockTime, backend) ->
         syncPublishAndRun blockTime backend
