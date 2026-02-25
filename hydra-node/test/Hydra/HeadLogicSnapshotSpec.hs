@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, latestSeenSnapshotNumber, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
@@ -223,7 +223,9 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
   let outcome = update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
       Snapshot{number = confirmedSn} = getSnapshot sn
-      nextSn = confirmedSn + 1
+      -- NOTE: nextSn uses max to handle cases where seenSnapshot is ahead of confirmedSnapshot
+      seenSn = latestSeenSnapshotNumber seenSnapshot
+      nextSn = max confirmedSn seenSn + 1
   pure $
     outcome `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing)
       & counterexample (show outcome)

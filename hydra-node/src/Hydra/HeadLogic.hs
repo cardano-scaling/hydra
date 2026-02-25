@@ -307,7 +307,10 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
       newState TransactionAppliedToLocalUTxO{headId, tx, newLocalUTxO}
         -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-        & maybeRequestSnapshot (confirmedSn + 1)
+        -- NOTE: Use max(confirmedSn, seenSn) to handle cases where seenSnapshot
+        -- is ahead of confirmedSnapshot (e.g., after DecommitFinalized resets
+        -- seenSnapshot without updating confirmedSnapshot).
+        & maybeRequestSnapshot (max confirmedSn (latestSeenSnapshotNumber seenSnapshot) + 1)
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
@@ -328,7 +331,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
             newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome =
-    if not snapshotInFlight && isLeader parameters party nextSn
+    if not (snapshotInFlight seenSnapshot nextSn) && isLeader parameters party nextSn
       then
         let previousSnapshot = getSnapshot confirmedSnapshot
             -- Skip decommit/deposit if already posted in previous snapshot
@@ -359,12 +362,6 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, headId, parameters} = st
-
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
 
   -- NOTE: Order of transactions is important here. See also
   -- 'pruneTransactions'.
@@ -690,13 +687,11 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
         -- Skip decommit/deposit if already posted in previous snapshot
         decommitToInclude = skipPostedDecommit previous decommitTx
         depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previous.utxoToCommit
-    -- NB: Check if nextSn was already requested to prevent duplicate ReqSn.
-    -- Without this check, when a snapshot confirms, we might request the next snapshot
-    -- multiple times if new L2 transactions arrive before the ReqSn is processed.
-    -- This causes ReqSnNumberInvalid errors and can make snapshots stuck.
-    -- We only check RequestedSnapshot (not SeenSnapshot) to allow requesting the next
-    -- snapshot immediately when the current one is being signed (collecting signatures).
-    if not (alreadyRequestedSnapshot nextSn) && isLeader parameters party nextSn && not (null localTxs)
+    -- NB: No snapshotInFlight check needed here because we KNOW the previous snapshot
+    -- just confirmed (we're inside ifAllMembersHaveSigned). After aggregation, seenSnapshot
+    -- will be LastSeenSnapshot{lastSeen = previous.number}, so nextSn is safe to request.
+    -- The snapshotInFlight check in onOpenNetworkReqTx handles the ReqTx case.
+    if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
@@ -751,11 +746,6 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     } = openState
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, currentDepositTxId, version} = coordinatedHeadState
-
-  -- Check if we've already requested the next snapshot to prevent duplicates
-  alreadyRequestedSnapshot sn = case seenSnapshot of
-    RequestedSnapshot{requested} -> requested == sn
-    _ -> False
 
 -- | Client request to recover deposited UTxO.
 --
@@ -900,7 +890,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
                 }
 
   maybeRequestSnapshot =
-    if not snapshotInFlight && isLeader parameters party nextSn
+    if not (snapshotInFlight seenSnapshot nextSn) && isLeader parameters party nextSn
       then cause (NetworkEffect (ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) (Just decommitTx) Nothing))
       else noop
 
@@ -911,12 +901,6 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   nextSn = confirmedSn + 1
-
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
 
   CoordinatedHeadState
     { decommitTx = mExistingDecommitTx
@@ -995,7 +979,7 @@ onOpenChainTick env chainTime pendingDeposits st =
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
           && isNothing currentDepositTxId
-          && not snapshotInFlight
+          && not (snapshotInFlight seenSnapshot nextSn)
           && isLeader parameters party nextSn
           then
             -- XXX: This state update has no equivalence in the
@@ -1033,12 +1017,6 @@ onOpenChainTick env chainTime pendingDeposits st =
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, parameters} = st
-
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1142,6 +1120,31 @@ isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
     Just i -> ((fromIntegral sn - 1) `mod` length parties) == i
     _ -> False
+
+-- | Check if we can request a new snapshot.
+-- Returns True (blocks the request) if:
+--  - The requested snapshot number has already been confirmed (sn <= lastSeen)
+--  - OR any snapshot is currently in-flight (RequestedSnapshot/SeenSnapshot states)
+-- This ensures sequential snapshot processing and prevents duplicate requests.
+snapshotInFlight :: SeenSnapshot tx -> SnapshotNumber -> Bool
+snapshotInFlight seenSnapshot sn = case seenSnapshot of
+  NoSeenSnapshot -> False
+  LastSeenSnapshot{lastSeen} -> sn <= lastSeen
+  -- Block ALL snapshot requests when one is in-flight to maintain sequential processing
+  RequestedSnapshot{} -> True
+  SeenSnapshot{} -> True
+
+-- | Get the last confirmed snapshot number.
+-- This returns the snapshot number that has been fully confirmed and finalized,
+-- NOT in-flight snapshots. Used to calculate the next snapshot to request.
+latestSeenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
+latestSeenSnapshotNumber = \case
+  NoSeenSnapshot -> 0
+  LastSeenSnapshot{lastSeen} -> lastSeen
+  -- For RequestedSnapshot, use lastSeen (last confirmed), not requested (in-flight)
+  RequestedSnapshot{lastSeen} -> lastSeen
+  -- For SeenSnapshot, the snapshot being signed is N, so last confirmed is N-1
+  SeenSnapshot{snapshot = Snapshot{number}} -> number - 1
 
 -- ** Closing the Head
 
@@ -1478,8 +1481,8 @@ skipPostedDecommit previousSnapshot decommit =
 skipPostedDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
 skipPostedDeposit pendingDeposits depositTxId previousUtxoToCommit =
   case (depositTxId, previousUtxoToCommit) of
-    (Just txId, Just prevUtxo) ->
-      case Map.lookup txId pendingDeposits of
+    (Just depositId, Just prevUtxo) ->
+      case Map.lookup depositId pendingDeposits of
         Just Deposit{deposited}
           | deposited == prevUtxo -> Nothing -- Already posted
         _ -> depositTxId -- Keep it
