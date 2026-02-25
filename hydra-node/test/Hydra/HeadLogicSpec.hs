@@ -397,16 +397,16 @@ spec =
             Error (RequireFailed ReqSvNumberInvalid{}) -> True
             _ -> False
 
-          -- 3. A new ReqTx arrives — alice (leader for sn=2) can request a new
+          -- 3. A new ReqTx arrives — bob (leader for sn=2) can request a new
           -- snapshot because snapshotInFlight is now False after the reset
           let newTx = aValidTx 42
               reqTx = receiveMessage $ ReqTx newTx
-          s2 <- runHeadLogic aliceEnv ledger s1 $ do
+          s2 <- runHeadLogic bobEnv ledger s1 $ do
             step reqTx
             getState
 
           -- Verify the head is not stuck: seenSnapshot should have advanced
-          -- (snapshot number will be based on confirmedSnapshot.number, not lastSeen)
+          -- (snapshot number will be based on max(confirmedSnapshot.number, lastSeen))
           case s2 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.seenSnapshot `shouldSatisfy` \case
@@ -414,37 +414,63 @@ spec =
                 _ -> False
             _ -> fail "expected Open state"
 
-        it "DecommitFinalized with RequestedSnapshot uses requested number not lastSeen" $ do
+        it "DecommitFinalized race: calculates correct snapshot number when seenSnapshot ahead of confirmedSnapshot" $ do
+          -- This test reproduces the bug where DecommitFinalized arrives before AckSn completes,
+          -- causing seenSnapshot to get ahead of confirmedSnapshot, which then causes wrong
+          -- snapshot number calculation on the next ReqTx.
+          --
+          -- Bug scenario:
+          -- 1. Snapshot 1 requested with decommit (RequestedSnapshot{lastSeen=0, requested=1})
+          -- 2. DecrementTx posted to chain
+          -- 3. DecommitFinalized observed BEFORE AckSn messages complete
+          -- 4. toLastSeenSnapshot converts RequestedSnapshot{requested=1} → LastSeenSnapshot{lastSeen=1}
+          -- 5. Now: confirmedSnapshot.number=0 but seenSnapshot.lastSeen=1 (seenSnapshot is ahead!)
+          -- 6. New L2 tx arrives
+          -- 7. BUGGY: nextSn = confirmedSn + 1 = 0 + 1 = 1 (wrong! snapshot 1 is already "seen")
+          -- 8. FIXED: nextSn = max(confirmedSn, seenSn) + 1 = max(0, 1) + 1 = 2 (correct!)
+
           let localUTxO = utxoRefs [1]
+              -- Snapshot 0 is confirmed (initial state)
               confirmedSn =
                 ConfirmedSnapshot
-                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  { snapshot = testSnapshot 0 0 [] localUTxO
                   , signatures = Crypto.aggregate []
                   }
-              -- State: leader sent ReqSn(v=3, sn=1) with lastSeen=0
-              s0 =
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+
+          -- Leader sent ReqSn(sn=1) with decommit, now waiting for AckSn messages
+          let s0 =
                 inOpenState' threeParties $
                   coordinatedHeadState
                     { localUTxO
-                    , version = 3
+                    , version = 0
                     , confirmedSnapshot = confirmedSn
                     , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
-                    , decommitTx = Just (SimpleTx 10 mempty (utxoRef 99))
+                    , decommitTx = Just decommitTx
                     }
 
-          -- DecommitFinalized arrives before AckSn messages
-          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          -- DecommitFinalized arrives BEFORE AckSn messages (race condition!)
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
 
-          -- Verify seenSnapshot uses requested (1), not lastSeen (0)
+          -- Verify seenSnapshot is now ahead of confirmedSnapshot
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
-              chs.version `shouldBe` 4
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
-              chs.decommitTx `shouldBe` Nothing
+              chs.version `shouldBe` 1
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1} -- seenSnapshot updated
+              chs.confirmedSnapshot.snapshot.number `shouldBe` 0 -- confirmedSnapshot still at 0!
+              chs.decommitTx `shouldBe` Nothing -- decommit cleared
             _ -> fail "expected Open state"
+
+          -- New L2 transaction arrives (bob is leader for snapshot 2)
+          let newTx = aValidTx 42
+          let reqTxOutcome = update bobEnv ledger now s1 $ receiveMessage $ ReqTx newTx
+
+          -- Verify it requests snapshot 2 (not snapshot 1)
+          -- Note: Bob is leader for snapshot 2
+          reqTxOutcome `hasEffect` NetworkEffect (ReqSn 1 2 [txId newTx] Nothing Nothing)
 
         it "AckSn for decommit snapshot is noop after DecommitFinalized" $ do
           let localUTxO = utxoRefs [1]
@@ -636,6 +662,36 @@ spec =
 
           -- Should send ReqSn WITHOUT the deposit
           outcome `hasEffect` NetworkEffect (ReqSn 0 2 [3] Nothing Nothing)
+
+        it "does not request same snapshot number twice when tx arrives after snapshot confirms" $ do
+          let s0 = inOpenState threeParties
+              snapshot1 = testSnapshot 1 0 [] mempty
+
+          -- Snapshot 1 confirmed, then new tx arrives
+          let newTx = aValidTx 42
+              reqTx = receiveMessage $ ReqTx newTx
+
+          s1 <- runHeadLogic bobEnv ledger s0 $ do
+            -- First confirm snapshot 1
+            step $ receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            step $ receiveMessageFrom carol $ AckSn (sign carolSk snapshot1) 1
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot1) 1
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot1) 1
+            getState
+
+          -- At this point seenSnapshot = LastSeenSnapshot{lastSeen=1}
+          -- Now a new tx arrives - should request snapshot 2, NOT snapshot 1 again
+          s2 <- runHeadLogic bobEnv ledger s1 $ do
+            step reqTx
+            getState
+
+          -- Verify snapshot 2 was requested (not snapshot 1)
+          case s2 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldSatisfy` \case
+                RequestedSnapshot{lastSeen, requested} -> requested == 2 && lastSeen == 1
+                _ -> False
+            _ -> fail "expected Open state"
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
