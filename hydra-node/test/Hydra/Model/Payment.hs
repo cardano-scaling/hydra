@@ -87,6 +87,8 @@ instance IsTx Payment where
     [(from, value)] -> Payment{from, to = from, value}
     _ -> error "cant spend from multiple utxo in one payment"
   utxoFromTx Payment{to, value} = [(to, value)]
+  resolveInputsUTxO utxo Payment{from, value} =
+    filter (\(key, val) -> key == from && val == value) utxo
   outputsOfUTxO = id
   withoutUTxO a b =
     let as = second toList <$> a
