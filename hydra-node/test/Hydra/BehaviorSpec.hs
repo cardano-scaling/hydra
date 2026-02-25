@@ -19,6 +19,7 @@ import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
+import Data.List.NonEmpty qualified as NE
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
@@ -1171,13 +1172,14 @@ simulatedChainAndNetwork initialChainState = do
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
     let chainSlot =
-          List.head $
-            map
-              ( \case
-                  Observation{newChainState} -> chainStateSlot newChainState
-                  _NoObservation -> error "unexpected non-observation ChainEvent"
-              )
-              kept
+          maybe (ChainSlot 0) NE.head $
+            nonEmpty $
+              map
+                ( \case
+                    Observation{newChainState} -> chainStateSlot newChainState
+                    _NoObservation -> error "unexpected non-observation ChainEvent"
+                )
+                kept
     rolledBackChainState <- atomically $ rollback localChainState chainSlot
     -- Yield rollback events
     ns <- readTVarIO nodes
