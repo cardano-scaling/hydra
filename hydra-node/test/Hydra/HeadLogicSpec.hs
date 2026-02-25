@@ -1732,7 +1732,7 @@ spec =
                               , decommitTx = Nothing
                               , version = 0
                               }
-                        , chainState = Prelude.error "should not be used"
+                        , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                         , headId = testHeadId
                         , headSeed = testHeadSeed
                         }
@@ -1779,7 +1779,7 @@ spec =
                             , decommitTx = Nothing
                             , version = 0
                             }
-                      , chainState = Prelude.error "should not be used"
+                      , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                       , headId = testHeadId
                       , headSeed = testHeadSeed
                       }
