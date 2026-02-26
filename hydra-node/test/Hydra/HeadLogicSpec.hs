@@ -567,6 +567,65 @@ spec =
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
             _ -> fail "expected Open state"
 
+        it "version race: ReqSn with old version is rejected after DecommitFinalized bumps version" $ do
+          -- This test exposes the version race bug:
+          -- 1. Snapshot 0 confirmed with decommit at version 0
+          -- 2. Leader sends ReqSn(version=0, number=1) to network
+          -- 3. DecommitFinalized arrives at follower's node, bumping version to 1
+          -- 4. Follower receives stale ReqSn(version=0, number=1) but now expects version=1
+          -- 5. Follower rejects with ReqSvNumberInvalid
+          -- 6. System is stuck: snapshot 1 never completes, later snapshots wait forever
+
+          let localUTxO = utxoRefs [1, 2, 3]
+              decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
+              utxoToDecommit' = txInputs decommitTx'
+
+              -- Snapshot 0 confirmed WITH decommit (version 0)
+              snapshot0 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 0
+                  , confirmed = []
+                  , utxo = localUTxO
+                  , utxoToCommit = mempty
+                  , utxoToDecommit = Just utxoToDecommit'
+                  }
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = snapshot0
+                  , signatures = Crypto.aggregate []
+                  }
+
+          -- Follower state BEFORE receiving the stale ReqSn:
+          -- - Snapshot 0 confirmed
+          -- - DecommitFinalized has NOT arrived yet (version still 0)
+          -- - Waiting for snapshot 1 to be requested
+          let bobStateBeforeFinalized =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO = localUTxO <> utxoToDecommit' -- decommit not yet applied
+                    , version = 0 -- Before DecommitFinalized
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 0}
+                    , decommitTx = Nothing
+                    }
+
+          now <- nowFromSlot bobStateBeforeFinalized.chainPointTime.currentSlot
+
+          -- Follower observes DecommitFinalized BEFORE receiving the ReqSn
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = mempty}
+          let bobAfterFinalized = aggregateState bobStateBeforeFinalized (update bobEnv ledger now bobStateBeforeFinalized decrementObservation)
+
+          -- Now follower receives stale ReqSn with version=0 (created before DecommitFinalized)
+          let staleReqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+              reqSnInput = receiveMessageFrom alice staleReqSn
+
+          -- Follower rejects with ReqSvNumberInvalid (version mismatch)
+          update bobEnv ledger now bobAfterFinalized reqSnInput `shouldSatisfy` \case
+            Error (RequireFailed ReqSvNumberInvalid{requestedSv = 0, lastSeenSv = 1}) -> True
+            _ -> False
+
         it "does not request same decommit twice across snapshots" $ do
           let localUTxO = utxoRefs [1, 2, 3]
               decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
