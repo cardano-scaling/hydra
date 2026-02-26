@@ -41,33 +41,42 @@ main = do
 
   putTextLn "Generated UTxO sets: 10, 50, 100, 500, 1000, 5000, 10000"
 
-  -- Pre-build accumulators for membership proof tests
-  let acc10 = buildFromUTxO @Tx utxo10
-      acc50 = buildFromUTxO @Tx utxo50
-      acc100 = buildFromUTxO @Tx utxo100
-      acc500 = buildFromUTxO @Tx utxo500
-      acc1000 = buildFromUTxO @Tx utxo1000
-      acc5000 = buildFromUTxO @Tx utxo5000
-      acc10000 = buildFromUTxO @Tx utxo10000
+  -- Pre-build accumulators for membership proof tests and force them
+  let !acc10 = buildFromUTxO @Tx utxo10
+      !acc50 = buildFromUTxO @Tx utxo50
+      !acc100 = buildFromUTxO @Tx utxo100
+      !acc500 = buildFromUTxO @Tx utxo500
+      !acc1000 = buildFromUTxO @Tx utxo1000
+      !acc5000 = buildFromUTxO @Tx utxo5000
+      !acc10000 = buildFromUTxO @Tx utxo10000
 
   putTextLn "Pre-built accumulators"
 
+  -- Pre-generate CRS of various sizes and force them
+  let !crs50 = generateCRS 50
+      !crs100 = generateCRS 100
+      !crs500 = generateCRS 500
+      !crs1000 = generateCRS 1000
+      !crs5000 = generateCRS 5000
+      !crs10000 = generateCRS 10000
+
+  putTextLn "Pre-generated CRS"
+
   -- Generate subsets for membership proofs
-  -- Testing realistic scenarios: proving 10-20% of UTxOs
-  let subset5_from50 = generateSubset utxo50 5
-  let subset10_from100 = generateSubset utxo100 10
-  let subset50_from500 = generateSubset utxo500 50
-  let subset100_from1000 = generateSubset utxo1000 100
-  let subset500_from5000 = generateSubset utxo5000 500
-  let subset1000_from10000 = generateSubset utxo10000 1000
+  let !subset5_from50 = generateSubset utxo50 5
+  let !subset10_from100 = generateSubset utxo100 10
+  let !subset50_from500 = generateSubset utxo500 50
+  let !subset100_from1000 = generateSubset utxo1000 100
+  let !subset500_from5000 = generateSubset utxo5000 500
+  let !subset1000_from10000 = generateSubset utxo10000 1000
 
   putTextLn "Generated subsets for membership proofs"
 
   -- Extract individual elements for low-level proof testing
-  let elements10 = toPairList @Tx utxo10
-      elements100 = toPairList @Tx utxo100
-      serialized10 = utxoToElement @Tx <$> elements10
-      serialized100 = utxoToElement @Tx <$> elements100
+  let !elements10 = toPairList @Tx utxo10
+      !elements100 = toPairList @Tx utxo100
+      !serialized10 = utxoToElement @Tx <$> elements10
+      !serialized100 = utxoToElement @Tx <$> elements100
 
   putTextLn "Starting benchmarks..."
   putTextLn ""
@@ -93,18 +102,18 @@ main = do
         ]
     , bgroup
         "3. Create Membership Proofs"
-        [ bench "5 from 50" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset5_from50 acc50 (generateCRS 50)
-        , bench "10 from 100" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset10_from100 acc100 (generateCRS 100)
-        , bench "50 from 500" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset50_from500 acc500 (generateCRS 500)
-        , bench "100 from 1000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset100_from1000 acc1000 (generateCRS 1000)
-        , bench "500 from 5000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset500_from5000 acc5000 (generateCRS 5000)
-        , bench "1000 from 10000" $ whnf rnf $ createMembershipProofFromUTxO @Tx subset1000_from10000 acc10000 (generateCRS 10000)
+        [ bench "5 from 50" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc50 crs50) subset5_from50
+        , bench "10 from 100" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc100 crs100) subset10_from100
+        , bench "50 from 500" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc500 crs500) subset50_from500
+        , bench "100 from 1000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc1000 crs1000) subset100_from1000
+        , bench "500 from 5000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc5000 crs5000) subset500_from5000
+        , bench "1000 from 10000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc10000 crs10000) subset1000_from10000
         ]
     , bgroup
         "4. Create Membership Proofs (Low-level)"
-        [ bench "5 elements from 10" $ whnf rnf $ createMembershipProof (take 5 serialized10) acc10 (generateCRS 10)
-        , bench "10 elements from 100" $ whnf rnf $ createMembershipProof (take 10 serialized100) acc100 (generateCRS 100)
-        , bench "50 elements from 100" $ whnf rnf $ createMembershipProof (take 50 serialized100) acc100 (generateCRS 100)
+        [ bench "5 elements from 10" $ nf (\s -> createMembershipProof s acc10 crs50) (take 5 serialized10)
+        , bench "10 elements from 100" $ nf (\s -> createMembershipProof s acc100 crs100) (take 10 serialized100)
+        , bench "50 elements from 100" $ nf (\s -> createMembershipProof s acc100 crs100) (take 50 serialized100)
         ]
     , bgroup
         "5. Accumulator Hashing"
@@ -122,17 +131,18 @@ main = do
         ]
     , bgroup
         "7. CRS Generation"
-        [ bench "CRS size 10" $ whnf generateCRS 10
-        , bench "CRS size 100" $ whnf generateCRS 100
-        , bench "CRS size 1000" $ whnf generateCRS 1000
-        , bench "CRS size 5000" $ whnf generateCRS 5000
-        , bench "CRS size 10000" $ whnf generateCRS 10000
+        -- Point2 lacks NFData, so we force the full spine via length
+        [ bench "CRS size 10" $ whnf (length . generateCRS) 10
+        , bench "CRS size 100" $ whnf (length . generateCRS) 100
+        , bench "CRS size 1000" $ whnf (length . generateCRS) 1000
+        , bench "CRS size 5000" $ whnf (length . generateCRS) 5000
+        , bench "CRS size 10000" $ whnf (length . generateCRS) 10000
         ]
     , bgroup
         "8. End-to-End Snapshot Simulation"
-        [ bench "Full cycle: 100 UTxOs" $ nf rnf (fullSnapshotCycle utxo100)
-        , bench "Full cycle: 1000 UTxOs" $ nf rnf (fullSnapshotCycle utxo1000)
-        , bench "Partial fanout: 100 from 1000" $ nf rnf (partialFanoutCycle utxo1000 subset100_from1000)
+        [ bench "Full cycle: 100 UTxOs" $ nf fullSnapshotCycle utxo100
+        , bench "Full cycle: 1000 UTxOs" $ nf fullSnapshotCycle utxo1000
+        , bench "Partial fanout: 100 from 1000" $ nf (partialFanoutCycle utxo1000) subset100_from1000
         ]
     ]
 
@@ -167,4 +177,5 @@ fullSnapshotCycle utxo =
 partialFanoutCycle :: UTxO -> UTxO -> ByteString
 partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
-   in createMembershipProofFromUTxO @Tx subsetUtxo accumulator (generateCRS $ UTxO.size fullUtxo + 1)
+      crs = generateCRS (UTxO.size fullUtxo + 1)
+   in createMembershipProofFromUTxO @Tx subsetUtxo accumulator crs
