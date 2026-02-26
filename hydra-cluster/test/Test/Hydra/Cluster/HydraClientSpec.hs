@@ -8,6 +8,8 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (
+  EndToEndLog (..),
+  HydraNodeLog,
   withCardanoNodeDevnet,
  )
 import Control.Lens ((^?))
@@ -35,7 +37,6 @@ import Hydra.Cluster.Fixture (
   carolSk,
  )
 import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
   headIsInitializingWith,
  )
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
@@ -44,7 +45,6 @@ import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (
   HydraClient (..),
-  HydraNodeLog,
   getSnapshotUTxO,
   input,
   output,

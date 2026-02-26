@@ -11,8 +11,10 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (
+  EndToEndLog (..),
   withBackend,
   withCardanoNodeDevnet,
+  withHydraScriptsAndBackendRunning,
  )
 import Control.Lens ((^..), (^?))
 import Control.Monad (foldM_)
@@ -48,7 +50,6 @@ import Hydra.Cluster.Fixture (
   carolVk,
  )
 import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
   canCloseWithLongContestationPeriod,
   canCommit,
   canDecommit,
@@ -261,138 +262,119 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "single party hydra head" $ do
       around_ requiresBlockfrost $ it "full head life-cycle @requiresBlockfrost" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyHeadFullLifeCycle tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyHeadFullLifeCycle tracer tmpDir backend hydraScriptsTxId
       it "can close with long deadline" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canCloseWithLongContestationPeriod tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            canCloseWithLongContestationPeriod tracer tmpDir backend hydraScriptsTxId
       it "can submit a timed tx" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= timedTx tmpDir tracer backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            timedTx tmpDir tracer backend hydraScriptsTxId
       around_ requiresBlockfrost $ it "commits from external with utxo @requiresBlockfrost" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyCommitsFromExternal tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyCommitsFromExternal tracer tmpDir backend hydraScriptsTxId
       it "can spend from a script on L2" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyUsesScriptOnL2 tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyUsesScriptOnL2 tracer tmpDir backend hydraScriptsTxId
       it "can use withdraw zero on L2" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyUsesWithdrawZeroTrick tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyUsesWithdrawZeroTrick tracer tmpDir backend hydraScriptsTxId
       it "can submit a signed user transaction" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canSubmitTransactionThroughAPI tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            canSubmitTransactionThroughAPI tracer tmpDir backend hydraScriptsTxId
       it "commits from external with tx blueprint" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyCommitsFromExternalTxBlueprint tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyCommitsFromExternalTxBlueprint tracer tmpDir backend hydraScriptsTxId
       it "can decommit utxo" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canDecommit tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            canDecommit tracer tmpDir backend hydraScriptsTxId
       it "can incrementally commit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canCommit tracer tmpDir blockTime backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
+            canCommit tracer tmpDir blockTime backend hydraScriptsTxId
       it "reject commits with too low value" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= rejectCommit tracer tmpDir blockTime backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
+            rejectCommit tracer tmpDir blockTime backend hydraScriptsTxId
       it "can recover deposit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canRecoverDeposit tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            canRecoverDeposit tracer tmpDir backend hydraScriptsTxId
       it "can recover deposit in any state" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canRecoverDepositInAnyState tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            canRecoverDepositInAnyState tracer tmpDir backend hydraScriptsTxId
       it "can see pending deposits" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canSeePendingDeposits tracer tmpDir blockTime backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
+            canSeePendingDeposits tracer tmpDir blockTime backend hydraScriptsTxId
       it "incrementally commit script using blueprint tx" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyCommitsScriptBlueprint tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyCommitsScriptBlueprint tracer tmpDir backend hydraScriptsTxId
       it "deposit reference script" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyDepositReferenceScript tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyDepositReferenceScript tracer tmpDir backend hydraScriptsTxId
       it "incrementally commit script with security checks" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyCommitsScriptToTheRightHead tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            singlePartyCommitsScriptToTheRightHead tracer tmpDir backend hydraScriptsTxId
       it "can deposit partial UTxO" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= canDepositPartially tracer tmpDir blockTime backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
+            canDepositPartially tracer tmpDir blockTime backend hydraScriptsTxId
       it "persistence can load with empty commit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= persistenceCanLoadWithEmptyCommit tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            persistenceCanLoadWithEmptyCommit tracer tmpDir backend hydraScriptsTxId
       it "node re-observes on-chain txs" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= nodeReObservesOnChainTxs tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            nodeReObservesOnChainTxs tracer tmpDir backend hydraScriptsTxId
 
     describe "three hydra nodes scenario" $ do
       it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= oneOfThreeNodesStopsForAWhile tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            oneOfThreeNodesStopsForAWhile tracer tmpDir backend hydraScriptsTxId
 
       it "does not error when all nodes open the head concurrently" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              publishHydraScriptsAs backend Faucet
-                >>= threeNodesNoErrorsOnOpen tracer tmpDir backend
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+              threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId
 
       it "node can support multiple etcd clusters" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              publishHydraScriptsAs backend Faucet
-                >>= nodeCanSupportMultipleEtcdClusters tracer tmpDir backend
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+              nodeCanSupportMultipleEtcdClusters tracer tmpDir backend hydraScriptsTxId
 
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
               initAndClose tmpDir tracer 1 hydraScriptsTxId backend
 
       it "inits a Head and closes it immediately" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
             let clusterIx = 0
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+              blockTime <- Backend.getBlockTime backend
               let nodeSocket' = case Backend.getOptions backend of
                     Direct DirectOptions{nodeSocket} -> nodeSocket
                     _ -> error "Unexpected Blockfrost backend"
@@ -405,7 +387,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               let firstNodeId = clusterIx * 3
 
-              hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
               let contestationPeriod = 2
               let hydraTracer = contramap FromHydraNode tracer
 
@@ -458,7 +439,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- failAfter 60 $
         withClusterTempDir $ \tmpDir -> do
           let clusterIx = 0
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             let nodeSocket' = case Backend.getOptions backend of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
                   _ -> error "Unexpected Blockfrost backend"
@@ -471,7 +453,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             let firstNodeId = clusterIx * 3
 
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 2
             let hydraTracer = contramap FromHydraNode tracer
 
@@ -553,9 +534,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "supports mirror party" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              publishHydraScriptsAs backend Faucet
-                >>= threeNodesWithMirrorParty tracer tmpDir backend
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+              threeNodesWithMirrorParty tracer tmpDir backend hydraScriptsTxId
 
       describe "Fanout maximum UTxOs" $ do
         -- This constant is set to the maximum number of UTxOs that can be
@@ -570,43 +550,38 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         it "reaches the fan out limit" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
-              withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-                scriptsTxs <- publishHydraScriptsAs backend Faucet
-                reachFanoutLimit ledgerSizeLimit tmpDir tracer scriptsTxs backend
+              withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+                reachFanoutLimit ledgerSizeLimit tmpDir tracer hydraScriptsTxId backend
 
         it "doesn't reach the fan out limit by one" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
-              withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-                scriptsTxs <- publishHydraScriptsAs backend Faucet
-                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer scriptsTxs backend
+              withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer hydraScriptsTxId backend
                   `shouldThrow` \(e :: SomeException) -> "HeadIsFinalized" `isInfixOf` show e
 
     describe "restarting nodes" $ do
       it "resume from latest observed point" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= resumeFromLatestKnownPoint tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            resumeFromLatestKnownPoint tracer tmpDir backend hydraScriptsTxId
 
       it "can abort head after restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= restartedNodeCanAbort tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            restartedNodeCanAbort tracer tmpDir backend hydraScriptsTxId
 
       it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= restartedNodeCanObserveCommitTx tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            restartedNodeCanObserveCommitTx tracer tmpDir backend hydraScriptsTxId
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir $ \tmp ->
-          withBackend (contramap FromCardanoNode tracer) tmp $ \blockTime backend -> do
+          withHydraScriptsAndBackendRunning tracer tmp $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let contestationPeriod = 10
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] contestationPeriod
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
@@ -631,9 +606,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
         withClusterTempDir $ \tmp ->
-          withBackend (contramap FromCardanoNode tracer) tmp $ \blockTime backend -> do
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-
+          withHydraScriptsAndBackendRunning tracer tmp $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
 
@@ -714,9 +688,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can side load snapshot" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= canSideLoadSnapshot tracer tmpDir backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            canSideLoadSnapshot tracer tmpDir backend hydraScriptsTxId
 
       it "can resume when member has already been bootstrapped" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
@@ -734,8 +707,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
               concurrentlyLabelled_
                 ("init-and-close-0", initAndClose tmpDir tracer 0 hydraScriptsTxId backend)
                 ("init-and-close-1", initAndClose tmpDir tracer 1 hydraScriptsTxId backend)
@@ -743,25 +715,23 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              publishHydraScriptsAs backend Faucet
-                >>= initWithWrongKeys tmpDir tracer backend
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+              initWithWrongKeys tmpDir tracer backend hydraScriptsTxId
 
       it "cluster id mismatch provides useful info in the logs" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-              publishHydraScriptsAs backend Faucet
-                >>= startWithWrongPeers tmpDir tracer backend
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+              startWithWrongPeers tmpDir tracer backend hydraScriptsTxId
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+              blockTime <- Backend.getBlockTime backend
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               let contestationPeriod = 10
-              hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
               aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
               bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice] contestationPeriod
               let hydraTracer = contramap FromHydraNode tracer
@@ -792,8 +762,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
             let contestationPeriod = 10
             aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
@@ -815,7 +785,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "withHydraNode" $ do
       it "detects crashes" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
+          withBackend tracer dir $ \blockTime backend -> do
             let nodeSocket' = case Backend.getOptions backend of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
                   _ -> error "Unexpected Blockfrost backend"
@@ -838,9 +808,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "stops gracefully" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
+          withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
 
@@ -850,9 +820,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can be restarted" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
+          withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
 
@@ -866,9 +836,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend (contramap FromCardanoNode tracer) dir $ \blockTime backend -> do
+          withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
+            blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             refuelIfNeeded tracer backend Alice 100_000_000
             let contestationPeriod = 2
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
