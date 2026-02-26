@@ -33,7 +33,7 @@
 </span><a href="Hydra.TUI.Options.html#cardanoSigningKey"><span class="hs-identifier hs-var hs-var">cardanoSigningKey</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
 </span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ User key used by the tui client to commit</span></span><span>
 </span><span id="line-31"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-32"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679465067"><span id="local-6989586621679465078"><span class="annot"><span class="annottext">Options -&gt; Options -&gt; Bool
+</span><span id="line-32"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679465335"><span id="local-6989586621679465346"><span class="annot"><span class="annottext">Options -&gt; Options -&gt; Bool
 (Options -&gt; Options -&gt; Bool)
 -&gt; (Options -&gt; Options -&gt; Bool) -&gt; Eq Options
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -41,7 +41,7 @@ $c== :: Options -&gt; Options -&gt; Bool
 == :: Options -&gt; Options -&gt; Bool
 $c/= :: Options -&gt; Options -&gt; Bool
 /= :: Options -&gt; Options -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679465087"><span id="local-6989586621679465097"><span id="local-6989586621679465101"><span class="annot"><span class="annottext">Int -&gt; Options -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679465355"><span id="local-6989586621679465365"><span id="local-6989586621679465369"><span class="annot"><span class="annottext">Int -&gt; Options -&gt; ShowS
 [Options] -&gt; ShowS
 Options -&gt; FilePath
 (Int -&gt; Options -&gt; ShowS)
@@ -93,11 +93,11 @@ forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f
 </span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">Parser Options -&gt; Parser (Options -&gt; Options) -&gt; Parser Options
 forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f (a -&gt; b) -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%2A%3E"><span class="hs-operator hs-var">&lt;**&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Parser (Options -&gt; Options)
-</span><a href="#local-6989586621679465110"><span class="hs-identifier hs-var">versionInfo</span></a></span><span>
+</span><a href="#local-6989586621679465378"><span class="hs-identifier hs-var">versionInfo</span></a></span><span>
 </span><span id="line-43"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-44"></span><span>  </span><span class="annot"><a href="#local-6989586621679465110"><span class="hs-identifier hs-type">versionInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-45"></span><span>  </span><span id="local-6989586621679465110"><span class="annot"><span class="annottext">versionInfo :: Parser (Options -&gt; Options)
-</span><a href="#local-6989586621679465110"><span class="hs-identifier hs-var hs-var">versionInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="#local-6989586621679465378"><span class="hs-identifier hs-type">versionInfo</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Options.html#Options"><span class="hs-identifier hs-type">Options</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>  </span><span id="local-6989586621679465378"><span class="annot"><span class="annottext">versionInfo :: Parser (Options -&gt; Options)
+</span><a href="#local-6989586621679465378"><span class="hs-identifier hs-var hs-var">versionInfo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">FilePath
 -&gt; Mod OptionFields (Options -&gt; Options)
 -&gt; Parser (Options -&gt; Options)
@@ -105,7 +105,7 @@ forall a. FilePath -&gt; Mod OptionFields (a -&gt; a) -&gt; Parser (a -&gt; a)
 </span><span class="hs-identifier hs-var">infoOption</span></span><span>
 </span><span id="line-47"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Version -&gt; FilePath
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#showVersion"><span class="hs-identifier hs-var">showVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Version
-</span><a href="#local-6989586621679465111"><span class="hs-identifier hs-var">ourVersion</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679465379"><span class="hs-identifier hs-var">ourVersion</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-48"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FilePath -&gt; Mod OptionFields (Options -&gt; Options)
 forall (f :: * -&gt; *) a. HasName f =&gt; FilePath -&gt; Mod f a
 </span><span class="hs-identifier hs-var">long</span></span><span> </span><span class="annot"><span class="annottext">FilePath
@@ -118,20 +118,20 @@ forall (f :: * -&gt; *) a. FilePath -&gt; Mod f a
 </span><span class="hs-identifier hs-var">help</span></span><span> </span><span class="annot"><span class="annottext">FilePath
 </span><span class="hs-string">&quot;Show version&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-49"></span><span>
-</span><span id="line-50"></span><span>  </span><span id="local-6989586621679465111"><span class="annot"><span class="annottext">ourVersion :: Version
-</span><a href="#local-6989586621679465111"><span class="hs-identifier hs-var hs-var">ourVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-50"></span><span>  </span><span id="local-6989586621679465379"><span class="annot"><span class="annottext">ourVersion :: Version
+</span><a href="#local-6989586621679465379"><span class="hs-identifier hs-var hs-var">ourVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">Version
 </span><a href="Paths_hydra_tui.html#version"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">Version -&gt; (Version -&gt; Version) -&gt; Version
 forall a b. a -&gt; (a -&gt; b) -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span id="local-6989586621679465113"><span class="annot"><span class="annottext">[Int]
-</span><a href="#local-6989586621679465113"><span class="hs-identifier hs-var">semver</span></a></span></span><span> </span><span class="annot"><span class="annottext">[FilePath]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-type">Version</span></a></span><span> </span><span id="local-6989586621679465381"><span class="annot"><span class="annottext">[Int]
+</span><a href="#local-6989586621679465381"><span class="hs-identifier hs-var">semver</span></a></span></span><span> </span><span class="annot"><span class="annottext">[FilePath]
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [FilePath] -&gt; Version
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Version.html#Version"><span class="hs-identifier hs-var">Version</span></a></span><span> </span><span class="annot"><span class="annottext">[Int]
-</span><a href="#local-6989586621679465113"><span class="hs-identifier hs-var">semver</span></a></span><span> </span><span class="annot"><span class="annottext">[FilePath]
-</span><a href="#local-6989586621679465114"><span class="hs-identifier hs-var">revision</span></a></span><span>
+</span><a href="#local-6989586621679465381"><span class="hs-identifier hs-var">semver</span></a></span><span> </span><span class="annot"><span class="annottext">[FilePath]
+</span><a href="#local-6989586621679465382"><span class="hs-identifier hs-var">revision</span></a></span><span>
 </span><span id="line-52"></span><span>
-</span><span id="line-53"></span><span>  </span><span id="local-6989586621679465114"><span class="annot"><span class="annottext">revision :: [FilePath]
-</span><a href="#local-6989586621679465114"><span class="hs-identifier hs-var hs-var">revision</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621679465382"><span class="annot"><span class="annottext">revision :: [FilePath]
+</span><a href="#local-6989586621679465382"><span class="hs-identifier hs-var hs-var">revision</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">Maybe FilePath -&gt; [FilePath]
 forall a. Maybe a -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybeToList"><span class="hs-identifier hs-var">maybeToList</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe FilePath -&gt; [FilePath]) -&gt; Maybe FilePath -&gt; [FilePath]
@@ -160,7 +160,7 @@ forall a b. b -&gt; Either a b
 -&gt; Parser SocketPath -&gt; Parser (Either FilePath SocketPath)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Parser SocketPath
-</span><a href="#local-6989586621679465120"><span class="hs-identifier hs-var">cardanoNodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Parser (Either FilePath SocketPath)
+</span><a href="#local-6989586621679465388"><span class="hs-identifier hs-var">cardanoNodeSocket</span></a></span><span> </span><span class="annot"><span class="annottext">Parser (Either FilePath SocketPath)
 -&gt; Parser (Either FilePath SocketPath)
 -&gt; Parser (Either FilePath SocketPath)
 forall a. Parser a -&gt; Parser a -&gt; Parser a
@@ -171,11 +171,11 @@ forall a b. a -&gt; Either a b
 -&gt; Parser FilePath -&gt; Parser (Either FilePath SocketPath)
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Parser FilePath
-</span><a href="#local-6989586621679465121"><span class="hs-identifier hs-var">blockFrost</span></a></span><span>
+</span><a href="#local-6989586621679465389"><span class="hs-identifier hs-var">blockFrost</span></a></span><span>
 </span><span id="line-61"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-62"></span><span>  </span><span class="annot"><a href="#local-6989586621679465120"><span class="hs-identifier hs-type">cardanoNodeSocket</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span>
-</span><span id="line-63"></span><span>  </span><span id="local-6989586621679465120"><span class="annot"><span class="annottext">cardanoNodeSocket :: Parser SocketPath
-</span><a href="#local-6989586621679465120"><span class="hs-identifier hs-var hs-var">cardanoNodeSocket</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><a href="#local-6989586621679465388"><span class="hs-identifier hs-type">cardanoNodeSocket</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SocketPath</span></span><span>
+</span><span id="line-63"></span><span>  </span><span id="local-6989586621679465388"><span class="annot"><span class="annottext">cardanoNodeSocket :: Parser SocketPath
+</span><a href="#local-6989586621679465388"><span class="hs-identifier hs-var hs-var">cardanoNodeSocket</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-64"></span><span>    </span><span class="annot"><span class="annottext">Mod OptionFields SocketPath -&gt; Parser SocketPath
 forall s. IsString s =&gt; Mod OptionFields s -&gt; Parser s
 </span><span class="hs-identifier hs-var">strOption</span></span><span>
@@ -211,9 +211,9 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 forall a (f :: * -&gt; *). Show a =&gt; Mod f a
 </span><span class="hs-identifier hs-var">showDefault</span></span><span>
 </span><span id="line-70"></span><span>      </span><span class="hs-special">)</span><span>
-</span><span id="line-71"></span><span>  </span><span class="annot"><a href="#local-6989586621679465121"><span class="hs-identifier hs-type">blockFrost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
-</span><span id="line-72"></span><span>  </span><span id="local-6989586621679465121"><span class="annot"><span class="annottext">blockFrost :: Parser FilePath
-</span><a href="#local-6989586621679465121"><span class="hs-identifier hs-var hs-var">blockFrost</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><a href="#local-6989586621679465389"><span class="hs-identifier hs-type">blockFrost</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621679465389"><span class="annot"><span class="annottext">blockFrost :: Parser FilePath
+</span><a href="#local-6989586621679465389"><span class="hs-identifier hs-var hs-var">blockFrost</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">Mod OptionFields FilePath -&gt; Parser FilePath
 forall s. IsString s =&gt; Mod OptionFields s -&gt; Parser s
 </span><span class="hs-identifier hs-var">strOption</span></span><span>
