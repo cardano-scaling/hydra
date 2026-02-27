@@ -47,6 +47,7 @@ import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
   HydraClient,
   HydraNodeLog,
+  getSnapshotUTxO,
   hydraNodeId,
   input,
   output,
@@ -191,10 +192,17 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
 
   putTextLn "Finalizing the Head"
   send leader $ input "Fanout" []
-  finalUTxOJSON <- waitMatch 100 leader $ \v -> do
+  fanoutResult :: Either SomeException Value <- try $ waitMatch 100 leader $ \v -> do
     guard (v ^? key "tag" == Just "HeadIsFinalized")
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "utxo"
+
+  finalUTxOJSON <-
+    case fanoutResult of
+      Left _ -> do
+        putStrLn "Fanout failed."
+        toJSON <$> getSnapshotUTxO leader
+      Right finalUTxO -> pure finalUTxO
 
   let confTimes = map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes

@@ -106,7 +106,7 @@ markdownReport now summaries =
     ]
 
   formattedSummary :: (Summary, SystemStats) -> [Text]
-  formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs}, systemStats) =
+  formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs}, systemStats) =
     [ ""
     , "## " <> summaryTitle
     , ""
@@ -126,6 +126,8 @@ markdownReport now summaries =
             else []
          )
       ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
+         ]
+      ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
          ]
       ++ ["      "]
       ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
