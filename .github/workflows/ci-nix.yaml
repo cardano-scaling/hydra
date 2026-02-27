@@ -71,7 +71,7 @@ jobs:
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: hydra-cluster-e2e-test-logs
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
@@ -109,7 +109,7 @@ jobs:
         nix develop .#${{ matrix.package }}-bench --command ${{ matrix.bench }} ${{ matrix.options }}
 
     - name: 💾 Upload build & test artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: benchmarks-${{matrix.package}}-${{matrix.bench}}
         path: benchmarks
@@ -117,7 +117,7 @@ jobs:
     # NOTE: This depends on the path used in hydra-cluster bench
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: hydra-cluster-bench-logs
         path: /tmp/nix-shell.*/bench-*/**/*.log

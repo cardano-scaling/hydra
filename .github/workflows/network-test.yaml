@@ -124,7 +124,7 @@ jobs:
 
     - name: 💾 Upload logs
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: "artifacts-netem-loss=${{ matrix.netem_loss }},scaling_factor=${{ matrix.scaling_factor }},peers=${{ matrix.peers }}"
         path: |
