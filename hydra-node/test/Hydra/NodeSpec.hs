@@ -303,7 +303,7 @@ spec = parallel $ do
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , unsyncedPeriod = defaultUnsyncedPeriod
-            , participants = error "should not be recorded in head state"
+            , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
             }
         nodeState = inInitialState [alice, bob]

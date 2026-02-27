@@ -45,8 +45,8 @@ common project-config
     -fprint-potential-instances -Wmissing-local-signatures
 
 library
-  import:          project-config
-  hs-source-dirs:  src
+  import:             project-config
+  hs-source-dirs:     src
   exposed-modules:
     Hydra.API.APIServerLog
     Hydra.API.ClientInput
@@ -107,7 +107,7 @@ library
     Hydra.PersistenceLog
     Hydra.Utils
 
-  other-modules:   Paths_hydra_node
+  other-modules:      Paths_hydra_node
   build-depends:
     , aeson
     , base
@@ -177,7 +177,8 @@ library
     , warp-tls
     , websockets
 
-  ghc-options:     -haddock
+  default-extensions: StrictData
+  ghc-options:        -haddock
 
 library testlib
   import:          project-config
