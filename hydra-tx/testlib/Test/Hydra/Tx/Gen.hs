@@ -25,7 +25,7 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
 import Hydra.Contract.Head qualified as Head
-import Hydra.Ledger.Cardano.Evaluate
+import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
@@ -37,6 +37,7 @@ import Hydra.Tx.Crypto
 import Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
 import Test.Cardano.Ledger.Conway.Arbitrary ()
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)
 import Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 import Test.QuickCheck.Gen (chooseWord64)

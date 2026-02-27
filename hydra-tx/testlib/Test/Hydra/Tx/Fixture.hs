@@ -31,13 +31,13 @@ import Hydra.Cardano.Api (
   verificationKeyHash,
  )
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Ledger.Cardano.Evaluate (epochInfo, pparams, slotLength, systemStart)
 import Hydra.Tx (HeadId (..), HeadSeed (..), Party (..), mkHeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
 import Hydra.Tx.Party (deriveParty)
+import Test.Hydra.Ledger.Cardano.Fixtures (epochInfo, pparams, slotLength, systemStart)
 import Test.Hydra.Prelude
 
 -- | Our beloved alice, bob, and carol.

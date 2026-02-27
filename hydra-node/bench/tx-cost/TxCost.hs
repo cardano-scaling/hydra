@@ -39,11 +39,6 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInitAndCommits,
  )
 import Hydra.Ledger.Cardano.Evaluate (
-  estimateMinFee,
-  evaluateTx,
-  maxTxSize,
-  slotLength,
-  systemStart,
   usedExecutionUnits,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
@@ -62,6 +57,13 @@ import Test.Hydra.Chain.Direct.State (
   genStInitial,
   genStOpen,
   pickChainContext,
+ )
+import Test.Hydra.Ledger.Cardano.Fixtures (
+  estimateMinFee,
+  evaluateTx,
+  maxTxSize,
+  slotLength,
+  systemStart,
  )
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
