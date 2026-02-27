@@ -85,6 +85,7 @@ instance IsTx SimpleTx where
   balance = Set.size
   hashUTxO = toStrict . foldMap (serialise . unSimpleTxOut)
   utxoFromTx = txOutputs
+  resolveInputsUTxO _utxo = txInputs
   outputsOfUTxO = toList
   withoutUTxO = Set.difference
 
