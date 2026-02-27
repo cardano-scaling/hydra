@@ -25,7 +25,7 @@ module Hydra.Ledger.Cardano.Evaluate (
 
 import Hydra.Prelude hiding (label)
 
-import Cardano.Ledger.Alonzo.Scripts (ExUnits (ExUnits), exUnitsMem, exUnitsSteps, txscriptfee)
+import Cardano.Ledger.Alonzo.Scripts (exUnitsMem, exUnitsSteps, txscriptfee)
 import Cardano.Ledger.Api (ppMaxTxExUnitsL, ppMinFeeAL, ppMinFeeBL, ppPricesL)
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core (PParams)
@@ -35,9 +35,7 @@ import Cardano.Slotting.Time (SystemStart)
 import Control.Lens ((.~))
 import Control.Lens.Getter
 import Data.ByteString qualified as BS
-import Data.Map (Map)
 import Data.Map qualified as Map
-import Data.Text (Text)
 import Hydra.Cardano.Api (
   Era,
   ExecutionUnits (..),
@@ -78,10 +76,11 @@ evaluateTxWith ::
   Either EvaluationError EvaluationReport
 evaluateTxWith sysStart epochInfo' pparams' tx utxo = do
   let ledgerMaxUnits = pparams' ^. ppMaxTxExUnitsL
-      maxUnits = ExecutionUnits
-        { executionMemory = exUnitsMem ledgerMaxUnits
-        , executionSteps = exUnitsSteps ledgerMaxUnits
-        }
+      maxUnits =
+        ExecutionUnits
+          { executionMemory = exUnitsMem ledgerMaxUnits
+          , executionSteps = exUnitsSteps ledgerMaxUnits
+          }
   evaluateTxWith' sysStart epochInfo' pparams' maxUnits tx utxo
 
 -- | Like 'evaluateTxWith', but with a configurable maximum transaction

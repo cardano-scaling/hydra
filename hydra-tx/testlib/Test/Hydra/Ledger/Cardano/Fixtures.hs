@@ -27,6 +27,7 @@ module Test.Hydra.Ledger.Cardano.Fixtures (
   plutusV3CostModel,
 
   -- * Evaluation convenience wrappers
+
   -- | These functions use the test fixtures above for quick evaluation
   -- in tests and benchmarks. For production use, prefer the dependency-injected
   -- versions from "Hydra.Ledger.Cardano.Evaluate".
@@ -215,6 +216,7 @@ systemStart :: SystemStart
 systemStart = SystemStart $ posixSecondsToUTCTime 0
 
 -- ** Plutus cost model fixtures
+
 --
 -- These cost models are loaded from genesis files at compile time using Template Haskell,
 -- or hardcoded for eras where genesis files don't contain the cost model.

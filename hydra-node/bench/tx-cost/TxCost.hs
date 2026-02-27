@@ -42,13 +42,6 @@ import Hydra.Ledger.Cardano.Evaluate (
   usedExecutionUnits,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Test.Hydra.Ledger.Cardano.Fixtures (
-  estimateMinFee,
-  evaluateTx,
-  maxTxSize,
-  slotLength,
-  systemStart,
- )
 import Hydra.Plutus.Orphans ()
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
@@ -64,6 +57,13 @@ import Test.Hydra.Chain.Direct.State (
   genStInitial,
   genStOpen,
   pickChainContext,
+ )
+import Test.Hydra.Ledger.Cardano.Fixtures (
+  estimateMinFee,
+  evaluateTx,
+  maxTxSize,
+  slotLength,
+  systemStart,
  )
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)

@@ -5,7 +5,6 @@ import Data.Fixed (Centi)
 import Hydra.Cardano.Api (Coin (..), serialiseToRawBytesHexText)
 import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 import Hydra.Plutus.Orphans ()
-import Test.Hydra.Ledger.Cardano.Fixtures (maxCpu, maxMem, maxTxSize)
 import Options.Applicative (
   Parser,
   ParserInfo,
@@ -26,6 +25,7 @@ import Options.Applicative (
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist)
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
+import Test.Hydra.Ledger.Cardano.Fixtures (maxCpu, maxMem, maxTxSize)
 import Test.QuickCheck.Gen (Gen (MkGen), chooseAny, generate)
 import Test.QuickCheck.Random (mkQCGen)
 import TxCost (

@@ -1,16 +1,15 @@
-cabal-version: 3.0
-name:          hydra-tx
-version:       1.2.0
-synopsis:      Hydra transaction library
-author:        IOG
-copyright:     2024 IOG
-license:       Apache-2.0
+cabal-version:      3.0
+name:               hydra-tx
+version:            1.2.0
+synopsis:           Hydra transaction library
+author:             IOG
+copyright:          2024 IOG
+license:            Apache-2.0
 license-files:
   LICENSE
   NOTICE
 
-extra-source-files:
-  genesis/mainnet-conway-genesis.json
+extra-source-files: genesis/mainnet-conway-genesis.json
 
 source-repository head
   type:     git
@@ -85,14 +84,12 @@ library
     , cardano-ledger-alonzo
     , cardano-ledger-api
     , cardano-ledger-binary
-    , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
-    , data-default
     , formatting
     , hydra-cardano-api
     , hydra-plutus
@@ -101,21 +98,19 @@ library
     , lens
     , lens-aeson
     , mono-traversable
-    , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
     , prettyprinter
     , serialise
-    , sop-extras
     , text
     , time
 
   ghc-options:     -haddock
 
 library testlib
-  import:          project-config
-  hs-source-dirs:  testlib
-  visibility:      public
+  import:             project-config
+  hs-source-dirs:     testlib
+  visibility:         public
   default-extensions: TemplateHaskell
   exposed-modules:
     Test.Hydra.Ledger.Cardano.Fixtures
@@ -124,29 +119,26 @@ library testlib
     Test.Hydra.Tx.Gen
     Test.Hydra.Tx.Mutation
 
-  other-modules:   Paths_hydra_tx
+  other-modules:      Paths_hydra_tx
   build-depends:
     , aeson
     , base
     , bytestring
-    , filepath
-    , template-haskell
     , cardano-api
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-binary
     , cardano-ledger-conway
     , cardano-ledger-conway:testlib
     , cardano-ledger-core
     , cardano-ledger-mary
-    , cardano-ledger-shelley
     , cardano-slotting
     , cardano-strict-containers
     , cborg
     , containers
     , data-default
     , directory
+    , filepath
     , hydra-cardano-api
     , hydra-cardano-api:testlib
     , hydra-plutus
@@ -158,14 +150,14 @@ library testlib
     , ouroboros-consensus
     , ouroboros-consensus-cardano
     , plutus-ledger-api
-    , prettyprinter
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , sop-extras
+    , template-haskell
     , time
 
-  ghc-options:     -haddock
+  ghc-options:        -haddock
 
 test-suite tests
   import:             project-config
