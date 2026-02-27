@@ -7,14 +7,14 @@ module Test.Hydra.Ledger.Cardano.Fixtures.TH (
 
 import Hydra.Prelude hiding (lookup)
 
-import Data.Aeson (Object, Value (..), eitherDecodeFileStrict)
+import Data.Aeson (Value (..), eitherDecodeFileStrict)
 import Data.Aeson.Key qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Language.Haskell.TH (Exp, Q, runIO)
 import Language.Haskell.TH.Syntax qualified as TH
 import System.FilePath ((</>))
 
-import Cardano.Ledger.Alonzo.Scripts (CostModel, mkCostModel)
+import Cardano.Ledger.Alonzo.Scripts (mkCostModel)
 import Cardano.Ledger.Plutus (Language (..))
 
 -- | Template Haskell function to load a cost model from a genesis JSON file at compile time.
@@ -37,11 +37,11 @@ loadCostModelTH genesisFile key lang = do
           let costModelValues = [round n :: Integer | Number n <- toList arr]
           -- Build Language expression manually (Language doesn't have Lift instance)
           langExp <- case lang of
-            PlutusV1 -> [| PlutusV1 |]
-            PlutusV2 -> [| PlutusV2 |]
-            PlutusV3 -> [| PlutusV3 |]
+            PlutusV1 -> [|PlutusV1|]
+            PlutusV2 -> [|PlutusV2|]
+            PlutusV3 -> [|PlutusV3|]
           -- Lift and splice the values directly into the generated code
-          [| either (error . show) id $ mkCostModel $(pure langExp) $(TH.lift costModelValues) |]
+          [|either (error . show) id $ mkCostModel $(pure langExp) $(TH.lift costModelValues)|]
         Just _ -> fail $ key <> " in " <> genesisFile <> " is not an array"
         Nothing -> fail $ key <> " not found in " <> genesisFile
     Right _ -> fail $ genesisFile <> " does not contain a JSON object"

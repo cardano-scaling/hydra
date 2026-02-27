@@ -153,10 +153,10 @@ import Hydra.Data.Party qualified as Data (Party)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture

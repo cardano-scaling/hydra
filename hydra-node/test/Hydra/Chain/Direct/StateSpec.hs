@@ -72,7 +72,6 @@ import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
@@ -118,6 +117,7 @@ import Test.Hydra.Chain.Direct.State (
   maxGenParties,
   pickChainContext,
  )
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
 import Test.Hydra.Tx.Mutation (

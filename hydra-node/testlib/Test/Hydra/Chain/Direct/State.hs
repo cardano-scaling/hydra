@@ -29,7 +29,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Chain.Direct.State (ChainContext (..), ChainState (..), ChainStateAt (..), ChainTransition (..), ClosedState (..), HasKnownUTxO (..), HydraContext (..), InitialState (..), OpenState (..), ctxHeadParameters, ctxParticipants, ctxParties, initialize, observeClose, observeCollect, unsafeAbort, unsafeClose, unsafeCollect, unsafeCommit, unsafeContest, unsafeDecrement, unsafeFanout, unsafeIncrement, unsafeObserveInit, unsafeObserveInitAndCommits)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Test.Hydra.Ledger.Cardano.Fixtures (slotLength, systemStart)
 import Hydra.Tx (
   ConfirmedSnapshot (..),
   Snapshot (..),
@@ -42,6 +41,7 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (splitUTxO)
+import Test.Hydra.Ledger.Cardano.Fixtures (slotLength, systemStart)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (
   genConfirmedSnapshot,
