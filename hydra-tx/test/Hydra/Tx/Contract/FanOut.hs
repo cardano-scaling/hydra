@@ -8,6 +8,7 @@ import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point2)
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
@@ -18,14 +19,15 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
+import Hydra.Tx.IsTx (IsTx (hashUTxO, utxoToElement))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, splitUTxO)
-import PlutusTx.Builtins (toBuiltin)
+import PlutusTx.Builtins (bls12_381_G2_uncompress, toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
+import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -48,7 +50,7 @@ healthyFanoutTx =
       healthySlotNo
       headTokenScript
 
-  scriptRegistry = genScriptRegistry `generateWith` 42
+  scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
   headInput = generateWith arbitrary 42
 
@@ -81,6 +83,19 @@ healthyContestationDeadline =
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
+accumulator :: Accumulator.HydraAccumulator
+accumulator =
+  Accumulator.buildFromSnapshotUTxOs
+    (fst healthyFanoutSnapshotUTxO)
+    Nothing
+    (Just $ snd healthyFanoutSnapshotUTxO)
+
+crsSize :: Int
+crsSize = Accumulator.requiredCRSSize accumulator + 1
+
+crs :: [Point2]
+crs = Accumulator.generateCRS crsSize
+
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
@@ -96,6 +111,19 @@ healthyFanoutDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = 0
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+      , proof =
+          let fanoutOutputs =
+                UTxO.txOutputs (fst healthyFanoutSnapshotUTxO)
+                  <> UTxO.txOutputs (snd healthyFanoutSnapshotUTxO)
+              subsetElements =
+                utxoToElement @Tx <$> fanoutOutputs
+           in bls12_381_G2_uncompress $
+                toBuiltin $
+                  Accumulator.createMembershipProof subsetElements accumulator crs
+      , accumulatorCommitment =
+          Accumulator.getAccumulatorCommitment $
+            Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) mempty (Just $ snd healthyFanoutSnapshotUTxO)
       }
  where
   healthyContestationPeriodSeconds = 10

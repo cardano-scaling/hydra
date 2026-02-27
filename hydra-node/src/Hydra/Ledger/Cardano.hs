@@ -19,19 +19,20 @@ import Cardano.Ledger.Alonzo.Rules (
  )
 import Cardano.Ledger.Api (bodyTxL, raCredential, unWithdrawals, withdrawalsTxBodyL)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.CertState (dsUnifiedL)
+import Cardano.Ledger.Compactible (toCompact)
 import Cardano.Ledger.Conway.Rules (
   ConwayLedgerPredFailure (ConwayUtxowFailure),
   ConwayUtxoPredFailure (UtxosFailure),
   ConwayUtxosPredFailure (ValidationTagMismatch),
   ConwayUtxowPredFailure (UtxoFailure),
  )
+import Cardano.Ledger.Conway.State (addAccountState, mkConwayAccountState)
 import Cardano.Ledger.Plutus (PlutusDebugOverrides (..), debugPlutus)
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
 import Cardano.Ledger.Shelley.Rules qualified as Ledger
-import Cardano.Ledger.UMap qualified as UM
+import Cardano.Ledger.State (ChainAccountState (..))
 import Control.Lens ((%~), (.~), (^.))
 import Data.Default (def)
 import Data.Map qualified as Map
@@ -85,7 +86,7 @@ cardanoLedger globals ledgerEnv =
             -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
             -- action. It only re-evaluates the script and does not have any
             -- side-effects.
-            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing)
+            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) 10 $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing False)
       _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
@@ -97,9 +98,14 @@ cardanoLedger globals ledgerEnv =
 
     -- NOTE: Mocked certificate state that simulates any reward accounts for any
     -- withdraw-zero scripts included in the transaction.
-    mockCertState = dsUnifiedL %~ (\umap -> foldl' register umap withdrawZeroCredentials)
+    mockCertState dstate = foldl' register dstate withdrawZeroCredentials
 
-    register umap hk = UM.RewDepUView umap UM.∪ (hk, UM.RDPair (UM.CompactCoin 0) (UM.CompactCoin 0))
+    register dstate hk =
+      case toCompact $ Coin 0 of
+        Nothing -> dstate
+        Just zero ->
+          let newAccounts = addAccountState @LedgerEra hk (mkConwayAccountState zero) (Ledger.dsAccounts dstate)
+           in dstate{Ledger.dsAccounts = newAccounts}
 
     withdrawZeroCredentials =
       toLedgerTx tx ^. bodyTxL . withdrawalsTxBodyL
@@ -123,7 +129,7 @@ newLedgerEnv protocolParams =
     , -- NOTE: This keeps track of the ledger's treasury and reserve which are
       -- both unused in Hydra. There might be room for interesting features in the
       -- future with these two but for now, we'll consider them empty.
-      Ledger.ledgerAccount = Ledger.AccountState mempty mempty
+      Ledger.ledgerAccount = ChainAccountState mempty mempty
     , Ledger.ledgerPp = protocolParams
     , Ledger.ledgerEpochNo = Nothing
     }

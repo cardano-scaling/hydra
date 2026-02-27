@@ -22,6 +22,7 @@ import Hydra.Cardano.Api (
   TxId,
   TxIn (..),
   TxIx (..),
+  TxOutDatum,
   UTxO,
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
@@ -42,9 +43,11 @@ import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostExcepti
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Tx (txId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
@@ -129,11 +132,16 @@ buildScriptPublishingTxs ::
   SigningKey PaymentKey ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
-  go availableUTxO scriptOutputs
+  go availableUTxO (scriptOutputs <> scriptOutputsWithDatum)
  where
   scriptOutputs =
     mkScriptTxOut . mkScriptRef
       <$> [initialValidatorScript, commitValidatorScript, Head.validatorScript]
+
+  scriptOutputsWithDatum =
+    let crsDatum :: TxOutDatum ctx
+        crsDatum = Accumulator.createCRSG1Datum Accumulator.defaultItems
+     in mkScriptTxOutUsingDatum crsDatum . mkScriptRef <$> [CRS.validatorScript]
 
   -- Loop over all script outputs to create while re-spending the change output.
   -- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.
@@ -149,12 +157,13 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
 
   changeAddress = mkVkAddress networkId (getVerificationKey sk)
 
-  mkScriptTxOut =
+  mkScriptTxOut = mkScriptTxOutUsingDatum TxOutDatumNone
+
+  mkScriptTxOutUsingDatum =
     mkTxOutAutoBalance
       pparams
       unspendableScriptAddress
       mempty
-      TxOutDatumNone
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn

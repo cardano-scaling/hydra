@@ -120,7 +120,6 @@ library
     , cardano-crypto-wrapper
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage
     , cardano-ledger-binary
     , cardano-ledger-byron
     , cardano-ledger-conway
@@ -351,7 +350,6 @@ test-suite tests
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
-    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
@@ -427,7 +425,6 @@ test-suite tests
     , directory
     , filepath
     , generic-lens
-    , haskell-accumulator
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson

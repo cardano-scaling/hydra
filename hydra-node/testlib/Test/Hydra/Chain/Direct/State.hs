@@ -38,6 +38,7 @@ import Hydra.Tx (
   mkSimpleBlueprintTx,
   utxoFromTx,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
 import Hydra.Tx.Recover (recoverTx)
@@ -445,16 +446,17 @@ genStClosed ctx utxo utxoToCommit utxoToDecommit = do
           , 0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->
-          ( number snap
-          , ConfirmedSnapshot
-              { snapshot = snap{utxo = utxo, utxoToDecommit, utxoToCommit}
-              , signatures
-              }
-          , utxo
-          , utxoToCommit
-          , utxoToDecommit
-          , Hydra.Tx.version snap
-          )
+          let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+           in ( number snap
+              , ConfirmedSnapshot
+                  { snapshot = snap{utxo = utxo, utxoToDecommit, utxoToCommit, accumulator}
+                  , signatures
+                  }
+              , utxo
+              , utxoToCommit
+              , utxoToDecommit
+              , Hydra.Tx.version snap
+              )
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp

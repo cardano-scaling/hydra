@@ -28,6 +28,7 @@ import Hydra.Tx (
   registryUTxO,
   signatures,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -94,6 +95,7 @@ healthyOutdatedSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
 
 healthyOutdatedOpenDatum :: Head.State

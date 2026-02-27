@@ -3,12 +3,14 @@ module Hydra.Tx.Contest where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Builder (unsafeBuildTransaction)
 import Hydra.Plutus.Extras (posixToUTCTime)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
@@ -20,6 +22,7 @@ import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxNa
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
+import PlutusTx.Builtins (bls12_381_G2_uncompress)
 
 import Hydra.Plutus.Orphans ()
 
@@ -66,7 +69,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
  where
-  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit} = snapshot
+  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit, accumulator} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
@@ -123,6 +126,23 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       then closedContestationDeadline
       else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
 
+  fullSnapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
+
+  crs = Accumulator.generateCRS $ UTxO.size fullSnapshotUTxO + 1
+
+  proof =
+    let snapshotUTxO =
+          utxo
+            <> case contestRedeemer of
+              Head.ContestUsedInc{} ->
+                fromMaybe mempty utxoToCommit
+              Head.ContestUnusedDec{} ->
+                fromMaybe mempty utxoToDecommit
+              _ -> mempty
+     in bls12_381_G2_uncompress $
+          toBuiltin $
+            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator crs
+
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Closed
@@ -145,7 +165,13 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
           , version = toInteger openVersion
+          , accumulatorHash = toBuiltin contestAccumulatorHash
+          , proof
+          , accumulatorCommitment
           }
+   where
+    contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
 
 -- * Observation
 

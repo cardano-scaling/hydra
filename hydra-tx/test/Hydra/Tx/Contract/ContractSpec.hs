@@ -33,6 +33,7 @@ import Hydra.Tx (
   headIdToCurrencySymbol,
   partyToChain,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
@@ -255,7 +256,8 @@ prop_verifySnapshotSignatures =
           utxoHash = toBuiltin $ hashUTxO utxo
           utxoToCommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
           utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash) signatures
+          accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)

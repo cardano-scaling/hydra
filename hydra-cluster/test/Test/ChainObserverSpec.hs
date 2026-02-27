@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveAnyClass #-}
--- withCreateProcess interface is annoying
 {-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
 
 -- | Integration tests for the 'hydra-chain-observer' executable. These will run
@@ -53,7 +52,9 @@ spec = do
 
                 (walletVk, walletSk) <- generate genKeyPair
 
-                commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+                commitUTxO1 <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+                commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+                let commitUTxO = commitUTxO1 <> commitUTxO2
 
                 send hydraNode $ input "Init" []
 
@@ -77,11 +78,12 @@ spec = do
                 let walletAddress = mkVkAddress networkId walletVk
 
                 decommitTx <-
-                  either (failure . show) pure $
-                    mkSimpleTx
-                      (List.head $ UTxO.toList commitUTxO)
-                      (walletAddress, lovelaceToValue 2_000_000)
-                      walletSk
+                  let (i, o) = List.head $ UTxO.toList commitUTxO1
+                   in either (failure . show) pure $
+                        mkSimpleTx
+                          (i, o)
+                          (walletAddress, lovelaceToValue 2_000_000)
+                          walletSk
 
                 send hydraNode $ input "Decommit" ["decommitTx" .= decommitTx]
 
