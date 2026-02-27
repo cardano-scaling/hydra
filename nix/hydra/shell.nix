@@ -4,7 +4,7 @@
 
 { self, ... }: {
 
-  perSystem = { pkgs, hsPkgs, compiler, self', ... }:
+  perSystem = { pkgs, hsPkgs, compiler, self', config, ... }:
     let
 
       buildInputs = [
@@ -76,6 +76,7 @@
             echo "WARNING: 'cardano-cli' not found"
           fi
         '';
+        inputsFrom = [ config.flake-root.devShell config.mission-control.devShell ];
       }).overrideAttrs {
 
         CREATE_MISSING_GOLDEN = 1;
