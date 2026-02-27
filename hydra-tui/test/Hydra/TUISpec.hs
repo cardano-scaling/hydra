@@ -50,6 +50,7 @@ import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
   HydraClient (HydraClient, hydraNodeId),
+  HydraNodeConfig (..),
   HydraNodeLog,
   prepareHydraNode,
   withHydraNode,
@@ -347,7 +348,9 @@ setupNodeAndTUI' hostname lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
         let DirectBackend DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+            hydraTracer = contramap FromHydra tracer
+            aliceConfig = HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig, workDir = tmpDir, hydraNodeId = nodeId, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [nodeId]}
+        withHydraNode aliceConfig $ \HydraClient{hydraNodeId} -> do
           seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do

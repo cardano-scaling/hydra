@@ -92,9 +92,12 @@ import Hydra.Options
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
   HydraClient (..),
+  HydraNodeConfig (..),
   getMetrics,
   getSnapshotUTxO,
   input,
+  mkSoloConfig,
+  mkTwoPartyConfigs,
   output,
   prepareHydraNode,
   requestCommitTx,
@@ -147,8 +150,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , ledgerGenesisFile = Nothing
                   }
         let blockTime = 5
+            aliceConfig = HydraNodeConfig{tracer = contramap FromHydraNode tracer, blockTime, chainConfig = offlineConfig, workDir = tmpDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [1]}
         -- Start a hydra-node in offline mode and submit a transaction from alice to bob
-        aliceToBob <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        aliceToBob <- withHydraNode aliceConfig $ \node -> do
           let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
           let Right aliceToBob =
                 mkSimpleTx
@@ -161,7 +165,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           pure aliceToBob
 
         -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
-        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        withHydraNode aliceConfig $ \node -> do
           let
             bobTxOut = toCtxUTxOTxOut $ List.head (txOuts' aliceToBob)
             Right bobToAlice =
@@ -186,8 +190,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , ledgerGenesisFile = Nothing
                   }
         let blockTime = 5
+            aliceConfig = HydraNodeConfig{tracer = contramap FromHydraNode tracer, blockTime, chainConfig = offlineConfig, workDir = tmpDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = []}
         -- Start a hydra-node in offline mode and submit several self-txs
-        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
+        withHydraNode aliceConfig $ \node -> do
           foldM_
             ( \utxo i -> do
                 let Just (aliceTxIn, aliceTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) utxo
@@ -207,7 +212,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
         -- Measure restart time
         t0 <- getCurrentTime
-        diff1 <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> do
+        diff1 <- withHydraNode aliceConfig $ \_ -> do
           t1 <- getCurrentTime
           let diff = diffUTCTime t1 t0
           pure diff
@@ -244,8 +249,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         let tr = contramap FromHydraNode tracer
         let blockTime = 5
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
-        withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
-          withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
+        withHydraNode (HydraNodeConfig{tracer = tr, blockTime, chainConfig = offlineConfig, workDir = tmpDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [1, 2]}) $ \aliceNode -> do
+          withHydraNode (HydraNodeConfig{tracer = tr, blockTime, chainConfig = offlineConfig, workDir = tmpDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1, 2]}) $ \bobNode -> do
             waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
             let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
             let Right aliceToBob =
@@ -608,9 +613,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let contestationPeriod = 10
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] contestationPeriod
-            let nodeId = 1
-            let hydraTracer = contramap FromHydraNode tracer
-            (tip, aliceHeadId) <- withHydraNode hydraTracer blockTime aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
+            let nodeId = 1 :: Int
+                hydraTracer = contramap FromHydraNode tracer
+                aliceConfig = mkSoloConfig hydraTracer blockTime tmp Alice aliceChainConfig
+            (tip, aliceHeadId) <- withHydraNode aliceConfig $ \n1 -> do
               seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               tip <- Backend.queryTip backend
               send n1 $ input "Init" []
@@ -625,7 +631,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
 
             let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
-            withHydraNode hydraTracer blockTime aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
+            withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig', workDir = tmp, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [1]}) $ \n1 -> do
               headId' <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
               headId' `shouldBe` aliceHeadId
 
@@ -647,13 +653,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             bobChainConfig <- chainConfigFor Bob tmp backend hydraScriptsTxId [Alice] contestationPeriod <&> startFromTip
 
             let hydraTracer = contramap FromHydraNode tracer
-            let aliceNodeId = 1
-                bobNodeId = 2
-                allNodesIds = [aliceNodeId, bobNodeId]
+            let (aliceConfig, bobConfig@HydraNodeConfig{hydraNodeId = bobNodeId}) = mkTwoPartyConfigs hydraTracer blockTime tmp aliceChainConfig bobChainConfig
                 withAliceNode :: (HydraClient -> IO a) -> IO a
-                withAliceNode = withHydraNode hydraTracer blockTime aliceChainConfig tmp aliceNodeId aliceSk [bobVk] allNodesIds
+                withAliceNode = withHydraNode aliceConfig
                 withBobNode :: (HydraClient -> IO a) -> IO a
-                withBobNode = withHydraNode hydraTracer blockTime bobChainConfig tmp bobNodeId bobSk [aliceVk] allNodesIds
+                withBobNode = withHydraNode bobConfig
 
             withAliceNode $ \n1 -> do
               headId <- withBobNode $ \n2 -> do
@@ -765,8 +769,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
               bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice] contestationPeriod
               let hydraTracer = contramap FromHydraNode tracer
-              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = tmpDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = Test.EndToEndSpec.allNodeIds}) $ \n1 ->
+                withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = tmpDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = Test.EndToEndSpec.allNodeIds}) $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -800,9 +804,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice, Carol] contestationPeriod
             carolChainConfig <- chainConfigFor Carol tmpDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
             failAfter 20 $
-              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode hydraTracer blockTime carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = tmpDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk, carolVk], allNodeIds = Test.EndToEndSpec.allNodeIds}) $ \n1 ->
+                withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = tmpDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk, carolVk], allNodeIds = Test.EndToEndSpec.allNodeIds}) $ \n2 ->
+                  withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = carolChainConfig, workDir = tmpDir, hydraNodeId = 3, hydraSigningKey = carolSk, hydraVerificationKeys = [aliceVk, bobVk], allNodeIds = Test.EndToEndSpec.allNodeIds}) $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
@@ -831,7 +835,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                               , nodeSocket = nodeSocket'
                               }
                       }
-            withHydraNode (contramap FromHydraNode tracer) blockTime chainConfig dir 1 aliceSk [] [1] (const $ pure ())
+            withHydraNode (HydraNodeConfig{tracer = contramap FromHydraNode tracer, blockTime, chainConfig, workDir = dir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [1]}) (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->
                 "hydra-node" `isInfixOf` show e
                   && "not-existing.sk" `isInfixOf` show e
@@ -843,9 +847,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
+            let aliceConfig = mkSoloConfig hydraTracer blockTime dir Alice aliceChainConfig
 
             -- XXX: Need to do something in 'action' otherwise always green?
-            withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+            withHydraNode aliceConfig $ \_ -> do
               threadDelay 0.1
 
       it "can be restarted" $ \tracer -> do
@@ -855,13 +860,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let contestationPeriod = 100
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
+            let aliceConfig = mkSoloConfig hydraTracer blockTime dir Alice aliceChainConfig
 
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
-              withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              withHydraNode aliceConfig $ \_ -> do
                 threadDelay 0.1
             failAfter 10 $
-              withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              withHydraNode aliceConfig $ \_ -> do
                 threadDelay 0.1
 
       it "logs to a logfile" $ \tracer -> do
@@ -872,7 +878,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             refuelIfNeeded tracer backend Alice 100_000_000
             let contestationPeriod = 2
             aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
-            withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
+            let aliceConfig = mkSoloConfig hydraTracer blockTime dir Alice aliceChainConfig
+            withHydraNode aliceConfig $ \n1 -> do
               send n1 $ input "Init" []
 
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
@@ -887,7 +894,7 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
   aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
   let hydraTracer = contramap FromHydraNode tracer
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
+  withHydraNode (mkSoloConfig hydraTracer blockTime tmpDir Alice aliceChainConfig) $ \n1 -> do
     let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions
