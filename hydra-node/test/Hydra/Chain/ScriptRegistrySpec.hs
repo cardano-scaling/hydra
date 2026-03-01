@@ -32,7 +32,7 @@ import Test.QuickCheck (generate)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api.PParams (emptyPParams)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon)
+import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithoutHorizon)
 
 spec :: Spec
 spec = describe "publishHydraScripts" $ do

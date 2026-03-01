@@ -11,6 +11,7 @@ roots = [
   "spy$",
   "spy'$",
   "redeemer$",
+  "evaluateTx'$",
 ]
 
 root-instances = [
