@@ -41,36 +41,37 @@ instance GHC.Show.Show Hydra.Ledger.Cardano.Builder.InvalidTransactionException
 instance GHC.Exception.Type.Exception Hydra.Ledger.Cardano.Builder.InvalidTransactionException
 
 
--- | Simplified interface to phase-2 validation of transactions, eg.
---   evaluation of Plutus scripts.
+-- | Dependency-injected interface to phase-2 validation of transactions,
+--   eg. evaluation of Plutus scripts.
 --   
---   The <a>evaluateTx</a> function simplifies the call to ledger and
---   plutus providing an <a>EvaluationReport</a> using pre-canned
---   <tt>ProtocolParameters</tt>. This should only be used for
---   <i>testing</i> or <i>benchmarking</i> purpose as the real evaluation
---   parameters are set when the Hydra node starts.
+--   This module provides parameterized evaluation functions that accept
+--   protocol parameters, epoch info, and system start as explicit
+--   arguments.
 --   
---   <b>NOTE</b>: The reason this module is here instead of part of `test/`
---   directory is to be used in <tt>tx-cost</tt> executable.
+--   <b>NOTE</b>: For convenience wrappers using test fixtures, see
+--   <a>Fixtures</a> which re-exports <tt>evaluateTx</tt> and
+--   <tt>evaluateTx'</tt> for testing/benchmarking purposes.
 module Hydra.Ledger.Cardano.Evaluate
 
--- | Thin wrapper around <a>evaluateTransactionExecutionUnits</a>, using
---   fixtures from this module for <a>systemStart</a>, <tt>eraHistory</tt>
---   and <a>pparams</a>.
+-- | Evaluate transaction with explicit dependencies.
 --   
---   Additionally, this function checks the overall execution units are not
---   exceeding <a>maxTxExecutionUnits</a>.
-evaluateTx :: Tx -> UTxO -> Either EvaluationError EvaluationReport
+--   This is the dependency-injected version, allowing you to provide your
+--   own <a>SystemStart</a>, <a>EpochInfo</a>, and <a>PParams</a> instead
+--   of using hardcoded test fixtures.
+--   
+--   The maximum transaction execution units are read from the provided
+--   <a>PParams</a>.
+evaluateTxWith :: SystemStart -> EpochInfo (Either Text) -> PParams LedgerEra -> Tx -> UTxO -> Either EvaluationError EvaluationReport
 
--- | Like <a>evaluateTx</a>, but with a configurable maximum transaction
---   <a>ExecutionUnits</a>.
-evaluateTx' :: ExecutionUnits -> Tx -> UTxO -> Either EvaluationError EvaluationReport
+-- | Like <a>evaluateTxWith</a>, but with a configurable maximum
+--   transaction <a>ExecutionUnits</a>.
+evaluateTxWith' :: SystemStart -> EpochInfo (Either Text) -> PParams LedgerEra -> ExecutionUnits -> Tx -> UTxO -> Either EvaluationError EvaluationReport
 
 -- | Check the budget used by provided <a>EvaluationReport</a> does not
 --   exceed given maximum <a>ExecutionUnits</a>.
 checkBudget :: ExecutionUnits -> EvaluationReport -> Either EvaluationError EvaluationReport
 
--- | Errors returned by <a>evaluateTx</a> extending the upstream
+-- | Errors returned by <tt>evaluateTx</tt> extending the upstream
 --   <a>TransactionValidityError</a> with additional cases.
 data EvaluationError
 TransactionBudgetOverspent :: ExecutionUnits -> ExecutionUnits -> EvaluationError
@@ -88,59 +89,16 @@ renderEvaluationReport :: EvaluationReport -> Text
 
 -- | Get the total used <a>ExecutionUnits</a> from an
 --   <a>EvaluationReport</a>. Useful to further process the result of
---   <a>evaluateTx</a>.
+--   <tt>evaluateTx</tt>.
 usedExecutionUnits :: EvaluationReport -> ExecutionUnits
 
 -- | Estimate minimum fee for given transaction and evaluated redeemers.
 --   Instead of using the budgets from the transaction (which are usually
 --   set to 0 until balancing), this directly computes the fee from
 --   transaction size and the units of the <a>EvaluationReport</a>. Note
---   that this function only provides a rough estimate using this modules'
---   <a>pparams</a> and likely under-estimates cost as we have no witnesses
+--   that this function likely under-estimates cost as we have no witnesses
 --   on this <a>Tx</a>.
-estimateMinFee :: Tx -> EvaluationReport -> Coin
-
--- | Current (2023-04-12) mainchain protocol parameters. XXX: Avoid
---   specifying not required parameters here (e.g. max block units should
---   not matter). XXX: Load and use mainnet parameters from a file which we
---   can easily review to be in sync with mainnet.
-pparams :: PParams LedgerEra
-maxTxSize :: Natural
-
--- | Max transaction execution unit budget of the current <a>pparams</a>.
-maxTxExecutionUnits :: ExecutionUnits
-
--- | Max memory and cpu units of the current <a>pparams</a>.
-maxMem :: Natural
-
--- | Max memory and cpu units of the current <a>pparams</a>.
-maxCpu :: Natural
-
--- | An artificial <a>EpochInfo</a> comprised by a single never ending
---   (forking) era, with fixed <a>epochSize</a> and <a>slotLength</a>.
-epochInfo :: Monad m => EpochInfo m
-
--- | An era history with a single era which will end at some point.
---   
---   A "real" <a>EraHistory</a> received from the cardano-node will have
---   the <a>eraEnd</a> at a known or earliest possible end of the current
---   era + a safe zone.
---   
---   See <a>EraParams</a> for details.
---   
---   NOTE: This era is using not so realistic epoch sizes of 1 and sets a
---   slot length of 1
-eraHistoryWithHorizonAt :: SlotNo -> EraHistory
-eraHistoryWithoutHorizon :: EraHistory
-epochSize :: EpochSize
-slotLength :: SlotLength
-systemStart :: SystemStart
-
--- | Current (2024-10-03) mainnet PlutusV3 cost model.
-plutusV3CostModel :: CostModel
-
--- | Current (2023-08-04) mainnet PlutusV2 cost model.
-plutusV2CostModel :: CostModel
+estimateMinFeeWith :: PParams LedgerEra -> Tx -> EvaluationReport -> Coin
 instance GHC.Show.Show Hydra.Ledger.Cardano.Evaluate.EvaluationError
 
 
