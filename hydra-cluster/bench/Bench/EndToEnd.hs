@@ -45,7 +45,6 @@ import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
   HydraClient,
-  HydraNodeLog,
   getSnapshotUTxO,
   hydraNodeId,
   input,
