@@ -75,5 +75,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: hydra-cluster-logs
-        path: ${state_dir}/logs/**/*
+        path: ${state_dir}/${inputs.network}/logs/*
         if-no-files-found: ignore
