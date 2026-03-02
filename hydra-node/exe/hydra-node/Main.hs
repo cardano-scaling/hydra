@@ -21,6 +21,7 @@ import System.Posix.Signals qualified as Signals
 
 main :: IO ()
 main = do
+  hSetBuffering stdout NoBuffering
   installSigTermHandler
   command <- parseHydraCommand
   case command of
