@@ -90,7 +90,7 @@ withTracer ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracer Quiet = ($ nullTracer)
-withTracer (Verbose namespace) = withTracerOutputTo (BlockBuffering (Just 64000)) stdout namespace
+withTracer (Verbose namespace) = withTracerOutputTo NoBuffering stdout namespace
 
 -- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
 -- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
