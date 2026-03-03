@@ -42,6 +42,7 @@ instance Exception FaucetException
 data FaucetLog
   = TraceResourceExhaustedHandled Text
   | ReturnedFunds {returnAmount :: Coin}
+  | SubmitTxError Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -107,12 +108,9 @@ seedFromFaucetWithMinting backend receivingVerificationKey val tracer mintingScr
 findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
 findFaucetUTxO networkId backend lovelace = do
   (faucetVk, _) <- keysFor Faucet
-  faucetUTxO <- Backend.queryUTxO backend [buildAddress faucetVk networkId]
-  let foundUTxO = UTxO.filter (\o -> (selectLovelace . txOutValue) o >= lovelace) faucetUTxO
-  when (UTxO.null foundUTxO) $
-    throwIO $
-      FaucetHasNotEnoughFunds{faucetUTxO}
-  pure foundUTxO
+  let address = buildAddress faucetVk networkId
+  faucetUTxO <- Backend.queryUTxO backend [address]
+  findUTxO faucetUTxO lovelace
 
 seedFromFaucetBlockfrost ::
   BlockfrostOptions ->
@@ -143,7 +141,8 @@ seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
   let stakePools = Set.fromList (Blockfrost.toCardanoPoolId <$> stakePools')
   let systemStart = SystemStart $ posixSecondsToUTCTime systemStart'
   eraHistory <- Blockfrost.queryEraHistory
-  foundUTxO <- findUTxO options networkId changeAddress lovelace
+  faucetUTxO <- Blockfrost.queryUTxO options networkId [changeAddress]
+  foundUTxO <- findUTxO faucetUTxO lovelace
   case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] Nothing of
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
     Right tx -> do
@@ -154,15 +153,15 @@ seedFromFaucetBlockfrost options receivingVerificationKey lovelace = do
         Right _ -> do
           void $ Blockfrost.awaitUTxO networkId [changeAddress] (Hydra.Tx.txId signedTx) options
           Blockfrost.awaitUTxO networkId [receivingAddress] (Hydra.Tx.txId signedTx) options
- where
-  findUTxO opts networkId address lovelace' = do
-    faucetUTxO <- Blockfrost.queryUTxO opts networkId [address]
-    let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') faucetUTxO
-    when (isNothing foundUTxO) $
-      liftIO $
-        throwIO $
-          FaucetHasNotEnoughFunds{faucetUTxO}
-    pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
+
+findUTxO :: MonadIO m => UTxO.UTxO Era -> Lovelace -> m (UTxO.UTxO Era)
+findUTxO utxo lovelace' = do
+  let foundUTxO = UTxO.find (\o -> (selectLovelace . txOutValue) o >= lovelace') utxo
+  when (isNothing foundUTxO) $
+    liftIO $
+      throwIO $
+        FaucetHasNotEnoughFunds{faucetUTxO = utxo}
+  pure $ maybe mempty (uncurry UTxO.singleton) foundUTxO
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
@@ -251,8 +250,11 @@ createOutputAtAddress networkId backend atAddress datum val = do
 retryOnExceptions :: (MonadCatch m, MonadDelay m, ChainBackend backend) => Tracer m FaucetLog -> backend -> m a -> m a
 retryOnExceptions tracer backend action =
   action
-    `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
+    `catches` [ Handler $ \(ex :: SubmitTransactionException) -> do
                   delayBF backend
+                  traceWith tracer $
+                    SubmitTxError $
+                      show ex
                   retryOnExceptions tracer backend action
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
