@@ -567,14 +567,12 @@ spec =
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
             _ -> fail "expected Open state"
 
-        it "version race: ReqSn with old version is rejected after DecommitFinalized bumps version" $ do
-          -- This test exposes the version race bug:
-          -- 1. Snapshot 0 confirmed with decommit at version 0
-          -- 2. Leader sends ReqSn(version=0, number=1) to network
-          -- 3. DecommitFinalized arrives at follower's node, bumping version to 1
-          -- 4. Follower receives stale ReqSn(version=0, number=1) but now expects version=1
-          -- 5. Follower rejects with ReqSvNumberInvalid
-          -- 6. System is stuck: snapshot 1 never completes, later snapshots wait forever
+        it "version race: stale ReqSn with old version is ignored after DecommitFinalized" $ do
+          -- When a follower receives a snapshot request that carries an old version
+          -- (because DecommitFinalized already bumped the version), it should simply
+          -- ignore the message rather than treat it as a protocol error. The leader
+          -- will keep periodically re-sending the snapshot request, so eventually a
+          -- fresh one with the correct version will arrive and the protocol resumes.
 
           let localUTxO = utxoRefs [1, 2, 3]
               decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
@@ -621,10 +619,58 @@ spec =
           let staleReqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
               reqSnInput = receiveMessageFrom alice staleReqSn
 
-          -- Follower rejects with ReqSvNumberInvalid (version mismatch)
-          update bobEnv ledger now bobAfterFinalized reqSnInput `shouldSatisfy` \case
-            Error (RequireFailed ReqSvNumberInvalid{requestedSv = 0, lastSeenSv = 1}) -> True
-            _ -> False
+          -- Stale ReqSn should be silently dropped (noop), not rejected with an error
+          update bobEnv ledger now bobAfterFinalized reqSnInput `shouldBe` noop
+
+        it "DecommitFinalized while snapshot in-flight resets seenSnapshot to last confirmed" $ do
+          -- When DecommitFinalized arrives while a snapshot was in RequestedSnapshot state,
+          -- seenSnapshot should reset to LastSeenSnapshot{lastSeen=N} (the CONFIRMED snapshot),
+          -- NOT advance to LastSeenSnapshot{lastSeen=M} (the REQUESTED snapshot).
+          -- Advancing to M causes waitNoSnapshotInFlight to deadlock forever.
+          let localUTxO = utxoRefs [1, 2, 3]
+              decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
+              utxoToDecommit' = txInputs decommitTx'
+
+              snapshot0 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 0
+                  , confirmed = []
+                  , utxo = localUTxO
+                  , utxoToCommit = mempty
+                  , utxoToDecommit = Just utxoToDecommit'
+                  }
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = snapshot0
+                  , signatures = Crypto.aggregate []
+                  }
+
+          -- State: snapshot 0 confirmed (with decommit), snapshot 1 was REQUESTED by leader
+          -- but not yet signed. seenSnapshot = RequestedSnapshot{lastSeen=0, requested=1}
+          let stateWithReqInFlight =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 0
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    , decommitTx = Nothing
+                    }
+
+          now <- nowFromSlot stateWithReqInFlight.chainPointTime.currentSlot
+
+          -- DecommitFinalized arrives (version bumps 0→1)
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = mempty}
+          let stateAfterFinalized = aggregateState stateWithReqInFlight (update bobEnv ledger now stateWithReqInFlight decrementObservation)
+
+          -- ASSERT: seenSnapshot should be LastSeenSnapshot{lastSeen=0} (the confirmed sn)
+          -- NOT LastSeenSnapshot{lastSeen=1} (the requested sn) which causes deadlock
+          case stateAfterFinalized of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
+            _ -> fail "expected Open state"
 
         it "does not request same decommit twice across snapshots" $ do
           let localUTxO = utxoRefs [1, 2, 3]
