@@ -6,11 +6,11 @@ module Test.Hydra.HeadLogic.State where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainPointType, IsChainState (..))
 import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), HeadState (..), IdleState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
 
 instance Arbitrary (ChainStateType tx) => Arbitrary (IdleState tx) where
@@ -26,7 +26,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Initial
       <*> arbitrary
       <*> arbitrary
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (OpenState tx) where
   arbitrary =
     OpenState
       <$> arbitrary
@@ -35,7 +35,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenSta
       <*> arbitrary
       <*> arbitrary
 
-instance ArbitraryIsTx tx => Arbitrary (CoordinatedHeadState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainPointType tx)) => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
@@ -45,6 +45,8 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedS
   arbitrary =
     ClosedState
       <$> arbitrary
+      <*> arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary

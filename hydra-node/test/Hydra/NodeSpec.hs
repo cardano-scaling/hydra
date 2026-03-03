@@ -226,9 +226,9 @@ spec = parallel $ do
             inputs =
               inputsToOpenHead
                 <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
-                   , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
-                   , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
-                   , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
+                   , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1 Nothing Nothing
+                   , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1 Nothing Nothing
+                   , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1 Nothing Nothing
                    , receiveMessage ReqTx{transaction = tx1}
                    ]
 
@@ -237,7 +237,7 @@ spec = parallel $ do
             >>= recordNetwork
         runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
+        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1 Nothing Nothing, ReqSn 0 2 [1] Nothing Nothing]
 
     it "processes out-of-order AckSn" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -246,14 +246,14 @@ spec = parallel $ do
             sigAlice = sign aliceSk snapshot
             inputs =
               inputsToOpenHead
-                <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
+                <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1, pendingDepositVersion = Nothing, pendingDecommitVersion = Nothing}
                    , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1}]
+        getNetworkEvents `shouldReturn` [AckSn{signed = sigAlice, snapshotNumber = 1, pendingDepositVersion = Nothing, pendingDecommitVersion = Nothing}]
 
     it "notifies client when postTx throws PostTxError" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -292,7 +292,7 @@ spec = parallel $ do
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
               >>= recordNetwork
           runToCompletion node
-          getNetworkEvents `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
+          getNetworkEvents `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1, pendingDepositVersion = Nothing, pendingDecommitVersion = Nothing}]
 
   describe "checkHeadState" $ do
     let defaultEnv =

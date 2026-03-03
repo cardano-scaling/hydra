@@ -916,9 +916,9 @@ spec = parallel $ do
                 let numTxs = 25 :: Int
                 let aliceTxs =
                       [ SimpleTx
-                          (fromIntegral txid)
-                          (if txid == 100 then utxoRef 1 else utxoRef (fromIntegral (txid - 1)))
-                          (utxoRef (fromIntegral txid))
+                        (fromIntegral txid)
+                        (if txid == 100 then utxoRef 1 else utxoRef (fromIntegral (txid - 1)))
+                        (utxoRef (fromIntegral txid))
                       | txid <- [100 .. 100 + numTxs - 1]
                       ]
 
@@ -958,14 +958,12 @@ spec = parallel $ do
                 fromMaybe mempty headUTxO `shouldSatisfy` (not . member 1) -- Alice's UTXO spent by L2 txs
                 fromMaybe mempty headUTxO `shouldSatisfy` (not . member 2) -- Bob's UTXO decommitted
                 fromMaybe mempty headUTxO `shouldSatisfy` (not . member 3) -- Carol's UTXO decommitted
-
                 send n1 Close
                 waitUntil [n1, n2, n3] $ ReadyToFanout{headId = testHeadId}
                 send n2 Fanout
                 waitUntilMatch [n1, n2, n3] $ \case
                   HeadIsFinalized{} -> Just ()
                   _ -> Nothing
-
 
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do

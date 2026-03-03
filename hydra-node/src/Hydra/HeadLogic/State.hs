@@ -43,10 +43,10 @@ data HeadState tx
   | Closed (ClosedState tx)
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (HeadState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (HeadState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (HeadState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx), Eq (ChainPointType tx)) => Eq (HeadState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx), Show (ChainPointType tx)) => Show (HeadState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx), ToJSON (ChainPointType tx)) => ToJSON (HeadState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx), FromJSON (ChainPointType tx)) => FromJSON (HeadState tx)
 
 -- | Update the chain state in any 'HeadState'.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
@@ -126,10 +126,10 @@ data OpenState tx = OpenState
   }
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (OpenState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (OpenState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (OpenState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (OpenState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx), Eq (ChainPointType tx)) => Eq (OpenState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx), Show (ChainPointType tx)) => Show (OpenState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx), ToJSON (ChainPointType tx)) => ToJSON (OpenState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx), FromJSON (ChainPointType tx)) => FromJSON (OpenState tx)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx = CoordinatedHeadState
@@ -154,13 +154,23 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- ^ Pending decommit transaction. Spec: txω
   , version :: SnapshotVersion
   -- ^ Last open state version as observed on chain. Spec: ̂v
+  , pendingDepositVersion :: Maybe SnapshotVersion
+  -- ^ Pending version update from CommitFinalized (deposit).
+  -- Applied when all parties acknowledge via AckSn.
+  , pendingDecommitVersion :: Maybe SnapshotVersion
+  -- ^ Pending version update from DecommitFinalized (decommit).
+  -- Applied when all parties acknowledge via AckSn.
+  , depositChainStateAcks :: Map Party (Maybe SnapshotVersion)
+  -- ^ Acknowledgments for pending deposit version from each party.
+  , decommitChainStateAcks :: Map Party (Maybe SnapshotVersion)
+  -- ^ Acknowledgments for pending decommit version from each party.
   }
   deriving stock (Generic)
 
-deriving stock instance IsTx tx => Eq (CoordinatedHeadState tx)
-deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
-deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
-deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
+deriving stock instance (IsTx tx, Eq (ChainPointType tx)) => Eq (CoordinatedHeadState tx)
+deriving stock instance (IsTx tx, Show (ChainPointType tx)) => Show (CoordinatedHeadState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainPointType tx)) => ToJSON (CoordinatedHeadState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainPointType tx)) => FromJSON (CoordinatedHeadState tx)
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -210,6 +220,8 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
+  , pendingDepositVersion :: Maybe SnapshotVersion
+  , pendingDecommitVersion :: Maybe SnapshotVersion
   }
   deriving stock (Generic)
 

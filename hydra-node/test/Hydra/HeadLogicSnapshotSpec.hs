@@ -62,6 +62,10 @@ spec = do
             , currentDepositTxId = Nothing
             , decommitTx = Nothing
             , version = 0
+            , pendingDepositVersion = Nothing
+            , pendingDecommitVersion = Nothing
+            , depositChainStateAcks = mempty
+            , decommitChainStateAcks = mempty
             }
     let sendReqSn :: Effect tx -> Bool
         sendReqSn = \case
@@ -69,7 +73,7 @@ spec = do
           _ -> False
     let snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
 
-    let ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+    let ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1 Nothing Nothing
 
     describe "Generic Snapshot property" $ do
       prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
@@ -218,6 +222,10 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         , currentDepositTxId = Nothing
         , decommitTx = Nothing
         , version
+        , pendingDepositVersion = Nothing
+        , pendingDecommitVersion = Nothing
+        , depositChainStateAcks = mempty
+        , decommitChainStateAcks = mempty
         }
     s0 = inOpenState' [alice] st
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)

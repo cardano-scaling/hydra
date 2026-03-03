@@ -211,9 +211,11 @@ instance StateModel WorldState where
         , (1, genRollbackAndForward)
         ]
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
-          <> [(10, genNewTx) | length confirmedUTxO > 1]
-          <> [(2, genDecommit) | length confirmedUTxO > 1]
+          <> [(10, genNewTx) | hasSpendableUTxO]
+          <> [(2, genDecommit) | hasSpendableUTxO]
           <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
+     where
+      hasSpendableUTxO = not (all (null . toList . snd) confirmedUTxO)
 
     genDeposit headIdVar = do
       sk <- snd <$> elements hydraParties

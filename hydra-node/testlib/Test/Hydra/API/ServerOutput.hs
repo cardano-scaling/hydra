@@ -6,7 +6,7 @@ module Test.Hydra.API.ServerOutput where
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason, Greetings, HeadStatus, NetworkInfo, ServerOutput (..), TimedServerOutput)
 import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainPointType, ChainStateType, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Test.Hydra.Chain ()
 import Test.Hydra.Ledger ()
@@ -27,7 +27,7 @@ instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
 instance ArbitraryIsTx tx => Arbitrary (SideLoadRequirementFailure tx) where
   arbitrary = genericArbitrary
 
-instance (IsChainState tx, Arbitrary (ChainStateType tx), Arbitrary (ClientInput tx), Arbitrary (PostChainTx tx), ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
+instance (IsChainState tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx), Arbitrary (ClientInput tx), Arbitrary (PostChainTx tx), ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
   arbitrary = genericArbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
@@ -37,11 +37,11 @@ instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (Greetings tx)
 
 data InvalidInput = InvalidInput
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (ServerOutput tx) where
   arbitrary = genericArbitrary
   shrink = recursivelyShrink
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), IsChainState tx) => ToADTArbitrary (ServerOutput tx)
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx), IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
 instance Arbitrary HeadStatus where
   arbitrary = genericArbitrary

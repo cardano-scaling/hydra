@@ -6,7 +6,7 @@ module Test.Hydra.HeadLogic.Outcome where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import Hydra.Chain.ChainState (ChainPointType, ChainStateType (..), IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()
@@ -45,7 +45,7 @@ genStateChanged env =
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
+    , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary

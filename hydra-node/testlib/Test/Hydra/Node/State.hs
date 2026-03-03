@@ -5,13 +5,13 @@ module Test.Hydra.Node.State where
 
 import Test.Hydra.Prelude
 
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainPointType, IsChainState (..))
 import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus)
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (recursivelyShrink)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
+instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx), Arbitrary (ChainPointType tx)) => Arbitrary (NodeState tx) where
   arbitrary = genericArbitrary
 
 instance Arbitrary ChainPointTime where

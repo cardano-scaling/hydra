@@ -6,12 +6,14 @@ module Hydra.NetworkSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Binary (FromCBOR (..), ToCBOR (..))
 import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
   readTQueue,
   writeTQueue,
  )
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Network (
@@ -36,6 +38,13 @@ import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
+
+-- Orphan instances for ChainSlot CBOR serialization (used by SimpleTx)
+instance ToCBOR ChainSlot where
+  toCBOR (ChainSlot n) = toCBOR n
+
+instance FromCBOR ChainSlot where
+  fromCBOR = ChainSlot <$> fromCBOR
 
 spec :: Spec
 spec = do

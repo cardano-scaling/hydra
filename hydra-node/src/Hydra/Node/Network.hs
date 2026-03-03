@@ -45,16 +45,16 @@ module Hydra.Node.Network (
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
+import Hydra.Chain.ChainState (ChainPointType, IsChainState)
 import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
 import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
 import Hydra.Network.Message (Message)
-import Hydra.Tx (IsTx)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
   forall tx.
-  IsTx tx =>
+  (IsChainState tx, ToCBOR (ChainPointType tx), FromCBOR (ChainPointType tx)) =>
   -- | Tracer to use for logging messages.
   Tracer IO NetworkLog ->
   -- | The network configuration

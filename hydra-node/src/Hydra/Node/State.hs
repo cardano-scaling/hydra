@@ -49,10 +49,10 @@ data NodeState tx
       }
   deriving stock (Generic)
 
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
+deriving stock instance (IsTx tx, Eq (ChainStateType tx), Eq (ChainPointType tx)) => Eq (NodeState tx)
+deriving stock instance (IsTx tx, Show (ChainStateType tx), Show (ChainPointType tx)) => Show (NodeState tx)
+deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx), ToJSON (ChainPointType tx)) => ToJSON (NodeState tx)
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx), FromJSON (ChainPointType tx)) => FromJSON (NodeState tx)
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =

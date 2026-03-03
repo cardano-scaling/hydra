@@ -103,6 +103,8 @@
                                 }
                             ]
                         },
+                        "pendingDecommitVersion": null,
+                        "pendingDepositVersion": null,
                         "readyToFanoutSent": true,
                         "version": 0
                     },

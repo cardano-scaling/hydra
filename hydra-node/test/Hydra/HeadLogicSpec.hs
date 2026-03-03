@@ -114,6 +114,10 @@ spec =
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
               , version = 0
+              , pendingDepositVersion = Nothing
+              , pendingDecommitVersion = Nothing
+              , depositChainStateAcks = mempty
+              , decommitChainStateAcks = mempty
               }
 
       it "reports if a requested tx is expired" $ do
@@ -141,7 +145,7 @@ spec =
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
-            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1 Nothing Nothing
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
           step (ackFrom carolSk carol)
@@ -378,24 +382,26 @@ spec =
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
 
-          -- Verify seenSnapshot was reset (not stuck as RequestedSnapshot)
-          -- After DecommitFinalized, lastSeen should be the snapshot number that
-          -- included the decommit (snapshot 1), not the previously confirmed snapshot (0).
-          -- This prevents incoming AckSn messages for snapshot 1 from being requeued infinitely.
+          -- Verify seenSnapshot is unchanged (still RequestedSnapshot)
+          -- After DecommitFinalized, the snapshot protocol continues naturally.
+          -- The leader needs to receive their own ReqSn and collect AckSn messages.
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
-              chs.version `shouldBe` 4
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+              chs.version `shouldBe` 3 -- Version NOT bumped immediately (deferred update)
+              chs.pendingDecommitVersion `shouldBe` Just 4 -- Decommit version stored as pending
+              chs.seenSnapshot `shouldBe` RequestedSnapshot{lastSeen = 0, requested = 1} -- Unchanged!
               chs.decommitTx `shouldBe` Nothing
             _ -> fail "expected Open state"
 
-          -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
-          let staleReqSn :: Input SimpleTx
-              staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
+          -- 2. The ReqSn(v=3) arrives and is ACCEPTED (version still 3, not bumped yet)
+          -- This is the FIX: with deferred version update, incoming ReqSn is not rejected
+          let reqSn :: Input SimpleTx
+              reqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
-          update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
-            Error (RequireFailed ReqSvNumberInvalid{}) -> True
-            _ -> False
+          update aliceEnv ledger now' s1 reqSn `shouldSatisfy` \case
+            Error{} -> False
+            Wait{} -> False
+            Continue{} -> True
 
           -- 3. A new ReqTx arrives — bob (leader for sn=2) can request a new
           -- snapshot because snapshotInFlight is now False after the reset
@@ -414,20 +420,18 @@ spec =
                 _ -> False
             _ -> fail "expected Open state"
 
-        it "DecommitFinalized race: calculates correct snapshot number when seenSnapshot ahead of confirmedSnapshot" $ do
-          -- This test reproduces the bug where DecommitFinalized arrives before AckSn completes,
-          -- causing seenSnapshot to get ahead of confirmedSnapshot, which then causes wrong
-          -- snapshot number calculation on the next ReqTx.
+        it "DecommitFinalized race: ReqTx waits while snapshot still in-flight" $ do
+          -- This test verifies correct behavior when DecommitFinalized arrives before AckSn completes.
+          -- The snapshot protocol should continue naturally - we don't force premature state transitions.
           --
-          -- Bug scenario:
+          -- Correct behavior:
           -- 1. Snapshot 1 requested with decommit (RequestedSnapshot{lastSeen=0, requested=1})
           -- 2. DecrementTx posted to chain
           -- 3. DecommitFinalized observed BEFORE AckSn messages complete
-          -- 4. toLastSeenSnapshot converts RequestedSnapshot{requested=1} → LastSeenSnapshot{lastSeen=1}
-          -- 5. Now: confirmedSnapshot.number=0 but seenSnapshot.lastSeen=1 (seenSnapshot is ahead!)
-          -- 6. New L2 tx arrives
-          -- 7. BUGGY: nextSn = confirmedSn + 1 = 0 + 1 = 1 (wrong! snapshot 1 is already "seen")
-          -- 8. FIXED: nextSn = max(confirmedSn, seenSn) + 1 = max(0, 1) + 1 = 2 (correct!)
+          -- 4. seenSnapshot stays RequestedSnapshot (snapshot 1 still in-flight)
+          -- 5. New L2 tx arrives
+          -- 6. ReqTx does NOT create new snapshot request (snapshot 1 still in-flight)
+          -- 7. Transaction is accepted into localTxs and will be included in next snapshot after snapshot 1 confirms
 
           let localUTxO = utxoRefs [1]
               -- Snapshot 0 is confirmed (initial state)
@@ -455,11 +459,12 @@ spec =
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
 
-          -- Verify seenSnapshot is now ahead of confirmedSnapshot
+          -- Verify seenSnapshot is unchanged after DecommitFinalized
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
-              chs.version `shouldBe` 1
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1} -- seenSnapshot updated
+              chs.version `shouldBe` 0 -- Version NOT bumped immediately (deferred update)
+              chs.pendingDecommitVersion `shouldBe` Just 1 -- Decommit version stored as pending
+              chs.seenSnapshot `shouldBe` RequestedSnapshot{lastSeen = 0, requested = 1} -- Unchanged!
               chs.confirmedSnapshot.snapshot.number `shouldBe` 0 -- confirmedSnapshot still at 0!
               chs.decommitTx `shouldBe` Nothing -- decommit cleared
             _ -> fail "expected Open state"
@@ -468,9 +473,12 @@ spec =
           let newTx = aValidTx 42
           let reqTxOutcome = update bobEnv ledger now s1 $ receiveMessage $ ReqTx newTx
 
-          -- Verify it requests snapshot 2 (not snapshot 1)
-          -- Note: Bob is leader for snapshot 2
-          reqTxOutcome `hasEffect` NetworkEffect (ReqSn 1 2 [txId newTx] Nothing Nothing)
+          -- Verify transaction is accepted but NO snapshot requested (snapshot 1 still in-flight)
+          let isReqSnEffect (NetworkEffect ReqSn{}) = True
+              isReqSnEffect _ = False
+           in reqTxOutcome `shouldSatisfy` \case
+                Continue{effects} -> not $ any isReqSnEffect effects
+                _ -> False
 
         it "AckSn for decommit snapshot is noop after DecommitFinalized" $ do
           let localUTxO = utxoRefs [1]
@@ -492,7 +500,7 @@ spec =
                     }
 
           -- AckSn for snapshot 1 arrives late
-          let ackSn = AckSn (sign aliceSk snapshot1) 1
+          let ackSn = AckSn (sign aliceSk snapshot1) 1 Nothing Nothing
               input = receiveMessageFrom alice ackSn
           now <- nowFromSlot s0.chainPointTime.currentSlot
 
@@ -527,12 +535,13 @@ spec =
           let decommitFinalizedOutcome = update bobEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
 
-          -- Verify DecommitFinalized correctly extracted snapshot number from SeenSnapshot
+          -- Verify DecommitFinalized keeps seenSnapshot unchanged
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
-              chs.version `shouldBe` 4
+              chs.version `shouldBe` 3 -- Version NOT bumped immediately (deferred update)
+              chs.pendingDecommitVersion `shouldBe` Just 4 -- Decommit version stored as pending
               chs.decommitTx `shouldBe` Nothing
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty} -- Unchanged!
             _ -> fail "expected Open state"
 
         it "CommitFinalized with RequestedSnapshot should use requested number not lastSeen" $ do
@@ -562,19 +571,20 @@ spec =
 
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
-              chs.version `shouldBe` 4
+              chs.version `shouldBe` 3 -- Version NOT bumped immediately (deferred update)
+              chs.pendingDepositVersion `shouldBe` Just 4 -- Deposit version stored as pending
               chs.currentDepositTxId `shouldBe` Nothing
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+              chs.seenSnapshot `shouldBe` RequestedSnapshot{lastSeen = 0, requested = 1} -- Unchanged!
             _ -> fail "expected Open state"
 
-        it "version race: ReqSn with old version is rejected after DecommitFinalized bumps version" $ do
-          -- This test exposes the version race bug:
+        it "version race: ReqSn with old version is ACCEPTED after DecommitFinalized (pending version)" $ do
+          -- This test verifies the fix for the version race bug:
           -- 1. Snapshot 0 confirmed with decommit at version 0
           -- 2. Leader sends ReqSn(version=0, number=1) to network
-          -- 3. DecommitFinalized arrives at follower's node, bumping version to 1
-          -- 4. Follower receives stale ReqSn(version=0, number=1) but now expects version=1
-          -- 5. Follower rejects with ReqSvNumberInvalid
-          -- 6. System is stuck: snapshot 1 never completes, later snapshots wait forever
+          -- 3. DecommitFinalized arrives at follower's node, storing pendingDecommitVersion=1 (version stays 0)
+          -- 4. Follower receives ReqSn(version=0, number=1) and accepts it (version still 0)
+          -- 5. Snapshot proceeds normally
+          -- 6. Version bump applied after all parties acknowledge via AckSn
 
           let localUTxO = utxoRefs [1, 2, 3]
               decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
@@ -621,16 +631,18 @@ spec =
           let staleReqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
               reqSnInput = receiveMessageFrom alice staleReqSn
 
-          -- Follower rejects with ReqSvNumberInvalid (version mismatch)
+          -- Follower ACCEPTS the ReqSn (version still 0, pending update stored)
           update bobEnv ledger now bobAfterFinalized reqSnInput `shouldSatisfy` \case
-            Error (RequireFailed ReqSvNumberInvalid{requestedSv = 0, lastSeenSv = 1}) -> True
+            Continue{} -> True
             _ -> False
 
         it "does not request same decommit twice across snapshots" $ do
           let localUTxO = utxoRefs [1, 2, 3]
               decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
-              -- utxoToDecommit should be the INPUTS of the decommit tx (what's removed from the Head)
-              utxoToDecommit' = txInputs decommitTx'
+              -- utxoToDecommit stores the OUTPUTS of the decommit tx (what gets placed on L1).
+              -- requireApplicableDecommitTx sets this via utxoFromTx and uses withoutUTxO to
+              -- remove them from the active L2 UTxO.
+              utxoToDecommit' = utxoFromTx decommitTx'
 
               -- Snapshot 0: initial snapshot
               snapshot0 = testSnapshot 0 0 [] localUTxO
@@ -733,9 +745,9 @@ spec =
           s1 <- runHeadLogic bobEnv ledger s0 $ do
             -- First confirm snapshot 1
             step $ receiveMessage $ ReqSn 0 1 [] Nothing Nothing
-            step $ receiveMessageFrom carol $ AckSn (sign carolSk snapshot1) 1
-            step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot1) 1
-            step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot1) 1
+            step $ receiveMessageFrom carol $ AckSn (sign carolSk snapshot1) 1 Nothing Nothing
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot1) 1 Nothing Nothing
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot1) 1 Nothing Nothing
             getState
 
           -- At this point seenSnapshot = LastSeenSnapshot{lastSeen=1}
@@ -751,6 +763,141 @@ spec =
                 RequestedSnapshot{lastSeen, requested} -> requested == 2 && lastSeen == 1
                 _ -> False
             _ -> fail "expected Open state"
+
+        it "applies both deposit and decommit versions chronologically when both ready" $ do
+          -- Simplified test: Both CommitFinalized and DecommitFinalized arrive,
+          -- then a snapshot confirms with all parties acknowledging both pending versions
+          let localUTxO = utxoRefs [1, 2, 3]
+              depositTxId = 42
+              decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 88)
+
+              snapshot0 = testSnapshot 0 0 [] localUTxO
+              confirmedSn0 = ConfirmedSnapshot{snapshot = snapshot0, signatures = Crypto.aggregate []}
+
+              -- Initial state with both deposit and decommit pending
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 0
+                    , confirmedSnapshot = confirmedSn0
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 0}
+                    , currentDepositTxId = Just depositTxId
+                    , decommitTx = Just decommitTx'
+                    }
+
+          currentTime <- nowFromSlot s0.chainPointTime.currentSlot
+
+          -- 1. CommitFinalized arrives (v=1)
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId}
+          let s1 = aggregateState s0 $ update aliceEnv ledger currentTime s0 incrementObservation
+
+          -- 2. DecommitFinalized arrives (v=2)
+          let utxoToDecommit' = txInputs decommitTx'
+              decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoToDecommit'}
+          let s2 = aggregateState s1 $ update aliceEnv ledger currentTime s1 decrementObservation
+
+          -- Verify first pending version is applied immediately, second is pending
+          -- When DecommitFinalized arrives, it applies pendingDepositVersion immediately
+          case s2 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 1 -- First version applied immediately!
+              chs.pendingDepositVersion `shouldBe` Nothing -- Already applied
+              chs.pendingDecommitVersion `shouldBe` Just 2 -- Still pending
+            _ -> fail "expected Open state"
+
+          -- 3. Snapshot 1 confirms with all parties acknowledging decommit version only
+          -- (deposit version was already applied immediately)
+          let snapshot1 = testSnapshot 1 1 [] localUTxO -- version is now 1
+          s3 <- runHeadLogic aliceEnv ledger s2 $ do
+            step $ receiveMessage $ ReqSn 1 1 [] Nothing Nothing -- version 1
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot1) 1 Nothing (Just 2)
+            step $ receiveMessageFrom carol $ AckSn (sign carolSk snapshot1) 1 Nothing (Just 2)
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot1) 1 Nothing (Just 2)
+            getState
+
+          -- Verify final version: deposit was applied immediately (1), decommit via consensus (2)
+          case s3 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 2 -- Final version after both applied!
+              chs.pendingDepositVersion `shouldBe` Nothing
+              chs.pendingDecommitVersion `shouldBe` Nothing
+              chs.depositChainStateAcks `shouldBe` mempty
+              chs.decommitChainStateAcks `shouldBe` mempty
+            _ -> fail "expected Open state after version bump"
+
+        it "clears pending versions on chain rollback" $ do
+          -- This test verifies that when a chain rollback happens, we clear
+          -- the pending versions and chainStateAcks to avoid applying version
+          -- updates for transactions that have been rolled back.
+          --
+          -- Scenario:
+          -- 1. CommitFinalized arrives → pendingDepositVersion=1
+          -- 2. Chain rollback occurs (e.g., IncrementTx rolled back)
+          -- 3. Pending versions and chainStateAcks should be cleared
+
+          let localUTxO = utxoRefs [1, 2, 3]
+              depositTxId = 42
+
+              snapshot0 = testSnapshot 0 0 [] localUTxO
+              confirmedSn0 =
+                ConfirmedSnapshot
+                  { snapshot = snapshot0
+                  , signatures = Crypto.aggregate []
+                  }
+
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 0
+                    , confirmedSnapshot = confirmedSn0
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 0}
+                    }
+
+          -- 1. CommitFinalized arrives setting pendingDepositVersion
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId}
+          currentTime <- nowFromSlot s0.chainPointTime.currentSlot
+          let commitFinalizedOutcome = update aliceEnv ledger currentTime s0 incrementObservation
+          let s1 = aggregateState s0 commitFinalizedOutcome
+
+          -- Verify pendingDepositVersion is set
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.pendingDepositVersion `shouldBe` Just 1
+              chs.depositChainStateAcks `shouldBe` mempty
+            _ -> fail "expected Open state after CommitFinalized"
+
+          -- 2. Some parties send AckSn, partially filling chainStateAcks
+          s2 <- runHeadLogic aliceEnv ledger s1 $ do
+            step $ receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot0) 1 (Just 1) Nothing
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot0) 1 (Just 1) Nothing
+            -- Carol hasn't acked yet, so version not applied
+            getState
+
+          -- Verify chainStateAcks partially filled
+          case s2 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.pendingDepositVersion `shouldBe` Just 1
+              chs.version `shouldBe` 0 -- Not yet applied
+              Map.size chs.depositChainStateAcks `shouldBe` 2 -- Alice and Bob
+            _ -> fail "expected Open state with partial acks"
+
+          -- 3. Chain rollback occurs
+          let rollbackObservation = ChainInput Rollback{chainTime = currentTime, rolledBackChainState = SimpleChainState 0}
+          let rollbackOutcome = update aliceEnv ledger currentTime s2 rollbackObservation
+          let s3 = aggregateState s2 rollbackOutcome
+
+          -- Verify pending versions and chainStateAcks are cleared
+          case s3 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 0 -- Still at 0
+              chs.pendingDepositVersion `shouldBe` Nothing -- Cleared!
+              chs.pendingDecommitVersion `shouldBe` Nothing -- Cleared!
+              chs.depositChainStateAcks `shouldBe` mempty -- Cleared!
+              chs.decommitChainStateAcks `shouldBe` mempty -- Cleared!
+            _ -> fail "expected Open state after rollback"
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
@@ -784,7 +931,7 @@ spec =
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
               reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
               snapshot1 = testSnapshot 1 0 [t1] (utxoRefs [1])
-              ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+              ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1 Nothing Nothing
 
           sa <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step $ receiveMessage $ ReqTx t1
@@ -806,8 +953,8 @@ spec =
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             snapshot' = testSnapshot 2 0 [] mempty
-            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
-            invalidAckFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot') 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1 Nothing Nothing
+            invalidAckFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot') 1 Nothing Nothing
         waitingForLastAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
@@ -825,7 +972,7 @@ spec =
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
-            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1 Nothing Nothing
         waitingForLastAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
@@ -844,11 +991,11 @@ spec =
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
-            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1 Nothing Nothing
             invalidAckFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
-                AckSn (coerce $ sign sk ("foo" :: ByteString)) 1
+                AckSn (coerce $ sign sk ("foo" :: ByteString)) 1 Nothing Nothing
         waitingForLastAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
@@ -866,7 +1013,7 @@ spec =
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
-            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1 Nothing Nothing
         waitingForAck <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
@@ -883,7 +1030,7 @@ spec =
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = Snapshot testHeadId 0 1 [] mempty Nothing Nothing
-            ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1
+            ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1 Nothing Nothing
 
         s0 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step reqSn
@@ -920,7 +1067,7 @@ spec =
 
       it "waits if we receive an AckSn for an unseen snapshot" $ do
         let snapshot = testSnapshot 1 0 [] mempty
-            input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
+            input = receiveMessage $ AckSn (sign aliceSk snapshot) 1 Nothing Nothing
             s0 = inOpenState threeParties
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 input
@@ -957,7 +1104,7 @@ spec =
             input = receiveMessageFrom leader $ ReqSn 0 (number snapshot) [] Nothing Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties
-            ack = AckSn sig (number snapshot)
+            ack = AckSn sig (number snapshot) Nothing Nothing
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `hasEffect` NetworkEffect ack
 
@@ -1140,7 +1287,7 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   }
-              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1 Nothing Nothing
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
             step ackSn
             getState
@@ -1261,7 +1408,7 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   }
-              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1 Nothing Nothing
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
             step ackSn
             getState
@@ -1344,7 +1491,7 @@ spec =
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
                   }
-              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1 Nothing Nothing
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
             step ackSn
             getState
@@ -1847,6 +1994,10 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
+                          , pendingDepositVersion = Nothing
+                          , pendingDecommitVersion = Nothing
+                          , depositChainStateAcks = mempty
+                          , decommitChainStateAcks = mempty
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -1942,6 +2093,10 @@ spec =
                               , currentDepositTxId = Nothing
                               , decommitTx = Nothing
                               , version = 0
+                              , pendingDepositVersion = Nothing
+                              , pendingDecommitVersion = Nothing
+                              , depositChainStateAcks = mempty
+                              , decommitChainStateAcks = mempty
                               }
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                         , headId = testHeadId
@@ -1989,6 +2144,10 @@ spec =
                             , currentDepositTxId = Nothing
                             , decommitTx = Nothing
                             , version = 0
+                            , pendingDepositVersion = Nothing
+                            , pendingDecommitVersion = Nothing
+                            , depositChainStateAcks = mempty
+                            , decommitChainStateAcks = mempty
                             }
                       , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                       , headId = testHeadId
@@ -2162,6 +2321,10 @@ inOpenState parties =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
+      , pendingDepositVersion = Nothing
+      , pendingDecommitVersion = Nothing
+      , depositChainStateAcks = mempty
+      , decommitChainStateAcks = mempty
       }
  where
   u0 = mempty
@@ -2204,6 +2367,8 @@ inClosedState' parties confirmedSnapshot =
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
+        , pendingDepositVersion = Nothing
+        , pendingDecommitVersion = Nothing
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties
