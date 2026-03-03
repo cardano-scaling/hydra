@@ -42,6 +42,7 @@ instance Exception FaucetException
 data FaucetLog
   = TraceResourceExhaustedHandled Text
   | ReturnedFunds {returnAmount :: Coin}
+  | SubmitTxError Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -251,8 +252,11 @@ createOutputAtAddress networkId backend atAddress datum val = do
 retryOnExceptions :: (MonadCatch m, MonadDelay m, ChainBackend backend) => Tracer m FaucetLog -> backend -> m a -> m a
 retryOnExceptions tracer backend action =
   action
-    `catches` [ Handler $ \(_ :: SubmitTransactionException) -> do
+    `catches` [ Handler $ \(ex :: SubmitTransactionException) -> do
                   delayBF backend
+                  traceWith tracer $
+                    SubmitTxError $
+                      show ex
                   retryOnExceptions tracer backend action
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
