@@ -164,6 +164,7 @@ data FaucetLog
 TraceResourceExhaustedHandled :: Text -> FaucetLog
 ReturnedFunds :: Coin -> FaucetLog
 [$sel:returnAmount:TraceResourceExhaustedHandled] :: FaucetLog -> Coin
+SubmitTxError :: Text -> FaucetLog
 delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
 seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> IO UTxO
 
@@ -172,6 +173,7 @@ seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey 
 seedFromFaucetWithMinting :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
 findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
 seedFromFaucetBlockfrost :: BlockfrostOptions -> VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
+findUTxO :: MonadIO m => UTxO Era -> Lovelace -> m (UTxO Era)
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
 --   <a>UTxO</a>.
