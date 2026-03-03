@@ -69,11 +69,3 @@ jobs:
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
         nix develop .#exes --command bash -c "hydra-cluster --${{inputs.network}} --state-directory ${state_dir} ${HYDRA_SCRIPTS_ARG} ${USE_MITHRIL_ARG}"
-
-    - name: 💾 Upload logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: hydra-cluster-logs
-        path: ${state_dir}/${inputs.network}/logs/*
-        if-no-files-found: ignore
