@@ -181,8 +181,8 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
       }
  where
   initialize = do
-    traceWith tracer BeginInitialize
-    walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo QueryTip address
+    traceWith tracer (spy' "XXX Dummy" BeginInitialize)
+    walletInfo@WalletInfoOnChain{walletUTxO, tip} <- queryWalletInfo QueryTip (spy' "XXX address" address)
     traceWith tracer $ EndInitialize{initialUTxO = UTxO.fromShelleyUTxO Api.shelleyBasedEra (Ledger.UTxO walletUTxO), tip}
     pure walletInfo
 

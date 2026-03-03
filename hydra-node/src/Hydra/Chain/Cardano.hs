@@ -104,10 +104,10 @@ mkTinyWallet backend tracer config = do
 
   querySomePParams = queryProtocolParameters backend QueryTip
   queryWalletInfo queryPoint address = do
-    point <- case spy' "queryPoint: " queryPoint of
+    point <- case spy' "XXX queryPoint: " queryPoint of
       QueryAt point -> pure point
       QueryTip -> queryTip backend
-    walletUTxO <- spy' "UTxO" <$> Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra <$> queryUTxO backend [address]
+    walletUTxO <- spy' "XXX UTxO" <$> Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra <$> queryUTxO backend [address]
     systemStart <- querySystemStart backend QueryTip
     pure $ WalletInfoOnChain{walletUTxO, systemStart, tip = point}
 
