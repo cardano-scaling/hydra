@@ -15,7 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (cancel, concurrently_, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -75,6 +75,8 @@ import Test.Hydra.Tx.Fixture (
   aliceSk,
   bob,
   bobSk,
+  carol,
+  carolSk,
   deriveOnChainId,
   testHeadId,
   testHeadSeed,
@@ -902,6 +904,69 @@ spec = parallel $ do
                 HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
                 _ -> Nothing
 
+  describe "Three participant Head" $ do
+    it "processes L2 transactions together with de/commits" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob, carol] chain $ \n1 ->
+            withHydraNode bobSk [alice, carol] chain $ \n2 ->
+              withHydraNode carolSk [alice, bob] chain $ \n3 -> do
+                openHead3 chain n1 n2 n3
+
+                let numTxs = 25 :: Int
+                let aliceTxs =
+                      [ SimpleTx
+                          (fromIntegral txid)
+                          (if txid == 100 then utxoRef 1 else utxoRef (fromIntegral (txid - 1)))
+                          (utxoRef (fromIntegral txid))
+                      | txid <- [100 .. 100 + numTxs - 1]
+                      ]
+
+                -- Run L2 tx spam concurrently with deposits + decommits
+                concurrently_
+                  -- Thread 1: Alice spams 25 chained L2 txs
+                  (forM_ aliceTxs $ \tx -> send n1 (NewTx tx) >> threadDelay 0)
+                  -- Thread 2: two deposits, then two sequential decommits
+                  ( do
+                      deadline1 <- newDeadlineFarEnoughFromNow
+                      dep1 <- simulateDeposit chain testHeadId (utxoRefs [200]) deadline1
+                      waitUntil [n1, n2, n3] $ CommitFinalized{headId = testHeadId, depositTxId = dep1}
+                      threadDelay 0
+                      deadline2 <- newDeadlineFarEnoughFromNow
+                      dep2 <- simulateDeposit chain testHeadId (utxoRefs [201]) deadline2
+                      waitUntil [n1, n2, n3] $ CommitFinalized{headId = testHeadId, depositTxId = dep2}
+                      threadDelay 0
+                      -- First decommit: Carol removes utxoRef 3
+                      send n3 (Decommit $ SimpleTx 300 (utxoRef 3) (utxoRef 300))
+                      threadDelay 0
+                      waitUntilMatch [n1, n2, n3] $ \case
+                        DecommitFinalized{} -> Just ()
+                        _ -> Nothing
+                      -- Second decommit: Bob removes utxoRef 2
+                      send n2 (Decommit $ SimpleTx 400 (utxoRef 2) (utxoRef 400))
+                  )
+
+                waitUntilMatch [n1, n2, n3] $ \case
+                  DecommitFinalized{} -> Just ()
+                  _ -> Nothing
+
+                -- Verify final state: L2 txs landed, both deposits added, both decommits removed
+                headUTxO <- getHeadUTxO . headState <$> queryState n1
+                fromMaybe mempty headUTxO `shouldSatisfy` member 124 -- Last L2 tx output
+                fromMaybe mempty headUTxO `shouldSatisfy` member 200 -- Deposit 1 added
+                fromMaybe mempty headUTxO `shouldSatisfy` member 201 -- Deposit 2 added
+                fromMaybe mempty headUTxO `shouldSatisfy` (not . member 1) -- Alice's UTXO spent by L2 txs
+                fromMaybe mempty headUTxO `shouldSatisfy` (not . member 2) -- Bob's UTXO decommitted
+                fromMaybe mempty headUTxO `shouldSatisfy` (not . member 3) -- Carol's UTXO decommitted
+
+                send n1 Close
+                waitUntil [n1, n2, n3] $ ReadyToFanout{headId = testHeadId}
+                send n2 Fanout
+                waitUntilMatch [n1, n2, n3] $ \case
+                  HeadIsFinalized{} -> Just ()
+                  _ -> Nothing
+
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -1413,6 +1478,23 @@ openHead2 chain n1 n2 = do
   simulateCommit chain testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+openHead3 ::
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead3 chain n1 n2 n3 = do
+  send n1 Init
+  waitUntil [n1, n2, n3] $ HeadIsInitializing testHeadId (fromList [alice, bob, carol])
+  simulateCommit chain testHeadId alice (utxoRef 1)
+  waitUntil [n1, n2, n3] $ Committed testHeadId alice (utxoRef 1)
+  simulateCommit chain testHeadId bob (utxoRef 2)
+  waitUntil [n1, n2, n3] $ Committed testHeadId bob (utxoRef 2)
+  simulateCommit chain testHeadId carol (utxoRef 3)
+  waitUntil [n1, n2, n3] $ Committed testHeadId carol (utxoRef 3)
+  waitUntil [n1, n2, n3] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2, 3]}
 
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case
