@@ -303,6 +303,7 @@ spec = parallel $ do
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
             }
@@ -488,6 +489,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , contestationPeriod
       , depositPeriod = defaultDepositPeriod
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
+      , snapshotRetryInterval = 10
       , participants
       , configuredPeers = ""
       }

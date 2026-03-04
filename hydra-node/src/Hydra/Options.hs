@@ -214,6 +214,9 @@ data RunOptions = RunOptions
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
   , apiTransactionTimeout :: ApiTransactionTimeout
+  , snapshotRetryInterval :: NominalDiffTime
+  -- ^ How often the snapshot leader retries sending a ReqSn. Defaults to 10
+  -- seconds, which is shorter than a typical Cardano block time.
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -247,6 +250,7 @@ defaultRunOptions =
     , ledgerConfig = defaultLedgerConfig
     , whichEtcd = EmbeddedEtcd
     , apiTransactionTimeout = 300
+    , snapshotRetryInterval = defaultSnapshotRetryInterval
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -273,6 +277,7 @@ runOptionsParser =
     <*> ledgerConfigParser
     <*> whichEtcdParser
     <*> apiTransactionTimeoutParser
+    <*> snapshotRetryIntervalParser
 
 whichEtcdParser :: Parser WhichEtcd
 whichEtcdParser =
@@ -736,6 +741,25 @@ apiTransactionTimeoutParser =
           \takes longer than this, it will be cancelled."
     )
 
+-- | Default snapshot retry interval: 10 seconds, shorter than a typical
+-- Cardano block time (~20s) so stale ReqSn requests are corrected quickly.
+defaultSnapshotRetryInterval :: NominalDiffTime
+defaultSnapshotRetryInterval = 10
+
+snapshotRetryIntervalParser :: Parser NominalDiffTime
+snapshotRetryIntervalParser =
+  option
+    auto
+    ( long "snapshot-retry-interval"
+        <> metavar "SECONDS"
+        <> value defaultSnapshotRetryInterval
+        <> showDefault
+        <> help
+          "How often the snapshot leader retries sending a snapshot request \
+          \after a version mismatch (in seconds). Should be shorter than the \
+          \chain block time so stale requests are corrected quickly."
+    )
+
 startChainFromParser :: Parser ChainPoint
 startChainFromParser =
   option
@@ -976,6 +1000,7 @@ toArgs
     , ledgerConfig
     , whichEtcd
     , apiTransactionTimeout
+    , snapshotRetryInterval
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -995,6 +1020,7 @@ toArgs
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
       <> ["--api-transaction-timeout", show apiTransactionTimeout]
+      <> ["--snapshot-retry-interval", show snapshotRetryInterval]
    where
     (NodeId nId) = nodeId
 

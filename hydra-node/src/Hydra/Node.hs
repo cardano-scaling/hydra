@@ -72,6 +72,7 @@ initEnvironment options = do
       , contestationPeriod
       , depositPeriod
       , unsyncedPeriod
+      , snapshotRetryInterval
       , configuredPeers
       }
  where
@@ -118,6 +119,7 @@ initEnvironment options = do
     , chainConfig
     , advertise
     , peers
+    , snapshotRetryInterval
     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function
@@ -287,17 +289,23 @@ data HydraNode tx m = HydraNode
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
+  , MonadDelay m
   , MonadTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node =
-  -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
-  -- something like 'forM_ [0..1] $ async'
-  forever $ do
-    now <- getCurrentTime
-    stepHydraNode now node
+runHydraNode node@HydraNode{inputQueue = InputQueue{enqueue}, env = Environment{snapshotRetryInterval}} =
+  withAsyncLabelled ("snapshot-retry-timer", timerThread) $ \_ ->
+    -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
+    -- something like 'forM_ [0..1] $ async'
+    forever $ do
+      now <- getCurrentTime
+      stepHydraNode now node
+ where
+  timerThread = forever $ do
+    threadDelay (realToFrac snapshotRetryInterval)
+    enqueue TimerInput
 
 stepHydraNode ::
   ( MonadCatch m
