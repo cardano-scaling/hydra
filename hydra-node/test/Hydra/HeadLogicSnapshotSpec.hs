@@ -48,6 +48,7 @@ spec = do
                 , contestationPeriod = defaultContestationPeriod
                 , depositPeriod = defaultDepositPeriod
                 , unsyncedPeriod = defaultUnsyncedPeriod
+                , snapshotRetryInterval = 10
                 , participants = deriveOnChainId <$> threeParties
                 , configuredPeers = ""
                 }
@@ -205,6 +206,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
             , participants = [deriveOnChainId party]
             , configuredPeers = ""
             }

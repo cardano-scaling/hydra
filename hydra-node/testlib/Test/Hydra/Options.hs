@@ -50,6 +50,7 @@ instance Arbitrary RunOptions where
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
     apiTransactionTimeout <- arbitrary
+    snapshotRetryInterval <- fromInteger <$> choose (1, 3600)
     pure $
       RunOptions
         { verbosity
@@ -70,6 +71,7 @@ instance Arbitrary RunOptions where
         , ledgerConfig
         , whichEtcd
         , apiTransactionTimeout
+        , snapshotRetryInterval
         }
 
   shrink = genericShrink

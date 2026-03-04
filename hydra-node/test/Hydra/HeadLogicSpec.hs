@@ -86,6 +86,7 @@ spec =
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
             }
@@ -97,6 +98,7 @@ spec =
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
             }
