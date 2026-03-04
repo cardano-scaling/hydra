@@ -51,6 +51,7 @@ testEnvironment =
     , contestationPeriod = cperiod
     , depositPeriod = DepositPeriod 20
     , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
+    , snapshotRetryInterval = 10
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""
     }

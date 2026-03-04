@@ -456,8 +456,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                       }
  where
   requireReqSn continue
-    | sv /= version =
-        Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
+    -- Version mismatch means the ReqSn was sent before the version bumped (race
+    -- condition). It is not a protocol violation — silently ignore it and let
+    -- the leader's timer retry with the correct version.
+    | sv /= version = noop
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -1532,6 +1534,8 @@ updateCatchingUpHead env ledger now chainPointTime pendingDeposits st ev syncSta
       cause . ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput drift
     NetworkInput{} ->
       wait WaitOnNodeInSync{currentSlot}
+    TimerInput ->
+      noop
  where
   ChainPointTime{currentSlot, drift} = chainPointTime
 
@@ -1558,6 +1562,63 @@ updateInSyncHead env ledger now chainPointTime pendingDeposits st ev syncStatus 
       handleClientInput env ledger chainPointTime pendingDeposits st ev
     NetworkInput{} ->
       handleNetworkInput env ledger chainPointTime pendingDeposits st ev
+    TimerInput ->
+      case st of
+        Open openState -> onOpenTimer env pendingDeposits openState
+        _ -> noop
+
+-- | Handle a periodic timer tick when the head is 'Open'.
+--
+-- If this node is the snapshot leader for the next snapshot and there is work
+-- pending (transactions or a decommit/deposit), it will send a 'ReqSn'. This
+-- covers two cases:
+--
+--   1. A 'RequestedSnapshot' is in-flight: the previous 'ReqSn' was likely
+--      rejected by peers because the version bumped (race with
+--      'DecommitFinalized'/'CommitFinalized'). Re-send with the current version.
+--
+--   2. No snapshot is in-flight but there is pending work: send a fresh 'ReqSn'.
+--      This is a fallback for cases where the normal trigger was missed.
+onOpenTimer ::
+  IsTx tx =>
+  Environment ->
+  PendingDeposits tx ->
+  OpenState tx ->
+  Outcome tx
+onOpenTimer Environment{party} pendingDeposits st =
+  let chs = st.coordinatedHeadState
+      confSn = number $ getSnapshot chs.confirmedSnapshot
+      nextSn = confSn + 1
+      hasWork =
+        not (null chs.localTxs)
+          || isJust chs.decommitTx
+          || isJust chs.currentDepositTxId
+      decommitToInclude = skipPostedDecommit (getSnapshot chs.confirmedSnapshot) chs.decommitTx
+      depositToInclude = skipPostedDeposit pendingDeposits chs.currentDepositTxId (getSnapshot chs.confirmedSnapshot).utxoToCommit
+   in if isLeader st.parameters party nextSn
+        then case chs.seenSnapshot of
+          -- Re-send: previous ReqSn was likely rejected due to version mismatch
+          -- (DecommitFinalized/CommitFinalized bumped the version after we sent it).
+          RequestedSnapshot{} ->
+            sendReqSn chs.version nextSn chs.localTxs decommitToInclude depositToInclude
+          -- Fresh send: no snapshot in-flight but there is pending work.
+          _
+            | not (snapshotInFlight chs.seenSnapshot nextSn) && hasWork ->
+                sendReqSn chs.version nextSn chs.localTxs decommitToInclude depositToInclude
+          _ -> noop
+        else noop
+ where
+  sendReqSn version nextSn localTxs decommitToInclude depositToInclude =
+    newState SnapshotRequestDecided{snapshotNumber = nextSn}
+      <> cause
+        ( NetworkEffect $
+            ReqSn
+              version
+              nextSn
+              (txId <$> take maxTxsPerSnapshot localTxs)
+              decommitToInclude
+              (setExistingDeposit pendingDeposits depositToInclude)
+        )
 
 -- * Input Handlers
 
@@ -1854,24 +1915,29 @@ aggregateNodeState nodeState sc =
 
 -- * HeadState aggregate
 
--- | Convert any SeenSnapshot to LastSeenSnapshot, preserving the correct snapshot number.
--- Used by CommitFinalized and DecommitFinalized to handle race conditions where
--- on-chain transaction confirmation happens before AckSn messages arrive.
+-- | Convert any SeenSnapshot to LastSeenSnapshot, resetting to the last
+-- *confirmed* snapshot number. Used by CommitFinalized and DecommitFinalized to
+-- unblock the snapshot protocol after a version bump so the timer can re-send
+-- a fresh ReqSn with the updated version.
+--
+-- Both in-flight cases must reset to the confirmed number so that
+-- 'snapshotInFlight' returns False and the timer can proceed:
+--   * RequestedSnapshot{lastSeen} — no AckSns yet, reset to lastSeen (confirmed)
+--   * SeenSnapshot{number}        — collecting AckSns for N, reset to N-1 (confirmed)
+--
+-- Stale AckSns for the collapsed request will expire via TTL.
 toLastSeenSnapshot :: SeenSnapshot tx -> SeenSnapshot tx
 toLastSeenSnapshot = \case
   NoSeenSnapshot ->
     LastSeenSnapshot{lastSeen = 0}
   LastSeenSnapshot{lastSeen} ->
     LastSeenSnapshot{lastSeen}
-  -- NB: Use 'requested' not 'lastSeen' to prevent infinite AckSn loop.
-  -- When leader requests snapshot N with commit/decommit and the on-chain transaction
-  -- is observed before AckSn messages arrive, the transaction is part of snapshot N
-  -- (requested), not snapshot N-1 (lastSeen). Using lastSeen would cause AckSn(N)
-  -- messages to fail the guard check and be requeued infinitely.
-  RequestedSnapshot{requested} ->
-    LastSeenSnapshot{lastSeen = requested}
+  -- Reset to last confirmed (lastSeen), not the in-flight requested number.
+  RequestedSnapshot{lastSeen} ->
+    LastSeenSnapshot{lastSeen = lastSeen}
+  -- Snapshot N is being signed; last confirmed is N-1.
   SeenSnapshot{snapshot = Snapshot{number}} ->
-    LastSeenSnapshot{lastSeen = number}
+    LastSeenSnapshot{lastSeen = number - 1}
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
