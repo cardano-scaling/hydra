@@ -11,24 +11,23 @@ import Data.Aeson.Lens (atKey, key)
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState)
+import Hydra.Node.State (NodeState, SyncedStatus)
 import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (ArbitraryIsTx, IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
-import Test.QuickCheck (recursivelyShrink)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 data TimedServerOutput tx = TimedServerOutput
@@ -37,9 +36,6 @@ data TimedServerOutput tx = TimedServerOutput
   , time :: UTCTime
   }
   deriving stock (Eq, Show, Generic)
-
-instance Arbitrary (ServerOutput tx) => Arbitrary (TimedServerOutput tx) where
-  arbitrary = genericArbitrary
 
 instance IsChainState tx => ToJSON (TimedServerOutput tx) where
   toJSON TimedServerOutput{output, seq, time} =
@@ -66,14 +62,14 @@ instance (ToJSON (TxIdType tx), ToJSON (UTxOType tx)) => ToJSON (DecommitInvalid
 instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
   parseJSON = genericParseJSON defaultOptions
 
-instance ArbitraryIsTx tx => Arbitrary (DecommitInvalidReason tx) where
-  arbitrary = genericArbitrary
-
 -- | Individual messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
+  | RejectedInputBecauseUnsynced {clientInput :: ClientInput tx, drift :: NominalDiffTime}
+  | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
+  | SyncedStatusReport {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime, synced :: SyncedStatus}
   deriving (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
@@ -90,9 +86,6 @@ instance IsChainState tx => FromJSON (ClientMessage tx) where
         { omitNothingFields = True
         }
 
-instance (IsChainState tx, ArbitraryIsTx tx) => Arbitrary (ClientMessage tx) where
-  arbitrary = genericArbitrary
-
 -- | A friendly welcome message which tells a client something about the
 -- node. Currently used for knowing what signing key the server uses (it
 -- only knows one), 'HeadStatus' and optionally (if 'HeadIsOpen' or
@@ -105,6 +98,8 @@ data Greetings tx = Greetings
   , hydraNodeVersion :: String
   , env :: Environment
   , networkInfo :: NetworkInfo
+  , chainSyncedStatus :: SyncedStatus
+  , currentSlot :: ChainSlot
   }
   deriving (Generic)
 
@@ -126,11 +121,6 @@ instance IsChainState tx => FromJSON (Greetings tx) where
         { omitNothingFields = True
         , tagSingleConstructors = True
         }
-
-instance ArbitraryIsTx tx => Arbitrary (Greetings tx) where
-  arbitrary = genericArbitrary
-
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (Greetings tx)
 
 data InvalidInput = InvalidInput
   { reason :: String
@@ -215,18 +205,14 @@ data ServerOutput tx
     -- Any signing round has been discarded, and the snapshot leader has changed accordingly.
     SnapshotSideLoaded {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | EventLogRotated {checkpoint :: NodeState tx}
+  | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
+  | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (ServerOutput tx)
 deriving stock instance IsChainState tx => Show (ServerOutput tx)
 deriving anyclass instance IsChainState tx => FromJSON (ServerOutput tx)
 deriving anyclass instance IsChainState tx => ToJSON (ServerOutput tx)
-
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ServerOutput tx) where
-  arbitrary = genericArbitrary
-  shrink = recursivelyShrink
-
-instance (ArbitraryIsTx tx, IsChainState tx) => ToADTArbitrary (ServerOutput tx)
 
 -- | Whether or not to include full UTxO in server outputs.
 data WithUTxO = WithUTxO | WithoutUTxO
@@ -288,6 +274,8 @@ prepareServerOutput config response =
     PeerDisconnected{} -> encodedResponse
     SnapshotSideLoaded{} -> encodedResponse
     EventLogRotated{} -> encodedResponse
+    NodeUnsynced{} -> encodedResponse
+    NodeSynced{} -> encodedResponse
  where
   encodedResponse = encode response
 
@@ -310,9 +298,6 @@ data HeadStatus
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary HeadStatus where
-  arbitrary = genericArbitrary
-
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
   = CannotCommit
@@ -326,9 +311,6 @@ data NetworkInfo = NetworkInfo
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary NetworkInfo where
-  arbitrary = genericArbitrary
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
 getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)

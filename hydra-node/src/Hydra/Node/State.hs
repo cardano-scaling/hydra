@@ -5,29 +5,49 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Data.Map qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Tx (
   HeadId,
   IsTx (..),
  )
-import Hydra.Tx.IsTx (ArbitraryIsTx)
-import Test.QuickCheck (recursivelyShrink)
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
-data NodeState tx = NodeState
-  { headState :: HeadState tx
-  , pendingDeposits :: PendingDeposits tx
-  -- ^ Pending deposits as observed on chain.
-  -- TODO: could even move the chain state here (also see todo below)
-  -- , chainState :: ChainStateType tx
-  , currentSlot :: ChainSlot
+data ChainPointTime = ChainPointTime
+  { currentSlot :: ChainSlot
+  -- ^ Latest chain slot as observed on chain.
+  , currentChainTime :: UTCTime
+  -- ^ Time corresponding to `currentSlot`.
+  , drift :: NominalDiffTime
+  -- ^ Time difference with current system wall-clock measured in seconds
   }
-  deriving stock (Generic)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
 
-instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (NodeState tx) where
-  arbitrary = genericArbitrary
+data NodeState tx
+  = -- | Normal operation of the node where it is connected and has a recent
+    -- view of the chain.
+    NodeInSync
+      { headState :: HeadState tx
+      , pendingDeposits :: PendingDeposits tx
+      -- ^ Pending deposits as observed on chain.
+      -- TODO: could even move the chain state here (also see todo below)
+      -- , chainState :: ChainStateType tx
+      , chainPointTime :: ChainPointTime
+      }
+  | -- | Node is catching up on its view of the chain and should behave
+    -- differently.
+    NodeCatchingUp
+      { headState :: HeadState tx
+      , pendingDeposits :: PendingDeposits tx
+      -- ^ Pending deposits as observed on chain.
+      -- TODO: could even move the chain state here (also see todo below)
+      -- , chainState :: ChainStateType tx
+      , chainPointTime :: ChainPointTime
+      }
+  deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
@@ -36,11 +56,29 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
-  NodeState
+  NodeCatchingUp
     { headState = Idle IdleState{chainState}
     , pendingDeposits = mempty
-    , currentSlot = chainStateSlot chainState
+    , chainPointTime = initialChainPointTime chainState
     }
+
+initialChainPointTime :: IsChainState tx => ChainStateType tx -> ChainPointTime
+initialChainPointTime chainState =
+  ChainPointTime
+    { currentSlot = chainStateSlot chainState
+    , currentChainTime = initialChainTime
+    , drift = 0
+    }
+
+initialChainTime :: UTCTime
+initialChainTime = posixSecondsToUTCTime 0
+
+data SyncedStatus = InSync | CatchingUp
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+syncedStatus :: NodeState tx -> SyncedStatus
+syncedStatus NodeInSync{} = InSync
+syncedStatus NodeCatchingUp{} = CatchingUp
 
 -- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
 -- it may be used for an incremental commit or not.
@@ -58,16 +96,8 @@ deriving stock instance IsTx tx => Show (Deposit tx)
 deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
 deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
 
-instance ArbitraryIsTx tx => Arbitrary (Deposit tx) where
-  arbitrary = genericArbitrary
-  shrink = recursivelyShrink
-
 data DepositStatus = Inactive | Active | Expired
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
-
-instance Arbitrary DepositStatus where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

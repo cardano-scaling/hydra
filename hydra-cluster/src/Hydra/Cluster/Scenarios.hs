@@ -36,7 +36,6 @@ import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as T
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
   TransactionSubmitted (..),
@@ -107,6 +106,7 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (FaucetLog, createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -115,10 +115,11 @@ import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (chainConfigFor, chainConfigFor', keysFor, modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (R (..), dummyMintingScript, dummyRewardingScript, dummyValidatorScript, dummyValidatorScriptAlwaysFails, exampleSecureValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
-import Hydra.Ledger.Cardano.Evaluate (maxTxExecutionUnits)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..), RunOptions (..), startChainFrom)
+import Hydra.Node.State (SyncedStatus (..))
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
+import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (constructDepositUTxO)
@@ -144,7 +145,8 @@ import HydraNode (
   waitNoMatch,
   withHydraCluster,
   withHydraNode,
-  withPreparedHydraNode,
+  withHydraNodeCatchingUp,
+  withPreparedHydraNodeInSync,
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
@@ -162,10 +164,10 @@ import Network.HTTP.Req (
   (/:),
  )
 import Network.HTTP.Simple (getResponseBody, httpJSON, setRequestBodyJSON)
-import Network.HTTP.Types (urlEncode)
 import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Process (callProcess)
+import Test.Hydra.Ledger.Cardano.Fixtures (maxTxExecutionUnits)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript, genUTxOWithAssetsSized)
 import Test.QuickCheck (Positive, choose, elements, generate)
@@ -206,10 +208,10 @@ oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
     chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
       <&> setNetworkId networkId
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
     aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         -- Init
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
@@ -244,7 +246,7 @@ oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
       send n1 $ input "NewTx" ["transaction" .= tx]
 
       -- Carol reconnects, and then the snapshot can be confirmed
-      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         -- Note: We can't use `waitForAlMatch` here as it expects them to
         -- emit the exact same datatype; but Carol will be behind in sequence
         -- numbers as she was offline.
@@ -267,6 +269,7 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
 
   let contestationPeriod = 1
   networkId <- Backend.queryNetworkId backend
+  blockTime <- Backend.getBlockTime backend
   aliceChainConfig <-
     chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] contestationPeriod
       <&> setNetworkId networkId
@@ -276,8 +279,8 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
-    headId <- withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
+  withHydraNode hydraTracer blockTime bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
+    headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
       send n1 $ input "Init" []
       -- XXX: might need to tweak the wait time
       waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -288,9 +291,41 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
       output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
     -- n2 is back and does observe the commit
-    withHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
       waitFor hydraTracer 10 [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
+
+resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
+  networkId <- Backend.queryNetworkId backend
+  let contestationPeriod = 1
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+      <&> setNetworkId networkId
+
+  chainSlot :: ChainSlot <-
+    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      chainSlot <- waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
+
+      -- wait for some ticks to be observed
+      threadDelay 1
+      pure chainSlot
+
+  chainSlot' <-
+    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      waitMatch 20 n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
+
+  chainSlot `shouldSatisfy` (< chainSlot')
+ where
+  hydraTracer = contramap FromHydraNode tracer
 
 restartedNodeCanAbort :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 restartedNodeCanAbort tracer workDir backend hydraScriptsTxId = do
@@ -303,18 +338,18 @@ restartedNodeCanAbort tracer workDir backend hydraScriptsTxId = do
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
 
   let hydraTracer = contramap FromHydraNode tracer
-  headId1 <- withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  headId1 <- withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     send n1 $ input "Init" []
     waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Also expect to see past server outputs replayed
     headId2 <- waitMatch (20 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
     headId1 `shouldBe` headId2
     send n1 $ input "Abort" []
     waitFor hydraTracer 20 [n1] $
       output "HeadIsAborted" ["utxo" .= object mempty, "headId" .= headId2]
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
@@ -346,8 +381,8 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
 
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-    (headId', decrementOuts) <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+    (headId', decrementOuts) <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
       send n1 $ input "Init" []
 
       headId <- waitMatch (20 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
@@ -418,7 +453,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       callProcess "cp" ["-r", workDir </> "state-2", tmpDir]
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "state*"]
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]
-      withHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode hydraTracer blockTime bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
         -- Also expect to see past server outputs replayed
         headId2 <- waitMatch (10 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
         headId2 `shouldBe` headId'
@@ -467,12 +502,12 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
       tip <- Backend.queryTip backend
       blockTime <- Backend.getBlockTime backend
       networkId <- Backend.queryNetworkId backend
-      contestationPeriod <- CP.fromNominalDiffTime $ 10 * blockTime
+      contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
       aliceChainConfig <-
         chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 100)
           <&> modifyConfig (\config -> config{startChainFrom = Just tip})
             . setNetworkId networkId
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
         -- Initialize & open head
         send n1 $ input "Init" []
         headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -539,10 +574,10 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
     let hydraTracer = contramap FromHydraNode tracer
     options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
     let options' = options{persistenceRotateAfter}
-    withPreparedHydraNode hydraTracer workDir 1 options' $ \n1 -> do
+    blockTime <- Backend.getBlockTime backend
+    withPreparedHydraNodeInSync hydraTracer blockTime workDir 1 options' $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
-      blockTime <- Backend.getBlockTime backend
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
       requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
       waitFor hydraTracer (10 * blockTime) [n1] $
@@ -571,7 +606,7 @@ singlePartyCommitsFromExternal tracer workDir backend hydraScriptsTxId =
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       blockTime <- Backend.getBlockTime backend
-      withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
         send n1 $ input "Init" []
         headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -616,7 +651,7 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       blockTime <- Backend.getBlockTime backend
-      withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
         send n1 $ input "Init" []
         headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -741,7 +776,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
         let hydraTracer = contramap FromHydraNode tracer
         blockTime <- Backend.getBlockTime backend
         networkId <- Backend.queryNetworkId backend
-        withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
           requestCommitTx n1 utxoToCommit <&> signTx walletSk >>= Backend.submitTransaction backend
@@ -813,8 +848,7 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
         <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    (_, walletSk) <- keysFor AliceFunds
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
       (clientPayload, scriptUTxO, _) <- prepareScriptPayload 7_000_000 0
@@ -849,9 +883,7 @@ singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
-      let depositTransaction = responseBody res'
-      let tx = signTx walletSk depositTransaction
-
+      let tx = responseBody res'
       Backend.submitTransaction backend tx
 
       let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
@@ -907,10 +939,9 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
         <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    (_, walletSk) <- keysFor AliceFunds
     -- incrementally commit script to a running Head
     (referenceUTxO, scriptUTxO) <- publishReferenceScript tracer 20_000_000
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
       res <-
@@ -938,9 +969,7 @@ singlePartyDepositReferenceScript tracer workDir backend hydraScriptsTxId =
             (Proxy :: Proxy (JsonResponse Tx))
             (port $ 4000 + hydraNodeId)
 
-      let depositTransaction = responseBody res'
-      let tx = signTx walletSk depositTransaction
-
+      let tx = responseBody res'
       Backend.submitTransaction backend tx
 
       let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
@@ -1036,7 +1065,7 @@ singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
         <&> modifyConfig (\c -> c{depositPeriod})
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -1120,7 +1149,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir backend hydraScriptsTxId =
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     blockTime <- Backend.getBlockTime backend
-    headId <- withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -1135,7 +1164,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir backend hydraScriptsTxId =
       Nothing -> error "Failed to find HeadIsOpened in the state file"
       Just headIsOpen -> do
         headIsOpen `shouldBe` "HeadOpened"
-        withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
           waitFor hydraTracer (10 * blockTime) [n1] $
             output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
 
@@ -1159,7 +1188,7 @@ singlePartyCommitsFromExternalTxBlueprint tracer workDir backend hydraScriptsTxI
     let hydraTracer = contramap FromHydraNode tracer
     (someExternalVk, someExternalSk) <- generate genKeyPair
     blockTime <- Backend.getBlockTime backend
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -1221,7 +1250,7 @@ canCloseWithLongContestationPeriod tracer workDir backend hydraScriptsTxId = do
       <&> modifyConfig (\config -> config{startChainFrom = Just tip})
   let hydraTracer = contramap FromHydraNode tracer
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
     headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -1255,7 +1284,8 @@ canSubmitTransactionThroughAPI tracer workDir backend hydraScriptsTxId =
     aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] $ \_ -> do
+    blockTime <- Backend.getBlockTime backend
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] $ \_ -> do
       -- let's prepare a _user_ transaction from Bob to Carol
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
@@ -1312,8 +1342,8 @@ threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
         case Backend.getOptions backend of
           Direct DirectOptions{nodeSocket} -> nodeSocket
           Blockfrost _ -> error "Unexpected Blockfrost options"
-
-  withHydraCluster hydraTracer tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
+  blockTime <- Backend.getBlockTime backend
+  withHydraCluster hydraTracer blockTime tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
 
@@ -1365,9 +1395,10 @@ nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
 
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+  blockTime <- Backend.getBlockTime backend
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
     bobChainConfig' <-
@@ -1379,12 +1410,12 @@ nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
 
     waitForNodesDisconnected hydraTracer 60 $ n1 :| []
 
-    withHydraNode hydraTracer bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
-      withHydraNode hydraTracer carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
+      withHydraNode hydraTracer blockTime carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n2 :| [n3]
 
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
@@ -1400,10 +1431,10 @@ initWithWrongKeys workDir tracer backend hydraScriptsTxId = do
   bobChainConfig <- chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
-    withHydraNode hydraTracer bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] $ \n2 -> do
+  blockTime <- Backend.getBlockTime backend
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] $ \n2 -> do
       seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-
       send n1 $ input "Init" []
       headId <-
         waitForAllMatch 10 [n1] $
@@ -1415,7 +1446,6 @@ initWithWrongKeys workDir tracer backend hydraScriptsTxId = do
 
       -- We want the client to observe headId being opened without bob (node 2)
       -- being part of it
-      blockTime <- Backend.getBlockTime backend
       participants <- waitMatch (10 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "IgnoredHeadInitializing")
         guard $ v ^? key "headId" == Just (toJSON headId)
@@ -1433,9 +1463,9 @@ startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
   bobChainConfig <- chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
     -- NOTE: here we deliberately use the wrong peer list for Bob
-    withHydraNode hydraTracer bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
       seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
       (clusterPeers, configuredPeers) <- waitMatch (20 * blockTime) n1 $ \v -> do
@@ -1466,8 +1496,8 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -1551,8 +1581,8 @@ canDepositPartially tracer workDir blockTime backend hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n2 $ headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -1667,8 +1697,7 @@ rejectCommit tracer workDir blockTime backend hydraScriptsTxId =
 
     let pparamsDecorator = atKey "utxoCostPerByte" ?~ toJSON (Aeson.Number 4310)
     optionsWithUTxOCostPerByte <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] pparamsDecorator
-
-    withPreparedHydraNode hydraTracer workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
+    withPreparedHydraNodeInSync hydraTracer blockTime workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
 
@@ -1717,8 +1746,8 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        headId <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        headId <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -1756,13 +1785,12 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
         (selectLovelace . balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
           `shouldReturn` 0
 
-        let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show (getTxId $ getTxBody tx)
         -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
         diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
         threadDelay $ diff + 1
 
         (`shouldReturn` "OK") $
-          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> show (txId tx))
             >>= httpJSON
             <&> getResponseBody @String
 
@@ -1807,7 +1835,7 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Init the head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -1905,9 +1933,8 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
     diff <- realToFrac . diffUTCTime deadline <$> getCurrentTime
     threadDelay $ diff + 1
 
-    let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show depositId
     (`shouldReturn` "OK") $
-      parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n <> "/commits/" <> path)
+      parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n <> "/commits/" <> show depositId)
         >>= httpJSON
         <&> getResponseBody @String
     blockTime <- Backend.getBlockTime backend
@@ -1934,8 +1961,8 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
           <&> setNetworkId networkId . modifyConfig (\c -> c{depositPeriod})
-      withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        _ <- withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
+        _ <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice, bob])
 
@@ -1979,13 +2006,12 @@ canSeePendingDeposits tracer workDir blockTime backend hydraScriptsTxId =
           pure depositTxId
 
         forM_ deposited $ \deposit -> do
-          let path = BSC.unpack $ urlEncode False $ encodeUtf8 $ T.pack $ show deposit
           -- XXX: should know the deadline from the query above
           -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
           threadDelay $ realToFrac (toNominalDiffTime depositPeriod * 4)
 
           (`shouldReturn` "OK") $
-            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> path)
+            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> show deposit)
               >>= httpJSON
               <&> getResponseBody @String
 
@@ -2012,7 +2038,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
         <&> setNetworkId networkId
-    withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsInitializingWith (Set.fromList [alice])
@@ -2107,7 +2133,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
   seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
   blockTime <- Backend.getBlockTime backend
-  let contestationPeriod = 1
+  let contestationPeriod = 1000
 
   networkId <- Backend.queryNetworkId backend
   aliceChainConfig <-
@@ -2120,13 +2146,13 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
     chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
       <&> setNetworkId networkId
 
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
     aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
       -- Carol starts its node misconfigured
       let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
       wrongOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] pparamsDecorator
-      tx <- withPreparedHydraNode hydraTracer workDir 3 wrongOptions $ \n3 -> do
+      tx <- withPreparedHydraNodeInSync hydraTracer blockTime workDir 3 wrongOptions $ \n3 -> do
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
 
@@ -2146,12 +2172,12 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         send n1 $ input "NewTx" ["transaction" .= tx]
 
         -- Alice and Bob accept it
-        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
 
         -- Carol does not because of its node being misconfigured
-        waitMatch (10 * blockTime) n3 $ \v -> do
+        waitMatch (20 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
@@ -2165,19 +2191,19 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
         pure tx
 
       -- Carol disconnects and the others observe it
-      waitForAllMatch (100 * blockTime) [n1, n2] $ \v -> do
+      waitForAllMatch 5 [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "PeerDisconnected"
 
       -- Carol reconnects with healthy reconfigured node
-      withHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         -- Carol re-submits the same transaction
         send n3 $ input "NewTx" ["transaction" .= tx]
         -- Carol accepts it
-        waitMatch (10 * blockTime) n3 $ \v -> do
+        waitMatch (20 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "TxValid"
           guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
         -- But now Alice and Bob does not because they already applied it
-        waitForAllMatch (200 * blockTime) [n1, n2] $ \v -> do
+        waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
@@ -2239,27 +2265,123 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
     chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] contestationPeriod
       <&> setNetworkId networkId
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
+  withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
     waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
       waitMatch (20 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
-
       threadDelay 5
 
     callProcess "rm" ["-rf", workDir </> "state-2"]
+    threadDelay 1
 
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ threadDelay 1)
       `shouldThrow` \(e :: SomeException) ->
         "hydra-node" `isInfixOf` show e
           && "etcd" `isInfixOf` show e
 
     setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
     unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
+ where
+  hydraTracer = contramap FromHydraNode tracer
+
+-- XXX: restart scenarios require 3 party cluster in order to observe PeerDisconnected instead of NetworkDisconnected
+waitsForChainInSyncAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
+  let clients = [Alice, Bob, Carol]
+  [(aliceCardanoVk, _), (bobCardanoVk, _), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
+  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  blockTime <- Backend.getBlockTime backend
+  networkId <- Backend.queryNetworkId backend
+  contestationPeriod <- CP.fromNominalDiffTime (100 * blockTime)
+  aliceChainConfig <-
+    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] contestationPeriod
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
+      <&> setNetworkId networkId
+
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      -- Open a head while Carol online
+      headId <- withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        send n1 $ input "Init" []
+        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+
+        -- Alice commits nothing
+        requestCommitTx n1 mempty >>= Backend.submitTransaction backend
+        -- Bob commits nothing
+        requestCommitTx n2 mempty >>= Backend.submitTransaction backend
+        -- Carol commits something
+        carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+        requestCommitTx n3 carolUTxO >>= Backend.submitTransaction backend
+
+        -- Observe open with the relevant UTxOs
+        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+          output "HeadIsOpen" ["utxo" .= toJSON carolUTxO, "headId" .= headId]
+
+        pure headId
+
+      -- Carol disconnects and the others observe it
+      waitForAllMatch 5 [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "PeerDisconnected"
+
+      -- Wait for some blocks to roll forward
+      let unsyncedPeriod = case carolChainConfig of
+            Cardano CardanoChainConfig{unsyncedPeriod = up} -> up
+            Offline{} -> defaultUnsyncedPeriodFor contestationPeriod
+      threadDelay $ realToFrac (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 50 * blockTime)
+
+      -- Alice closes the head while Carol offline
+      send n1 $ input "Close" []
+      waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
+        guard $ v ^? key "tag" == Just "HeadIsClosed"
+        guard $ v ^? key "headId" == Just (toJSON headId)
+
+      -- Carol restarts
+      withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+        -- The node reports that it is in the Open state when restarting.
+        -- NOTE: chainSyncedStatus in Greetings reflects the persisted sync status
+        -- (InSync from last session), not the current one. The node may not have
+        -- processed any Ticks yet to detect it is out of sync.
+        waitMatch 5 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "Greetings"
+          guard $ v ^? key "headStatus" == Just (toJSON Open)
+          guard $ v ^? key "me" == Just (toJSON carol)
+          guard $ isJust (v ^? key "hydraNodeVersion")
+        -- The node detects it is out of sync with the chain
+        waitMatch 5 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "SyncedStatusReport"
+          guard $ v ^? key "synced" == Just (toJSON CatchingUp)
+
+        -- Then, Carol attempts submits a new transaction,
+        -- without waiting for head to be closed
+        utxo <- getSnapshotUTxO n3
+        tx <- mkTransferTx testNetworkId utxo carolCardanoSk carolCardanoVk
+        send n3 $ input "NewTx" ["transaction" .= tx]
+
+        waitMatch 5 n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "RejectedInputBecauseUnsynced"
+
+        -- Carol API notifies the node is back on sync with the chain
+        -- note this is tuned based on how long it takes to sync
+        waitMatch (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 5 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "NodeSynced"
+
+        -- Finally, Carol observes the head getting closed
+        waitMatch (20 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "HeadIsClosed"
+          guard $ v ^? key "headId" == Just (toJSON headId)
  where
   hydraTracer = contramap FromHydraNode tracer
 
@@ -2284,10 +2406,10 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
   let hydraTracer = contramap FromHydraNode tracer
   let allNodeIds = [1, 2, 3]
   blockTime <- Backend.getBlockTime backend
-  withHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] allNodeIds $ \n1 -> do
-    withHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] allNodeIds $ \n1 -> do
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
       -- One party will participate using same hydra credentials
-      withHydraNode hydraTracer aliceChainConfig workDir 3 aliceSk [bobVk] allNodeIds $ \n3 -> do
+      withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] allNodeIds $ \n3 -> do
         let clients = [n1, n2, n3]
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) clients $ headIsInitializingWith (Set.fromList [alice, bob])

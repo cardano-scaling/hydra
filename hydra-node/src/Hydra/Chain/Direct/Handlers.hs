@@ -45,7 +45,7 @@ import Hydra.Chain (
   rollbackHistory,
  )
 import Hydra.Chain.ChainState (
-  ChainSlot (..),
+  ChainSlot,
   ChainStateType,
   IsChainState,
  )
@@ -62,7 +62,6 @@ import Hydra.Chain.Direct.State (
   fanout,
   getKnownUTxO,
   increment,
-  initialChainState,
   initialize,
   recover,
  )
@@ -125,6 +124,7 @@ newLocalChainState chainState = do
       , history = readTVar tv
       }
  where
+  -- REVIEW: why using `currentState` instead of `lastKnown` ???
   getLatest :: TVar m (ChainStateHistory tx) -> STM m (ChainStateType tx)
   getLatest tv = currentState <$> readTVar tv
 
@@ -172,8 +172,7 @@ mkChain ::
   Chain Tx m
 mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
   Chain
-    { mkChainState = initialChainState
-    , postTx = \tx -> do
+    { postTx = \tx -> do
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
@@ -261,6 +260,15 @@ finalizeTx TinyWallet{sign, coverFee} ctx utxo userUTxO partialTx = do
             } ::
             PostTxError Tx
         )
+    Left ErrMissingScript{scriptHash, purpose} ->
+      throwIO
+        ( ScriptFailedInWallet
+            { redeemerPtr = purpose
+            , failureReason = "Missing script witness for " <> scriptHash
+            , failingTx = partialTx
+            } ::
+            PostTxError Tx
+        )
     Left e ->
       throwIO
         ( InternalWalletError
@@ -326,8 +334,14 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
   onRollBackward :: ChainPoint -> m ()
   onRollBackward point = do
     traceWith tracer $ RolledBackward{point}
-    rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
-    callback Rollback{rolledBackChainState}
+    timeHandle <- getTimeHandle
+    let slotNo = fromMaybe 0 (chainPointToSlotNo point)
+    case slotToUTCTime timeHandle slotNo of
+      Left reason ->
+        throwIO TimeConversionException{slotNo, reason}
+      Right utcTime -> do
+        rolledBackChainState <- atomically $ rollback (chainSlotFromPoint point)
+        callback Rollback{rolledBackChainState, chainTime = utcTime}
 
   onRollForward :: BlockHeader -> [Tx] -> m ()
   onRollForward header receivedTxs = do
@@ -346,8 +360,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
           Left reason ->
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
-            let chainSlot = ChainSlot . fromIntegral $ unSlotNo slotNo
-            callback (Tick{chainTime = utcTime, chainSlot})
+            callback (Tick{chainTime = utcTime, chainPoint = point})
 
     forM_ receivedTxs $
       maybeObserveSomeTx timeHandle point >=> \case
@@ -494,6 +507,18 @@ maxGraceTime = 200
 -- Tracing
 --
 
+data StartingDecision
+  = FromProvided ChainPoint
+  | FromTip ChainPoint
+  | FromPersisted
+      { chainPoint :: ChainPoint
+      , startChainFromSet :: Bool
+      -- ^ Whether the user-provided --start-chain-from point was set
+      -- but ignored, because it was older than persisted points.
+      }
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 data CardanoChainLog
   = ToPost {toPost :: PostChainTx Tx}
   | PostingTx {txId :: TxId}
@@ -502,5 +527,6 @@ data CardanoChainLog
   | RolledForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
+  | StartingChainDecision StartingDecision
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

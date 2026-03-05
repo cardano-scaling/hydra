@@ -74,6 +74,7 @@ colorLog = \case
     "DecommitInvalid" -> red
     "IgnoredHeadInitializing" -> red
     "TxInvalid" -> red
+    "NodeUnsynced" -> red
     _ -> cyan
   LogicError _ -> red
   Other _ -> green
@@ -220,6 +221,8 @@ processLogs decoded =
                     TickObserved{} -> pure DropLog
                     LocalStateCleared{} -> pure DropLog
                     Checkpoint{} -> pure DropLog
+                    details@NodeUnsynced{} -> logIt (LogicLabel "NodeUnsynced") details
+                    details@NodeSynced{} -> logIt (LogicLabel "NodeSynced") details
                 )
                 DropLog
                 stateChanges
@@ -228,6 +231,7 @@ processLogs decoded =
         DroppedFromQueue{} -> pure DropLog
         LoadingState -> logIt (Other "Loading state...") ()
         LoadedState{} -> logIt (Other "Loaded.") ()
+        LoadedChainState{} -> logIt (Other "LoadedChainState ...") ()
         ReplayingState -> logIt (Other "Replaying state...") ()
         details@Misconfiguration{} -> logIt (Other "MISCONFIG!") details
     _ -> pure DropLog

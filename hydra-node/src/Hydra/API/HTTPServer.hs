@@ -21,7 +21,7 @@ import Control.Lens ((^?))
 import Data.Aeson (KeyValue ((.=)), Value (String), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, _String)
-import Data.Aeson.Types (Parser)
+import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
 import Data.List qualified as List
@@ -40,7 +40,7 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500)
+import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 import System.Directory (doesFileExist)
 
@@ -56,12 +56,6 @@ instance IsTx tx => ToJSON (DraftCommitTxResponse tx) where
 
 instance IsTx tx => FromJSON (DraftCommitTxResponse tx) where
   parseJSON v = DraftCommitTxResponse <$> parseJSON v
-
-instance Arbitrary tx => Arbitrary (DraftCommitTxResponse tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    DraftCommitTxResponse xs -> DraftCommitTxResponse <$> shrink xs
 
 data DraftCommitTxRequest tx
   = SimpleCommitRequest
@@ -106,17 +100,10 @@ instance (FromJSON tx, FromJSON (UTxOType tx)) => FromJSON (DraftCommitTxRequest
     simpleDirectVariant :: Aeson.Value -> Parser (DraftCommitTxRequest tx)
     simpleDirectVariant val = SimpleCommitRequest <$> parseJSON val
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (DraftCommitTxRequest tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    SimpleCommitRequest u -> SimpleCommitRequest <$> shrink u
-    FullCommitRequest a b c -> FullCommitRequest <$> shrink a <*> shrink b <*> shrink c
-
 newtype SubmitTxRequest tx = SubmitTxRequest
   { txToSubmit :: tx
   }
-  deriving newtype (Eq, Show, Arbitrary)
+  deriving newtype (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
 
 data TransactionSubmitted = TransactionSubmitted
@@ -136,26 +123,17 @@ instance FromJSON TransactionSubmitted where
         pure TransactionSubmitted
       _ -> fail "Expected tag to be TransactionSubmitted"
 
-instance Arbitrary TransactionSubmitted where
-  arbitrary = genericArbitrary
-
 newtype SideLoadSnapshotRequest tx = SideLoadSnapshotRequest
   { snapshot :: ConfirmedSnapshot tx
   }
   deriving newtype (Eq, Show, Generic)
   deriving newtype (ToJSON, FromJSON)
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (SideLoadSnapshotRequest tx) where
-  arbitrary = genericArbitrary
-
-  shrink = \case
-    SideLoadSnapshotRequest snapshot -> SideLoadSnapshotRequest <$> shrink snapshot
-
 -- | Request to submit a transaction to the head
 newtype SubmitL2TxRequest tx = SubmitL2TxRequest
   { submitL2Tx :: tx
   }
-  deriving newtype (Eq, Show, Arbitrary)
+  deriving newtype (Eq, Show)
   deriving newtype (ToJSON, FromJSON)
 
 -- | Response for transaction submission
@@ -164,6 +142,8 @@ data SubmitL2TxResponse
     SubmitTxConfirmed Integer
   | -- | Transaction was rejected due to validation errors
     SubmitTxInvalidResponse Text
+  | -- | Transaction was rejected due to node out of sync
+    SubmitTxRejectedResponse Text
   | -- | Transaction was accepted but not yet confirmed
     SubmitTxSubmitted
   deriving stock (Eq, Show, Generic)
@@ -180,6 +160,11 @@ instance ToJSON SubmitL2TxResponse where
         [ "tag" .= Aeson.String "SubmitTxInvalid"
         , "validationError" .= validationError
         ]
+    SubmitTxRejectedResponse reason ->
+      object
+        [ "tag" .= Aeson.String "SubmitTxRejected"
+        , "reason" .= reason
+        ]
     SubmitTxSubmitted -> object ["tag" .= Aeson.String "SubmitTxSubmitted"]
 
 instance FromJSON SubmitL2TxResponse where
@@ -188,11 +173,9 @@ instance FromJSON SubmitL2TxResponse where
     case tag :: Text of
       "SubmitTxConfirmed" -> SubmitTxConfirmed <$> o .: "snapshotNumber"
       "SubmitTxInvalid" -> SubmitTxInvalidResponse <$> o .: "validationError"
+      "SubmitTxRejected" -> SubmitTxRejectedResponse <$> o .: "reason"
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
-      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, or SubmitTxSubmitted"
-
-instance Arbitrary SubmitL2TxResponse where
-  arbitrary = genericArbitrary
+      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, SubmitTxRejected, or SubmitTxSubmitted"
 
 data HeadInitializationDetails
   = HeadInitializationDetails
@@ -248,6 +231,7 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- headState <$> getNodeState
       respond . okJSON $ getSeenSnapshot hs
+    -- FIXME: We should not be parsing the state file here.
     ("GET", ["head-initialization"]) ->
       handleHeadInitializationTime stateFile
         >>= respond
@@ -395,6 +379,8 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
                 pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
               Right (CommandFailed{clientInput = Recover{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Recover failed")
+              Right (RejectedInputBecauseUnsynced{clientInput = Recover{}, drift}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Recover failed because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -410,10 +396,15 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
                     ]
               )
  where
+  parseTxIdFromPath :: Text -> Either Response (TxIdType tx)
   parseTxIdFromPath txIdStr =
-    case Aeson.eitherDecode (encodeUtf8 txIdStr) :: Either String (TxIdType tx) of
-      Left e -> Left (responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e))
+    -- First try parsing as a raw JSON value (for backwards compatibility with numeric IDs)
+    -- then fall back to parsing as a JSON String (for hex-encoded TxIds)
+    case Aeson.eitherDecode (LBS.fromStrict $ encodeUtf8 txIdStr) of
       Right txid -> Right txid
+      Left _ -> case parseEither parseJSON (Aeson.String txIdStr) of
+        Right txid -> Right txid
+        Left e -> Left $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ "Cannot recover funds. Failed to parse TxId: " <> pack e)
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx ::
@@ -459,6 +450,8 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit invalid")
               Right (CommandFailed{clientInput = Decommit{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Decommit failed")
+              Right (RejectedInputBecauseUnsynced{clientInput = Decommit{}, drift}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Decommit failed because because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -495,8 +488,12 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
             case event of
               Left TimedServerOutput{output = SnapshotSideLoaded{}} ->
                 pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+              Right (SideLoadSnapshotRejected{clientInput = SideLoadSnapshot{}, requirementFailure}) ->
+                pure $ responseLBS status400 jsonContent (Aeson.encode requirementFailure)
               Right (CommandFailed{clientInput = SideLoadSnapshot{}}) ->
                 pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Side-load snapshot failed")
+              Right (RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot{}, drift}) ->
+                pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift))
               _ -> wait
       timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
@@ -543,6 +540,8 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
           pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitTxConfirmed snapshotNumber)
         Just (SubmitTxInvalidResponse validationError) ->
           pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitTxInvalidResponse validationError)
+        Just (SubmitTxRejectedResponse reason) ->
+          pure $ responseLBS status503 jsonContent (Aeson.encode $ SubmitTxRejectedResponse reason)
         Just SubmitTxSubmitted ->
           pure $ responseLBS status202 jsonContent (Aeson.encode SubmitTxSubmitted)
         Nothing ->
@@ -565,6 +564,8 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
     go = do
       event <- atomically $ readTChan dupChannel
       case event of
+        Right (RejectedInputBecauseUnsynced{clientInput = NewTx{}, drift}) -> do
+          pure $ SubmitTxRejectedResponse $ "Node is out of sync with chain, drift: " <> show drift
         Left (TimedServerOutput{output}) -> case output of
           TxValid{transactionId}
             | transactionId == txid ->

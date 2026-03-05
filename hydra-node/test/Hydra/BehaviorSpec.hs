@@ -10,6 +10,7 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   readTQueue,
   readTVarIO,
+  retry,
   stateTVar,
   writeTQueue,
   writeTVar,
@@ -18,6 +19,7 @@ import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
+import Data.List.NonEmpty qualified as NE
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
@@ -29,7 +31,7 @@ import Hydra.Chain (
   PostChainTx (..),
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStateSlot)
+import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
@@ -40,12 +42,25 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simp
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message)
-import Hydra.Node (DraftHydraNode (..), HydraNode (..), HydraNodeLog (..), connect, createNodeStateHandler, defaultTxTTL, mkNetworkInput, queryNodeState, runHydraNode, waitDelay)
+import Hydra.Node (
+  DraftHydraNode (..),
+  HydraNode (..),
+  HydraNodeLog (..),
+  NodeStateHandler (..),
+  connect,
+  createNodeStateHandler,
+  defaultTxTTL,
+  mkNetworkInput,
+  queryNodeState,
+  runHydraNode,
+  waitDelay,
+ )
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
@@ -66,7 +81,6 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.QuickCheck (chooseEnum, counterexample, forAll, getNegative, ioProperty)
 import Test.Util (
-  propRunInSim,
   shouldBe,
   shouldNotBe,
   shouldRunInSim,
@@ -429,20 +443,21 @@ spec = parallel $ do
           -- NOTE: Any deadline between now and deposit period should
           -- eventually result in an expired deposit.
           forAll (chooseEnum (0, depositPeriod)) $ \deadlineDiff ->
-            propRunInSim $
-              withSimulatedChainAndNetwork $ \chain ->
-                withHydraNode aliceSk [] chain $ \n1 -> do
-                  openHead chain n1
-                  deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
-                  txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
-                  asExpected <- waitUntilMatch [n1] $ \case
-                    DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
-                    CommitApproved{} -> Just False
-                    _ -> Nothing
-                  pure $
-                    asExpected
-                      & counterexample "Deposit with deadline too soon approved instead of expired"
-                      & counterexample ("Deadline: " <> show deadlineTooEarly)
+            ioProperty $
+              shouldRunInSim $
+                withSimulatedChainAndNetwork $ \chain ->
+                  withHydraNode aliceSk [] chain $ \n1 -> do
+                    openHead chain n1
+                    deadlineTooEarly <- addUTCTime deadlineDiff <$> getCurrentTime
+                    txid <- simulateDeposit chain testHeadId (utxoRef 123) deadlineTooEarly
+                    asExpected <- waitUntilMatch [n1] $ \case
+                      DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                      CommitApproved{} -> Just False
+                      _ -> Nothing
+                    pure $
+                      asExpected
+                        & counterexample "Deposit with deadline too soon approved instead of expired"
+                        & counterexample ("Deadline: " <> show deadlineTooEarly)
 
         it "commit snapshot only approved when deadline not too soon" $ do
           shouldRunInSim $
@@ -899,9 +914,9 @@ spec = parallel $ do
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
       logs
-        `shouldContain` [BeginInput alice 0 (ClientInput Init)]
+        `shouldContain` [BeginInput alice 1 (ClientInput Init)]
       logs
-        `shouldContain` [EndInput alice 0]
+        `shouldContain` [EndInput alice 1]
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
@@ -921,7 +936,7 @@ spec = parallel $ do
               (BeginEffect _ _ _ (ClientEffect CommandFailed{})) -> True
               _ -> False
           )
-      logs `shouldContain` [EndEffect alice 0 0]
+      logs `shouldContain` [EndEffect alice 1 0]
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -989,15 +1004,15 @@ waitUntilMatch nodes predicate = do
             , unlines (show <$> msgs)
             ]
  where
-  go seenOutputs (nid, n) = do
-    out <-
-      raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
-        Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
-        Right out -> pure out
-    atomically (modifyTVar' seenOutputs ((nid, out) :))
-    case predicate out of
-      Just x -> pure x
-      Nothing -> go seenOutputs (nid, n)
+  go seenOutputs (nid, n) =
+    raceLabelled ("wait-for-next-msg", waitForNextMessage n) ("wait-for-next", waitForNext n) >>= \case
+      Left SyncedStatusReport{} -> go seenOutputs (nid, n)
+      Left msg -> failure $ "waitUntilMatch received unexpected client message: " <> show msg
+      Right out -> do
+        atomically (modifyTVar' seenOutputs ((nid, out) :))
+        case predicate out of
+          Just x -> pure x
+          Nothing -> go seenOutputs (nid, n)
 
   oneMonth = 3600 * 24 * 30
 
@@ -1074,8 +1089,7 @@ simulatedChainAndNetwork initialChainState = do
       { connectNode = \draftNode -> do
           let mockChain =
                 Chain
-                  { mkChainState = initialChainState
-                  , postTx = \tx -> do
+                  { postTx = \tx -> do
                       now <- getCurrentTime
                       -- Only observe "after one block"
                       void . asyncLabelled "sim-chain-post-tx" $ do
@@ -1113,8 +1127,8 @@ simulatedChainAndNetwork initialChainState = do
     now <- getCurrentTime
     event <- atomically $ do
       cs <- getLatest localChainState
-      let chainSlot = chainStateSlot cs
-      pure $ Tick now chainSlot
+      -- XXX: This chain state (its point) does not correspond to 'now'
+      pure $ Tick now (chainStatePoint cs)
     readTVarIO nodes >>= mapM_ (`handleChainEvent` event)
 
   createAndYieldEvent nodes history localChainState tx = do
@@ -1158,17 +1172,19 @@ simulatedChainAndNetwork initialChainState = do
       pure (reverse toReplay, kept)
     -- Determine the new (last kept one) chainstate
     let chainSlot =
-          List.head $
-            map
-              ( \case
-                  Observation{newChainState} -> chainStateSlot newChainState
-                  _NoObservation -> error "unexpected non-observation ChainEvent"
-              )
-              kept
+          maybe (ChainSlot 0) NE.head $
+            nonEmpty $
+              map
+                ( \case
+                    Observation{newChainState} -> chainStateSlot newChainState
+                    _NoObservation -> error "unexpected non-observation ChainEvent"
+                )
+                kept
     rolledBackChainState <- atomically $ rollback localChainState chainSlot
     -- Yield rollback events
     ns <- readTVarIO nodes
-    forM_ ns $ \n -> handleChainEvent n Rollback{rolledBackChainState}
+    chainTime <- getCurrentTime
+    forM_ ns $ \n -> handleChainEvent n Rollback{chainTime, rolledBackChainState}
     -- Re-play the observation events
     forM_ toReplay $ \ev ->
       recordAndYieldEvent nodes history ev
@@ -1267,7 +1283,7 @@ withHydraNode' dp signingKey otherParties chain action = do
   messages <- newLabelledTQueueIO "hydra-node-messages"
   outputHistory <- newLabelledTVarIO "hydra-node-output-history" mempty
   let initialChainState = SimpleChainState{slot = ChainSlot 0}
-  node <-
+  node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
     createHydraNode
       traceInIOSim
       simpleLedger
@@ -1280,7 +1296,13 @@ withHydraNode' dp signingKey otherParties chain action = do
       chain
       defaultContestationPeriod
       dp
-  withAsyncLabelled ("run-hydra-node", runHydraNode node) $ \_ ->
+  withAsyncLabelled ("run-hydra-node", runHydraNode node) $ \_ -> do
+    -- await for the node to be in sync with the chain
+    atomically $ do
+      st <- queryNodeState
+      case st of
+        NodeInSync{} -> pure ()
+        _ -> retry
     action (createTestHydraClient outputs messages outputHistory node)
 
 createTestHydraClient ::
@@ -1357,8 +1379,9 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , signingKey
       , otherParties
       , contestationPeriod = cp
-      , participants
       , depositPeriod = dp
+      , unsyncedPeriod = defaultUnsyncedPeriodFor cp
+      , participants
       , configuredPeers = ""
       }
   party = deriveParty signingKey

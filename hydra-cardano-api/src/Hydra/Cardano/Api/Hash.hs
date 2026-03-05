@@ -48,6 +48,23 @@ unsafeScriptDataHashFromBytes bytes
         . unsafeMakeSafeHash
         $ unsafeHashFromBytes bytes
 
+unsafeBlockHeaderHashFromBytes ::
+  HasCallStack =>
+  ByteString ->
+  Hash BlockHeader
+unsafeBlockHeaderHashFromBytes bytes
+  | BS.length bytes /= 32 =
+      error $ "unsafeBlockHeaderHashFromBytes: pre-condition failed: " <> show (BS.length bytes) <> " bytes."
+  | otherwise =
+      case deserialiseFromRawBytes (proxyToAsType Proxy) bytes of
+        Left e ->
+          error $
+            "unsafeBlockHeaderHashFromBytes: failed on bytes "
+              <> show bytes
+              <> " with error "
+              <> show e
+        Right h -> h
+
 -- NOTE: The constructor for Hash isn't exposed in the cardano-api. Although
 -- there's a 'CastHash' type-class, there are not instances for everything, so
 -- we have to resort to binary serialisation/deserialisation to cast hashes.

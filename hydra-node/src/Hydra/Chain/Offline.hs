@@ -2,16 +2,21 @@ module Hydra.Chain.Offline where
 
 import Hydra.Prelude
 
-import Cardano.Api.Genesis (shelleyGenesisDefaults)
-import Cardano.Api.Ledger qualified as Ledger
-import Cardano.Ledger.Coin qualified as L
-import Cardano.Ledger.Shelley.Genesis qualified as Shelley
-import Cardano.Ledger.Slot (unSlotNo)
+import Cardano.Api.Genesis (fromShelleyGenesis, shelleyGenesisDefaults)
 import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
-import Hydra.Cardano.Api (GenesisParameters (..), NetworkMagic (..), ShelleyEra, ShelleyGenesis (..), Tx, fromShelleyNetwork)
+import Hydra.Cardano.Api (
+  BlockHeader,
+  ChainPoint (..),
+  GenesisParameters (..),
+  Hash,
+  ShelleyEra,
+  ShelleyGenesis (..),
+  Tx,
+  unsafeBlockHeaderHashFromBytes,
+ )
 import Hydra.Chain (
   Chain (..),
   ChainComponent,
@@ -19,55 +24,15 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostTxError (..),
-  chainSlot,
   chainTime,
   initHistory,
  )
-import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
-
--- Upstreamed in cardano-api 10.18
-fromShelleyGenesis :: Shelley.ShelleyGenesis -> GenesisParameters ShelleyEra
-fromShelleyGenesis
-  sg@Shelley.ShelleyGenesis
-    { Shelley.sgSystemStart
-    , Shelley.sgNetworkMagic
-    , Shelley.sgNetworkId
-    , Shelley.sgActiveSlotsCoeff
-    , Shelley.sgSecurityParam
-    , Shelley.sgEpochLength
-    , Shelley.sgSlotsPerKESPeriod
-    , Shelley.sgMaxKESEvolutions
-    , Shelley.sgSlotLength
-    , Shelley.sgUpdateQuorum
-    , Shelley.sgMaxLovelaceSupply
-    , Shelley.sgGenDelegs = _ -- unused, might be of interest
-    , Shelley.sgInitialFunds = _ -- unused, not retained by the node
-    , Shelley.sgStaking = _ -- unused, not retained by the node
-    } =
-    GenesisParameters
-      { protocolParamSystemStart = sgSystemStart
-      , protocolParamNetworkId =
-          fromShelleyNetwork
-            sgNetworkId
-            (NetworkMagic sgNetworkMagic)
-      , protocolParamActiveSlotsCoefficient =
-          Ledger.unboundRational
-            sgActiveSlotsCoeff
-      , protocolParamSecurity = sgSecurityParam
-      , protocolParamEpochLength = sgEpochLength
-      , protocolParamSlotLength = Shelley.fromNominalDiffTimeMicro sgSlotLength
-      , protocolParamSlotsPerKESPeriod = fromIntegral sgSlotsPerKESPeriod
-      , protocolParamMaxKESEvolutions = fromIntegral sgMaxKESEvolutions
-      , protocolParamUpdateQuorum = fromIntegral sgUpdateQuorum
-      , protocolParamMaxLovelaceSupply = L.Coin $ fromIntegral sgMaxLovelaceSupply
-      , protocolInitialUpdateableProtocolParameters = Shelley.sgProtocolParams sg
-      }
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.
 offlineHeadId :: HeadSeed -> HeadId
@@ -125,8 +90,7 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle :: Chain Tx IO
   chainHandle =
     Chain
-      { mkChainState = initialChainState
-      , submitTx = const $ pure ()
+      { submitTx = const $ pure ()
       , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = const $ pure ()
@@ -186,6 +150,11 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
           , observedTx = OnCollectComTx{headId}
           }
 
+-- | Continuously produces offline chain ticks according to wall-clock time.
+-- Each tick is aligned with the expected slot time, ensuring the node
+-- state stays synchronized with the offline chain.
+-- This prevents the node from violating the configured unsynced period
+-- which guarantees that client and network inputs are always processed safely.
 tickForever :: GenesisParameters ShelleyEra -> (ChainEvent Tx -> IO ()) -> IO ()
 tickForever genesis callback = do
   initialSlot <- slotNoFromUTCTime systemStart slotLength <$> getCurrentTime
@@ -195,10 +164,11 @@ tickForever genesis callback = do
     let timeToSleepUntil = slotNoToUTCTime systemStart slotLength upcomingSlot
     sleepDelay <- diffUTCTime timeToSleepUntil <$> getCurrentTime
     threadDelay $ realToFrac sleepDelay
+    let point = ChainPoint upcomingSlot offlineBlockHash
     callback $
       Tick
         { chainTime = timeToSleepUntil
-        , chainSlot = ChainSlot . fromIntegral $ unSlotNo upcomingSlot
+        , chainPoint = point
         }
   systemStart = SystemStart protocolParamSystemStart
 
@@ -208,3 +178,6 @@ tickForever genesis callback = do
     { protocolParamSlotLength
     , protocolParamSystemStart
     } = genesis
+
+offlineBlockHash :: Hash BlockHeader
+offlineBlockHash = unsafeBlockHeaderHashFromBytes "offline-blockhash-00000000000000"

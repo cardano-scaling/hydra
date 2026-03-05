@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
+import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (findRunningCardanoNode', withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (readTVarIO),
@@ -14,21 +15,20 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   tryReadTBQueue,
   writeTBQueue,
-  writeTVar,
  )
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
+import Data.Aeson.Types (parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
-import Data.Text (pack)
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
+import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
@@ -47,6 +47,7 @@ import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
   HydraClient,
   HydraNodeLog,
+  getSnapshotUTxO,
   hydraNodeId,
   input,
   output,
@@ -59,44 +60,33 @@ import HydraNode (
   withConnectionToNodeHost,
   withHydraCluster,
  )
-import System.Directory (findExecutable)
 import System.FilePath ((</>))
-import System.IO (hGetLine)
-import System.Process (
-  CreateProcess (..),
-  StdStream (CreatePipe),
-  proc,
-  withCreateProcess,
- )
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
-import Text.Regex.TDFA (getAllTextMatches, (=~))
 
 bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemStats)
 bench startingNodeId timeoutSeconds workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo hdl "Test" $ \tracer ->
+    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newLabelledTVarIO "bench-stats" mempty
-        scenarioData <- withOSStats workDir statsTvar $
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \_ backend -> do
-            let nodeSocket' = case Backend.getOptions backend of
-                  Direct DirectOptions{nodeSocket} -> nodeSocket
-                  _ -> error "Unexpected Blockfrost backend"
-            putTextLn "Seeding network"
-            seedNetwork backend dataset (contramap FromFaucet tracer)
-            putTextLn "Publishing hydra scripts"
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-            putStrLn $ "Starting hydra cluster in " <> workDir
-            let hydraTracer = contramap FromHydraNode tracer
-
-            withHydraCluster hydraTracer workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
-              waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer backend workDir dataset clients
+        scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \blockTime backend -> do
+          let nodeSocket' = case Backend.getOptions backend of
+                Direct DirectOptions{nodeSocket} -> nodeSocket
+                _ -> error "Unexpected Blockfrost backend"
+          putTextLn "Seeding network"
+          seedNetwork backend dataset (contramap FromFaucet tracer)
+          putTextLn "Publishing hydra scripts"
+          hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+          putStrLn $ "Starting hydra cluster in " <> workDir
+          let hydraTracer = contramap FromHydraNode tracer
+          withHydraCluster hydraTracer blockTime workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
+            waitForNodesConnected hydraTracer 20 clients
+            scenario hydraTracer backend workDir dataset clients
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -111,7 +101,7 @@ benchDemo ::
 benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo hdl "Test" $ \tracer ->
+    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark demo"
         let cardanoTracer = contramap FromCardanoNode tracer
@@ -189,6 +179,12 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "contestationDeadline" . _JSON
 
+  -- Write the results already in case we cannot finalize
+  let res = mapMaybe analyze . Map.toList $ processedTransactions
+      aggregates = movingAverage res
+
+  writeResultsCsv (workDir </> "results.csv") aggregates
+
   -- Expect to see ReadyToFanout within 3 seconds after deadline
   remainingTime <- diffUTCTime deadline <$> getCurrentTime
   waitFor hydraTracer (remainingTime + 3) [leader] $
@@ -196,14 +192,17 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
 
   putTextLn "Finalizing the Head"
   send leader $ input "Fanout" []
-  waitMatch 100 leader $ \v -> do
+  fanoutResult :: Either SomeException Value <- try $ waitMatch 100 leader $ \v -> do
     guard (v ^? key "tag" == Just "HeadIsFinalized")
     guard $ v ^? key "headId" == Just (toJSON headId)
+    v ^? key "utxo"
 
-  let res = mapMaybe analyze . Map.toList $ processedTransactions
-      aggregates = movingAverage res
-
-  writeResultsCsv (workDir </> "results.csv") aggregates
+  finalUTxOJSON <-
+    case fanoutResult of
+      Left _ -> do
+        putStrLn "Fanout failed."
+        toJSON <$> getSnapshotUTxO leader
+      Right finalUTxO -> pure finalUTxO
 
   let confTimes = map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes
@@ -212,6 +211,10 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
       quantiles = makeQuantiles confTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
+      numberOfFanoutOutputs =
+        case parseEither (parseJSON @(UTxO.UTxO Era)) finalUTxOJSON of
+          Left _ -> error "Failed to decode Fanout UTxO"
+          Right fanoutUTxO -> UTxO.size fanoutUTxO
 
   pure $
     Summary
@@ -223,79 +226,11 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
       , summaryTitle
       , summaryDescription
       , numberOfInvalidTxs
+      , numberOfFanoutOutputs
       }
 
 defaultDescription :: Text
 defaultDescription = ""
-
--- | Collect OS-level stats while running some 'IO' action.
---
--- __NOTE__: This function relies on [dool](https://man.archlinux.org/man/extra/dool/dool.1.en). If the executable is not in the @PATH@
--- it's basically a no-op.
---
--- Writes into given `TVar` containing one line every 5 second with share of user/free memory load.
--- Here is a sample content:
---
--- @@
--- | Time | Used | Free |
--- |------|------|------|
--- | 2025-02-12 09:45:53.585693506 UTC | 937M | 3731M |
--- | 2025-02-12 09:45:58.585773969 UTC | 1115M | 3553M |
--- | 2025-02-12 09:46:03.585779372 UTC | 1121M | 3546M |
--- | 2025-02-12 09:46:08.585751614 UTC | 1121M | 3545M |
--- | 2025-02-12 09:46:13.585925376 UTC | 1163M | 3435M |
--- | 2025-02-12 09:46:18.585811324 UTC | 1188M | 3334M |
--- | 2025-02-12 09:46:23.585786153 UTC | 1193M | 3328M |
--- | 2025-02-12 09:46:28.585797897 UTC | 1194M | 3327M |
--- | 2025-02-12 09:46:33.585771299 UTC | 1194M | 3326M |
--- | 2025-02-12 09:46:38.585774197 UTC | 1195M | 3325M |
--- ...
--- @@
---
--- TODO: add more data points for memory and network consumption
-withOSStats :: FilePath -> TVar IO SystemStats -> IO a -> IO a
-withOSStats workDir tvar action =
-  findExecutable "dool" >>= \case
-    Nothing -> action
-    Just _ ->
-      withCreateProcess process{std_out = CreatePipe} $ \_stdin out _stderr _processHandle ->
-        raceLabelled
-          ( "os-stats-collect"
-          , do
-              -- Write the header
-              atomically $ writeTVar tvar [" | Time | Used | Free | ", "|------------------------------------|------|------|"]
-              collectStats tvar out
-          )
-          ("os-stats-action", action)
-          >>= \case
-            Left _ -> failure "dool process failed unexpectedly"
-            Right a -> pure a
- where
-  process = (proc "dool" ["-m", "--noupdate"]){cwd = Just workDir}
-
-  collectStats _ Nothing = pure ()
-  collectStats tvar' (Just hdl) =
-    forever $
-      hGetLine hdl >>= processStat tvar'
-
-  processStat :: TVar IO [Text] -> String -> IO ()
-  processStat tvar' stat = do
-    let matches = getAllTextMatches (stat =~ ("[0-9.]+([A-Z])" :: String)) :: [String]
-    case matches of
-      (memUsed : memFree : _ : _) -> do
-        now <- getCurrentTime
-        let str =
-              pack $
-                " | "
-                  <> show now
-                  <> " | "
-                  <> memUsed
-                  <> " | "
-                  <> memFree
-                  <> " | "
-        stats <- readTVarIO tvar'
-        atomically $ writeTVar tvar' $ stats <> [str]
-      _ -> pure ()
 
 -- | Compute average confirmation/validation time over intervals of 5 seconds.
 --

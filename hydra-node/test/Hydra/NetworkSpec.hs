@@ -29,6 +29,8 @@ import System.Directory (removeFile)
 import System.FilePath ((</>))
 import System.Process.Typed (readProcessStdout_, runProcess_, shell)
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
+import Test.Hydra.Ledger.Simple ()
+import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
 import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
 import Test.QuickCheck (Property, (===))
@@ -66,8 +68,7 @@ spec = do
       -- important to keep around. Successfully completion of this test looks
       -- like either a "mvcc database size exceeded" error; or no error at
       -- all. Failures looks like complete blocking
-      -- XXX: Maybe run this one nightly; when we start doing nightly tests.
-      xit "broadcasts 100KiB messages 1M times" $ \tracer ->
+      around_ onlyNightly $ it "broadcasts 100KiB messages 1M times @nightly" $ \tracer ->
         withTempDir "test-etcd" $ \tmp -> do
           putStrLn $ "Folder " ++ show tmp
           PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp

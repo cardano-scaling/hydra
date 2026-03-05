@@ -4,6 +4,7 @@
 module TxCost where
 
 import Hydra.Prelude hiding (catch)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
@@ -14,8 +15,8 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Tx,
   UTxO,
-  genTxIn,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
 import Hydra.Chain.Direct.State (
   ClosedState (..),
@@ -27,6 +28,24 @@ import Hydra.Chain.Direct.State (
   ctxHydraSigningKeys,
   ctxParticipants,
   ctxVerificationKeys,
+  getKnownUTxO,
+  initialize,
+  observeClose,
+  unsafeAbort,
+  unsafeClose,
+  unsafeCollect,
+  unsafeContest,
+  unsafeFanout,
+  unsafeObserveInitAndCommits,
+ )
+import Hydra.Ledger.Cardano.Evaluate (
+  usedExecutionUnits,
+ )
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Plutus.Orphans ()
+import PlutusLedgerApi.V3 (toBuiltinData)
+import PlutusTx.Builtins (lengthOfByteString, serialiseData)
+import Test.Hydra.Chain.Direct.State (
   genCloseTx,
   genCommits,
   genCommits',
@@ -37,33 +56,16 @@ import Hydra.Chain.Direct.State (
   genStClosed,
   genStInitial,
   genStOpen,
-  getKnownUTxO,
-  initialize,
-  observeClose,
   pickChainContext,
-  unsafeAbort,
-  unsafeClose,
-  unsafeCollect,
-  unsafeContest,
-  unsafeFanout,
-  unsafeObserveInitAndCommits,
  )
-import Hydra.Ledger.Cardano.Evaluate (
+import Test.Hydra.Ledger.Cardano.Fixtures (
   estimateMinFee,
   evaluateTx,
-  genPointInTimeBefore,
-  genValidityBoundsFromContestationPeriod,
   maxTxSize,
   slotLength,
   systemStart,
-  usedExecutionUnits,
  )
-import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
-import Hydra.Plutus.Orphans ()
-import Hydra.Tx.Snapshot (genConfirmedSnapshot)
-import PlutusLedgerApi.V3 (toBuiltinData)
-import PlutusTx.Builtins (lengthOfByteString, serialiseData)
-import Test.Hydra.Tx.Gen (genOutputFor, genUTxOAdaOnlyOfSize)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]

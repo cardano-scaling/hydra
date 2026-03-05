@@ -15,7 +15,7 @@ The deposit process involves building a blueprint transaction that describes wha
 You will need:
 
 - Node.js 18+
-- A running Hydra node in `Open` state
+- **A running Hydra node in `Open` state**
 - Hydra node API at `http://localhost:4001`
 - Hydra SDK >= 1.1.0 ([https://hydrasdk.com](https://hydrasdk.com))
 - Blockfrost API key for preprod: [Register here](https://blockfrost.io/)
@@ -33,8 +33,7 @@ deposit-demo/
 ├── lock-to-contract.ts    # Lock funds to a Plutus script
 ├── script-deposit.ts      # Deposit script UTxO (advanced)
 ├── .env                   # Environment variables
-├── package.json
-└── tsconfig.json
+└── package.json           # Project dependencies
 ```
 
 You can create this structure with:
@@ -55,6 +54,38 @@ BLOCKFROST_API_KEY=your_blockfrost_preprod_api_key
 
 ```bash
 npm install @hydra-sdk/cardano-wasm @hydra-sdk/core @hydra-sdk/transaction axios dotenv
+npm install tsx typescript @types/node --save-dev
+```
+
+Example `package.json` scripts section:
+
+```json
+{
+  "name": "deposit-demo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@hydra-sdk/bridge": "^1.1.5",
+    "@hydra-sdk/cardano-wasm": "^0.0.5",
+    "@hydra-sdk/core": "^1.1.5",
+    "@hydra-sdk/transaction": "^1.1.5",
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
 ```
 
 ## Step 2: Create configuration file
@@ -64,6 +95,8 @@ Create `config.ts` with your wallet and Hydra node settings:
 ```typescript
 import { AppWallet, NETWORK_ID, ProviderUtils, UTxOObject } from '@hydra-sdk/core'
 import axios from 'axios'
+import dotenv from 'dotenv'
+dotenv.config()
 
 const blockfrostProvider = new ProviderUtils.BlockfrostProvider({
   apiKey: process.env.BLOCKFROST_API_KEY || '',
@@ -230,7 +263,6 @@ async function main() {
     isHydra: true,
     params: { minFeeA: 0, minFeeB: 0 },
   })
-
   const blueprintTx = await txBuilder
     .setInputs(l1UTxOs)
     .addOutput({
@@ -271,7 +303,7 @@ async function main() {
     type: 'Witnesses Tx ConwayEra',
   })
 
-  console.log('✅ Deposit complete!')
+  console.log('✅ Partial deposit complete!')
 }
 
 main().catch(console.error)
@@ -519,7 +551,8 @@ ws.on('message', (data) => {
 
 ## References
 
+- [Demo source code](https://github.com/Vtechcom/hydra-sdk-examples/tree/master/deposit-demo)
 - [Hydra Incremental Commit](https://hydra.family/head-protocol/docs/how-to/incremental-commit)
 - [Commit Blueprint](https://hydra.family/head-protocol/docs/how-to/commit-blueprint)
 - [Commit Script UTxO](./commit-script-utxo)
-- [Hydra SDK Documentation](https://hydrawallet-sdk.vercel.app/)
+- [Hydra SDK Documentation](https://hydrasdk.com)

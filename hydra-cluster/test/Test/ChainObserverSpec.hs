@@ -41,13 +41,13 @@ spec = do
       showLogsOnFailure "ChainObserverSpec" $ \tracer -> do
         withTempDir "hydra-cluster" $ \tmpDir -> do
           -- Start a cardano devnet
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             (aliceCardanoVk, _) <- keysFor Alice
             aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] cperiod
-            withHydraNode hydraTracer aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
+            withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver backend $ \observer -> do
                 seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 

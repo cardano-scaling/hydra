@@ -11,10 +11,12 @@ import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (atKey, key, _Number)
+import Data.Aeson.Types qualified as Aeson
 import Data.Fixed (Centi)
 import Data.Text (pack)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
+import Data.Vector qualified as Vector
 import Hydra.Cardano.Api (
   File (..),
   NetworkId,
@@ -90,6 +92,7 @@ data CardanoNodeArgs = CardanoNodeArgs
   , nodeShelleyGenesisFile :: FilePath
   , nodeAlonzoGenesisFile :: FilePath
   , nodeConwayGenesisFile :: FilePath
+  , nodeDijkstraGenesisFile :: FilePath
   , nodeTopologyFile :: FilePath
   , nodeDatabaseDir :: FilePath
   , nodeDlgCertFile :: Maybe FilePath
@@ -109,6 +112,7 @@ defaultCardanoNodeArgs =
     , nodeShelleyGenesisFile = "genesis-shelley.json"
     , nodeAlonzoGenesisFile = "genesis-alonzo.json"
     , nodeConwayGenesisFile = "genesis-conway.json"
+    , nodeDijkstraGenesisFile = "genesis-dijkstra.json"
     , nodeTopologyFile = "topology.json"
     , nodeDatabaseDir = "db"
     , nodeDlgCertFile = Nothing
@@ -220,11 +224,9 @@ withBackend ::
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
-  backend <- lookupEnv "HYDRA_BACKEND"
-  case backend of
-    Just "direct" -> withCardanoNodeDevnet tracer stateDirectory action
-    Just "blockfrost" -> withBlockfrostBackend tracer stateDirectory action
-    _ -> withCardanoNodeDevnet tracer stateDirectory action
+  getHydraBackend >>= \case
+    DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
+    BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -247,6 +249,7 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
       , nodeShelleyGenesisFile = "shelley-genesis.json"
       , nodeAlonzoGenesisFile = "alonzo-genesis.json"
       , nodeConwayGenesisFile = "conway-genesis.json"
+      , nodeDijkstraGenesisFile = "dijkstra-genesis.json"
       }
 
   -- Copy/download configuration files for a known network
@@ -264,31 +267,29 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
           >>= writeFileBS (stateDirectory </> fn)
-    case knownNetwork of
-      Mainnet -> forM_ ["checkpoints.json"] $
+    when (knownNetwork `elem` [Mainnet, Preview]) $ do
+      forM_ ["checkpoints.json"] $
         \fn -> do
           createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
           fetchConfigFile (knownNetworkPath </> fn)
             >>= writeFileBS (stateDirectory </> fn)
-      _ -> pure ()
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
 
   -- Base path on remote
-  knownNetworkConfigBaseURL = "https://book.world.dev.cardano.org/environments"
+  knownNetworkConfigBaseURL = "https://book.world.dev.cardano.org"
 
   -- Network name on remote
   knownNetworkName = case knownNetwork of
-    Preview -> "preview"
-    Preproduction -> "preprod"
-    Mainnet -> "mainnet"
-    Sanchonet -> "sanchonet"
+    Preview -> "environments-pre/preview"
+    Preproduction -> "environments-pre/preprod"
+    Mainnet -> "environments/mainnet"
     -- NOTE: Here we map blockfrost networks to cardano ones since we expect to find actor keys
     -- in known locations when running smoke-tests.
-    BlockfrostPreview -> "preview"
-    BlockfrostPreprod -> "preprod"
-    BlockfrostMainnet -> "mainnet"
+    BlockfrostPreview -> "environments-pre/preview"
+    BlockfrostPreprod -> "environments-pre/preprod"
+    BlockfrostMainnet -> "environments/mainnet"
 
   fetchConfigFile :: String -> IO ByteString
   fetchConfigFile path =
@@ -345,6 +346,9 @@ setupCardanoDevnet stateDirectory = do
     readConfigFile ("devnet" </> "genesis-conway.json")
       >>= writeFileBS
         (stateDirectory </> nodeConwayGenesisFile args)
+    readConfigFile ("devnet" </> "genesis-dijkstra.json")
+      >>= writeFileBS
+        (stateDirectory </> nodeDijkstraGenesisFile args)
 
   writeTopology peers args =
     Aeson.encodeFile (stateDirectory </> nodeTopologyFile args) $
@@ -522,7 +526,33 @@ refreshSystemStart stateDirectory args = do
 -- | Generate a topology file from a list of peers.
 mkTopology :: [Port] -> Aeson.Value
 mkTopology peers =
-  Aeson.object ["Producers" .= map encodePeer peers]
+  let bootstrapPeers = map encodePeer peers
+   in Aeson.object
+        [ "bootstrapPeers"
+            .= if null bootstrapPeers
+              then Nothing
+              else Just bootstrapPeers
+        , "localRoots"
+            .= Aeson.Array
+              ( Vector.fromList
+                  [ Aeson.object
+                      [ "accessPoints" .= Aeson.emptyArray
+                      , "advertise" .= False
+                      , "trustable" .= False
+                      , "valency" .= (1 :: Natural)
+                      ]
+                  ]
+              )
+        , "publicRoots"
+            .= Aeson.Array
+              ( Vector.fromList
+                  [ Aeson.object
+                      [ "accessPoints" .= Aeson.emptyArray
+                      , "advertise" .= False
+                      ]
+                  ]
+              )
+        ]
  where
   encodePeer :: Int -> Aeson.Value
   encodePeer port =

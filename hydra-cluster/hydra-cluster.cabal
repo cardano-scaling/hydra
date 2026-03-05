@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-cluster
-version:            1.2.0
+version:            1.3.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
@@ -33,6 +33,7 @@ data-files:
   config/devnet/genesis-alonzo.json
   config/devnet/genesis-byron.json
   config/devnet/genesis-conway.json
+  config/devnet/genesis-dijkstra.json
   config/devnet/genesis-shelley.json
   config/devnet/kes.skey
   config/devnet/opcert.cert
@@ -97,7 +98,6 @@ library
     , directory
     , filepath
     , http-conduit
-    , http-types
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
@@ -116,6 +116,7 @@ library
     , time
     , typed-process
     , unix
+    , vector
     , websockets
 
   ghc-options:     -haddock
@@ -212,6 +213,7 @@ benchmark bench-e2e
     , aeson
     , base                  >=4.7 && <5
     , bytestring
+    , cardano-api
     , containers
     , directory
     , filepath
@@ -226,9 +228,7 @@ benchmark bench-e2e
     , lens
     , lens-aeson
     , optparse-applicative
-    , process
     , QuickCheck
-    , regex-tdfa
     , scientific
     , statistics
     , text

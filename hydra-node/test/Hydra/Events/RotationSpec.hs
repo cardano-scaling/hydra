@@ -6,16 +6,16 @@ import Test.Hydra.Prelude
 import Control.Monad (foldM)
 import Data.List qualified as List
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId, EventSink (..), HasEventId (..), getEvents)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState)
-import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, runToCompletion)
+import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, primeWithTime, runToCompletion)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
 import Test.Hydra.Tx.Fixture (cperiod)
@@ -36,19 +36,20 @@ spec = parallel $ do
           IO ()
         setupHydrate action =
           showLogsOnFailure "RotationSpec" $ \tracer -> do
-            let testHydrate = hydrate tracer testEnvironment simpleLedger SimpleChainState{slot = ChainSlot 0}
+            let testHydrate = hydrate tracer testEnvironment simpleLedger 0
             action testHydrate
     around setupHydrate $ do
       it "rotates while running" $ \testHydrate -> do
         failAfter 1 $ do
           eventStore <- createMockEventStore
-          -- NOTE: because there will be 5 inputs processed in total,
-          -- this is hardcoded to ensure we get a checkpoint + a single event at the end
-          let rotationConfig = RotateAfter (Positive 3)
-          let s0 = initNodeState SimpleChainState{slot = ChainSlot 0}
+          -- NOTE: because there will be 5 inputs processed in total, after ticks,
+          -- this is hardcoded to ensure we get a checkpoint + single event at the end
+          let rotationConfig = RotateAfter (Positive 5)
+          let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
+            >>= primeWithTime
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
           rotatedHistory <- getEvents (eventSource rotatingEventStore)
@@ -56,13 +57,14 @@ spec = parallel $ do
       it "consistent state after restarting with rotation" $ \testHydrate -> do
         failAfter 1 $ do
           eventStore <- createMockEventStore
-          -- NOTE: because there will be 6 inputs processed in total,
+          -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
-          let s0 = initNodeState SimpleChainState{slot = ChainSlot 0}
+          let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
+            >>= primeWithTime
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
           now <- getCurrentTime
@@ -74,7 +76,7 @@ spec = parallel $ do
             >>= runToCompletion
           [checkpoint] <- getEvents (eventSource rotatingEventStore)
           case stateChanged checkpoint of
-            Checkpoint{state = NodeState{headState = Closed{}}} -> pure ()
+            Checkpoint{state = NodeInSync{headState = Closed{}}} -> pure ()
             _ -> fail ("unexpected: " <> show checkpoint)
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
@@ -84,11 +86,11 @@ spec = parallel $ do
         let inputs = inputsToOpenHead ++ [closeInput]
         failAfter 1 $ do
           eventStore <- createMockEventStore
-          -- NOTE: because there will be 6 inputs processed in total,
+          -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
           -- run rotated event store with prepared inputs
-          let s0 = initNodeState SimpleChainState{slot = ChainSlot 0}
+          let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
@@ -114,8 +116,8 @@ spec = parallel $ do
         let inputs1 = take 3 inputs
         let inputs2 = drop 3 inputs
         failAfter 1 $ do
-          let s0 = initNodeState SimpleChainState{slot = ChainSlot 0}
-          -- NOTE: because there will be 6 inputs processed in total,
+          let s0 = initNodeState 0
+          -- NOTE: because there will be 6 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter (Positive 1)
           -- run restarted node with prepared inputs
@@ -123,11 +125,13 @@ spec = parallel $ do
           rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore1 []
             >>= notConnect
+            >>= primeWithTime
             >>= primeWith inputs1
             >>= runToCompletion
           rotatingEventStore2 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint rotatingEventStore1
           testHydrate rotatingEventStore2 []
             >>= notConnect
+            >>= primeWithTime
             >>= primeWith inputs2
             >>= runToCompletion
           -- run non-restarted node with prepared inputs
@@ -135,14 +139,16 @@ spec = parallel $ do
           rotatingEventStore' <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore'
           testHydrate rotatingEventStore' []
             >>= notConnect
+            >>= primeWithTime
             >>= primeWith inputs
             >>= runToCompletion
           -- stored events should yield consistent checkpoint events
           [StateEvent{eventId = eventId, stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore2)
           [StateEvent{eventId = eventId', stateChanged = checkpoint'}] <- getEvents (eventSource rotatingEventStore')
           checkpoint `shouldBe` checkpoint'
-          -- stored events should yield consistent event ids
-          eventId `shouldBe` eventId'
+          -- stored events should yield consistent event id
+          -- note the restarting node has more Tick events
+          eventId `shouldBe` eventId' + 2
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $

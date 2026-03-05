@@ -9,23 +9,23 @@ import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
-  ChainPoint (ChainPointAtGenesis),
+  ChainPoint (..),
   PaymentKey,
   SlotNo (..),
   Tx,
   VerificationKey,
   fromLedgerTx,
-  genTxIn,
   getChainPoint,
   toLedgerTx,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
-import Hydra.Chain.ChainState (ChainSlot (..), chainStateSlot)
+import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
@@ -44,10 +44,6 @@ import Hydra.Chain.Direct.State (
   ctxHeadParameters,
   ctxParticipants,
   ctxVerificationKeys,
-  deriveChainContexts,
-  genChainStateWithTx,
-  genCommit,
-  genHydraContext,
   getKnownUTxO,
   initialChainState,
   initialize,
@@ -56,9 +52,17 @@ import Hydra.Chain.Direct.State (
   unsafeObserveInit,
  )
 import Hydra.Chain.Direct.State qualified as Transition
-import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), genTimeParams, mkTimeHandle)
+import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
+import Test.Hydra.Chain ()
+import Test.Hydra.Chain.Direct.State (
+  deriveChainContexts,
+  genChainStateWithTx,
+  genCommit,
+  genHydraContext,
+ )
+import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
   counterexample,
@@ -110,7 +114,8 @@ spec = do
           run $
             either (failure . ("Time conversion failed: " <>) . toString) pure $
               slotToUTCTime timeHandle slot
-        void . stop $ events === [Tick expectedUTCTime (ChainSlot . fromIntegral $ unSlotNo slot)]
+        let (BlockHeader _ blockHash _) = header
+        void . stop $ events === [Tick expectedUTCTime (ChainPoint slot blockHash)]
 
     prop "roll forward fails with outdated TimeHandle" $
       monadicIO $ do

@@ -6,7 +6,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (newTChanIO, writeTChan)
 import Control.Lens ((^?))
-import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON)
+import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
@@ -34,14 +34,16 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
+import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
+import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
-import Hydra.HeadLogicSpec (inIdleState)
+import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState, zeroChainPointTime)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (ConfirmedSnapshot (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
@@ -50,6 +52,8 @@ import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hspec.Wai (MatchBody (..), ResponseMatcher (matchBody), delete, get, post, shouldRespondWith, with)
 import Test.Hspec.Wai.Internal (withApplication)
+import Test.Hydra.API.HTTPServer ()
+import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
 import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
@@ -374,7 +378,7 @@ apiServerSpec = do
                   testEnvironment
                   dummyStatePath
                   defaultPParams
-                  (pure NodeState{headState = Closed closedState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                  (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -462,6 +466,58 @@ apiServerSpec = do
           $ do
             post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot)) `shouldRespondWith` 400
 
+      it "returns 400 with side-load failure details" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        SideLoadSnapshotRequest snapshot <- reqGen
+        let requirementFailure :: SideLoadRequirementFailure SimpleTx = SideLoadSnNumberInvalid{requestedSn = 7, lastSeenSn = 760}
+        let clientFailed = SideLoadSnapshotRejected{clientInput = SideLoadSnapshot snapshot, requirementFailure}
+        let expectedBody =
+              object
+                [ "tag" .= Aeson.String "SideLoadSnNumberInvalid"
+                , "requestedSn" .= (7 :: Int)
+                , "lastSeenSn" .= (760 :: Int)
+                ]
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inIdleState)
+              cantCommit
+              getPendingDeposits
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot))
+              `shouldRespondWith` 400{matchBody = matchJSON expectedBody}
+
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
+        responseChannel <- newTChanIO
+        let reqGen = generate (arbitrary @(SideLoadSnapshotRequest SimpleTx))
+        SideLoadSnapshotRequest snapshot <- reqGen
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot snapshot, drift = 10}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              cantCommit
+              getPendingDeposits
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/snapshot" (Aeson.encode (SideLoadSnapshotRequest snapshot)) `shouldRespondWith` 503
+
     describe "GET /snapshot/utxo" $ do
       responseChannel <- runIO newTChanIO
       prop "responds correctly" $ \nodeState -> do
@@ -540,7 +596,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeState{headState = Closed closedState', pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -575,7 +631,7 @@ apiServerSpec = do
               testEnvironment
               dummyStatePath
               defaultPParams
-              (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -623,7 +679,7 @@ apiServerSpec = do
                 testEnvironment
                 dummyStatePath
                 defaultPParams
-                (pure NodeState{headState = openHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 0})
+                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -642,18 +698,36 @@ apiServerSpec = do
                 FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
-      it "gives information on when the Head was initialized" $
+      it "gives information on when the Head was initialized" $ do
+        let genTick :: Gen (StateChanged Tx)
+            genTick = TickObserved <$> arbitrary
+            genInit :: Gen (StateChanged Tx)
+            genInit = HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+            mkStateLine :: Int -> Text -> StateChanged Tx -> Text
+            mkStateLine eventId time stateChanged =
+              decodeUtf8 . LBS.toStrict $
+                Aeson.encode $
+                  object
+                    [ "eventId" .= eventId
+                    , "stateChanged" .= stateChanged
+                    , "time" .= time
+                    ]
         withTempDir "http-server-spec" $ \tmpDir -> do
-          let stateLines =
-                [ "{\"eventId\":163,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
-                , "{\"eventId\":164,\"stateChanged\":{\"chainSlot\":235,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T09:33:02.30814188Z\"}"
-                , "{\"eventId\":258,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
-                , "{\"eventId\":258,\"stateChanged\":{\"chainSlot\":232,\"tag\":\"TickObserved\"},\"time\":\"2025-10-08T09:33:02.224666984Z\"}"
-                , "{\"eventId\":300,\"stateChanged\":{\"chainSlot\":300,\"tag\":\"HeadInitialized\"},\"time\":\"2025-10-08T10:33:02.30814188Z\"}"
-                ]
+          -- NOTE: These lines do NOT represent real state events.
+          -- They are synthetic log entries, only used to mimic the shape of the
+          -- state file so the endpoint can extract the `time` field from
+          -- `HeadInitialized` `stateChanged` events during parsing.
+          stateLines <-
+            sequenceA
+              [ mkStateLine 163 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
+              , mkStateLine 164 "2025-10-08T09:33:02.30814188Z" <$> generate genInit
+              , mkStateLine 258 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
+              , mkStateLine 259 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
+              , mkStateLine 300 "2025-10-08T10:33:02.30814188Z" <$> generate genInit
+              ]
           let statePath = tmpDir </> "state"
           writeFileText statePath (unlines stateLines)
-
+          chainTime <- getCurrentTime
           withApplication
             ( httpApp @Tx
                 nullTracer
@@ -661,7 +735,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeState{headState = initialHeadState, pendingDeposits = mempty, currentSlot = ChainSlot 152})
+                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
                 getHeadId
                 getPendingDeposits
                 putClientInput
@@ -763,6 +837,26 @@ apiServerSpec = do
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 400
 
+      prop "returns 503 on RejectedInputBecauseUnsynced" $ do
+        responseChannel <- newTChanIO
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = NewTx testTx, drift = 10}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 503
+
     describe "POST /decommit" $ do
       it "returns 202 on timeout" $ do
         responseChannel <- newTChanIO
@@ -838,6 +932,48 @@ apiServerSpec = do
           $ do
             post "/decommit" (encode tx) `shouldRespondWith` 400
 
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Decommit tx, drift = 10}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            post "/decommit" (encode tx) `shouldRespondWith` 503
+
+    describe "DELETE /commits/:txid full unencoded TxId" $ do
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        withApplication
+          ( httpApp @Tx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure $ error "Not called")
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            -- endpoint path formats the txid as JSON in the path; spec helper keeps the path
+            delete "/commits/d2c03a20bce36bf86888827f642e69d259ed12c8322a71a9089b057ea81a25ac" `shouldRespondWith` 202
+
     describe "DELETE /commits/:txid" $ do
       it "returns 202 on timeout" $ do
         responseChannel <- newTChanIO
@@ -886,6 +1022,28 @@ apiServerSpec = do
           )
           $ do
             delete ("/commits/" <> txidText) `shouldRespondWith` 200
+
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
+        responseChannel <- newTChanIO
+        let tx = SimpleTx 1 mempty mempty
+        let txidText = LBS.toStrict (encode (txId tx))
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Recover (txId tx), drift = 10}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            delete ("/commits/" <> txidText) `shouldRespondWith` 503
 
 -- * Helpers
 

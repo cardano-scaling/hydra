@@ -64,7 +64,7 @@ jobs:
         nix develop .#hydra-node-bench --command -- micro -o $out/benchmarks/ledger-bench.html
         nix develop .#hydra-cluster-bench --command -- \
           bench-e2e \
-          datasets \
+          single \
           hydra-cluster/datasets/1-node.json \
           hydra-cluster/datasets/3-nodes.json \
           --output-directory $out/benchmarks

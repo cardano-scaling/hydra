@@ -32,6 +32,7 @@ import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
@@ -41,7 +42,7 @@ import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
-  CardanoClient ->
+  CardanoClient Era ->
   Client Tx IO ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name RootState ()
@@ -94,11 +95,15 @@ handleHydraEventsConnection now = \case
           { me
           , env = Environment{configuredPeers}
           , networkInfo = NetworkInfo{networkConnected, peersInfo}
+          , chainSyncedStatus
           }
       ) -> do
       meL .= Identified me
-
       networkStateL .= if networkConnected then Just NetworkConnected else Just NetworkDisconnected
+      chainSyncedStatusL
+        .= case chainSyncedStatus of
+          NodeState.InSync -> InSync
+          NodeState.CatchingUp -> CatchingUp
 
       if T.null configuredPeers
         then
@@ -131,6 +136,10 @@ handleHydraEventsConnection now = \case
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{}}) -> do
+    chainSyncedStatusL .= CatchingUp
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{}}) -> do
+    chainSyncedStatusL .= InSync
   e -> zoom headStateL $ handleHydraEventsHeadState now e
  where
   updatePeerStatus :: Host -> PeerStatus -> [(Host, PeerStatus)] -> [(Host, PeerStatus)]
@@ -228,6 +237,21 @@ handleHydraEventsInfo = \case
   Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
     time <- liftIO getCurrentTime
     warn time $ "Invalid command: " <> show clientInput
+  Update (ApiClientMessage API.RejectedInputBecauseUnsynced{clientInput, drift}) -> do
+    time <- liftIO getCurrentTime
+    warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> "Node is out of sync with chain, drift: " <> show drift
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainTime, drift}}) -> do
+    warn time $
+      "Node state is out of sync with chain backend. Chain time: "
+        <> show chainTime
+        <> ", Drift: "
+        <> show drift
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime, drift}}) ->
+    warn time $
+      "Node state is back in sync with chain backend. Chain time: "
+        <> show chainTime
+        <> ", Drift: "
+        <> show drift
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
     info time $ "Head closed with snapshot number " <> show snapshotNumber
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->
@@ -298,7 +322,7 @@ partyCommitted party commit = do
 
 -- * VtyEvent handlers
 
-handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
+handleVtyEventsHeadState :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
 handleVtyEventsHeadState cardanoClient hydraClient e = do
   h <- use id
   case h of
@@ -308,13 +332,13 @@ handleVtyEventsHeadState cardanoClient hydraClient e = do
     _ -> pure ()
   zoom activeLinkL $ handleVtyEventsActiveLink cardanoClient hydraClient e
 
-handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name ActiveLink ()
+handleVtyEventsActiveLink :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name ActiveLink ()
 handleVtyEventsActiveLink cardanoClient hydraClient e = do
   utxo <- use utxoL
   pendingIncrements <- use pendingIncrementsL
   zoom activeHeadStateL $ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e
 
-handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
+handleVtyEventsActiveHeadState :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
 handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e = do
   zoom (initializingStateL . initializingScreenL) $ handleVtyEventsInitializingScreen cardanoClient hydraClient e
   zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e
@@ -324,7 +348,7 @@ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements 
     Final -> handleVtyEventsFinal hydraClient e
     _ -> pure ()
 
-handleVtyEventsInitializingScreen :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name InitializingScreen ()
+handleVtyEventsInitializingScreen :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name InitializingScreen ()
 handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
   case e of
     EvKey (KChar 'a') [] ->
@@ -358,7 +382,7 @@ handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
         _ -> pure ()
       zoom confirmingAbortFormL $ handleFormEvent (VtyEvent e)
 
-handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
+handleVtyEventsOpen :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
 handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
   get >>= \case
     OpenHome -> do
@@ -536,7 +560,7 @@ myAvailableUTxO networkId vk (UTxO u) =
   let myAddress = mkVkAddress networkId vk
    in Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) u
 
-mkMyAddress :: CardanoClient -> Client Tx IO -> Address ShelleyAddr
+mkMyAddress :: CardanoClient Era -> Client Tx IO -> Address ShelleyAddr
 mkMyAddress cardanoClient hydraClient =
   makeShelleyAddress
     (networkId cardanoClient)

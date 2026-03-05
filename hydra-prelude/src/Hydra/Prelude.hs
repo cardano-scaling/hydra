@@ -31,15 +31,6 @@ module Hydra.Prelude (
   FromJSON (..),
   ToJSON (..),
   encodePretty,
-  Gen,
-  Arbitrary (..),
-  genericArbitrary,
-  genericShrink,
-  generateWith,
-  shrinkListAggressively,
-  reasonablySized,
-  ReasonablySized (..),
-  MinimumSized (..),
   padRight,
   Except,
   encodeBase16,
@@ -118,9 +109,6 @@ import Data.Aeson.Encode.Pretty (
  )
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
-import GHC.Generics (Rep)
-import Generic.Random qualified as Random
-import Generic.Random.Internal.Generic qualified as Random
 import Relude hiding (
   MVar,
   Nat,
@@ -168,92 +156,7 @@ import Relude.Extra.Map (
   keys,
  )
 import System.IO qualified
-import Test.QuickCheck (
-  Arbitrary (..),
-  Gen,
-  genericShrink,
-  scale,
- )
-import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ADTArbitrarySingleton (..), ConstructorArbitraryPair (..), ToADTArbitrary (..))
-import Test.QuickCheck.Gen (Gen (..))
-import Test.QuickCheck.Random (mkQCGen)
 import Text.Pretty.Simple (pShow)
-
--- | Provides a sensible way of automatically deriving generic 'Arbitrary'
--- instances for data-types. In the case where more advanced or tailored
--- generators are needed, custom hand-written generators should be used with
--- functions such as `forAll` or `forAllShrink`.
-genericArbitrary ::
-  ( Generic a
-  , Random.GA Random.UnsizedOpts (Rep a)
-  , Random.UniformWeight (Random.Weights_ (Rep a))
-  ) =>
-  Gen a
-genericArbitrary =
-  Random.genericArbitrary Random.uniform
-
--- | A seeded, deterministic, generator
-generateWith :: Gen a -> Int -> a
-generateWith (MkGen runGen) seed =
-  runGen (mkQCGen seed) 30
-
--- | Like 'shrinkList', but more aggressive :)
---
--- Useful for shrinking large nested Map or Lists where the shrinker "don't have
--- time" to go through many cases.
-shrinkListAggressively :: [a] -> [[a]]
-shrinkListAggressively = \case
-  [] -> []
-  xs -> [[], take (length xs `div` 2) xs, drop 1 xs]
-
--- | Resize a generator to grow with the size parameter, but remains reasonably
--- sized. That is handy when testing on data-structures that can be arbitrarily
--- large and, when large entities don't really bring any value to the test
--- itself.
---
--- It uses a square root function which makes the size parameter grows
--- quadratically slower than normal. That is,
---
---     +-------------+------------------+
---     | Normal Size | Reasonable Size  |
---     | ----------- + ---------------- +
---     | 0           | 0                |
---     | 1           | 1                |
---     | 10          | 3                |
---     | 100         | 10               |
---     | 1000        | 31               |
---     +-------------+------------------+
-reasonablySized :: Gen a -> Gen a
-reasonablySized = scale (ceiling . sqrt @Double . fromIntegral)
-
--- | A QuickCheck modifier to make use of `reasonablySized` on existing types.
-newtype ReasonablySized a = ReasonablySized a
-  deriving newtype (Show, ToJSON, FromJSON)
-
-instance Arbitrary a => Arbitrary (ReasonablySized a) where
-  arbitrary = ReasonablySized <$> reasonablySized arbitrary
-
--- | Reszie gneratator to size = 1.
-minimumSized :: Gen a -> Gen a
-minimumSized = scale (const 1)
-
--- | A QuickCheck modifier that only generates values with size = 1.
-newtype MinimumSized a = MinimumSized a
-  deriving newtype (Show, Eq, ToJSON, FromJSON, Generic)
-
-instance Arbitrary a => Arbitrary (MinimumSized a) where
-  arbitrary = MinimumSized <$> minimumSized arbitrary
-
-instance ToADTArbitrary a => ToADTArbitrary (MinimumSized a) where
-  toADTArbitrarySingleton _ = do
-    adt <- minimumSized $ toADTArbitrarySingleton (Proxy @a)
-    let mappedCAP = adtasCAP adt & \cap -> cap{capArbitrary = MinimumSized $ capArbitrary cap}
-    pure adt{adtasCAP = mappedCAP}
-
-  toADTArbitrary _ = do
-    adt <- minimumSized $ toADTArbitrary (Proxy @a)
-    let mappedCAPs = adtCAPs adt <&> \adtPair -> adtPair{capArbitrary = MinimumSized $ capArbitrary adtPair}
-    pure adt{adtCAPs = mappedCAPs}
 
 -- | Pad a text-string to right with the given character until it reaches the given
 -- length.

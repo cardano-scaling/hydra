@@ -20,11 +20,8 @@ import Data.Aeson (
   (.=),
  )
 import Data.Set qualified as Set
-import Hydra.Chain.ChainState (ChainSlot (..), ChainStateType, IsChainState (..))
-import Hydra.Ledger (
-  Ledger (..),
-  ValidationError (ValidationError),
- )
+import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
+import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 import Hydra.Tx (IsTx (..))
 
 -- * Simple transactions
@@ -67,13 +64,10 @@ instance FromCBOR SimpleTx where
       <*> fromCBOR
       <*> fromCBOR
 
-instance Arbitrary SimpleTx where
-  arbitrary = genericArbitrary
-
 -- | A single output of a 'SimpleTx' having an integer identity and sole value.
 newtype SimpleTxOut = SimpleTxOut {unSimpleTxOut :: Integer}
   deriving stock (Generic)
-  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON, Arbitrary)
+  deriving newtype (Eq, Ord, Show, Num, ToJSON, FromJSON)
 
 instance ToCBOR SimpleTxOut where
   toCBOR (SimpleTxOut inId) = toCBOR inId
@@ -106,12 +100,13 @@ instance IsTx SimpleTx where
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-  deriving newtype (Arbitrary)
+  deriving newtype (Num)
 
 instance IsChainState SimpleTx where
+  type ChainPointType SimpleTx = ChainSlot
   type ChainStateType SimpleTx = SimpleChainState
-
-  chainStateSlot SimpleChainState{slot} = slot
+  chainStatePoint = slot
+  chainPointSlot = id
 
 -- * A simple ledger
 

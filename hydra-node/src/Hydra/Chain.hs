@@ -15,6 +15,7 @@ import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
+import Data.List.NonEmpty qualified as NE
 import Hydra.Cardano.Api (
   Address,
   AddressInEra,
@@ -25,7 +26,7 @@ import Hydra.Cardano.Api (
   PolicyId,
   Value,
  )
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.Tx (
   CommitBlueprintTx,
   ConfirmedSnapshot,
@@ -38,12 +39,7 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
-import Hydra.Tx.IsTx (ArbitraryIsTx)
 import Hydra.Tx.OnChainId (OnChainId)
-import Test.Cardano.Ledger.Core.Arbitrary ()
-import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck.Instances.Semigroup ()
-import Test.QuickCheck.Instances.Time ()
 
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Coin
@@ -98,21 +94,6 @@ deriving stock instance IsTx tx => Eq (PostChainTx tx)
 deriving stock instance IsTx tx => Show (PostChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (PostChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (PostChainTx tx)
-
-instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
-  arbitrary = genericArbitrary
-  shrink = \case
-    InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
-    AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
-    CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} ->
-      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositTxId
-    RecoverTx{headId, recoverTxId, deadline, recoverUTxO} ->
-      RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline <*> shrink recoverUTxO
-    DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
-    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
-    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
-    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
 
 -- | Describes transactions as seen on chain. Holds as minimal information as
 -- possible to simplify observing the chain.
@@ -170,9 +151,6 @@ deriving stock instance IsTx tx => Show (OnChainTx tx)
 deriving anyclass instance IsTx tx => ToJSON (OnChainTx tx)
 deriving anyclass instance IsTx tx => FromJSON (OnChainTx tx)
 
-instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
-  arbitrary = genericArbitrary
-
 -- | Exceptions thrown by 'postTx'.
 data PostTxError tx
   = NoSeedInput
@@ -220,47 +198,84 @@ deriving anyclass instance IsChainState tx => FromJSON (PostTxError tx)
 
 instance IsChainState tx => Exception (PostTxError tx)
 
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (PostTxError tx) where
-  arbitrary = genericArbitrary
-
 -- | A non empty sequence of chain states that can be rolled back.
 -- This is expected to be constructed by using the smart constructor
 -- 'initHistory'.
 data ChainStateHistory tx = UnsafeChainStateHistory
   { history :: NonEmpty (ChainStateType tx)
+  -- ^ The sequence of known chain states, ordered from most recent to oldest.
+  -- These contain notable state observed on-chain to be able to interact with
+  -- Hydra heads.
+  , lastKnown :: ChainPointType tx
+  -- ^ The last known chain point, which may be used to continue observing the
+  -- chain.
   , defaultChainState :: ChainStateType tx
+  -- ^ The default chain state to fall back to when rolling back beyond known
+  -- history.
   }
   deriving stock (Generic)
 
+-- Fetches the last updated chain state from history.
 currentState :: ChainStateHistory tx -> ChainStateType tx
 currentState UnsafeChainStateHistory{history} = head history
 
-pushNewState :: ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
-pushNewState cs h@UnsafeChainStateHistory{history} = h{history = cs <| history}
+-- | Record a new chain state in history. Also ensures the 'lastKnown' point is
+-- updated accordingly.
+pushNewState :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx -> ChainStateHistory tx
+pushNewState cs h@UnsafeChainStateHistory{history, lastKnown} =
+  h
+    { history = cs <| history
+    , lastKnown = max lastKnown (chainStatePoint cs)
+    }
 
-initHistory :: ChainStateType tx -> ChainStateHistory tx
-initHistory cs = UnsafeChainStateHistory{history = cs :| [], defaultChainState = cs}
+-- | Update the last known chain point. Use 'pushNewState' if you have a full 'ChainStateType tx'.
+setLastKnown :: ChainPointType tx -> ChainStateHistory tx -> ChainStateHistory tx
+setLastKnown cp h = h{lastKnown = cp}
+
+initHistory :: IsChainState tx => ChainStateType tx -> ChainStateHistory tx
+initHistory cs =
+  UnsafeChainStateHistory
+    { history = cs :| []
+    , lastKnown = chainStatePoint cs
+    , defaultChainState = cs
+    }
 
 rollbackHistory :: IsChainState tx => ChainSlot -> ChainStateHistory tx -> ChainStateHistory tx
 rollbackHistory rollbackChainSlot h@UnsafeChainStateHistory{history, defaultChainState} =
-  h{history = fromMaybe (defaultChainState :| []) (nonEmpty rolledBack)}
+  h
+    { history = rolledBack
+    , lastKnown = chainStatePoint (head rolledBack)
+    }
  where
   rolledBack =
-    dropWhile
-      (\cs -> chainStateSlot cs > rollbackChainSlot)
-      (toList history)
+    fromMaybe (defaultChainState :| []) . nonEmpty $
+      NE.dropWhile
+        (\cs -> chainStateSlot cs > rollbackChainSlot)
+        history
 
-deriving stock instance Eq (ChainStateType tx) => Eq (ChainStateHistory tx)
-deriving stock instance Show (ChainStateType tx) => Show (ChainStateHistory tx)
+-- | Get the known prefix of all the ChainStateHistory.
+prefixOf :: IsChainState tx => ChainStateHistory tx -> NonEmpty (ChainPointType tx)
+prefixOf ch@UnsafeChainStateHistory{history, lastKnown}
+  | lastKnown == chainStatePoint (currentState ch) = historyPoints
+  | otherwise = lastKnown <| historyPoints
+ where
+  historyPoints = chainStatePoint <$> history
 
-instance Arbitrary (ChainStateType tx) => Arbitrary (ChainStateHistory tx) where
-  arbitrary = genericArbitrary
+deriving stock instance
+  ( Eq (ChainPointType tx)
+  , Eq (ChainStateType tx)
+  ) =>
+  Eq (ChainStateHistory tx)
+
+deriving stock instance
+  ( Show (ChainPointType tx)
+  , Show (ChainStateType tx)
+  ) =>
+  Show (ChainStateHistory tx)
 
 -- | Handle to interface with the main chain network
 data Chain tx m = Chain
-  { mkChainState :: ChainStateType tx
-  -- ^ Provide an initial chain state that may be evolved through 'ChainEvent'.
-  , postTx :: MonadThrow m => PostChainTx tx -> m ()
+  { postTx :: MonadThrow m => PostChainTx tx -> m ()
   -- ^ Construct and send a transaction to the main chain corresponding to the
   -- given 'PostChainTx' description.
   -- This function is not expected to block, so it is only responsible for
@@ -304,18 +319,21 @@ data ChainEvent tx
       , newChainState :: ChainStateType tx
       }
   | Rollback
-      { rolledBackChainState :: ChainStateType tx
+      { chainTime :: UTCTime
+      , rolledBackChainState :: ChainStateType tx
       }
-  | -- | Indicate time has advanced on the chain.
+  | -- | Indicate time has advanced on the chain. This is deliberately not a
+    -- ChainStateType because state updates are only expected upon 'Observation'
+    -- or'Rollback'.
     --
-    -- NOTE: While the type does not guarantee that the UTCTime and ChainSlot
-    -- are consistent the alternative would be provide the means to do the
-    -- conversion. For Cardano, this would be a systemStart and eraHistory..
-    -- which is annoying and if it's kept in the chain layer, it would mean
-    -- another round trip / state to keep there.
+    -- NOTE: While the type does not guarantee that the UTCTime and the slot in
+    -- ChainPointType tx are consistent the alternative would be provide the
+    -- means to do the conversion. For Cardano, this would be a systemStart and
+    -- eraHistory.. which is annoying and if it's kept in the chain layer, it
+    -- would mean another round trip / state to keep there.
     Tick
       { chainTime :: UTCTime
-      , chainSlot :: ChainSlot
+      , chainPoint :: ChainPointType tx
       }
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
@@ -325,9 +343,6 @@ deriving stock instance (IsTx tx, IsChainState tx) => Eq (ChainEvent tx)
 deriving stock instance (IsTx tx, IsChainState tx) => Show (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => ToJSON (ChainEvent tx)
 deriving anyclass instance (IsTx tx, IsChainState tx) => FromJSON (ChainEvent tx)
-
-instance (ArbitraryIsTx tx, IsChainState tx) => Arbitrary (ChainEvent tx) where
-  arbitrary = genericArbitrary
 
 -- | A callback indicating a 'ChainEvent tx' happened. Most importantly the
 -- 'Observation' of a relevant Hydra transaction.

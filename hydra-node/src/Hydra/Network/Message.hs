@@ -16,17 +16,12 @@ import Hydra.Tx (
   UTxOType,
  )
 import Hydra.Tx.Crypto (Signature)
-import Hydra.Tx.IsTx (ArbitraryIsTx)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 data NetworkEvent msg
   = ConnectivityEvent Connectivity
   | ReceivedMessage {sender :: Party, msg :: msg}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary msg => Arbitrary (NetworkEvent msg) where
-  arbitrary = genericArbitrary
 
 data Message tx
   = ReqTx {transaction :: tx}
@@ -48,11 +43,6 @@ deriving stock instance IsTx tx => Eq (Message tx)
 deriving stock instance IsTx tx => Show (Message tx)
 deriving anyclass instance IsTx tx => ToJSON (Message tx)
 deriving anyclass instance IsTx tx => FromJSON (Message tx)
-
-instance ArbitraryIsTx tx => Arbitrary (Message tx) where
-  arbitrary = genericArbitrary
-
-instance ArbitraryIsTx tx => ToADTArbitrary (Message tx)
 
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
   toCBOR = \case

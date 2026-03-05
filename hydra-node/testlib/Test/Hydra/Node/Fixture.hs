@@ -13,6 +13,7 @@ import Hydra.Cardano.Api (LedgerEra, SystemStart (..))
 import Hydra.Ledger.Cardano (Globals, LedgerEnv, newLedgerEnv)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Test.Hydra.Tx.Fixture as Fixture
 
 -- | Default environment for the L2 ledger using the fixed L1 'pparams' with
@@ -49,6 +50,7 @@ testEnvironment =
     , otherParties = [bob, carol]
     , contestationPeriod = cperiod
     , depositPeriod = DepositPeriod 20
+    , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""
     }

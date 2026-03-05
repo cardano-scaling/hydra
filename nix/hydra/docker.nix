@@ -3,8 +3,8 @@
 
 { lib, ... }: {
 
-  perSystem = { pkgs, self', ... }:
-    lib.mkIf pkgs.stdenv.isLinux {
+  perSystem = { pkgs, self', system, ... }:
+    lib.mkIf (system == "x86_64-linux") {
       packages = {
         docker-hydra-node = pkgs.dockerTools.buildImage {
           name = "hydra-node";
@@ -34,7 +34,7 @@
             ];
           };
           config = {
-            Entrypoint = [ "${self'.packages.hydra-node-static}/bin/hydra-node" ];
+            Entrypoint = [ "${self'.packages.hydra-node}/bin/hydra-node" ];
           };
         };
 

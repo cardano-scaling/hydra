@@ -54,7 +54,7 @@
 /* You can override the default Infima variables here. */
 :root {
   /* The original violet accent we use */
-  --ifm-color-primary: #6875e8;
+  --ifm-color-primary: #2033d9;
   /* Created using https://colordesigner.io/color-scheme-builder */
   /* 6 steps to white, first 4 after main */
   --ifm-color-primary-light: #9099e2;
@@ -91,7 +91,7 @@ html:not(.plugin-pages)[data-theme="dark"] {
   --ifm-color-primary: var(--ifm-color-primary-light);
 }
 
-html.plugin-pages[data-theme='dark'] {
+html.plugin-pages[data-theme="dark"] {
   --ifm-navbar-link-color: #1c1e21;
 }
 
@@ -125,7 +125,7 @@ h4 {
   line-height: 30px !important;
 }
 
-html:not([data-theme='dark']),
+html:not([data-theme="dark"]),
 html.plugin-pages {
   @apply text-black;
 }
@@ -265,7 +265,6 @@ html.plugin-pages {
 }
 
 @-webkit-keyframes load1 {
-
   0%,
   80%,
   100% {
@@ -280,7 +279,6 @@ html.plugin-pages {
 }
 
 @keyframes load1 {
-
   0%,
   80%,
   100% {
@@ -350,7 +348,9 @@ html.plugin-pages .navbar__brand:hover {
   width: 24px;
 }
 
-html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-Icon {
+html:not(.plugin-pages)[data-theme="dark"]
+  .DocSearch-Button
+  .DocSearch-Search-Icon {
   color: white !important;
 }
 
@@ -390,7 +390,7 @@ html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-I
   margin-left: 32px;
 }
 
-.mobile-side-menu>.menu__list-item>.menu__link {
+.mobile-side-menu > .menu__list-item > .menu__link {
   color: #283032 !important;
 }
 
@@ -412,7 +412,7 @@ html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-I
   font-weight: 700;
 }
 
-.breadcrumbs__item--active>span {
+.breadcrumbs__item--active > span {
   background-color: #e7eef0 !important;
 }
 
@@ -475,15 +475,15 @@ html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-I
   @apply !bg-transparent;
 }
 
-.theme-doc-toc-mobile>button {
+.theme-doc-toc-mobile > button {
   @apply font-semibold text-black rounded p-4 mt-12 bg-primary-extralight;
 }
 
-.theme-doc-toc-mobile>div>ul {
+.theme-doc-toc-mobile > div > ul {
   @apply border-none;
 }
 
-.theme-doc-toc-mobile>button::after {
+.theme-doc-toc-mobile > button::after {
   @apply bg-cover;
 }
 
@@ -497,27 +497,27 @@ html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-I
   line-height: 1.65;
 }
 
-.markdown>h1 {
+.markdown > h1 {
   font-size: 2rem;
 }
 
-.markdown>h2 {
+.markdown > h2 {
   font-size: 1.8rem;
 }
 
-.markdown>h3 {
+.markdown > h3 {
   font-size: 1.5rem;
 }
 
-.markdown>h4 {
+.markdown > h4 {
   font-size: 1rem;
 }
 
-.markdown>h5 {
+.markdown > h5 {
   font-size: 0.875rem;
 }
 
-.markdown>h6 {
+.markdown > h6 {
   font-size: 0.75rem;
 }
 
@@ -541,7 +541,7 @@ html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-I
   padding-left: var(--ifm-list-left-padding);
 }
 
-.markdown>ul {
+.markdown > ul {
   margin-bottom: var(--ifm-leading);
 }
 
@@ -566,7 +566,7 @@ html:not(.plugin-pages)[data-theme='dark'] .DocSearch-Button .DocSearch-Search-I
   list-style: circle;
 }
 
-.markdown li+li {
+.markdown li + li {
   margin-top: var(--ifm-list-item-margin);
 }
 
@@ -615,7 +615,7 @@ div.announcementBar a {
   text-decoration: underline;
 }
 
-html[data-theme='dark'] .table-of-contents__link:hover,
-html[data-theme='dark'] .table-of-contents__link--active {
+html[data-theme="dark"] .table-of-contents__link:hover,
+html[data-theme="dark"] .table-of-contents__link--active {
   color: var(--ifm-color-primary-light);
 }

@@ -38,8 +38,8 @@ const contributingLinks = [
 
 // If it's not the unstable docs themselves, make sure there's a link in the
 // footer to the unstable docs.
-if ( !isUnstable ) {
-  contributingLinks.push( { label: "Unstable documentation", to: "/unstable/docs" })
+if (!isUnstable) {
+  contributingLinks.push({ label: "Unstable documentation", to: "https://hydra.family/head-protocol/unstable/docs" })
 }
 
 

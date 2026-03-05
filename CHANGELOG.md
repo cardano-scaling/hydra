@@ -8,6 +8,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [1.3.0] - 2026.03.05
+
+- Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
+  See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).
+
+- Tested with `cardano-node 10.6.2` and `cardano-cli 10.15.0.0`.
+
+- Hydra node now correctly handles deposits and decommits on chain rollbacks and handles its local state correctly in terms of keeping track of pending deposits. [#2491](https://github.com/cardano-scaling/hydra/pull/2491)
+
+- Improved error reporting for transactions with missing script witnesses. Users now receive a clear error message indicating which script is missing from the transaction witnesses. [#2506](https://github.com/cardano-scaling/hydra/pull/2506)
+
+- **BREAKING** A Hydra node will now start rejecting both network and client inputs once its view of the chain has been out of sync for more than 50% of the configured `--contestation-period`, based on **system wall-clock time**.
+  - Added `NodeUnsynced` and `NodeSynced` state events and server outputs.
+  - Added `RejectedInputBecauseUnsynced` client message.
+  - The `Checkpoint` event, and consequently the `EventLogRotated` server output, now carry the different `NodeState` variants: `NodeInSync` or `NodeCatchingUp`.
+  - `Greetings` message now also contains the hydra-node synced status to the chain backend.
+  - See [Issue #2286](https://github.com/cardano-scaling/hydra/issues/2286) and [PR #2290](https://github.com/cardano-scaling/hydra/pull/2290).
+- **BREAKING** Changed `defaultContestationPeriod` from 10 minutes to 12 hours
+  (43200 seconds) to align with Cardano's safe zone for mainnet safety. See
+  [#2389](https://github.com/cardano-scaling/hydra/issues/2389).
+- Fix the `cabalOnly` development environment to allow for `cabal build hydra-node` without `haskell.nix`.
+- Add `--unsynced-period` CLI option to configure when the node considers itself
+  out of sync with the chain. Defaults to half the contestation period.
+- Support non-encoded DELETE `/commit/:tx-id` requests [#2445](https://github.com/cardano-scaling/hydra/pull/2445)
+- **BREAKING** Reduced the time required to synchronize the node with the chain after long periods of inactivity (without head transitions).
+  - When restarting, the node now resumes from the last seen tick while catching up with the chain, instead of from the last seen head transition.
+  - The chain backend now uses a non-empty list of starting points as a prefix to find a valid intersection when reconnecting to the chain.
+  - `TickObserved` event schema has changed: the `chainSlot` field has been replaced with `chainPoint`
+  - `Greetings` message now also contains a new field `currentSlot` that indicates the last known slot while catching up.
+  - See [Issue #2206](https://github.com/cardano-scaling/hydra/issues/2206) and [PR #2407](https://github.com/cardano-scaling/hydra/pull/2407).
+- Bounded the number of transactions that will be approved per snapshot
+  [#2444](https://github.com/cardano-scaling/hydra/pull/2444).
+- Buffer and batch logging so it's faster [#2452](https://github.com/cardano-scaling/hydra/pull/2452)
+- Make the input queue bounded and align its size with other bounded queues (logging, etcd-pending-broadcast)
+  [#2430](https://github.com/cardano-scaling/hydra/pull/2430).
+- Ensure input and etcd-pending-broadcast bounded queue sizes are smaller than the logging queue
+  [#2466](https://github.com/cardano-scaling/hydra/pull/2466).
+- `POST /snapshot` now returns the specific side-load validation failure instead of timing out [#2462](https://github.com/cardano-scaling/hydra/issues/2462).
+- Fixed the internal wallet fee estimation, which was more often than not using maximum plutus execution units. This reduces costs for initializing, open, etc. of a head by a factor of ~4x [#2473](https://github.com/cardano-scaling/hydra/pull/2473).
+- Fixed another race-condition around incremental commits/decommits [#2500](https://github.com/cardano-scaling/hydra/issues/2500)
+- Fixed infinite AckSn requeue loop after decommit when DecommitFinalized arrives before snapshot confirmation on the leader node [#2510](https://github.com/cardano-scaling/hydra/pull/2510)
+- **BREAKING** Improved reporting of chain synchronization status by exposing the node's chain time and drift.
+  - `NodeSynced` and `NodeUnsynced` state-changed events, and their corresponding server outputs, now include the observed chain time and drift.
+  - `NodeState` now tracks the latest observed chan slot in addition to the chain time (`UTCTime`) and its drift measured in seconds.
+  - The `EventLogRotated` and `Checkpoint` state-changed event schemas have been updated accordingly.
+  - Client inputs rejected in `HeadLogic` (via `RejectedInputBecauseUnsynced`) during catch-up now report how far the node is out of sync (drift).
+  - See [Issue #2393](https://github.com/cardano-scaling/hydra/issues/2393).
 
 ## [1.2.0] - 2025.11.28
 
@@ -18,7 +65,6 @@ changes.
 - `hydra-node` has a new endpoint `GET /head-initialization` which serves the timestamp of the last Head initialization.
 
 - Tested with `cardano-node 10.5.3` and `cardano-cli 10.11.0.0`.
-
 
 ## [1.1.0] - 2025-10-28
 

@@ -21,7 +21,7 @@ jobs:
           - name: ubuntu-latest
             arch: x86_linux
           - name: ubuntu-24.04-arm
-            arch: aarm64
+            arch: aarch64-linux
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -45,7 +45,7 @@ jobs:
       # Produces static ELF binary for using MuslC which includes all needed
       # libraries statically linked into it.
       run: |
-        # XXX: aarm64 can't build static binaries yet.
+        # XXX: aarch64-linux can't build static binaries yet.
         # See: https://github.com/cardano-scaling/hydra/issues/2370
         if [[ "${{ matrix.os.name }}" == "ubuntu-latest" ]]; then
           nix build .#release-static

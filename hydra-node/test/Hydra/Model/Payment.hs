@@ -7,6 +7,7 @@ module Hydra.Model.Payment where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label, toList)
+import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Set ((\\))

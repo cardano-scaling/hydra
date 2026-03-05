@@ -22,14 +22,8 @@ import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
   getVerificationKey,
  )
-import Hydra.Chain (
-  Chain (..),
-  ChainEvent (..),
-  ChainStateHistory,
-  PostTxError,
-  initHistory,
- )
-import Hydra.Chain.ChainState (ChainStateType, IsChainState)
+import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Events (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (
@@ -55,6 +49,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
@@ -76,6 +71,7 @@ initEnvironment options = do
       , participants
       , contestationPeriod
       , depositPeriod
+      , unsyncedPeriod
       , configuredPeers
       }
  where
@@ -99,6 +95,11 @@ initEnvironment options = do
   depositPeriod = case chainConfig of
     Offline{} -> defaultDepositPeriod
     Cardano CardanoChainConfig{depositPeriod = dp} -> dp
+  -- In offline mode, there's no real chain to sync with, so we use a very large
+  -- unsynced period to effectively disable the unsynced check.
+  unsyncedPeriod = case chainConfig of
+    Offline{} -> UnsyncedPeriod (fromIntegral (maxBound :: Int))
+    Cardano CardanoChainConfig{unsyncedPeriod = up} -> up
 
   loadParty p =
     Party <$> readFileTextEnvelopeThrow p
@@ -192,6 +193,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
               <$> ZipSink (foldMapC (Last . pure . getEventId))
               <*> ZipSink recoverNodeStateC
           )
+  traceWith tracer $ LoadedChainState{lastKnownChainPoint = lastKnown chainStateHistory}
   traceWith tracer $ LoadedState{lastEventId, nodeState}
   -- Check whether the loaded state matches our configuration (env)
   -- XXX: re-stream events just for this?
@@ -293,7 +295,9 @@ runHydraNode ::
 runHydraNode node =
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'
-  forever $ stepHydraNode node
+  forever $ do
+    now <- getCurrentTime
+    stepHydraNode now node
 
 stepHydraNode ::
   ( MonadCatch m
@@ -301,12 +305,13 @@ stepHydraNode ::
   , MonadTime m
   , IsChainState tx
   ) =>
+  UTCTime ->
   HydraNode tx m ->
   m ()
-stepHydraNode node = do
+stepHydraNode now node = do
   i@Queued{queuedId, queuedItem} <- dequeue
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
-  outcome <- atomically $ processNextInput node queuedItem
+  outcome <- atomically $ processNextInput node queuedItem now
   traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
@@ -347,15 +352,14 @@ processNextInput ::
   IsChainState tx =>
   HydraNode tx m ->
   Input tx ->
+  UTCTime ->
   STM m (Outcome tx)
-processNextInput HydraNode{nodeStateHandler, ledger, env} e =
+processNextInput HydraNode{nodeStateHandler, ledger, env} e now =
   modifyNodeState $ \s ->
-    let outcome = computeOutcome s e
+    let outcome = HeadLogic.update env ledger now s e
      in (outcome, aggregateState s outcome)
  where
   NodeStateHandler{modifyNodeState} = nodeStateHandler
-
-  computeOutcome = HeadLogic.update env ledger
 
 processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
 processStateChanges node stateChanges = do
@@ -442,6 +446,7 @@ data HydraNodeLog tx
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
   | LoadingState
   | LoadedState {lastEventId :: Last EventId, nodeState :: NodeState tx}
+  | LoadedChainState {lastKnownChainPoint :: ChainPointType tx}
   | ReplayingState
   | Misconfiguration {misconfigurationErrors :: [ParamMismatch]}
   deriving stock (Generic)

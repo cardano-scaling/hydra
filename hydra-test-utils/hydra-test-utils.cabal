@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name:          hydra-test-utils
-version:       1.2.0
+version:       1.3.0
 synopsis:      Hydra utilities for testing, aka. "Test Prelude"
 author:        IOG
 copyright:     2022 IOG
@@ -40,6 +40,7 @@ library
     , base
     , directory
     , filepath
+    , generic-random
     , hspec
     , HUnit
     , hydra-prelude
@@ -47,5 +48,6 @@ library
     , port-utils
     , process
     , QuickCheck
+    , quickcheck-arbitrary-adt
     , relude
     , temporary

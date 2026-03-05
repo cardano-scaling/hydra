@@ -40,7 +40,8 @@
                     "slot": 16016247,
                     "tag": "ChainPoint"
                 },
-                "tag": "CardanoChainConfig"
+                "tag": "CardanoChainConfig",
+                "unsyncedPeriod": 302400
             },
             "hydraSigningKey": "b/c.sk",
             "hydraVerificationKeys": [
@@ -177,7 +178,8 @@
                     "slot": 14063413,
                     "tag": "ChainPoint"
                 },
-                "tag": "CardanoChainConfig"
+                "tag": "CardanoChainConfig",
+                "unsyncedPeriod": 302400
             },
             "hydraSigningKey": "a.sk",
             "hydraVerificationKeys": [
@@ -295,7 +297,8 @@
                     "0600000601040000050806020308060804060304000305050500070706000801"
                 ],
                 "startChainFrom": null,
-                "tag": "CardanoChainConfig"
+                "tag": "CardanoChainConfig",
+                "unsyncedPeriod": 19870
             },
             "hydraSigningKey": "b/c/c/b/a/b.sk",
             "hydraVerificationKeys": [

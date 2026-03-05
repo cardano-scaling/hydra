@@ -29,23 +29,26 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
+data UTxOSize = Constant | Growing deriving (Eq, Show, Read)
+
 data Options
   = StandaloneOptions
-      { scalingFactor :: Int
-      , clusterSize :: Word64
-      , outputDirectory :: Maybe FilePath
-      , timeoutSeconds :: NominalDiffTime
-      , startingNodeId :: Int
-      }
-  | DatasetOptions
       { datasetFiles :: [FilePath]
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
       }
+  | DatasetOptions
+      { outputDirectory :: Maybe FilePath
+      , timeoutSeconds :: NominalDiffTime
+      , datasetUTxO :: UTxOSize
+      , numberOfTxs :: Int
+      , clusterSize :: Word64
+      , startingNodeId :: Int
+      }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
-      , scalingFactor :: Int
+      , numberOfTxs :: Int
       , timeoutSeconds :: NominalDiffTime
       , networkId :: NetworkId
       , nodeSocket :: SocketPath
@@ -78,13 +81,12 @@ standaloneOptionsInfo :: ParserInfo Options
 standaloneOptionsInfo =
   info
     standaloneOptionsParser
-    (progDesc "Runs a single scenario, generating or reusing a previous dataset from some directory.")
+    (progDesc "Runs a scenario reusing a previous dataset/s from some directory.")
 
 standaloneOptionsParser :: Parser Options
 standaloneOptionsParser =
   StandaloneOptions
-    <$> scalingFactorParser
-    <*> clusterSizeParser
+    <$> many filepathParser
     <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
@@ -99,14 +101,14 @@ outputDirectoryParser =
           \ If not set, raw text summary will be printed to the console. (default: none)"
     )
 
-scalingFactorParser :: Parser Int
-scalingFactorParser =
+numberOfTxsParser :: Parser Int
+numberOfTxsParser =
   option
     auto
-    ( long "scaling-factor"
+    ( long "number-of-txs"
         <> value 100
         <> metavar "INT"
-        <> help "The scaling factor to apply to transactions generator (default: 100)"
+        <> help "Number of txs to generate (default: 100)"
     )
 
 timeoutParser :: Parser NominalDiffTime
@@ -146,6 +148,19 @@ startingNodeIdParser =
           \ benchmark conflicts with default ports allocation scheme (default: 0)"
     )
 
+utxoSizeParser :: Parser UTxOSize
+utxoSizeParser =
+  option
+    auto
+    ( long "utxo-size"
+        <> value Constant
+        <> metavar "UTxOSize"
+        <> help
+          "Generated UTxO size. This can be 'Constant' where UTxO set has constant size \
+          \ depending on the number of generated txs or 'Growing' where each new generated \
+          \ transaction produces one extra output which makes the UTxO in the Head grow."
+    )
+
 demoOptionsInfo :: ParserInfo Options
 demoOptionsInfo =
   info
@@ -161,7 +176,7 @@ demoOptionsParser :: Parser Options
 demoOptionsParser =
   DemoOptions
     <$> optional outputDirectoryParser
-    <*> scalingFactorParser
+    <*> numberOfTxsParser
     <*> timeoutParser
     <*> networkIdParser
     <*> nodeSocketParser
@@ -192,9 +207,11 @@ datasetOptionsInfo =
 datasetOptionsParser :: Parser Options
 datasetOptionsParser =
   DatasetOptions
-    <$> many filepathParser
-    <*> optional outputDirectoryParser
+    <$> optional outputDirectoryParser
     <*> timeoutParser
+    <*> utxoSizeParser
+    <*> numberOfTxsParser
+    <*> clusterSizeParser
     <*> startingNodeIdParser
 
 filepathParser :: Parser FilePath

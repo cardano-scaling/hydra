@@ -14,9 +14,9 @@ import Control.Arrow (left)
 import Control.Lens ((?~))
 import Data.Aeson (Value (Object, String), withObject, (.:))
 import Data.Aeson.Lens (atKey)
-import Data.ByteString qualified as BS
+
 import Data.ByteString.Char8 qualified as BSC
-import Data.IP (IP (IPv4), toIPv4, toIPv4w)
+import Data.IP (IP (IPv4), toIPv4)
 import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (showVersion)
@@ -28,9 +28,7 @@ import Hydra.Cardano.Api (
   SlotNo (..),
   SocketPath,
   TxId (..),
-  deserialiseFromRawBytes,
   deserialiseFromRawBytesHex,
-  proxyToAsType,
   serialiseToRawBytesHexText,
  )
 import Hydra.Chain (maximumNumberOfParties)
@@ -41,6 +39,7 @@ import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), re
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromNominalDiffTime)
 import Hydra.Tx.HeadId (HeadSeed)
 import Options.Applicative (
@@ -79,7 +78,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (str)
 import Options.Applicative.Help (vsep)
-import Test.QuickCheck (Positive (..), choose, elements, listOf, listOf1, oneof, vectorOf)
+import Test.QuickCheck (Positive (..))
 
 data Command
   = Run RunOptions
@@ -187,7 +186,7 @@ defaultBlockfrostOptions =
     }
 
 defaultBFQueryTimeout :: Int
-defaultBFQueryTimeout = 20
+defaultBFQueryTimeout = 30
 
 defaultBFRetryTimeout :: Int
 defaultBFRetryTimeout = 300
@@ -225,55 +224,6 @@ instance ToJSON a => ToJSON (Positive a) where
 
 instance FromJSON a => FromJSON (Positive a) where
   parseJSON v = Positive <$> parseJSON v
-
--- Orphan instance
-instance Arbitrary IP where
-  arbitrary = IPv4 . toIPv4w <$> arbitrary
-  shrink = genericShrink
-
-instance Arbitrary RunOptions where
-  arbitrary = do
-    verbosity <- elements [Quiet, Verbose "HydraNode"]
-    nodeId <- arbitrary
-    listen <- arbitrary
-    advertise <- arbitrary
-    peers <- reasonablySized arbitrary
-    apiHost <- arbitrary
-    apiPort <- arbitrary
-    tlsCertPath <- oneof [pure Nothing, Just <$> genFilePath "pem"]
-    tlsKeyPath <- oneof [pure Nothing, Just <$> genFilePath "key"]
-    monitoringPort <- arbitrary
-    hydraSigningKey <- genFilePath "sk"
-    hydraVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
-    persistenceDir <- genDirPath
-    persistenceRotateAfter <- oneof [pure Nothing, Just . Positive . fromInteger <$> choose (1, 100000)]
-    chainConfig <- arbitrary
-    ledgerConfig <- arbitrary
-    whichEtcd <- arbitrary
-    apiTransactionTimeout <- arbitrary
-    pure $
-      RunOptions
-        { verbosity
-        , nodeId
-        , listen
-        , advertise
-        , peers
-        , apiHost
-        , apiPort
-        , tlsCertPath
-        , tlsKeyPath
-        , monitoringPort
-        , hydraSigningKey
-        , hydraVerificationKeys
-        , persistenceDir
-        , persistenceRotateAfter
-        , chainConfig
-        , ledgerConfig
-        , whichEtcd
-        , apiTransactionTimeout
-        }
-
-  shrink = genericShrink
 
 -- | Default options as they should also be provided by 'runOptionsParser'.
 defaultRunOptions :: RunOptions
@@ -380,11 +330,6 @@ defaultLedgerConfig =
     { cardanoLedgerProtocolParametersFile = "protocol-parameters.json"
     }
 
-instance Arbitrary LedgerConfig where
-  arbitrary = do
-    cardanoLedgerProtocolParametersFile <- genFilePath "json"
-    pure $ CardanoLedgerConfig{cardanoLedgerProtocolParametersFile}
-
 ledgerConfigParser :: Parser LedgerConfig
 ledgerConfigParser =
   CardanoLedgerConfig
@@ -442,6 +387,9 @@ data CardanoChainConfig = CardanoChainConfig
   -- ^ Point at which to start following the chain.
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , unsyncedPeriod :: UnsyncedPeriod
+  -- ^ Period of time after which we consider the node becoming unsynced with the chain.
+  -- Defaults to half of the contestation period if not specified via CLI.
   , chainBackendOptions :: ChainBackendOptions
   }
   deriving stock (Eq, Show, Generic)
@@ -456,6 +404,7 @@ defaultCardanoChainConfig =
     , startChainFrom = Nothing
     , contestationPeriod = defaultContestationPeriod
     , depositPeriod = defaultDepositPeriod
+    , unsyncedPeriod = defaultUnsyncedPeriod
     , chainBackendOptions = Direct defaultDirectOptions
     }
 
@@ -468,47 +417,6 @@ data BlockfrostChainConfig = BlockfrostChainConfig
   -- ^ Identifier of transaction holding the hydra scripts to use.
   }
   deriving stock (Eq, Show, Generic)
-
-instance Arbitrary ChainConfig where
-  arbitrary =
-    oneof
-      [ Cardano <$> genCardanoChainConfig
-      , Offline <$> genOfflineChainConfig
-      ]
-   where
-    genCardanoChainConfig = do
-      hydraScriptsTxId <- reasonablySized arbitrary
-      cardanoSigningKey <- genFilePath "sk"
-      cardanoVerificationKeys <- reasonablySized (listOf (genFilePath "vk"))
-      startChainFrom <- oneof [pure Nothing, Just <$> genChainPoint]
-      contestationPeriod <- arbitrary
-      depositPeriod <- arbitrary
-      chainBackendOptions <-
-        oneof
-          [ pure $ Direct defaultDirectOptions
-          , pure $ Blockfrost defaultBlockfrostOptions
-          ]
-      pure
-        CardanoChainConfig
-          { hydraScriptsTxId
-          , cardanoSigningKey
-          , cardanoVerificationKeys
-          , startChainFrom
-          , contestationPeriod
-          , depositPeriod
-          , chainBackendOptions
-          }
-
-    genOfflineChainConfig = do
-      offlineHeadSeed <- arbitrary
-      ledgerGenesisFile <- oneof [pure Nothing, Just <$> genFilePath "json"]
-      initialUTxOFile <- genFilePath "json"
-      pure
-        OfflineChainConfig
-          { offlineHeadSeed
-          , initialUTxOFile
-          , ledgerGenesisFile
-          }
 
 offlineChainConfigParser :: Parser OfflineChainConfig
 offlineChainConfigParser =
@@ -550,14 +458,27 @@ ledgerGenesisFileParser =
 
 cardanoChainConfigParser :: Parser CardanoChainConfig
 cardanoChainConfigParser =
-  CardanoChainConfig
+  mkCardanoChainConfig
     <$> ((hydraScriptsTxIdsParser <|> many hydraScriptsTxIdParser) <|> hydraScriptsDefaultParser)
     <*> cardanoSigningKeyFileParser
     <*> many cardanoVerificationKeyFileParser
     <*> optional startChainFromParser
     <*> contestationPeriodParser
     <*> depositPeriodParser
+    <*> optional unsyncedPeriodParser
     <*> chainBackendOptionsParser
+ where
+  mkCardanoChainConfig hydraScriptsTxId cardanoSigningKey cardanoVerificationKeys startChainFrom contestationPeriod depositPeriod maybeUnsyncedPeriod chainBackendOptions =
+    CardanoChainConfig
+      { hydraScriptsTxId
+      , cardanoSigningKey
+      , cardanoVerificationKeys
+      , startChainFrom
+      , contestationPeriod
+      , depositPeriod
+      , unsyncedPeriod = fromMaybe (defaultUnsyncedPeriodFor contestationPeriod) maybeUnsyncedPeriod
+      , chainBackendOptions
+      }
 
 blockfrostProjectPathParser :: Parser FilePath
 blockfrostProjectPathParser =
@@ -941,8 +862,16 @@ hydraNodeCommand =
       (decodeUtf8 $ encodePretty Contract.hydraScriptCatalogue)
       (long "hydra-script-catalogue" <> help "Dump Hydra script catalogue as JSON")
 
+-- | Default contestation period of 12 hours, aligned with Cardano's safe zone
+-- on mainnet. The safe zone is approximately 3 * k / f where k = 2160 (security
+-- parameter) and f = 0.05 (active slot coefficient), ensuring finality guarantees.
+-- See: https://github.com/cardano-scaling/hydra/issues/2389
 defaultContestationPeriod :: ContestationPeriod
-defaultContestationPeriod = 600
+defaultContestationPeriod = 43200 -- 12 hours in seconds
+
+-- | Default unsynced period, computed as half of the default contestation period.
+defaultUnsyncedPeriod :: UnsyncedPeriod
+defaultUnsyncedPeriod = defaultUnsyncedPeriodFor defaultContestationPeriod
 
 contestationPeriodParser :: Parser ContestationPeriod
 contestationPeriodParser =
@@ -952,11 +881,13 @@ contestationPeriodParser =
         <> metavar "SECONDS"
         <> value defaultContestationPeriod
         <> showDefault
-        <> completer (listCompleter ["60", "180", "300"])
+        <> completer (listCompleter ["3600", "43200", "86400"])
         <> help
           "Contestation period for close transaction in seconds. \
           \ If this value is not in sync with other participants hydra-node will ignore the initial tx.\
-          \ Additionally, this value needs to make sense compared to the current network we are running."
+          \ WARNING: On mainnet, this value should be at least 12 hours (43200s) to ensure safety\
+          \ against long chain forks. Shorter periods may not provide sufficient time for dispute\
+          \ resolution. See https://github.com/cardano-scaling/hydra/issues/2389 for details."
     )
 
 defaultDepositPeriod :: DepositPeriod
@@ -974,6 +905,20 @@ depositPeriodParser =
         <> help
           "Minimum time before deadline to consider deposits. 2 x deposit-period \
           \is used to set the deadline on any drafted deposit transactions."
+    )
+
+unsyncedPeriodParser :: Parser UnsyncedPeriod
+unsyncedPeriodParser =
+  option
+    (UnsyncedPeriod <$> auto)
+    ( long "unsynced-period"
+        <> metavar "SECONDS"
+        <> completer (listCompleter ["1800", "3600", "21600"])
+        <> help
+          "Period of time after which we consider the node becoming unsynced \
+          \with the chain. Beyond this period the node will refuse to process \
+          \new transactions and signing snapshots. If not provided, defaults to \
+          \half of the contestation period."
     )
 
 data InvalidOptions
@@ -1094,6 +1039,7 @@ toArgs
           , startChainFrom
           , contestationPeriod
           , depositPeriod
+          , unsyncedPeriod
           , chainBackendOptions
           } ->
           ( case chainBackendOptions of
@@ -1109,6 +1055,7 @@ toArgs
             <> ["--cardano-signing-key", cardanoSigningKey]
             <> ["--contestation-period", show contestationPeriod]
             <> ["--deposit-period", show depositPeriod]
+            <> ["--unsynced-period", show unsyncedPeriod]
             <> concatMap (\vk -> ["--cardano-verification-key", vk]) cardanoVerificationKeys
             <> toArgStartChainFrom startChainFrom
 
@@ -1132,21 +1079,3 @@ toArgNetworkId :: NetworkId -> [String]
 toArgNetworkId = \case
   Mainnet -> ["--mainnet"]
   Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
-
-genFilePath :: String -> Gen FilePath
-genFilePath extension = do
-  path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
-  pure $ intercalate "/" path <> "." <> extension
-
-genDirPath :: Gen FilePath
-genDirPath = do
-  path <- reasonablySized (listOf1 (elements ["a", "b", "c"]))
-  pure $ intercalate "/" path
-
-genChainPoint :: Gen ChainPoint
-genChainPoint = (ChainPoint . SlotNo <$> arbitrary) <*> someHeaderHash
- where
-  someHeaderHash = do
-    bytes <- vectorOf 32 arbitrary
-    let hash = either (error "invalid bytes") id $ deserialiseFromRawBytes (proxyToAsType Proxy) . BS.pack $ bytes
-    pure hash

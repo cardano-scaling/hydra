@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -38,16 +39,13 @@ import Hydra.API.ServerOutputFilter (
   ServerOutputFilter (..),
  )
 import Hydra.Chain (Chain (..))
-import Hydra.Chain.ChainState (
-  IsChainState,
- )
-import Hydra.Chain.Direct.State ()
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, InitialState (..), OpenState (..), StateChanged)
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
 import Network.WebSockets (
   PendingConnection (pendingRequest),
@@ -101,7 +99,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
   -- important to make sure the latest configured 'party' is reaching the
   -- client.
   forwardGreetingOnly config con = do
-    NodeState{headState} <- atomically getLatestNodeState
+    nodeState <- atomically getLatestNodeState
+    let headState = nodeState.headState
     networkInfo <- atomically getLatestNetworkInfo
     sendTextData con $
       handleUtxoInclusion config (atKey "snapshotUtxo" .~ Nothing) $
@@ -114,6 +113,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
             , hydraNodeVersion = showVersion NetworkVersions.hydraNodeVersion
             , env
             , networkInfo
+            , chainSyncedStatus = syncedStatus nodeState
+            , currentSlot = nodeState.chainPointTime.currentSlot
             }
 
   Projection{getLatest = getLatestNodeState} = nodeStateP
@@ -173,10 +174,10 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
     case Aeson.eitherDecode msg of
       Right input -> do
         traceWith tracer (APIInputReceived $ toJSON input)
-        NodeState{headState} <- atomically getLatestNodeState
         case input of
-          SafeClose ->
-            case HeadState.getOpenStateConfirmedSnapshot headState of
+          SafeClose -> do
+            nodeState <- atomically getLatestNodeState
+            case HeadState.getOpenStateConfirmedSnapshot nodeState.headState of
               Nothing -> callback input
               Just confirmedSnapshot ->
                 case checkNonADAAssets confirmedSnapshot of

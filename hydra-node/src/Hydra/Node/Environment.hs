@@ -3,6 +3,7 @@ module Hydra.Node.Environment where
 import Hydra.Prelude
 
 import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -20,15 +21,14 @@ data Environment = Environment
     participants :: [OnChainId]
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
+  , unsyncedPeriod :: UnsyncedPeriod
+  -- ^ Period of time after which we consider the node becoming unsynced with the chain.
+  -- Beyond this period the node will refuse to process new transactions and signing snapshots.
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary Environment where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 instance HasParty Environment where
   getParty = party

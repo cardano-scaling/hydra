@@ -34,10 +34,6 @@ data Authenticated msg = Authenticated
   }
   deriving stock (Eq, Show, Generic)
 
-instance (Arbitrary msg, SignableRepresentation msg) => Arbitrary (Signed msg) where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 instance ToCBOR msg => ToCBOR (Signed msg) where
   toCBOR (Signed msg sig party) = toCBOR msg <> toCBOR sig <> toCBOR party
 
@@ -99,7 +95,3 @@ data AuthLog = MessageDropped {message :: Text, signature :: Text, party :: Part
 -- Without the tag, the message is pretty cryptic in the logs
 instance ToJSON AuthLog where
   toJSON = genericToJSON defaultOptions{tagSingleConstructors = True}
-
-instance Arbitrary AuthLog where
-  arbitrary = genericArbitrary
-  shrink = genericShrink

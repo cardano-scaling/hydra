@@ -56,8 +56,8 @@ transactions simultaneously without conflicts, especially with good
 networking, which optimizes resource usage. As the project progresses, we're
 constantly evaluating its real-world performance in terms of throughput and
 finality. For more details, read <a
-href="https://example.com/more-info">this</a> blog post and see the latest
-benchmarking data <a href="https://example.com/latest-data">here</a>.
+href="https://iohk.io/en/blog/posts/2021/09/17/hydra-cardano-s-solution-for-ultimate-scalability">this</a> blog post and see the latest
+benchmarking data <a href="../benchmarks">here</a>.
 
 </details>
 

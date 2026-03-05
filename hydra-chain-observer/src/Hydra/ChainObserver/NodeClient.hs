@@ -43,10 +43,6 @@ data ChainObservation
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary ChainObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 data NodeClient m = NodeClient
   { follow :: Maybe ChainPoint -> ObserverHandler m -> m ()
   , networkId :: NetworkId

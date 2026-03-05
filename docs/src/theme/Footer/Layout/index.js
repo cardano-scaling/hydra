@@ -28,18 +28,25 @@ export default function FooterLayout({ style, links, logo, copyright }) {
         >
           <div
             className={clsx(
-              "flex flex-col gap-4 border border-solid border-primary-light p-6 rounded-lg mb-14 laptop:mb-[70px]",
-              !isLandingPage && "w-[250px]"
+              "flex flex-col gap-4 border border-solid  p-6 rounded-lg mb-14 laptop:mb-[70px]",
+              !isLandingPage
+                ? "w-[250px] border-primary"
+                : "border-primary-alternate-light"
             )}
           >
-            <div className="inline-flex items-center text-primary-light">
+            <div
+              className={clsx(
+                "inline-flex items-center ",
+                isLandingPage ? "text-primary-alternate-light" : "text-primary"
+              )}
+            >
               <HydraLogo className="shrink-0" width={24} height={24} />
               <span className="border-l pl-4 ml-4 text-xl leading-[27px]">
                 Join the family
               </span>
             </div>
             <Link
-              className="px-4 py-3 justify-center text-center border text-sm border-solid bg-primary-lightest border-primary font-bold text-primary rounded-lg no-underline hover:bg-white hover:no-underline hover:text-primary"
+              className="px-4 py-3 justify-center text-center border text-sm border-solid hover:bg-primary-alternate-light border-primary font-bold text-primary rounded-lg no-underline bg-white hover:no-underline hover:text-primary"
               to={"/docs/get-involved"}
             >
               Get involved

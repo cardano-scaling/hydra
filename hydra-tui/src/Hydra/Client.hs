@@ -11,14 +11,14 @@ import Data.Aeson (eitherDecodeStrict, encode)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.API.ServerOutput (ClientMessage, Greetings, InvalidInput, TimedServerOutput)
-import Hydra.Cardano.Api (TxId, UTxO)
+import Hydra.Cardano.Api (IsShelleyBasedEra (shelleyBasedEra), TxId, UTxO)
 import Hydra.Cardano.Api.Prelude (
   PaymentKey,
   SigningKey,
  )
 import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Blockfrost.Client qualified as BF
-import Hydra.Chain.CardanoClient (submitTransaction)
+import Hydra.Chain.CardanoClient (localNodeConnectInfo, runCardanoNode, submitTransaction)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Network (Host (Host, hostname, port))
@@ -120,12 +120,19 @@ withClient Options{hydraNodeHost = Host{hostname, port}, cardanoSigningKey, card
     runReq defaultHttpConfig request
       <&> responseBody
         >>= \DraftCommitTxResponse{commitTx} ->
-          case cardanoConnection of
-            Left bfProject -> do
-              prj <- liftIO $ BF.projectFromFile bfProject
-              void $ BF.runBlockfrostM prj $ BF.submitTransaction $ signTx sk commitTx
-            Right socketPath ->
-              submitTransaction cardanoNetworkId socketPath $ signTx sk commitTx
+          let tx =
+                -- Don't sign the tx if there's nothing to commit (i.e. empty
+                -- commit).
+                if payload == mempty
+                  then commitTx
+                  else signTx sk commitTx
+           in case cardanoConnection of
+                Left bfProject -> do
+                  prj <- liftIO $ BF.projectFromFile bfProject
+                  void $ BF.runBlockfrostM prj $ BF.submitTransaction tx
+                Right socketPath ->
+                  runCardanoNode (localNodeConnectInfo cardanoNetworkId socketPath) shelleyBasedEra $
+                    submitTransaction tx
    where
     request =
       Req.req

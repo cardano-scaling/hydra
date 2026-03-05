@@ -5,6 +5,7 @@ module Hydra.Model.MockChain where
 
 import Hydra.Cardano.Api hiding (Network)
 import Hydra.Prelude hiding (Any, label)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
@@ -23,6 +24,7 @@ import Data.Time (secondsToNominalDiffTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (userError)
 import Hydra.BehaviorSpec (SimulatedChainNetwork (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain (
   Chain (..),
@@ -60,7 +62,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..), collectTransactions)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (eraHistoryWithoutHorizon, evaluateTx, renderEvaluationReport)
+import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Logging (Tracer)
 import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
@@ -79,6 +81,7 @@ import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
+import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithoutHorizon, evaluateTx)
 import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId)
 import Test.Hydra.Tx.Gen (genScriptRegistry, genTxOutAdaOnly)
 import Test.QuickCheck (getPositive)
@@ -96,6 +99,7 @@ mockChainAndNetwork ::
   , MonadLabelledSTM m
   , MonadFork m
   , MonadDelay m
+  , MonadTime m
   ) =>
   Tracer m CardanoChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
@@ -228,8 +232,8 @@ mockChainAndNetwork tr seedKeys commits = do
         MockHydraNode
           { node = HydraNode{oc = Chain{postTx}, nodeStateHandler = NodeStateHandler{queryNodeState}}
           } -> do
-          NodeState{headState = hs} <- atomically queryNodeState
-          case hs of
+          nodeState <- atomically queryNodeState
+          case headState nodeState of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
             Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do

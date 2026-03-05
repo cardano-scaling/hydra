@@ -19,7 +19,6 @@ import Hydra.Cardano.Api (
   TxOut,
   UTxO,
   findRedeemerSpending,
-  genTxIn,
   getTxBody,
   getTxId,
   hashScript,
@@ -39,6 +38,7 @@ import Hydra.Cardano.Api (
   valueSize,
   pattern PlutusScript,
  )
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
 import Hydra.Chain.Direct.State (
@@ -54,28 +54,11 @@ import Hydra.Chain.Direct.State (
   ctxHeadParameters,
   ctxParticipants,
   ctxParties,
-  genChainStateWithTx,
-  genCloseTx,
-  genCollectComTx,
-  genCommitFor,
-  genCommits,
-  genCommits',
-  genContestTx,
-  genDecrementTx,
-  genDepositTx,
-  genFanoutTx,
-  genHydraContext,
-  genIncrementTx,
-  genInitTx,
-  genRecoverTx,
-  genStInitial,
   getKnownUTxO,
   initialize,
-  maxGenParties,
   observeClose,
   observeCollect,
   observeCommit,
-  pickChainContext,
   unsafeAbort,
   unsafeClose,
   unsafeCollect,
@@ -88,13 +71,6 @@ import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
-import Hydra.Ledger.Cardano.Evaluate (
-  evaluateTx,
-  genValidityBoundsFromContestationPeriod,
-  maxTxSize,
-  propTransactionEvaluates,
-  propTransactionFailsEvaluation,
- )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
@@ -122,8 +98,28 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (dummyValidatorScript, splitUTxO)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
+import Test.Hydra.Chain.Direct.State (
+  genChainStateWithTx,
+  genCloseTx,
+  genCollectComTx,
+  genCommitFor,
+  genCommits,
+  genCommits',
+  genContestTx,
+  genDecrementTx,
+  genDepositTx,
+  genFanoutTx,
+  genHydraContext,
+  genIncrementTx,
+  genInitTx,
+  genRecoverTx,
+  genStInitial,
+  maxGenParties,
+  pickChainContext,
+ )
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -550,7 +546,7 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
       -- We rely here on a fact that eventually this property will generate
       -- UTxO which would be wrongly picked up by the increment observation.
       let utxo = getKnownUTxO st <> utxoFromTx txDeposit <> utxoFromTx txDeposit2
-      snapshot <- pickBlind $ Snapshot.genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
+      snapshot <- pickBlind $ genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
       let txIncrement = unsafeIncrement cctx utxo headId (ctxHeadParameters ctx) snapshot depositedTxId slotNo
       case observeIncrementTx utxo txIncrement of
         Nothing -> assertWith False "Increment not observed"

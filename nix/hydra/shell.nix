@@ -43,18 +43,22 @@
         pkgs.weeder
         pkgs.yarn
         pkgs.yq
-      ] ++
-      # `dool` is required by the benchmark tests; but it's not supported on
-      # darwin; so we just don't include it.
-      (pkgs.lib.optionals pkgs.hostPlatform.isLinux [ pkgs.dool ]);
+      ];
 
       libs = [
+        # Upstream dependencies
         pkgs.glibcLocales
         pkgs.libsodium-vrf # from iohk-nix overlay
         pkgs.secp256k1
+        pkgs.libblst # from iohk-nix overlay
+        pkgs.lmdb
         pkgs.xz
         pkgs.zlib
+        pkgs.snappy # for grapesy
+        pkgs.protobuf # for grapesy
+        # Hydra dependencies
         pkgs.etcd # Build-time dependency (static binary to be embedded)
+        pkgs.librust_accumulator # From cardano-scaling/rust-accumulator
       ]
       ++
       pkgs.lib.optionals pkgs.stdenv.isLinux [

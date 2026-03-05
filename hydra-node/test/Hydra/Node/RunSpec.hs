@@ -10,8 +10,8 @@ import Hydra.Options (
   RunOptions (..),
   defaultCardanoChainConfig,
   defaultRunOptions,
-  genFilePath,
  )
+import Test.Hydra.Options (genFilePath)
 import Test.QuickCheck (generate)
 
 spec :: Spec

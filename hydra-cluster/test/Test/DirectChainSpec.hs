@@ -27,7 +27,6 @@ import Hydra.Cardano.Api (
   signTx,
   toLedgerKeyHash,
   toLedgerTx,
-  txIns',
   txOutValue,
   unFile,
   verificationKeyHash,
@@ -243,15 +242,15 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] cperiod
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
-          \aliceChain@CardanoChainTest{postTx} -> do
+          \aliceChain@CardanoChainTest{postTx, draftCommitTx} -> do
             -- Scenario
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
-
-            (_, aliceExternalSk) <- generate genKeyPair
-            externalCommit backend aliceChain aliceExternalSk headId mempty
+            -- Note: We do not sign this transaction
+            tx <- draftCommitTx headId mempty (txSpendingUTxO mempty)
+            Backend.submitTransaction backend tx
             aliceChain `observesInTime` OnCommitTx headId alice mempty
 
   it "can commit with multiple required signatures" $ \tracer -> do
@@ -299,7 +298,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             -- Scenario
             (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
             someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
-            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_001) (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
@@ -350,7 +349,11 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 , contestationDeadline = deadline
                 }
             let expectedUTxO =
-                  (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))
+                  ( Snapshot.utxo snapshot
+                      <> if snapshotVersion /= v
+                        then fromMaybe mempty (Snapshot.utxoToCommit snapshot)
+                        else mempty
+                  )
                     `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
             aliceChain `observesInTimeSatisfying` \case
               OnFanoutTx _ finalUTxO ->
@@ -633,7 +636,6 @@ externalCommit' backend hydraClient externalSks headId utxoToCommit blueprintTx 
   commitTx <- draftCommitTx headId utxoToCommit blueprintTx
   let signedTx = everybodySigns commitTx externalSks
   Backend.submitTransaction backend signedTx
-  void $ Backend.queryUTxOByTxIn backend (txIns' signedTx)
  where
   everybodySigns :: Tx -> [SigningKey PaymentKey] -> Tx
   everybodySigns tx' [] = tx'

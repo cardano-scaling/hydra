@@ -69,6 +69,7 @@ data RequirementFailure tx
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   | NoMatchingDeposit
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
+  | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
   deriving stock (Generic)
 
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)

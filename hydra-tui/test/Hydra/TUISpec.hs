@@ -220,7 +220,7 @@ setupRotatedStateTUI :: (TUIRotatedTest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
         let nodeId = 1
@@ -232,11 +232,12 @@ setupRotatedStateTUI action = do
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
         let options' = options{persistenceRotateAfter = Just (Positive 1)}
-        withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId backend externalKeyFilePath options' action
+        withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId blockTime backend externalKeyFilePath options' action
 
 data TUIRotatedTest = TUIRotatedTest
   { tuiTest :: TUITest
   , nodeHandle :: HydraNodeHandle
+  , blockTime :: NominalDiffTime
   }
 
 data HydraNodeHandle = HydraNodeHandle
@@ -287,13 +288,14 @@ withTUIRotatedTest ::
   Tracer IO HydraNodeLog ->
   FilePath ->
   Int ->
+  NominalDiffTime ->
   DirectBackend ->
   FilePath ->
   RunOptions ->
   (TUIRotatedTest -> Expectation) ->
   Expectation
-withTUIRotatedTest tracer tmpDir nodeId backend externalKeyFilePath options' action = do
-  withHydraNodeHandle tracer tmpDir nodeId options' $ \nodeHandle -> do
+withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath options action =
+  withHydraNodeHandle tracer tmpDir nodeId options $ \nodeHandle -> do
     startNode nodeHandle
     HydraClient{hydraNodeId} <- getClient nodeHandle
     withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
@@ -320,6 +322,7 @@ withTUIRotatedTest tracer tmpDir nodeId backend externalKeyFilePath options' act
             TUIRotatedTest
               { tuiTest = brickTest
               , nodeHandle
+              , blockTime
               }
         )
  where
@@ -330,7 +333,7 @@ setupNodeAndTUI' hostname lovelace action =
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
-      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
@@ -344,7 +347,7 @@ setupNodeAndTUI' hostname lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
         let DirectBackend DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode (contramap FromHydra tracer) chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
           seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do

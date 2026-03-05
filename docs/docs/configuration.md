@@ -41,7 +41,7 @@ For demonstration purposes, we also provide demo key pairs (`alice.{vk,sk}`, `bo
 The contestation period (CP) is an important protocol parameter, defined in seconds:
 
 ```
-hydra-node --contestation-period 1200s
+hydra-node --contestation-period 43200s
 ```
 
 The contestation period is used to set the **contestation deadline**. That is, after `Close`, all participants have at minimum `CP` to submit a `Contest` transaction. The `hydra-node` does that automatically if it sees a closed state not be the latest it knows.
@@ -52,7 +52,11 @@ Being a protocol parameter, all participants in a head must configure the same `
 
 :::
 
-The default contestation period is _600 seconds_, but it should be tailored to the network conditions, as different networks have varying block production rates. A good rule of thumb is the maximum time you would expect an attacker to launch a withholding attack onto the cardano network you are on. Also, consider the time it takes to propagate a transaction to the network and the time it takes for a block to be produced, and the contestation period should be long enough to accommodate any downtime of the `hydra-node`.
+The default contestation period is **12 hours (43200 seconds)**, aligned with Cardano's **safe zone** (~12 hours, derived from `3 * k / f`). This ensures that L1 transactions have enough time to settle and participants can reliably dispute when needed. On testnets, you can use shorter periods (e.g., `--contestation-period 600s`) to speed up testing.
+
+:::danger Mainnet safety
+On mainnet, the contestation period should be **at least 12 hours**. Shorter periods may not provide sufficient time for dispute resolution due to Cardano's consensus security parameters. See [#2389](https://github.com/cardano-scaling/hydra/issues/2389) for details.
+:::
 
 The contestation deadline decides when a closed head can be fanned out. At worst, this is `(1 + n) * CP` after submitting a `Close` transaction, where `n` is the number of participants in the head. This is because the deadline is pushed forward on each `Contest`. With no contestations which may still be `2 * CP` after `Close` depending on the upper validity set on che close transaction. The `hydra-node` currently picks a blanket 200 seconds as [max grace time](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Chain-Direct-Handlers.html#v:maxGraceTime).
 
@@ -63,6 +67,71 @@ Depending on the upper validity picked by `hydra-node` and the current network c
 * The node's connectivity to the network drops, and the transaction is not propagated to block producers fast enough.
 
 Currently, the `hydra-node` does not handle this situation. Each client application should implement a retry mechanism based on the expected time for transaction inclusion.
+:::
+
+#### Node synchronization policy
+
+In addition to governing on-chain disputes, the contestation period is also used to determine when a Hydra node is considered **in sync** with the Cardano chain.
+
+:::important
+By default, if a node has not observed a new block for **_half the contestation period_**, it is considered **out of sync** and transitions to a **catching up** state.
+Beyond this period, the node will reject client inputs and refuse to process new transactions or sign snapshots. This ensures that nodes process inputs only when their view of the chain is recent enough to safely enforce L2 interactions on L1, preserving head safety.
+:::
+
+For example, if the head has already closed on L1 but the node is behind the chain by more than the contestation period, it is unsafe to continue signing snapshots on L2, because the node may be unable to contest the head closing and those L2 interactions will become invalid and lost.
+
+In other words, _we can’t risk processing L2 actions while running out of time._
+
+:::warning
+A party must not go offline longer than the configured contestation period, otherwise it risks being unable to contest a head closing, violating the principle of head safety.
+:::
+
+Using T/2 gives a clean safety property:
+
+  _"An in-sync Hydra node always has at least half the contestation period (T/2)
+  to observe and react to an on-chain event."_
+
+This margin:
+  - allow for backend or network lag,
+  - gives the node time to catch up,
+  - ensures it will see at least one new block within the full contestation period (T).
+
+> This policy is based on **wall-clock time**, not the latest known chain tip, as it is unreliable while the chain backend is still synchronizing with the Cardano network.
+
+As a rule of thumb:
+
+  * Large contestation ⇒ relaxed sync requirement:
+    - Suitable when blocks may be observed every large period of time.
+    - **Availability requirement is low:** the node may be offline for longer periods
+      (up to half the contestation period) without falling out of sync.
+
+  * Low contestation ⇒ strict sync requirement:
+    - Suitable only for fast and reliable networks where blocks are seen frequently.
+    - **Availability requirement is high:** the node must not be offline for more
+      than half the contestation period to remain in sync.
+
+:::info
+The API server notifies clients whenever the node falls out of sync or returns to a synchronized state.
+:::
+
+#### Custom unsynced period
+
+If the default behavior (half the contestation period) does not fit your use case, you can explicitly configure the unsynced period using the `--unsynced-period` option:
+
+```
+hydra-node --unsynced-period 3600
+```
+
+This sets the period (in seconds) after which the node considers itself out of sync with the chain. For example, with `--unsynced-period 3600`, if no new block is observed for 1 hour, the node will transition to the "catching up" state.
+
+:::warning
+The unsynced period should generally be shorter than the contestation period to ensure safety. Setting it too large may cause the node to continue processing L2 transactions when it can no longer safely enforce them on L1.
+:::
+
+If not provided, the unsynced period defaults to half the contestation period, maintaining the safety property that an in-sync node always has sufficient time to react to on-chain events.
+
+:::info
+This option only applies when connected to a Cardano chain. In [offline mode](#offline-mode), there is no real chain to sync with, so the node is always considered in sync.
 :::
 
 ### Deposit period

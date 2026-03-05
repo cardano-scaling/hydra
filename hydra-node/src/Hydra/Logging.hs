@@ -20,6 +20,8 @@ module Hydra.Logging (
   showLogsOnFailure,
   traceInTVar,
   contramap,
+  mkEnvelope,
+  defaultQueueSize,
 ) where
 
 import Hydra.Prelude
@@ -43,16 +45,10 @@ import Data.Aeson (pairs, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
-import Test.QuickCheck.Instances.Text ()
-import Test.QuickCheck.Instances.Time ()
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary Verbosity where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
 
 -- | Provides logging metadata for entries.
 data Envelope a = Envelope
@@ -94,7 +90,7 @@ withTracer ::
   (Tracer m msg -> IO a) ->
   IO a
 withTracer Quiet = ($ nullTracer)
-withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
+withTracer (Verbose namespace) = withTracerOutputTo (BlockBuffering (Just 64000)) stdout namespace
 
 -- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
 -- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
@@ -102,11 +98,13 @@ withTracer (Verbose namespace) = withTracerOutputTo stdout namespace
 withTracerOutputTo ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  BufferMode ->
   Handle ->
   Text ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracerOutputTo hdl namespace action = do
+withTracerOutputTo bufferingMode hdl namespace action = do
+  hSetBuffering hdl bufferingMode
   msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
   withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue) $ \_ ->
     action (tracer msgQueue) `finally` flushLogs msgQueue
@@ -117,8 +115,11 @@ withTracerOutputTo hdl namespace action = do
 
   writeLogs queue =
     forever $ do
-      atomically (readTBQueue queue) >>= write . Aeson.encode
-      hFlush hdl
+      entries <- atomically $ do
+        firstEntry <- readTBQueue queue
+        rest <- flushTBQueue queue
+        pure (firstEntry : rest)
+      forM_ entries (write . Aeson.encode)
 
   flushLogs queue = liftIO $ do
     entries <- atomically $ flushTBQueue queue

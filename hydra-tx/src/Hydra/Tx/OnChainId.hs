@@ -6,9 +6,6 @@ module Hydra.Tx.OnChainId where
 
 import Hydra.Prelude
 
-import Test.QuickCheck (vectorOf)
-
-import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   HasTypeProxy (..),
   SerialiseAsRawBytes (..),
@@ -28,9 +25,4 @@ instance HasTypeProxy OnChainId where
   data AsType OnChainId = AsOnChainId
   proxyToAsType _ = AsOnChainId
 
-instance Arbitrary OnChainId where
-  arbitrary = genOnChainId
-
--- | Generate an arbitrary 'OnChainId' of 28 bytes length.
-genOnChainId :: Gen OnChainId
-genOnChainId = UnsafeOnChainId . BS.pack <$> vectorOf 28 arbitrary
+-- \| Generate an arbitrary 'OnChainId' of 28 bytes length.

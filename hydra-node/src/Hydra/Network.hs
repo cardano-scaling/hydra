@@ -19,15 +19,13 @@ import Hydra.Prelude hiding (show)
 import Cardano.Ledger.Orphans ()
 import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
 import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
-import Data.IP (IP, toIPv4w)
+import Data.IP (IP)
 import Data.Text (pack, unpack)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (Key (SigningKey))
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
 import Network.Socket (PortNumber)
-import Test.QuickCheck (elements, listOf, suchThat)
-import Test.QuickCheck.Instances.Natural ()
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
@@ -61,10 +59,6 @@ type NetworkComponent m inbound outbound a = NetworkCallback inbound m -> (Netwo
 data WhichEtcd = EmbeddedEtcd | SystemEtcd
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary WhichEtcd where
-  shrink = genericShrink
-  arbitrary = genericArbitrary
 
 -- | Configuration for a `Node` network layer.
 data NetworkConfiguration = NetworkConfiguration
@@ -118,17 +112,10 @@ instance ToJSON PortNumber where
 instance FromJSON PortNumber where
   parseJSON = fmap fromInteger . parseJSON
 
-instance Arbitrary PortNumber where
-  arbitrary = fromIntegral @Word16 <$> arbitrary
-
 -- ** NodeId
 
 newtype NodeId = NodeId {nodeId :: Text}
   deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
-
-instance Arbitrary NodeId where
-  arbitrary =
-    NodeId . pack <$> suchThat (listOf (elements ['a' .. 'z'])) (not . null)
 
 -- ** Host
 
@@ -157,11 +144,6 @@ instance Read Host where
   readsPrec _ s = case readHost s of
     Just h -> [(h, "")]
     Nothing -> []
-
-instance Arbitrary Host where
-  arbitrary = do
-    ip <- toIPv4w <$> arbitrary
-    Host (toText $ show ip) <$> arbitrary
 
 instance ToJSONKey Host where
   toJSONKey = toJSONKeyText (T.pack . show)
@@ -200,13 +182,7 @@ data Connectivity
   deriving stock (Generic, Eq, Show)
   deriving anyclass (ToJSON, FromJSON)
 
-instance Arbitrary Connectivity where
-  arbitrary = genericArbitrary
-
 newtype ProtocolVersion = ProtocolVersion Natural
   deriving stock (Eq, Show, Generic, Ord)
   deriving newtype (ToCBOR, FromCBOR)
   deriving anyclass (ToJSON, FromJSON)
-
-instance Arbitrary ProtocolVersion where
-  arbitrary = genericArbitrary

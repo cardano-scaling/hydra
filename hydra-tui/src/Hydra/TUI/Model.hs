@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -44,12 +45,16 @@ data IdentifiedState
 -- | Connectivity of the hydra node to the hydra network.
 data NetworkState = NetworkConnected | NetworkDisconnected
 
+-- | Synchronization status of the hydra node to the cardano chain.
+data ChainSyncedStatus = InSync | CatchingUp
+
 data PeerStatus = PeerIsConnected | PeerIsDisconnected | PeerIsUnknown
 
 data Connection = Connection
   { me :: IdentifiedState
   , peers :: [(Host, PeerStatus)]
   , networkState :: Maybe NetworkState
+  , chainSyncedStatus :: ChainSyncedStatus
   , headState :: HeadState
   }
 
@@ -179,6 +184,7 @@ makeLensesFor
   , ("me", "meL")
   , ("peers", "peersL")
   , ("networkState", "networkStateL")
+  , ("chainSyncedStatus", "chainSyncedStatusL")
   , ("headState", "headStateL")
   ]
   ''Connection
@@ -216,6 +222,7 @@ emptyConnection =
     { me = Unidentified
     , peers = []
     , networkState = Nothing
+    , chainSyncedStatus = CatchingUp
     , headState = Idle
     }
 
@@ -251,8 +258,8 @@ isModalOpen s =
     Just _ -> True
 
 recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
-recoverHeadState now current NodeState{headState, pendingDeposits} =
-  case headState of
+recoverHeadState now current nodeState =
+  case nodeState.headState of
     State.Idle State.IdleState{} -> current
     State.Initial
       State.InitialState
@@ -317,7 +324,7 @@ recoverHeadState now current NodeState{headState, pendingDeposits} =
                 }
  where
   pendingIncrements =
-    Map.toList pendingDeposits
+    Map.toList nodeState.pendingDeposits
       <&> ( \(txId', Deposit{deposited, deadline}) ->
               PendingIncrement
                 { utxoToCommit = deposited

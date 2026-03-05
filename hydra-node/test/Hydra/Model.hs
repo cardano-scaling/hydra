@@ -19,12 +19,14 @@ module Hydra.Model where
 
 import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
+import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize', unsafeDeserialize')
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   readTVarIO,
+  retry,
  )
 import Control.Monad.Class.MonadAsync (cancel, link)
 import Data.List (nub, (\\))
@@ -55,9 +57,9 @@ import Hydra.Logging (Tracer)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
 import Hydra.Model.MockChain (mockChainAndNetwork)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
-import Hydra.Node (runHydraNode)
+import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
-import Hydra.Node.State (NodeState (headState))
+import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey)
@@ -66,7 +68,6 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
-import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (choose, chooseEnum, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
@@ -195,8 +196,8 @@ instance StateModel WorldState where
           ]
       Final{} -> Some <$> genSeed
    where
-    genCommit headIdVar pending = do
-      (party, commits) <- elements $ Map.toList pending
+    genCommit headIdVar pending' = do
+      (party, commits) <- elements $ Map.toList pending'
       pure . Some $ Commit headIdVar party commits
 
     -- NOTE: Some actions depend on confirmed 'UTxO' in the head so
@@ -652,7 +653,7 @@ seedWorld seedKeys seedCP futureCommits = do
       outputs <- newLabelledTQueueIO ("seed-world-outputs-" <> shortLabel hsk)
       messages <- newLabelledTQueueIO ("seed-world-messages-" <> shortLabel hsk)
       outputHistory <- newLabelledTVarIO "seed-world-output-history" []
-      node <-
+      node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
         createHydraNode
           (contramap Node tr)
           ledger
@@ -665,9 +666,15 @@ seedWorld seedKeys seedCP futureCommits = do
           mockChain
           seedCP
           testDepositPeriod
-      let testClient = createTestHydraClient outputs messages outputHistory node
       nodeThread <- asyncLabelled ("seed-world-node-" <> shortLabel hsk) $ runHydraNode node
       link nodeThread
+      -- await for the node to be in sync with the chain before returning the client
+      atomically $ do
+        st <- queryNodeState
+        case st of
+          NodeInSync{} -> pure ()
+          _ -> retry
+      let testClient = createTestHydraClient outputs messages outputHistory node
       pure (testClient, nodeThread)
     pushThread nodeThread
     pure (party, testClient)

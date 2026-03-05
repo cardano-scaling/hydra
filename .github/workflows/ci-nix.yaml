@@ -12,9 +12,6 @@ on:
     - master
     - release
   pull_request:
-  schedule:
-    # Everyday at 4:00 AM
-    - cron: "0 4 * * *"
   # Allows to trigger runs on any branch
   workflow_dispatch:
 
@@ -80,22 +77,6 @@ jobs:
         path: /tmp/nix-shell.*/hydra-cluster-e2e-*/logs/*
         if-no-files-found: ignore
 
-  haddock:
-    name: "Build haddock using nix"
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout repository
-      uses: actions/checkout@v4
-
-    - name: ❄ Setup Nix/Cachix
-      uses: ./.github/actions/nix-cachix-setup
-      with:
-        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
-
-    - name: 📚 Documentation (Haddock)
-      run: |
-        nix build .#haddocks
-
   benchmarks:
     name: "Benchmarks"
     runs-on: ubuntu-latest
@@ -110,7 +91,7 @@ jobs:
             options: '-o $(pwd)/../benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
-            options: 'datasets datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
+            options: 'single datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -150,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Download generated documentation
-      uses: actions/download-artifact@v5
+      uses: actions/download-artifact@v8
       with:
         path: artifact
         pattern: benchmarks-*

@@ -1,8 +1,5 @@
 { self, ... }: {
-
   perSystem = { compiler, inputMap, pkgs, ... }:
-
-
     let
       hsPkgs = pkgs.haskell-nix.project {
         src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
@@ -54,7 +51,7 @@
           }
           # Use different static libs on darwin
           # TODO: Always use these?
-          (pkgs.lib.mkIf pkgs.hostPlatform.isDarwin {
+          (pkgs.lib.mkIf pkgs.stdenv.hostPlatform.isDarwin {
             packages.hydra-node.ghcOptions = with pkgs; [
               "-L${lib.getLib static-gmp}/lib"
               "-L${lib.getLib static-libsodium-vrf}/lib"
@@ -91,7 +88,7 @@
           }
           # Add etcd as build dependency of hydra-node (template haskell embedding not tracked by cabal)
           {
-            packages.hydra-node.components.library.build-tools = [ pkgs.etcd ];
+            packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
           }
         ];
       };

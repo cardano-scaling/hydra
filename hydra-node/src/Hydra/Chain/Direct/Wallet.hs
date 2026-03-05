@@ -6,15 +6,14 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
+import Cardano.Api.Ledger (Data, ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
-  ExUnits (ExUnits),
   plutusScriptLanguage,
-  unAsIx,
  )
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
@@ -25,9 +24,8 @@ import Cardano.Ledger.Api (
   AlonzoEraTx,
   BabbageEraTxBody,
   ConwayEra,
-  Data,
   PParams,
-  TransactionScriptFailure,
+  TransactionScriptFailure (..),
   Tx,
   bodyTxL,
   calcMinFeeTx,
@@ -38,18 +36,15 @@ import Cardano.Ledger.Api (
   feeTxBodyL,
   inputsTxBodyL,
   outputsTxBodyL,
-  ppMaxTxExUnitsL,
   rdmrsTxWitsL,
   referenceInputsTxBodyL,
-  reqSignerHashesTxBodyL,
   scriptIntegrityHashTxBodyL,
   scriptTxWitsL,
   witsTxL,
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (body, getLanguageView, hashScriptIntegrity)
-import Cardano.Ledger.Babbage.Tx qualified as Babbage
+import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -59,7 +54,6 @@ import Cardano.Ledger.Core (
  )
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
-import Cardano.Ledger.Hashes (EraIndependentTxBody, HashAnnotated, hashAnnotated)
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
@@ -68,11 +62,10 @@ import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
-import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
-import Data.Ratio ((%))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint,
@@ -209,22 +202,14 @@ applyTxs txs isOurs utxo =
     forM_ txs $ \apiTx -> do
       -- XXX: Use cardano-api types instead here
       let tx = toLedgerTx apiTx
-      let txId = getTxId tx
-      modify (`Map.withoutKeys` view inputsTxBodyL (body tx))
+      let txId = Ledger.txIdTx tx
+      modify (`Map.withoutKeys` view (bodyTxL . inputsTxBodyL) tx)
       let indexedOutputs =
-            let outs = toList $ body tx ^. outputsTxBodyL
+            let outs = toList $ view (bodyTxL . outputsTxBodyL) tx
                 maxIx = fromIntegral $ length outs
              in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
       forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
         when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
-
-getTxId ::
-  HashAnnotated
-    (Ledger.TxBody era)
-    EraIndependentTxBody =>
-  Babbage.AlonzoTx era ->
-  Ledger.TxId
-getTxId tx = Ledger.TxId $ hashAnnotated (body tx)
 
 -- | This are all the error that can happen during coverFee.
 data ErrCoverFee
@@ -234,6 +219,7 @@ data ErrCoverFee
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
   | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
+  | ErrMissingScript {scriptHash :: Text, purpose :: Text}
   deriving stock (Show)
 
 data ChangeError = ChangeError {inputBalance :: Coin, outputBalance :: Coin}
@@ -272,15 +258,25 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   -- would invalidate most Hydra protocol transactions.
   let txOuts = body ^. outputsTxBodyL <&> ensureMinCoinTxOut pparams
 
-  -- Compute costs of redeemers
   let utxo = lookupUTxO <> walletUTxO
-  estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo partialTx
+
+  -- First, adjust redeemer indices for the fee input (keeping original execution units)
+  let redeemersWithAdjustedIndices =
+        adjustRedeemerIndices (body ^. inputsTxBodyL) newInputs (wits ^. rdmrsTxWitsL)
+
+  -- Build a transaction with the fee input and change output included for cost
+  -- estimation. We use feeTxOut as a placeholder for the change output since
+  -- the script context (number of outputs, addresses) affects execution costs.
+  let txForEstimation =
+        partialTx
+          & bodyTxL . inputsTxBodyL .~ newInputs
+          & bodyTxL . outputsTxBodyL .~ (txOuts |> feeTxOut)
+          & witsTxL . rdmrsTxWitsL .~ redeemersWithAdjustedIndices
+
+  -- Estimate script costs on the transaction WITH the fee input already added
+  estimatedScriptCosts <- estimateScriptsCost pparams systemStart epochInfo utxo txForEstimation
   let adjustedRedeemers =
-        adjustRedeemers
-          (body ^. inputsTxBodyL)
-          newInputs
-          estimatedScriptCosts
-          (wits ^. rdmrsTxWitsL)
+        applyEstimatedCosts estimatedScriptCosts redeemersWithAdjustedIndices
 
   -- Compute script integrity hash from adjusted redeemers
   let referenceScripts = getReferenceScripts (Ledger.UTxO utxo) (body ^. referenceInputsTxBodyL)
@@ -307,14 +303,11 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
 
   -- Compute fee using a body with selected txOut to pay fees (= full change)
-  -- and an additional witness (we will sign this tx later)
-  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx additionalWitnesses
+  let fee = calcMinFeeTx (Ledger.UTxO utxo) pparams costingTx 0
       costingTx =
         unbalancedTx
           & bodyTxL . outputsTxBodyL %~ (|> feeTxOut)
           & bodyTxL . feeTxBodyL .~ Coin 10_000_000
-      -- We add one additional witness for the fee input
-      additionalWitnesses = 1 + length (partialTx ^. bodyTxL . reqSignerHashesTxBodyL)
 
   -- Balance tx with a change output and computed fee
   change <-
@@ -357,36 +350,55 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     totalIn = foldMap (view coinTxOutL) resolvedInputs
     changeOut = totalIn <> invert totalOut
 
-  adjustRedeemers ::
-    Set TxIn ->
-    Set TxIn ->
+  -- Apply estimated execution units to redeemers. This replaces the existing
+  -- execution units with the estimated costs.
+  applyEstimatedCosts ::
     Map (PlutusPurpose AsIx era) ExUnits ->
     Redeemers era ->
     Redeemers era
-  adjustRedeemers initialInputs finalInputs estimatedCosts (Redeemers initialRedeemers) =
-    Redeemers $ Map.fromList $ map adjustOne $ Map.toList initialRedeemers
+  applyEstimatedCosts estimatedCosts (Redeemers redeemers) =
+    Redeemers $ Map.mapWithKey updateExUnits redeemers
    where
-    sortedInputs = sort $ toList initialInputs
+    updateExUnits ptr (d, _oldExUnits) =
+      let exUnits =
+            fromMaybe (error $ "applyEstimatedCosts: missing cost for " <> show ptr) $
+              Map.lookup ptr estimatedCosts
+       in (d, exUnits)
+
+  -- Adjust redeemer indices when inputs change. When a fee input is added,
+  -- it may shift the position of existing inputs in the sorted order, which
+  -- requires updating spending purpose indices accordingly.
+  adjustRedeemerIndices ::
+    Set TxIn ->
+    Set TxIn ->
+    Redeemers era ->
+    Redeemers era
+  adjustRedeemerIndices initialInputs finalInputs (Redeemers redeemers) =
+    Redeemers $ Map.fromList $ map adjustOne $ Map.toList redeemers
+   where
+    sortedInitialInputs = sort $ toList initialInputs
     sortedFinalInputs = sort $ toList finalInputs
-    differences = List.findIndices (not . uncurry (==)) $ zip sortedInputs sortedFinalInputs
+
+    -- Map from TxIn to its index in the final sorted inputs
+    finalInputIndex :: Map TxIn Word32
+    finalInputIndex = Map.fromList $ zip sortedFinalInputs [0 ..]
+
+    -- Map from original index to TxIn
+    initialIndexToTxIn :: Map Word32 TxIn
+    initialIndexToTxIn = Map.fromList $ zip [0 ..] sortedInitialInputs
 
     adjustOne :: (PlutusPurpose AsIx era, (Data era, ExUnits)) -> (PlutusPurpose AsIx era, (Data era, ExUnits))
-    adjustOne (ptr, (d, _exUnits)) =
-      case ptr of
-        SpendingPurpose idx
-          | fromIntegral (unAsIx idx) `elem` differences ->
-              (SpendingPurpose (AsIx (unAsIx idx + 1)), (d, executionUnitsFor ptr))
-        _ ->
-          (ptr, (d, executionUnitsFor ptr))
+    adjustOne (ptr, v) = (adjustPurpose ptr, v)
 
-    executionUnitsFor :: PlutusPurpose AsIx era -> ExUnits
-    executionUnitsFor ptr =
-      let ExUnits maxMem maxCpu = pparams ^. ppMaxTxExUnitsL
-          ExUnits totalMem totalCpu = foldMap identity estimatedCosts
-          ExUnits approxMem approxCpu = estimatedCosts ! ptr
-       in ExUnits
-            (floor (maxMem * approxMem % totalMem))
-            (floor (maxCpu * approxCpu % totalCpu))
+    adjustPurpose :: PlutusPurpose AsIx era -> PlutusPurpose AsIx era
+    adjustPurpose purpose@(SpendingPurpose (AsIx idx)) =
+      -- Get the TxIn that was at this index in the original sorted inputs,
+      -- then find its new index in the final sorted inputs
+      fromMaybe purpose $ do
+        txIn <- Map.lookup idx initialIndexToTxIn
+        newIdx <- Map.lookup txIn finalInputIndex
+        pure $ SpendingPurpose (AsIx newIdx)
+    adjustPurpose other = other
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =
@@ -431,11 +443,21 @@ estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   convertResult ptr = \case
     Right exUnits -> Right exUnits
     Left failure ->
-      Left $
-        ErrScriptExecutionFailed
-          { redeemerPointer = show ptr
-          , scriptFailure = show failure
-          }
+      case failure of
+        -- Missing script witness - provide helpful error message
+        MissingScript _ scriptHash ->
+          Left $
+            ErrMissingScript
+              { scriptHash = Text.pack $ show scriptHash
+              , purpose = Text.pack $ show ptr
+              }
+        -- Any other script execution failure
+        _ ->
+          Left $
+            ErrScriptExecutionFailed
+              { redeemerPointer = Text.pack $ show ptr
+              , scriptFailure = Text.pack $ show failure
+              }
 
 --
 -- Logs

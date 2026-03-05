@@ -3,6 +3,7 @@ module Hydra.Tx.HeadIdSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Hydra.Cardano.Api.Gen ()
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Tx.HeadId (currencySymbolToHeadId, headIdToCurrencySymbol, headIdToPolicyId, headSeedToTxIn, mkHeadId, txInToHeadSeed)
 import Test.QuickCheck (counterexample, (===))
