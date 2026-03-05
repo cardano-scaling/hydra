@@ -5,7 +5,7 @@
 -- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 1.2.0
+@version 1.3.0
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.
@@ -52,7 +52,6 @@ data KnownNetwork
 Preview :: KnownNetwork
 Preproduction :: KnownNetwork
 Mainnet :: KnownNetwork
-Sanchonet :: KnownNetwork
 BlockfrostPreview :: KnownNetwork
 BlockfrostPreprod :: KnownNetwork
 BlockfrostMainnet :: KnownNetwork
@@ -165,6 +164,7 @@ data FaucetLog
 TraceResourceExhaustedHandled :: Text -> FaucetLog
 ReturnedFunds :: Coin -> FaucetLog
 [$sel:returnAmount:TraceResourceExhaustedHandled] :: FaucetLog -> Coin
+SubmitTxError :: Text -> FaucetLog
 delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
 seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> IO UTxO
 
@@ -173,6 +173,7 @@ seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey 
 seedFromFaucetWithMinting :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
 findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
 seedFromFaucetBlockfrost :: BlockfrostOptions -> VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
+findUTxO :: MonadIO m => UTxO Era -> Lovelace -> m (UTxO Era)
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
 --   <a>UTxO</a>.
@@ -228,6 +229,7 @@ ClientDataset :: SigningKey PaymentKey -> UTxO -> [Tx] -> ClientDataset
 --   'genesis-shelley.json'). Then for a given number of clients a number
 --   of transactions are generated.
 generateConstantUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
+generateGrowingUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
 
 -- | Generate a <a>Dataset</a> from an already running network by querying
 --   available funds of the well-known 'faucet.sk' and assuming the
@@ -285,13 +287,14 @@ DevnetConfig :: FilePath -> UTCTime -> PortsConfig -> DevnetConfig
 
 -- | Arguments given to the 'cardano-node' command-line to run a node.
 data CardanoNodeArgs
-CardanoNodeArgs :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe Port -> CardanoNodeArgs
+CardanoNodeArgs :: FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe FilePath -> Maybe Port -> CardanoNodeArgs
 [$sel:nodeSocket:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeConfigFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeByronGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeShelleyGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeAlonzoGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeConwayGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
+[$sel:nodeDijkstraGenesisFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeTopologyFile:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeDatabaseDir:CardanoNodeArgs] :: CardanoNodeArgs -> FilePath
 [$sel:nodeDlgCertFile:CardanoNodeArgs] :: CardanoNodeArgs -> Maybe FilePath
@@ -462,7 +465,7 @@ getSnapshotConfirmed :: HydraClient -> IO (ConfirmedSnapshot Tx)
 -- | Get the latest seen snapshot from the hydra-node.
 getSnapshotLastSeen :: HydraClient -> IO (SeenSnapshot Tx)
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
-withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> ContestationPeriod -> (NonEmpty HydraClient -> IO a) -> IO a
+withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> ContestationPeriod -> (NonEmpty HydraClient -> IO a) -> IO a
 
 -- | Prepare protocol-parameters to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
@@ -472,16 +475,25 @@ preparePParams :: ChainConfig -> FilePath -> (Value -> Value) -> IO FilePath
 --   <a>ChainConfig</a> and using the config from config/.
 prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (Value -> Value) -> IO RunOptions
 
+-- | Run a hydra-node with given <a>RunOptions</a> and in sync with chain
+--   backend.
+withPreparedHydraNodeInSync :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
+
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config/.
-withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+
+-- | Run a hydra-node with given <a>ChainConfig</a> and using the config
+--   from config and catching up with chain backend/.
+withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
 waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog
 [$sel:cmd:HydraNodeCommandSpec] :: HydraNodeLog -> Text
@@ -529,6 +541,7 @@ CreatedKey :: FilePath -> EndToEndLog
 [$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
 oneOfThreeNodesStopsForAWhile :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 restartedNodeCanObserveCommitTx :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 restartedNodeCanAbort :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 nodeReObservesOnChainTxs :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
@@ -612,6 +625,7 @@ canDecommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> back
 --   online with healthy configuration
 canSideLoadSnapshot :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 canResumeOnMemberAlreadyBootstrapped :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+waitsForChainInSyncAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
 -- | Three hydra nodes open a head and we assert that none of them sees
 --   errors if a party is duplicated.

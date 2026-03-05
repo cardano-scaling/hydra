@@ -4,7 +4,7 @@
 
 -- | TUI for managing a Hydra node
 @package hydra-tui
-@version 1.2.0
+@version 1.3.0
 
 module Hydra.TUI.Drawing.Utils
 drawHex :: SerialiseAsRawBytes a => a -> Widget n
@@ -150,15 +150,21 @@ Identified :: Party -> IdentifiedState
 data NetworkState
 NetworkConnected :: NetworkState
 NetworkDisconnected :: NetworkState
+
+-- | Synchronization status of the hydra node to the cardano chain.
+data ChainSyncedStatus
+InSync :: ChainSyncedStatus
+CatchingUp :: ChainSyncedStatus
 data PeerStatus
 PeerIsConnected :: PeerStatus
 PeerIsDisconnected :: PeerStatus
 PeerIsUnknown :: PeerStatus
 data Connection
-Connection :: IdentifiedState -> [(Host, PeerStatus)] -> Maybe NetworkState -> HeadState -> Connection
+Connection :: IdentifiedState -> [(Host, PeerStatus)] -> Maybe NetworkState -> ChainSyncedStatus -> HeadState -> Connection
 [$sel:me:Connection] :: Connection -> IdentifiedState
 [$sel:peers:Connection] :: Connection -> [(Host, PeerStatus)]
 [$sel:networkState:Connection] :: Connection -> Maybe NetworkState
+[$sel:chainSyncedStatus:Connection] :: Connection -> ChainSyncedStatus
 [$sel:headState:Connection] :: Connection -> HeadState
 type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
@@ -256,6 +262,7 @@ peersL :: Lens' Connection [(Host, PeerStatus)]
 networkStateL :: Lens' Connection (Maybe NetworkState)
 meL :: Lens' Connection IdentifiedState
 headStateL :: Lens' Connection HeadState
+chainSyncedStatusL :: Lens' Connection ChainSyncedStatus
 remainingPartiesL :: Lens' InitializingState [Party]
 initializingScreenL :: Lens' InitializingState InitializingScreen
 activeLinkL :: Traversal' HeadState ActiveLink
@@ -277,7 +284,7 @@ instance GHC.Show.Show Hydra.TUI.Model.PendingIncrementStatus
 instance Prettyprinter.Internal.Pretty Hydra.TUI.Model.SelectAddressItem
 
 module Hydra.TUI.Handlers
-handleEvent :: CardanoClient -> Client Tx IO -> BrickEvent Name (HydraEvent Tx) -> EventM Name RootState ()
+handleEvent :: CardanoClient Era -> Client Tx IO -> BrickEvent Name (HydraEvent Tx) -> EventM Name RootState ()
 handleTick :: HydraEvent Tx -> EventM Name RootState ()
 handleHydraEventsConnectedState :: HydraEvent Tx -> EventM Name ConnectedState ()
 handleHydraEventsConnection :: UTCTime -> HydraEvent Tx -> EventM Name Connection ()
@@ -285,23 +292,23 @@ handleHydraEventsHeadState :: UTCTime -> HydraEvent Tx -> EventM Name HeadState 
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
 partyCommitted :: Party -> UTxO -> EventM n ActiveLink ()
-handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> Event -> EventM Name HeadState ()
-handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> Event -> EventM Name ActiveLink ()
-handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Event -> EventM Name ActiveHeadState ()
-handleVtyEventsInitializingScreen :: CardanoClient -> Client Tx IO -> Event -> EventM Name InitializingScreen ()
-handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Event -> EventM Name OpenScreen ()
+handleVtyEventsHeadState :: CardanoClient Era -> Client Tx IO -> Event -> EventM Name HeadState ()
+handleVtyEventsActiveLink :: CardanoClient Era -> Client Tx IO -> Event -> EventM Name ActiveLink ()
+handleVtyEventsActiveHeadState :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Event -> EventM Name ActiveHeadState ()
+handleVtyEventsInitializingScreen :: CardanoClient Era -> Client Tx IO -> Event -> EventM Name InitializingScreen ()
+handleVtyEventsOpen :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Event -> EventM Name OpenScreen ()
 handleVtyEventsFanoutPossible :: Client Tx IO -> Event -> EventM Name s ()
 handleVtyEventsFinal :: Client Tx IO -> Event -> EventM Name s ()
 handleVtyEventsLogState :: Event -> EventM Name LogState ()
 scroll :: Direction -> EventM Name LogState ()
 myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
-mkMyAddress :: CardanoClient -> Client Tx IO -> Address ShelleyAddr
+mkMyAddress :: CardanoClient Era -> Client Tx IO -> Address ShelleyAddr
 
 module Hydra.TUI.Drawing
 
 -- | Main draw function
-draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
-drawScreenShortLog :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
+draw :: CardanoClient Era -> Client Tx IO -> RootState -> [Widget Name]
+drawScreenShortLog :: CardanoClient Era -> Client Tx IO -> RootState -> [Widget Name]
 drawCommandPanel :: RootState -> Widget n
 drawScreenFullLog :: RootState -> [Widget Name]
 drawCommandList :: RootState -> Widget n
@@ -324,6 +331,7 @@ drawHeadParticipants :: IdentifiedState -> [Party] -> Widget n
 drawIfConnected :: (Connection -> Widget n) -> ConnectedState -> Widget n
 drawIfActive :: (ActiveLink -> Widget n) -> HeadState -> Widget n
 drawNetworkState :: ConnectedState -> Widget n
+drawChainSyncedState :: ConnectedState -> Widget n
 drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
 drawHeadId :: HeadId -> Widget n
 drawMyAddress :: AddressInEra -> Widget n
@@ -340,7 +348,7 @@ drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
 module Hydra.TUI
 
 -- | Construct a <a>CardanoClient</a> handle.
-mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
-mkBFClient :: NetworkId -> FilePath -> CardanoClient
+mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient Era
+mkBFClient :: NetworkId -> FilePath -> CardanoClient Era
 runWithVty :: IO Vty -> Options -> IO RootState
 run :: Options -> IO RootState

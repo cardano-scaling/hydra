@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx
-@version 1.2.0
+@version 1.3.0
 
 
 -- | Utilities to building transactions on top of the cardano-api.
@@ -39,6 +39,67 @@ mintTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> PolicyAssets 
 burnTokens :: ToScriptData redeemer => PlutusScript -> redeemer -> PolicyAssets -> TxBodyContent BuildTx -> TxBodyContent BuildTx
 instance GHC.Show.Show Hydra.Ledger.Cardano.Builder.InvalidTransactionException
 instance GHC.Exception.Type.Exception Hydra.Ledger.Cardano.Builder.InvalidTransactionException
+
+
+-- | Dependency-injected interface to phase-2 validation of transactions,
+--   eg. evaluation of Plutus scripts.
+--   
+--   This module provides parameterized evaluation functions that accept
+--   protocol parameters, epoch info, and system start as explicit
+--   arguments.
+--   
+--   <b>NOTE</b>: For convenience wrappers using test fixtures, see
+--   <a>Fixtures</a> which re-exports <tt>evaluateTx</tt> and
+--   <tt>evaluateTx'</tt> for testing/benchmarking purposes.
+module Hydra.Ledger.Cardano.Evaluate
+
+-- | Evaluate transaction with explicit dependencies.
+--   
+--   This is the dependency-injected version, allowing you to provide your
+--   own <a>SystemStart</a>, <a>EpochInfo</a>, and <a>PParams</a> instead
+--   of using hardcoded test fixtures.
+--   
+--   The maximum transaction execution units are read from the provided
+--   <a>PParams</a>.
+evaluateTxWith :: SystemStart -> EpochInfo (Either Text) -> PParams LedgerEra -> Tx -> UTxO -> Either EvaluationError EvaluationReport
+
+-- | Like <a>evaluateTxWith</a>, but with a configurable maximum
+--   transaction <a>ExecutionUnits</a>.
+evaluateTxWith' :: SystemStart -> EpochInfo (Either Text) -> PParams LedgerEra -> ExecutionUnits -> Tx -> UTxO -> Either EvaluationError EvaluationReport
+
+-- | Check the budget used by provided <a>EvaluationReport</a> does not
+--   exceed given maximum <a>ExecutionUnits</a>.
+checkBudget :: ExecutionUnits -> EvaluationReport -> Either EvaluationError EvaluationReport
+
+-- | Errors returned by <tt>evaluateTx</tt> extending the upstream
+--   <a>TransactionValidityError</a> with additional cases.
+data EvaluationError
+TransactionBudgetOverspent :: ExecutionUnits -> ExecutionUnits -> EvaluationError
+[$sel:used:TransactionBudgetOverspent] :: EvaluationError -> ExecutionUnits
+[$sel:available:TransactionBudgetOverspent] :: EvaluationError -> ExecutionUnits
+TransactionInvalid :: TransactionValidityError Era -> EvaluationError
+PParamsConversion :: ProtocolParametersConversionError -> EvaluationError
+
+-- | Evaluation result for each of the included scripts. Either they failed
+--   evaluation or used a number of <a>ExecutionUnits</a>.
+type EvaluationReport = (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
+
+-- | Render the <a>EvaluationReport</a> as a pretty multi-line text.
+renderEvaluationReport :: EvaluationReport -> Text
+
+-- | Get the total used <a>ExecutionUnits</a> from an
+--   <a>EvaluationReport</a>. Useful to further process the result of
+--   <tt>evaluateTx</tt>.
+usedExecutionUnits :: EvaluationReport -> ExecutionUnits
+
+-- | Estimate minimum fee for given transaction and evaluated redeemers.
+--   Instead of using the budgets from the transaction (which are usually
+--   set to 0 until balancing), this directly computes the fee from
+--   transaction size and the units of the <a>EvaluationReport</a>. Note
+--   that this function likely under-estimates cost as we have no witnesses
+--   on this <a>Tx</a>.
+estimateMinFeeWith :: PParams LedgerEra -> Tx -> EvaluationReport -> Coin
+instance GHC.Show.Show Hydra.Ledger.Cardano.Evaluate.EvaluationError
 
 
 -- | Module containing time conversion functions. These functions are
@@ -91,124 +152,6 @@ instance GHC.Classes.Eq Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Show.Show Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Enum.Enum Hydra.Tx.ContestationPeriod.ContestationPeriod
 instance GHC.Num.Num Hydra.Tx.ContestationPeriod.ContestationPeriod
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.ContestationPeriod.ContestationPeriod
-
-
--- | Simplified interface to phase-2 validation of transactions, eg.
---   evaluation of Plutus scripts.
---   
---   The <a>evaluateTx</a> function simplifies the call to ledger and
---   plutus providing an <a>EvaluationReport</a> using pre-canned
---   <tt>ProtocolParameters</tt>. This should only be used for
---   <i>testing</i> or <i>benchmarking</i> purpose as the real evaluation
---   parameters are set when the Hydra node starts.
---   
---   <b>NOTE</b>: The reason this module is here instead of part of `test/`
---   directory is to be used in <tt>tx-cost</tt> executable.
-module Hydra.Ledger.Cardano.Evaluate
-
--- | Thin wrapper around <a>evaluateTransactionExecutionUnits</a>, using
---   fixtures from this module for <a>systemStart</a>, <tt>eraHistory</tt>
---   and <a>pparams</a>.
---   
---   Additionally, this function checks the overall execution units are not
---   exceeding <a>maxTxExecutionUnits</a>.
-evaluateTx :: Tx -> UTxO -> Either EvaluationError EvaluationReport
-
--- | Like <a>evaluateTx</a>, but with a configurable maximum transaction
---   <a>ExecutionUnits</a>.
-evaluateTx' :: ExecutionUnits -> Tx -> UTxO -> Either EvaluationError EvaluationReport
-
--- | Check the budget used by provided <a>EvaluationReport</a> does not
---   exceed given maximum <a>ExecutionUnits</a>.
-checkBudget :: ExecutionUnits -> EvaluationReport -> Either EvaluationError EvaluationReport
-
--- | Errors returned by <a>evaluateTx</a> extending the upstream
---   <a>TransactionValidityError</a> with additional cases.
-data EvaluationError
-TransactionBudgetOverspent :: ExecutionUnits -> ExecutionUnits -> EvaluationError
-[$sel:used:TransactionBudgetOverspent] :: EvaluationError -> ExecutionUnits
-[$sel:available:TransactionBudgetOverspent] :: EvaluationError -> ExecutionUnits
-TransactionInvalid :: TransactionValidityError Era -> EvaluationError
-PParamsConversion :: ProtocolParametersConversionError -> EvaluationError
-
--- | Evaluation result for each of the included scripts. Either they failed
---   evaluation or used a number of <a>ExecutionUnits</a>.
-type EvaluationReport = (Map ScriptWitnessIndex (Either ScriptExecutionError ExecutionUnits))
-
--- | Render the <a>EvaluationReport</a> as a pretty multi-line text.
-renderEvaluationReport :: EvaluationReport -> Text
-
--- | Get the total used <a>ExecutionUnits</a> from an
---   <a>EvaluationReport</a>. Useful to further process the result of
---   <a>evaluateTx</a>.
-usedExecutionUnits :: EvaluationReport -> ExecutionUnits
-
--- | Estimate minimum fee for given transaction and evaluated redeemers.
---   Instead of using the budgets from the transaction (which are usually
---   set to 0 until balancing), this directly computes the fee from
---   transaction size and the units of the <a>EvaluationReport</a>. Note
---   that this function only provides a rough estimate using this modules'
---   <a>pparams</a> and likely under-estimates cost as we have no witnesses
---   on this <a>Tx</a>.
-estimateMinFee :: Tx -> EvaluationReport -> Coin
-
--- | Current (2023-04-12) mainchain protocol parameters. XXX: Avoid
---   specifying not required parameters here (e.g. max block units should
---   not matter). XXX: Load and use mainnet parameters from a file which we
---   can easily review to be in sync with mainnet.
-pparams :: PParams LedgerEra
-maxTxSize :: Natural
-
--- | Max transaction execution unit budget of the current <a>pparams</a>.
-maxTxExecutionUnits :: ExecutionUnits
-
--- | Max memory and cpu units of the current <a>pparams</a>.
-maxMem :: Natural
-
--- | Max memory and cpu units of the current <a>pparams</a>.
-maxCpu :: Natural
-
--- | An artificial <a>EpochInfo</a> comprised by a single never ending
---   (forking) era, with fixed <a>epochSize</a> and <a>slotLength</a>.
-epochInfo :: Monad m => EpochInfo m
-
--- | An era history with a single era which will end at some point.
---   
---   A "real" <a>EraHistory</a> received from the cardano-node will have
---   the <a>eraEnd</a> at a known or earliest possible end of the current
---   era + a safe zone.
---   
---   See <a>EraParams</a> for details.
---   
---   NOTE: This era is using not so realistic epoch sizes of 1 and sets a
---   slot length of 1
-eraHistoryWithHorizonAt :: SlotNo -> EraHistory
-eraHistoryWithoutHorizon :: EraHistory
-epochSize :: EpochSize
-slotLength :: SlotLength
-systemStart :: SystemStart
-
--- | Expect a given <a>Tx</a> and <a>UTxO</a> to pass evaluation.
-propTransactionEvaluates :: (Tx, UTxO) -> Property
-
--- | Expect a given <a>Tx</a> and <a>UTxO</a> to fail phase 1 or phase 2
---   evaluation.
-propTransactionFailsEvaluation :: (Tx, UTxO) -> Property
-
--- | Parameter here is the contestation period (cp) so we need to generate
---   start (tMin) and end (tMax) tx validity bound such that their
---   difference is not higher than the cp. Returned slots are tx validity
---   bounds
-genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
-genPointInTimeBefore :: UTCTime -> Gen (SlotNo, UTCTime)
-
--- | Current (2024-10-03) mainnet PlutusV3 cost model.
-plutusV3CostModel :: CostModel
-
--- | Current (2023-08-04) mainnet PlutusV2 cost model.
-plutusV2CostModel :: CostModel
-instance GHC.Show.Show Hydra.Ledger.Cardano.Evaluate.EvaluationError
 
 
 -- | Hydra multi-signature credentials and cryptographic primitives used to
@@ -268,9 +211,6 @@ pattern HydraVerificationKey :: () => VerKeyDSIGN Ed25519DSIGN -> VerificationKe
 sign :: SignableRepresentation a => SigningKey HydraKey -> a -> Signature a
 toPlutusSignatures :: MultiSignature a -> [Signature]
 
--- | Combine multiple signatures of <tt>a</tt> into a 'MultiSignature a'.
-aggregate :: [Signature a] -> MultiSignature a
-
 -- | Create a new <a>SigningKey</a> from a <a>ByteString</a> seed. The
 --   created keys are not random and insecure, so don't use this in
 --   production code!
@@ -280,6 +220,9 @@ generateSigningKey :: ByteString -> SigningKey HydraKey
 --   <a>VerificationKey</a>.
 verify :: SignableRepresentation a => VerificationKey HydraKey -> Signature a -> a -> Bool
 deserialiseFromRawBytesBase16 :: SerialiseAsRawBytes a => ByteString -> Either String (UsingRawBytesHex a)
+
+-- | Combine multiple signatures of <tt>a</tt> into a 'MultiSignature a'.
+aggregate :: [Signature a] -> MultiSignature a
 
 -- | Like aggregate, but use order of given list of keys instead.
 --   FIXME(AB): This function exists solely because the order of signatures
@@ -327,19 +270,15 @@ instance Data.String.IsString Cardano.Api.Tx.Internal.TxIn.TxId
 instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Plutus.Internal.ScriptData.ScriptData)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.MultiSignature a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.MultiSignature a)
-instance (Test.QuickCheck.Arbitrary.Arbitrary a, Cardano.Crypto.Util.SignableRepresentation a) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.Crypto.MultiSignature a)
 instance forall k (a :: k). GHC.Show.Show (Hydra.Tx.Crypto.Signature a)
 instance forall k (a :: k). Data.Hashable.Class.Hashable (Hydra.Tx.Crypto.Signature a)
-instance (Test.QuickCheck.Arbitrary.Arbitrary a, Cardano.Crypto.Util.SignableRepresentation a) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.Crypto.Signature a)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Crypto.Signature a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Crypto.Signature a)
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.Crypto.HydraKey
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
 instance Cardano.Api.Key.Internal.Class.Key Hydra.Tx.Crypto.HydraKey
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
 instance Cardano.Api.Serialise.TextEnvelope.Internal.HasTextEnvelope (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.SigningKey Hydra.Tx.Crypto.HydraKey)
-instance Test.QuickCheck.Arbitrary.Arbitrary (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
 instance Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
 instance Data.Aeson.Types.FromJSON.FromJSON (Cardano.Api.Key.Internal.Class.VerificationKey Hydra.Tx.Crypto.HydraKey)
@@ -384,10 +323,8 @@ instance GHC.Show.Show Hydra.Tx.HeadId.HeadSeed
 instance Data.String.IsString Hydra.Tx.HeadId.HeadSeed
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadSeed
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadSeed
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.HeadId.HeadSeed
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.HeadId.HeadId
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.HeadId.HeadId
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.HeadId.HeadId
 
 module Hydra.Tx.IsTx
 
@@ -426,7 +363,6 @@ outputsOfUTxO :: IsTx tx => UTxOType tx -> [TxOutType tx]
 
 -- | Return the left-hand side without the right-hand side.
 withoutUTxO :: IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx
-type ArbitraryIsTx tx = (IsTx tx, Arbitrary tx, Arbitrary (UTxOType tx), Arbitrary (TxIdType tx), Arbitrary (TxOutType tx))
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Cardano.Api.Tx
 instance Hydra.Tx.IsTx.IsTx Hydra.Cardano.Api.Tx
 instance Cardano.Api.Era.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Tx.Internal.Sign.Tx era)
@@ -459,9 +395,6 @@ module Hydra.Tx.OnChainId
 -- | Identifier for a Hydra Head participant on-chain.
 newtype OnChainId
 UnsafeOnChainId :: ByteString -> OnChainId
-
--- | Generate an arbitrary <a>OnChainId</a> of 28 bytes length.
-genOnChainId :: Gen OnChainId
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.OnChainId.OnChainId
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.OnChainId.OnChainId
 instance GHC.Generics.Generic Hydra.Tx.OnChainId.OnChainId
@@ -470,7 +403,6 @@ instance GHC.Classes.Eq Hydra.Tx.OnChainId.OnChainId
 instance GHC.Show.Show Hydra.Tx.OnChainId.OnChainId
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.OnChainId.OnChainId
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.OnChainId.OnChainId
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.OnChainId.OnChainId
 
 
 -- | Types and functions revolving around a Hydra <a>Party</a>. That is, a
@@ -500,7 +432,6 @@ partyFromChain :: MonadFail m => Party -> m Party
 -- | Type class to retrieve the <a>Party</a> from some type.
 class HasParty a
 getParty :: HasParty a => a -> Party
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.Party.Party
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Party.Party
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Party.Party
 instance GHC.Generics.Generic Hydra.Tx.Party.Party
@@ -525,7 +456,6 @@ instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Generics.Generic Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Show.Show Hydra.Tx.HeadParameters.HeadParameters
 instance GHC.Classes.Eq Hydra.Tx.HeadParameters.HeadParameters
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.HeadParameters.HeadParameters
 
 
 -- | A data-type to keep track of reference Hydra scripts published
@@ -611,8 +541,6 @@ ConfirmedSnapshot :: Snapshot tx -> MultiSignature (Snapshot tx) -> ConfirmedSna
 --   the sumtype. So, we explicitly define a getter which will force us
 --   into thinking about changing the signature properly if this happens.
 getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
-genConfirmedSnapshot :: IsTx tx => HeadId -> SnapshotVersion -> SnapshotNumber -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> [SigningKey HydraKey] -> Gen (ConfirmedSnapshot tx)
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotNumber
@@ -625,7 +553,6 @@ instance GHC.Show.Show Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Generics.Generic Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Classes.Ord Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Classes.Eq Hydra.Tx.Snapshot.SnapshotNumber
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotVersion
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotVersion
@@ -646,11 +573,9 @@ instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Tx.Snapshot.ConfirmedSna
 instance GHC.Generics.Generic (Hydra.Tx.Snapshot.ConfirmedSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Tx.Snapshot.Snapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Tx.Snapshot.Snapshot tx)
-instance (Test.QuickCheck.Arbitrary.Arbitrary tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.IsTx.UTxOType tx), Hydra.Tx.IsTx.IsTx tx) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.Snapshot.ConfirmedSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Crypto.Util.SignableRepresentation (Hydra.Tx.Snapshot.Snapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Tx.Snapshot.Snapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Tx.Snapshot.Snapshot tx)
-instance (Test.QuickCheck.Arbitrary.Arbitrary tx, Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.IsTx.UTxOType tx)) => Test.QuickCheck.Arbitrary.Arbitrary (Hydra.Tx.Snapshot.Snapshot tx)
 
 module Hydra.Tx
 
@@ -661,19 +586,31 @@ module Hydra.Chain.ChainState
 newtype ChainSlot
 ChainSlot :: Natural -> ChainSlot
 
--- | Types that can be used on-chain by the Hydra protocol. XXX: Find a
---   better name for this. Maybe IsChainTx or IsL1Tx?
-class (IsTx tx, Eq (ChainStateType tx), Show (ChainStateType tx), FromJSON (ChainStateType tx), ToJSON (ChainStateType tx), Arbitrary (ChainStateType tx)) => IsChainState tx where {
+-- | Types that can be used on-chain by the Hydra protocol. This includes
+--   the information that needs to be retained about the L1 state to
+--   interact with Hydra heads via the chain.
+--   
+--   XXX: Find a better name for this. Maybe HasL1State, IsChainTx or
+--   IsL1Tx?
+class (IsTx tx, Ord (ChainPointType tx), Eq (ChainPointType tx), Show (ChainPointType tx), FromJSON (ChainPointType tx), ToJSON (ChainPointType tx), Eq (ChainStateType tx), Show (ChainStateType tx), FromJSON (ChainStateType tx), ToJSON (ChainStateType tx)) => IsChainState tx where {
+    
+    -- | Type of unique points on the chain.
+    type ChainPointType tx = p | p -> tx;
     
     -- | Type of what to keep as L1 chain state. XXX: Why is this not always
     --   UTxOType?
     type ChainStateType tx = c | c -> tx;
 }
 
+-- | Get the chain point for a chain state.
+chainStatePoint :: IsChainState tx => ChainStateType tx -> ChainPointType tx
+
+-- | Get the chain slot from a chain point.
+chainPointSlot :: IsChainState tx => ChainPointType tx -> ChainSlot
+
 -- | Get the chain slot for a chain state. NOTE: For any sequence of
 --   <tt>a</tt> encountered, we assume monotonically increasing slots.
 chainStateSlot :: IsChainState tx => ChainStateType tx -> ChainSlot
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Chain.ChainState.ChainSlot
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.ChainState.ChainSlot
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.ChainState.ChainSlot
 instance GHC.Num.Num Hydra.Chain.ChainState.ChainSlot
@@ -932,7 +869,6 @@ instance GHC.Classes.Eq Hydra.Tx.CollectCom.CollectComObservation
 instance GHC.Show.Show Hydra.Tx.CollectCom.CollectComObservation
 instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.CollectCom.UTxOHash
 instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.CollectCom.UTxOHash
-instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Tx.CollectCom.UTxOHash
 
 module Hydra.Tx.Close
 type PointInTime = (SlotNo, UTCTime)
