@@ -8,7 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Made the snapshot protocol resilient to races between version bumps and in-flight snapshots. Snapshots are now triggered by a periodic timer rather than immediately on each `ReqTx`, so the leader batches pending transactions and retries automatically when a previous request was rejected. Stale or duplicate `ReqSn`/`AckSn` messages are now silently dropped instead of causing the head to wait forever. When `CommitFinalized` or `DecommitFinalized` bumps the version while a snapshot is in-flight, the abandoned snapshot's local state is reset to the last confirmed snapshot so the timer can build a fresh valid request. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
+  - Added `--snapshot-retry-interval` CLI option (default: 5ms) to control how often the snapshot leader retries a stalled request.
+
 ## [1.3.0] - 2026.03.05
+
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
   See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).
