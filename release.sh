@@ -1,6 +1,6 @@
 #!/usr/bin/env -S bash -e
 
-set -eo pipefail
+set -eox pipefail
 
 cd $(dirname $0)
 
