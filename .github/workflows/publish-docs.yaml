@@ -11,8 +11,10 @@ on:
 jobs:
   publishing:
     name: Publish Documentation
-    if: github.ref_name == 'master' || github.ref_name == 'release'
+    if: github.event_name == 'workflow_run' || github.ref_name == 'master' || github.ref_name == 'release'
     runs-on: ubuntu-latest
+    env:
+      BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
     permissions:
       contents: write
     steps:
@@ -20,10 +22,11 @@ jobs:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
       with:
+        ref: ${{ env.BRANCH }}
         fetch-depth: 0
 
     - name: Get latest stable version tag
-      if: github.ref_name == 'release'
+      if: env.BRANCH == 'release'
       id: get_version
       run: |
         latest_tag=$(git describe --tags --abbrev=0)
@@ -36,14 +39,14 @@ jobs:
 
     - name: Build documentation and compute benchmarks
       env:
-        DOCS_VERSION: ${{ github.ref_name == 'master' && 'unstable' || steps.get_version.outputs.version }}
+        DOCS_VERSION: ${{ env.BRANCH == 'master' && 'unstable' || steps.get_version.outputs.version }}
       run: |
 
         # Release
         DERIVATION=docs
         OUT_PATH=
 
-        [[ ${{ github.ref_name }} = "master" ]] && \
+        [[ ${{ env.BRANCH }} = "master" ]] && \
           DERIVATION=docs-unstable && \
           OUT_PATH=/unstable
 
