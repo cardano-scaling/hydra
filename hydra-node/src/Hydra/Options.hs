@@ -215,8 +215,8 @@ data RunOptions = RunOptions
   , whichEtcd :: WhichEtcd
   , apiTransactionTimeout :: ApiTransactionTimeout
   , snapshotRetryInterval :: NominalDiffTime
-  -- ^ How often the snapshot leader retries sending a ReqSn. Defaults to 10
-  -- seconds, which is shorter than a typical Cardano block time.
+  -- ^ How often the snapshot leader retries sending a ReqSn. Defaults to 5
+  -- milliseconds (0.005s).
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -741,10 +741,9 @@ apiTransactionTimeoutParser =
           \takes longer than this, it will be cancelled."
     )
 
--- | Default snapshot retry interval: 10 seconds, shorter than a typical
--- Cardano block time (~20s) so stale ReqSn requests are corrected quickly.
+-- | Default snapshot retry interval: 5 milliseconds.
 defaultSnapshotRetryInterval :: NominalDiffTime
-defaultSnapshotRetryInterval = 10
+defaultSnapshotRetryInterval = 0.005
 
 snapshotRetryIntervalParser :: Parser NominalDiffTime
 snapshotRetryIntervalParser =

@@ -287,7 +287,6 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  IsTx tx =>
   Environment ->
   Ledger tx ->
   ChainSlot ->
@@ -297,7 +296,7 @@ onOpenNetworkReqTx ::
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
+onOpenNetworkReqTx _env ledger currentSlot st ttl _pendingDeposits tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
@@ -305,12 +304,6 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
       newState TransactionAppliedToLocalUTxO{headId, tx, newLocalUTxO}
-        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-        -- NOTE: Use max(confirmedSn, seenSn) to handle cases where seenSnapshot
-        -- is ahead of confirmedSnapshot (e.g., after DecommitFinalized resets
-        -- seenSnapshot without updating confirmedSnapshot).
-        & maybeRequestSnapshot (max confirmedSn (latestSeenSnapshotNumber seenSnapshot) + 1)
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
@@ -330,42 +323,11 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
             -- both. This is a valid request and it could make the head stuck.
             newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
-  maybeRequestSnapshot nextSn outcome =
-    if not (snapshotInFlight seenSnapshot nextSn) && isLeader parameters party nextSn
-      then
-        let previousSnapshot = getSnapshot confirmedSnapshot
-            -- Skip decommit/deposit if already posted in previous snapshot
-            decommitToInclude = skipPostedDecommit previousSnapshot decommitTx
-            depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId previousSnapshot.utxoToCommit
-         in outcome
-              -- XXX: This state update has no equivalence in the
-              -- spec. Do we really need to store that we have
-              -- requested a snapshot? If yes, should update spec.
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitToInclude (setExistingDeposit pendingDeposits depositToInclude))
-      else outcome
-
-  Environment{party} = env
-
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState
-    { localTxs
-    , localUTxO
-    , confirmedSnapshot
-    , seenSnapshot
-    , decommitTx
-    , version
-    , currentDepositTxId
-    } = coordinatedHeadState
+  CoordinatedHeadState{localUTxO} = coordinatedHeadState
 
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-
-  OpenState{coordinatedHeadState, headId, parameters} = st
-
-  -- NOTE: Order of transactions is important here. See also
-  -- 'pruneTransactions'.
-  localTxs' = localTxs <> [tx]
+  OpenState{coordinatedHeadState, headId} = st
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -402,82 +364,67 @@ onOpenNetworkReqSn ::
 onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
   -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
   requireReqSn $
-    -- Spec: wait ŝ = ̅S.s
-    waitNoSnapshotInFlight $
-      -- TODO: is this really needed?
-      -- Spec: wait v = v̂
-      waitOnSnapshotVersion $
-        -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
-        -- Require any pending utxo to decommit to be consistent
-        requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
-          -- Wait for the deposit and require any pending commit to be consistent
-          waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
-            -- Resolve transactions by-id
-            waitResolvableTxs $ \requestedTxs -> do
-              -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
-              --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO requestedTxs $ \u -> do
-                let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                -- Spec: ŝ ← ̅S.s + 1
-                -- NOTE: confSn == seenSn == sn here
-                let nextSnapshot =
-                      Snapshot
-                        { headId
-                        , version = version
-                        , number = sn
-                        , confirmed = requestedTxs
-                        , utxo = snapshotUTxO
-                        , utxoToCommit = mUtxoToCommit
-                        , utxoToDecommit = mUtxoToDecommit
-                        }
+    -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
+    -- Require any pending utxo to decommit to be consistent
+    requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
+      -- Wait for the deposit and require any pending commit to be consistent
+      waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
+        -- Resolve transactions by-id
+        waitResolvableTxs $ \requestedTxs -> do
+          -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
+          --       𝑈 ← 𝑈_active ◦ Treq
+          requireApplyTxs activeUTxO requestedTxs $ \u -> do
+            let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+            -- Spec: ŝ ← ̅S.s + 1
+            let nextSnapshot =
+                  Snapshot
+                    { headId
+                    , version = version
+                    , number = sn
+                    , confirmed = requestedTxs
+                    , utxo = snapshotUTxO
+                    , utxoToCommit = mUtxoToCommit
+                    , utxoToDecommit = mUtxoToDecommit
+                    }
 
-                -- Spec: 𝜂 ← combine(𝑈)
-                --       𝜂𝛼 ← combine(𝑈𝛼)
-                --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
-                --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
-                let snapshotSignature = sign signingKey nextSnapshot
-                -- Spec: multicast (ackSn, ŝ, σᵢ)
-                (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
-                  -- Spec: ̂Σ ← ∅
-                  --       L̂ ← 𝑈
-                  --       𝑋 ← T
-                  --       T̂ ← ∅
-                  --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-                  --         T̂ ← T̂ ⋃ {tx}
-                  --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                  newState
-                    SnapshotRequested
-                      { snapshot = nextSnapshot
-                      , requestedTxIds
-                      , newLocalUTxO
-                      , newLocalTxs
-                      , newCurrentDepositTxId = mDepositTxId
-                      }
+            -- Spec: 𝜂 ← combine(𝑈)
+            --       𝜂𝛼 ← combine(𝑈𝛼)
+            --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
+            --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
+            let snapshotSignature = sign signingKey nextSnapshot
+            -- Spec: multicast (ackSn, ŝ, σᵢ)
+            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+              -- Spec: ̂Σ ← ∅
+              --       L̂ ← 𝑈
+              --       𝑋 ← T
+              --       T̂ ← ∅
+              --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+              --         T̂ ← T̂ ⋃ {tx}
+              --         L̂ ← L̂ ◦ tx
+              let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+              newState
+                SnapshotRequested
+                  { snapshot = nextSnapshot
+                  , requestedTxIds
+                  , newLocalUTxO
+                  , newLocalTxs
+                  , newCurrentDepositTxId = mDepositTxId
+                  }
  where
   requireReqSn continue
     -- Version mismatch means the ReqSn was sent before the version bumped (race
     -- condition). It is not a protocol violation — silently ignore it and let
     -- the leader's timer retry with the correct version.
     | sv /= version = noop
+    -- Stale or duplicate ReqSn (already signed or already seen this snapshot).
+    -- Drop silently — the leader's timer will resend if needed.
+    | sn < seenSn + 1 = noop
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
         Error $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
     | otherwise =
         continue
-
-  waitNoSnapshotInFlight continue
-    | confSn == seenSn =
-        continue
-    | otherwise =
-        wait $ WaitOnSnapshotNumber seenSn
-
-  waitOnSnapshotVersion continue
-    | version == sv =
-        continue
-    | otherwise =
-        wait $ WaitOnSnapshotVersion sv
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
@@ -493,7 +440,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
             -- Error out in case we receive a ReqSn that doesn't match local deposit
             Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
-            | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
+            | status == Inactive -> noop
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise ->
                 -- NOTE: this makes the commits sequential in a sense that you can't
@@ -554,10 +501,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       case applyTransactions ledger currentSlot u [tx] of
         Left (_, _) -> (txs, u)
         Right u' -> (txs <> [tx], u')
-
-  confSn = case confirmedSnapshot of
-    InitialSnapshot{} -> 0
-    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
 
   Snapshot{version = confVersion} = getSnapshot confirmedSnapshot
 
@@ -653,13 +596,12 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
         | sn <= lastSeen -> noop
       SeenSnapshot snapshot sigs
         | seenSn == sn -> continue snapshot sigs
-      _ -> wait WaitOnSeenSnapshot
+      _ -> noop
 
   requireNotSignedYet sigs continue =
     if not (Map.member otherParty sigs)
       then continue
-      else Error $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys sigs, receivedSignature = otherParty}
-
+      else noop -- duplicate AckSn (e.g. leader re-broadcast), already have this sig
   ifAllMembersHaveSigned snapshot sigs cont =
     let sigs' = Map.insert otherParty snapshotSignature sigs
      in if Map.keysSet sigs' == Set.fromList parties
@@ -692,7 +634,11 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     -- NB: No snapshotInFlight check needed here because we KNOW the previous snapshot
     -- just confirmed (we're inside ifAllMembersHaveSigned). After aggregation, seenSnapshot
     -- will be LastSeenSnapshot{lastSeen = previous.number}, so nextSn is safe to request.
-    -- The snapshotInFlight check in onOpenNetworkReqTx handles the ReqTx case.
+    --
+    -- NOTE: Immediately chaining the next snapshot here (rather than waiting for the timer)
+    -- is intentional: it provides zero-gap pipelining between consecutive snapshots, which
+    -- matters for throughput under continuous transaction load. Relying solely on the timer
+    -- would introduce up to one full timer interval of idle time between every snapshot pair.
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
@@ -1586,39 +1532,51 @@ onOpenTimer ::
   OpenState tx ->
   Outcome tx
 onOpenTimer Environment{party} pendingDeposits st =
-  let chs = st.coordinatedHeadState
-      confSn = number $ getSnapshot chs.confirmedSnapshot
-      nextSn = confSn + 1
-      hasWork =
-        not (null chs.localTxs)
-          || isJust chs.decommitTx
-          || isJust chs.currentDepositTxId
-      decommitToInclude = skipPostedDecommit (getSnapshot chs.confirmedSnapshot) chs.decommitTx
-      depositToInclude = skipPostedDeposit pendingDeposits chs.currentDepositTxId (getSnapshot chs.confirmedSnapshot).utxoToCommit
-   in if isLeader st.parameters party nextSn
-        then case chs.seenSnapshot of
-          -- Re-send: previous ReqSn was likely rejected due to version mismatch
-          -- (DecommitFinalized/CommitFinalized bumped the version after we sent it).
-          RequestedSnapshot{} ->
+  if isLeader st.parameters party nextSn
+    then case chs.seenSnapshot of
+      -- Re-send: previous ReqSn was likely rejected due to version mismatch
+      -- (DecommitFinalized/CommitFinalized bumped the version after we sent it).
+      RequestedSnapshot{} ->
+        sendReqSn chs.version nextSn chs.localTxs decommitToInclude depositToInclude
+      -- Re-send: stuck with partial signatures (some AckSns were dropped because
+      -- peers weren't ready yet, e.g. waiting for deposit activation). Re-broadcast
+      -- the same ReqSn without changing state so we keep existing signatures.
+      -- Also re-broadcast our own AckSn so late signers can complete the round.
+      SeenSnapshot snapshot sigs ->
+        broadcastReqSn snapshot.version snapshot.number (txId <$> snapshot.confirmed) decommitToInclude depositToInclude
+          <> case Map.lookup party sigs of
+            Just ourSig -> cause (NetworkEffect $ AckSn ourSig snapshot.number)
+            Nothing -> noop
+      -- Fresh send: no snapshot in-flight but there is pending work.
+      _
+        | not (snapshotInFlight chs.seenSnapshot nextSn) && hasWork ->
             sendReqSn chs.version nextSn chs.localTxs decommitToInclude depositToInclude
-          -- Fresh send: no snapshot in-flight but there is pending work.
-          _
-            | not (snapshotInFlight chs.seenSnapshot nextSn) && hasWork ->
-                sendReqSn chs.version nextSn chs.localTxs decommitToInclude depositToInclude
-          _ -> noop
-        else noop
+      _ -> noop
+    else noop
  where
-  sendReqSn version nextSn localTxs decommitToInclude depositToInclude =
-    newState SnapshotRequestDecided{snapshotNumber = nextSn}
-      <> cause
-        ( NetworkEffect $
-            ReqSn
-              version
-              nextSn
-              (txId <$> take maxTxsPerSnapshot localTxs)
-              decommitToInclude
-              (setExistingDeposit pendingDeposits depositToInclude)
-        )
+  chs = st.coordinatedHeadState
+  confSn = number $ getSnapshot chs.confirmedSnapshot
+  nextSn = confSn + 1
+  hasWork =
+    not (null chs.localTxs)
+      || isJust chs.decommitTx
+      || isJust chs.currentDepositTxId
+  decommitToInclude = skipPostedDecommit (getSnapshot chs.confirmedSnapshot) chs.decommitTx
+  depositToInclude = skipPostedDeposit pendingDeposits chs.currentDepositTxId (getSnapshot chs.confirmedSnapshot).utxoToCommit
+
+  sendReqSn version sn localTxs decommit deposit =
+    newState SnapshotRequestDecided{snapshotNumber = sn}
+      <> broadcastReqSn version sn (txId <$> take maxTxsPerSnapshot localTxs) decommit deposit
+
+  broadcastReqSn version sn txIds decommit deposit =
+    cause $
+      NetworkEffect $
+        ReqSn
+          version
+          sn
+          txIds
+          decommit
+          (setExistingDeposit pendingDeposits deposit)
 
 -- * Input Handlers
 
@@ -1876,7 +1834,21 @@ aggregateNodeState nodeState sc =
           case st of
             Open
               os@OpenState{coordinatedHeadState} ->
-                let deposit = Map.lookup depositTxId currentPendingDeposits
+                let newSeenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
+                    -- Same reasoning as DecommitFinalized: if a snapshot was in-flight
+                    -- when the version bumped, reset local state to confirmed UTxO.
+                    -- confirmedUTxO already includes the deposit (the deposit snapshot
+                    -- must have confirmed before IncrementTx was posted), so we do not
+                    -- add newUTxO on top in the reset branch.
+                    (newLocalUTxO, newLocalTxs, newAllTxs) =
+                      case seenSnapshot coordinatedHeadState of
+                        SeenSnapshot{} -> (confirmedUTxO, mempty, mempty)
+                        RequestedSnapshot{} -> (confirmedUTxO, mempty, mempty)
+                        _ -> (localUTxO <> newUTxO, coordinatedHeadState.localTxs, coordinatedHeadState.allTxs)
+                    confirmedUTxO = case coordinatedHeadState.confirmedSnapshot of
+                      InitialSnapshot{initialUTxO} -> initialUTxO
+                      ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
+                    deposit = Map.lookup depositTxId currentPendingDeposits
                     newUTxO = maybe mempty (\Deposit{deposited} -> deposited) deposit
                  in nodeState
                       { headState =
@@ -1889,8 +1861,10 @@ aggregateNodeState nodeState sc =
                                     , -- NOTE: This must correspond to the just finalized
                                       -- depositTxId, but we should not verify this here.
                                       currentDepositTxId = Nothing
-                                    , localUTxO = localUTxO <> newUTxO
-                                    , seenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
+                                    , localUTxO = newLocalUTxO
+                                    , localTxs = newLocalTxs
+                                    , allTxs = newAllTxs
+                                    , seenSnapshot = newSeenSnapshot
                                     }
                               }
                       , pendingDeposits = Map.delete depositTxId currentPendingDeposits
@@ -2151,16 +2125,34 @@ aggregate st = \case
     case st of
       Open
         os@OpenState{coordinatedHeadState} ->
-          Open
-            os
-              { chainState
-              , coordinatedHeadState =
-                  coordinatedHeadState
-                    { decommitTx = Nothing
-                    , version = newVersion
-                    , seenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
-                    }
-              }
+          let newSeenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
+              -- When a snapshot was in-flight (SeenSnapshot/RequestedSnapshot) and
+              -- the version bumps, the in-flight snapshot is dead (its signatures
+              -- used the old version). Reset localUTxO/localTxs/allTxs back to the
+              -- confirmed snapshot so the timer can build a fresh valid snapshot.
+              -- Without this, localUTxO is left ahead of confirmedUTxO, causing
+              -- SnapshotDoesNotApply forever.
+              (newLocalUTxO, newLocalTxs, newAllTxs) =
+                case seenSnapshot coordinatedHeadState of
+                  SeenSnapshot{} -> (confirmedUTxO, mempty, mempty)
+                  RequestedSnapshot{} -> (confirmedUTxO, mempty, mempty)
+                  _ -> (coordinatedHeadState.localUTxO, coordinatedHeadState.localTxs, coordinatedHeadState.allTxs)
+              confirmedUTxO = case coordinatedHeadState.confirmedSnapshot of
+                InitialSnapshot{initialUTxO} -> initialUTxO
+                ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
+           in Open
+                os
+                  { chainState
+                  , coordinatedHeadState =
+                      coordinatedHeadState
+                        { decommitTx = Nothing
+                        , version = newVersion
+                        , seenSnapshot = newSeenSnapshot
+                        , localUTxO = newLocalUTxO
+                        , localTxs = newLocalTxs
+                        , allTxs = newAllTxs
+                        }
+                  }
       _otherState -> st
   HeadClosed{chainState, contestationDeadline} ->
     case st of

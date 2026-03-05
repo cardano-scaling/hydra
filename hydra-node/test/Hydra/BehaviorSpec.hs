@@ -1042,10 +1042,22 @@ spec = parallel $ do
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs
-        `shouldContain` [BeginInput alice 1 (ClientInput Init)]
-      logs
-        `shouldContain` [EndInput alice 1]
+      ( logs
+          `shouldSatisfy` any
+            ( \case
+                BeginInput party _ (ClientInput Init) -> party == alice
+                _ -> False
+            ) ::
+          IO ()
+        )
+      ( logs
+          `shouldSatisfy` any
+            ( \case
+                EndInput party _ -> party == alice
+                _ -> False
+            ) ::
+          IO ()
+        )
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
@@ -1065,7 +1077,14 @@ spec = parallel $ do
               (BeginEffect _ _ _ (ClientEffect CommandFailed{})) -> True
               _ -> False
           )
-      logs `shouldContain` [EndEffect alice 1 0]
+      ( logs
+          `shouldSatisfy` any
+            ( \case
+                EndEffect party _ _ -> party == alice
+                _ -> False
+            ) ::
+          IO ()
+        )
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
