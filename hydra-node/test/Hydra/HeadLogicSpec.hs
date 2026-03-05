@@ -534,7 +534,7 @@ spec =
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
               chs.decommitTx `shouldBe` Nothing
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 1}
+              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
             _ -> fail "expected Open state"
 
         it "CommitFinalized with RequestedSnapshot should use requested number not lastSeen" $ do
@@ -618,7 +618,9 @@ spec =
           let bobAfterFinalized = aggregateState bobStateBeforeFinalized (update bobEnv ledger now bobStateBeforeFinalized decrementObservation)
 
           -- Now follower receives stale ReqSn with version=0 (created before DecommitFinalized)
-          let staleReqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+          let staleReqSn :: Message tx
+              staleReqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+              reqSnInput :: Input tx
               reqSnInput = receiveMessageFrom alice staleReqSn
 
           -- Stale ReqSn should be silently dropped (noop), not rejected with an error
@@ -910,7 +912,7 @@ spec =
             Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
             _ -> False
 
-      it "rejects last AckSn if already received signature from this party" $ do
+      it "drops duplicate AckSn from the same party" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
@@ -923,9 +925,7 @@ spec =
 
         now <- nowFromSlot waitingForAck.chainPointTime.currentSlot
         update bobEnv ledger now waitingForAck (ackFrom carolSk carol)
-          `shouldSatisfy` \case
-            Error (RequireFailed SnapshotAlreadySigned{receivedSignature}) -> receivedSignature == carol
-            _ -> False
+          `shouldBe` noop
 
       it "ignores valid AckSn if snapshot already confirmed" $ do
         let reqSn :: Input tx
@@ -966,13 +966,13 @@ spec =
         update bobEnv ledger now s0 reqSn
           `assertWait` WaitOnTxs [1]
 
-      it "waits if we receive an AckSn for an unseen snapshot" $ do
+      it "drops an AckSn for an unseen snapshot" $ do
         let snapshot = testSnapshot 1 0 [] mempty
             input = receiveMessage $ AckSn (sign aliceSk snapshot) 1
             s0 = inOpenState threeParties
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 input
-          `assertWait` WaitOnSeenSnapshot
+          `shouldBe` noop
 
       -- TODO: Write property tests for various future / old snapshot behavior.
       -- That way we could cover variations of snapshot numbers and state of
@@ -985,7 +985,7 @@ spec =
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
-      it "waits if we receive a future snapshot while collecting signatures" $ do
+      it "drops a ReqSn received while collecting signatures for another snapshot" $ do
         let reqSn1 :: Input tx
             reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             reqSn2 :: Input tx
@@ -997,7 +997,7 @@ spec =
 
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st reqSn2
-          `assertWait` WaitOnSnapshotNumber 1
+          `shouldBe` noop
 
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
