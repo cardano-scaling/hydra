@@ -2,18 +2,23 @@
     "samples": [
         {
             "chainSyncedStatus": "InSync",
-            "currentSlot": 1,
+            "currentSlot": 0,
             "env": {
                 "configuredPeers": "",
-                "contestationPeriod": 43200,
-                "depositPeriod": 78099,
-                "otherParties": [],
+                "contestationPeriod": 50059,
+                "depositPeriod": 48930,
+                "otherParties": [
+                    {
+                        "vkey": "a595a6a5f6e071450e185fc7777581c1fc487241b2f46bc755dca6b967eef5e3"
+                    }
+                ],
                 "participants": [],
                 "party": {
-                    "vkey": "5802383116b8d8cfad0561849f98fa19652316ba794b06a4e2f74ac3f8d570b8"
+                    "vkey": "a1f9efeaa6f061fc0ca67618ea7da660480271c513bb3f0869bbb771ea046c4a"
                 },
-                "signingKey": "9e018c699d771741dc68d7d877a67520b68eacc6a76725f8be4034d18cd285d6",
-                "unsyncedPeriod": 21600
+                "signingKey": "f71c876f1f8f92ad420127c184219aba4e45d7f48147b5321e52d7eb259dd616",
+                "snapshotRetryInterval": 1,
+                "unsyncedPeriod": 78099
             },
             "headStatus": "Open",
             "hydraNodeVersion": "\u000c",
