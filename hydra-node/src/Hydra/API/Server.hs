@@ -35,7 +35,6 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
   HeadState (..),
-  InitialState (..),
   OpenState (..),
   aggregateNodeState,
  )
@@ -280,14 +279,13 @@ projectPendingDeposits txIds = \case
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
 -- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
 -- state since this is when Head parties need to commit some funds.
+-- TODO: simplify commitInfo
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
   StateChanged.Checkpoint state ->
     case headState state of
-      Initial InitialState{headId} -> NormalCommit headId
       Open OpenState{headId} -> IncrementalCommit headId
       _ -> CannotCommit
-  StateChanged.HeadInitialized{headId} -> NormalCommit headId
   StateChanged.HeadOpened{headId} -> IncrementalCommit headId
   StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit

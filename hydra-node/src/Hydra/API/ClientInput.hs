@@ -6,7 +6,6 @@ import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
 
 data ClientInput tx
   = Init
-  | Abort
   | NewTx {transaction :: tx}
   | Recover {recoverTxId :: TxIdType tx}
   | Decommit {decommitTx :: tx}

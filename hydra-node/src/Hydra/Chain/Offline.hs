@@ -91,7 +91,6 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle =
     Chain
       { submitTx = const $ pure ()
-      , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
       , postTx = const $ pure ()
       , checkNonADAAssets = \confirmedSnapshot -> do
@@ -105,8 +104,6 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
 
     -- if we don't have a chainStateHistory to restore from disk from, start a new one
     when (chainStateHistory == emptyChainStateHistory) $ do
-      initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
-
       callback $
         Observation
           { newChainState = initialChainState
@@ -123,32 +120,20 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
                 , participants = []
                 }
           }
-      callback $
-        Observation
-          { newChainState = initialChainState
-          , observedTx =
-              OnCommitTx
-                { party
-                , committed = initialUTxO
-                , headId
-                }
-          }
-      forM_ otherParties $ \p ->
-        callback $
-          Observation
-            { newChainState = initialChainState
-            , observedTx =
-                OnCommitTx
-                  { party = p
-                  , committed = mempty
-                  , headId
-                  }
-            }
-      callback $
-        Observation
-          { newChainState = initialChainState
-          , observedTx = OnCollectComTx{headId}
-          }
+
+      -- FIXME: observe an artifical increment with initialUTxO
+      -- initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
+      -- callback $
+      --   Observation
+      --     { newChainState = initialChainState
+      --     , observedTx =
+      --         OnCommitTx
+      --           { party
+      --           , committed = initialUTxO
+      --           , headId
+      --           }
+      --     }
+      pure ()
 
 -- | Continuously produces offline chain ticks according to wall-clock time.
 -- Each tick is aligned with the expected slot time, ensuring the node
