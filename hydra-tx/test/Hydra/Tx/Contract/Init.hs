@@ -10,7 +10,6 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
-import GHC.IsList qualified as IsList
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadState (OpenDatum (..), State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
@@ -21,7 +20,7 @@ import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Utils (hydraHeadV1AssetName)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
+import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),

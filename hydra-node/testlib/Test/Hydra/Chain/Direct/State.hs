@@ -52,6 +52,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
+import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (splitUTxO)
 import Test.Hydra.Ledger.Cardano.Fixtures (slotLength, systemStart)
@@ -118,7 +119,8 @@ genChainStateWithTx =
   genIncrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genIncrementWithState = do
     (ctx, st, utxo, tx) <- genIncrementTx maxGenParties
-    pure (ctx, Open st, utxo, tx, Increment)
+    cctx <- pickChainContext ctx
+    pure (cctx, Open st, utxo, tx, Increment)
 
   genDecrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genDecrementWithState = do
@@ -206,45 +208,53 @@ genInitTx ctx = do
   seedInput <- genTxIn
   pure $ initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
 
-genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
+genDepositTx :: Int -> Gen (HydraContext, OpenState, Tx)
 genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
-  utxo <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
+  utxoToDeposit <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
   (_, st@OpenState{headId}) <- genStOpen ctx
   -- NOTE: Not too high so we can use chooseEnum (which goes through Int) here and in other generators
   slot <- chooseEnum (0, 1_000_000)
   slotsUntilDeadline <- chooseEnum (0, 86400)
   let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
-  let tx = depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxo) slot deadline Nothing
-  pure (ctx, st, utxo <> utxoFromTx tx, tx)
+  let tx = depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxoToDeposit) slot deadline Nothing
+  pure (ctx, st, tx)
 
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
-  (_, _, depositedUTxO, txDeposit) <- genDepositTx maximumNumberOfParties
+  (_, _, txDeposit) <- genDepositTx maximumNumberOfParties
   let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId txDeposit
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
   let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited slotAfterDeadline
-  pure (depositedUTxO, tx)
+  pure (utxoFromTx txDeposit, tx)
 
-genIncrementTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx)
+genIncrementTx ::
+  Int ->
+  Gen
+    ( HydraContext
+    , OpenState
+    , UTxO -- Deposited / to be incremented
+    , Tx
+    )
 genIncrementTx numParties = do
-  (ctx, st@OpenState{seedTxIn, headId}, utxo, txDeposit) <- genDepositTx numParties
+  (ctx, st@OpenState{seedTxIn, headId}, txDeposit) <- genDepositTx numParties
   cctx <- pickChainContext ctx
   let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   let openUTxO = getKnownUTxO st
   let version = 0
+  -- XXX: openUTxO can't be right here
   snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotBeforeDeadline <- chooseEnum (0, deadlineSlot)
   pure
-    ( cctx
+    ( ctx
     , st
-    , utxo
+    , openUTxO <> utxoFromTx txDeposit
     , unsafeIncrement
         cctx
-        (openUTxO <> utxo)
+        (openUTxO <> utxoFromTx txDeposit)
         (txInToHeadSeed seedTxIn, headId)
         (ctxHeadParameters ctx)
         snapshot
@@ -254,21 +264,20 @@ genIncrementTx numParties = do
 
 genDecrementTx :: Int -> Gen (ChainContext, UTxO, OpenState, UTxO, Tx)
 genDecrementTx numParties = do
-  ctx <- genHydraContextFor numParties
-  (u0, stOpen@OpenState{seedTxIn, headId}) <- genStOpen ctx `suchThat` \(u, _) -> not (UTxO.null u)
+  (ctx, stOpen@OpenState{seedTxIn, headId}, utxo, txIncrement) <- genIncrementTx numParties
+  let IncrementObservation{newVersion, deposited} = fromJust $ observeIncrementTx (ctxNetworkId ctx) utxo txIncrement
+  let (confirmedUtxo, toDecommit) = splitUTxO deposited
   cctx <- pickChainContext ctx
-  let (confirmedUtxo, toDecommit) = splitUTxO u0
-  let version = 0
-  snapshot <- genConfirmedSnapshot headId version 1 confirmedUtxo Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
-  let openUTxO = getKnownUTxO stOpen
+  snapshot <- genConfirmedSnapshot headId newVersion 1 confirmedUtxo Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
+  let utxoSpendable = utxoFromTx txIncrement
   pure
     ( cctx
     , fromMaybe mempty (utxoToDecommit $ getSnapshot snapshot)
     , stOpen
-    , mempty
+    , utxoSpendable
     , unsafeDecrement
         cctx
-        openUTxO
+        utxoSpendable
         (txInToHeadSeed seedTxIn, headId)
         (ctxHeadParameters ctx)
         snapshot

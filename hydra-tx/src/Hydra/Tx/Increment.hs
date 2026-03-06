@@ -5,6 +5,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -112,21 +113,25 @@ data IncrementObservation = IncrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
   , depositTxId :: TxId
+  , deposited :: UTxO
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 observeIncrementTx ::
+  NetworkId ->
   UTxO ->
   Tx ->
   Maybe IncrementObservation
-observeIncrementTx utxo tx = do
+observeIncrementTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript inputUTxO depositValidatorScript
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOutput
-  -- we need to be able to decode the datum, no need to use it tho
-  _ :: Deposit.DepositDatum <- fromScriptData dat
+  (_, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
+  deposited <- do
+    depositedUTxO <- traverse (Commit.deserializeCommit (toShelleyNetwork networkId)) onChainDeposits
+    pure $ UTxO.fromList depositedUTxO
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
@@ -142,6 +147,7 @@ observeIncrementTx utxo tx = do
               { headId
               , newVersion = fromChainSnapshotVersion version
               , depositTxId
+              , deposited
               }
         _ -> Nothing
     _ -> Nothing

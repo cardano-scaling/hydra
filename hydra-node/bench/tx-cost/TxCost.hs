@@ -60,8 +60,8 @@ import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeInitCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [100, 99 .. 11]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [200, 199 .. 101]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -83,13 +83,14 @@ computeInitCost = do
 
 computeIncrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeIncrementCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [200, 199 .. 101]
   pure $ interesting <> limit
  where
   compute numParties = do
     (ctx, st, utxo', tx) <- genIncrementTx numParties
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
+    cctx <- pickChainContext ctx
+    let utxo = getKnownUTxO st <> getKnownUTxO cctx <> utxo'
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
@@ -98,14 +99,14 @@ computeIncrementCost = do
 
 computeDecrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeDecrementCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [200, 199 .. 101]
   pure $ interesting <> limit
  where
   compute numParties = do
     -- TODO: add decrementedOutputs to the result
-    (ctx, _decrementedOutputs, st, _, tx) <- genDecrementTx numParties
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx
+    (ctx, _decrementedOutputs, st, utxo', tx) <- genDecrementTx numParties
+    let utxo = getKnownUTxO st <> getKnownUTxO ctx <> utxo'
     case checkSizeAndEvaluate tx utxo of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumParties numParties, txSize, memUnit, cpuUnit, minFee)
