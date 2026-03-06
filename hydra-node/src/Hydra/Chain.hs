@@ -54,12 +54,12 @@ maximumNumberOfParties = 7
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
+-- TODO: somehow merge HeadSeed/HeadId
 data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
-  | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
-  | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
   | IncrementTx
-      { headId :: HeadId
+      { headSeed :: HeadSeed
+      , headId :: HeadId
       , headParameters :: HeadParameters
       , incrementingSnapshot :: ConfirmedSnapshot tx
       , depositTxId :: TxIdType tx
@@ -71,7 +71,8 @@ data PostChainTx tx
       , recoverUTxO :: UTxOType tx
       }
   | DecrementTx
-      { headId :: HeadId
+      { headSeed :: HeadSeed
+      , headId :: HeadId
       , headParameters :: HeadParameters
       , decrementingSnapshot :: ConfirmedSnapshot tx
       }
@@ -283,14 +284,6 @@ data Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
-  , draftCommitTx ::
-      MonadThrow m =>
-      HeadId ->
-      CommitBlueprintTx tx ->
-      m (Either (PostTxError tx) tx)
-  -- ^ Create a commit transaction using user provided utxos (zero or many) and
-  -- a _blueprint_ transaction which spends these outputs.
-  -- Errors are handled at the call site.
   , draftDepositTx ::
       MonadThrow m =>
       HeadId ->
