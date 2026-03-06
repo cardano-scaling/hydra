@@ -80,10 +80,6 @@ headValidator ::
   Bool
 headValidator oldState input ctx =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties, headId}, CollectCom) ->
-      checkCollectCom ctx (contestationPeriod, parties, headId)
-    (Initial{parties, headId}, Abort) ->
-      checkAbort ctx headId parties
     (Open openDatum, Increment redeemer) ->
       checkIncrement ctx openDatum redeemer
     (Open openDatum, Decrement redeemer) ->

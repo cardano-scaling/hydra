@@ -23,7 +23,9 @@ type Signature = BuiltinByteString
 
 -- | Sub-type for the open state-machine state.
 data OpenDatum = OpenDatum
-  { headId :: CurrencySymbol
+  { headSeed :: TxOutRef
+  -- ^ TODO: Spec?
+  , headId :: CurrencySymbol
   -- ^ Spec: cid
   , parties :: [Party]
   -- ^ Spec: kH
@@ -64,14 +66,9 @@ data ClosedDatum = ClosedDatum
 
 PlutusTx.unstableMakeIsData ''ClosedDatum
 
+-- TODO: Update on-chain section of specfication (removed initial state)
 data State
-  = Initial
-      { contestationPeriod :: ContestationPeriod
-      , parties :: [Party]
-      , headId :: CurrencySymbol
-      , seed :: TxOutRef
-      }
-  | Open OpenDatum
+  = Open OpenDatum
   | Closed ClosedDatum
   | Final
   deriving stock (Generic, Show)

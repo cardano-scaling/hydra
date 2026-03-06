@@ -16,6 +16,7 @@ changes.
   - Greatly simplifies the head protocol and life-cycle (no `collectCom` and `abort` transactions).
   - Resolves known issues about "not abortable heads" because of a participant committing too big UTxO.
   - Reduced overall life-cycle cost for most use cases. See [transaction cost benchmarks](https://hydra.family/head-protocol/unstable/benchmarks/transaction-cost) for details.
+  - All on-chain scripts are affected by this change, as well as several API changes.
 
 ## [1.3.0] - 2026-03-05
 
