@@ -81,6 +81,7 @@ data InitMutation
   | MutateHeadIdInDatum
   | MutateHeadIdInInitialDatum
   | MutateSeedInDatum
+  -- TODO: test to trigger MissingPTs (from the output value)
   deriving stock (Generic, Show, Enum, Bounded)
 
 data ObserveInitMutation
@@ -92,27 +93,16 @@ genInitMutation (tx, _utxo) =
   oneof
     [ SomeMutation (pure $ toErrorCode WrongNumberOfTokensMinted) MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
     , SomeMutation (pure $ toErrorCode WrongNumberOfTokensMinted) MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation (pure $ toErrorCode NoPT) MutateInitialOutputValue <$> do
+    , SomeMutation (pure $ toErrorCode NoPTs) MutateInitialOutputValue <$> do
         let outs = txOuts' tx
         (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (pure $ toErrorCode WrongNumberOfInitialOutputs) MutateDropInitialOutput <$> do
-        ix <- choose (1, length (txOuts' tx) - 1)
-        pure $ RemoveOutput (fromIntegral ix)
     , SomeMutation (pure $ toErrorCode SeedNotSpent) MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     , SomeMutation (pure $ toErrorCode WrongDatum) MutateHeadIdInDatum <$> do
         mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId mutatedHeadId) headTxOut
-    , SomeMutation (pure $ toErrorCode WrongInitialDatum) MutateHeadIdInInitialDatum <$> do
-        let outs = txOuts' tx
-        (ix, out) <- elements (drop 1 $ zip [0 ..] outs)
-        elements
-          [ changeInitialOutputToFakeId ix out
-          , removeInitialOutputDatum ix out
-          , changeInitialOutputToNotAHeadId ix out
-          ]
     , SomeMutation (pure $ toErrorCode WrongDatum) MutateSeedInDatum <$> do
         mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
         pure $

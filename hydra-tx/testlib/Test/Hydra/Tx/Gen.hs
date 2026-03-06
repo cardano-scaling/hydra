@@ -28,7 +28,6 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
 import Hydra.Tx.Close (CloseObservation)
@@ -339,15 +338,7 @@ genScriptRegistry = do
   txOut <- genTxOutAdaOnly vk
   pure $
     ScriptRegistry
-      { initialReference =
-          ( TxIn txId' (TxIx 0)
-          , txOut{txOutReferenceScript = mkScriptRef initialValidatorScript}
-          )
-      , commitReference =
-          ( TxIn txId' (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef commitValidatorScript}
-          )
-      , headReference =
+      { headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
           )
