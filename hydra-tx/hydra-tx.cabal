@@ -208,7 +208,6 @@ test-suite tests
     , hydra-tx:testlib
     , lens
     , plutus-ledger-api
-    , plutus-ledger-api:plutus-ledger-api-testlib
     , plutus-tx
     , QuickCheck
     , quickcheck-instances

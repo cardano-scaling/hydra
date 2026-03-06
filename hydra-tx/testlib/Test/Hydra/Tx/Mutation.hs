@@ -152,7 +152,7 @@ import Hydra.Data.ContestationPeriod
 import Hydra.Data.Party qualified as Data (Party)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
-import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (findFirst)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
@@ -547,19 +547,6 @@ modifyInlineDatum fn txOut =
         Just st ->
           txOut{txOutDatum = mkTxOutDatumInline $ fn st}
         Nothing -> error "invalid data"
-
-addParticipationTokens :: [VerificationKey PaymentKey] -> TxOut CtxUTxO -> TxOut CtxUTxO
-addParticipationTokens vks txOut =
-  txOut{txOutValue = val'}
- where
-  val' =
-    txOutValue txOut
-      <> fromList
-        [ (AssetId testPolicyId (onChainIdToAssetName oid), 1)
-        | oid <- participants
-        ]
-
-  participants = verificationKeyToOnChainId <$> vks
 
 -- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
 ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData

@@ -32,7 +32,7 @@ import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly)
+import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
@@ -40,7 +40,6 @@ import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
-  addParticipationTokens,
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotVersion,
@@ -80,8 +79,11 @@ healthyIncrementTx =
   headInput = generateWith arbitrary 42
 
   headOutput =
-    mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
-      & addParticipationTokens healthyParticipants
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline healthyDatum)
       & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
   depositUTxO :: UTxO

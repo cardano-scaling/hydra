@@ -8,7 +8,6 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
-  addParticipationTokens,
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotVersion,
@@ -35,7 +34,7 @@ import Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly, splitUTxO)
+import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (
@@ -79,8 +78,11 @@ healthyDecrementTx =
   headInput = generateWith arbitrary 42
 
   headOutput =
-    mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
-      & addParticipationTokens healthyParticipants
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline healthyDatum)
       & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
