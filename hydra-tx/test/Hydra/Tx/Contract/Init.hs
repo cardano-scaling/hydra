@@ -10,6 +10,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import GHC.IsList qualified as IsList
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadState (OpenDatum (..), State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
@@ -18,6 +19,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
+import Hydra.Tx.Utils (hydraHeadV1AssetName)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
 import Test.Hydra.Tx.Mutation (
@@ -28,7 +30,7 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
   replaceHeadId,
  )
-import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (oneof, suchThat, vectorOf)
 import Prelude qualified
 
 --
@@ -74,13 +76,10 @@ data InitMutation
   = -- | Mint more than one ST and PTs.
     MintTooManyTokens
   | MutateAddAnotherPT
-  | MutateDropInitialOutput
   | MutateDropSeedInput
-  | MutateInitialOutputValue
+  | RemovePTsFromHead
   | MutateHeadIdInDatum
-  | MutateHeadIdInInitialDatum
   | MutateSeedInDatum
-  -- TODO: test to trigger MissingPTs (from the output value)
   deriving stock (Generic, Show, Enum, Bounded)
 
 data ObserveInitMutation
@@ -92,11 +91,8 @@ genInitMutation (tx, _utxo) =
   oneof
     [ SomeMutation (pure $ toErrorCode WrongNumberOfTokensMinted) MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
     , SomeMutation (pure $ toErrorCode WrongNumberOfTokensMinted) MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation (pure $ toErrorCode NoPTs) MutateInitialOutputValue <$> do
-        let outs = txOuts' tx
-        (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
-        value' <- genValue `suchThat` (/= txOutValue out)
-        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode MissingPTs) RemovePTsFromHead <$> do
+        pure $ ChangeOutput 0 (modifyTxOutValue (filterValue $ not . isPT) headTxOut)
     , SomeMutation (pure $ toErrorCode SeedNotSpent) MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     , SomeMutation (pure $ toErrorCode WrongDatum) MutateHeadIdInDatum <$> do
@@ -112,3 +108,7 @@ genInitMutation (tx, _utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
+
+  isPT = \case
+    (AssetId _ an) -> an /= hydraHeadV1AssetName
+    _ -> False
