@@ -89,7 +89,7 @@ observeHeadTx networkId utxo tx =
     either (const Nothing) (Just . Init) (observeInitTx tx)
       <|> Deposit <$> observeDepositTx networkId tx
       <|> Recover <$> observeRecoverTx networkId utxo tx
-      <|> Increment <$> observeIncrementTx utxo tx
+      <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
