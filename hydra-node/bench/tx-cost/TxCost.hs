@@ -61,7 +61,7 @@ import Test.QuickCheck (oneof)
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeInitCost = do
   interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [200, 199 .. 101]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [125, 124 .. 101]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -83,8 +83,8 @@ computeInitCost = do
 
 computeIncrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeIncrementCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [200, 199 .. 101]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [75, 74 .. 51]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -99,8 +99,8 @@ computeIncrementCost = do
 
 computeDecrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeDecrementCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50, 100]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [200, 199 .. 101]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [75, 74 .. 51]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -115,8 +115,8 @@ computeDecrementCost = do
 
 computeCloseCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeCloseCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [75, 74 .. 51]
   pure $ interesting <> limit
  where
   compute numParties = do
@@ -130,8 +130,8 @@ computeCloseCost = do
 
 computeContestCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeContestCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10]
-  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [50, 49 .. 11]
+  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
+  limit <- maybeToList . getFirst <$> foldMapM (fmap First . compute) [75, 74 .. 51]
   pure $ interesting <> limit
  where
   compute numParties = do
