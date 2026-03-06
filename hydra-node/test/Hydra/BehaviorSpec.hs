@@ -292,20 +292,13 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 41)
                 send n1 (NewTx $ aValidTx 42)
 
-                -- Expect alice to create a snapshot from the first requested
-                -- transaction right away which is the current snapshot policy.
-                waitUntilMatch [n1, n2] $ \case
-                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    guard $ number == 1 && confirmed == [aValidTx 40]
-                  _ -> Nothing
-
-                -- Expect bob to also snapshot what did "not fit" into the first
-                -- snapshot.
+                -- With the timer model the leader batches all pending transactions
+                -- when the timer fires, so all three txs appear in snapshot 1.
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
                     -- NOTE: We sort the confirmed to be clear that the order may
                     -- be freely picked by the leader.
-                    guard $ number == 2 && sort confirmed == [aValidTx 41, aValidTx 42]
+                    guard $ number == 1 && sort confirmed == sort [aValidTx 40, aValidTx 41, aValidTx 42]
                   _ -> Nothing
 
                 -- As there are no pending transactions and snapshots anymore
@@ -313,7 +306,7 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 44)
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    guard $ number == 3 && confirmed == [aValidTx 44]
+                    guard $ number == 2 && confirmed == [aValidTx 44]
                   _ -> Nothing
 
       it "depending transactions stay pending and are confirmed in order" $
@@ -328,17 +321,13 @@ spec = parallel $ do
                 send n2 (NewTx secondTx)
                 send n1 (NewTx firstTx)
 
-                -- Expect a snapshot of the firstTx transaction
+                -- With the timer model, secondTx becomes applicable after
+                -- firstTx is applied, so both are batched into a single
+                -- snapshot when the timer fires.
                 waitUntil [n1, n2] $ TxValid testHeadId 1
-                waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
-                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  SnapshotConfirmed testHeadId snapshot sigs
-
-                -- Expect a snapshot of the now unblocked secondTx
                 waitUntil [n1, n2] $ TxValid testHeadId 2
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
+                  let snapshot = testSnapshot 1 0 [firstTx, secondTx] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
@@ -381,13 +370,17 @@ spec = parallel $ do
                         }
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
+                -- With the timer model, TxInvalid(tx'') fires at n1 well before the
+                -- timer triggers SnapshotConfirmed (tx'' expires after TTL*waitDelay≈0.5s,
+                -- timer fires at snapshotRetryInterval=10s). Check TxInvalid first on
+                -- n1 only (n2 emits TxInvalid for tx', not tx'').
+                waitUntilMatch [n1] $ \case
+                  TxInvalid{transaction} -> guard $ transaction == tx''
+                  _ -> Nothing
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 1 0 [tx'] (utxoRefs [2, 10])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
-                waitUntilMatch [n1, n2] $ \case
-                  TxInvalid{transaction} -> guard $ transaction == tx''
-                  _ -> Nothing
 
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
