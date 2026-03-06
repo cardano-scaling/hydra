@@ -26,7 +26,7 @@ import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, defaultSnapshotRetryInterval, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
@@ -423,6 +423,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
             { cardanoLedgerProtocolParametersFile
             }
       , apiTransactionTimeout = 100000
+      , snapshotRetryInterval = defaultSnapshotRetryInterval
       }
  where
   port = fromIntegral $ 5_000 + hydraNodeId
