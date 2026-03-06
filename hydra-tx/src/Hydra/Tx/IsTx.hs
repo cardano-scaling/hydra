@@ -96,6 +96,15 @@ class
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
+  -- | Convert a 'UTxOType' to a list of outputs for accumulator operations.
+  -- This is needed by the accumulator to convert UTxOs into elements.
+  -- We only need the TxOut, not the TxIn.
+  toPairList :: UTxOType tx -> [TxOutType tx]
+
+  -- | Convert a TxOut to a ByteString element for the accumulator.
+  -- This serializes the TxOut in the same way as the on-chain code does.
+  utxoToElement :: TxOutType tx -> ByteString
+
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
@@ -164,3 +173,14 @@ instance IsTx Tx where
   outputsOfUTxO = UTxO.txOutputs
 
   withoutUTxO = UTxO.difference
+
+  toPairList = UTxO.txOutputs
+
+  -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.
+  -- Uses sha2_256 (via hashTxOuts) because the haskell-accumulator library
+  -- internally applies Blake2b_224 on each element (see Accumulator.addElement).
+  -- The on-chain scalar is then blake2b_224(sha2_256(serialised)), matching exactly.
+  utxoToElement txOut =
+    case toPlutusTxOut txOut of
+      Just plutusTxOut -> fromBuiltin (Util.hashTxOuts [plutusTxOut])
+      Nothing -> mempty -- Should not happen for valid UTxO
