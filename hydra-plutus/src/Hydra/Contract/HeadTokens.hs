@@ -26,7 +26,6 @@ import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
 
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState (seed)
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.Initial qualified as Initial
@@ -142,7 +141,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
     case headDatum of
       OutputDatum datum ->
         case fromBuiltinData @Head.DatumType $ getDatum datum of
-          Just Head.Initial{Head.parties = parties, headId = h, seed = s} ->
+          Just (Head.Open Head.OpenDatum{Head.parties = parties, headId = h, headSeed = s}) ->
             (h, s, L.length parties)
           _ -> traceError $(errorCode ExpectedHeadDatumType)
       _ -> traceError $(errorCode ExpectedInlineDatum)
