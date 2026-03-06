@@ -28,9 +28,8 @@ import PlutusTx.List qualified as L
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
-import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Hydra.Contract.Util (hasST, scriptOutputsAt)
+import Hydra.Contract.Util (hasST, hydraHeadV1, scriptOutputsAt)
 import Hydra.Plutus (initialValidatorScript)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
@@ -39,6 +38,7 @@ import PlutusLedgerApi.V3 (
   OutputDatum (..),
   ScriptContext (..),
   ScriptHash,
+  TokenName (..),
   TxInInfo (..),
   TxInfo (..),
   TxOutRef,
@@ -50,6 +50,7 @@ import PlutusLedgerApi.V3.Contexts (ownCurrencySymbol)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Foldable (length)
 
 validate ::
   ScriptHash ->
@@ -72,10 +73,6 @@ validate initialValidator headValidator seedInput action context =
 -- * There is single state token that is paid into v_head, which ensures
 --   continuity.
 --
--- * PTs are distributed to v_initial
---
--- * Each v_initial has the policy id as its datum
---
 -- * Ensure out-ref and the headId are in the datum of the first output of the
 --   transaction which mints tokens.
 validateTokensMinting :: ScriptHash -> ScriptHash -> TxOutRef -> ScriptContext -> Bool
@@ -83,8 +80,7 @@ validateTokensMinting initialValidator headValidator seedInput context =
   seedInputIsConsumed
     && checkNumberOfTokens
     && singleSTIsPaidToTheHead
-    && allInitialOutsHavePTs
-    && allInitialOutsHaveCorrectDatum
+    && enoughUniquePTsPaidToHead
     && checkDatum
  where
   seedInputIsConsumed =
@@ -99,37 +95,24 @@ validateTokensMinting initialValidator headValidator seedInput context =
     traceIfFalse $(errorCode MissingST) $
       hasST currency headValue
 
-  allInitialOutsHavePTs =
-    traceIfFalse $(errorCode WrongNumberOfInitialOutputs) (nParties == L.length initialTxOutValues)
-      && L.all hasASinglePT initialTxOutValues
+  enoughUniquePTsPaidToHead =
+    traceIfFalse $(errorCode MissingPTs) $
+      length (uniquePTs headValue) == nParties
 
-  allInitialOutsHaveCorrectDatum =
-    L.all hasHeadIdDatum (fst <$> scriptOutputsAt initialValidator txInfo)
+  uniquePTs val =
+    case AssocMap.lookup currency (getValue val) of
+      Nothing -> traceError $(errorCode NoPTs)
+      (Just tokenMap) ->
+        -- NOTE: Ideally this would be a filterWithKey
+        AssocMap.elems . flip AssocMap.mapMaybeWithKey tokenMap $ \an qty ->
+          if
+            | an == TokenName hydraHeadV1 -> Nothing
+            | qty == 1 -> Just an
+            | otherwise -> traceError $(errorCode WrongQuantity)
 
   checkDatum =
     traceIfFalse $(errorCode WrongDatum) $
       headId == currency && seed == seedInput
-
-  hasASinglePT val =
-    case AssocMap.lookup currency (getValue val) of
-      Nothing -> traceError $(errorCode NoPT)
-      (Just tokenMap) -> case AssocMap.toList tokenMap of
-        [(_, qty)]
-          | qty == 1 -> True
-        _ -> traceError $(errorCode WrongQuantity)
-
-  hasHeadIdDatum = \case
-    NoOutputDatum ->
-      traceError $(errorCode WrongInitialDatum)
-    OutputDatum dat ->
-      checkInitialDatum dat
-    OutputDatumHash _dh ->
-      traceError $(errorCode WrongInitialDatum)
-
-  checkInitialDatum dat =
-    case fromBuiltinData @Initial.DatumType $ getDatum dat of
-      Nothing -> traceError $(errorCode WrongInitialDatum)
-      Just hid -> traceIfFalse $(errorCode WrongInitialDatum) $ hid == currency
 
   mintedTokenCount =
     maybe 0 F.sum
@@ -150,8 +133,6 @@ validateTokensMinting initialValidator headValidator seedInput context =
     case scriptOutputsAt headValidator txInfo of
       [(dat, val)] -> (dat, val)
       _ -> traceError $(errorCode MultipleHeadOutput)
-
-  initialTxOutValues = snd <$> scriptOutputsAt initialValidator txInfo
 
   currency = ownCurrencySymbol context
 
