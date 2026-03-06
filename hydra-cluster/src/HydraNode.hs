@@ -1,11 +1,14 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module HydraNode where
+module HydraNode (
+  module HydraNode,
+  HydraNodeLog (..),
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (cliQueryProtocolParameters)
+import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
@@ -49,7 +52,7 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (HydraTestnet (..), failAfter, failure, getHydraNetwork, shouldNotBe, withLogFile)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -90,8 +93,8 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  getHydraBackend >>= \case
-    BlockfrostBackendType -> pure $ d * fromIntegral defaultBFQueryTimeout
+  getHydraNetwork >>= \case
+    BlockfrostTesting -> pure $ d * fromIntegral defaultBFQueryTimeout
     _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.
@@ -447,12 +450,13 @@ withPreparedHydraNodeInSync ::
   (HydraClient -> IO a) ->
   IO a
 withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
-  let waitTime = blockTime * waitFactor
   withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
  where
   waitFactor = 5
-  action' waitTime client = do
-    waitForNodesSynced waitTime $ client :| []
+  waitTime = blockTime * waitFactor
+
+  action' wt client = do
+    waitForNodesSynced wt (client :| [])
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
@@ -540,9 +544,9 @@ withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> M
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
   (retries, delay) <-
-    getHydraBackend >>= \case
-      DirectBackendType -> pure (200, 0.1)
-      BlockfrostBackendType -> pure (300, 1)
+    getHydraNetwork >>= \case
+      BlockfrostTesting -> pure (300, 1)
+      _ -> pure (200, 0.1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay
@@ -583,13 +587,3 @@ waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesSynced delay clients = do
   waitForAllMatch delay (toList clients) $ \v -> do
     guard $ v ^? key "tag" == Just "NodeSynced"
-
-data HydraNodeLog
-  = HydraNodeCommandSpec {cmd :: Text}
-  | NodeStarted {nodeId :: Int}
-  | SentMessage {nodeId :: Int, message :: Aeson.Value}
-  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
-  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
-  | EndWaiting {nodeId :: Int}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)

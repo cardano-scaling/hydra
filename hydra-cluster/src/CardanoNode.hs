@@ -18,10 +18,13 @@ import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Data.Vector qualified as Vector
 import Hydra.Cardano.Api (
+  Coin,
   File (..),
   NetworkId,
   NetworkMagic (..),
   SocketPath,
+  TxId (..),
+  UTxO,
   getProgress,
  )
 import Hydra.Cardano.Api qualified as Api
@@ -29,13 +32,16 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (delayBF)
-import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
+import Hydra.Cluster.Faucet (FaucetLog, delayBF, publishOrReuseHydraScripts)
+import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..), toNetworkId)
+import Hydra.Cluster.Mithril (MithrilLog, downloadLatestSnapshotTo)
+import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (
   createDirectoryIfMissing,
+  doesDirectoryExist,
   doesFileExist,
   getCurrentDirectory,
   removeFile,
@@ -54,6 +60,31 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude
+
+data HydraNodeLog
+  = HydraNodeCommandSpec {cmd :: Text}
+  | NodeStarted {nodeId :: Int}
+  | SentMessage {nodeId :: Int, message :: Aeson.Value}
+  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
+  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
+  | EndWaiting {nodeId :: Int}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
+data EndToEndLog
+  = ClusterOptions {options :: Options}
+  | FromCardanoNode NodeLog
+  | FromFaucet FaucetLog
+  | FromHydraNode HydraNodeLog
+  | FromMithril MithrilLog
+  | StartingFunds {actor :: String, utxo :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Coin, utxo :: UTxO}
+  | RemainingFunds {actor :: String, utxo :: UTxO}
+  | PublishedHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | CreatedKey {keyPath :: FilePath}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 data NodeLog
   = MsgNodeCmdSpec {cmd :: Text}
@@ -175,7 +206,7 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   withCardanoNode tracer stateDirectory args action
 
 withBlockfrostBackend ::
-  Tracer IO NodeLog ->
+  Tracer IO EndToEndLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
   (NominalDiffTime -> BlockfrostBackend -> IO a) ->
@@ -219,14 +250,72 @@ findFileStartingAtDirectory maxDepth fileName = do
 
 withBackend ::
   forall a.
-  Tracer IO NodeLog ->
+  Tracer IO EndToEndLog ->
   FilePath ->
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
-  getHydraBackend >>= \case
-    DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
-    BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
+  getHydraNetwork >>= \case
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
+    PreviewTestnet -> withPublicTestnetNode Preview action
+    PreproductionTestnet -> withPublicTestnetNode Preproduction action
+    MainnetTesting -> withPublicTestnetNode Mainnet action
+    BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory action
+ where
+  withPublicTestnetNode network action' = do
+    nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
+    createDirectoryIfMissing True nodeDir
+    let syncAndRun blockTime backend = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
+          action' blockTime backend
+    findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
+      Just (blockTime, backend) ->
+        syncAndRun blockTime backend
+      Nothing -> do
+        let dbDir = nodeDir </> "db"
+        dbExists <- doesDirectoryExist dbDir
+        unless dbExists $ do
+          downloadLatestSnapshotTo (contramap FromMithril tracer) network nodeDir
+        withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) nodeDir network syncAndRun
+
+-- | Like 'withBackend', but also publishes (or reuses cached) Hydra scripts.
+-- On public testnets the cache file is stored in the persistent 'HYDRA_WORK_DIR',
+-- so scripts are published once and reused across test runs. On local devnet,
+-- the per-test 'stateDirectory' is used, so scripts are always published fresh.
+withHydraScriptsAndBackendRunning ::
+  forall a.
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  (forall backend. ChainBackend backend => backend -> [TxId] -> IO a) ->
+  IO a
+withHydraScriptsAndBackendRunning tracer stateDirectory action = do
+  getHydraNetwork >>= \case
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \_ backend -> do
+      txIds <- publishOrReuseHydraScripts backend Faucet stateDirectory
+      action backend txIds
+    PreviewTestnet -> withPublicTestnetNode Preview
+    PreproductionTestnet -> withPublicTestnetNode Preproduction
+    MainnetTesting -> withPublicTestnetNode Mainnet
+    BlockfrostTesting -> withBlockfrostBackend tracer stateDirectory $ \_ backend -> do
+      txIds <- publishOrReuseHydraScripts backend Faucet stateDirectory
+      action backend txIds
+ where
+  withPublicTestnetNode network = do
+    nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
+    createDirectoryIfMissing True nodeDir
+    let syncPublishAndRun _ backend = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
+          txIds <- publishOrReuseHydraScripts backend Faucet nodeDir
+          action backend txIds
+    findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
+      Just (blockTime, backend) ->
+        syncPublishAndRun blockTime backend
+      Nothing -> do
+        let dbDir = nodeDir </> "db"
+        dbExists <- doesDirectoryExist dbDir
+        unless dbExists $ do
+          downloadLatestSnapshotTo (contramap FromMithril tracer) network nodeDir
+        withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) nodeDir network syncPublishAndRun
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
