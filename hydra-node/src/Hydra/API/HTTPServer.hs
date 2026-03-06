@@ -30,7 +30,7 @@ import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx)
-import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
+import Hydra.Chain (Chain (..), PostTxError (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (ValidationError (..))
@@ -294,13 +294,7 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
-        NormalCommit headId ->
-          case someCommitRequest of
-            FullCommitRequest{blueprintTx, utxo} -> do
-              draftCommit headId utxo blueprintTx
-            SimpleCommitRequest{utxoToCommit} -> do
-              let blueprintTx = txSpendingUTxO utxoToCommit
-              draftCommit headId utxoToCommit blueprintTx
+        NormalCommit headId -> error "TODO: Remove NormalCommit distinction"
         IncrementalCommit headId -> do
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo, changeAddress} -> do
@@ -330,29 +324,7 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
         pure $ responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
 
-  draftCommit headId lookupUTxO blueprintTx = do
-    result <- draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx}
-    case result of
-      Left e ->
-        -- Distinguish between errors users can actually benefit from and
-        -- other errors that are turned into 500 responses.
-        case e of
-          CommittedTooMuchADAForMainnet _ _ -> pure $ badRequest e
-          UnsupportedLegacyOutput _ -> pure $ badRequest e
-          CannotFindOwnInitial _ -> pure $ badRequest e
-          DepositTooLow _ _ -> pure $ badRequest e
-          AmountTooLow _ _ -> pure $ badRequest e
-          FailedToConstructDepositTx _ -> pure $ badRequest e
-          _ -> do
-            traceWith tracer $
-              APIReturnedError
-                { reason = "Failed to draft commit transaction: " <> show e
-                }
-            pure $ responseLBS status500 [] (Aeson.encode $ toJSON e)
-      Right commitTx ->
-        pure $ okJSON $ DraftCommitTxResponse commitTx
-
-  Chain{draftCommitTx, draftDepositTx} = directChain
+  Chain{draftDepositTx} = directChain
 
   Environment{depositPeriod} = env
 

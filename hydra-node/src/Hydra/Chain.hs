@@ -34,7 +34,6 @@ import Hydra.Tx (
   HeadParameters (..),
   HeadSeed,
   IsTx (..),
-  Party,
   SnapshotNumber,
   SnapshotVersion,
   UTxOType,
@@ -105,13 +104,6 @@ data OnChainTx tx
       , headParameters :: HeadParameters
       , participants :: [OnChainId]
       }
-  | OnCommitTx
-      { headId :: HeadId
-      , party :: Party
-      , committed :: UTxOType tx
-      }
-  | OnAbortTx {headId :: HeadId}
-  | OnCollectComTx {headId :: HeadId}
   | OnDepositTx
       { headId :: HeadId
       , depositTxId :: TxIdType tx
