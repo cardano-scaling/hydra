@@ -18,7 +18,6 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
 import Test.Hydra.Tx.Mutation (
@@ -29,7 +28,7 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
   replaceHeadId,
  )
-import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (elements, oneof, suchThat, vectorOf)
 import Prelude qualified
 
 --
@@ -113,24 +112,3 @@ genInitMutation (tx, _utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
-  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
-  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
-
-  changeInitialOutputToFakeId :: Word -> TxOut CtxTx -> Mutation
-  changeInitialOutputToFakeId ix out =
-    ChangeOutput ix $
-      modifyTxOutDatum
-        ( const $
-            TxOutDatumInline $
-              toScriptData $
-                toPlutusCurrencySymbol fakePolicyId
-        )
-        out
-
-  removeInitialOutputDatum :: Word -> TxOut CtxTx -> Mutation
-  removeInitialOutputDatum ix out =
-    ChangeOutput ix $ modifyTxOutDatum (const TxOutDatumNone) out
-
-  changeInitialOutputToNotAHeadId :: Word -> TxOut CtxTx -> Mutation
-  changeInitialOutputToNotAHeadId ix out =
-    ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumInline $ toScriptData (42 :: Integer)) out

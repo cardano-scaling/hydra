@@ -34,27 +34,18 @@ initTx networkId seedTxIn participants parameters =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxInsSpending [seedTxIn]
-      & addTxOuts [mkHeadOutputOpen networkId seedTxIn parameters]
+      & addTxOuts [openHeadOutput]
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint (fromList $ (hydraHeadV1AssetName, 1) : participationTokens)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "InitTx")
  where
   participationTokens =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
 
-mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
-mkHeadOutput networkId tokenPolicyId datum =
-  TxOut
-    (mkScriptAddress networkId Head.validatorScript)
-    (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
-    datum
-    ReferenceScriptNone
+  openHeadOutput = mkHeadOutput networkId tokenPolicyId participants openHeadDatum
 
-mkHeadOutputOpen :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
-mkHeadOutputOpen networkId seedTxIn HeadParameters{contestationPeriod, parties} =
-  mkHeadOutput networkId tokenPolicyId headDatum
- where
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
-  headDatum =
+
+  openHeadDatum =
     mkTxOutDatumInline $
       Head.Open
         Head.OpenDatum
@@ -65,6 +56,24 @@ mkHeadOutputOpen networkId seedTxIn HeadParameters{contestationPeriod, parties} 
           , version = 0
           , utxoHash = toBuiltin $ hashUTxO @Tx mempty
           }
+
+  HeadParameters{contestationPeriod, parties} = parameters
+
+mkHeadOutput :: NetworkId -> PolicyId -> [OnChainId] -> TxOutDatum ctx -> TxOut ctx
+mkHeadOutput networkId tokenPolicyId participants datum =
+  TxOut
+    (mkScriptAddress networkId Head.validatorScript)
+    (fromList $ st : pts)
+    datum
+    ReferenceScriptNone
+ where
+  st = (AssetId tokenPolicyId hydraHeadV1AssetName, 1)
+
+  pts =
+    [ (AssetId tokenPolicyId an, 1)
+    | oid <- participants
+    , let an = onChainIdToAssetName oid
+    ]
 
 -- * Observation
 
