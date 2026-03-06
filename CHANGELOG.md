@@ -8,7 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [1.3.0] - 2026.03.05
+## [2.0.0] - UNRELEASED
+
+- **BREAKING** Directly open heads
+  - There is no `commit` phase anymore and hence any initialized head will be directly open.
+  - This means that funds need to be added "incrementally" via `deposit` transactions.
+  - Greatly simplifies the head protocol and life-cycle (no `collectCom` and `abort` transactions).
+  - Resolves known issues about "not abortable heads" because of a participant committing too big UTxO.
+  - Reduced overall life-cycle cost for most use cases. See [transaction cost benchmarks](https://hydra.family/head-protocol/unstable/benchmarks/transaction-cost) for details.
+  - All on-chain scripts are affected by this change, as well as several API changes.
+  - TODO: This decision is documented in ADR-XXX
+
+## [1.3.0] - 2026-03-05
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
   See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).
@@ -56,7 +67,7 @@ changes.
   - Client inputs rejected in `HeadLogic` (via `RejectedInputBecauseUnsynced`) during catch-up now report how far the node is out of sync (drift).
   - See [Issue #2393](https://github.com/cardano-scaling/hydra/issues/2393).
 
-## [1.2.0] - 2025.11.28
+## [1.2.0] - 2025-11-28
 
 - There is a new `SafeClose` client command which prevents closing the Head in case there are non-ADA assets in the confirmed snapshot UTxO [#2330](https://github.com/cardano-scaling/hydra/issues/2330).
 

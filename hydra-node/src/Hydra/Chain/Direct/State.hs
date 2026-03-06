@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Contains the a stateful interface to transaction construction and observation.
@@ -11,20 +10,16 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
-import Data.Map qualified as Map
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
   AssetId (..),
-  AssetName (..),
   ChainPoint (..),
   CtxUTxO,
-  Key (SigningKey, VerificationKey, verificationKeyHash),
-  NetworkId (Mainnet),
+  Key (SigningKey, VerificationKey),
+  NetworkId,
   PaymentKey,
   PolicyId,
-  SerialiseAsRawBytes (serialiseToRawBytes),
   SlotNo (SlotNo),
   Tx,
   TxId,
@@ -37,37 +32,27 @@ import Hydra.Cardano.Api (
   isScriptTxOut,
   mkTxIn,
   negateValue,
-  selectAsset,
   toCtxUTxOTxOut,
   toShelleyNetwork,
-  txIns',
   txOutScriptData,
   txOutValue,
   txOuts',
-  txSpendingUTxO,
-  pattern ByronAddressInEra,
-  pattern ShelleyAddressInEra,
   pattern TxIn,
-  pattern TxOut,
  )
 import Hydra.Chain (
   OnChainTx (..),
-  PostTxError (..),
-  maxMainnetLovelace,
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
-import Hydra.Data.ContestationPeriod qualified as OnChain
-import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano (adjustUTxO)
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (
-  CommitBlueprintTx (..),
   ConfirmedSnapshot (..),
   HeadId (..),
   HeadParameters (..),
+  HeadSeed,
   Party,
   ScriptRegistry (..),
   Snapshot (..),
@@ -79,12 +64,9 @@ import Hydra.Tx (
   partyToChain,
   registryUTxO,
  )
-import Hydra.Tx.Abort (AbortTxError (..), abortTx)
 import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
-import Hydra.Tx.CollectCom (UTxOHash, collectComTx)
-import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
@@ -94,13 +76,9 @@ import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.Observe (
   CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
   InitObservation (..),
   NotAnInitReason (..),
   observeCloseTx,
-  observeCollectComTx,
-  observeCommitTx,
   observeInitTx,
  )
 import Hydra.Tx.OnChainId (OnChainId)
@@ -164,7 +142,6 @@ data ChainState
   = -- | The idle state does not contain any head-specific information and exists to
     -- be used as a starting and terminal state.
     Idle
-  | Initial InitialState
   | Open OpenState
   | Closed ClosedState
   deriving stock (Eq, Show, Generic)
@@ -173,7 +150,6 @@ instance HasKnownUTxO ChainState where
   getKnownUTxO :: ChainState -> UTxO
   getKnownUTxO = \case
     Idle -> mempty
-    Initial st -> getKnownUTxO st
     Open st -> getKnownUTxO st
     Closed st -> getKnownUTxO st
 
@@ -198,40 +174,10 @@ data ChainContext = ChainContext
 instance HasKnownUTxO ChainContext where
   getKnownUTxO ChainContext{scriptRegistry} = registryUTxO scriptRegistry
 
--- | Representation of the Head output after an Init transaction.
-data InitialThreadOutput = InitialThreadOutput
-  { initialThreadUTxO :: (TxIn, TxOut CtxUTxO)
-  , initialContestationPeriod :: OnChain.ContestationPeriod
-  , initialParties :: [OnChain.Party]
-  }
-  deriving stock (Eq, Show, Generic)
-
-data InitialState = InitialState
-  { initialThreadOutput :: InitialThreadOutput
-  , initialInitials :: [(TxIn, TxOut CtxUTxO)]
-  , initialCommits :: [(TxIn, TxOut CtxUTxO)]
-  , headId :: HeadId
-  , seedTxIn :: TxIn
-  }
-  deriving stock (Eq, Show, Generic)
-
-instance HasKnownUTxO InitialState where
-  getKnownUTxO st =
-    UTxO.UTxO $
-      Map.fromList $
-        initialThreadUTxO : initialCommits <> initialInitials
-   where
-    InitialState
-      { initialThreadOutput = InitialThreadOutput{initialThreadUTxO}
-      , initialInitials
-      , initialCommits
-      } = st
-
 data OpenState = OpenState
   { openUTxO :: UTxO
   , headId :: HeadId
   , seedTxIn :: TxIn
-  , openUtxoHash :: UTxOHash
   }
   deriving stock (Eq, Show, Generic)
 
@@ -268,136 +214,9 @@ initialize ctx =
  where
   ChainContext{networkId} = ctx
 
--- | Construct a commit transaction based on known, spendable UTxO and some
--- arbitrary UTxOs to commit. This does look for "our initial output" to spend
--- and check the given 'UTxO' to be compatible. Hence, this function does fail
--- if already committed or if the head is not initializing.
---
--- NOTE: This version of 'commit' does only commit outputs which are held by
--- payment keys. For a variant which supports committing scripts, see `commit'`.
-commit ::
-  ChainContext ->
-  HeadId ->
-  -- | Spendable 'UTxO'
-  UTxO ->
-  -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys
-  UTxO ->
-  Either (PostTxError Tx) Tx
-commit ctx headId spendableUTxO lookupUTxO =
-  let blueprintTx = txSpendingUTxO lookupUTxO
-   in commit' ctx headId spendableUTxO CommitBlueprintTx{lookupUTxO, blueprintTx}
-
--- | Construct a commit transaction based on known, spendable UTxO and some
--- user UTxO inputs to commit. This does look for "our initial output" to spend
--- and check the given 'UTxO' to be compatible. Hence, this function does fail
--- if already committed or if the head is not initializing.
---
--- NOTE: A simpler variant only supporting pubkey outputs is 'commit'.
-commit' ::
-  ChainContext ->
-  HeadId ->
-  -- | Spendable 'UTxO'
-  UTxO ->
-  CommitBlueprintTx Tx ->
-  Either (PostTxError Tx) Tx
-commit' ctx headId spendableUTxO commitBlueprintTx = do
-  pid <- headIdToPolicyId headId ?> InvalidHeadId{headId}
-  (i, o) <- ownInitial pid ?> CannotFindOwnInitial{knownUTxO = spendableUTxO}
-  rejectByronAddress lookupUTxO
-  rejectMoreThanMainnetLimit networkId lookupUTxO
-  pure $ commitTx networkId scriptRegistry headId ownParty commitBlueprintTx (i, o, vkh)
- where
-  CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
-
-  ChainContext{networkId, ownParty, scriptRegistry, ownVerificationKey} = ctx
-
-  vkh = verificationKeyHash ownVerificationKey
-
-  ownInitial pid =
-    UTxO.find (hasMatchingPT pid . txOutValue) spendableUTxO
-
-  hasMatchingPT pid val =
-    selectAsset val (AssetId pid (UnsafeAssetName (serialiseToRawBytes vkh))) == 1
-
-rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
-rejectByronAddress u = do
-  forM_ (UTxO.txOutputs u) $ \case
-    (TxOut (ByronAddressInEra addr) _ _ _) ->
-      Left (UnsupportedLegacyOutput addr)
-    (TxOut ShelleyAddressInEra{} _ _ _) ->
-      Right ()
-
--- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
--- NOTE: Remove this limit once we have more experiments on mainnet.
-rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
-rejectMoreThanMainnetLimit network u = do
-  when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
-    Left $
-      CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
- where
-  lovelaceAmt = UTxO.totalLovelace u
-
--- | Construct a abort transaction based on known, spendable UTxO. This function
--- looks for head, initial and commit outputs to spend and it will fail if we
--- can't find the head output.
-abort ::
-  ChainContext ->
-  -- | Seed TxIn
-  TxIn ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  -- | Committed UTxOs to reimburse.
-  UTxO ->
-  Either AbortTxError Tx
-abort ctx seedTxIn spendableUTxO committedUTxO = do
-  headUTxO <-
-    maybe (Left CannotFindHeadOutputToAbort) pure $
-      UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead'
-
-  abortTx committedUTxO scriptRegistry ownVerificationKey headUTxO headTokenScript initials commits
- where
-  utxoOfThisHead' = utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO
-
-  initials =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut initialValidatorScript) utxoOfThisHead'
-
-  commits =
-    UTxO.toMap $ UTxO.filter (isScriptTxOut commitValidatorScript) utxoOfThisHead'
-
-  headTokenScript = mkHeadTokenScript seedTxIn
-
-  ChainContext{ownVerificationKey, scriptRegistry} = ctx
-
-data CollectTxError
-  = InvalidHeadIdInCollect {headId :: HeadId}
-  | CannotFindHeadOutputToCollect
-  deriving stock (Show)
-
--- | Construct a collect transaction based on known, spendable UTxO. This
--- function looks for head output and commit outputs to spend and it will fail
--- if we can't find the head output.
-collect ::
-  ChainContext ->
-  HeadId ->
-  HeadParameters ->
-  -- | UTxO to be used to collect.
-  -- Should match whatever is recorded in the commit inputs.
-  UTxO ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  Either CollectTxError Tx
-collect ctx headId headParameters utxoToCollect spendableUTxO = do
-  pid <- headIdToPolicyId headId ?> InvalidHeadIdInCollect{headId}
-  let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
-  headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputToCollect
-  let commits = UTxO.toMap $ UTxO.filter (isScriptTxOut commitValidatorScript) utxoOfThisHead'
-  pure $
-    collectComTx networkId scriptRegistry ownVerificationKey headId headParameters headUTxO commits utxoToCollect
- where
-  ChainContext{networkId, ownVerificationKey, scriptRegistry} = ctx
-
 data IncrementTxError
-  = InvalidHeadIdInIncrement {headId :: HeadId}
+  = InvalidHeadSeedInIncrement {headSeed :: HeadSeed}
+  | InvalidHeadIdInIncrement {headId :: HeadId}
   | CannotFindHeadOutputInIncrement
   | CannotFindDepositOutputInIncrement {depositTxId :: TxId}
   | SnapshotMissingIncrementUTxO
@@ -410,7 +229,7 @@ increment ::
   ChainContext ->
   -- | Spendable UTxO containing head and deposit outputs
   UTxO ->
-  HeadId ->
+  (HeadSeed, HeadId) ->
   HeadParameters ->
   -- | Snapshot to increment with.
   ConfirmedSnapshot Tx ->
@@ -419,7 +238,8 @@ increment ::
   -- | Valid until, must be before deadline.
   SlotNo ->
   Either IncrementTxError Tx
-increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperValiditySlot = do
+increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot depositTxId upperValiditySlot = do
+  seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInIncrement{headSeed}
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInIncrement
@@ -436,7 +256,18 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
     Just deposit
       | UTxO.null deposit ->
           Left SnapshotIncrementUTxOIsNull
-      | otherwise -> Right $ incrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn (UTxO.singleton depositedIn depositedOut) upperValiditySlot sigs
+      | otherwise ->
+          Right $
+            incrementTx
+              scriptRegistry
+              ownVerificationKey
+              (seedTxIn, headId)
+              headParameters
+              headUTxO
+              sn
+              (UTxO.singleton depositedIn depositedOut)
+              upperValiditySlot
+              sigs
  where
   Snapshot{utxoToCommit} = sn
 
@@ -449,7 +280,8 @@ increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTx
 
 -- | Possible errors when trying to construct decrement tx
 data DecrementTxError
-  = InvalidHeadIdInDecrement {headId :: HeadId}
+  = InvalidHeadSeedInDecrement {headSeed :: HeadSeed}
+  | InvalidHeadIdInDecrement {headId :: HeadId}
   | CannotFindHeadOutputInDecrement
   | DecrementValueNegative
   | SnapshotDecrementUTxOIsNull
@@ -461,19 +293,28 @@ decrement ::
   ChainContext ->
   -- | Spendable UTxO containing head, initial and commit outputs
   UTxO ->
-  HeadId ->
+  (HeadSeed, HeadId) ->
   HeadParameters ->
   -- | Snapshot to decrement with.
   ConfirmedSnapshot Tx ->
   Either DecrementTxError Tx
-decrement ctx spendableUTxO headId headParameters decrementingSnapshot = do
+decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapshot = do
+  seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInDecrement{headSeed}
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
   headUTxO@(_, headOut) <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInDecrement
   let balance = txOutValue headOut <> negateValue decommitValue
   when (isNegative balance) $
     Left DecrementValueNegative
-  Right $ decrementTx scriptRegistry ownVerificationKey headId headParameters headUTxO sn sigs
+  Right $
+    decrementTx
+      scriptRegistry
+      ownVerificationKey
+      (seedTxIn, headId)
+      headParameters
+      headUTxO
+      sn
+      sigs
  where
   decommitValue = UTxO.totalValue $ fromMaybe mempty $ utxoToDecommit sn
 
@@ -713,104 +554,23 @@ observeInit ::
   ChainContext ->
   [VerificationKey PaymentKey] ->
   Tx ->
-  Either NotAnInitReason (OnChainTx Tx, InitialState)
+  Either NotAnInitReason (OnChainTx Tx, OpenState)
 observeInit _ctx _allVerificationKeys tx = do
   observation <- observeInitTx tx
   headOut <- head <$> nonEmpty (txOuts' tx) ?> NoHeadOutput
-  let initialThreadUTxO = (mkTxIn tx 0, toCtxUTxOTxOut headOut)
-  pure (toEvent observation, toState initialThreadUTxO observation)
+  let headUTxO = UTxO.singleton (mkTxIn tx 0) (toCtxUTxOTxOut headOut)
+  pure (toEvent observation, toState headUTxO observation)
  where
   toEvent :: InitObservation -> OnChainTx Tx
   toEvent InitObservation{headParameters, headId, headSeed, participants} =
     OnInitTx{headId, headSeed, headParameters, participants}
 
-  toState initialThreadUTxO InitObservation{headParameters, headId, headSeed} =
-    InitialState
-      { initialThreadOutput =
-          InitialThreadOutput
-            { initialThreadUTxO
-            , initialParties = partyToChain <$> headParameters.parties
-            , initialContestationPeriod = toChain headParameters.contestationPeriod
-            }
-      , initialInitials = initials
-      , initialCommits = mempty
+  toState openUTxO InitObservation{headId, headSeed} =
+    OpenState
+      { openUTxO
       , headId
       , seedTxIn = fromJust $ headSeedToTxIn headSeed
       }
-
-  indexedOutputs = zip [0 ..] (txOuts' tx)
-
-  initialOutputs = filter (isInitial . snd) indexedOutputs
-
-  initials =
-    map
-      (bimap (mkTxIn tx) toCtxUTxOTxOut)
-      initialOutputs
-
-  isInitial :: TxOut era -> Bool
-  isInitial = isScriptTxOut initialValidatorScript
-
--- ** InitialState transitions
-
--- | Observe an commit transition using a 'InitialState' and 'observeCommitTx'.
--- NOTE: This function is a bit fragile as it assumes commit output on first
--- output while the underlying observeCommitTx could deal with commit outputs
--- at any index. Only use this function in tests and benchmarks.
-observeCommit ::
-  ChainContext ->
-  InitialState ->
-  Tx ->
-  Maybe (OnChainTx Tx, InitialState)
-observeCommit ctx st tx = do
-  let utxo = getKnownUTxO st
-  observation <- observeCommitTx networkId utxo tx
-  let CommitObservation{party, committed, headId = commitHeadId} = observation
-  guard $ commitHeadId == headId
-  let event = OnCommitTx{headId, party, committed}
-  let st' =
-        st
-          { initialInitials =
-              -- NOTE: A commit tx has been observed and thus we can
-              -- remove all it's inputs from our tracked initials
-              filter ((`notElem` txIns' tx) . fst) initialInitials
-          , initialCommits =
-              (mkTxIn tx 0, toCtxUTxOTxOut $ List.head (txOuts' tx)) : initialCommits
-          }
-  pure (event, st')
- where
-  ChainContext{networkId} = ctx
-
-  InitialState
-    { initialCommits
-    , initialInitials
-    , headId
-    } = st
-
--- | Observe an collect transition using a 'InitialState' and 'observeCollectComTx'.
--- This function checks the head id and ignores if not relevant.
-observeCollect ::
-  InitialState ->
-  Tx ->
-  Maybe (OnChainTx Tx, OpenState)
-observeCollect st tx = do
-  let utxo = getKnownUTxO st
-  observation <- observeCollectComTx utxo tx
-  let CollectComObservation{headId = collectComHeadId, utxoHash} = observation
-  guard (headId == collectComHeadId)
-  let event = OnCollectComTx{headId}
-  let st' =
-        OpenState
-          { openUTxO = adjustUTxO tx utxo
-          , headId
-          , seedTxIn
-          , openUtxoHash = utxoHash
-          }
-  pure (event, st')
- where
-  InitialState
-    { headId
-    , seedTxIn
-    } = st
 
 -- ** OpenState transitions
 
@@ -881,37 +641,12 @@ ctxHeadParameters ctx@HydraContext{ctxContestationPeriod} =
 
 -- ** Danger zone
 
-unsafeCommit ::
-  HasCallStack =>
-  ChainContext ->
-  HeadId ->
-  -- | Spendable 'UTxO'
-  UTxO ->
-  -- | 'UTxO' to commit. All outputs are assumed to be owned by public keys.
-  UTxO ->
-  Tx
-unsafeCommit ctx headId spendableUTxO utxoToCommit =
-  either (error . show) id $ commit ctx headId spendableUTxO utxoToCommit
-
-unsafeAbort ::
-  HasCallStack =>
-  ChainContext ->
-  -- | Seed TxIn
-  TxIn ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  -- | Committed UTxOs to reimburse.
-  UTxO ->
-  Tx
-unsafeAbort ctx seedTxIn spendableUTxO committedUTxO =
-  either (error . show) id $ abort ctx seedTxIn spendableUTxO committedUTxO
-
 unsafeIncrement ::
   HasCallStack =>
   ChainContext ->
   -- | Spendable 'UTxO'
   UTxO ->
-  HeadId ->
+  (HeadSeed, HeadId) ->
   HeadParameters ->
   ConfirmedSnapshot Tx ->
   TxId ->
@@ -925,7 +660,7 @@ unsafeDecrement ::
   ChainContext ->
   -- | Spendable 'UTxO'
   UTxO ->
-  HeadId ->
+  (HeadSeed, HeadId) ->
   HeadParameters ->
   ConfirmedSnapshot Tx ->
   Tx
@@ -947,19 +682,6 @@ unsafeClose ::
   Tx
 unsafeClose ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime =
   either (error . show) id $ close ctx spendableUTxO headId headParameters openVersion confirmedSnapshot startSlotNo pointInTime
-
-unsafeCollect ::
-  ChainContext ->
-  HeadId ->
-  HeadParameters ->
-  -- | UTxO to be used to collect.
-  -- Should match whatever is recorded in the commit inputs.
-  UTxO ->
-  -- | Spendable UTxO containing head, initial and commit outputs
-  UTxO ->
-  Tx
-unsafeCollect ctx headId headParameters utxoToCollect spendableUTxO =
-  either (error . show) id $ collect ctx headId headParameters utxoToCollect spendableUTxO
 
 -- | Unsafe version of 'contest' that throws an error if the transaction fails to build.
 unsafeContest ::
@@ -1000,31 +722,8 @@ unsafeObserveInit ::
   ChainContext ->
   [VerificationKey PaymentKey] ->
   Tx ->
-  InitialState
+  OpenState
 unsafeObserveInit cctx txInit allVerificationKeys =
   case observeInit cctx txInit allVerificationKeys of
     Left err -> error $ "Did not observe an init tx: " <> show err
     Right st -> snd st
-
--- REVIEW: Maybe it would be more convenient if 'unsafeObserveInitAndCommits'
--- returns just 'UTXO' instead of [UTxO]
-unsafeObserveInitAndCommits ::
-  HasCallStack =>
-  ChainContext ->
-  [VerificationKey PaymentKey] ->
-  Tx ->
-  [Tx] ->
-  ([UTxO], InitialState)
-unsafeObserveInitAndCommits ctx allVerificationKeys txInit commits =
-  (utxo, stInitial')
- where
-  stInitial = unsafeObserveInit ctx allVerificationKeys txInit
-
-  (utxo, stInitial') = flip runState stInitial $ do
-    forM commits $ \txCommit -> do
-      st <- get
-      let (event, st') = fromJust $ observeCommit ctx st txCommit
-      put st'
-      pure $ case event of
-        OnCommitTx{committed} -> committed
-        _ -> mempty

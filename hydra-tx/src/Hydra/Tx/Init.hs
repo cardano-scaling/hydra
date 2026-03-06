@@ -7,17 +7,16 @@ import GHC.IsList (toList)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Contract.Initial qualified as Initial
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
-import Hydra.Plutus (initialValidatorScript)
+import Hydra.Tx (hashUTxO)
 import Hydra.Tx.ContestationPeriod (fromChain, toChain)
 import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
-import PlutusLedgerApi.Common (FromData)
+import PlutusLedgerApi.Common (FromData, toBuiltin)
 
 -- * Construction
 
@@ -35,49 +34,46 @@ initTx networkId seedTxIn participants parameters =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxInsSpending [seedTxIn]
-      & addTxOuts
-        ( mkHeadOutputInitial networkId seedTxIn parameters
-            : map (mkInitialOutput networkId seedTxIn) participants
-        )
+      & addTxOuts [openHeadOutput]
       & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint (fromList $ (hydraHeadV1AssetName, 1) : participationTokens)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "InitTx")
  where
   participationTokens =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
 
-mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
-mkHeadOutput networkId tokenPolicyId datum =
+  openHeadOutput = mkHeadOutput networkId tokenPolicyId participants openHeadDatum
+
+  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
+
+  openHeadDatum =
+    mkTxOutDatumInline $
+      Head.Open
+        Head.OpenDatum
+          { headSeed = toPlutusTxOutRef seedTxIn
+          , headId = toPlutusCurrencySymbol tokenPolicyId
+          , parties = map partyToChain parties
+          , contestationPeriod = toChain contestationPeriod
+          , version = 0
+          , utxoHash = toBuiltin $ hashUTxO @Tx mempty
+          }
+
+  HeadParameters{contestationPeriod, parties} = parameters
+
+mkHeadOutput :: NetworkId -> PolicyId -> [OnChainId] -> TxOutDatum ctx -> TxOut ctx
+mkHeadOutput networkId tokenPolicyId participants datum =
   TxOut
     (mkScriptAddress networkId Head.validatorScript)
-    (fromList [(AssetId tokenPolicyId hydraHeadV1AssetName, 1)])
+    (fromList $ st : pts)
     datum
     ReferenceScriptNone
-
-mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
-mkHeadOutputInitial networkId seedTxIn HeadParameters{contestationPeriod, parties} =
-  mkHeadOutput networkId tokenPolicyId headDatum
  where
-  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
-  headDatum =
-    mkTxOutDatumInline $
-      Head.Initial
-        { contestationPeriod = toChain contestationPeriod
-        , parties = map partyToChain parties
-        , headId = toPlutusCurrencySymbol tokenPolicyId
-        , seed = toPlutusTxOutRef seedTxIn
-        }
+  st = (AssetId tokenPolicyId hydraHeadV1AssetName, 1)
 
-mkInitialOutput :: NetworkId -> TxIn -> OnChainId -> TxOut CtxTx
-mkInitialOutput networkId seedTxIn participant =
-  TxOut initialAddress initialValue initialDatum ReferenceScriptNone
- where
-  tokenPolicyId = HeadTokens.headPolicyId seedTxIn
-  initialValue =
-    fromList [(AssetId tokenPolicyId (onChainIdToAssetName participant), 1)]
-  initialAddress =
-    mkScriptAddress networkId initialValidatorScript
-  initialDatum =
-    mkTxOutDatumInline $ Initial.datum (toPlutusCurrencySymbol tokenPolicyId)
+  pts =
+    [ (AssetId tokenPolicyId an, 1)
+    | oid <- participants
+    , let an = onChainIdToAssetName oid
+    ]
 
 -- * Observation
 
@@ -110,9 +106,9 @@ observeInitTx tx = do
 
   -- check that we have a proper head
   (pid, contestationPeriod, onChainParties, seedTxIn) <- case headState of
-    (Head.Initial cp ps cid outRef) -> do
-      pid <- fromPlutusCurrencySymbol cid ?> NotAHeadPolicy
-      pure (pid, fromChain cp, ps, fromPlutusTxOutRef outRef)
+    Head.Open Head.OpenDatum{headSeed, headId, parties, contestationPeriod} -> do
+      pid <- fromPlutusCurrencySymbol headId ?> NotAHeadPolicy
+      pure (pid, fromChain contestationPeriod, parties, fromPlutusTxOutRef headSeed)
     _ -> Left NotAHeadDatum
 
   let stQuantity = selectAsset (txOutValue headOut) (AssetId pid hydraHeadV1AssetName)

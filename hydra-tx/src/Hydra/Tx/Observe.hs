@@ -5,9 +5,6 @@
 module Hydra.Tx.Observe (
   module Hydra.Tx.Observe,
   module Hydra.Tx.Init,
-  module Hydra.Tx.Abort,
-  module Hydra.Tx.Commit,
-  module Hydra.Tx.CollectCom,
   module Hydra.Tx.Decrement,
   module Hydra.Tx.Deposit,
   module Hydra.Tx.Increment,
@@ -26,10 +23,7 @@ import Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withOb
 import Data.Aeson qualified as Aeson (Value)
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (key, _Object, _String)
-import Hydra.Tx.Abort (AbortObservation (..), observeAbortTx)
 import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
-import Hydra.Tx.CollectCom (CollectComObservation (..), observeCollectComTx)
-import Hydra.Tx.Commit (CommitObservation (..), observeCommitTx)
 import Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
 import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
@@ -44,9 +38,6 @@ import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 data HeadObservation
   = NoHeadTx
   | Init InitObservation
-  | Abort AbortObservation
-  | Commit CommitObservation
-  | CollectCom CollectComObservation
   | Deposit DepositObservation
   | Recover RecoverObservation
   | Increment IncrementObservation
@@ -76,9 +67,6 @@ instance FromJSON HeadObservation where
     case tag :: Text of
       "NoHeadTx" -> pure NoHeadTx
       "Init" -> Init <$> parseJSON (Object o)
-      "Abort" -> Abort <$> parseJSON (Object o)
-      "Commit" -> Commit <$> parseJSON (Object o)
-      "CollectCom" -> CollectCom <$> parseJSON (Object o)
       "Deposit" -> Deposit <$> parseJSON (Object o)
       "Recover" -> Recover <$> parseJSON (Object o)
       "Increment" -> Increment <$> parseJSON (Object o)
@@ -99,12 +87,9 @@ observeHeadTx networkId utxo tx =
     -- NOTE: Never make an observation on invalid transactions.
     guard txIsValid
     either (const Nothing) (Just . Init) (observeInitTx tx)
-      <|> Abort <$> observeAbortTx utxo tx
-      <|> Commit <$> observeCommitTx networkId utxo tx
-      <|> CollectCom <$> observeCollectComTx utxo tx
       <|> Deposit <$> observeDepositTx networkId tx
       <|> Recover <$> observeRecoverTx networkId utxo tx
-      <|> Increment <$> observeIncrementTx utxo tx
+      <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx

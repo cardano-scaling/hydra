@@ -104,6 +104,7 @@ healthyInitialOpenDatum =
       { parties = healthyOnChainParties
       , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
       , contestationPeriod = healthyContestationPeriod
+      , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0
       }

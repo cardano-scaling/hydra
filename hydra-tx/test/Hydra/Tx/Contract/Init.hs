@@ -11,15 +11,16 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadState (State (..))
+import Hydra.Contract.HeadState (OpenDatum (..), State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
+import Hydra.Plutus.Orphans ()
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
-import PlutusLedgerApi.Test.Examples qualified as Plutus
+import Hydra.Tx.Utils (hydraHeadV1AssetName)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor, genValue)
+import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -28,7 +29,7 @@ import Test.Hydra.Tx.Mutation (
   modifyInlineDatum,
   replaceHeadId,
  )
-import Test.QuickCheck (choose, elements, oneof, suchThat, vectorOf)
+import Test.QuickCheck (oneof, suchThat, vectorOf)
 import Prelude qualified
 
 --
@@ -74,11 +75,9 @@ data InitMutation
   = -- | Mint more than one ST and PTs.
     MintTooManyTokens
   | MutateAddAnotherPT
-  | MutateDropInitialOutput
   | MutateDropSeedInput
-  | MutateInitialOutputValue
+  | RemovePTsFromHead
   | MutateHeadIdInDatum
-  | MutateHeadIdInInitialDatum
   | MutateSeedInDatum
   deriving stock (Generic, Show, Enum, Bounded)
 
@@ -91,56 +90,24 @@ genInitMutation (tx, _utxo) =
   oneof
     [ SomeMutation (pure $ toErrorCode WrongNumberOfTokensMinted) MintTooManyTokens <$> changeMintedValueQuantityFrom tx 1
     , SomeMutation (pure $ toErrorCode WrongNumberOfTokensMinted) MutateAddAnotherPT <$> addPTWithQuantity tx 1
-    , SomeMutation (pure $ toErrorCode NoPT) MutateInitialOutputValue <$> do
-        let outs = txOuts' tx
-        (ix :: Int, out) <- elements (drop 1 $ zip [0 ..] outs)
-        value' <- genValue `suchThat` (/= txOutValue out)
-        pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , SomeMutation (pure $ toErrorCode WrongNumberOfInitialOutputs) MutateDropInitialOutput <$> do
-        ix <- choose (1, length (txOuts' tx) - 1)
-        pure $ RemoveOutput (fromIntegral ix)
+    , SomeMutation (pure $ toErrorCode MissingPTs) RemovePTsFromHead <$> do
+        pure $ ChangeOutput 0 (modifyTxOutValue (filterValue $ not . isPT) headTxOut)
     , SomeMutation (pure $ toErrorCode SeedNotSpent) MutateDropSeedInput <$> do
         pure $ RemoveInput healthySeedInput
     , SomeMutation (pure $ toErrorCode WrongDatum) MutateHeadIdInDatum <$> do
         mutatedHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId mutatedHeadId) headTxOut
-    , SomeMutation (pure $ toErrorCode WrongInitialDatum) MutateHeadIdInInitialDatum <$> do
-        let outs = txOuts' tx
-        (ix, out) <- elements (drop 1 $ zip [0 ..] outs)
-        elements
-          [ changeInitialOutputToFakeId ix out
-          , removeInitialOutputDatum ix out
-          , changeInitialOutputToNotAHeadId ix out
-          ]
     , SomeMutation (pure $ toErrorCode WrongDatum) MutateSeedInDatum <$> do
         mutatedSeed <- toPlutusTxOutRef <$> arbitrary `suchThat` (/= testSeedInput)
         pure $
           ChangeOutput 0 $
             flip modifyInlineDatum headTxOut $ \case
-              Initial{contestationPeriod, parties, headId} ->
-                Initial{contestationPeriod, parties, headId, seed = mutatedSeed}
+              Open od -> Open od{headSeed = mutatedSeed}
               s -> s
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
-  alwaysSucceedsV2 = PlutusScriptSerialised $ Plutus.alwaysSucceedingNAryFunction 2
-  fakePolicyId = scriptPolicyId $ PlutusScript alwaysSucceedsV2
 
-  changeInitialOutputToFakeId :: Word -> TxOut CtxTx -> Mutation
-  changeInitialOutputToFakeId ix out =
-    ChangeOutput ix $
-      modifyTxOutDatum
-        ( const $
-            TxOutDatumInline $
-              toScriptData $
-                toPlutusCurrencySymbol fakePolicyId
-        )
-        out
-
-  removeInitialOutputDatum :: Word -> TxOut CtxTx -> Mutation
-  removeInitialOutputDatum ix out =
-    ChangeOutput ix $ modifyTxOutDatum (const TxOutDatumNone) out
-
-  changeInitialOutputToNotAHeadId :: Word -> TxOut CtxTx -> Mutation
-  changeInitialOutputToNotAHeadId ix out =
-    ChangeOutput ix $ modifyTxOutDatum (const $ TxOutDatumInline $ toScriptData (42 :: Integer)) out
+  isPT = \case
+    (AssetId _ an) -> an /= hydraHeadV1AssetName
+    _ -> False
