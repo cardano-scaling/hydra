@@ -12,7 +12,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
-import Hydra.Plutus (commitValidatorScript, depositValidatorScript, initialValidatorScript)
+import Hydra.Plutus (depositValidatorScript)
 import PlutusLedgerApi.V3 (TxId (..), TxOutRef (..), toBuiltin)
 
 -- | Information about relevant Hydra scripts.
@@ -21,10 +21,6 @@ data HydraScriptCatalogue = HydraScriptCatalogue
   -- ^ Hash of the μHead minting script given some default parameters.
   , mintingScriptSize :: Int
   -- ^ Size of the μHead minting script given some default parameters.
-  , initialScriptHash :: ScriptHash
-  , initialScriptSize :: Int
-  , commitScriptHash :: ScriptHash
-  , commitScriptSize :: Int
   , headScriptHash :: ScriptHash
   , headScriptSize :: Int
   , depositScriptHash :: ScriptHash
@@ -40,10 +36,6 @@ hydraScriptCatalogue =
   HydraScriptCatalogue
     { mintingScriptHash = scriptHash $ HeadTokens.mintingPolicyScript defaultOutRef
     , mintingScriptSize = scriptSize $ HeadTokens.mintingPolicyScript defaultOutRef
-    , initialScriptHash = scriptHash initialValidatorScript
-    , initialScriptSize = scriptSize initialValidatorScript
-    , commitScriptHash = scriptHash commitValidatorScript
-    , commitScriptSize = scriptSize commitValidatorScript
     , headScriptHash = scriptHash Head.validatorScript
     , headScriptSize = scriptSize Head.validatorScript
     , depositScriptHash = scriptHash depositValidatorScript

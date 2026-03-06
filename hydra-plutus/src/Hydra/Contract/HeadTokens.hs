@@ -30,7 +30,6 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST, hydraHeadV1, scriptOutputsAt)
-import Hydra.Plutus (initialValidatorScript)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
@@ -54,14 +53,13 @@ import PlutusTx.Foldable (length)
 
 validate ::
   ScriptHash ->
-  ScriptHash ->
   TxOutRef ->
   MintAction ->
   ScriptContext ->
   Bool
-validate initialValidator headValidator seedInput action context =
+validate headValidator seedInput action context =
   case action of
-    Mint -> validateTokensMinting initialValidator headValidator seedInput context
+    Mint -> validateTokensMinting headValidator seedInput context
     Burn -> validateTokensBurning context
 {-# INLINEABLE validate #-}
 
@@ -75,8 +73,8 @@ validate initialValidator headValidator seedInput action context =
 --
 -- * Ensure out-ref and the headId are in the datum of the first output of the
 --   transaction which mints tokens.
-validateTokensMinting :: ScriptHash -> ScriptHash -> TxOutRef -> ScriptContext -> Bool
-validateTokensMinting initialValidator headValidator seedInput context =
+validateTokensMinting :: ScriptHash -> TxOutRef -> ScriptContext -> Bool
+validateTokensMinting headValidator seedInput context =
   seedInputIsConsumed
     && checkNumberOfTokens
     && singleSTIsPaidToTheHead
@@ -163,8 +161,7 @@ validateTokensBurning context =
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
 unappliedMintingPolicy =
-  $$(PlutusTx.compile [||\vInitial vHead ref -> wrapMintingPolicy (validate vInitial vHead ref)||])
-    `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash initialValidatorScript)
+  $$(PlutusTx.compile [||\vHead ref -> wrapMintingPolicy (validate vHead ref)||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Head.validatorScript)
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
