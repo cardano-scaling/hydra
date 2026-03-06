@@ -11,8 +11,9 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadState (State (..))
+import Hydra.Contract.HeadState (OpenDatum (..), State (..))
 import Hydra.Contract.HeadTokensError (HeadTokensError (..))
+import Hydra.Plutus.Orphans ()
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
@@ -117,8 +118,7 @@ genInitMutation (tx, _utxo) =
         pure $
           ChangeOutput 0 $
             flip modifyInlineDatum headTxOut $ \case
-              Initial{contestationPeriod, parties, headId} ->
-                Initial{contestationPeriod, parties, headId, seed = mutatedSeed}
+              Open od -> Open od{headSeed = mutatedSeed}
               s -> s
     ]
  where

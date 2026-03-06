@@ -25,19 +25,21 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
 import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
 import Hydra.Tx.Close (CloseObservation)
-import Hydra.Tx.CollectCom
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
-import Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
+import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
+import Hydra.Tx.Utils (hydraHeadV1AssetName)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)
+import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 import Test.QuickCheck.Gen (chooseWord64)
@@ -374,18 +376,6 @@ instance Arbitrary InitObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-instance Arbitrary AbortObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary CommitObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary CollectComObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
 instance Arbitrary DepositObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
@@ -586,5 +576,17 @@ instance Arbitrary SnapshotVersion where
 instance Arbitrary ChainSlot where
   arbitrary = genericArbitrary
 
-instance Arbitrary UTxOHash where
-  arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
+-- | Generates value such that:
+-- - alters between policy id we use in test fixtures with a random one.
+-- - mixing arbitrary token names with 'hydraHeadV1AssetName'
+-- - excluding 0 for quantity to mimic minting/burning
+genMintedOrBurnedValue :: Gen Value
+genMintedOrBurnedValue = do
+  policyId <-
+    oneof
+      [ headPolicyId <$> arbitrary
+      , pure Fixture.testPolicyId
+      ]
+  tokenName <- oneof [arbitrary, pure hydraHeadV1AssetName]
+  quantity <- arbitrary `suchThat` (/= 0)
+  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]

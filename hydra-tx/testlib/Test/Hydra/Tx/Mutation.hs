@@ -717,10 +717,11 @@ replacePolicyInValue original replacement =
 
 replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
 replaceSnapshotVersion snapshotVersion = \case
-  Head.Open Head.OpenDatum{parties, utxoHash, headId, contestationPeriod} ->
+  Head.Open Head.OpenDatum{headSeed, parties, utxoHash, headId, contestationPeriod} ->
     Head.Open
       Head.OpenDatum
-        { Head.parties = parties
+        { Head.headSeed = headSeed
+        , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -762,17 +763,11 @@ replaceSnapshotNumber snapshotNumber = \case
 
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
-  Head.Initial{contestationPeriod, headId, seed} ->
-    Head.Initial
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.headId = headId
-      , Head.seed = seed
-      }
-  Head.Open Head.OpenDatum{contestationPeriod, utxoHash, headId, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, headId, version} ->
     Head.Open
       Head.OpenDatum
-        { Head.contestationPeriod = contestationPeriod
+        { Head.headSeed = headSeed
+        , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.headId = headId
@@ -796,10 +791,11 @@ replaceParties parties = \case
 
 replaceUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceUTxOHash utxoHash = \case
-  Head.Open Head.OpenDatum{contestationPeriod, parties, headId, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, headId, version} ->
     Head.Open
       Head.OpenDatum
-        { Head.contestationPeriod = contestationPeriod
+        { Head.headSeed = headSeed
+        , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.headId = headId
@@ -877,17 +873,11 @@ replaceContestationPeriod contestationPeriod = \case
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
 replaceHeadId headId = \case
-  Head.Initial{contestationPeriod, parties, seed} ->
-    Head.Initial
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.headId = headId
-      , Head.seed = seed
-      }
-  Head.Open Head.OpenDatum{contestationPeriod, utxoHash, parties, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, parties, version} ->
     Head.Open
       Head.OpenDatum
-        { Head.contestationPeriod = contestationPeriod
+        { Head.headSeed = headSeed
+        , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.headId = headId

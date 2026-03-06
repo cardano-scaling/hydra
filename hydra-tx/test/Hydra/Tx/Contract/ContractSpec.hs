@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
+-- XXX: Move this one level up to avoid weird naming?
 module Hydra.Tx.Contract.ContractSpec where
 
 import Hydra.Prelude hiding (label)
@@ -33,12 +34,9 @@ import Hydra.Tx (
   headIdToCurrencySymbol,
   partyToChain,
  )
-import Hydra.Tx.Contract.Abort (genAbortMutation, healthyAbortTx, propHasCommit, propHasInitial)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
-import Hydra.Tx.Contract.CollectCom (genCollectComMutation, healthyCollectComTx)
-import Hydra.Tx.Contract.Commit (genCommitMutation, healthyCommitTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
@@ -62,7 +60,6 @@ import Test.Hydra.Tx.Mutation (SomeMutation (..), applyMutation, propMutation)
 import Test.QuickCheck (
   Property,
   checkCoverage,
-  conjoin,
   counterexample,
   forAll,
   forAllBlind,
@@ -95,35 +92,18 @@ spec = parallel $ do
     prop "does not survive random adversarial mutations" $
       propMutation healthyInitTx genInitMutation
 
-  describe "Abort" $ do
-    prop "is healthy" $
-      conjoin
-        [ propTransactionEvaluates healthyAbortTx
-        , propHasCommit healthyAbortTx
-        , propHasInitial healthyAbortTx
-        ]
-    prop "does not survive random adversarial mutations" $
-      propMutation healthyAbortTx genAbortMutation
-  describe "Commit" $ do
-    prop "is healthy" $
-      propTransactionEvaluates healthyCommitTx
-    prop "does not survive random adversarial mutations" $
-      propMutation healthyCommitTx genCommitMutation
-  describe "CollectCom" $ do
-    prop "is healthy" $
-      propTransactionEvaluates healthyCollectComTx
-    prop "does not survive random adversarial mutations" $
-      propMutation healthyCollectComTx genCollectComMutation
   describe "Increment" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyIncrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyIncrementTx genIncrementMutation
+
   describe "Decrement" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyDecrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyDecrementTx genDecrementMutation
+
   describe "Deposit" $ do
     prop "healthy evaluates" $
       forAll genHealthyDepositTx propTransactionEvaluates
@@ -139,11 +119,13 @@ spec = parallel $ do
               & counterexample "Mutated transaction still observed"
               & genericCoverTable [label]
               & checkCoverage
+
   describe "Recover" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyRecoverTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyRecoverTx genRecoverMutation
+
   describe "CloseInitial" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseInitialTx
@@ -159,6 +141,7 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+
   describe "ContestCurrent" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
@@ -170,6 +153,7 @@ spec = parallel $ do
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestDecMutation
+
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFanoutTx
