@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-tx
-version:            1.3.0
+version:            2.0.0
 synopsis:           Hydra transaction library
 author:             IOG
 copyright:          2024 IOG
@@ -49,11 +49,8 @@ library
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Time
     Hydra.Tx
-    Hydra.Tx.Abort
     Hydra.Tx.BlueprintTx
     Hydra.Tx.Close
-    Hydra.Tx.CollectCom
-    Hydra.Tx.Commit
     Hydra.Tx.Contest
     Hydra.Tx.ContestationPeriod
     Hydra.Tx.Crypto
@@ -166,13 +163,10 @@ test-suite tests
   main-is:            Main.hs
   other-modules:
     Hydra.Tx.ContestationPeriodSpec
-    Hydra.Tx.Contract.Abort
     Hydra.Tx.Contract.Close.CloseInitial
     Hydra.Tx.Contract.Close.CloseUnused
     Hydra.Tx.Contract.Close.CloseUsed
     Hydra.Tx.Contract.Close.Healthy
-    Hydra.Tx.Contract.CollectCom
-    Hydra.Tx.Contract.Commit
     Hydra.Tx.Contract.Contest.ContestCurrent
     Hydra.Tx.Contract.Contest.ContestDec
     Hydra.Tx.Contract.Contest.Healthy
@@ -200,7 +194,6 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-core
-    , containers
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson

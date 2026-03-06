@@ -32,8 +32,8 @@ incrementTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | Head identifier
-  HeadId ->
+  -- | Head seed and identifier
+  (TxIn, HeadId) ->
   -- | Parameters of the head.
   HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
@@ -45,7 +45,7 @@ incrementTx ::
   SlotNo ->
   MultiSignature (Snapshot Tx) ->
   Tx
-incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
+incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
@@ -84,7 +84,8 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     mkTxOutDatumInline $
       Head.Open
         Head.OpenDatum
-          { Head.parties = partyToChain <$> parties
+          { headSeed = toPlutusTxOutRef seedTxIn
+          , Head.parties = partyToChain <$> parties
           , utxoHash
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId

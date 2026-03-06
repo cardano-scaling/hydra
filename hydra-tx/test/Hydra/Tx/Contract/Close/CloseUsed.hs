@@ -45,7 +45,6 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthySplitUTxOToDecommit,
   somePartyCardanoVerificationKey,
  )
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..), fromMilliSeconds)
@@ -54,6 +53,7 @@ import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
+  genMintedOrBurnedValue,
   genScriptRegistry,
   genValue,
   genVerificationKey,
@@ -103,6 +103,7 @@ healthyOutdatedOpenDatum =
       { parties = healthyOnChainParties
       , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
       , contestationPeriod = healthyContestationPeriod
+      , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyOpenStateVersion
       }

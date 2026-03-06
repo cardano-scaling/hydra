@@ -19,7 +19,6 @@ import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx.Contract.Commit (genMintedOrBurnedValue)
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
@@ -46,6 +45,7 @@ import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
+  genMintedOrBurnedValue,
   genValue,
   genVerificationKey,
  )

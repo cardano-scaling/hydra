@@ -35,7 +35,7 @@ import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V2 qualified as Plutus
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -61,7 +61,7 @@ healthyIncrementTx =
     incrementTx
       scriptRegistry
       somePartyCardanoVerificationKey
-      (mkHeadId testPolicyId)
+      (testSeedInput, mkHeadId testPolicyId)
       parameters
       (headInput, headOutput)
       healthySnapshot
@@ -147,6 +147,7 @@ healthyDatum =
       { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
       , parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
+      , headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , version = toInteger healthySnapshotVersion
       }

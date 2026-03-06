@@ -29,8 +29,8 @@ decrementTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | Head identifier
-  HeadId ->
+  -- | Head seed and identifier
+  (TxIn, HeadId) ->
   -- | Parameters of the head.
   HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
@@ -39,7 +39,7 @@ decrementTx ::
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
+decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot signatures =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
@@ -82,7 +82,8 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     mkTxOutDatumInline $
       Head.Open
         Head.OpenDatum
-          { Head.parties = partyToChain <$> parties
+          { headSeed = toPlutusTxOutRef seedTxIn
+          , Head.parties = partyToChain <$> parties
           , utxoHash
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
