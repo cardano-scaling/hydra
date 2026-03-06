@@ -106,8 +106,15 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber,
 -- | Maximum number of transaction ids per snapshot. This effectively limits our
 -- "block size" and ensures it does not grow arbitrarily with the backlog of
 -- pending transactions (localTxs).
+--
+-- Overflow transactions (those beyond this limit) are NOT dropped — they
+-- survive in 'localTxs' after 'SnapshotRequested' (via 'pruneTransactions')
+-- and are automatically batched into the next snapshot when the timer fires.
+-- Raising this value increases the number of txs confirmed per snapshot round
+-- at the cost of larger messages and longer ledger validation per round.
+--
 -- TODO: Investigate what a good value is for this, in relation to memory
--- usage
+-- usage and ledger validation throughput.
 maxTxsPerSnapshot :: Int
 maxTxsPerSnapshot = 100
 
@@ -419,6 +426,9 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
     -- Stale or duplicate ReqSn (already signed or already seen this snapshot).
     -- Drop silently — the leader's timer will resend if needed.
     | sn < seenSn + 1 = noop
+    -- Any snapshot is currently in-flight (SeenSnapshot/RequestedSnapshot).
+    -- Drop silently — the leader's timer will retry when the snapshot confirms.
+    | snapshotInFlight seenSnapshot sn = noop
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -1078,8 +1088,10 @@ snapshotInFlight :: SeenSnapshot tx -> SnapshotNumber -> Bool
 snapshotInFlight seenSnapshot sn = case seenSnapshot of
   NoSeenSnapshot -> False
   LastSeenSnapshot{lastSeen} -> sn <= lastSeen
-  -- Block ALL snapshot requests when one is in-flight to maintain sequential processing
-  RequestedSnapshot{} -> True
+  -- `RequestedSnapshot{requested}` means we (the leader) just sent ReqSn for
+  -- `requested`. Allow the same sn through so the leader can sign its own
+  -- broadcast; block any different snapshot number.
+  RequestedSnapshot{requested} -> sn /= requested
   SeenSnapshot{} -> True
 
 -- | Get the last confirmed snapshot number.
@@ -1556,7 +1568,12 @@ onOpenTimer Environment{party} pendingDeposits st =
  where
   chs = st.coordinatedHeadState
   confSn = number $ getSnapshot chs.confirmedSnapshot
-  nextSn = confSn + 1
+  -- Use the max of the confirmed snapshot number and the latest seen snapshot
+  -- number. These can diverge when e.g. a 'DecommitFinalized' resets
+  -- 'seenSnapshot' to 'LastSeenSnapshot{lastSeen = requested}' while
+  -- 'confirmedSnapshot' is still behind. Without the max, 'nextSn' would be
+  -- too small and 'snapshotInFlight' would (incorrectly) block it.
+  nextSn = max confSn (latestSeenSnapshotNumber chs.seenSnapshot) + 1
   hasWork =
     not (null chs.localTxs)
       || isJust chs.decommitTx
@@ -2077,6 +2094,13 @@ aggregate st = \case
         Snapshot{number} = snapshot
       _otherState -> st
   LocalStateCleared{snapshotNumber} ->
+    -- NOTE: This event is only emitted by 'onOpenClientSideLoadSnapshot' (the
+    -- snapshot sideloading path), NOT by the normal 'onAckSn' confirmation
+    -- flow. When a client explicitly sideloads a snapshot it is requesting a
+    -- specific UTxO state, so resetting 'localTxs', 'allTxs', and 'localUTxO'
+    -- to that snapshot is intentional. In the normal protocol flow
+    -- 'SnapshotConfirmed' leaves those fields untouched, so overflow
+    -- transactions naturally carry forward into the next snapshot.
     case st of
       Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
         Open

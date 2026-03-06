@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, latestSeenSnapshotNumber, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (OpenState), Outcome, SeenSnapshot (..), aggregateState, coordinatedHeadState, isLeader, latestSeenSnapshotNumber, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
@@ -82,7 +82,8 @@ spec = do
         let tx = aValidTx 1
             s0 = inOpenState' [alice, bob] coordinatedHeadState
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
-        let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
+        let s1 = aggregateState s0 $ update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
+            outcome = update (envFor aliceSk) simpleLedger now s1 TimerInput
 
         outcome
           `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
@@ -120,6 +121,7 @@ spec = do
 
         actualState <- runHeadLogic (envFor aliceSk) simpleLedger st $ do
           step $ receiveMessage $ ReqTx tx
+          step TimerInput
           getState
         actualState `shouldBe` st'
 
@@ -223,7 +225,8 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         }
     s0 = inOpenState' [alice] st
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
-  let outcome = update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
+  let s1 = aggregateState s0 $ update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
+      outcome = update aliceEnv simpleLedger now s1 TimerInput
       Snapshot{number = confirmedSn} = getSnapshot sn
       -- NOTE: nextSn uses max to handle cases where seenSnapshot is ahead of confirmedSnapshot
       seenSn = latestSeenSnapshotNumber seenSnapshot
