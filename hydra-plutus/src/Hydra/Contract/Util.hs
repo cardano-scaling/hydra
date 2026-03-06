@@ -32,6 +32,7 @@ import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
 import PlutusTx.Prelude
 
+-- TODO: Bump this to V2?
 hydraHeadV1 :: BuiltinByteString
 hydraHeadV1 = stringToBuiltinByteString "HydraHeadV1"
 {-# INLINEABLE hydraHeadV1 #-}
