@@ -1546,14 +1546,19 @@ onOpenTimer ::
 onOpenTimer Environment{party} pendingDeposits st =
   if isLeader st.parameters party nextSn
     then case chs.seenSnapshot of
-      -- Re-send: previous ReqSn was likely rejected due to version mismatch
-      -- (DecommitFinalized/CommitFinalized bumped the version after we sent it).
-      RequestedSnapshot{} ->
-        sendReqSn chs.version nextSn chs.localTxs decommitToInclude depositToInclude
+      -- Do nothing: we just sent ReqSn and are waiting for our own network echo
+      -- to arrive so we can sign it. The echo is imminent; re-sending here would
+      -- use stale state (e.g. currentDepositTxId is not yet set before the echo
+      -- is processed) and would broadcast a different snapshot content to peers,
+      -- causing signature mismatches. After a version bump DecommitFinalized/
+      -- CommitFinalized resets to LastSeenSnapshot (not RequestedSnapshot), so
+      -- this branch is never reached for version-mismatch retries.
+      RequestedSnapshot{} -> noop
       -- Re-send: stuck with partial signatures (some AckSns were dropped because
       -- peers weren't ready yet, e.g. waiting for deposit activation). Re-broadcast
-      -- the same ReqSn without changing state so we keep existing signatures.
-      -- Also re-broadcast our own AckSn so late signers can complete the round.
+      -- exactly the same ReqSn content that was originally signed (from the in-flight
+      -- snapshot) so all parties sign the same thing. Also re-broadcast our own AckSn
+      -- so late signers can complete the round.
       SeenSnapshot snapshot sigs ->
         broadcastReqSn snapshot.version snapshot.number (txId <$> snapshot.confirmed) decommitToInclude depositToInclude
           <> case Map.lookup party sigs of
