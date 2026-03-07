@@ -3331,6 +3331,7 @@ components:
       - contestationPeriod
       - depositPeriod
       - unsyncedPeriod
+      - snapshotRetryInterval
       - configuredPeers
       additionalProperties: false
       properties:
@@ -3352,6 +3353,9 @@ components:
           $ref: "api.yaml#/components/schemas/DepositPeriod"
         unsyncedPeriod:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
+        snapshotRetryInterval:
+          type: number
+          description: How often (in seconds) the snapshot leader retries sending a ReqSn.
         configuredPeers:
           type: string
 

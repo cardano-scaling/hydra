@@ -212,12 +212,13 @@ spec = parallel $ do
                 <> [ receiveMessage ReqTx{transaction = tx1}
                    , receiveMessage ReqTx{transaction = tx2}
                    , receiveMessage ReqTx{transaction = tx3}
+                   , TimerInput
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
+        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1, 2, 3] Nothing Nothing]
 
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -230,6 +231,7 @@ spec = parallel $ do
                    , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
                    , receiveMessage ReqTx{transaction = tx1}
+                   , TimerInput
                    ]
 
         (node, getNetworkEvents) <-
@@ -303,6 +305,7 @@ spec = parallel $ do
             , contestationPeriod = defaultContestationPeriod
             , depositPeriod = defaultDepositPeriod
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
             }
@@ -488,6 +491,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , contestationPeriod
       , depositPeriod = defaultDepositPeriod
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
+      , snapshotRetryInterval = 10
       , participants
       , configuredPeers = ""
       }
