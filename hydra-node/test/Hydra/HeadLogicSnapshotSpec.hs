@@ -19,7 +19,7 @@ import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
 import Hydra.Tx.Party (Party, deriveParty)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -30,6 +30,7 @@ import Test.Hydra.Tx.Fixture (
   deriveOnChainId,
   testHeadId,
  )
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (Property, counterexample, forAll, oneof, (==>))
 import Test.QuickCheck.Monadic (monadicIO, pick, run)
 
@@ -74,6 +75,8 @@ spec = do
 
     describe "Generic Snapshot property" $ do
       prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
+      prop "timer is noop while waiting for ReqSn echo (RequestedSnapshot state)" prop_timerIsNoopInRequestedSnapshotState
+      prop "timer re-broadcasts in-flight ReqSn with correct version and number (SeenSnapshot state)" prop_timerSeenSnapshotRebroadcastMatchesInFlight
 
     describe "On ReqTx" $ do
       prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx
@@ -241,3 +244,89 @@ prop_thereIsAlwaysALeader =
     forAll arbitrary $ \params@HeadParameters{parties} ->
       not (null parties) ==>
         any (\p -> isLeader params p sn) parties
+
+-- | When the leader is in 'RequestedSnapshot' state (sent ReqSn but not yet
+-- received its own network echo to sign it), the timer must be a noop.
+-- Re-broadcasting here would use stale state (e.g. 'currentDepositTxId' is not
+-- set until the echo is processed) and race with the original ReqSn, causing
+-- peers to collect signatures on different snapshot contents.
+prop_timerIsNoopInRequestedSnapshotState :: SnapshotNumber -> SnapshotNumber -> Property
+prop_timerIsNoopInRequestedSnapshotState lastSeen requested = monadicIO $ do
+  let
+    aliceEnv =
+      let party = alice
+       in Environment
+            { party
+            , signingKey = aliceSk
+            , otherParties = []
+            , contestationPeriod = defaultContestationPeriod
+            , depositPeriod = defaultDepositPeriod
+            , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
+            , participants = [deriveOnChainId party]
+            , configuredPeers = ""
+            }
+    st =
+      CoordinatedHeadState
+        { localUTxO = mempty
+        , allTxs = mempty
+        , localTxs = []
+        , confirmedSnapshot = InitialSnapshot testHeadId mempty
+        , seenSnapshot = RequestedSnapshot{lastSeen, requested}
+        , currentDepositTxId = Nothing
+        , decommitTx = Nothing
+        , version = 0
+        }
+    s0 = inOpenState' [alice] st
+  now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
+  let outcome = update aliceEnv simpleLedger now s0 TimerInput
+  pure $
+    outcome `hasNoEffectSatisfying` (\case NetworkEffect ReqSn{} -> True; _ -> False)
+      & counterexample (show outcome)
+
+-- | When a 'SeenSnapshot' is in-flight (partial signatures being collected),
+-- the timer re-broadcasts the snapshot using the in-flight snapshot's version
+-- and number — not the speculatively-computed 'nextSn'. This ensures all
+-- parties sign the same snapshot content after a re-broadcast.
+prop_timerSeenSnapshotRebroadcastMatchesInFlight :: Property
+prop_timerSeenSnapshotRebroadcastMatchesInFlight = monadicIO $ do
+  -- number >= 1: SeenSnapshot invariant (can't be in-flight for snapshot 0)
+  -- and avoids Natural underflow in latestSeenSnapshotNumber (number - 1)
+  snapshotNumber <- pick $ succ <$> arbitrary @SnapshotNumber
+  snapshotVersion <- pick arbitrary
+  let
+    inFlightSnapshot = Snapshot testHeadId snapshotVersion snapshotNumber [] mempty Nothing Nothing
+    aliceEnv =
+      let party = alice
+       in Environment
+            { party
+            , signingKey = aliceSk
+            , otherParties = []
+            , contestationPeriod = defaultContestationPeriod
+            , depositPeriod = defaultDepositPeriod
+            , unsyncedPeriod = defaultUnsyncedPeriod
+            , snapshotRetryInterval = 10
+            , participants = [deriveOnChainId party]
+            , configuredPeers = ""
+            }
+    st =
+      CoordinatedHeadState
+        { localUTxO = mempty
+        , allTxs = mempty
+        , localTxs = []
+        , confirmedSnapshot = InitialSnapshot testHeadId mempty
+        , seenSnapshot = SeenSnapshot inFlightSnapshot mempty
+        , currentDepositTxId = Nothing
+        , decommitTx = Nothing
+        , version = snapshotVersion
+        }
+    s0 = inOpenState' [alice] st
+  now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
+  let outcome = update aliceEnv simpleLedger now s0 TimerInput
+  pure $
+    outcome
+      `hasEffectSatisfying` ( \case
+          NetworkEffect (ReqSn v sn _ _ _) -> v == snapshotVersion && sn == snapshotNumber
+          _ -> False
+        )
+      & counterexample (show outcome)

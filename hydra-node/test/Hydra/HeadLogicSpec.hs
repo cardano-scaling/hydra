@@ -247,6 +247,48 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 1
             _ -> False
 
+        it "timer does not re-broadcast ReqSn without deposit while waiting for echo" $ do
+          -- Regression test: when the chain tick fires a ReqSn with a deposit,
+          -- the leader enters RequestedSnapshot state (echo not yet processed,
+          -- so currentDepositTxId is still Nothing). If the timer then fires
+          -- it must NOT re-broadcast ReqSn{deposit=Nothing}, which would race
+          -- with the original ReqSn{deposit=Just depositId} and cause peers to
+          -- sign different snapshot contents, preventing consensus.
+          now <- getCurrentTime
+          let party = [alice]
+              depositTime = plusTime now
+              deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+              deposit1 = OnDepositTx{headId = testHeadId, depositTxId = 1, deposited = utxoRef 1, created = depositTime 1, deadline}
+
+          -- Observe the deposit on-chain
+          s0 <- runHeadLogic aliceEnv ledger (inOpenState party) $ do
+            step (observeTxAtSlot 1 deposit1)
+            getState
+
+          -- Chain tick activates the deposit; the leader (alice) sends ReqSn
+          -- with the deposit included. State advances to RequestedSnapshot.
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+          let tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
+          let s1 = aggregateState s0 $ update aliceEnv ledger now s0 tickInput
+
+          -- Confirm we are in RequestedSnapshot (echo not yet arrived, so
+          -- currentDepositTxId is not set yet).
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.seenSnapshot `shouldSatisfy` \case
+                RequestedSnapshot{} -> True
+                _ -> False
+            _ -> fail "expected Open NodeInSync state"
+
+          -- Timer fires while the echo is still in flight.
+          -- It must return noop — no ReqSn must be emitted.
+          now2 <- nowFromSlot s1.chainPointTime.currentSlot
+          let timerOutcome = update aliceEnv ledger now2 s1 TimerInput
+
+          timerOutcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{} -> True
+            _ -> False
+
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
