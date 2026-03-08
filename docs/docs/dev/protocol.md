@@ -2,6 +2,49 @@
 
 Additional implementation-specific documentation for the Hydra Head protocol and extensions like incremental decommits.
 
+## Snapshot protocol
+
+### How snapshots are initiated
+
+Snapshots are the mechanism by which all head participants agree on a new L2 state. A snapshot includes a set of transactions, an optional deposit, and an optional decommit, and once signed by all parties it can be used to close the head on L1.
+
+#### Timer-driven batching
+
+Snapshot rounds are initiated by a **periodic timer** that fires every `snapshotRetryInterval` (default: 5 ms, configurable via `--snapshot-retry-interval`). On each tick, the snapshot leader checks:
+
+1. Is there pending work? (pending transactions, an active deposit, or a decommit request)
+2. Is no other snapshot currently in flight?
+3. Am I the leader for the next snapshot number?
+
+If all three are true, the leader broadcasts a `ReqSn` message that batches **up to 100 transactions** (see `maxTxsPerSnapshot`) together with any pending deposit or decommit. Transactions beyond the limit are not dropped — they are carried forward and included in the next snapshot automatically.
+
+This replaces the previous model where every received `NewTx` immediately triggered a `ReqSn`. Under the new model, many transactions arriving within a single timer interval are confirmed in a single snapshot round, significantly improving throughput.
+
+#### Snapshot retry and re-broadcast
+
+If a snapshot round stalls (e.g. some `AckSn` messages are delayed), the timer re-broadcasts the in-flight `ReqSn` and the leader's own `AckSn` on the next tick. This unblocks rounds that would otherwise stall indefinitely due to message loss or reordering.
+
+:::note
+Transactions submitted via `NewTx` are immediately validated against the local UTxO and broadcast to all peers as `ReqTx`. However, they are only confirmed into a snapshot when the timer fires and the leader collects them into the next `ReqSn`.
+:::
+
+#### Snapshot leadership
+
+The snapshot leader rotates in round-robin order by party index, based on the snapshot number. For snapshot number `s`, the leader is `parties[(s - 1) mod n]`. Any party can be the leader for a given round; if a party is not the leader it simply signs (`AckSn`) the snapshot proposed by the leader.
+
+### Snapshot in-flight semantics
+
+At any point, the `seenSnapshot` field in the head state records what the local party knows about the current snapshot round:
+
+| State | Meaning |
+|---|---|
+| `NoSeenSnapshot` | No snapshot activity since last confirmation |
+| `LastSeenSnapshot n` | Snapshot `n` was the last confirmed; no round in flight |
+| `RequestedSnapshot{lastSeen, requested}` | This party (the leader) sent `ReqSn` for `requested` but has not yet received its own network echo to sign it |
+| `SeenSnapshot snapshot sigs` | Collecting `AckSn` signatures for `snapshot`; `sigs` accumulates them |
+
+Only one snapshot round can be in flight at a time. The timer will not start a new round while `RequestedSnapshot` or `SeenSnapshot` is active.
+
 ## General notes on incremental commits/decommits
 
 Especially, incremental commit and decommit are additions to the originally researched [Hydra Head protocol](https://eprint.iacr.org/2020/299.pdf) and deserve more explanation how they work under the hood. 
@@ -46,6 +89,9 @@ sequenceDiagram
 
     Node A -->> Alice: CommitRecorded
 
+    note over Node A,Node B: deposit becomes Active after deposit period elapses
+    note over Node A: timer fires (every snapshotRetryInterval, default 5ms)
+
     par Alice isLeader
         Node A->>Node A: ReqSn utxoToCommit
     and
@@ -71,7 +117,7 @@ sequenceDiagram
 
 ### Tracking deposits
 
-Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one.
+Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one. The snapshot leader's timer (see [Snapshot protocol](#snapshot-protocol)) will automatically include the next active deposit in the following `ReqSn`.
 
 :::info
 Note that any node that posts increment transaction will also pay the fees even if the deposit will not be owned by them on L2.
@@ -156,6 +202,7 @@ sequenceDiagram
 
     Node A -->> Alice: DecommitRequested
 
+    note over Node A: snapshot leader requests immediately on ReqDec
     par Alice isLeader
         Node A->>Node A: ReqSn decTx
     and
