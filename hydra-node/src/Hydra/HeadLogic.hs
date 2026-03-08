@@ -1433,7 +1433,7 @@ skipPostedDecommit :: IsTx tx => Snapshot tx -> Maybe tx -> Maybe tx
 skipPostedDecommit previousSnapshot decommit =
   case (decommit, previousSnapshot.utxoToDecommit) of
     (Just tx, Just prevUtxo)
-      | resolveInputsUTxO previousSnapshot.utxo tx == prevUtxo -> Nothing -- Already posted
+      | utxoFromTx tx == prevUtxo -> Nothing -- Already posted
     _ -> decommit -- Keep it
 
 -- | Skip a deposit if it was already posted in a previous snapshot.
@@ -1579,12 +1579,18 @@ onOpenTimer Environment{party} pendingDeposits st =
   -- 'confirmedSnapshot' is still behind. Without the max, 'nextSn' would be
   -- too small and 'snapshotInFlight' would (incorrectly) block it.
   nextSn = max confSn (latestSeenSnapshotNumber chs.seenSnapshot) + 1
-  hasWork =
-    not (null chs.localTxs)
-      || isJust chs.decommitTx
-      || isJust chs.currentDepositTxId
   decommitToInclude = skipPostedDecommit (getSnapshot chs.confirmedSnapshot) chs.decommitTx
   depositToInclude = skipPostedDeposit pendingDeposits chs.currentDepositTxId (getSnapshot chs.confirmedSnapshot).utxoToCommit
+  -- Use the filtered values so we don't fire an empty snapshot when decommit/deposit
+  -- was already included in a previous snapshot (skipPostedDecommit/skipPostedDeposit
+  -- would return Nothing). Without this, the timer would create a snapshot with no
+  -- decommit at version 0, which then becomes confirmedSnapshot. Closing with that
+  -- snapshot via CloseAny fails on-chain: the head datum's version is already 1 (after
+  -- DecrementTx) but the snapshot signature was made at version 0.
+  hasWork =
+    not (null chs.localTxs)
+      || isJust decommitToInclude
+      || isJust depositToInclude
 
   sendReqSn version sn localTxs decommit deposit =
     newState SnapshotRequestDecided{snapshotNumber = sn}
