@@ -52,4 +52,4 @@ This command generates a message suitable for submission to the `hydra-node` via
 cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}' | websocat "ws://127.0.0.1:4001?history=no"
 ```
 
-`Greetings` message will be displayed as always when calling the web socket api and the transaction will be validated by all connected `hydra-node` instances. It will result in either a `TxInvalid` message, providing a reason for rejection, or a `TxValid` message followed by a `SnapshotConfirmed`, updating the UTXO available in the head shortly after that.
+`Greetings` message will be displayed as always when calling the web socket api and the transaction will be validated by all connected `hydra-node` instances. It will result in either a `TxInvalid` message, providing a reason for rejection, or a `TxValid` message. Shortly after — within one snapshot timer interval (default 5 ms) — the snapshot leader will batch the transaction into the next `ReqSn`, and once all parties have signed, a `SnapshotConfirmed` message is emitted, updating the UTXO available in the head.
