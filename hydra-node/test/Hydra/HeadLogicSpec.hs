@@ -719,8 +719,9 @@ spec =
         it "does not request same decommit twice across snapshots" $ do
           let localUTxO = utxoRefs [1, 2, 3]
               decommitTx' = SimpleTx 10 (utxoRefs [3]) (utxoRef 99)
-              -- utxoToDecommit should be the INPUTS of the decommit tx (what's removed from the Head)
-              utxoToDecommit' = txInputs decommitTx'
+              -- utxoToDecommit is the OUTPUTS of the decommit tx (what gets paid out externally).
+              -- This mirrors SnapshotRequested aggregate: utxoToDecommit = utxoFromTx decommitTx.
+              utxoToDecommit' = utxoFromTx decommitTx'
 
               -- Snapshot 0: initial snapshot
               snapshot0 = testSnapshot 0 0 [] localUTxO

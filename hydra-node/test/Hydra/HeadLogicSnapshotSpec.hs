@@ -326,7 +326,7 @@ prop_timerSeenSnapshotRebroadcastMatchesInFlight = monadicIO $ do
   pure $
     outcome
       `hasEffectSatisfying` ( \case
-          NetworkEffect (ReqSn v sn _ _ _) -> v == snapshotVersion && sn == snapshotNumber
-          _ -> False
-        )
+                                NetworkEffect (ReqSn v sn _ _ _) -> v == snapshotVersion && sn == snapshotNumber
+                                _ -> False
+                            )
       & counterexample (show outcome)
