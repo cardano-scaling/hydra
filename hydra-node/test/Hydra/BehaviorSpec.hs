@@ -133,7 +133,7 @@ spec = parallel $ do
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
             send n1 Fanout
-            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 1}
+            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
 
   -- XXX: Restructure test suites as it makes more sense to speak about
   -- features rather than head structure
@@ -186,7 +186,7 @@ spec = parallel $ do
                 send n1 (NewTx tx)
                 waitUntil [n1, n2] $ TxValid testHeadId 42
 
-                let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [1, 2, 42]) mempty mempty
+                let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [42]) mempty mempty
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -237,6 +237,8 @@ spec = parallel $ do
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead2 n1 n2
+                depositHead chain [n1, n2] $ utxoRefs [1, 2]
+
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
                 let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
@@ -246,14 +248,14 @@ spec = parallel $ do
                 -- Expect a snapshot of the firstTx transaction
                 waitUntil [n1, n2] $ TxValid testHeadId 1
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
+                  let snapshot = testSnapshot 2 1 [firstTx] (utxoRefs [2, 3])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
                 -- Expect a snapshot of the now unblocked secondTx
                 waitUntil [n1, n2] $ TxValid testHeadId 2
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
+                  let snapshot = testSnapshot 3 1 [secondTx] (utxoRefs [2, 4])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
 
@@ -263,6 +265,8 @@ spec = parallel $ do
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead2 n1 n2
+                depositHead chain [n1, n2] $ utxoRefs [1, 2]
+
                 let firstTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
                 let secondTx = SimpleTx 2 (utxoRef 3) (utxoRef 4)
                 -- Expect secondTx to be valid, but not applicable and stay pending
@@ -282,6 +286,8 @@ spec = parallel $ do
             withHydraNode aliceSk [bob] chain $ \n1 -> do
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead2 n1 n2
+                depositHead chain [n1, n2] $ utxoRefs [1, 2]
+
                 let tx' =
                       SimpleTx
                         { txSimpleId = 1
@@ -297,7 +303,7 @@ spec = parallel $ do
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
                 waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [tx'] (utxoRefs [2, 10])
+                  let snapshot = testSnapshot 2 1 [tx'] (utxoRefs [2, 10])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
                 waitUntilMatch [n1, n2] $ \case
@@ -310,10 +316,12 @@ spec = parallel $ do
             withHydraNode aliceSk [bob] chain $ \n1 ->
               withHydraNode bobSk [alice] chain $ \n2 -> do
                 openHead2 n1 n2
+                depositHead chain [n1, n2] $ utxoRefs [1, 2]
+
                 let newTx = (aValidTx 42){txInputs = utxoRefs [1]}
                 send n1 (NewTx newTx)
 
-                let snapshot = testSnapshot 1 0 [newTx] (utxoRefs [2, 42])
+                let snapshot = testSnapshot 2 1 [newTx] (utxoRefs [2, 42])
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
 
                 waitUntil [n1, n2] $ SnapshotConfirmed testHeadId snapshot sigs
@@ -323,21 +331,18 @@ spec = parallel $ do
 
       describe "Incremental commit" $ do
         it "deposits with empty utxo are ignored" $
-          ioProperty $
-            shouldRunInSim $
-              withSimulatedChainAndNetwork $ \chain ->
-                withHydraNode aliceSk [] chain $ \n1 -> do
-                  openHead n1
-                  deadline <- newDeadlineFarEnoughFromNow
-                  txid <- simulateDeposit chain testHeadId mempty deadline
-                  -- NOTE: Deposit is not picked up and eventually expires
-                  asExpected <- waitUntilMatch [n1] $ \case
-                    DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
-                    CommitApproved{} -> Just False
-                    _ -> Nothing
-                  pure $
-                    asExpected
-                      & counterexample "Deposit with empty utxo approved instead of expired"
+          shouldRunInSim $
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [] chain $ \n1 -> do
+                openHead n1
+                deadline <- newDeadlineFarEnoughFromNow
+                txid <- simulateDeposit chain testHeadId mempty deadline
+                -- NOTE: Deposit is not picked up and eventually expires
+                asExpected <- waitUntilMatch [n1] $ \case
+                  DepositExpired{depositTxId} -> True <$ guard (depositTxId == txid)
+                  CommitApproved{} -> Just False
+                  _ -> Nothing
+                shouldBe asExpected True
 
         prop "deposits with deadline in the past are ignored" $ \seconds ->
           ioProperty $
@@ -482,8 +487,7 @@ spec = parallel $ do
 
                   waitUntil [n1] $ CommitApproved{headId = testHeadId, utxoToCommit = depositUTxO}
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId = deposit1}
-                  let normalTx = SimpleTx 3 (utxoRef 2) (utxoRef 3)
-                  send n2 (NewTx normalTx)
+                  send n2 (NewTx $ aValidTx 3)
                   waitUntil [n1, n2] $ TxValid testHeadId 3
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
@@ -494,7 +498,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11, 22]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [3, 11, 22]}
 
         it "can process transactions while commit pending" $
           shouldRunInSim $ do
@@ -509,7 +513,7 @@ spec = parallel $ do
                     CommitRecorded{utxoToCommit} ->
                       guard (11 `member` utxoToCommit)
                     _ -> Nothing
-                  let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+                  let normalTx = aValidTx 3
                   send n2 (NewTx normalTx)
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
@@ -518,7 +522,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 3, 11]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [3, 11]}
 
         -- XXX: This could be a single node test
         it "can close with commit in flight" $
@@ -542,7 +546,7 @@ spec = parallel $ do
                     _ -> Nothing
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2, 11]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [11]}
 
         -- XXX: This could be a single node test
         it "fanout utxo is correct after a commit" $
@@ -558,7 +562,9 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+                  -- REVIEW: Why is this expected to be empty? Should we wait
+                  -- for CommitFinalized instead and assert 11 being fanned out?
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
 
         -- XXX: This could be a single node test
         it "multiple commits and decommits in sequence" $
@@ -567,17 +573,9 @@ spec = parallel $ do
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  let depositUTxO = utxoRefs [11]
-                  deadline <- newDeadlineFarEnoughFromNow
-                  depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
-                  waitUntil [n1] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
-                  waitUntilMatch [n1, n2] $ \case
-                    SnapshotConfirmed{snapshot = Snapshot{utxoToCommit}} ->
-                      utxoToCommit >>= guard . (11 `member`)
-                    _ -> Nothing
-                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
+                  depositHead chain [n1, n2] $ utxoRefs [11, 22]
 
-                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  let decommitTx = SimpleTx 1 (utxoRef 11) (utxoRef 42)
                   send n2 (Decommit decommitTx)
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
@@ -592,7 +590,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [2, 11]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [22]}
 
         it "commit and decommit same utxo" $
           shouldRunInSim $ do
@@ -611,7 +609,7 @@ spec = parallel $ do
                   waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
 
                   headUTxO <- getHeadUTxO . headState <$> queryState n1
-                  fromMaybe mempty headUTxO `shouldBe` utxoRefs [1, 2, 11]
+                  fromMaybe mempty headUTxO `shouldBe` utxoRefs [11]
 
                   let decommitTx = SimpleTx 1 (utxoRef 11) (utxoRef 88)
                   send n2 (Decommit decommitTx)
@@ -647,7 +645,7 @@ spec = parallel $ do
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  let decommitTx = aValidTx 42
                   send n2 (Decommit decommitTx)
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
@@ -664,17 +662,17 @@ spec = parallel $ do
                   fromMaybe mempty headUTxO `shouldSatisfy` (not . member 42)
 
         it "can only process one decommit at once" $
-          shouldRunInSim $ do
+          shouldRunInSim $
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [bob] chain $ \n1 ->
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  let decommitTx1 = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  let decommitTx1 = aValidTx 42
                   send n1 (Decommit{decommitTx = decommitTx1})
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx = decommitTx1, utxoToDecommit = utxoRefs [42]}
 
-                  let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 22)
+                  let decommitTx2 = aValidTx 22
                   send n2 (Decommit{decommitTx = decommitTx2})
                   waitUntil [n2] $
                     DecommitInvalid
@@ -696,14 +694,14 @@ spec = parallel $ do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
 
-                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  let decommitTx = aValidTx 42
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
                     DecommitRequested{headId = testHeadId, decommitTx, utxoToDecommit = utxoRefs [42]}
                   waitUntil [n1, n2] $
-                    DecommitApproved{headId = testHeadId, decommitTxId = 1, utxoToDecommit = utxoRefs [42]}
+                    DecommitApproved{headId = testHeadId, decommitTxId = 42, utxoToDecommit = utxoRefs [42]}
 
-                  let normalTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+                  let normalTx = aValidTx 3
                   send n2 (NewTx normalTx)
                   waitUntilMatch [n1, n2] $ \case
                     SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> guard $ normalTx `elem` confirmed
@@ -717,13 +715,13 @@ spec = parallel $ do
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
+                  let decommitTx = aValidTx 42
                   send n2 (Decommit{decommitTx})
                   -- Close while the decommit is still in flight
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 42]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [42]}
 
         it "can fanout after a decommit" $
           shouldRunInSim $ do
@@ -731,7 +729,7 @@ spec = parallel $ do
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  let decommitTx = SimpleTx 1 (utxoRef 2) (utxoRef 42)
+                  let decommitTx = aValidTx 42
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
                     DecommitApproved
@@ -742,7 +740,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
 
         it "can fanout with empty utxo" $
           shouldRunInSim $ do
@@ -750,7 +748,7 @@ spec = parallel $ do
               withHydraNode aliceSk [bob] chain $ \n1 -> do
                 withHydraNode bobSk [alice] chain $ \n2 -> do
                   openHead2 n1 n2
-                  let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 42)
+                  let decommitTx = aValidTx 42
                   send n2 (Decommit{decommitTx})
                   waitUntil [n1, n2] $
                     DecommitApproved
@@ -763,7 +761,7 @@ spec = parallel $ do
                       { headId = testHeadId
                       , distributedUTxO = utxoRef 42
                       }
-                  let decommitTx2 = SimpleTx 2 (utxoRef 2) (utxoRef 88)
+                  let decommitTx2 = aValidTx 88
                   send n1 (Decommit{decommitTx = decommitTx2})
                   waitUntil [n1, n2] $
                     DecommitFinalized
@@ -786,7 +784,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
               send n1 Fanout
               send n2 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
@@ -903,7 +901,7 @@ waitUntilMatch ::
   m a
 waitUntilMatch nodes predicate = do
   seenMsgs <- newLabelledTVarIO "wait-until-seen-msgs" []
-  timeout oneMonth (forConcurrently (zip [Node 1 ..] nodes) $ go seenMsgs) >>= \case
+  timeout threeDays (forConcurrently (zip [Node 1 ..] nodes) $ go seenMsgs) >>= \case
     Just [] -> failure "waitUntilMatch no results"
     Just (x : xs)
       | all (== x) xs -> pure x
@@ -913,7 +911,7 @@ waitUntilMatch nodes predicate = do
       failure $
         toString $
           unlines
-            [ "waitUntilMatch did not match a message on all nodes (" <> show (length nodes) <> ") within " <> show oneMonth <> ", seen messages:"
+            [ "waitUntilMatch did not match a message on all nodes (" <> show (length nodes) <> ") within " <> show threeDays <> ", seen messages:"
             , unlines (show <$> msgs)
             ]
  where
@@ -927,7 +925,7 @@ waitUntilMatch nodes predicate = do
           Just x -> pure x
           Nothing -> go seenOutputs (nid, n)
 
-  oneMonth = 3600 * 24 * 30
+  threeDays = 3600 * 24 * 3
 
 newtype NodeId = Node Natural
   deriving (Enum, Show)
@@ -1308,6 +1306,19 @@ openHead2 ::
 openHead2 n1 n2 = do
   send n1 Init
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, parties = fromList [alice, bob]}
+
+depositHead ::
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  [TestHydraClient SimpleTx (IOSim s)] ->
+  UTxOType SimpleTx ->
+  IOSim s ()
+depositHead chain clients utxo = do
+  deadline <- newDeadlineFarEnoughFromNow
+  txid <- simulateDeposit chain testHeadId utxo deadline
+  waitUntilMatch clients $
+    guard . \case
+      CommitFinalized{depositTxId} -> depositTxId == txid
+      _ -> False
 
 headIsClosed :: HeadId -> ServerOutput tx -> Bool
 headIsClosed hid = \case

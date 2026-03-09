@@ -97,7 +97,6 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Prelude qualified
 
 -- * The Coordinated Head protocol
 
@@ -125,10 +124,9 @@ onIdleClientInit env =
 
   Environment{participants} = env
 
--- | Observe an init transaction, initialize parameters in an 'InitialState' and
--- notify clients that they can now commit.
+-- | Observe an init transaction and initialize parameters in an 'OpenState'.
 --
--- __Transition__: 'IdleState' → 'InitialState'
+-- __Transition__: 'IdleState' → 'OpenState'
 onIdleChainInitTx ::
   Environment ->
   -- | New chain state.
@@ -1749,38 +1747,27 @@ aggregate st = \case
   NetworkClusterIDMismatch{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
-  HeadOpened{} ->
-    --   Initial
-    --     InitialState
-    --       { parameters = parameters
-    --       , pendingCommits = Set.fromList parties
-    --       , committed = mempty
-    --       , chainState
-    --       , headId
-    --       , headSeed
-    --       }
-    -- case st of
-    --   Initial InitialState{parameters, headId, headSeed} ->
-    --     Open
-    --       OpenState
-    --         { parameters
-    --         , coordinatedHeadState =
-    --             CoordinatedHeadState
-    --               { localUTxO = initialUTxO
-    --               , allTxs = mempty
-    --               , localTxs = mempty
-    --               , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
-    --               , seenSnapshot = NoSeenSnapshot
-    --               , currentDepositTxId = Nothing
-    --               , decommitTx = Nothing
-    --               , version = 0
-    --               }
-    --         , chainState
-    --         , headId
-    --         , headSeed
-    --         }
-    --   _otherState -> st
-    Prelude.error "FIXME: complete head logic"
+  HeadOpened{headSeed, headId, parameters, chainState} ->
+    Open
+      OpenState
+        { headId
+        , headSeed
+        , parameters
+        , coordinatedHeadState =
+            CoordinatedHeadState
+              { localUTxO = initialUTxO
+              , allTxs = mempty
+              , localTxs = mempty
+              , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
+              , seenSnapshot = NoSeenSnapshot
+              , currentDepositTxId = Nothing
+              , decommitTx = Nothing
+              , version = 0
+              }
+        , chainState
+        }
+   where
+    initialUTxO = mempty
   TransactionReceived{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
