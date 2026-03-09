@@ -123,6 +123,7 @@ import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainCo
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, headIdToCurrencySymbol, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Deposit (constructDepositUTxO)
+import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -2207,35 +2208,31 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
           guard $ v ^? key "tag" == Just "TxInvalid"
           guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
 
-        -- \| Up to this point the head became stuck and no further SnapshotConfirmed
-        -- including above tx will be seen signed by everyone.
-        -- We observe that a snapshot is in progress, but Carol has not signed it.
-        seenSn1 <- getSnapshotLastSeen n1
-        seenSn2 <- getSnapshotLastSeen n2
-        seenSn1 `shouldBe` seenSn2
-        seenSn3 <- getSnapshotLastSeen n3
-        seenSn2 `shouldNotBe` seenSn3
-
-        -- The party side-loads latest confirmed snapshot (which is the initial)
-        -- This also prunes local txs, and discards any signing round inflight
+        -- The timer-driven snapshot retry automatically resolves the stuck snapshot
+        -- once Carol reconnects and signs the pending ReqSn that Alice re-broadcasts.
+        -- Side-loading the latest confirmed snapshot resets all parties to a common
+        -- state and prunes local txs and any in-flight signing round.
         snapshotConfirmed <- getSnapshotConfirmed n1
+        let Snapshot{number = confirmedNumber} = getSnapshot snapshotConfirmed
         flip mapConcurrently_ [n1, n2, n3] $ \n -> do
           send n $ input "SideLoadSnapshot" ["snapshot" .= snapshotConfirmed]
           waitMatch (200 * blockTime) n $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
-            guard $ v ^? key "snapshotNumber" == Just (toJSON (0 :: Integer))
+            guard $ v ^? key "snapshotNumber" == Just (toJSON confirmedNumber)
 
-        -- Carol re-submits the same transaction (but anyone can at this point)
-        send n3 $ input "NewTx" ["transaction" .= tx]
+        -- Submit a fresh transaction spending the current UTxO (the side-loaded
+        -- snapshot may already include the original tx, so we can't re-use it).
+        currentUtxo <- getSnapshotUTxO n1
+        newTx <- mkTransferTx testNetworkId currentUtxo aliceCardanoSk aliceCardanoVk
+        send n3 $ input "NewTx" ["transaction" .= newTx]
 
         -- Everyone confirms it
-        -- Note: We can't use `waitForAllMatch` here as it expects them to
-        -- emit the exact same datatype; but Carol will be behind in sequence
-        -- numbers as she was offline.
+        -- Note: We can't use `waitForAllMatch` here as it expects the exact
+        -- same message content; Carol's sequence numbers may differ.
         flip mapConcurrently_ [n1, n2, n3] $ \n ->
           waitMatch (200 * blockTime) n $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (1 :: Integer))
+            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (confirmedNumber + 1))
             -- Just check that everyone signed it.
             let sigs = v ^.. key "signatures" . key "multiSignature" . values
             guard $ length sigs == 3

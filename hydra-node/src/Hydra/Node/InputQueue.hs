@@ -5,6 +5,7 @@ import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (
   isEmptyTBQueue,
+  isFullTBQueue,
   modifyTVar',
   readTBQueue,
   writeTBQueue,
@@ -15,6 +16,12 @@ import Control.Concurrent.Class.MonadSTM (
 -- alternative implementation
 data InputQueue m e = InputQueue
   { enqueue :: e -> m ()
+  , tryEnqueue :: e -> m Bool
+  -- ^ Non-blocking variant of 'enqueue'. Returns 'False' if the queue is
+  -- full and the item was dropped. Use this for periodic/timer inputs that
+  -- are safe to skip: a full queue means the main loop is busy processing
+  -- other events (chain observations, network messages), so the timer tick
+  -- is effectively replaced by the next one that fires after the queue drains.
   , reenqueue :: DiffTime -> Queued e -> m ()
   , dequeue :: m (Queued e)
   , isEmpty :: m Bool
@@ -44,6 +51,16 @@ createInputQueue = do
             queuedId <- readTVar nextId
             writeTBQueue q Queued{queuedId, queuedItem}
             modifyTVar' nextId succ
+      , tryEnqueue = \queuedItem ->
+          atomically $ do
+            full <- isFullTBQueue q
+            if full
+              then pure False
+              else do
+                queuedId <- readTVar nextId
+                writeTBQueue q Queued{queuedId, queuedItem}
+                modifyTVar' nextId succ
+                pure True
       , reenqueue = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . asyncLabelled "input-queue-reenqueue" $ do

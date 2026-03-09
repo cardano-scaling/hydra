@@ -294,16 +294,14 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
-  Environment ->
   Ledger tx ->
   ChainSlot ->
   OpenState tx ->
   TTL ->
-  PendingDeposits tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx _env ledger currentSlot st ttl _pendingDeposits tx =
+onOpenNetworkReqTx ledger currentSlot st ttl tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
@@ -1736,7 +1734,7 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger currentSlot openState ttl pendingDeposits tx
+    onOpenNetworkReqTx ledger currentSlot openState ttl tx
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
