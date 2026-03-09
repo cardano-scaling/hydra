@@ -9,6 +9,7 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   readTBQueue,
   writeTBQueue,
+  writeTVar,
  )
 
 -- | The single, required queue in the system from which a hydra head is "fed".
@@ -17,11 +18,12 @@ import Control.Concurrent.Class.MonadSTM (
 data InputQueue m e = InputQueue
   { enqueue :: e -> m ()
   , tryEnqueue :: e -> m Bool
-  -- ^ Non-blocking variant of 'enqueue'. Returns 'False' if the queue is
-  -- full and the item was dropped. Use this for periodic/timer inputs that
-  -- are safe to skip: a full queue means the main loop is busy processing
-  -- other events (chain observations, network messages), so the timer tick
-  -- is effectively replaced by the next one that fires after the queue drains.
+  -- ^ Non-blocking, coalescing variant of 'enqueue' for periodic/timer
+  -- inputs. Returns 'False' (drops the item) if the queue is full OR if the
+  -- last enqueued item was also via 'tryEnqueue'. The latter ensures at most
+  -- one timer tick is ever pending: consecutive ticks carry no new
+  -- information, and keeping only one prevents timer ticks from crowding out
+  -- chain/network events. The coalescing resets whenever 'enqueue' is called.
   , reenqueue :: DiffTime -> Queued e -> m ()
   , asyncTracked :: m () -> m ()
   -- ^ Run an action asynchronously. Use this for
@@ -42,6 +44,7 @@ createInputQueue ::
 createInputQueue = do
   numThreads <- newLabelledTVarIO "num-threads" (0 :: Integer)
   nextId <- newLabelledTVarIO "nex-id" 0
+  lastWasTimer <- newLabelledTVarIO "last-was-timer" False
   -- XXX: We bound the _input_ queue by the _logging_ queue size! This is a
   -- hack; but we do it because it seems that the logging queue blocking
   -- prevents further processing, _unless_ the input queue is also bounded.
@@ -52,15 +55,18 @@ createInputQueue = do
     InputQueue
       { enqueue = \queuedItem ->
           atomically $ do
+            writeTVar lastWasTimer False
             queuedId <- readTVar nextId
             writeTBQueue q Queued{queuedId, queuedItem}
             modifyTVar' nextId succ
       , tryEnqueue = \queuedItem ->
           atomically $ do
+            alreadyPending <- readTVar lastWasTimer
             full <- isFullTBQueue q
-            if full
+            if alreadyPending || full
               then pure False
               else do
+                writeTVar lastWasTimer True
                 queuedId <- readTVar nextId
                 writeTBQueue q Queued{queuedId, queuedItem}
                 modifyTVar' nextId succ
