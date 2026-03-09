@@ -35,7 +35,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainSta
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), OpenState (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -82,7 +82,6 @@ import Test.Hydra.Tx.Fixture (
 import Test.QuickCheck (chooseEnum, counterexample, forAll, getNegative, ioProperty)
 import Test.Util (
   shouldBe,
-  shouldNotBe,
   shouldRunInSim,
   shouldSatisfy,
   traceInIOSim,
@@ -104,23 +103,12 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n ->
             send n Init
 
-    it "accepts Commit after successful Init" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [] chain $ \n1 -> do
-            send n1 Init
-            waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-            simulateCommit chain testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-
     it "can close an open head" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-            simulateCommit chain testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
@@ -131,8 +119,6 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-            simulateCommit chain testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
@@ -145,8 +131,6 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-            simulateCommit chain testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRef 1}
             send n1 Close
             waitForNext n1 >>= assertHeadIsClosed
@@ -157,57 +141,6 @@ spec = parallel $ do
   -- XXX: Restructure test suites as it makes more sense to speak about
   -- features rather than head structure
   describe "Two participant Head" $ do
-    it "only opens the head after all nodes committed" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-
-              simulateCommit chain testHeadId alice (utxoRef 1)
-              waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
-              let veryLong :: MonadTimer m => m a -> m (Maybe a)
-                  veryLong = timeout 1000000
-              veryLong (waitForNext n1) >>= (`shouldNotBe` Just HeadIsOpen{headId = testHeadId, utxo = utxoRef 1})
-
-              simulateCommit chain testHeadId bob (utxoRef 2)
-              waitUntil [n1] $ Committed testHeadId bob (utxoRef 2)
-              waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
-
-    it "can abort and re-open a head when one party has not committed" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-              simulateCommit chain testHeadId alice (utxoRefs [1, 2])
-              waitUntil [n1, n2] $ Committed testHeadId alice (utxoRefs [1, 2])
-              send n2 Abort
-              waitUntil [n1, n2] $ HeadIsAborted{headId = testHeadId, utxo = utxoRefs [1, 2]}
-              send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-
-    it "cannot abort head when commits have been collected" $
-      shouldRunInSim $ do
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-              simulateCommit chain testHeadId alice (utxoRef 1)
-              simulateCommit chain testHeadId bob (utxoRef 2)
-
-              waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
-
-              send n1 Abort
-
-              m <- waitForNextMessage n1
-              m `shouldSatisfy` \case
-                CommandFailed{} -> True
-                _ -> False
-
     it "ignores head initialization of other head" $
       shouldRunInSim $
         withSimulatedChainAndNetwork $ \chain ->
@@ -222,19 +155,6 @@ spec = parallel $ do
                 IgnoredHeadInitializing{headId, parties} ->
                   guard $ headId == testHeadId && parties == fromList [alice]
                 _ -> Nothing
-
-    it "outputs committed utxo when client requests it" $
-      shouldRunInSim $
-        withSimulatedChainAndNetwork $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
-              send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-              simulateCommit chain testHeadId alice (utxoRef 1)
-
-              waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
-              headUTxO <- getHeadUTxO . headState <$> queryState n1
-              fromMaybe mempty headUTxO `shouldBe` utxoRefs [1]
 
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
@@ -909,7 +829,6 @@ spec = parallel $ do
               withHydraNode aliceSk [] chain $ \n1 -> do
                 send n1 Init
                 waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-                simulateCommit chain testHeadId alice (utxoRef 1)
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
@@ -922,7 +841,7 @@ spec = parallel $ do
       let result = runSimTrace $ do
             withSimulatedChainAndNetwork $ \chain ->
               withHydraNode aliceSk [] chain $ \n1 -> do
-                send n1 Abort
+                send n1 Close
                 msg <- waitForNextMessage n1
                 msg `shouldSatisfy` \case
                   CommandFailed{} -> True
@@ -947,9 +866,9 @@ spec = parallel $ do
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
             -- We expect the Init to be rolled back and forward again
             rollbackAndForward chain 1
-            -- We expect the node to still work and let us commit
-            simulateCommit chain testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
+            -- We expect the node to be open again and let us close
+            send n1 Close
+            waitUntilMatch [n1] $ guard . headIsClosed testHeadId
 
     it "does work for rollbacks past open" $
       shouldRunInSim $ do
@@ -957,8 +876,6 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
             waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-            simulateCommit chain testHeadId alice (utxoRef 1)
-            waitUntil [n1] $ Committed testHeadId alice (utxoRef 1)
             waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
             -- We expect one Commit AND the CollectCom to be rolled back and
             -- forward again
@@ -1040,7 +957,6 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   { connectNode :: DraftHydraNode tx m -> m (HydraNode tx m)
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
-  , simulateCommit :: HeadId -> Party -> UTxOType tx -> m ()
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
   , closeWithInitialSnapshot :: (Party, UTxOType tx) -> m ()
   }
@@ -1051,7 +967,6 @@ dummySimulatedChainNetwork =
     { connectNode = error "connectNode"
     , tickThread = error "tickThread"
     , rollbackAndForward = error "rollbackAndForward"
-    , simulateCommit = error "simulateCommit"
     , simulateDeposit = error "simulateDeposit"
     , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
     }
@@ -1095,7 +1010,6 @@ simulatedChainAndNetwork initialChainState = do
                       void . asyncLabelled "sim-chain-post-tx" $ do
                         threadDelay blockTime
                         createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
-                  , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
@@ -1108,8 +1022,6 @@ simulatedChainAndNetwork initialChainState = do
           pure node
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes history localChainState
-      , simulateCommit = \headId party toCommit ->
-          createAndYieldEvent nodes history localChainState $ OnCommitTx{headId, party, committed = toCommit}
       , simulateDeposit = \headId toDeposit deadline -> do
           created <- getCurrentTime
           depositTxId <- atomically $ stateTVar nextTxId (\i -> (i, i + 1))
@@ -1212,10 +1124,6 @@ toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 toOnChainTx now = \case
   InitTx{participants, headParameters} ->
     OnInitTx{headId = testHeadId, headSeed = testHeadSeed, headParameters, participants}
-  AbortTx{} ->
-    OnAbortTx{headId = testHeadId}
-  CollectComTx{headId} ->
-    OnCollectComTx{headId}
   RecoverTx{headId, recoverTxId, recoverUTxO} ->
     OnRecoverTx{headId, recoveredTxId = recoverTxId, recoveredUTxO = recoverUTxO}
   IncrementTx{headId, incrementingSnapshot, depositTxId} ->
@@ -1390,14 +1298,14 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
   -- as this is a simulated network.
   participants = deriveOnChainId <$> (party : otherParties)
 
+-- TODO: refactor openHead and openHead2 as not substantial anymore
 openHead ::
   SimulatedChainNetwork SimpleTx (IOSim s) ->
   TestHydraClient SimpleTx (IOSim s) ->
   IOSim s ()
-openHead chain n1 = do
+openHead _chain n1 = do
   send n1 Init
   waitUntil [n1] $ HeadIsInitializing testHeadId (fromList [alice])
-  simulateCommit chain testHeadId alice (utxoRef 1)
   waitUntil [n1] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1]}
 
 openHead2 ::
@@ -1405,14 +1313,15 @@ openHead2 ::
   TestHydraClient SimpleTx (IOSim s) ->
   TestHydraClient SimpleTx (IOSim s) ->
   IOSim s ()
-openHead2 chain n1 n2 = do
+openHead2 _chain n1 n2 = do
   send n1 Init
   waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-  simulateCommit chain testHeadId alice (utxoRef 1)
-  waitUntil [n1, n2] $ Committed testHeadId alice (utxoRef 1)
-  simulateCommit chain testHeadId bob (utxoRef 2)
-  waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+headIsClosed :: HeadId -> ServerOutput tx -> Bool
+headIsClosed hid = \case
+  HeadIsClosed{headId} -> headId == hid
+  _ -> False
 
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case
@@ -1431,8 +1340,7 @@ shortLabel s =
   take 8 $ drop 1 $ List.words (show s) !! 2
 
 -- | Get the head 'UTxO' from open 'HeadState'.
-getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getHeadUTxO :: HeadState tx -> Maybe (UTxOType tx)
 getHeadUTxO = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
-  Initial InitialState{committed} -> Just $ fold committed
   _ -> Nothing

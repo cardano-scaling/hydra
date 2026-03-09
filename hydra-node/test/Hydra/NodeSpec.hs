@@ -18,8 +18,8 @@ import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
@@ -306,7 +306,7 @@ spec = parallel $ do
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
             }
-        nodeState = inInitialState [alice, bob]
+        nodeState = inOpenState [alice, bob]
 
     it "accepts configuration consistent with HeadState" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -378,7 +378,6 @@ mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { postTx = \_ -> pure ()
-    , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     , checkNonADAAssets = \_ -> error "mockChain: unexpected checkNonADAAssets"
@@ -430,10 +429,9 @@ createMockEventStore = do
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
   [ observationInput $ OnInitTx testHeadId testHeadSeed headParameters participants
-  , observationInput $ OnCommitTx testHeadId carol (utxoRef 3)
-  , observationInput $ OnCommitTx testHeadId bob (utxoRef 2)
-  , observationInput $ OnCommitTx testHeadId alice (utxoRef 1)
-  , observationInput $ OnCollectComTx testHeadId
+  , -- TODO: inline deposited utxo to OnIncrementTx to not need to mock OnDepositTx here
+    observationInput $ OnIncrementTx testHeadId 1 123
+  , observationInput $ OnIncrementTx testHeadId 2 456
   ]
  where
   parties = [alice, bob, carol]
@@ -542,7 +540,6 @@ throwExceptionOnPostTx exception node =
       { oc =
           Chain
             { postTx = \_ -> throwIO exception
-            , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
             , checkNonADAAssets = \_ -> error "checkNonADAAssets not implemented"
