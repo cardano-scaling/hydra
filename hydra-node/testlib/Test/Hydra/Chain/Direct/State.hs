@@ -23,7 +23,6 @@ import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
   ChainStateAt (..),
-  ChainTransition (..),
   ClosedState (..),
   HasKnownUTxO (..),
   HydraContext (..),
@@ -94,6 +93,17 @@ instance Arbitrary OpenState where
     snd <$> genStOpen ctx
 
   shrink = genericShrink
+
+-- | A definition of all transitions between 'ChainState's. Enumerable and
+-- bounded to be used as labels for checking coverage.
+data ChainTransition
+  = Init
+  | Increment
+  | Decrement
+  | Close
+  | Contest
+  | Fanout
+  deriving stock (Eq, Show, Enum, Bounded)
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
 -- transaction that results in a transition away from it.
