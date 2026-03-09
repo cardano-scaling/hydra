@@ -60,8 +60,8 @@ import Hydra.Cluster.Scenarios (
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
-  checkFanout,
-  headIsInitializingWith,
+  headIsFinalizedWith,
+  headIsOpenWith,
   hydraNodeBaseUrl,
   initWithWrongKeys,
   nodeCanSupportMultipleEtcdClusters,
@@ -402,7 +402,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 -- Init head
                 send n1 $ input "Init" []
                 headId <-
-                  waitForAllMatch 10 [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+                  waitForAllMatch 10 [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
                 -- Get some UTXOs to commit to a head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
@@ -433,7 +433,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   output "ReadyToFanout" ["headId" .= headId]
 
                 send n1 $ input "Fanout" []
-                waitForAllMatch 10 [n1] $ checkFanout headId u0
+                waitForAllMatch 10 [n1] $ headIsFinalizedWith headId u0
 
       it "Head can continue after TxInvalid" $ \tracer ->
         -- failAfter 60 $
@@ -467,7 +467,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               send n1 $ input "Init" []
               headId <-
-                waitForAllMatch 10 [n1, n2, n3] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+                waitForAllMatch 10 [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
               -- Get some UTXOs to commit to a head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
@@ -529,7 +529,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 output "ReadyToFanout" ["headId" .= headId]
 
               send n1 $ input "Fanout" []
-              waitForAllMatch 10 [n1] $ checkFanout headId headUTxO
+              waitForAllMatch 10 [n1] $ headIsFinalizedWith headId headUTxO
 
       it "supports mirror party" $ \tracer ->
         failAfter 60 $
@@ -589,7 +589,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               tip <- Backend.queryTip backend
               send n1 $ input "Init" []
-              headId <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              headId <- waitForAllMatch 10 [n1] $ headIsOpenWith (Set.fromList [alice])
               return (tip, headId)
 
             -- REVIEW: Do we want to keep this --start-chain-from feature or
@@ -601,7 +601,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
             withHydraNode hydraTracer blockTime aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
-              headId' <- waitForAllMatch 10 [n1] $ headIsInitializingWith (Set.fromList [alice])
+              headId' <- waitForAllMatch 10 [n1] $ headIsOpenWith (Set.fromList [alice])
               headId' `shouldBe` aliceHeadId
 
       it "close of an initial snapshot from re-initialized node is contested" $ \tracer ->
@@ -633,7 +633,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               headId <- withBobNode $ \n2 -> do
                 waitForNodesConnected hydraTracer 20 $ n1 :| [n2]
                 send n1 $ input "Init" []
-                headId <- waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+                headId <- waitForAllMatch 10 [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
 
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
                 committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
@@ -742,12 +742,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
-                  headIdAliceOnly <- waitMatch 10 n1 $ headIsInitializingWith (Set.fromList [alice])
+                  headIdAliceOnly <- waitMatch 10 n1 $ headIsOpenWith (Set.fromList [alice])
 
                   -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
                   -- "his" Head
                   send n2 $ input "Init" []
-                  headIdAliceAndBob <- waitMatch 10 n2 $ headIsInitializingWith (Set.fromList [alice, bob])
+                  headIdAliceAndBob <- waitMatch 10 n2 $ headIsOpenWith (Set.fromList [alice, bob])
 
                   send n2 $ input "Abort" []
                   waitFor hydraTracer 10 [n2] $
@@ -777,7 +777,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
                     send n1 $ input "Init" []
-                    void $ waitForAllMatch 3 [n1] $ headIsInitializingWith (Set.fromList [alice, bob, carol])
+                    void $ waitForAllMatch 3 [n1] $ headIsOpenWith (Set.fromList [alice, bob, carol])
                     metrics <- getMetrics n1
                     metrics `shouldSatisfy` ("hydra_head_inputs" `BS.isInfixOf`)
 
@@ -865,7 +865,7 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
-        headIsInitializingWith (Set.fromList [alice])
+        headIsOpenWith (Set.fromList [alice])
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
@@ -941,7 +941,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1, n2, n3] $
-        headIsInitializingWith (Set.fromList [alice, bob, carol])
+        headIsOpenWith (Set.fromList [alice, bob, carol])
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
@@ -1032,7 +1032,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
       Error err ->
         failure $ "newUTxO isn't valid JSON?: " <> err
       Data.Aeson.Success u -> do
-        waitForAllMatch 3 [n1] $ checkFanout headId u
+        waitForAllMatch 3 [n1] $ headIsFinalizedWith headId u
         failAfter 5 $ waitForUTxO backend u
 
 reachFanoutLimit :: Integer -> ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> [TxId] -> backend -> IO ()
@@ -1055,7 +1055,7 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
     send node $ input "Init" []
     headId <-
       waitForAllMatch 10 [node] $
-        headIsInitializingWith (Set.fromList [alice])
+        headIsOpenWith (Set.fromList [alice])
 
     -- Get some UTXOs to commit to a head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair

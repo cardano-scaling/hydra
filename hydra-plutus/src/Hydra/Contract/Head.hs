@@ -87,7 +87,7 @@ headValidator oldState input ctx =
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
-      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
+      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -486,7 +486,7 @@ checkContest ctx closedDatum redeemer =
 {-# INLINEABLE checkContest #-}
 
 -- | Verify a fanout transaction.
-checkFanout ::
+headIsFinalizedWith ::
   ScriptContext ->
   -- | Closed state before the fanout
   ClosedDatum ->
@@ -497,7 +497,7 @@ checkFanout ::
   -- | Number of delta outputs to fanout
   Integer ->
   Bool
-checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
@@ -534,7 +534,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
         traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
           time > contestationDeadline
       _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
-{-# INLINEABLE checkFanout #-}
+{-# INLINEABLE headIsFinalizedWith #-}
 
 --------------------------------------------------------------------------------
 -- Helpers
