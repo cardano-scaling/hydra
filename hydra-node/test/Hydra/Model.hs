@@ -727,7 +727,7 @@ performInit party = do
   party `sendsInput` Input.Init
   nodes <- gets nodes
   lift . waitUntilMatch (elems nodes) $ \case
-    HeadIsInitializing{headId} -> Just headId
+    HeadIsOpen{headId} -> Just headId
     _ -> Nothing
 
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()

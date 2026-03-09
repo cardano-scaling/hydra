@@ -38,7 +38,7 @@ import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
-import Hydra.Tx (IsTx (..), Snapshot (..), balance)
+import Hydra.Tx (IsTx (..), Snapshot (..))
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
@@ -150,19 +150,17 @@ handleHydraEventsHeadState :: UTCTime -> HydraEvent Tx -> EventM Name HeadState 
 handleHydraEventsHeadState now e = do
   st <- get
   case e of
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{parties, headId}}) ->
       put $ Active (newActiveLink (toList parties) headId)
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.EventLogRotated{checkpoint}}) -> do
       modify $ \current -> recoverHeadState now current checkpoint
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
-      put Idle
     _ -> pure ()
   zoom activeLinkL $ handleHydraEventsActiveLink e
 
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
 handleHydraEventsActiveLink e = do
   case e of
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{utxo}}) -> do
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{}}) -> do
       activeHeadStateL .= Open OpenHome
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{utxo}}}) ->
       utxoL .= utxo
@@ -220,14 +218,8 @@ handleHydraEventsInfo = \case
     info time $ "Peer connected: " <> show peer
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.PeerDisconnected{peer}}) ->
     info time $ "Peer disconnected: " <> show peer
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsInitializing{parties, headId}}) ->
-    info time "Head is initializing"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.Committed{party, utxo}}) ->
-    info time $ show party <> " committed " <> renderValue (balance @Tx utxo)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{utxo}}) ->
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{parties, headId}}) ->
     info time "Head is now open!"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsAborted{}}) ->
-    info time "Head aborted, back to square one."
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}}) ->
     info time ("Snapshot #" <> show number <> " confirmed.")
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotSideLoaded{snapshotNumber}}) ->

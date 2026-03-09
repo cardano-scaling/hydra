@@ -15,8 +15,7 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
-import Hydra.HeadLogic (Input (..), TTL)
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized))
+import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRefs)
@@ -120,12 +119,12 @@ spec = parallel $ do
             env
               /= testEnvironment
               ==> do
-                -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+                -- XXX: This is very tied to the fact that 'HeadOpened' results in
                 -- a head state that gets checked by 'checkHeadState'
                 let genEvent = do
                       StateEvent
                         <$> arbitrary
-                        <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
+                        <*> (HeadOpened (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
                         <*> pure now
                 forAllShrink genEvent shrink $ \incompatibleEvent ->
                   testHydrate (mockEventStore [incompatibleEvent]) []
