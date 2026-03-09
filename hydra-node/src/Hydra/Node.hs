@@ -430,15 +430,16 @@ processEffects node tracer inputId effects = do
       ClientEffect i -> sendMessage server i
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
-        postTx postChainTx
-          `catch` \(postTxError :: PostTxError tx) ->
-            enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
+        asyncTracked $
+          postTx postChainTx
+            `catch` \(postTxError :: PostTxError tx) ->
+              enqueue (ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing})
     traceWith tracer $ EndEffect party inputId effectId
 
   HydraNode
     { hn
     , oc = Chain{postTx}
-    , inputQueue = InputQueue{enqueue}
+    , inputQueue = InputQueue{enqueue, asyncTracked}
     , env = Environment{party}
     , server
     } = node
