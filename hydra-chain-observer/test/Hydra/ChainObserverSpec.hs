@@ -7,7 +7,6 @@ import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (utxoFromTx)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
-import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.ChainObserver.NodeClient (ChainObservation, observeAll, observeTx)
 import Hydra.Tx.Observe (HeadObservation (..))
 import Test.Aeson.GenericSpecs (
@@ -17,6 +16,7 @@ import Test.Aeson.GenericSpecs (
   roundtripAndGoldenSpecsWithSettings,
  )
 import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
+import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano (genSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.QuickCheck (counterexample, forAll, forAllBlind, property, (=/=), (===))
@@ -42,11 +42,8 @@ spec =
               let utxo = getKnownUTxO st <> utxoFromTx tx <> additionalUTxO
                in case snd $ observeTx testNetworkId utxo tx of
                     Just (Init{}) -> transition === Transition.Init
-                    Just (Commit{}) -> transition === Transition.Commit
-                    Just (CollectCom{}) -> transition === Transition.Collect
                     Just (Increment{}) -> transition === Transition.Increment
                     Just (Decrement{}) -> transition === Transition.Decrement
-                    Just (Abort{}) -> transition === Transition.Abort
                     Just (Close{}) -> transition === Transition.Close
                     Just (Contest{}) -> transition === Transition.Contest
                     Just (Fanout{}) -> transition === Transition.Fanout

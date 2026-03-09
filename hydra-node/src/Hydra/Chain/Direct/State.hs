@@ -121,20 +121,6 @@ chainSlotFromPoint p =
     Nothing -> ChainSlot 0
     Just (SlotNo s) -> ChainSlot $ fromIntegral s
 
--- | A definition of all transitions between 'ChainState's. Enumerable and
--- bounded to be used as labels for checking coverage.
-data ChainTransition
-  = Init
-  | Abort
-  | Commit
-  | Collect
-  | Increment
-  | Decrement
-  | Close
-  | Contest
-  | Fanout
-  deriving stock (Eq, Show, Enum, Bounded)
-
 -- | An enumeration of all possible on-chain states of a Hydra Head, where each
 -- case stores the relevant information to construct & observe transactions to
 -- other states.

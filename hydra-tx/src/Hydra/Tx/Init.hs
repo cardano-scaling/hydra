@@ -93,6 +93,7 @@ data NotAnInitReason
   | InvalidPartyInDatum
   | NoSTFound
   | NotAHeadPolicy
+  | NoTokensMinted
   deriving stock (Show, Eq, Generic)
 
 -- | Identify a init tx by checking the output value for holding tokens that are
@@ -111,10 +112,16 @@ observeInitTx tx = do
       pure (pid, fromChain contestationPeriod, parties, fromPlutusTxOutRef headSeed)
     _ -> Left NotAHeadDatum
 
-  let stQuantity = selectAsset (txOutValue headOut) (AssetId pid hydraHeadV1AssetName)
+  -- TODO: Update spec about this: check minted value needed as otherwise
+  -- increment/decrement are mistaken as init
+  let mintedValue = txMintValueToValue . txMintValue . getTxBodyContent $ getTxBody tx
+      stAssetId = AssetId pid hydraHeadV1AssetName
+
+  unless (selectAsset mintedValue stAssetId == 1) $
+    Left NoTokensMinted
 
   -- check that ST is present in the head output
-  unless (stQuantity == 1) $
+  unless (selectAsset (txOutValue headOut) stAssetId == 1) $
     Left NoSTFound
 
   -- check that we are using the same seed and headId matches

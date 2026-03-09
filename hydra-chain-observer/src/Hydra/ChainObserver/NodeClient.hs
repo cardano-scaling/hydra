@@ -17,10 +17,7 @@ import Hydra.Contract (HydraScriptCatalogue)
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.Observe (
-  AbortObservation (..),
   CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
   ContestObservation (..),
   DecrementObservation (..),
   DepositObservation (..),
@@ -74,9 +71,6 @@ logObservation :: HeadObservation -> Maybe ChainObserverLog
 logObservation = \case
   NoHeadTx -> Nothing
   Init InitObservation{headId} -> Just HeadInitTx{headId}
-  Commit CommitObservation{headId} -> Just HeadCommitTx{headId}
-  Abort AbortObservation{headId} -> Just HeadAbortTx{headId}
-  CollectCom CollectComObservation{headId} -> Just HeadCollectComTx{headId}
   Deposit DepositObservation{headId} -> Just HeadDepositTx{headId}
   Recover RecoverObservation{headId} -> Just HeadRecoverTx{headId}
   Increment IncrementObservation{headId} -> Just HeadIncrementTx{headId}
