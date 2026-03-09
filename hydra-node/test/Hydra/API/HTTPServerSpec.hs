@@ -35,7 +35,7 @@ import Hydra.Chain (Chain, PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
+import Hydra.HeadLogic.Outcome (StateChanged (HeadOpened, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState, zeroChainPointTime)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -687,11 +687,12 @@ apiServerSpec = do
                 FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
+      -- TODO: drop this whole endpoint
       it "gives information on when the Head was initialized" $ do
         let genTick :: Gen (StateChanged Tx)
             genTick = TickObserved <$> arbitrary
             genInit :: Gen (StateChanged Tx)
-            genInit = HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+            genInit = HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
             mkStateLine :: Int -> Text -> StateChanged Tx -> Text
             mkStateLine eventId time stateChanged =
               decodeUtf8 . LBS.toStrict $

@@ -228,13 +228,10 @@ mkTimedServerOutputFromStateEvent event =
   StateEvent{eventId, time, stateChanged} = event
 
   mapStateChangedToServerOutput = \case
-    StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
-    StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
-    StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
+    StateChanged.HeadOpened{..} -> Just HeadIsOpen{..}
     StateChanged.HeadClosed{..} -> Just HeadIsClosed{..}
     StateChanged.HeadContested{..} -> Just HeadIsContested{..}
     StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
-    StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
     StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
@@ -287,7 +284,6 @@ projectCommitInfo commitInfo = \case
       Open OpenState{headId} -> IncrementalCommit headId
       _ -> CannotCommit
   StateChanged.HeadOpened{headId} -> IncrementalCommit headId
-  StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit
   _other -> commitInfo
 

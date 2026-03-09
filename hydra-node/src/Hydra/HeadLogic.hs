@@ -144,7 +144,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
       && configuredContestationPeriod == contestationPeriod
       && Set.fromList configuredParticipants == Set.fromList participants =
       newState
-        HeadInitialized
+        HeadOpened
           { parameters = headParameters
           , chainState = newChainState
           , headId
@@ -1740,7 +1740,7 @@ aggregate st = \case
   NetworkClusterIDMismatch{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
-  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
+  HeadOpened{} ->
     --   Initial
     --     InitialState
     --       { parameters = parameters
@@ -1750,8 +1750,6 @@ aggregate st = \case
     --       , headId
     --       , headSeed
     --       }
-    Prelude.error "FIXME: drop HeadInitialized / merge with HeadOpened"
-  HeadOpened{chainState, initialUTxO} ->
     -- case st of
     --   Initial InitialState{parameters, headId, headSeed} ->
     --     Open
@@ -2021,9 +2019,6 @@ aggregateChainStateHistory history = \case
   NetworkClusterIDMismatch{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
-  HeadInitialized{chainState} -> pushNewState chainState history
-  CommittedUTxO{chainState} -> pushNewState chainState history
-  HeadAborted{chainState} -> pushNewState chainState history
   HeadOpened{chainState} -> pushNewState chainState history
   TransactionAppliedToLocalUTxO{} -> history
   SnapshotRequestDecided{} -> history

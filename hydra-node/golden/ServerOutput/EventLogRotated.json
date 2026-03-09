@@ -3,85 +3,148 @@
         {
             "checkpoint": {
                 "chainPointTime": {
-                    "currentChainTime": "1864-05-09T21:40:40.53348049031Z",
-                    "currentSlot": 1,
+                    "currentChainTime": "1864-05-10T10:49:39.795780693588Z",
+                    "currentSlot": 0,
                     "drift": 1
                 },
                 "headState": {
                     "contents": {
                         "chainState": {
-                            "recordedAt": null,
+                            "recordedAt": {
+                                "tag": "ChainPointAtGenesis"
+                            },
                             "spendableUTxO": {
-                                "0000000100010101000000000001010101010101000000010001010000000101#53": {
-                                    "address": "addr_test1xqk052fntst9mjemjcfp87kxhdn48f7uy7kfl02nr0szeu0m430d7ey20tvnxy60kyhhl5l839r0g6xq2paepfjcg0hq46yg6s",
+                                "0000010101000001000100000000000001010001010000000100000001010001#82": {
+                                    "address": "addr_test1qz266cn5lj2hy8kdx7wtw6chewu086sja7a39r6rzjz3r3lqzlyucukng8s0z2x39dw9p38gxa9ssvxrsgzrcv4xm7lsc4m95l",
                                     "datum": null,
-                                    "inlineDatum": {
-                                        "int": -2
-                                    },
-                                    "inlineDatumRaw": "21",
-                                    "inlineDatumhash": "0268be9dbd0446eaa217e1dec8f399249305e551d7fc1437dd84521f74aa621c",
-                                    "referenceScript": null,
-                                    "value": {
-                                        "lovelace": 1008540
-                                    }
-                                }
-                            }
-                        },
-                        "committed": {
-                            "d4075407365d2373c3f0e775a2b4960343f2edadfa9851f54e93dd94274c3d33": {
-                                "0100000001000101000101010001010100010101010100000101010100010101#38": {
-                                    "address": "addr_test1wzcnv407z7ng73gtyzxf879h980zrw54xc7zhqen6s2hvng58n0p8",
-                                    "datum": null,
-                                    "datumhash": "b7306ec2cbf3f9b5faf994d6f1c2aadf511ffad45dd101dc55d39d2a1cdb4f40",
+                                    "datumhash": null,
                                     "inlineDatum": null,
                                     "inlineDatumRaw": null,
                                     "referenceScript": null,
                                     "value": {
-                                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
-                                            "e4663b": 8556050355498001224
+                                        "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                                            "a2daea1bc92711e0a6b7afb902": 1
                                         },
-                                        "lovelace": 1193870
+                                        "lovelace": 1176630
                                     }
                                 }
                             }
                         },
-                        "headId": "00000101010100010000000000000001",
-                        "headSeed": "00010100010100000000000101010001",
+                        "coordinatedHeadState": {
+                            "allTxs": {},
+                            "confirmedSnapshot": {
+                                "signatures": {
+                                    "multiSignature": []
+                                },
+                                "snapshot": {
+                                    "confirmed": [],
+                                    "headId": "00000000010000010000000100010100",
+                                    "number": 1,
+                                    "utxo": {
+                                        "0000010101000000000100010000000100010001000100010101000100000001#11": {
+                                            "address": "addr_test1zrzrym75s6qx4rvwspmwry0z9l7v0pq8jsgtsx75x07r65fqgvcmxe0khzgk0updg09huhajcrngwka0vw4mcauguxssexmsta",
+                                            "datum": null,
+                                            "inlineDatum": {
+                                                "constructor": 4,
+                                                "fields": [
+                                                    {
+                                                        "list": [
+                                                            {
+                                                                "bytes": "13"
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        "bytes": "98b0"
+                                                    }
+                                                ]
+                                            },
+                                            "inlineDatumRaw": "d87d9f9f4113ff4298b0ff",
+                                            "inlineDatumhash": "86a8c4e6e29c22e8c6f5d56848565a4f4ac9031b40cb72232fe93b37baf3c9aa",
+                                            "referenceScript": null,
+                                            "value": {
+                                                "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
+                                                    "36": 2
+                                                },
+                                                "lovelace": 1206800
+                                            }
+                                        }
+                                    },
+                                    "utxoToCommit": null,
+                                    "utxoToDecommit": {
+                                        "0101010100000101000001000100000101010001010100010001010000000000#39": {
+                                            "address": "addr_test1wqqkku60ef02lmc9q07lxsufmzxffugpqrqhen7d2vvze0slfzzwy",
+                                            "datum": null,
+                                            "datumhash": "15fdf964ce14d74f085888ca21c9458c5ec48a7c03d24784006c70ccb43098e8",
+                                            "inlineDatum": null,
+                                            "inlineDatumRaw": null,
+                                            "referenceScript": null,
+                                            "value": {
+                                                "lovelace": 995610
+                                            }
+                                        }
+                                    },
+                                    "version": 0
+                                },
+                                "tag": "ConfirmedSnapshot"
+                            },
+                            "currentDepositTxId": "0101000101010101010000010101000101000101000000010000000000010100",
+                            "decommitTx": null,
+                            "localTxs": [],
+                            "localUTxO": {
+                                "0000000101010000000100010000010001000000000000010000010000010101#53": {
+                                    "address": "addr_test1qz4wvp47ew5f567d2v3wr7npg9jxlescvd4yv7jlepmgd9h6w9hfr39cfjxpvvc969r55sqv5e2yeqs4jgulk278drkq37jpth",
+                                    "datum": null,
+                                    "datumhash": null,
+                                    "inlineDatum": null,
+                                    "inlineDatumRaw": null,
+                                    "referenceScript": null,
+                                    "value": {
+                                        "e9f5206aa07a26e3ddb03e75af7925f623f6ab78202008eedeca5069": {
+                                            "26de168f798a3c744654bbaa6b85f68662": 1
+                                        },
+                                        "lovelace": 45000000000000000
+                                    }
+                                }
+                            },
+                            "seenSnapshot": {
+                                "lastSeen": 0,
+                                "requested": 1,
+                                "tag": "RequestedSnapshot"
+                            },
+                            "version": 0
+                        },
+                        "headId": "00010100000101010001000101010000",
+                        "headSeed": "00000000010000010001010100010100",
                         "parameters": {
-                            "contestationPeriod": 2592000,
+                            "contestationPeriod": 31536000,
                             "parties": [
                                 {
-                                    "vkey": "cd1a36fddfc1709e6621dcf9b0829e2c72d17a396a387d4d886fc468e18531ff"
+                                    "vkey": "016f7086542a68031981d0a96b5d1ea82f366099c1a3a09be10d89d92866f1ca"
                                 }
                             ]
-                        },
-                        "pendingCommits": []
+                        }
                     },
-                    "tag": "Initial"
+                    "tag": "Open"
                 },
                 "pendingDeposits": {
-                    "0001000000000000000001000100000000010001010101010000010101010000": {
-                        "created": "1864-05-10T19:29:32.76484036805Z",
-                        "deadline": "1864-05-09T10:11:09.240727186472Z",
+                    "0001000101010100010100000101010101000001010000010100000100010100": {
+                        "created": "1864-05-08T17:43:05.497796133502Z",
+                        "deadline": "1864-05-08T04:57:57.628538075739Z",
                         "deposited": {
-                            "0100000000000100000000010000010101010101000000010000000101000000#20": {
-                                "address": "addr_test1xzfujqq2tayr9xn7qqd7hj83shrr27amfznvxk9shl8qmuv85jjskzl0s9jtasnfz8cnxptlcmwfpy5tkqr2057yf3jsjzu3mc",
+                            "0000010100000101010000000001010101010100000001000101000001010100#0": {
+                                "address": "addr_test1yqy9xxsslgu46n4a90q2ylu7z38tarlsegj5xhnlwy52vs0vh53hfgezv2x0s2p8ngvgajskwgnhla67zl6jzy8hau4s98yd2j",
                                 "datum": null,
-                                "inlineDatum": {
-                                    "int": 2
-                                },
-                                "inlineDatumRaw": "02",
-                                "inlineDatumhash": "bb30a42c1e62f0afda5f0a4e8a562f7a13a24cea00ee81917b86b89e801314aa",
+                                "datumhash": "5b9e40c642240a106c9098f05c2578aa3940cd8a732390b85814c4695bd4219d",
+                                "inlineDatum": null,
+                                "inlineDatumRaw": null,
                                 "referenceScript": null,
                                 "value": {
-                                    "105a8f1bb56444cacc86378c95421aceeb326b0fb7743e493eb82fd5": {
-                                        "3b66e347308b55fdad868818f5151cf7bcdd69ba3dcf4ee6": 3592484707898011906
-                                    },
-                                    "lovelace": 1301620
+                                    "lovelace": 45000000000000000
                                 }
                             }
                         },
-                        "headId": "00000000000001010101010000010101",
+                        "headId": "01000000010101000000010000010101",
                         "status": "Inactive"
                     }
                 },
@@ -90,5 +153,5 @@
             "tag": "EventLogRotated"
         }
     ],
-    "seed": -1295008779
+    "seed": 1608205336
 }

@@ -1,31 +1,14 @@
 {
     "samples": [
         {
-            "headId": "00000001010100000001010001010100",
-            "tag": "HeadIsOpen",
-            "utxo": {
-                "0001010101000001010001010000010100000100000101010000000101000001#23": {
-                    "address": "addr_test12plg5jgheuv50nanwkx82u3an4jf9se8pqpax4y8wtm6q3cqqyqqsu8naf",
-                    "datum": null,
-                    "datumhash": "722584be7faec354f09b288f571460995005497e132eac88dc6a0950792d3a71",
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "820501",
-                            "description": "",
-                            "type": "SimpleScript"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage"
-                    },
-                    "value": {
-                        "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                            "11b37092ba4c99466211eadc3435fa16": 2
-                        }
-                    }
+            "headId": "01010100000000010001000001010101",
+            "parties": [
+                {
+                    "vkey": "25da12b1a890acf2f85dbbdedde118e491424a6199f410b55f93ed501c83a850"
                 }
-            }
+            ],
+            "tag": "HeadIsOpen"
         }
     ],
-    "seed": 961434971
+    "seed": -1649245230
 }

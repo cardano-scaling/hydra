@@ -236,8 +236,7 @@ spec =
             generate $
               mapM
                 (>>= genStateEvent)
-                [ Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                , Outcome.HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
+                [ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
                 , Outcome.HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
                 ]
           let eventSource = mockSource existingStateChanges
@@ -251,22 +250,18 @@ spec =
               -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
               guard $ isNothing (v ^? key "snapshotUtxo")
 
-            (headId, headInitializedMsg) <- generate $ do
+            (headId, headIsOpenMsg) <- generate $ do
               headId <- arbitrary
               output <-
                 genStateEvent
-                  =<< ( Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
+                  =<< ( Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
                       )
               pure (headId, output)
 
-            headIsOpenMsg <- generate $ do
-              genStateEvent
-                =<< ( Outcome.HeadOpened headId <$> arbitrary <*> arbitrary
-                    )
             snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}}} <-
               generate $ genStateEvent =<< generateSnapshot
 
-            mapM_ putEvent [headInitializedMsg, headIsOpenMsg, snapShotConfirmedMsg]
+            mapM_ putEvent [headIsOpenMsg, snapShotConfirmedMsg]
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo <> fromMaybe mempty utxoToCommit)
@@ -290,16 +285,12 @@ spec =
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
-          (headId, headInitializedMsg) <- generate $ do
-            headId <- arbitrary
-            output <- Outcome.HeadInitialized <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
-            pure (headId, output)
-          headIsOpenMsg <- generate $ Outcome.HeadOpened headId <$> arbitrary <*> arbitrary
+          headIsOpenMsg <- generate $ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
           let generateSnapshot = generate $ Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
           snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <- generateSnapshot
 
-          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headInitializedMsg, headIsOpenMsg, snapShotConfirmedMsg]
+          stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headIsOpenMsg, snapShotConfirmedMsg]
           let eventSource = mockSource stateEvents
 
           let expectedUtxos = toJSON $ utxo <> fromMaybe mempty utxoToCommit

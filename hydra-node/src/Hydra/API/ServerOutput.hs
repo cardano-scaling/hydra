@@ -144,9 +144,7 @@ data ServerOutput tx
       }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
-  | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
-  | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadIsOpen {headId :: HeadId, parties :: [Party]}
   | HeadIsClosed
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -159,7 +157,6 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | ReadyToFanout {headId :: HeadId}
-  | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
@@ -184,8 +181,8 @@ data ServerOutput tx
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
-  | -- XXX: Rename to DepositRecorded following the state events naming. But only
-    -- do this when changing the endpoint also to /commits
+  | -- TODO: Rename to DepositRecorded following the state events naming. But only
+    -- do this when changing the endpoint also to /deposits
     CommitRecorded
       { headId :: HeadId
       , utxoToCommit :: UTxOType tx
@@ -195,10 +192,12 @@ data ServerOutput tx
       }
   | DepositActivated {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
-  | -- XXX: Rename to DepositRecovered to be more consistent. But only do this
-    -- when changing the endpoint also to /commits
+  | -- TODO: Rename to DepositApproved
+    CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | -- TODO: Rename to DepositFinalized
+    CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
+  | -- TODO: Rename to DepositRecovered to be more consistent. But only do this
+    -- when changing the endpoint also to /deposits
     CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | -- | Snapshot was side-loaded, and the included transactions can be considered final.
     -- The local state has been reset, meaning pending transactions were pruned.
@@ -243,13 +242,10 @@ prepareServerOutput ::
   LBS.ByteString
 prepareServerOutput config response =
   case output response of
-    Committed{} -> encodedResponse
-    HeadIsInitializing{} -> encodedResponse
     HeadIsOpen{} -> encodedResponse
     HeadIsClosed{} -> encodedResponse
     HeadIsContested{} -> encodedResponse
     ReadyToFanout{} -> encodedResponse
-    HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
