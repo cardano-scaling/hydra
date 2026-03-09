@@ -36,7 +36,7 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
-  headIsInitializingWith,
+  headIsOpenWith,
  )
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -287,7 +287,7 @@ prepareScenario backend nodes tracer = do
   send n1 $ input "Init" []
   headId <-
     waitForAllMatch 10 [n1, n2, n3] $
-      headIsInitializingWith (Set.fromList [alice, bob, carol])
+      headIsOpenWith (Set.fromList [alice, bob, carol])
 
   -- Get some UTXOs to commit to a head
   aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
