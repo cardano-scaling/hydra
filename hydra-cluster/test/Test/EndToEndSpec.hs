@@ -260,7 +260,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
   describe "End-to-end on Cardano devnet" $ do
     describe "single party hydra head" $ do
-      around_ requiresBlockfrost $ it "full head life-cycle @requiresBlockfrost" $ \tracer -> do
+      it "full head life-cycle" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
             singlePartyHeadFullLifeCycle tracer tmpDir backend hydraScriptsTxId
