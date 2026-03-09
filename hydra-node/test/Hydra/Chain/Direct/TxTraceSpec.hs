@@ -40,6 +40,7 @@ import Hydra.Cardano.Api (
   modifyTxOutValue,
   selectLovelace,
   throwError,
+  toPlutusTxOutRef,
   txOutAddress,
   txOutValue,
   txSpendingUTxO,
@@ -53,7 +54,7 @@ import Hydra.Tx (CommitBlueprintTx (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Tx.Deposit (depositTx)
-import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId)
+import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
 import Hydra.Tx.Observe (HeadObservation (NoHeadTx), observeHeadTx)
@@ -61,6 +62,7 @@ import Hydra.Tx.Observe qualified as Tx
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber (..), SnapshotVersion (..), getSnapshot, number)
+import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testNetworkId)
@@ -72,7 +74,6 @@ import Test.Hydra.Tx.Gen (
   genUTxO1,
   genVerificationKey,
  )
-import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (Confidence (..), Property, Smart (..), Testable, checkCoverage, checkCoverageWith, cover, elements, frequency, ioProperty)
 import Test.QuickCheck.Monadic (monadic)
 import Test.QuickCheck.StateModel (
@@ -793,8 +794,11 @@ openHeadUTxO =
   headTxIn = arbitrary `generateWith` 42
 
   openHeadTxOut =
-    mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId openHeadDatum
-      & addParticipationTokens [alicePVk, bobPVk, carolPVk]
+    mkHeadOutput
+      Fixture.testNetworkId
+      Fixture.testPolicyId
+      (verificationKeyToOnChainId <$> [alicePVk, bobPVk, carolPVk])
+      openHeadDatum
       & modifyTxOutValue (<> UTxO.totalValue inHeadUTxO)
 
   openHeadDatum :: TxOutDatum CtxUTxO
@@ -805,6 +809,7 @@ openHeadUTxO =
           { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
           , utxoHash = toBuiltin $ hashUTxO inHeadUTxO
           , contestationPeriod = CP.toChain Fixture.cperiod
+          , headSeed = toPlutusTxOutRef Fixture.testSeedInput
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
           , version = 0
           }
@@ -843,7 +848,7 @@ newIncrementTx actor snapshot = do
         increment
           (actorChainContext actor)
           spendableUTxO
-          (mkHeadId Fixture.testPolicyId)
+          (txInToHeadSeed Fixture.testSeedInput, mkHeadId Fixture.testPolicyId)
           Fixture.testHeadParameters
           snapshot
           txid
@@ -857,7 +862,7 @@ newDecrementTx actor snapshot = do
     decrement
       (actorChainContext actor)
       spendableUTxO
-      (mkHeadId Fixture.testPolicyId)
+      (txInToHeadSeed Fixture.testSeedInput, mkHeadId Fixture.testPolicyId)
       Fixture.testHeadParameters
       snapshot
 

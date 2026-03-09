@@ -30,7 +30,6 @@ import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
   Chain (Chain),
   checkNonADAAssets,
-  draftCommitTx,
   draftDepositTx,
   postTx,
   submitTx,
@@ -380,7 +379,6 @@ dummyChainHandle :: Chain tx IO
 dummyChainHandle =
   Chain
     { postTx = \_ -> error "unexpected call to postTx"
-    , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
     , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
     , submitTx = \_ -> error "unexpected call to submitTx"
     , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"

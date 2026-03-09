@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain (Chain, PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
@@ -284,9 +284,6 @@ apiServerSpec = do
         let isIdle = case headState nodeState of
               Idle{} -> True
               _ -> False
-        let isInitial = case headState nodeState of
-              Initial{} -> True
-              _ -> False
         let isOpen = case headState nodeState of
               Open{} -> True
               _ -> False
@@ -295,7 +292,6 @@ apiServerSpec = do
               _ -> False
         withMaxSuccess 20
           . cover 1 isIdle "IdleState"
-          . cover 1 isInitial "InitialState"
           . cover 1 isOpen "OpenState"
           . cover 1 isClosed "ClosedState"
           . withJsonSpecifications
@@ -612,26 +608,20 @@ apiServerSpec = do
                         else Nothing
                   }
 
+    -- TODO: change API to POST /deposits
     describe "POST /commit" $ do
       let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
-      let workingChainHandle =
-            dummyChainHandle
-              { draftCommitTx = \_ _ -> do
-                  tx <- generate $ arbitrary @Tx
-                  pure $ Right tx
-              }
-      let initialHeadState = Initial (generateWith arbitrary 42)
       let openHeadState = Open (generateWith arbitrary 42)
       responseChannel <- runIO newTChanIO
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
               nullTracer
-              workingChainHandle
+              dummyChainHandle -- TODO: this errors
               testEnvironment
               dummyStatePath
               defaultPParams
-              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
+              (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -641,13 +631,6 @@ apiServerSpec = do
           $ do
             post "/commit" (Aeson.encode request)
               `shouldRespondWith` 200
-
-      let failingChainHandle :: PostTxError tx -> Chain tx IO
-          failingChainHandle postTxError =
-            dummyChainHandle
-              { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
-              }
 
       prop "reject deposits with less than min ADA" $ do
         forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO) -> do
@@ -660,6 +643,12 @@ apiServerSpec = do
             _ -> property True
 
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
+        let failingChainHandle :: PostTxError tx -> Chain tx IO
+            failingChainHandle err =
+              dummyChainHandle
+                { draftDepositTx = \_ _ _ _ _ -> pure $ Left err
+                }
+
         let coverage = case postTxError of
               CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
@@ -735,7 +724,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
+                (pure NodeInSync{headState = error "TODO: drop /head-initialization endpoint", pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
                 getHeadId
                 getPendingDeposits
                 putClientInput

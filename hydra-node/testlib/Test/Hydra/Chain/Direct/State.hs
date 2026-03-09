@@ -218,7 +218,7 @@ genInitTx ctx = do
   seedInput <- genTxIn
   pure $ initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
 
-genDepositTx :: Int -> Gen (HydraContext, OpenState, Tx)
+genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do
   ctx <- genHydraContextFor numParties
   utxoToDeposit <- genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
@@ -228,12 +228,12 @@ genDepositTx numParties = do
   slotsUntilDeadline <- chooseEnum (0, 86400)
   let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
   let tx = depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxoToDeposit) slot deadline Nothing
-  pure (ctx, st, tx)
+  pure (ctx, st, utxoToDeposit, tx)
 
 genRecoverTx ::
   Gen (UTxO, Tx)
 genRecoverTx = do
-  (_, _, txDeposit) <- genDepositTx maximumNumberOfParties
+  (_, _, _, txDeposit) <- genDepositTx maximumNumberOfParties
   let DepositObservation{deposited, deadline} = fromJust $ observeDepositTx testNetworkId txDeposit
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
@@ -249,7 +249,7 @@ genIncrementTx ::
     , Tx
     )
 genIncrementTx numParties = do
-  (ctx, st@OpenState{seedTxIn, headId}, txDeposit) <- genDepositTx numParties
+  (ctx, st@OpenState{seedTxIn, headId}, _, txDeposit) <- genDepositTx numParties
   cctx <- pickChainContext ctx
   let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   let openUTxO = getKnownUTxO st

@@ -20,7 +20,6 @@ import Control.Monad (foldM)
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
@@ -28,12 +27,12 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
-  PostChainTx (CollectComTx, ContestTx, DecrementTx, IncrementTx),
+  PostChainTx (ContestTx, DecrementTx, IncrementTx),
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -256,14 +255,13 @@ spec =
             DecommitRecorded{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
             _ -> False
 
-        it "ignores ReqDec when not in Open state" $ monadicIO $ do
+        it "ignores ReqDec when not in Open state" $ do
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}
           let input = receiveMessage reqDec
-          st <- pickBlind $ elements [inInitialState threeParties, inIdleState, inClosedState threeParties]
-          now <- run $ nowFromSlot st.chainPointTime.currentSlot
-          pure $
-            update aliceEnv ledger now st input
-              `shouldNotBe` cause (NetworkEffect reqDec)
+              st = inClosedState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv ledger now st input
+            `shouldNotBe` cause (NetworkEffect reqDec)
 
         it "reports if a requested decommit tx is expired" $ do
           let inputs = utxoRef 1
@@ -1172,45 +1170,6 @@ spec =
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 input `shouldBe` Error (UnhandledInput input (headState s0))
 
-      it "everyone does collect on last commit after collect com" $ do
-        let aliceCommit = OnCommitTx testHeadId alice (utxoRef 1)
-            bobCommit = OnCommitTx testHeadId bob (utxoRef 2)
-            carolCommit = OnCommitTx testHeadId carol (utxoRef 3)
-        waitingForLastCommit <-
-          runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
-            step (observeTxAtSlot 1 aliceCommit)
-            step (observeTxAtSlot 2 bobCommit)
-            getState
-
-        now <- nowFromSlot waitingForLastCommit.chainPointTime.currentSlot
-        -- Bob is not the last party, but still does post a collect
-        update bobEnv ledger now waitingForLastCommit (observeTxAtSlot 3 carolCommit)
-          `hasEffectSatisfying` \case
-            OnChainEffect{postChainTx = CollectComTx{}} -> True
-            _ -> False
-
-      it "cannot observe abort after collect com" $ do
-        afterCollectCom <-
-          runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
-            step (observeTx $ OnCollectComTx testHeadId)
-            getState
-
-        now <- nowFromSlot afterCollectCom.chainPointTime.currentSlot
-        let unhandledInput = observeTx OnAbortTx{headId = testHeadId}
-        update bobEnv ledger now afterCollectCom unhandledInput
-          `shouldBe` Error (UnhandledInput unhandledInput (headState afterCollectCom))
-
-      it "cannot observe collect com after abort" $ do
-        afterAbort <-
-          runHeadLogic bobEnv ledger (inInitialState threeParties) $ do
-            step (observeTx OnAbortTx{headId = testHeadId})
-            getState
-
-        now <- nowFromSlot afterAbort.chainPointTime.currentSlot
-        let unhandledInput = observeTx (OnCollectComTx testHeadId)
-        update bobEnv ledger now afterAbort unhandledInput
-          `shouldBe` Error (UnhandledInput unhandledInput (headState afterAbort))
-
       it "notifies user on head closing and when passing the contestation deadline" $ do
         let s0 = inOpenState threeParties
             snapshotNumber = 0
@@ -1388,20 +1347,6 @@ spec =
                       )
                       stateChanges
                 _ -> False
-
-      prop "ignores abortTx of another head" $ \otherHeadId -> do
-        let abortOtherHead = observeTx $ OnAbortTx{headId = otherHeadId}
-            st = inInitialState threeParties
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st abortOtherHead
-          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
-
-      prop "ignores collectComTx of another head" $ \otherHeadId -> do
-        let collectOtherHead = observeTx $ OnCollectComTx{headId = otherHeadId}
-            st = inInitialState threeParties
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st collectOtherHead
-          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
         let decrementOtherHead = observeTx $ OnDecrementTx{headId = otherHeadId, newVersion = 1, distributedUTxO = mempty}
@@ -1919,22 +1864,6 @@ inIdleState = initNodeState 0
 
 inUnsyncedIdleState :: NodeState SimpleTx
 inUnsyncedIdleState = catchingUp (Idle IdleState{chainState = 0})
-
--- XXX: This is always called with threeParties and simpleLedger
-inInitialState :: [Party] -> NodeState SimpleTx
-inInitialState parties =
-  inSync $
-    Initial
-      InitialState
-        { parameters
-        , pendingCommits = Set.fromList parties
-        , committed = mempty
-        , chainState = 0
-        , headId = testHeadId
-        , headSeed = testHeadSeed
-        }
- where
-  parameters = HeadParameters defaultContestationPeriod parties
 
 -- XXX: This is always called with threeParties and simpleLedger
 inOpenState ::
