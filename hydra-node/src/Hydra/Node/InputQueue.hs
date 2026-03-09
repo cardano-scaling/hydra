@@ -23,6 +23,9 @@ data InputQueue m e = InputQueue
   -- other events (chain observations, network messages), so the timer tick
   -- is effectively replaced by the next one that fires after the queue drains.
   , reenqueue :: DiffTime -> Queued e -> m ()
+  , asyncTracked :: m () -> m ()
+  -- ^ Run an action asynchronously. Use this for
+  -- background work that will eventually 'enqueue' an item.
   , dequeue :: m (Queued e)
   , isEmpty :: m Bool
   }
@@ -33,6 +36,7 @@ createInputQueue ::
   ( MonadDelay m
   , MonadAsync m
   , MonadLabelledSTM m
+  , MonadThrow m
   ) =>
   m (InputQueue m e)
 createInputQueue = do
@@ -68,6 +72,10 @@ createInputQueue = do
             atomically $ do
               modifyTVar' numThreads pred
               writeTBQueue q e
+      , asyncTracked = \action -> do
+          atomically $ modifyTVar' numThreads succ
+          void . asyncLabelled "input-queue-async-tracked" $
+            action `finally` atomically (modifyTVar' numThreads pred)
       , dequeue =
           atomically $ readTBQueue q
       , isEmpty = do
