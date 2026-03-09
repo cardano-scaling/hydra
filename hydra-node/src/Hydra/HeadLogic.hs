@@ -852,14 +852,23 @@ determineNextDepositStatus env pendingDeposits chainTime =
 -- This is primarily used to track deposits status changes.
 onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
 onChainTick env pendingDeposits chainTime =
-  -- Determine new active and new expired
-  let nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
-      newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
-      newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
-   in -- Emit state change for both
-      -- XXX: This is a bit messy
-      mkDepositActivated newActive <> mkDepositExpired newExpired
+  mkDepositActivated newActive <> mkDepositExpired newExpired
  where
+  -- XXX: This is a bit messy
+  newActive = Map.difference nextActive pendingActive
+
+  newExpired = Map.difference nextExpired pendingExpired
+
+  pendingActive = Map.filter (\Deposit{status} -> status == Active) pendingDeposits
+
+  pendingExpired = Map.filter (\Deposit{status} -> status == Expired) pendingDeposits
+
+  nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
+
+  nextActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+
+  nextExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
+
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
     pure DepositActivated{depositTxId, chainTime, deposit}
 
