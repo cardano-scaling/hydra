@@ -10,7 +10,7 @@ import Hydra.Prelude hiding (Down)
 import Brick
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List (nub, (\\))
+import Data.List (nub)
 import Data.Map qualified as Map
 import Data.Text qualified as T
 import Graphics.Vty (
@@ -38,7 +38,7 @@ import Hydra.TUI.Logging.Handlers (info, report, warn)
 import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
-import Hydra.Tx (IsTx (..), Party, Snapshot (..), balance)
+import Hydra.Tx (IsTx (..), Snapshot (..), balance)
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
@@ -162,8 +162,6 @@ handleHydraEventsHeadState now e = do
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
 handleHydraEventsActiveLink e = do
   case e of
-    Update (ApiTimedServerOutput TimedServerOutput{output = API.Committed{party, utxo}}) -> do
-      partyCommitted party utxo
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{utxo}}) -> do
       activeHeadStateL .= Open OpenHome
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{utxo}}}) ->
@@ -314,12 +312,6 @@ handleHydraEventsInfo = \case
     info time "Checkpoint triggered: head state event log rotated"
   _ -> pure ()
 
-partyCommitted :: Party -> UTxO -> EventM n ActiveLink ()
-partyCommitted party commit = do
-  zoom (activeHeadStateL . initializingStateL) $ do
-    remainingPartiesL %= (\\ [party])
-  utxoL %= (<> commit)
-
 -- * VtyEvent handlers
 
 handleVtyEventsHeadState :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
@@ -340,47 +332,12 @@ handleVtyEventsActiveLink cardanoClient hydraClient e = do
 
 handleVtyEventsActiveHeadState :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
 handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e = do
-  zoom (initializingStateL . initializingScreenL) $ handleVtyEventsInitializingScreen cardanoClient hydraClient e
   zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e
   s <- use id
   case s of
     FanoutPossible -> handleVtyEventsFanoutPossible hydraClient e
     Final -> handleVtyEventsFinal hydraClient e
     _ -> pure ()
-
-handleVtyEventsInitializingScreen :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name InitializingScreen ()
-handleVtyEventsInitializingScreen cardanoClient hydraClient e = do
-  case e of
-    EvKey (KChar 'a') [] ->
-      put $ ConfirmingAbort confirmRadioField
-    _ -> pure ()
-  initializingScreen <- use id
-  case initializingScreen of
-    InitializingHome -> case e of
-      EvKey (KChar 'c') [] -> do
-        utxo <- liftIO $ queryUTxOByAddress cardanoClient [mkMyAddress cardanoClient hydraClient]
-        put $ CommitMenu (utxoCheckboxField $ UTxO.toMap utxo)
-      _ -> pure ()
-    CommitMenu i -> do
-      case e of
-        EvKey KEsc [] -> put InitializingHome
-        EvKey KEnter [] -> do
-          let u = formState i
-          let commitUTxO = UTxO $ Map.mapMaybe (\(v, p) -> if p then Just v else Nothing) u
-          liftIO $ externalCommit hydraClient commitUTxO
-          put InitializingHome
-        _ -> pure ()
-      zoom commitMenuL $ handleFormEvent (VtyEvent e)
-    ConfirmingAbort i -> do
-      case e of
-        EvKey KEsc [] -> put InitializingHome
-        EvKey KEnter [] -> do
-          let selected = formState i
-          if selected
-            then liftIO $ sendInput hydraClient Abort
-            else put InitializingHome
-        _ -> pure ()
-      zoom confirmingAbortFormL $ handleFormEvent (VtyEvent e)
 
 handleVtyEventsOpen :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
 handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
