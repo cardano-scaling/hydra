@@ -115,7 +115,6 @@ drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
   Connected c -> case c ^. headStateL of
     Idle -> ["[I]nit", "[Q]uit"]
     Active (ActiveLink{activeHeadState}) -> case activeHeadState of
-      Initializing{} -> ["[C]ommit", "[A]bort", "[Q]uit"]
       Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]ncrement", "[R]ecover", "[C]lose", "[Q]uit"]
       Closed{} -> ["[Q]uit"]
       FanoutPossible{} -> ["[F]anout", "[Q]uit"]
@@ -133,12 +132,6 @@ drawLogCommandList s = vBox . fmap txt $ case s of
     , "[>] Scroll Down"
     , "[S]hort History Mode"
     ]
-
-drawFocusPanelInitializing :: IdentifiedState -> InitializingState -> Widget Name
-drawFocusPanelInitializing me InitializingState{remainingParties, initializingScreen} = case initializingScreen of
-  InitializingHome -> drawRemainingParties me remainingParties
-  CommitMenu x -> vBox [txt "Select UTxOs to commit:", renderForm x]
-  ConfirmingAbort x -> vBox [txt "Confirm Abort action:", renderForm x]
 
 drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
 drawRemainingDepositDeadline deadline now =
@@ -213,10 +206,9 @@ highlightOwnAddress ownAddress a =
   withAttr (if a == ownAddress then own else mempty) $ drawAddress a
 
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
-drawFocusPanel networkId vk now (Connection{me, headState}) = case headState of
+drawFocusPanel networkId vk now (Connection{headState}) = case headState of
   Idle -> emptyWidget
   Active (ActiveLink{utxo, pendingUTxOToDecommit, pendingIncrements, activeHeadState}) -> case activeHeadState of
-    Initializing x -> drawFocusPanelInitializing me x
     Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now x
     Closed x -> drawFocusPanelClosed now x
     FanoutPossible -> txt "Ready to fanout!"
@@ -367,7 +359,6 @@ showHeadState :: HeadState -> String
 showHeadState = \case
   Idle -> "Idle"
   Active (ActiveLink{activeHeadState}) -> case activeHeadState of
-    Initializing{} -> "Initializing"
     Open{} -> "Open"
     FanoutPossible{} -> "FanoutPossible"
     Closed{} -> "Closed"
