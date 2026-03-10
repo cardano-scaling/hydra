@@ -2020,6 +2020,7 @@
                         ]
                     },
                     "readyToFanoutSent": true,
+                    "remainingFanoutUTxO": null,
                     "version": 3
                 },
                 "tag": "Closed"
