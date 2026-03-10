@@ -8,20 +8,20 @@ Additional implementation-specific documentation for the Hydra Head protocol and
 
 Snapshots are the mechanism by which all head participants agree on a new L2 state. A snapshot includes a set of transactions, an optional deposit, and an optional decommit, and once signed by all parties it can be used to close the head on L1.
 
-#### Timer-driven batching
+#### How snapshot rounds are triggered
 
-Snapshot rounds are initiated by a **periodic timer** that fires every `snapshotRetryInterval` (default: 5 ms, configurable via `--snapshot-retry-interval`). On each tick, the snapshot leader checks:
+Snapshot rounds are initiated by **two complementary mechanisms**:
 
-1. Is there pending work? (pending transactions, an active deposit, or a decommit request)
-2. Is no other snapshot currently in flight?
-3. Am I the leader for the next snapshot number?
+1. **On `ReqTx` receipt** — when the leader receives a new transaction (`ReqTx`) and no snapshot is currently in flight, it immediately broadcasts a `ReqSn` containing that transaction and any other pending transactions (up to `maxTxsPerSnapshot = 100`). This ensures low latency for the common single-transaction-at-a-time pattern.
 
-If all three are true, the leader broadcasts a `ReqSn` message that batches **up to 100 transactions** (see `maxTxsPerSnapshot`) together with any pending deposit or decommit. Transactions beyond the limit are not dropped — they are carried forward and included in the next snapshot automatically.
+2. **Periodic timer** — a timer fires every `snapshotRetryInterval` (default: 5 ms, configurable via `--snapshot-retry-interval`). On each tick, the snapshot leader checks whether there is pending work (transactions, an active deposit, or a decommit request) and no snapshot is in flight. If so, it broadcasts a `ReqSn`. The timer handles cases not covered by the `ReqTx` path: idle recovery, deposit and decommit processing, and continued batching after the first snapshot in a burst.
 
-This replaces the previous model where every received `NewTx` immediately triggered a `ReqSn`. Under the new model, many transactions arriving within a single timer interval are confirmed in a single snapshot round, significantly improving throughput.
+**Batching behaviour**: When many transactions arrive in rapid succession, the first `ReqTx` triggers an immediate `ReqSn`. Subsequent transactions that arrive while the snapshot is in flight accumulate in the local pending pool. After the snapshot confirms, `maybeRequestNextSnapshot` chains the next `ReqSn` immediately — so those accumulated transactions are confirmed in the very next round without waiting for the timer.
+
+Transactions beyond `maxTxsPerSnapshot` per round are not dropped — they are carried forward and included in the next snapshot automatically.
 
 :::note
-Transactions submitted via `NewTx` are immediately validated against the local UTxO and broadcast to all peers as `ReqTx`. However, they are only confirmed into a snapshot when the timer fires and the leader collects them into the next `ReqSn`.
+Transactions submitted via `NewTx` are immediately validated against the local UTxO and broadcast to all peers as `ReqTx`. The leader then starts a snapshot as soon as the first `ReqTx` arrives (if no snapshot is in flight), or relies on the timer to batch accumulated transactions when already processing a round.
 :::
 
 #### Snapshot leadership
