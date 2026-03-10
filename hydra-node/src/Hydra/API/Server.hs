@@ -242,6 +242,7 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.HeadContested{..} -> Just HeadIsContested{..}
     StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
     StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
+    StateChanged.HeadPartialFannedOut{} -> Nothing
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
     StateChanged.SnapshotConfirmed{headId, snapshot = mSnapshot, signatures} ->

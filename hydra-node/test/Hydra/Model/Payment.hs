@@ -98,6 +98,10 @@ instance IsTx Payment where
   -- For Payment, UTxO is already a list of pairs
   toPairList = id
 
+  sizeUTxO = length
+
+  splitUTxOAt = List.splitAt
+
   -- For Payment, just use show for serialization (consistent with hashUTxO)
   utxoToElement = encodeUtf8 . show @Text
 

@@ -36,6 +36,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
+import Hydra.Tx.Fanout (PartialFanoutObservation)
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
@@ -362,6 +363,10 @@ instance Arbitrary ContestObservation where
   shrink = genericShrink
 
 instance Arbitrary FanoutObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary PartialFanoutObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 

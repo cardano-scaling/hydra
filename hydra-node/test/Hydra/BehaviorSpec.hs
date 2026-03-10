@@ -936,6 +936,21 @@ spec = parallel $ do
               send n2 Fanout
               waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
 
+    it "handles partial fanout observation and triggers next fanout" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 n1 n2
+              send n1 Close
+              forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
+              waitUntil [n1, n2] $ ReadyToFanout testHeadId
+              -- Simulate a partial fanout observed on chain (e.g. from the real
+              -- Handlers layer splitting a large UTxO set)
+              simulatePartialFanout chain testHeadId (utxoRef 1)
+              -- The node should auto-trigger the next fanout with the remaining UTxO
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 2}
+
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
@@ -1102,6 +1117,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
+  , simulatePartialFanout :: HeadId -> UTxOType tx -> m ()
   , closeWithInitialSnapshot :: Party -> m ()
   }
 
@@ -1112,6 +1128,7 @@ dummySimulatedChainNetwork =
     , tickThread = error "tickThread"
     , rollbackAndForward = error "rollbackAndForward"
     , simulateDeposit = error "simulateDeposit"
+    , simulatePartialFanout = error "simulatePartialFanout"
     , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
     }
 
@@ -1189,6 +1206,8 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
           createAndYieldEvent nodes history localChainState $
             OnDepositTx{headId, deposited = toDeposit, created, deadline, depositTxId}
           pure depositTxId
+      , simulatePartialFanout = \headId distributedUTxO ->
+          createAndYieldEvent nodes history localChainState $ OnPartialFanoutTx{headId, distributedUTxO}
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where
@@ -1328,6 +1347,8 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
+  PartialFanoutTx{utxoToDistribute} ->
+    OnPartialFanoutTx{headId = testHeadId, distributedUTxO = utxoToDistribute}
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =

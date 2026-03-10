@@ -27,7 +27,7 @@ import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
 import Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
 import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
-import Hydra.Tx.Fanout (FanoutObservation (..), observeFanoutTx)
+import Hydra.Tx.Fanout (FanoutObservation (..), PartialFanoutObservation (..), observeFanoutTx, observePartialFanoutTx)
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
@@ -44,6 +44,7 @@ data HeadObservation
   | Decrement DecrementObservation
   | Close CloseObservation
   | Contest ContestObservation
+  | PartialFanout PartialFanoutObservation
   | Fanout FanoutObservation
   deriving stock (Eq, Show, Generic)
 
@@ -73,6 +74,7 @@ instance FromJSON HeadObservation where
       "Decrement" -> Decrement <$> parseJSON (Object o)
       "Close" -> Close <$> parseJSON (Object o)
       "Contest" -> Contest <$> parseJSON (Object o)
+      "PartialFanout" -> PartialFanout <$> parseJSON (Object o)
       "Fanout" -> Fanout <$> parseJSON (Object o)
       _ -> fail $ "Unknown tag: " <> show tag
 
@@ -93,6 +95,7 @@ observeHeadTx networkId utxo tx =
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
+      <|> PartialFanout <$> observePartialFanoutTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
  where
   txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True

@@ -14,7 +14,7 @@ import CardanoNode (EndToEndLog (..), runBackend, withBackend, withCardanoNodeDe
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
+import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -486,27 +486,25 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               threeNodesWithMirrorParty tracer tmpDir
 
       describe "Fanout maximum UTxOs" $ do
-        -- This constant is set to the maximum number of UTxOs that can be
-        -- fanned out in a single transaction. It is derived from the maximum
-        -- transaction execution budget.
+        -- With partial fanout (see #1468), heads with more UTxOs than the
+        -- per-transaction limit can still finalize by automatically sequencing
+        -- multiple PartialFanout transactions followed by a final Fanout.
         --
-        -- See <https://github.com/cardano-scaling/hydra/issues/1468> for work
-        -- on addressing this.
+        -- The node threshold is 19 outputs (fanoutOutputThreshold in HeadLogic).
+        -- Below the threshold: single Fanout transaction.
+        -- Above the threshold: automatic partial fanout sequence.
 
-        let ledgerSizeLimit = 20
-
-        it "reaches the fan out limit" $ \tracer ->
+        it "can fanout UTxOs within single transaction limit" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
               withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
-                reachFanoutLimit ledgerSizeLimit tmpDir tracer hydraScriptsTxId opts
+                fanoutWithNOutputs 19 tmpDir tracer hydraScriptsTxId opts
 
-        it "doesn't reach the fan out limit by one" $ \tracer ->
-          failAfter 60 $
+        it "can fanout more UTxOs than single transaction limit via partial fanout" $ \tracer ->
+          failAfter 120 $
             withClusterTempDir $ \tmpDir -> do
               withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
-                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer hydraScriptsTxId opts
-                  `shouldThrow` \(e :: SomeException) -> "HeadIsFinalized" `isInfixOf` show e
+                fanoutWithNOutputs 20 tmpDir tracer hydraScriptsTxId opts
 
     describe "restarting nodes" $ do
       it "resume from latest observed point" $ \tracer -> do
@@ -904,8 +902,11 @@ initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
         waitForAllMatch 3 [n1] $ headIsFinalizedWith headId u
         failAfter 5 $ waitForUTxO opts u
 
-reachFanoutLimit :: Integer -> FilePath -> Tracer IO EndToEndLog -> [TxId] -> ChainBackendOptions -> IO ()
-reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId opts = do
+-- | Open a head with a given number of UTxOs, close it, and fanout.
+-- With partial fanout support, this should succeed for any number of UTxOs:
+-- the node automatically sequences PartialFanout transactions for large sets.
+fanoutWithNOutputs :: Integer -> FilePath -> Tracer IO EndToEndLog -> [TxId] -> ChainBackendOptions -> IO ()
+fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
 
   let hydraTracer = contramap FromHydraNode tracer
@@ -928,13 +929,13 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId opts = do
 
     -- Deposit UTxOs into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue (fromInteger $ ledgerSize * 1_000_000)) (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue (fromInteger $ numOutputs * 1_000_000)) (contramap FromFaucet tracer)
     depositTxAlice <- requestCommitTx node committedUTxOByAlice <&> signTx aliceExternalSk
     runBackend opts $ submitTransaction depositTxAlice
     waitFor hydraTracer (depositTimeout timing) [node] $
       output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
 
-    -- Create many transactions to reach the ledger limit.
+    -- Create many transactions to produce the desired number of UTxOs.
     -- Each output must have a unique value so that the on-chain accumulator
     -- membership proof works correctly (duplicate TxOuts collapse into one
     -- accumulator element, breaking the pairing check).
@@ -954,7 +955,7 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId opts = do
             output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
           loop (n - 1 :: Integer) utxo' (Just tx)
 
-    Just lastTx <- loop (ledgerSize - 1) (Prelude.head $ UTxO.toList committedUTxOByAlice) Nothing
+    Just lastTx <- loop (numOutputs - 1) (Prelude.head $ UTxO.toList committedUTxOByAlice) Nothing
     waitMatch 10 node $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $ v ^? key "headId" == Just (toJSON headId)
@@ -969,12 +970,12 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId opts = do
 
     send node $ input "Fanout" []
 
-    waitMatch 5 node $ \v -> do
-      guard $ v ^? key "tag" == Just "PostTxOnChainFailed"
-      failureReason <- v ^? key "postTxError" . key "failureReason" . _String
-      -- Note: Now the failure is because our fee estimate is (correctly)
-      -- too large.
-      guard $ "ExUnitsTooBigUTxO" `isInfixOf` failureReason
+    -- With partial fanout, the head should finalize regardless of UTxO count.
+    -- For large UTxO sets, the node automatically sequences PartialFanout
+    -- transactions before a final Fanout.
+    waitMatch 30 node $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsFinalized"
+      guard $ v ^? key "headId" == Just (toJSON headId)
 
 -- * Fixtures
 
