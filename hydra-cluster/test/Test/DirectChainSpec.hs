@@ -66,7 +66,7 @@ import Test.QuickCheck (generate)
 
 spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
-  it "can init and abort a head given nothing has been committed" $ \tracer -> do
+  it "can open a head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
       withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
         (aliceCardanoVk, _) <- keysFor Alice
@@ -99,17 +99,10 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
-            (aliceExternalVk, _aliceExternalSk) <- generate genKeyPair
-            someUTxO <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
-            someUTxOToCommit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue 2_000_001) (contramap FromFaucet tracer)
             participants <- loadParticipants [Alice]
             let headParameters = HeadParameters cperiod [alice]
             postTx $ InitTx{participants, headParameters}
             (headId, headSeed) <- aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
-
-            -- TODO: deposit + incremental commit of someUTxO
-            -- externalCommit backend aliceChain aliceExternalSk headId someUTxO
-            -- aliceChain `observesInTime` OnCommitTx headId alice someUTxO
 
             let v = 0
             let snapshotVersion = 0
@@ -117,9 +110,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                   Snapshot
                     { headId
                     , number = 1
-                    , utxo = someUTxO
+                    , utxo = mempty
                     , confirmed = []
-                    , utxoToCommit = Just someUTxOToCommit
+                    , utxoToCommit = Nothing
                     , utxoToDecommit = Nothing
                     , version = snapshotVersion
                     }
