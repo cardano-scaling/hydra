@@ -776,10 +776,9 @@ confirmedSnapshot modelSnapshot@ModelSnapshot{number} =
   case number of
     0 ->
       InitialSnapshot
-        { -- -- NOTE: The close validator would not check headId on close with
+        { -- NOTE: The close validator would not check headId on close with
           -- initial snapshot, but we need to provide it still.
           headId = mkHeadId Fixture.testPolicyId
-        , initialUTxO = realWorldModelUTxO $ inHead modelSnapshot
         }
     _ -> ConfirmedSnapshot{snapshot, signatures}
      where

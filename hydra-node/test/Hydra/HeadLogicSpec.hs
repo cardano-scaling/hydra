@@ -108,7 +108,7 @@ spec =
               { localUTxO = mempty
               , allTxs = mempty
               , localTxs = mempty
-              , confirmedSnapshot = InitialSnapshot testHeadId mempty
+              , confirmedSnapshot = InitialSnapshot testHeadId
               , seenSnapshot = NoSeenSnapshot
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
@@ -1086,17 +1086,9 @@ spec =
                   , participants = deriveOnChainId <$> [alice]
                   }
 
-          -- Start with localUTxO containing utxoRef 1, so we can decommit from it.
-          -- The confirmedSnapshot must also contain this UTxO since ReqSn applies
-          -- the decommit tx against the confirmed snapshot's UTxO.
-          let initialUtxo = utxoRefs [1]
-              decommitTx' = SimpleTx 10 (utxoRef 1) (utxoRef 3)
-              s0 =
-                inOpenState' singleParty $
-                  coordinatedHeadState
-                    { localUTxO = initialUtxo
-                    , confirmedSnapshot = InitialSnapshot testHeadId initialUtxo
-                    }
+          -- NOTE: The simple ledger does not check inputs if none present.
+          let decommitTx' = aValidTx 3
+              s0 = inOpenState singleParty
 
           -- Step 1: Submit decommit request
           s1 <- runHeadLogic aliceEnv' ledger s0 $ do
@@ -1390,7 +1382,7 @@ spec =
       describe "SideLoad InitialSnapshot" $ do
         it "accept side load initial snapshot with idempotence" $ do
           let s0 = inOpenState threeParties
-              initialSn = InitialSnapshot testHeadId mempty
+              initialSn = InitialSnapshot @SimpleTx testHeadId
               snapshot0 = getSnapshot initialSn
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
           sideLoadedState <- runHeadLogic bobEnv ledger s0 $ do
@@ -1398,25 +1390,12 @@ spec =
             getState
           getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot0
 
-        it "reject side load wrong initial snapshot" $ do
-          let s0 = inOpenState threeParties
-              initialSn = InitialSnapshot testHeadId mempty
-              snapshot0 = getSnapshot initialSn
-          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
-          let wrongInitialSnapshot = InitialSnapshot testHeadId (utxoRef 2)
-          now <- nowFromSlot s0.chainPointTime.currentSlot
-          let outcome = update bobEnv ledger now s0 (ClientInput (SideLoadSnapshot wrongInitialSnapshot))
-          outcome `hasEffectSatisfying` \case
-            ClientEffect (SideLoadSnapshotRejected{requirementFailure = SideLoadInitialSnapshotMismatch}) -> True
-            _ -> False
-          getConfirmedSnapshot s0 `shouldBe` Just snapshot0
-
         prop "ignores side load initial snapshot of another head" $ \otherHeadId -> do
           let s0 = inOpenState threeParties
-              initialSn = InitialSnapshot testHeadId mempty
+              initialSn = InitialSnapshot @SimpleTx testHeadId
               snapshot0 = getSnapshot initialSn
           getConfirmedSnapshot s0 `shouldBe` Just snapshot0
-          let initialSnapshotOtherHead = InitialSnapshot otherHeadId mempty
+          let initialSnapshotOtherHead = InitialSnapshot otherHeadId
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update bobEnv ledger now s0 (ClientInput (SideLoadSnapshot initialSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
@@ -1576,7 +1555,7 @@ spec =
                           { localUTxO = mempty
                           , allTxs = mempty
                           , localTxs = []
-                          , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                          , confirmedSnapshot = InitialSnapshot testHeadId
                           , seenSnapshot = NoSeenSnapshot
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
@@ -1671,7 +1650,7 @@ spec =
                               { localUTxO = uncurry UTxO.singleton utxo
                               , allTxs = mempty
                               , localTxs = [expiringTransaction]
-                              , confirmedSnapshot = InitialSnapshot testHeadId $ uncurry UTxO.singleton utxo
+                              , confirmedSnapshot = InitialSnapshot testHeadId
                               , seenSnapshot = NoSeenSnapshot
                               , currentDepositTxId = Nothing
                               , decommitTx = Nothing
@@ -1718,7 +1697,7 @@ spec =
                             { localUTxO = mempty
                             , allTxs = mempty
                             , localTxs = []
-                            , confirmedSnapshot = InitialSnapshot testHeadId mempty
+                            , confirmedSnapshot = InitialSnapshot testHeadId
                             , seenSnapshot = NoSeenSnapshot
                             , currentDepositTxId = Nothing
                             , decommitTx = Nothing
@@ -1883,7 +1862,7 @@ inOpenState parties =
       }
  where
   u0 = mempty
-  confirmedSnapshot = InitialSnapshot testHeadId u0
+  confirmedSnapshot = InitialSnapshot @SimpleTx testHeadId
 
 inOpenState' ::
   [Party] ->
@@ -1906,8 +1885,7 @@ inOpenState' parties coordinatedHeadState =
 inClosedState :: [Party] -> NodeState SimpleTx
 inClosedState parties = inClosedState' parties snapshot0
  where
-  snapshot0 = InitialSnapshot testHeadId u0
-  u0 = mempty
+  snapshot0 = InitialSnapshot @SimpleTx testHeadId
 
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
 inClosedState' parties confirmedSnapshot =
@@ -1928,7 +1906,7 @@ inClosedState' parties confirmedSnapshot =
 
   contestationDeadline = arbitrary `generateWith` 42
 
-getConfirmedSnapshot :: NodeState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: Monoid (UTxOType tx) => NodeState tx -> Maybe (Snapshot tx)
 getConfirmedSnapshot = \case
   NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}} ->
     Just (getSnapshot confirmedSnapshot)

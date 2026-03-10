@@ -95,7 +95,8 @@ healthyCloseInitialTx =
 
   headId = mkHeadId Fixture.testPolicyId
 
-  closingSnapshot = InitialSnapshot{headId, initialUTxO = healthyUTxO}
+  closingSnapshot :: ConfirmedSnapshot Tx
+  closingSnapshot = InitialSnapshot{headId}
 
 healthyInitialOpenDatum :: HeadState.State
 healthyInitialOpenDatum =

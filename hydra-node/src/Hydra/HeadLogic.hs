@@ -474,7 +474,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   seenSn = seenSnapshotNumber seenSnapshot
 
   confirmedUTxO = case confirmedSnapshot of
-    InitialSnapshot{initialUTxO} -> initialUTxO
+    InitialSnapshot{} -> mempty
     ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit}} -> utxo <> fromMaybe mempty utxoToCommit
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
@@ -1082,6 +1082,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
+  Monoid (UTxOType tx) =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1210,6 +1211,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1254,6 +1256,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -1755,10 +1758,10 @@ aggregate st = \case
         , parameters
         , coordinatedHeadState =
             CoordinatedHeadState
-              { localUTxO = initialUTxO
+              { localUTxO = mempty
               , allTxs = mempty
               , localTxs = mempty
-              , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
+              , confirmedSnapshot = InitialSnapshot{headId}
               , seenSnapshot = NoSeenSnapshot
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
@@ -1766,8 +1769,6 @@ aggregate st = \case
               }
         , chainState
         }
-   where
-    initialUTxO = mempty
   TransactionReceived{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
@@ -1876,9 +1877,9 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 case confirmedSnapshot of
-                  InitialSnapshot{initialUTxO} ->
+                  InitialSnapshot{} ->
                     coordinatedHeadState
-                      { localUTxO = initialUTxO
+                      { localUTxO = mempty
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
