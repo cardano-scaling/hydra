@@ -1617,6 +1617,19 @@ onOpenTimer Environment{party} pendingDeposits st =
     not (null chs.localTxs)
       || isJust decommitToInclude
       || isJust depositToInclude
+      -- A version bump (DecrementTx/IncrementTx observed on-chain) advances
+      -- coordinatedHeadState.version but does NOT update confirmedSnapshot.
+      -- If the confirmed snapshot is at an older version, an empty snapshot
+      -- at the current version is needed so that CloseTx can be built with a
+      -- signature that matches the on-chain head datum's version. Without
+      -- this, CloseTx fails on-chain with H46/H12 (signature verification
+      -- uses the datum version, not the snapshot's version).
+      || versionNeedsSnapshot
+  versionNeedsSnapshot =
+    case chs.confirmedSnapshot of
+      InitialSnapshot{} -> False
+      ConfirmedSnapshot{snapshot = Snapshot{version = snapshotVersion}} ->
+        snapshotVersion < chs.version
 
   sendReqSn version sn localTxs decommit deposit =
     newState SnapshotRequestDecided{snapshotNumber = sn}
