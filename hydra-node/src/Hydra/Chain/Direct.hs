@@ -365,7 +365,7 @@ chainSyncClient handler wallet prefix =
 
 txSubmissionClient ::
   forall m.
-  (MonadSTM m) =>
+  MonadSTM m =>
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   LocalTxSubmissionClient TxInMode TxValidationErrorInCardanoMode m ()
