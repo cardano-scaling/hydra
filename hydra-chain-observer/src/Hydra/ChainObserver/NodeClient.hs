@@ -52,8 +52,6 @@ data ChainObserverLog
   | ConnectingToExternalNode {networkId :: NetworkId}
   | StartObservingFrom {chainPoint :: ChainPoint}
   | HeadInitTx {headId :: HeadId}
-  | HeadCommitTx {headId :: HeadId}
-  | HeadCollectComTx {headId :: HeadId}
   | HeadDepositTx {headId :: HeadId}
   | HeadRecoverTx {headId :: HeadId}
   | HeadIncrementTx {headId :: HeadId}
