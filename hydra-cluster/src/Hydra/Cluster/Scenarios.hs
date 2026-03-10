@@ -1554,7 +1554,10 @@ canCommit tracer workDir blockTime backend hydraScriptsTxId =
             v ^? key "contestationDeadline" . _JSON
 
           remainingTime <- diffUTCTime deadline <$> getCurrentTime
-          waitFor hydraTracer (remainingTime + 3 * blockTime) [n1, n2] $
+          -- A version-bump empty snapshot (versionNeedsSnapshot) may be confirmed
+          -- concurrently with Close, causing a contest that extends the deadline by
+          -- one contestation period (10 * blockTime). Add extra buffer to cover it.
+          waitFor hydraTracer (remainingTime + 13 * blockTime) [n1, n2] $
             output "ReadyToFanout" ["headId" .= headId]
           send n2 $ input "Fanout" []
           waitMatch (10 * blockTime) n2 $ \v ->
