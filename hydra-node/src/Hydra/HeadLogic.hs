@@ -1669,8 +1669,13 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
-  -- NOTE: If posting the collectCom transaction failed in the open state, then
-  -- another party likely opened the head before us and it's okay to ignore.
+  -- NOTE: If posting the collectCom transaction failed, another party likely
+  -- opened the head before us and it's okay to ignore. This can happen in
+  -- either the Initial state (postTx ran async and failed before we observed
+  -- OnCollectComTx) or the Open state (we observed it first, then got the
+  -- error). Both are safe to ignore — we will observe OnCollectComTx shortly.
+  (Initial{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
+    noop
   (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
     noop
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainPoint}) ->
