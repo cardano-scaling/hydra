@@ -192,6 +192,10 @@ data Input
       , numberOfDecommitOutputs :: Integer
       , crsRef :: TxOutRef
       }
+  | PartialFanout
+      { numberOfPartialOutputs :: Integer
+      , crsRef :: TxOutRef
+      }
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

@@ -98,6 +98,13 @@ instance IsTx SimpleTx where
   -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
   toPairList = Set.toList
 
+  sizeUTxO = Set.size
+
+  splitUTxOAt n s =
+    let l = Set.toList s
+        (first', rest) = splitAt n l
+     in (Set.fromList first', Set.fromList rest)
+
   utxoToElement = toStrict . serialise . unSimpleTxOut
 
 -- * Simple chain state

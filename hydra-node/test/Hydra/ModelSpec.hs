@@ -115,7 +115,7 @@ import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
-import Test.QuickCheck (Property, Testable, counterexample, expectFailure, forAllShrink, property, vectorOf, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, vectorOf, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -156,11 +156,10 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
-  -- This scenario seeds a head with a single party and an UTxO set of elements,
-  -- which is over the budget of the mocked chain implementation.
+  -- This scenario seeds a head with a single party and an UTxO set of elements.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
-    prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 20)
+    prop "succeeds fanout over the limit via partial fanout" $ propFanoutLimit 20
     prop "succeeds fanout under the limit" $ propFanoutLimit 19
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
@@ -170,9 +169,10 @@ spec = do
 
 propFanoutLimit :: Int -> Property
 propFanoutLimit limit =
-  within 10000000 $ propDL $ do
-    aliceCardanoSks <- forAllQ $ withGenQ ((:|) <$> arbitrary <*> vectorOf limit (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
-    let utxo = toList $ fmap (,lovelaceToValue 1_000_000) aliceCardanoSks
+  within 30000000 $ propDL $ do
+    signingKeys <- forAllQ $ withGenQ (vectorOf limit (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
+    let aliceCardanoSks = fromMaybe (error "propFanoutLimit: limit must be > 0") (nonEmpty signingKeys)
+    let utxo = fmap (,lovelaceToValue 1_000_000) signingKeys
     void $
       action $
         Seed
