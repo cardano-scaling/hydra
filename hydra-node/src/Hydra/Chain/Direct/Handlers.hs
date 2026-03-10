@@ -65,6 +65,7 @@ import Hydra.Chain.Direct.State (
   getKnownUTxO,
   increment,
   initialize,
+  partialFanout,
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
@@ -93,6 +94,7 @@ import Hydra.Tx.Observe (
   HeadObservation (..),
   IncrementObservation (..),
   InitObservation (..),
+  PartialFanoutObservation (..),
   observeHeadTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
@@ -409,6 +411,8 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnContestTx{contestationDeadline, headId, snapshotNumber}
   Fanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
+  PartialFanout PartialFanoutObservation{headId, distributedUTxO} ->
+    pure OnPartialFanoutTx{headId, distributedUTxO}
 
 prepareTxToPost ::
   forall m.
@@ -465,7 +469,16 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
         Just seedTxIn ->
           case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
             Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
-            Right fanoutTx -> pure fanoutTx
+            Right fanoutTx' -> pure fanoutTx'
+    PartialFanoutTx{utxoToDistribute, remainingUTxO, headSeed, contestationDeadline} -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlot of
+            Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
+            Right partialFanoutTx' -> pure partialFanoutTx'
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a

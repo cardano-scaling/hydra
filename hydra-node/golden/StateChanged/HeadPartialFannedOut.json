@@ -1,0 +1,63 @@
+{
+    "samples": [
+        {
+            "chainState": {
+                "recordedAt": {
+                    "tag": "ChainPointAtGenesis"
+                },
+                "spendableUTxO": {
+                    "0000010100000000000100010101010101010101000000000000010001000000#30": {
+                        "address": "addr_test1zqyt7tpzdye27uawxfgjywmap047c363h2nxq7vzhj5mpk0v32c6cjkpgrtywzzcdlk66vzlxu325xwcexk6mc6dcmqspt4tvr",
+                        "datum": null,
+                        "inlineDatum": {
+                            "constructor": 3,
+                            "fields": [
+                                {
+                                    "bytes": "1a"
+                                }
+                            ]
+                        },
+                        "inlineDatumRaw": "d87c9f411aff",
+                        "inlineDatumhash": "6a288ec0dc4b979ceaa67eafcfdfd50f1f0de71be22a9af50f0e0d04427b13ae",
+                        "referenceScript": null,
+                        "value": {
+                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                "12f4e3bef5445d856c9252863a452d21fa2c65": 1
+                            },
+                            "lovelace": 1262830
+                        }
+                    }
+                }
+            },
+            "distributedUTxO": {
+                "0000010101000100000001000001000100010100000001000100010001000001#46": {
+                    "address": "addr_test1xphj8kqhxe6whthw89n2xl9qzdyt8ryxr0kst67vpm3l0qfjss6v6kd5jtvpkxhep2h68hs4nykpneksyqdce65cc8mshvvzyc",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "headId": "01010000000100010000010101000001",
+            "remainingUTxO": {
+                "0101010101000100010101000101010000000100010100000100010100000100#90": {
+                    "address": "addr_test1zp93wz4zyds6dh5j08z7pnedjr9hgsntcgnmgpdwrvsz426ucegr5zzzp7vwmced4409jpg89537cfhfur3lapftugkqvk3t69",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 969750
+                    }
+                }
+            },
+            "tag": "HeadPartialFannedOut"
+        }
+    ],
+    "seed": -1366453080
+}

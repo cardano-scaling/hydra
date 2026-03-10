@@ -82,6 +82,12 @@ data PostChainTx tx
       , contestingSnapshot :: ConfirmedSnapshot tx
       }
   | FanoutTx {utxo :: UTxOType tx, utxoToCommit :: Maybe (UTxOType tx), utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
+  | PartialFanoutTx
+      { utxoToDistribute :: UTxOType tx
+      , remainingUTxO :: UTxOType tx
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -131,6 +137,7 @@ data OnChainTx tx
       , contestationDeadline :: UTCTime
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
+  | OnPartialFanoutTx {headId :: HeadId, distributedUTxO :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
@@ -166,6 +173,7 @@ data PostTxError tx
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
+  | FailedToConstructPartialFanoutTx
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 
