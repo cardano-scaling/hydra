@@ -80,6 +80,7 @@ import Hydra.Tx (
   registryUTxO,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
 import Hydra.Tx.CollectCom (UTxOHash, collectComTx)
 import Hydra.Tx.Commit (commitTx)
@@ -89,7 +90,7 @@ import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey)
 import Hydra.Tx.Decrement (decrementTx)
 import Hydra.Tx.Deposit (observeDepositTxOut)
-import Hydra.Tx.Fanout (fanoutTx)
+import Hydra.Tx.Fanout (fanoutTx, partialFanoutTx)
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.Observe (
@@ -106,6 +107,7 @@ import Hydra.Tx.Observe (
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
+import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -686,6 +688,60 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotN
     case datum of
       Head.Closed{} -> pure headUTxO
       _ -> Left WrongDatumInFanout
+
+data PartialFanoutTxError
+  = CannotFindHeadOutputToPartialFanout
+  | MissingHeadDatumInPartialFanout
+  | WrongDatumInPartialFanout
+  | FailedToConvertFromScriptDataInPartialFanout
+  | -- | The on-chain accumulator no longer matches the UTxOs we want to
+    -- distribute. This happens when another node already posted a partial
+    -- fanout and the chain state moved forward.
+    StaleChainStateForPartialFanout
+  deriving stock (Show)
+
+-- | Construct a partial fanout transaction that distributes a subset of UTxOs
+-- and continues the Closed state with an updated accumulator.
+partialFanout ::
+  ChainContext ->
+  -- | Spendable UTxO containing head output
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Subset of UTxOs to distribute
+  UTxO ->
+  -- | Remaining UTxOs (after removing the distributed subset)
+  UTxO ->
+  -- | Contestation deadline as SlotNo
+  SlotNo ->
+  Either PartialFanoutTxError Tx
+partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo = do
+  headUTxO <-
+    UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
+      ?> CannotFindHeadOutputToPartialFanout
+  closedDatum <- checkHeadDatum headUTxO
+  -- Guard against stale chain state: verify the on-chain accumulator matches
+  -- the UTxOs we intend to distribute. In a multi-node setup, another node may
+  -- have already posted a partial fanout, advancing the on-chain state. If so,
+  -- the current split is stale and we should not build a doomed transaction.
+  let fullAccumulatorHash = Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO @Tx (utxoToDistribute <> remainingUTxO))
+      Head.ClosedDatum{accumulatorHash = onChainHash} = closedDatum
+  unless (toBuiltin fullAccumulatorHash == onChainHash) $
+    Left StaleChainStateForPartialFanout
+  let remainingAccumulator = Accumulator.buildFromUTxO @Tx remainingUTxO
+  pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo closedDatum remainingAccumulator
+ where
+  ChainContext{scriptRegistry} = ctx
+
+  checkHeadDatum :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutTxError Head.ClosedDatum
+  checkHeadDatum (_, headOutput) = do
+    headDatum <-
+      txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInPartialFanout
+    datum <-
+      fromScriptData headDatum ?> FailedToConvertFromScriptDataInPartialFanout
+    case datum of
+      Head.Closed closedDatum -> pure closedDatum
+      _ -> Left WrongDatumInPartialFanout
 
 -- * Helpers
 

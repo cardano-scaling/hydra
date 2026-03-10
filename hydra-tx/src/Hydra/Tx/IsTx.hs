@@ -101,6 +101,12 @@ class
   -- We only need the TxOut, not the TxIn.
   toPairList :: UTxOType tx -> [TxOutType tx]
 
+  -- | Get the number of entries in a UTxO set.
+  sizeUTxO :: UTxOType tx -> Int
+
+  -- | Split a UTxO set at position n, returning the first n entries and the rest.
+  splitUTxOAt :: Int -> UTxOType tx -> (UTxOType tx, UTxOType tx)
+
   -- | Convert a TxOut to a ByteString element for the accumulator.
   -- This serializes the TxOut in the same way as the on-chain code does.
   utxoToElement :: TxOutType tx -> ByteString
@@ -175,6 +181,13 @@ instance IsTx Tx where
   withoutUTxO = UTxO.difference
 
   toPairList = UTxO.txOutputs
+
+  sizeUTxO = UTxO.size
+
+  splitUTxOAt n utxo =
+    let pairs = UTxO.toList utxo
+        (first', rest) = splitAt n pairs
+     in (UTxO.fromList first', UTxO.fromList rest)
 
   -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.
   -- Uses sha2_256 (via hashTxOuts) because the haskell-accumulator library

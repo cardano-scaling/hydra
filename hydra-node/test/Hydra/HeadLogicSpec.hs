@@ -21,24 +21,24 @@ import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Fanout, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
-  PostChainTx (CollectComTx, ContestTx, DecrementTx, IncrementTx),
+  PostChainTx (..),
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), InitialState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), SimpleTxOut (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
@@ -1448,6 +1448,69 @@ spec =
               HeadFannedOut{utxo} -> utxo == fanoutUTxO
               _ -> False
 
+      prop "ignores partial fanoutTx of another head" $ \otherHeadId distributedUTxO -> do
+        let partialFanoutOtherHead = observeTx $ OnPartialFanoutTx{headId = otherHeadId, distributedUTxO}
+            st = inClosedState threeParties
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        update bobEnv ledger now st partialFanoutOtherHead
+          `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+      prop "partial fanout emits HeadPartialFannedOut and triggers next fanout" $ \distributedUTxO ->
+        forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
+          let partialFanoutHead = observeTx $ OnPartialFanoutTx{headId = testHeadId, distributedUTxO}
+          now <- run $ nowFromSlot closedState.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now closedState partialFanoutHead
+          monitor $ counterexample ("Outcome: " <> show outcome)
+          -- Should emit HeadPartialFannedOut state change
+          run $
+            outcome `hasStateChangedSatisfying` \case
+              HeadPartialFannedOut{} -> True
+              _ -> False
+          -- Should also trigger the next fanout automatically (either partial or full
+          -- depending on remaining UTxO size vs threshold)
+          run $
+            outcome `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = FanoutTx{}} -> True
+              OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+              _ -> False
+
+      it "client fanout uses remaining UTxO after partial fanout" $ do
+        let remaining = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
+            st = inClosedStateWithRemaining threeParties (Just remaining)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput Fanout)
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == remaining
+          _ -> False
+
+      it "client fanout without prior partial fanout uses full snapshot utxo" $ do
+        let st = inClosedState threeParties
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (ClientInput Fanout)
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == mempty
+          _ -> False
+
+      it "aggregate HeadPartialFannedOut keeps state Closed with remaining UTxO" $ do
+        let remaining = Set.fromList [SimpleTxOut 5, SimpleTxOut 6]
+            distributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            closedSt = inClosedState threeParties
+        case headState closedSt of
+          Closed{} ->
+            let stateChange =
+                  HeadPartialFannedOut
+                    { headId = testHeadId
+                    , distributedUTxO = distributed
+                    , remainingUTxO = remaining
+                    , chainState = SimpleChainState{slot = 0}
+                    }
+                result = aggregateState closedSt (newState stateChange)
+             in case headState result of
+                  Closed ClosedState{remainingFanoutUTxO} ->
+                    remainingFanoutUTxO `shouldBe` Just remaining
+                  other -> failure $ "Expected Closed state, got: " <> show other
+          other -> failure $ "Expected Closed state, got: " <> show other
+
       describe "SideLoad InitialSnapshot" $ do
         it "accept side load initial snapshot with idempotence" $ do
           let s0 = inOpenState threeParties
@@ -2005,10 +2068,31 @@ inClosedState' parties confirmedSnapshot =
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
+        , remainingFanoutUTxO = Nothing
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties
 
+  contestationDeadline = arbitrary `generateWith` 42
+
+inClosedStateWithRemaining :: [Party] -> Maybe (Set SimpleTxOut) -> NodeState SimpleTx
+inClosedStateWithRemaining parties remaining =
+  inSync $
+    Closed
+      ClosedState
+        { parameters
+        , confirmedSnapshot
+        , contestationDeadline
+        , readyToFanoutSent = False
+        , chainState = 0
+        , headId = testHeadId
+        , headSeed = testHeadSeed
+        , version = 0
+        , remainingFanoutUTxO = remaining
+        }
+ where
+  parameters = HeadParameters defaultContestationPeriod parties
+  confirmedSnapshot = InitialSnapshot testHeadId mempty
   contestationDeadline = arbitrary `generateWith` 42
 
 getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)

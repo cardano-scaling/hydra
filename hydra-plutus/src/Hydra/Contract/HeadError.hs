@@ -62,6 +62,10 @@ data HeadError
   | FailedCloseUsedInc
   | MissingCRSDatum
   | MissingCRSRefInput
+  | PartialFanoutMembershipFailed
+  | PartialFanoutChangedParameters
+  | PartialFanoutHashesNotCleared
+  | PartialFanoutWrongProof
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -128,3 +132,8 @@ instance ToErrorCode HeadError where
     FanoutUTxOToCommitHashMismatch -> "H54"
     MissingCRSDatum -> "H55"
     MissingCRSRefInput -> "H56"
+    -- PartialFanout
+    PartialFanoutMembershipFailed -> "H57"
+    PartialFanoutChangedParameters -> "H58"
+    PartialFanoutHashesNotCleared -> "H59"
+    PartialFanoutWrongProof -> "H60"

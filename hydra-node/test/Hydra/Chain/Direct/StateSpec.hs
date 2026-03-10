@@ -462,6 +462,7 @@ prop_observeAnyTx =
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
+            PartialFanout _ -> property False
  where
   showTransition :: (a, b, c, d, Transition.ChainTransition) -> String
   showTransition (_, _, _, _, t) = show t

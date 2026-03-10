@@ -1,0 +1,22 @@
+{
+    "samples": [
+        {
+            "distributedUTxO": {
+                "0001000001010101010101010001000100010000010100010001000100000100#73": {
+                    "address": "addr_test1xp935qyy5wenmcdpfjhljdup9rk6cclr3eesknr9dwg06v0nztj5n83qyv5czh7vtl7t5x700p2cxces90ddnmqq0rdskq3ssr",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 969750
+                    }
+                }
+            },
+            "headId": "01010101000000000000000001010100",
+            "tag": "PartialFanout"
+        }
+    ],
+    "seed": 639994461
+}
