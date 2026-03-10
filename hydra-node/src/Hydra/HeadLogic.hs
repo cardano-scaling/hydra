@@ -294,14 +294,17 @@ onOpenClientNewTx tx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqTx ::
+  IsTx tx =>
+  Environment ->
   Ledger tx ->
   ChainSlot ->
   OpenState tx ->
   TTL ->
+  PendingDeposits tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx ledger currentSlot st ttl tx =
+onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
@@ -309,7 +312,25 @@ onOpenNetworkReqTx ledger currentSlot st ttl tx =
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
       newState TransactionAppliedToLocalUTxO{headId, tx, newLocalUTxO}
+        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
+        & maybeRequestSnapshot (confirmedSn + 1)
  where
+  -- If this node is the snapshot leader for the next snapshot and no snapshot
+  -- is currently in flight, immediately send a 'ReqSn' including the newly
+  -- received transaction. This eliminates the timer delay for single-tx
+  -- patterns (submit → confirm → submit) where 'localTxs' would otherwise
+  -- be empty when the timer fires.
+  maybeRequestSnapshot nextSn outcome =
+    if not (snapshotInFlight seenSnapshot nextSn) && isLeader parameters party nextSn
+      then
+        outcome
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitToInclude (setExistingDeposit pendingDeposits depositToInclude))
+      else outcome
+
+  Environment{party} = env
+
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
       Right utxo' -> cont utxo'
@@ -330,9 +351,26 @@ onOpenNetworkReqTx ledger currentSlot st ttl tx =
 
   Ledger{applyTransactions} = ledger
 
-  CoordinatedHeadState{localUTxO} = coordinatedHeadState
+  -- NOTE: include the newly received tx in the snapshot (not yet in localTxs
+  -- since TransactionAppliedToLocalUTxO is aggregated after this outcome).
+  localTxs' = localTxs <> [tx]
 
-  OpenState{coordinatedHeadState, headId} = st
+  decommitToInclude = skipPostedDecommit (getSnapshot confirmedSnapshot) decommitTx
+  depositToInclude = skipPostedDeposit pendingDeposits currentDepositTxId (getSnapshot confirmedSnapshot).utxoToCommit
+
+  confirmedSn = number $ getSnapshot confirmedSnapshot
+
+  CoordinatedHeadState
+    { localTxs
+    , localUTxO
+    , confirmedSnapshot
+    , seenSnapshot
+    , decommitTx
+    , version
+    , currentDepositTxId
+    } = coordinatedHeadState
+
+  OpenState{coordinatedHeadState, headId, parameters} = st
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -1723,8 +1761,8 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   -- Open
-  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx ledger currentSlot openState ttl tx
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
+    onOpenNetworkReqTx env ledger currentSlot openState ttl (depositsForHead ourHeadId pendingDeposits) tx
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->

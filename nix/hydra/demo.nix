@@ -73,7 +73,7 @@
                     --node-socket devnet/node.socket \
                     --persistence-dir devnet/persistence/alice \
                     --contestation-period 3s \
-                    --deposit-period 10s
+                    --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -107,7 +107,7 @@
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/bob \
                   --contestation-period 3s \
-                  --deposit-period 10s
+                  --deposit-period 300s
                 '';
               };
               working_dir = ".";
@@ -141,7 +141,7 @@
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/carol \
                   --contestation-period 3s \
-                  --deposit-period 10s
+                  --deposit-period 300s
                 '';
               };
               working_dir = ".";

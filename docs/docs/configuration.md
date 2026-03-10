@@ -158,12 +158,17 @@ hydra-node --snapshot-retry-interval 0.005
 
 The value is in **seconds** (floating point). The default is **0.005 s (5 ms)**.
 
-On each timer tick the snapshot leader will batch any pending L2 transactions (up to 100 per snapshot) into a new `ReqSn` if no snapshot is currently in flight. When a snapshot is already in flight (the leader is collecting `AckSn` signatures), the timer is a no-op — delivery is guaranteed by the network layer.
+The snapshot leader starts a new round via two paths:
 
-Lowering this value reduces the idle time between consecutive snapshot rounds at the cost of higher CPU usage. Raising it reduces CPU pressure at the cost of higher latency per snapshot round.
+- **Immediate** — when a new transaction (`ReqTx`) arrives and no snapshot is in flight, the leader broadcasts `ReqSn` straight away. This keeps latency low for one-at-a-time transaction patterns.
+- **Timer** — on each tick, if there is pending work (transactions, an active deposit, or a decommit) and no snapshot is in flight, the leader broadcasts `ReqSn`. The timer handles cases not covered by the immediate path: deposits, decommits, and idle recovery.
+
+When a snapshot is already in flight (the leader is collecting `AckSn` signatures), both paths are no-ops — delivery is guaranteed by the network layer.
+
+Lowering the timer interval reduces latency for deposit/decommit handling at the cost of higher CPU usage. Raising it reduces CPU pressure at the cost of higher latency for those cases.
 
 :::info
-Under pure L2 transaction load (no deposits or decommits), transactions arriving within a single timer interval are batched into one snapshot round. With the default 5 ms interval this gives up to ~200 snapshot rounds per second, each carrying up to 100 transactions.
+Under pure L2 transaction load, the first transaction in a batch immediately triggers a snapshot. Subsequent transactions that arrive while the round is in progress accumulate and are confirmed in the next round. Up to 100 transactions are included per snapshot (`maxTxsPerSnapshot`).
 :::
 
 ### Reference scripts
