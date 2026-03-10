@@ -31,7 +31,7 @@ import Hydra.Contract.HeadState (
   SnapshotVersion,
   State (..),
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
@@ -243,7 +243,7 @@ checkClose ctx openBefore redeemer =
     && mustNotChangeVersion
     && mustBeValidSnapshot
     && mustInitializeContesters
-    && mustPreserveValue
+    && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
  where
   OpenDatum
@@ -253,14 +253,6 @@ checkClose ctx openBefore redeemer =
     , headId
     , version
     } = openBefore
-
-  mustPreserveValue =
-    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val == val'
-
-  val' = txOutValue . L.head $ txInfoOutputs txInfo
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   hasBoundedValidity =
     traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
@@ -372,16 +364,8 @@ checkContest ctx closedDatum redeemer =
     && mustUpdateContesters
     && mustPushDeadline
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
-    && mustPreserveValue
+    && mustPreserveHeadValue ctx
  where
-  mustPreserveValue =
-    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val == val'
-
-  val' = txOutValue . L.head $ txInfoOutputs txInfo
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
   mustBeNewer =
     traceIfFalse $(errorCode TooOldSnapshot) $
       snapshotNumber' > snapshotNumber
