@@ -2054,7 +2054,7 @@ prop_ignoresUnrelatedOnInitTx =
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $ inSync (Closed $ closedState{headId = testHeadId})
+  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutUTxO = Nothing})
 
 -- * Utilities
 
@@ -2172,7 +2172,7 @@ inClosedStateWithRemaining parties remaining =
     Closed
       ClosedState
         { parameters
-        , confirmedSnapshot
+        , confirmedSnapshot = InitialSnapshot @SimpleTx testHeadId
         , contestationDeadline
         , readyToFanoutSent = False
         , chainState = 0
@@ -2183,7 +2183,6 @@ inClosedStateWithRemaining parties remaining =
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties
-  confirmedSnapshot = InitialSnapshot testHeadId
   contestationDeadline = arbitrary `generateWith` 42
 
 getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
