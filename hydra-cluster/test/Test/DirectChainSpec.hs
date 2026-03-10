@@ -243,8 +243,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             headId <- fst <$> aliceChain `observesInTimeSatisfying` hasInitTxWith headParameters participants
 
             -- Alice close with the initial snapshot U0
-            -- TODO: InitialSnapshot is pointless now as U0 always == mempty
-            postTx $ CloseTx headId headParameters 0 InitialSnapshot{headId, initialUTxO = someUTxO}
+            postTx $ CloseTx headId headParameters 0 InitialSnapshot{headId}
             deadline <- waitMatch aliceChain $ \case
               Observation{observedTx = OnCloseTx{snapshotNumber, contestationDeadline}}
                 | snapshotNumber == 0 -> Just contestationDeadline

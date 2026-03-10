@@ -769,10 +769,10 @@ performCloseWithInitialSnapshot st party = do
   let thisNode = nodes ! party
   waitForOpen thisNode
   case hydraState st of
-    Open{committed} -> do
+    Open{} -> do
       SimulatedChainNetwork{closeWithInitialSnapshot} <- gets chain
       lift $ do
-        _ <- closeWithInitialSnapshot (party, toRealUTxO $ foldMap snd $ Map.toList committed)
+        _ <- closeWithInitialSnapshot party
         waitUntilMatch (elems nodes) $ \case
           HeadIsClosed{snapshotNumber} ->
             -- we deliberately wait to see close with the initial snapshot

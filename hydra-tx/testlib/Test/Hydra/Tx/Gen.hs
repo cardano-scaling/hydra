@@ -521,7 +521,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
 
   shrink = \case
-    InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
+    InitialSnapshot hid -> [InitialSnapshot hid]
     ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
 
 genConfirmedSnapshot ::
@@ -543,13 +543,10 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
-        [ (1, initialSnapshot)
+        [ (1, InitialSnapshot <$> arbitrary)
         , (9, confirmedSnapshot)
         ]
  where
-  initialSnapshot =
-    InitialSnapshot <$> arbitrary <*> pure utxo
-
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots

@@ -210,8 +210,8 @@ mockChainAndNetwork tr seedKeys = do
           Right tx -> submitTx tx $> Hydra.Tx.txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
-  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> (Party, UTxO) -> m ()
-  closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
+  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> Party -> m ()
+  closeWithInitialSnapshot nodes party = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
@@ -228,7 +228,7 @@ mockChainAndNetwork tr seedKeys = do
                   { headId = openHeadId
                   , headParameters
                   , openVersion = 0
-                  , closingSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
+                  , closingSnapshot = InitialSnapshot{headId = openHeadId}
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 

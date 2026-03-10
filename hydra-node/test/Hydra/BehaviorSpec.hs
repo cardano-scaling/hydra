@@ -952,7 +952,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
-  , closeWithInitialSnapshot :: (Party, UTxOType tx) -> m ()
+  , closeWithInitialSnapshot :: Party -> m ()
   }
 
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m

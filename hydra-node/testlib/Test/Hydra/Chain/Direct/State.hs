@@ -378,7 +378,7 @@ genStClosed ctx utxo utxoToCommit utxoToDecommit = do
   let (sn, snapshot, toFanout, toCommit, toDecommit, v) = case confirmed of
         InitialSnapshot{} ->
           ( 0
-          , InitialSnapshot{headId, initialUTxO = u0}
+          , InitialSnapshot{headId}
           , u0
           , Nothing
           , Nothing

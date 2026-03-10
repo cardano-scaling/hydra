@@ -579,7 +579,7 @@ apiServerSpec = do
               ClosedState{confirmedSnapshot} = closedState
               confirmedSnapshot' =
                 case confirmedSnapshot of
-                  InitialSnapshot{headId} -> InitialSnapshot{headId, initialUTxO = utxo'}
+                  InitialSnapshot{headId} -> InitialSnapshot{headId}
                   ConfirmedSnapshot{snapshot, signatures} ->
                     let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit} = snapshot
                         snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit}
