@@ -103,6 +103,7 @@
                             ]
                         },
                         "readyToFanoutSent": true,
+                        "remainingFanoutUTxO": null,
                         "version": 0
                     },
                     "tag": "Closed"

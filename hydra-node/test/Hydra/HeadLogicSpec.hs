@@ -1946,7 +1946,7 @@ prop_ignoresUnrelatedOnInitTx =
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $ inSync (Closed $ closedState{headId = testHeadId})
+  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutUTxO = Nothing})
 
 -- * Utilities
 
