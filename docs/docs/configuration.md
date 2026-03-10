@@ -150,7 +150,7 @@ See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev
 
 ### Snapshot retry interval
 
-The snapshot retry interval controls how frequently the snapshot leader checks for pending work and, when needed, re-broadcasts an in-flight snapshot round:
+The snapshot retry interval controls how frequently the snapshot leader checks for pending work:
 
 ```
 hydra-node --snapshot-retry-interval 0.005
@@ -158,11 +158,9 @@ hydra-node --snapshot-retry-interval 0.005
 
 The value is in **seconds** (floating point). The default is **0.005 s (5 ms)**.
 
-On each timer tick the snapshot leader will:
-- Batch any pending L2 transactions (up to 100 per snapshot) into a new `ReqSn` if no snapshot is currently in flight.
-- Re-broadcast the current in-flight `ReqSn` and its own `AckSn` if signatures are still being collected, unblocking stalled rounds.
+On each timer tick the snapshot leader will batch any pending L2 transactions (up to 100 per snapshot) into a new `ReqSn` if no snapshot is currently in flight. When a snapshot is already in flight (the leader is collecting `AckSn` signatures), the timer is a no-op — delivery is guaranteed by the network layer.
 
-Lowering this value increases snapshot throughput and reduces recovery time after message loss, at the cost of higher CPU usage. Raising it reduces CPU pressure at the cost of higher latency per snapshot round.
+Lowering this value reduces the idle time between consecutive snapshot rounds at the cost of higher CPU usage. Raising it reduces CPU pressure at the cost of higher latency per snapshot round.
 
 :::info
 Under pure L2 transaction load (no deposits or decommits), transactions arriving within a single timer interval are batched into one snapshot round. With the default 5 ms interval this gives up to ~200 snapshot rounds per second, each carrying up to 100 transactions.

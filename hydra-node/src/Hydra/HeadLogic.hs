@@ -584,8 +584,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
                 -- Spec: if txω ≠ ⊥
                 --         postTx (decrement, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostDecrementTx snapshot multisig
-                -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
+                -- Spec: if leader(s + 1) = i && T^ /= empty
                 & maybeRequestNextSnapshot snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
@@ -1525,16 +1524,17 @@ updateInSyncHead env ledger now chainPointTime pendingDeposits st ev syncStatus 
 
 -- | Handle a periodic timer tick when the head is 'Open'.
 --
--- If this node is the snapshot leader for the next snapshot and there is work
--- pending (transactions or a decommit/deposit), it will send a 'ReqSn'. This
--- covers two cases:
+-- Sends a fresh 'ReqSn' if this node is the snapshot leader for the next
+-- snapshot, there is pending work (transactions, a decommit, or a deposit),
+-- and no snapshot is currently in flight ('LastSeenSnapshot' or
+-- 'NoSeenSnapshot' state). All other states are no-ops:
 --
---   1. A 'RequestedSnapshot' is in-flight: the previous 'ReqSn' was likely
---      rejected by peers because the version bumped (race with
---      'DecommitFinalized'/'CommitFinalized'). Re-send with the current version.
+--   * 'RequestedSnapshot': we already sent 'ReqSn' and are waiting for the
+--     network echo before we can sign; re-sending would use stale state and
+--     produce a different snapshot content, causing signature mismatches.
 --
---   2. No snapshot is in-flight but there is pending work: send a fresh 'ReqSn'.
---      This is a fallback for cases where the normal trigger was missed.
+--   * 'SeenSnapshot': signatures are being collected; the network layer
+--     guarantees delivery, so there is nothing to retry.
 onOpenTimer ::
   IsTx tx =>
   Environment ->
@@ -1552,16 +1552,6 @@ onOpenTimer Environment{party} pendingDeposits st =
       -- CommitFinalized resets to LastSeenSnapshot (not RequestedSnapshot), so
       -- this branch is never reached for version-mismatch retries.
       RequestedSnapshot{} -> noop
-      -- Re-send: stuck with partial signatures (some AckSns were dropped because
-      -- peers weren't ready yet, e.g. waiting for deposit activation). Re-broadcast
-      -- exactly the same ReqSn content that was originally signed (from the in-flight
-      -- snapshot) so all parties sign the same thing. Also re-broadcast our own AckSn
-      -- so late signers can complete the round.
-      SeenSnapshot snapshot sigs ->
-        broadcastReqSn snapshot.version snapshot.number (txId <$> snapshot.confirmed) decommitToInclude depositToInclude
-          <> case Map.lookup party sigs of
-            Just ourSig -> cause (NetworkEffect $ AckSn ourSig snapshot.number)
-            Nothing -> noop
       -- Fresh send: no snapshot in-flight but there is pending work.
       _
         | not (snapshotInFlight chs.seenSnapshot nextSn) && hasWork ->

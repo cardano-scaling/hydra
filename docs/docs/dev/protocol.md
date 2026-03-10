@@ -20,10 +20,6 @@ If all three are true, the leader broadcasts a `ReqSn` message that batches **up
 
 This replaces the previous model where every received `NewTx` immediately triggered a `ReqSn`. Under the new model, many transactions arriving within a single timer interval are confirmed in a single snapshot round, significantly improving throughput.
 
-#### Snapshot retry and re-broadcast
-
-If a snapshot round stalls (e.g. some `AckSn` messages are delayed), the timer re-broadcasts the in-flight `ReqSn` and the leader's own `AckSn` on the next tick. This unblocks rounds that would otherwise stall indefinitely due to message loss or reordering.
-
 :::note
 Transactions submitted via `NewTx` are immediately validated against the local UTxO and broadcast to all peers as `ReqTx`. However, they are only confirmed into a snapshot when the timer fires and the leader collects them into the next `ReqSn`.
 :::
