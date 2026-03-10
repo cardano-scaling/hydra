@@ -3145,6 +3145,7 @@
                         ]
                     },
                     "readyToFanoutSent": false,
+                    "remainingFanoutUTxO": null,
                     "version": 4
                 },
                 "tag": "Closed"

@@ -884,7 +884,8 @@ spec = parallel $ do
               -- Handlers layer splitting a large UTxO set)
               simulatePartialFanout chain testHeadId (utxoRef 1)
               -- The node should auto-trigger the next fanout with the remaining UTxO
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRef 2}
+              -- and report all UTxOs (not just the last batch) in HeadIsFinalized
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do

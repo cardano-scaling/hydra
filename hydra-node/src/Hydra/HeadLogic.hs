@@ -1443,8 +1443,8 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
   -- remaining UTxOs. We report the full UTxO set to clients so they see all
   -- fanned-out outputs, not just the last batch.
   let allUTxO = case remainingFanoutUTxO of
-        Just _ -> computeFullFanoutUTxO closedState
-        Nothing -> fanoutUTxO
+        Just remaining | sizeUTxO remaining > 0 -> computeFullFanoutUTxO closedState
+        _ -> fanoutUTxO
    in newState HeadFannedOut{headId, utxo = allUTxO, chainState = newChainState}
  where
   ClosedState{headId, remainingFanoutUTxO} = closedState
