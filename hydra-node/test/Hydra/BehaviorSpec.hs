@@ -292,13 +292,19 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 41)
                 send n1 (NewTx $ aValidTx 42)
 
-                -- With the timer model the leader batches all pending transactions
-                -- when the timer fires, so all three txs appear in snapshot 1.
+                -- The first ReqTx triggers an immediate snapshot from alice (leader
+                -- for sn=1), so tx 40 lands in snapshot 1 alone. Txs 41 and 42
+                -- accumulate while sn=1 is in-flight and get batched into snapshot 2
+                -- by bob (leader for sn=2) when his timer fires.
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    guard $ number == 1 && confirmed == [aValidTx 40]
+                  _ -> Nothing
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
                     -- NOTE: We sort the confirmed to be clear that the order may
                     -- be freely picked by the leader.
-                    guard $ number == 1 && sort confirmed == sort [aValidTx 40, aValidTx 41, aValidTx 42]
+                    guard $ number == 2 && sort confirmed == sort [aValidTx 41, aValidTx 42]
                   _ -> Nothing
 
                 -- As there are no pending transactions and snapshots anymore
@@ -306,7 +312,7 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 44)
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
-                    guard $ number == 2 && confirmed == [aValidTx 44]
+                    guard $ number == 3 && confirmed == [aValidTx 44]
                   _ -> Nothing
 
       it "depending transactions stay pending and are confirmed in order" $
@@ -321,15 +327,25 @@ spec = parallel $ do
                 send n2 (NewTx secondTx)
                 send n1 (NewTx firstTx)
 
-                -- With the timer model, secondTx becomes applicable after
-                -- firstTx is applied, so both are batched into a single
-                -- snapshot when the timer fires.
-                waitUntil [n1, n2] $ TxValid testHeadId 1
-                waitUntil [n1, n2] $ TxValid testHeadId 2
-                waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [firstTx, secondTx] (utxoRefs [2, 4])
-                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  SnapshotConfirmed testHeadId snapshot sigs
+                -- With the immediate ReqSn model: firstTx arrives at alice
+                -- (leader for sn=1) and triggers an immediate snapshot with
+                -- firstTx only. secondTx is not yet applicable (needs utxoRef
+                -- 3 from firstTx's output). After sn=1 confirms, utxoRef 3
+                -- is available and bob (leader for sn=2) snapshots secondTx.
+                -- NOTE: We do not check TxValid separately because the timer
+                -- retry for secondTx (which moves it from allTxs to localTxs)
+                -- fires after sn=1. Waiting for TxValid{2} would drain
+                -- SnapshotConfirmed{n=1} from the queue, breaking the next
+                -- waitUntilMatch. Confirming the snapshots in order is
+                -- sufficient to prove both transactions were eventually valid.
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    guard $ number == 1 && confirmed == [firstTx]
+                  _ -> Nothing
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    guard $ number == 2 && confirmed == [secondTx]
+                  _ -> Nothing
 
       it "depending transactions expire if not applicable in time" $
         shouldRunInSim $
@@ -370,17 +386,17 @@ spec = parallel $ do
                         }
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
-                -- With the timer model, TxInvalid(tx'') fires at n1 well before the
-                -- timer triggers SnapshotConfirmed (tx'' expires after TTL*waitDelay≈0.5s,
-                -- timer fires at snapshotRetryInterval=10s). Check TxInvalid first on
-                -- n1 only (n2 emits TxInvalid for tx', not tx'').
-                waitUntilMatch [n1] $ \case
-                  TxInvalid{transaction} -> guard $ transaction == tx''
-                  _ -> Nothing
+                -- With the immediate ReqSn model: n1 (leader for sn=1) immediately
+                -- requests a snapshot with tx'. The snapshot confirms before tx''
+                -- expires via TTL. After confirmation, tx'' (which also spends
+                -- utxoRef 1) is invalid at both nodes.
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 1 0 [tx'] (utxoRefs [2, 10])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                   SnapshotConfirmed testHeadId snapshot sigs
+                waitUntilMatch [n1, n2] $ \case
+                  TxInvalid{transaction} -> guard $ transaction == tx''
+                  _ -> Nothing
 
       it "outputs utxo from confirmed snapshot when client requests it" $
         shouldRunInSim $ do
@@ -515,8 +531,12 @@ spec = parallel $ do
                   timeout (fromIntegral dpLong) waitForApproval >>= \case
                     Nothing -> pure ()
                     Just _ -> failure "Deposit was approved before all deposit periods passed"
-                  -- Now it should get approved
-                  waitForApproval
+                  -- Now it should get approved at n1 (which collected all sigs once n2
+                  -- finally signed after its deposit period elapsed). n2 dropped n1's
+                  -- AckSn while waiting, so n2 never independently confirms.
+                  waitUntilMatch [n1] $ \case
+                    CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
+                    _ -> Nothing
 
         it "requested commits get approved" $
           shouldRunInSim $ do
