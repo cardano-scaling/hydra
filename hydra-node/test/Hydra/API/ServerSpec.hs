@@ -24,6 +24,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
+import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
 import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
@@ -319,6 +320,33 @@ spec =
         withFreePort $
           \port -> sendsAnErrorWhenInputCannotBeDecoded port
 
+    it "rejects NewTx via WebSocket when input queue is full" $
+      failAfter 5 $
+        showLogsOnFailure "ServerSpec" $ \tracer ->
+          withFreePort $ \port -> do
+            let config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
+            withAPIServer @SimpleTx
+              config
+              testEnvironment
+              "~"
+              alice
+              (mockSource [])
+              tracer
+              0
+              dummyChainHandle
+              defaultPParams
+              allowEverythingServerOutputFilter
+              noop
+              (\_ -> pure False)
+              $ \_ ->
+                withClient port "/" $ \con -> do
+                  _greeting :: ByteString <- receiveData con
+                  sendBinaryData con (Aeson.encode (NewTx @SimpleTx (SimpleTx 42 mempty mempty)))
+                  msg <- receiveData con
+                  case Aeson.eitherDecode @InvalidInput msg of
+                    Left{} -> failure $ "Failed to decode output " <> show msg
+                    Right InvalidInput{reason} -> reason `shouldContain` "queue"
+
     describe "TLS support" $ do
       it "accepts TLS connections when configured" $ do
         showLogsOnFailure "ServerSpec" $ \tracer ->
@@ -332,7 +360,7 @@ spec =
                     , apiTransactionTimeout = 1000000
                     }
                 initialChainState = 0
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop (\_ -> pure True) $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -403,7 +431,7 @@ withTestAPIServer ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer port actor eventSource tracer =
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
+  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop (\_ -> pure True)
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
