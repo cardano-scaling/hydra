@@ -8,6 +8,7 @@ import Control.Concurrent.Class.MonadSTM (
   isFullTBQueue,
   modifyTVar',
   readTBQueue,
+  retry,
   writeTBQueue,
   writeTVar,
  )
@@ -88,5 +89,12 @@ createInputQueue = do
           atomically $ do
             n <- readTVar numThreads
             isEmpty' <- isEmptyTBQueue q
-            pure (isEmpty' && n == 0)
+            -- When queue is empty but async threads are still running,
+            -- block (retry) until threads complete. This prevents
+            -- runToCompletion from blocking forever in dequeue when an
+            -- OnChainEffect spawns an asyncTracked thread that finishes
+            -- without adding items to the queue.
+            if isEmpty' && n /= 0
+              then retry
+              else pure (isEmpty' && n == 0)
       }
