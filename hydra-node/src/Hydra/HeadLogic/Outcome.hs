@@ -140,6 +140,10 @@ data StateChanged tx
       , participants :: [OnChainId]
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | TxsRequeued
+      { txs :: [tx]
+      , newLocalUTxO :: UTxOType tx
+      }
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | Checkpoint {state :: NodeState tx}
   | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}

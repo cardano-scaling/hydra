@@ -263,6 +263,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
+    StateChanged.TxsRequeued{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
     StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
     StateChanged.NodeUnsynced{..} -> Just NodeUnsynced{..}

@@ -504,15 +504,13 @@ spec =
             _ -> fail "expected Open state"
 
           -- New L2 transaction arrives. Alice is leader for sn=1 (nextSn = max(0,0)+1 = 1).
-          -- Timer fires and re-requests snapshot 1 with the new version.
+          -- Alice immediately sends ReqSn when receiving ReqTx (maybeRequestSnapshot).
           let newTx = aValidTx 42
-          let s2 = aggregateState s1 $ update aliceEnv ledger now s1 $ receiveMessage $ ReqTx newTx
-          now2 <- nowFromSlot s2.chainPointTime.currentSlot
-          let timerOutcome = update aliceEnv ledger now2 s2 TimerInput
+          let reqTxOutcome = update aliceEnv ledger now s1 $ receiveMessage $ ReqTx newTx
 
           -- Verify it requests snapshot 1 with the new version (not snapshot 2)
           -- Note: Alice is leader for snapshot 1
-          timerOutcome `hasEffect` NetworkEffect (ReqSn 1 1 [txId newTx] Nothing Nothing)
+          reqTxOutcome `hasEffect` NetworkEffect (ReqSn 1 1 [txId newTx] Nothing Nothing)
 
         it "AckSn for decommit snapshot is noop after DecommitFinalized" $ do
           let localUTxO = utxoRefs [1]
@@ -715,6 +713,125 @@ spec =
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
             _ -> fail "expected Open state"
+
+        it "requeues valid txs after DecommitFinalized when snapshot in RequestedSnapshot" $ do
+          -- Regression: snapshot was in RequestedSnapshot state with pending txs.
+          -- DecommitFinalized arrived, previously clearing those txs. Later, a tx tried
+          -- to spend an output created by a dropped tx -> permanent WaitOnNotApplicableTx loop.
+          let confirmedUTxO = utxoRefs [1]
+              txA = SimpleTx 1 mempty (utxoRef 2) -- creates ref2 (no inputs needed)
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 1 0 [] confirmedUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO = confirmedUTxO <> utxoRef 2
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 1, requested = 2}
+                    , localTxs = [txA]
+                    , allTxs = Map.fromList [(txId txA, txA)]
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+          let outcome = update aliceEnv ledger now s0 decrementObservation
+          outcome `hasStateChangedSatisfying` \case
+            TxsRequeued{} -> True
+            _ -> False
+          let s1 = aggregateState s0 outcome
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.localTxs `shouldBe` [txA]
+              chs.localUTxO `shouldBe` confirmedUTxO <> utxoRef 2
+            _ -> fail "expected Open state"
+
+        it "emits TxInvalid for txs that cannot be reapplied after DecommitFinalized" $ do
+          let confirmedUTxO = utxoRefs [1]
+              -- txC spends ref5 which is NOT in confirmedUTxO -> invalid after reset
+              txC = SimpleTx 1 (utxoRef 5) (utxoRef 6)
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 1 0 [] confirmedUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO = utxoRef 6 -- was applied against some state with ref5
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 1, requested = 2}
+                    , localTxs = [txC]
+                    , allTxs = Map.fromList [(txId txC, txC)]
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+          let outcome = update aliceEnv ledger now s0 decrementObservation
+          outcome `hasStateChangedSatisfying` \case
+            TxInvalid{transaction} -> transaction == txC
+            _ -> False
+          let s1 = aggregateState s0 outcome
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.localTxs `shouldBe` []
+            _ -> fail "expected Open state"
+
+        it "requeues snapshot confirmed txs and local txs after DecommitFinalized in SeenSnapshot" $ do
+          let confirmedUTxO = utxoRefs [1]
+              txA = SimpleTx 1 mempty (utxoRef 2) -- in snapshot.confirmed, creates ref2
+              txB = SimpleTx 2 (utxoRef 2) (utxoRef 3) -- in localTxs, spends ref2
+              inFlightSnapshot = testSnapshot 2 0 [txA] (confirmedUTxO <> utxoRef 3)
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 1 0 [] confirmedUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO = confirmedUTxO <> utxoRef 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = SeenSnapshot{snapshot = inFlightSnapshot, signatories = mempty}
+                    , localTxs = [txB]
+                    , allTxs = Map.fromList [(txId txB, txB)]
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+          let outcome = update aliceEnv ledger now s0 decrementObservation
+          outcome `hasStateChangedSatisfying` \case
+            TxsRequeued{txs} -> txA `elem` txs && txB `elem` txs
+            _ -> False
+          let s1 = aggregateState s0 outcome
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.localTxs `shouldContain` [txA]
+              chs.localTxs `shouldContain` [txB]
+            _ -> fail "expected Open state"
+
+        it "no TxsRequeued when no snapshot in-flight on DecommitFinalized" $ do
+          let confirmedUTxO = utxoRefs [1]
+              txA = aValidTx 42
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 1 0 [] confirmedUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO = confirmedUTxO
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = NoSeenSnapshot
+                    , localTxs = [txA]
+                    , allTxs = Map.fromList [(txId txA, txA)]
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+          let outcome = update aliceEnv ledger now s0 decrementObservation
+          outcome `hasNoStateChangedSatisfying` \case
+            TxsRequeued{} -> True
+            _ -> False
 
         it "does not request same decommit twice across snapshots" $ do
           let localUTxO = utxoRefs [1, 2, 3]

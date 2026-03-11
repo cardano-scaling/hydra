@@ -209,6 +209,7 @@ processLogs decoded =
                     details@HeadFannedOut{} -> logIt (LogicLabel "HeadFannedOut") details
                     details@IgnoredHeadInitializing{} -> logIt (LogicLabel "IgnoredHeadInitializing") details
                     details@TxInvalid{} -> logIt (LogicLabel "TxInvalid") details
+                    TxsRequeued{} -> pure DropLog
                     NetworkConnected{} -> pure DropLog
                     NetworkDisconnected{} -> pure DropLog
                     PeerConnected{} -> pure DropLog
