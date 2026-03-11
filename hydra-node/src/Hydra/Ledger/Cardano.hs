@@ -27,6 +27,7 @@ import Cardano.Ledger.Conway.Rules (
   ConwayUtxowPredFailure (UtxoFailure),
  )
 import Cardano.Ledger.Conway.State (addAccountState, mkConwayAccountState)
+import Cardano.Ledger.Plutus (PlutusDebugOverrides (..), debugPlutus)
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
@@ -39,6 +40,7 @@ import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
+import System.IO.Unsafe (unsafeDupablePerformIO)
 
 -- * Ledger
 
@@ -76,10 +78,12 @@ cardanoLedger globals ledgerEnv =
     -- fail validation, hence using the heads of non empty lists is fine.
     toValidationError :: Ledger.ApplyTxError LedgerEra -> ValidationError
     toValidationError (Ledger.ApplyTxError (e :| _)) = case e of
-      (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg _ :| _)))))) ->
+      (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
         ValidationError $
           "Plutus validation failed: "
             <> msg
+            <> "Debug info: "
+            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) def $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing def)
       _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
