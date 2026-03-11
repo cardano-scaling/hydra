@@ -45,6 +45,7 @@ import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  Timing (..),
   getSnapshotUTxO,
   input,
   output,
@@ -264,7 +265,8 @@ scenarioSetup tracer tmpDir action = do
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
-    withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+    let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+    withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 

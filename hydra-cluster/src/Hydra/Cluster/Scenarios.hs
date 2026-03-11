@@ -127,6 +127,7 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
+  Timing (..),
   getProtocolParameters,
   getSnapshotConfirmed,
   getSnapshotLastSeen,
@@ -1330,7 +1331,8 @@ threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
           Direct DirectOptions{nodeSocket} -> nodeSocket
           Blockfrost _ -> error "Unexpected Blockfrost options"
   blockTime <- Backend.getBlockTime backend
-  withHydraCluster hydraTracer blockTime tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \clients -> do
+  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+  withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
 
