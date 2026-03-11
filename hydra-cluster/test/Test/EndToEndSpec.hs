@@ -91,23 +91,7 @@ import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import HydraNode (
-  HydraClient (..),
-  getMetrics,
-  getSnapshotUTxO,
-  input,
-  output,
-  prepareHydraNode,
-  requestCommitTx,
-  send,
-  waitFor,
-  waitForAllMatch,
-  waitForNodesConnected,
-  waitMatch,
-  withHydraCluster,
-  withHydraNode,
-  withPreparedHydraNodeInSync,
- )
+import HydraNode (HydraClient (..), Timing (..), getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNodeInSync)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive, removeFile)
@@ -390,7 +374,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let contestationPeriod = 2
               let hydraTracer = contramap FromHydraNode tracer
 
-              withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+              let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+              withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
                 waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
 
@@ -456,7 +441,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             let contestationPeriod = 2
             let hydraTracer = contramap FromHydraNode tracer
 
-            withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+            let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+            withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
               waitForNodesConnected hydraTracer 20 nodes
               let [n1, n2, n3] = toList nodes
 
@@ -929,7 +915,8 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
   blockTime <- Backend.getBlockTime backend
-  withHydraCluster hydraTracer blockTime tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId contestationPeriod $ \nodes -> do
+  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+  withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
@@ -1045,7 +1032,8 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
   blockTime <- Backend.getBlockTime backend
-  withHydraCluster hydraTracer blockTime tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId contestationPeriod $ \nodes -> do
+  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+  withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId $ \nodes -> do
     let [node] = toList nodes
     waitForNodesConnected hydraTracer 20 $ node :| []
 
