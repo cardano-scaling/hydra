@@ -2451,21 +2451,22 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
 
 -- * L2 scenarios
 
--- | Finds UTxO owned by given key in the head and creates transactions
--- respending it to the same address as fast as possible, forever.
--- NOTE: This relies on zero-fee protocol parameters.
-respendUTxO :: HydraClient -> SigningKey PaymentKey -> NominalDiffTime -> IO ()
-respendUTxO client sk delay = do
+-- | Respend all outputs owned by a given key in the head every 'delay' seconds,
+-- for 'numTimes' times.
+respendNTimes :: HasCallStack => HydraClient -> SigningKey PaymentKey -> DiffTime -> Int -> IO ()
+respendNTimes client sk delay numTimes = do
   utxo <- getSnapshotUTxO client
-  forever $ respend utxo
+  respend numTimes utxo
  where
   vk = getVerificationKey sk
 
-  respend utxo = do
-    tx <- mkTransferTx testNetworkId utxo sk vk
-    utxo' <- submitToHead (signTx sk tx)
-    threadDelay $ realToFrac delay
-    respend utxo'
+  respend !n utxo
+    | n <= 0 = pure ()
+    | otherwise = do
+        tx <- mkTransferTx testNetworkId utxo sk vk
+        utxo' <- submitToHead (signTx sk tx)
+        threadDelay delay
+        respend (n - 1) utxo'
 
   submitToHead tx = do
     send client $ input "NewTx" ["transaction" .= tx]
