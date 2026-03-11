@@ -486,7 +486,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
             -- Error out in case we receive a ReqSn that doesn't match local deposit
             Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
-            | status == Inactive -> noop
+            | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise ->
                 -- NOTE: this makes the commits sequential in a sense that you can't
