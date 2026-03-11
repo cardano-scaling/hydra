@@ -287,7 +287,6 @@ handleUtxoInclusion config f bs =
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
-  | Initializing
   | Open
   | Closed
   | FanoutPossible
@@ -297,7 +296,6 @@ data HeadStatus
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
   = CannotCommit
-  | NormalCommit HeadId
   | IncrementalCommit HeadId
 
 -- | L2 Hydra network status information.

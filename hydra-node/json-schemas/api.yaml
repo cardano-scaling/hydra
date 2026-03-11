@@ -84,13 +84,10 @@ channels:
           - $ref: "api.yaml#/components/messages/NetworkDisconnected"
           - $ref: "api.yaml#/components/messages/NetworkVersionMismatch"
           - $ref: "api.yaml#/components/messages/NetworkClusterIDMismatch"
-          - $ref: "api.yaml#/components/messages/HeadIsInitializing"
-          - $ref: "api.yaml#/components/messages/Committed"
           - $ref: "api.yaml#/components/messages/HeadIsOpen"
           - $ref: "api.yaml#/components/messages/HeadIsClosed"
           - $ref: "api.yaml#/components/messages/HeadIsContested"
           - $ref: "api.yaml#/components/messages/ReadyToFanout"
-          - $ref: "api.yaml#/components/messages/HeadIsAborted"
           - $ref: "api.yaml#/components/messages/HeadIsFinalized"
           - $ref: "api.yaml#/components/messages/TxValid"
           - $ref: "api.yaml#/components/messages/TxInvalid"
@@ -115,7 +112,6 @@ channels:
       message:
         oneOf:
           - $ref: "api.yaml#/components/messages/Init"
-          - $ref: "api.yaml#/components/messages/Abort"
           - $ref: "api.yaml#/components/messages/NewTx"
           - $ref: "api.yaml#/components/messages/Recover"
           - $ref: "api.yaml#/components/messages/Decommit"
@@ -502,13 +498,6 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Init"
 
-    Abort:
-      title: Abort
-      description: |
-        Aborts a head before it is opened. This can only be done before all participants have committed. Once opened, the head can't be aborted anymore but it can be closed using: `Close`.
-      payload:
-        $ref: "api.yaml#/components/schemas/Abort"
-
     NewTx:
       title: NewTx
       description: |
@@ -627,24 +616,10 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
 
-    HeadIsInitializing:
-      title: HeadIsInitializing
-      description: |
-        A `Init` transaction has been observed on-chain, with the given HeadId
-      payload:
-        $ref: "api.yaml#/components/schemas/HeadIsInitializing"
-
-    Committed:
-      title: Committed
-      description: |
-        A `Commit` from a head participant has been observed on-chain.
-      payload:
-        $ref: "api.yaml#/components/schemas/Committed"
-
     HeadIsOpen:
       title: HeadIsOpen
       description: |
-        All parties have committed, and a successful `CollectCom` transaction was observed on-chain. The head is now open; transactions can flow.
+        An `Init` transaction has been observed on-chain, opening the head directly. The head is now open; transactions can flow.
       payload:
         $ref: "api.yaml#/components/schemas/HeadIsOpen"
 
@@ -673,13 +648,6 @@ components:
         a fanout transaction.
       payload:
         $ref: "api.yaml#/components/schemas/ReadyToFanout"
-
-    HeadIsAborted:
-      title: HeadIsAborted
-      description: |
-        One of the participant did `Abort` the head before all commits were done or collected.
-      payload:
-        $ref: "api.yaml#/components/schemas/HeadIsAborted"
 
     HeadIsFinalized:
       title: HeadIsFinalized
@@ -893,7 +861,6 @@ components:
     ClientInput:
       oneOf:
         - $ref: "api.yaml#/components/schemas/Init"
-        - $ref: "api.yaml#/components/schemas/Abort"
         - $ref: "api.yaml#/components/schemas/NewTx"
         - $ref: "api.yaml#/components/schemas/Recover"
         - $ref: "api.yaml#/components/schemas/Decommit"
@@ -911,13 +878,10 @@ components:
         - $ref: "api.yaml#/components/schemas/NetworkClusterIDMismatch"
         - $ref: "api.yaml#/components/schemas/PeerConnected"
         - $ref: "api.yaml#/components/schemas/PeerDisconnected"
-        - $ref: "api.yaml#/components/schemas/HeadIsInitializing"
-        - $ref: "api.yaml#/components/schemas/Committed"
         - $ref: "api.yaml#/components/schemas/HeadIsOpen"
         - $ref: "api.yaml#/components/schemas/HeadIsClosed"
         - $ref: "api.yaml#/components/schemas/HeadIsContested"
         - $ref: "api.yaml#/components/schemas/ReadyToFanout"
-        - $ref: "api.yaml#/components/schemas/HeadIsAborted"
         - $ref: "api.yaml#/components/schemas/HeadIsFinalized"
         - $ref: "api.yaml#/components/schemas/TxValid"
         - $ref: "api.yaml#/components/schemas/TxInvalid"
@@ -994,16 +958,6 @@ components:
         tag:
           type: string
           enum: ["Init"]
-
-    Abort:
-      title: Abort
-      type: object
-      required:
-        - tag
-      properties:
-        tag:
-          type: string
-          enum: ["Abort"]
 
     NewTx:
       title: NewTx
@@ -1208,7 +1162,7 @@ components:
         timestamp:
           $ref: "api.yaml#/components/schemas/UTCTime"
 
-    HeadIsInitializing:
+    HeadIsOpen:
       type: object
       required:
         - tag
@@ -1219,55 +1173,13 @@ components:
       properties:
         tag:
           type: string
-          enum: ["HeadIsInitializing"]
+          enum: ["HeadIsOpen"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
         parties:
           type: array
           items:
             $ref: "api.yaml#/components/schemas/Party"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
-
-    Committed:
-      type: object
-      required:
-        - tag
-        - party
-        - utxo
-        - seq
-        - timestamp
-      properties:
-        tag:
-          type: string
-          enum: ["Committed"]
-        party:
-          $ref: "api.yaml#/components/schemas/Party"
-        utxo:
-          $ref: "api.yaml#/components/schemas/UTxO"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
-
-    HeadIsOpen:
-      type: object
-      required:
-        - tag
-        - headId
-        - utxo
-        - seq
-        - timestamp
-      properties:
-        tag:
-          type: string
-          enum: ["HeadIsOpen"]
-        headId:
-          $ref: "api.yaml#/components/schemas/HeadId"
-        utxo:
-          $ref: "api.yaml#/components/schemas/UTxO"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1334,27 +1246,6 @@ components:
           enum: ["ReadyToFanout"]
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
-        seq:
-          $ref: "api.yaml#/components/schemas/SequenceNumber"
-        timestamp:
-          $ref: "api.yaml#/components/schemas/UTCTime"
-
-    HeadIsAborted:
-      type: object
-      required:
-        - tag
-        - headId
-        - utxo
-        - seq
-        - timestamp
-      properties:
-        tag:
-          type: string
-          enum: ["HeadIsAborted"]
-        headId:
-          $ref: "api.yaml#/components/schemas/HeadId"
-        utxo:
-          $ref: "api.yaml#/components/schemas/UTxO"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -1496,7 +1387,6 @@ components:
         clientInput:
           oneOf:
             - $ref: "api.yaml#/components/messages/Init/payload"
-            - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
@@ -1521,7 +1411,6 @@ components:
         clientInput:
           oneOf:
             - $ref: "api.yaml#/components/messages/Init/payload"
-            - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
@@ -1546,7 +1435,6 @@ components:
         clientInput:
           oneOf:
             - $ref: "api.yaml#/components/messages/Init/payload"
-            - $ref: "api.yaml#/components/messages/Abort/payload"
             - $ref: "api.yaml#/components/messages/NewTx/payload"
             - $ref: "api.yaml#/components/messages/Decommit/payload"
             - $ref: "api.yaml#/components/messages/Recover/payload"
@@ -2302,7 +2190,6 @@ components:
       type: string
       enum:
         - Idle
-        - Initializing
         - Open
         - Closed
         - FanoutPossible
@@ -2505,44 +2392,6 @@ components:
               type: array
               items:
                 $ref: "api.yaml#/components/schemas/OnChainId"
-            headParameters:
-              $ref: "api.yaml#/components/schemas/HeadParameters"
-        - title: AbortTx
-          type: object
-          additionalProperties: false
-          required:
-            - tag
-            - utxo
-            - headSeed
-          description: |
-            Abort the opening of the Head process.
-          properties:
-            tag:
-              type: string
-              enum: ["AbortTx"]
-            utxo:
-              $ref: "api.yaml#/components/schemas/UTxO"
-            headSeed:
-              $ref: "api.yaml#/components/schemas/HeadSeed"
-        - title: CollectComTx
-          type: object
-          additionalProperties: false
-          required:
-            - tag
-            - utxo
-            - headId
-            - headParameters
-          description: |
-            Confirm the opening of the Head collecting the committed UTxO set
-            combined from all individual commits.
-          properties:
-            tag:
-              type: string
-              enum: ["CollectComTx"]
-            utxo:
-              $ref: "api.yaml#/components/schemas/UTxO"
-            headId:
-              $ref: "api.yaml#/components/schemas/HeadId"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
         - title: RecoverTx
@@ -2775,23 +2624,6 @@ components:
               enum: ["NoFuelUTXOFound"]
             failingTx:
               $ref: "api.yaml#/components/schemas/Transaction"
-        - title: CannotFindOwnInitial
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - knownUTxO
-          description: >-
-            The DirectChain was unable to find the output paying to Initial script corresponding
-            to this node's Party, with the relevant _Participation Token_.
-          properties:
-            tag:
-              type: string
-              enum: ["CannotFindOwnInitial"]
-            knownUTxO:
-              $ref: "api.yaml#/components/schemas/UTxO"
-              description: >-
-                The known UTxO within which the Initial script was looked up for.
         - title: UnsupportedLegacyOutput
           type: object
           additionalProperties: false
@@ -2854,34 +2686,6 @@ components:
               type: string
             failingTx:
               $ref: "api.yaml#/components/schemas/Transaction"
-        - title: CommittedTooMuchADAForMainnet
-          description: |
-            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - userCommittedLovelace
-          - mainnetLimitLovelace
-          properties:
-            userCommittedLovelace:
-              type: number
-            mainnetLimitLovelace:
-              type: number
-            tag:
-              type: string
-              enum: ["CommittedTooMuchADAForMainnet"]
-        - title: FailedToDraftTxNotInitializing
-          description: |
-            Raised if the user tried to draft a commit tx while Head is not in Initializing state.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          properties:
-            tag:
-              type: string
-              enum: ["FailedToDraftTxNotInitializing"]
         - title: InvalidSeed
           description: |
             Raised if the user fails to submit an abort or fanout tx using the wrong seed.
@@ -2910,17 +2714,6 @@ components:
               enum: ["InvalidHeadId"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
-        - title: FailedToConstructAbortTx
-          description: |
-            Raised if the user fails to submit an abort tx.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          properties:
-            tag:
-              type: string
-              enum: ["FailedToConstructAbortTx"]
         - title: FailedToConstructCloseTx
           description: |
             Raised if the user fails to submit a close tx.
@@ -2943,17 +2736,6 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructContestTx"]
-        - title: FailedToConstructCollectTx
-          description: |
-            Raised if the user fails to submit a collect-com tx.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          properties:
-            tag:
-              type: string
-              enum: ["FailedToConstructCollectTx"]
         - title: FailedToConstructDepositTx
           description: |
             Raised if the user fails to draft a deposit tx.
@@ -3038,25 +2820,6 @@ components:
                type: integer
                minimum: 0
             providedValue:
-               type: integer
-               minimum: 0
-        - title: AmountTooLow
-          description: |
-            Raised if the user requests a partial deposit using too small amount.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - providedValue
-          - totalUTxOValue
-          properties:
-            tag:
-              type: string
-              enum: ["AmountTooLow"]
-            providedValue:
-               type: integer
-               minimum: 0
-            totalUTxOValue:
                type: integer
                minimum: 0
         - title: MissingTokenPolicies
@@ -3610,17 +3373,6 @@ components:
               enum: ["Idle"]
             contents:
               $ref: "api.yaml#/components/schemas/IdleState"
-        - title: "Initial"
-          additionalProperties: false
-          required:
-            - tag
-            - contents
-          properties:
-            tag:
-              type: string
-              enum: ["Initial"]
-            contents:
-              $ref: "api.yaml#/components/schemas/InitialState"
         - title: "Open"
           additionalProperties: false
           required:
@@ -3652,36 +3404,6 @@ components:
       properties:
         chainState:
           $ref: "api.yaml#/components/schemas/ChainState"
-
-    InitialState:
-      type: object
-      additionalProperties: false
-      required:
-        - parameters
-        - pendingCommits
-        - committed
-        - chainState
-        - headId
-        - headSeed
-      properties:
-        parameters:
-          $ref: "api.yaml#/components/schemas/HeadParameters"
-        pendingCommits:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/Party"
-        committed:
-          type: object
-          propertyNames:
-            $ref: "api.yaml#/components/schemas/Party"
-          items:
-            $ref: "api.yaml#/components/schemas/UTxO"
-        chainState:
-          $ref: "api.yaml#/components/schemas/ChainState"
-        headId:
-          $ref: "api.yaml#/components/schemas/HeadId"
-        headSeed:
-          $ref: "api.yaml#/components/schemas/HeadSeed"
 
     OpenState:
       type: object
