@@ -610,7 +610,7 @@ apiServerSpec = do
 
     -- TODO: change API to POST /deposits
     describe "POST /commit" $ do
-      let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
+      let getHeadId = pure $ IncrementalCommit (generateWith arbitrary 42)
       let openHeadState = Open (generateWith arbitrary 42)
       responseChannel <- runIO newTChanIO
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
@@ -650,14 +650,10 @@ apiServerSpec = do
                 }
 
         let coverage = case postTxError of
-              CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
-              CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
               DepositTooLow{} -> cover 1 True "DepositTooLow"
-              AmountTooLow{} -> cover 1 True "AmountTooLow"
               FailedToConstructDepositTx{} -> cover 1 True "FailedToConstructDepositTx"
-              FailedToDraftTxNotInitializing -> cover 1 True "FailedToDraftTxNotInitializing"
               _ -> property
         checkCoverage
           $ coverage
@@ -678,13 +674,9 @@ apiServerSpec = do
           $ do
             post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
               `shouldRespondWith` case postTxError of
-                CommittedTooMuchADAForMainnet{} -> 400
                 UnsupportedLegacyOutput{} -> 400
-                CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400
-                AmountTooLow{} -> 400
                 FailedToConstructDepositTx{} -> 400
-                FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
       -- TODO: drop this whole endpoint

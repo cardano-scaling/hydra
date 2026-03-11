@@ -294,7 +294,6 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
-        NormalCommit headId -> error "TODO: Remove NormalCommit distinction"
         IncrementalCommit headId -> do
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo, changeAddress} -> do
@@ -304,10 +303,10 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
         CannotCommit -> do
           traceWith tracer $
             APIInvalidInput
-              { reason = "CannotCommit: Hydra node is not in the Initialializing state."
+              { reason = "CannotCommit: Hydra node does not have an open Head."
               , inputReceived = show body
               }
-          pure $ responseLBS status400 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
+          pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
  where
   deposit headId commitBlueprint changeAddress = do
     -- NOTE: Three times deposit period means we have one deposit period time to
@@ -315,6 +314,8 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     result <- draftDepositTx headId pparams commitBlueprint deadline changeAddress
+    -- FIXME: Deposit is not checking for byron addresses or the
+    -- maxMainnetLovelace (like commit did before!)
     case result of
       Left e -> do
         traceWith tracer $

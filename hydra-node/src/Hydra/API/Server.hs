@@ -274,9 +274,8 @@ projectPendingDeposits txIds = \case
   _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
--- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
--- state since this is when Head parties need to commit some funds.
--- TODO: simplify commitInfo
+-- NOTE: We only project 'HeadId' when the Head is 'Open' since that is when
+-- deposits can be made.
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
   StateChanged.Checkpoint state ->
