@@ -12,6 +12,7 @@ changes.
 
 - Made the snapshot protocol resilient to races between version bumps and in-flight snapshots. The snapshot leader now sends `ReqSn` immediately on `ReqTx` receipt and also via a periodic timer, batching any accumulated transactions. When `CommitFinalized` or `DecommitFinalized` bumps the version while a snapshot is in-flight, the abandoned snapshot's pending transactions are re-validated against the new confirmed UTxO: valid ones are requeued and included in the next snapshot, while transactions that can no longer be applied (e.g. they spent a decommitted output) are dropped as `TxInvalid`. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
   - Added `--snapshot-retry-interval` CLI option (default: 5ms) to control how often the snapshot leader retries a stalled request.
+- Added back pressure for `NewTx` client inputs. When the internal input queue is full, `POST /transaction` now returns HTTP 503 immediately and a WebSocket `NewTx` submission receives an `InvalidInput` error, instead of blocking or being silently dropped. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
 
 ## [1.3.0] - 2026.03.05
 
