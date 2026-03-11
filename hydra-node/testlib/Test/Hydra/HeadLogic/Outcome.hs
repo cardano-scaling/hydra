@@ -62,6 +62,7 @@ genStateChanged env =
     , HeadIsReadyToFanout <$> arbitrary
     , HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
     , LocalStateCleared <$> arbitrary <*> arbitrary
+    , TxsRequeued <$> arbitrary <*> arbitrary
     , NodeUnsynced <$> arbitrary <*> arbitrary <*> arbitrary
     , NodeSynced <$> arbitrary <*> arbitrary <*> arbitrary
     ]
