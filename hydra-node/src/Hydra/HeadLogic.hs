@@ -1011,12 +1011,53 @@ onOpenChainTick env chainTime pendingDeposits st =
 
   OpenState{coordinatedHeadState, parameters} = st
 
+-- | Re-apply pending transactions against the confirmed UTxO after a version
+-- bump (DecommitFinalized or CommitFinalized). Any txs that were in-flight in
+-- a SeenSnapshot or RequestedSnapshot are re-validated: valid ones are emitted
+-- as 'TxsRequeued' (so the next snapshot picks them up); invalid ones are
+-- emitted as 'TxInvalid' (so clients and the event log know they were dropped).
+--
+-- Returns two outcomes to be combined around the version-bump state change:
+--   - preRecovery: 'TxInvalid' events for txs that can no longer be applied
+--   - postRecovery: 'TxsRequeued' event with valid txs and the new localUTxO
+--
+-- Both are 'noop' when no snapshot is in-flight (NoSeenSnapshot /
+-- LastSeenSnapshot), preserving the existing no-op behaviour in those cases.
+recoverSnapshotTxs ::
+  Ledger tx ->
+  ChainSlot ->
+  HeadId ->
+  CoordinatedHeadState tx ->
+  (Outcome tx, Outcome tx)
+recoverSnapshotTxs ledger currentSlot headId chs =
+  case chs.seenSnapshot of
+    SeenSnapshot{snapshot} -> go (snapshot.confirmed ++ chs.localTxs)
+    RequestedSnapshot{} -> go chs.localTxs
+    _ -> (noop, noop)
+ where
+  Ledger{applyTransactions} = ledger
+  confirmedUTxO = case chs.confirmedSnapshot of
+    InitialSnapshot{initialUTxO} -> initialUTxO
+    ConfirmedSnapshot{snapshot = Snapshot{utxo}} -> utxo
+  go candidates =
+    let (validTxs, newUTxO, invalidTxs) = foldl' applyOne ([], confirmedUTxO, []) candidates
+        pre = foldl' (\acc (tx, err) -> acc <> newState TxInvalid{headId, utxo = confirmedUTxO, transaction = tx, validationError = err}) noop invalidTxs
+        post = if null validTxs then noop else newState TxsRequeued{txs = validTxs, newLocalUTxO = newUTxO}
+     in (pre, post)
+  applyOne (valid, utxo, invalid) tx =
+    case applyTransactions currentSlot utxo [tx] of
+      Right utxo' -> (valid ++ [tx], utxo', invalid)
+      Left (_, err) -> (valid, utxo, invalid ++ [(tx, err)])
+
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
 -- increment UTxO from 'pendingDeposits' from the local state.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainIncrementTx ::
+  IsTx tx =>
+  Ledger tx ->
+  ChainSlot ->
   OpenState tx ->
   ChainStateType tx ->
   -- | New open state version
@@ -1024,10 +1065,13 @@ onOpenChainIncrementTx ::
   -- | Deposit TxId
   TxIdType tx ->
   Outcome tx
-onOpenChainIncrementTx openState newChainState newVersion depositTxId =
-  newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
+onOpenChainIncrementTx ledger currentSlot openState newChainState newVersion depositTxId =
+  preRecovery
+    <> newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
+    <> postRecovery
  where
-  OpenState{headId} = openState
+  OpenState{headId, coordinatedHeadState = chs} = openState
+  (preRecovery, postRecovery) = recoverSnapshotTxs ledger currentSlot headId chs
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
@@ -1038,6 +1082,9 @@ onOpenChainIncrementTx openState newChainState newVersion depositTxId =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx ::
+  IsTx tx =>
+  Ledger tx ->
+  ChainSlot ->
   OpenState tx ->
   ChainStateType tx ->
   -- | New open state version
@@ -1045,16 +1092,19 @@ onOpenChainDecrementTx ::
   -- | Outputs removed by the decrement
   UTxOType tx ->
   Outcome tx
-onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
-  newState
-    DecommitFinalized
-      { chainState = newChainState
-      , headId
-      , newVersion
-      , distributedUTxO
-      }
+onOpenChainDecrementTx ledger currentSlot openState newChainState newVersion distributedUTxO =
+  preRecovery
+    <> newState
+      DecommitFinalized
+        { chainState = newChainState
+        , headId
+        , newVersion
+        , distributedUTxO
+        }
+    <> postRecovery
  where
-  OpenState{headId} = openState
+  OpenState{headId, coordinatedHeadState = chs} = openState
+  (preRecovery, postRecovery) = recoverSnapshotTxs ledger currentSlot headId chs
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit whose
 -- confirmed snapshot contains a matching utxoToCommit. The rollback may have
@@ -1662,7 +1712,7 @@ handleChainInput ::
   Input tx ->
   SyncedStatus ->
   Outcome tx
-handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
+handleChainInput env ledger now chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
   (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
@@ -1701,13 +1751,13 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx openState newChainState newVersion depositTxId
+        onOpenChainIncrementTx ledger chainPointTime.currentSlot openState newChainState newVersion depositTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx openState newChainState newVersion distributedUTxO
+        onOpenChainDecrementTx ledger chainPointTime.currentSlot openState newChainState newVersion distributedUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -2293,6 +2343,19 @@ aggregate st = \case
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
       Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
     _otherState -> st
+  TxsRequeued{txs = recoveredTxs, newLocalUTxO} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { localTxs = recoveredTxs
+                  , allTxs = Map.fromList [(txId t, t) | t <- recoveredTxs]
+                  , localUTxO = newLocalUTxO
+                  }
+            }
+      _otherState -> st
   Checkpoint nodeState -> headState nodeState
   NodeSynced{} -> st
   NodeUnsynced{} -> st
@@ -2347,6 +2410,7 @@ aggregateChainStateHistory history = \case
   DecommitInvalid{} -> history
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
+  TxsRequeued{} -> history
   LocalStateCleared{} -> history
   -- FIXME: This makes chain sync starting after rollbacks past the chain state impossible
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
