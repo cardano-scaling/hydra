@@ -10,7 +10,7 @@ changes.
 
 ## [UNRELEASED]
 
-- Made the snapshot protocol resilient to races between version bumps and in-flight snapshots. Snapshots are now triggered by a periodic timer rather than immediately on each `ReqTx`, so the leader batches pending transactions and retries automatically when a previous request was rejected. Stale or duplicate `ReqSn`/`AckSn` messages are now silently dropped instead of causing the head to wait forever. When `CommitFinalized` or `DecommitFinalized` bumps the version while a snapshot is in-flight, the abandoned snapshot's local state is reset to the last confirmed snapshot so the timer can build a fresh valid request. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
+- Made the snapshot protocol resilient to races between version bumps and in-flight snapshots. The snapshot leader now sends `ReqSn` immediately on `ReqTx` receipt and also via a periodic timer, batching any accumulated transactions. When `CommitFinalized` or `DecommitFinalized` bumps the version while a snapshot is in-flight, the abandoned snapshot's pending transactions are re-validated against the new confirmed UTxO: valid ones are requeued and included in the next snapshot, while transactions that can no longer be applied (e.g. they spent a decommitted output) are dropped as `TxInvalid`. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
   - Added `--snapshot-retry-interval` CLI option (default: 5ms) to control how often the snapshot leader retries a stalled request.
 
 ## [1.3.0] - 2026.03.05
