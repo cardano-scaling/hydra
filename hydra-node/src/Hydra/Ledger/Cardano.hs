@@ -98,11 +98,9 @@ cardanoLedger globals ledgerEnv =
     mockCertState dstate = foldl' register dstate withdrawZeroCredentials
 
     register dstate hk =
-      case toCompact $ Coin 0 of
-        Nothing -> dstate
-        Just zero ->
-          let newAccounts = addAccountState @LedgerEra hk (mkConwayAccountState zero) (Ledger.dsAccounts dstate)
-           in dstate{Ledger.dsAccounts = newAccounts}
+      let zero = fromMaybe (error "toCompact (Coin 0) failed") $ toCompact (Coin 0)
+          newAccounts = addAccountState @LedgerEra hk (mkConwayAccountState zero) (Ledger.dsAccounts dstate)
+       in dstate{Ledger.dsAccounts = newAccounts}
 
     withdrawZeroCredentials =
       toLedgerTx tx ^. bodyTxL . withdrawalsTxBodyL
