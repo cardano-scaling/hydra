@@ -41,6 +41,19 @@ At any point, the `seenSnapshot` field in the head state records what the local 
 
 Only one snapshot round can be in flight at a time. The timer will not start a new round while `RequestedSnapshot` or `SeenSnapshot` is active.
 
+### Transaction recovery after a version bump
+
+When a `CommitFinalized` or `DecommitFinalized` event is observed on-chain, the head version is bumped. If a snapshot was in flight at that moment (`RequestedSnapshot` or `SeenSnapshot`), the in-flight snapshot is dead — its signatures were produced at the old version and will be rejected on-chain.
+
+The node handles this as follows:
+
+1. **Reset**: the in-flight snapshot is discarded and `seenSnapshot` is reset to `LastSeenSnapshot` (the last confirmed snapshot number).
+2. **Re-validate**: all transactions that were pending in the discarded snapshot (from `localTxs` and, if in `SeenSnapshot`, the snapshot's confirmed tx list) are re-applied against the confirmed UTxO at the new version.
+3. **Requeue or drop**: transactions that are still valid are emitted as a `TxsRequeued` event, which restores them to `localTxs`. Transactions that are no longer valid (e.g. they spent a UTxO that was decommitted) are emitted as `TxInvalid` and dropped.
+4. **Next snapshot**: the timer fires a fresh `ReqSn` at the new version, picking up the requeued transactions. Even if all transactions were dropped, a `versionNeedsSnapshot` flag ensures an empty snapshot is still requested so that the confirmed snapshot version matches the on-chain head datum version (required for a valid `CloseTx`).
+
+This prevents the head from getting stuck in a `WaitOnNotApplicableTx` loop when a transaction depends on outputs created by a dropped in-flight tx.
+
 ## General notes on incremental commits/decommits
 
 Especially, incremental commit and decommit are additions to the originally researched [Hydra Head protocol](https://eprint.iacr.org/2020/299.pdf) and deserve more explanation how they work under the hood. 
