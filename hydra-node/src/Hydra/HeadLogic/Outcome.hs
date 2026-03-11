@@ -202,6 +202,7 @@ data WaitReason tx
   | WaitOnUnresolvedCommit {commitUTxO :: UTxOType tx}
   | WaitOnUnresolvedDecommit {decommitTx :: tx}
   | WaitOnDepositObserved {depositTxId :: TxIdType tx}
+  | WaitOnDepositActivation {depositTxId :: TxIdType tx}
   | WaitOnNodeInSync {currentSlot :: ChainSlot}
   deriving stock (Generic)
 

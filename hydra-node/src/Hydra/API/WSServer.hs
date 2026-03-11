@@ -15,7 +15,7 @@ import Data.Aeson.Lens (atKey)
 import Data.Conduit.Combinators (filter)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog (..))
-import Hydra.API.ClientInput (ClientInput (SafeClose))
+import Hydra.API.ClientInput (ClientInput (NewTx, SafeClose))
 import Hydra.API.Projection (Projection (..))
 import Hydra.API.ServerOutput (
   ClientMessage,
@@ -67,6 +67,10 @@ wsApp ::
   Chain tx IO ->
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
+  -- | Non-blocking callback for 'NewTx' inputs. Returns 'False' when the
+  -- input queue is full (back pressure). Other inputs use the blocking
+  -- 'callback' above.
+  (ClientInput tx -> IO Bool) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
   Projection STM.STM (StateChanged tx) (NodeState tx) ->
   -- | Read model to enhance 'Greetings' messages with 'NetworkInfo'.
@@ -75,7 +79,7 @@ wsApp ::
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chain history callback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chain history callback tryCallback nodeStateP networkInfoP responseChannel ServerOutputFilter{txContainsAddr} pending = do
   traceWith tracer NewAPIConnection
   let path = requestPath $ pendingRequest pending
   queryParams <- uriQuery <$> mkURIBs path
@@ -187,6 +191,13 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
                     sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
                     traceWith tracer (APIInvalidInput errorStr clientInput)
                   Right _ -> callback input
+          NewTx{} -> do
+            accepted <- tryCallback input
+            unless accepted $ do
+              let clientInput = decodeUtf8With lenientDecode $ toStrict msg
+              let errorStr = "Hydra input queue is full, please try again in few moments."
+              sendTextData con $ Aeson.encode $ InvalidInput errorStr clientInput
+              traceWith tracer (APIInvalidInput errorStr clientInput)
           _ -> callback input
       Left e -> do
         -- XXX(AB): toStrict might be problematic as it implies consuming the full

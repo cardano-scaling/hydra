@@ -43,6 +43,7 @@ import Hydra.Node (
   hydrate,
   initEnvironment,
   runHydraNode,
+  tryWireClientInput,
   wireChainInput,
   wireClientInput,
   wireNetworkInput,
@@ -106,7 +107,7 @@ run opts = do
           traceWith tracer' ChainBackendStarted
           -- API
           let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
-          withAPIServer apiServerConfig env stateFile party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+          withAPIServer apiServerConfig env stateFile party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) (tryWireClientInput wetHydraNode) $ \(apiSink, server) -> do
             -- Network
             let networkConfiguration =
                   NetworkConfiguration

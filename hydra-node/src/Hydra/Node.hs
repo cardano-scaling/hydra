@@ -239,6 +239,11 @@ wireClientInput node = enqueue . ClientInput
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
+tryWireClientInput :: DraftHydraNode tx m -> (ClientInput tx -> m Bool)
+tryWireClientInput node = tryEnqueueClient . ClientInput
+ where
+  DraftHydraNode{inputQueue = InputQueue{tryEnqueueClient}} = node
+
 wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (Authenticated (Message tx)) m
 wireNetworkInput node =
   NetworkCallback

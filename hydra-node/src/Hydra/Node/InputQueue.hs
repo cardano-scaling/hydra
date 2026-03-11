@@ -25,6 +25,11 @@ data InputQueue m e = InputQueue
   -- one timer tick is ever pending: consecutive ticks carry no new
   -- information, and keeping only one prevents timer ticks from crowding out
   -- chain/network events. The coalescing resets whenever 'enqueue' is called.
+  , tryEnqueueClient :: e -> m Bool
+  -- ^ Non-blocking variant for client-submitted inputs (e.g. 'NewTx').
+  -- Returns 'False' if the queue is full (back pressure signal); 'True' if
+  -- the item was enqueued. Unlike 'tryEnqueue', does NOT coalesce consecutive
+  -- calls — every invocation is independent.
   , reenqueue :: DiffTime -> Queued e -> m ()
   , asyncTracked :: m () -> m ()
   -- ^ Run an action asynchronously. Use this for
@@ -68,6 +73,17 @@ createInputQueue = do
               then pure False
               else do
                 writeTVar lastWasTimer True
+                queuedId <- readTVar nextId
+                writeTBQueue q Queued{queuedId, queuedItem}
+                modifyTVar' nextId succ
+                pure True
+      , tryEnqueueClient = \queuedItem ->
+          atomically $ do
+            full <- isFullTBQueue q
+            if full
+              then pure False
+              else do
+                writeTVar lastWasTimer False
                 queuedId <- readTVar nextId
                 writeTBQueue q Queued{queuedId, queuedItem}
                 modifyTVar' nextId succ
