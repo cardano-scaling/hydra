@@ -17,11 +17,9 @@ import CardanoNode (
   withHydraScriptsAndBackendRunning,
  )
 import Control.Lens ((^..), (^?))
-import Control.Monad (foldM_)
 import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
-import Data.Aeson.Types (parseMaybe)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -70,6 +68,7 @@ import Hydra.Cluster.Scenarios (
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
   rejectCommit,
+  respendNTimes,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   resumeFromLatestKnownPoint,
@@ -91,14 +90,31 @@ import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import HydraNode (HydraClient (..), Timing (..), getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNodeInSync)
+import HydraNode (
+  HydraClient (..),
+  Timing (..),
+  getMetrics,
+  getSnapshotUTxO,
+  input,
+  output,
+  prepareHydraNode,
+  requestCommitTx,
+  send,
+  waitFor,
+  waitForAllMatch,
+  waitForNodesConnected,
+  waitMatch,
+  withHydraCluster,
+  withHydraNode,
+  withPreparedHydraNodeInSync,
+ )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive, removeFile)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
-import Test.Hydra.Tx.Gen (genKeyPair, genUTxOFor)
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import Test.QuickCheck (Positive (..), generate)
 import Prelude qualified
 
@@ -114,14 +130,14 @@ withClusterTempDir = withTempDir "hydra-cluster"
 
 spec :: Spec
 spec = around (showLogsOnFailure "EndToEndSpec") $ do
-  describe "End-to-end offline mode" $ do
+  describe "Offline mode" $ do
     it "can process transactions in single participant offline head persistently" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do
         (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
         (bobCardanoVk, _) <- keysFor Bob
         initialUTxO <- generate $ do
-          a <- genUTxOFor aliceCardanoVk
-          b <- genUTxOFor bobCardanoVk
+          a <- genOneUTxOFor aliceCardanoVk
+          b <- genOneUTxOFor bobCardanoVk
           pure $ a <> b
         Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
         let offlineConfig =
@@ -141,7 +157,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
                   aliceCardanoSk
           send node $ input "NewTx" ["transaction" .= aliceToBob]
-          waitMatch 10 node $ \v -> do
+          waitMatch 20 node $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
           pure aliceToBob
 
@@ -161,7 +177,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     it "rotates persistence on start up" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do
         (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-        initialUTxO <- generate $ genUTxOFor aliceCardanoVk
+        initialUTxO <- generate $ genOneUTxOFor aliceCardanoVk
         Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
         let offlineConfig =
               Offline
@@ -173,22 +189,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         let blockTime = 5
         -- Start a hydra-node in offline mode and submit several self-txs
         withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
-          foldM_
-            ( \utxo i -> do
-                let Just (aliceTxIn, aliceTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) utxo
-                let Right selfTx =
-                      mkSimpleTx
-                        (aliceTxIn, aliceTxOut)
-                        (mkVkAddress testNetworkId aliceCardanoVk, txOutValue aliceTxOut)
-                        aliceCardanoSk
-                send node $ input "NewTx" ["transaction" .= selfTx]
-                waitMatch 10 node $ \v -> do
-                  guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-                  guard $ v ^? key "snapshot" . key "number" == Just (toJSON (i :: Integer))
-                  v ^? key "snapshot" . key "utxo" >>= parseMaybe parseJSON
-            )
-            initialUTxO
-            [1 .. (200 :: Integer)]
+          -- Offline mode needs to confirm deposit of initialUTxO first.
+          waitMatch 20 node $ \v -> do
+            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+          respendNTimes node aliceCardanoSk 0.01 200
 
         -- Measure restart time
         t0 <- getCurrentTime
@@ -215,8 +219,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
         (bobCardanoVk, _) <- keysFor Bob
         initialUTxO <- generate $ do
-          a <- genUTxOFor aliceCardanoVk
-          b <- genUTxOFor bobCardanoVk
+          a <- genOneUTxOFor aliceCardanoVk
+          b <- genOneUTxOFor bobCardanoVk
           pure $ a <> b
         Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
         let offlineConfig =
@@ -242,7 +246,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             waitMatch 10 bobNode $ \v -> do
               guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
-  describe "End-to-end on Cardano devnet" $ do
+  describe "Cardano devnet" $ do
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do

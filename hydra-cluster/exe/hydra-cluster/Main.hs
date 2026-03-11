@@ -19,7 +19,7 @@ import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
-import Hydra.Cluster.Scenarios (respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
+import Hydra.Cluster.Scenarios (EndToEndLog (..), respendNTimes, respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
@@ -61,8 +61,7 @@ run options =
                 Idle -> forever $ pure ()
                 RespendUTxO -> do
                   -- Start respending the same UTxO with a 100ms delay.
-                  -- XXX: Should make this configurable
-                  respendUTxO client walletSk 0.1
+                  forever $ respendNTimes client walletSk 0.1 100
  where
   Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario, persistenceRotateAfter} = options
 
