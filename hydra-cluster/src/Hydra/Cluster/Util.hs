@@ -77,7 +77,8 @@ chainConfigFor ::
   [Actor] ->
   ContestationPeriod ->
   IO ChainConfig
-chainConfigFor me targetDir backend txids actors cp = chainConfigFor' me targetDir backend txids actors cp defaultDepositPeriod
+chainConfigFor me targetDir backend txids actors cp =
+  chainConfigFor' me targetDir backend txids actors cp defaultDepositPeriod
 
 chainConfigFor' ::
   ChainBackend backend =>

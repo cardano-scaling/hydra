@@ -2022,10 +2022,11 @@ canDecommit tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 30_000_000
     blockTime <- Backend.getBlockTime backend
-    let contestationPeriod = 10
+    let contestationPeriod = 5
+        depositPeriod = 5
     networkId <- Backend.queryNetworkId backend
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] contestationPeriod
+      chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod depositPeriod
         <&> setNetworkId networkId
     withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
@@ -2038,10 +2039,10 @@ canDecommit tracer workDir backend hydraScriptsTxId =
       headUTxO <- seedFromFaucet backend walletVk (lovelaceToValue headAmount) (contramap FromFaucet tracer)
       commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
-      requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk >>= Backend.submitTransaction backend
-
-      waitFor hydraTracer 10 [n1] $
-        output "HeadIsOpen" ["utxo" .= toJSON (headUTxO <> commitUTxO), "headId" .= headId]
+      deposit <- requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk
+      Backend.submitTransaction backend deposit
+      waitFor hydraTracer 20 [n1] $
+        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId deposit]
 
       -- Decommit the single commitUTxO by creating a fully "respending" decommit transaction
       let walletAddress = mkVkAddress networkId walletVk
