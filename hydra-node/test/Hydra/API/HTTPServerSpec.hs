@@ -890,7 +890,7 @@ apiServerSpec = do
               (pure inIdleState)
               (pure CannotCommit)
               (pure [])
-              (const $ pure ())  -- putClientInput (blocking, not used for NewTx)
+              (const $ pure ()) -- putClientInput (blocking, not used for NewTx)
               (\_ -> pure False) -- tryPutNewTx: always rejects (simulates full queue)
               10
               responseChannel
