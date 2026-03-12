@@ -117,11 +117,11 @@ spec =
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
                       Fanout{} -> transition === Transition.Fanout
-                      -- NOTE: deposit and recover are not Head transactions as
-                      -- they are not operating on Hydra state machine. We don't generate them
+                      -- NOTE: deposit, recover and partial fanout are not generated
                       -- in these tests so we don't need to check them.
                       Deposit{} -> property False
                       Recover{} -> property False
+                      PartialFanout{} -> property False
 
     describe "commitTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx

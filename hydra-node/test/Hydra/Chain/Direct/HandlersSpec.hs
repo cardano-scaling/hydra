@@ -4,6 +4,7 @@ module Hydra.Chain.Direct.HandlersSpec where
 
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
 import Data.Maybe (fromJust)
@@ -13,6 +14,7 @@ import Hydra.Cardano.Api (
   PaymentKey,
   SlotNo (..),
   Tx,
+  UTxO,
   VerificationKey,
   fromLedgerTx,
   getChainPoint,
@@ -53,7 +55,9 @@ import Hydra.Chain.Direct.State (
  )
 import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
+import Hydra.HeadLogic (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.HeadParameters (HeadParameters)
+import Hydra.Tx.IsTx (splitUTxOAt)
 import Hydra.Tx.OnChainId (OnChainId)
 import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
@@ -69,6 +73,7 @@ import Test.QuickCheck (
   elements,
   label,
   oneof,
+  suchThat,
   (===),
  )
 import Test.QuickCheck.Monadic (
@@ -165,6 +170,7 @@ spec = do
                       OnFanoutTx{} -> Transition.Fanout
                       OnDepositTx{} -> error "OnDepositTx not expected"
                       OnRecoverTx{} -> error "OnRecoverTx not expected"
+                      OnPartialFanoutTx{} -> error "OnPartialFanoutTx not expected"
               observedTransition `shouldBe` transition
 
       let handler =
@@ -281,6 +287,42 @@ spec = do
       run $ forM_ blocksAfter $ \(TestBlock header txs) -> onRollForward resumedHandler header txs
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
       pure $ latestResumedChainState === latestChainState
+
+  describe "splitUTxOAt (IsTx)" $ do
+    it "splits UTxO into n and remaining" $ do
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+          n = 2
+          (first', rest) = splitUTxOAt n utxo
+      UTxO.size first' `shouldBe` n
+      UTxO.size rest `shouldBe` (UTxO.size utxo - n)
+
+    it "preserves all entries" $ do
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+          n = 2
+          (first', rest) = splitUTxOAt n utxo
+      UTxO.toList (first' <> rest) `shouldBe` UTxO.toList utxo
+
+    it "handles n larger than UTxO size" $ do
+      let fullUtxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+          -- Take only the first 3 entries to get a small UTxO
+          utxo = UTxO.fromList $ take 3 (UTxO.toList fullUtxo)
+          n = 100
+          (first', rest) = splitUTxOAt n utxo
+      UTxO.size first' `shouldBe` UTxO.size utxo
+      UTxO.size rest `shouldBe` 0
+
+    it "handles empty UTxO" $ do
+      let utxo = mempty :: UTxO
+          (first', rest) = splitUTxOAt 5 utxo
+      UTxO.size first' `shouldBe` 0
+      UTxO.size rest `shouldBe` 0
+
+  describe "fanout constants" $ do
+    it "chunk size is less than threshold" $
+      fanoutChunkSize `shouldSatisfy` (< fanoutOutputThreshold)
+
+    it "threshold is reasonable" $
+      fanoutOutputThreshold `shouldSatisfy` (> 0)
 
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])

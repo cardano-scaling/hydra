@@ -118,6 +118,7 @@ mockChainAndNetwork tr seedKeys commits = do
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateCommit = simulateCommit nodes
       , simulateDeposit = simulateDeposit nodes
+      , simulatePartialFanout = \_ _ -> error "simulatePartialFanout not implemented for MockChain"
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       }
  where
