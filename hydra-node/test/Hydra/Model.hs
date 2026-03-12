@@ -851,14 +851,19 @@ performFanout party = do
   party `sendsInput` Input.Fanout
   findInOutput thisNode (100 :: Int)
  where
-  findInOutput :: (MonadDelay m, MonadThrow m) => TestHydraClient Tx m -> Int -> RunMonad m UTxO
+  findInOutput :: (MonadDelay m, MonadThrow m, MonadSTM m) => TestHydraClient Tx m -> Int -> RunMonad m UTxO
   findInOutput node n
     | n == 0 = failure "Failed to perform Fanout"
     | otherwise = do
         outputs <- lift $ serverOutputs node
         case find headIsFinalized outputs of
           Just (HeadIsFinalized{utxo}) -> pure utxo
-          _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
+          _ -> do
+            -- Re-send Fanout to handle the case where a contest was submitted
+            -- concurrently with the initial fanout attempt. After the contest
+            -- settles, the next Fanout will be built with the updated chain state.
+            party `sendsInput` Input.Fanout
+            lift (threadDelay 1) >> findInOutput node (n - 1)
 
   headIsFinalized :: ServerOutput Tx -> Bool
   headIsFinalized = \case
