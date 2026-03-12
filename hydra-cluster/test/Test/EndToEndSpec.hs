@@ -53,6 +53,7 @@ import Hydra.Cluster.Scenarios (
   canDeposit2,
   canDepositPartially,
   canDepositReferenceScript,
+  canDepositScriptBlueprint,
   canDepositTxBlueprint,
   canRecoverDeposit,
   canRecoverDepositInAnyState,
@@ -60,6 +61,7 @@ import Hydra.Cluster.Scenarios (
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
+  ensureDepositScriptToTheRightHead,
   headIsFinalizedWith,
   headIsOpenWith,
   hydraNodeBaseUrl,
@@ -69,13 +71,11 @@ import Hydra.Cluster.Scenarios (
   oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
-  rejectCommit,
+  rejectDeposit,
   respendNTimes,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   resumeFromLatestKnownPoint,
-  singlePartyCommitsScriptBlueprint,
-  singlePartyCommitsScriptToTheRightHead,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
@@ -271,11 +271,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
               >>= canDecommit tracer tmpDir backend
-      it "reject commits with too low value" $ \tracer -> do
+      it "reject deposit with too low value" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             publishHydraScriptsAs backend Faucet
-              >>= rejectCommit tracer tmpDir blockTime backend
+              >>= rejectDeposit tracer tmpDir blockTime backend
       it "can recover deposit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
@@ -295,7 +295,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
-              >>= singlePartyCommitsScriptBlueprint tracer tmpDir backend
+              >>= canDepositScriptBlueprint tracer tmpDir backend
       it "deposit reference script" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
@@ -305,7 +305,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
-              >>= singlePartyCommitsScriptToTheRightHead tracer tmpDir backend
+              >>= ensureDepositScriptToTheRightHead tracer tmpDir backend
       it "can deposit partial UTxO" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend ->
