@@ -289,6 +289,74 @@ spec =
             NetworkEffect ReqSn{} -> True
             _ -> False
 
+        it "timer picks up deposit that activated while a snapshot was in-flight" $ do
+          -- Regression test: when a deposit activates (via tick) while a snapshot
+          -- is in-flight, onOpenChainTick returns noop (no ReqSn). With the bug,
+          -- currentDepositTxId stays Nothing so neither the timer nor
+          -- maybeRequestNextSnapshot ever picks up the deposit.
+          -- Fix: DepositActivated aggregate sets currentDepositTxId when Nothing.
+          now <- getCurrentTime
+          let party = [alice]
+              depositTime = flip addUTCTime now
+              depositTxId = 42 :: Integer
+              depositedUTxO = utxoRef depositTxId
+              -- deadline must be > chainTime + depositPeriod to avoid expiry on the activating tick
+              deadline = depositTime 5 `plusTime` toNominalDiffTime (depositPeriod aliceEnv) `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+          -- State: snapshot #1 in-flight (collecting signatures), deposit Inactive (about to activate).
+          -- SeenSnapshot means signatures are being collected — snapshotInFlight returns True for all sn.
+          let s0 =
+                (inOpenState' party $
+                  coordinatedHeadState
+                    { seenSnapshot = SeenSnapshot{snapshot = testSnapshot 1 0 [] mempty, signatories = mempty}
+                    , currentDepositTxId = Nothing
+                    })
+                  { pendingDeposits =
+                      Map.fromList
+                        [
+                          ( depositTxId
+                          , Deposit
+                              { headId = testHeadId
+                              , deposited = depositedUTxO
+                              , created = depositTime 1
+                              , deadline
+                              , status = Inactive
+                              }
+                          )
+                        ]
+                  }
+          -- Tick fires past the deposit period, activating the deposit.
+          -- Snapshot is in-flight so onOpenChainTick emits DepositActivated but no ReqSn.
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv)
+              tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
+          now1 <- nowFromSlot s0.chainPointTime.currentSlot
+          let tickOutcome = update aliceEnv ledger now1 s0 tickInput
+              s1 = aggregateState s0 tickOutcome
+          tickOutcome `hasStateChangedSatisfying` \case
+            DepositActivated{depositTxId = d} -> d == depositTxId
+            _ -> False
+          tickOutcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{} -> True
+            _ -> False
+          -- After aggregation, currentDepositTxId must be set so the timer can retry
+          case headState s1 of
+            Open OpenState{coordinatedHeadState = chs} ->
+              chs.currentDepositTxId `shouldBe` Just depositTxId
+            _ -> fail "expected Open state"
+          -- Simulate snapshot 1 confirming
+          let s2 =
+                s1
+                  { headState = case headState s1 of
+                      Open os@OpenState{coordinatedHeadState = chs} ->
+                        Open os{coordinatedHeadState = chs{seenSnapshot = LastSeenSnapshot{lastSeen = 1}}}
+                      other -> other
+                  }
+          -- Timer fires after snapshot confirmed → must emit ReqSn with the deposit
+          now2 <- nowFromSlot s2.chainPointTime.currentSlot
+          let timerOutcome = update aliceEnv ledger now2 s2 TimerInput
+          timerOutcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId = Just d} -> d == depositTxId
+            _ -> False
+
         it "on tick, DepositExpired fires only once when deposit transitions to expired" $ do
           -- Regression test: onChainTick emits DepositExpired for ALL expired
           -- deposits on every tick (not just newly-expired ones). After the first
