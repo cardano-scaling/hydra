@@ -191,6 +191,7 @@ processLogs decoded =
                     details@CommittedUTxO{} -> logIt (LogicLabel "CommittedUTxO") details
                     details@HeadAborted{} -> logIt (LogicLabel "HeadAborted") details
                     details@SnapshotRequestDecided{} -> logIt (LogicLabel "SnapshotRequestDecided") details
+                    details@SnapshotRequestAborted{} -> logIt (LogicLabel "SnapshotRequestAborted") details
                     details@SnapshotRequested{} -> logIt (LogicLabel "SnapshotRequested") details
                     details@PartySignedSnapshot{} -> logIt (LogicLabel "PartySignedSnapshot") details
                     details@SnapshotConfirmed{} -> logIt (LogicLabel "SnapshotConfirmed") details

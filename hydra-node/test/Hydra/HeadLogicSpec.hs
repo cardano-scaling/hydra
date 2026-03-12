@@ -44,7 +44,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active), NodeState (..), initNodeState, initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Inactive), NodeState (..), initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -287,6 +287,41 @@ spec =
 
           timerOutcome `hasNoEffectSatisfying` \case
             NetworkEffect ReqSn{} -> True
+            _ -> False
+
+        it "on tick, DepositExpired fires only once when deposit transitions to expired" $ do
+          -- Regression test: onChainTick emits DepositExpired for ALL expired
+          -- deposits on every tick (not just newly-expired ones). After the first
+          -- tick marks a deposit as expired, subsequent ticks must NOT re-emit
+          -- DepositExpired for it. Fix: only emit for state transitions.
+          now <- getCurrentTime
+          let addT = flip addUTCTime
+              depositTime = addT now
+              deadline = depositTime 3
+              deposit1 = Deposit{headId = testHeadId, deposited = utxoRef 1, created = depositTime 1, deadline, status = Inactive}
+              party = [alice]
+              -- Open state with one pending (inactive) deposit
+              s0 = (inOpenState party){pendingDeposits = Map.fromList [(1, deposit1)]}
+
+          -- First tick: chainTime > deadline → deposit transitions Inactive → Expired
+          let expiredTime = depositTime 4
+              tick1 = ChainInput $ Tick{chainTime = expiredTime, chainPoint = 4}
+          now1 <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome1 = update aliceEnv ledger now1 s0 tick1
+          let s1 = aggregateState s0 outcome1
+
+          -- First tick must emit DepositExpired
+          outcome1 `hasStateChangedSatisfying` \case
+            DepositExpired{depositTxId} -> depositTxId == 1
+            _ -> False
+
+          -- Second tick at the same (still-expired) time: must NOT re-emit DepositExpired
+          now2 <- nowFromSlot s1.chainPointTime.currentSlot
+          let tick2 = ChainInput $ Tick{chainTime = expiredTime, chainPoint = 5}
+          let outcome2 = update aliceEnv ledger now2 s1 tick2
+
+          outcome2 `hasNoStateChangedSatisfying` \case
+            DepositExpired{} -> True
             _ -> False
 
       describe "Decommit" $ do
@@ -606,6 +641,104 @@ spec =
               chs.currentDepositTxId `shouldBe` Nothing
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
             _ -> fail "expected Open state"
+
+        it "CommitFinalized clears decommitTx to prevent stale decommit in next ReqSn" $ do
+          -- Regression test: When an IncrementTx (CommitFinalized) is observed
+          -- after a decommit was already applied in a previous snapshot, the
+          -- decommitTx field is not cleared. The timer then includes the stale
+          -- decommit in the next ReqSn, which fails validation because those
+          -- UTxO inputs are no longer in localUTxO. Fix: CommitFinalized must
+          -- clear decommitTx = Nothing.
+          let localUTxO = utxoRefs [1, 2]
+              decommitTx' = SimpleTx 10 (utxoRef 2) (utxoRef 99)
+              -- Snapshot that already included the decommit (utxoToDecommit /= Nothing)
+              snWithDecommit =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 3
+                  , number = 5
+                  , confirmed = []
+                  , utxo = localUTxO
+                  , utxoToCommit = Nothing
+                  , utxoToDecommit = Just (utxoRef 2)
+                  }
+              confirmedSn = ConfirmedSnapshot{snapshot = snWithDecommit, signatures = Crypto.aggregate []}
+              depositTxId = 42 :: Integer
+              -- State: decommit was applied in sn=5, but decommitTx is still set
+              -- (DecommitFinalized hasn't fired yet). A deposit is also pending.
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = NoSeenSnapshot
+                    , decommitTx = Just decommitTx'
+                    , currentDepositTxId = Nothing
+                    }
+
+          -- IncrementTx arrives (CommitFinalized), bumping version to 4
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let s1 = aggregateState s0 $ update aliceEnv ledger now s0 incrementObservation
+
+          -- After CommitFinalized, decommitTx must be cleared so the timer
+          -- does not include the already-applied decommit in the next ReqSn.
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 4
+              chs.decommitTx `shouldBe` Nothing
+            _ -> fail "expected Open state"
+
+        it "leader recovers from RequireFailed on own ReqSn echo after stale decommit" $ do
+          -- Regression test: When the leader sends ReqSn with a stale decommit
+          -- (Bug 1), its own echo fails RequireFailed (SnapshotDoesNotApply or
+          -- ReqSnDecommitNotSettled). The Error outcome does NOT reset
+          -- seenSnapshot, leaving it as RequestedSnapshot forever. The timer
+          -- then hits `RequestedSnapshot{} -> noop` on every tick. Fix: when
+          -- the leader's own echo fails, reset seenSnapshot to LastSeenSnapshot
+          -- so the timer can retry with fresh content.
+          let localUTxO = utxoRefs [1]
+              staleDecommit = SimpleTx 10 (utxoRef 2) (utxoRef 99) -- inputs NOT in localUTxO
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              -- Leader (alice) already sent ReqSn(sn=1) with stale decommit:
+              -- seenSnapshot = RequestedSnapshot{lastSeen=0, requested=1}
+              s0 =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
+                    , decommitTx = Just staleDecommit
+                    }
+
+          -- Echo of the leader's own ReqSn arrives back (alice sent it, alice receives it)
+          let echoReqSn :: Input SimpleTx
+              echoReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] (Just staleDecommit) Nothing
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let echoOutcome = update aliceEnv ledger now s0 echoReqSn
+          let s1 = aggregateState s0 echoOutcome
+
+          -- After the echo fails, seenSnapshot must be reset (not stay RequestedSnapshot)
+          -- so the timer can retry. This is the key fix.
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldSatisfy` \case
+                RequestedSnapshot{} -> False -- Bug: stuck forever
+                _ -> True -- Fix: reset so timer can retry
+            _ -> fail "expected Open state"
+
+          -- Timer must now be able to send a fresh ReqSn (liveness restored)
+          now2 <- nowFromSlot s1.chainPointTime.currentSlot
+          let timerOutcome = update aliceEnv ledger now2 s1 TimerInput
+          timerOutcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{} -> True
+            _ -> False
 
         it "version race: stale ReqSn with old version is ignored after DecommitFinalized" $ do
           -- When a follower receives a snapshot request that carries an old version
@@ -1409,13 +1542,17 @@ spec =
           -- Step 8: When node processes this ReqSn, it will wait forever
           s8 <- runHeadLogic aliceEnv' ledger s6 $ do
             step reqTxInput
-            step TimerInput
             getState
 
           let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
           let reqSnOutcome = update aliceEnv' ledger now s8 staleReqSn
-          -- Fix bug: Error out instead of waiting for deposit to be observed forever
-          reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
+          -- In a single-party head, the leader's own echo with a stale deposit is
+          -- caught by abortOwnEchoOnFail and converted to SnapshotRequestAborted
+          -- (graceful abort) rather than a hard error. The timer can then retry
+          -- with a fresh ReqSn that omits the recovered deposit.
+          reqSnOutcome `hasStateChangedSatisfying` \case
+            SnapshotRequestAborted{snapshotNumber = 2} -> True
+            _ -> False
 
         it "re-posts IncrementTx on chain rollback when deposit is pending" $ do
           -- After a snapshot is confirmed with a deposit (CommitApproved + IncrementTx posted),
