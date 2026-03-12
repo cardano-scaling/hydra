@@ -49,9 +49,12 @@ import Hydra.Cluster.Fixture (
  )
 import Hydra.Cluster.Scenarios (
   canCloseWithLongContestationPeriod,
-  canCommit,
   canDecommit,
+  canDeposit,
+  canDeposit2,
   canDepositPartially,
+  canDepositReferenceScript,
+  canDepositTxBlueprint,
   canRecoverDeposit,
   canRecoverDepositInAnyState,
   canResumeOnMemberAlreadyBootstrapped,
@@ -72,11 +75,8 @@ import Hydra.Cluster.Scenarios (
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   resumeFromLatestKnownPoint,
-  singlePartyCommitsFromExternal,
-  singlePartyCommitsFromExternalTxBlueprint,
   singlePartyCommitsScriptBlueprint,
   singlePartyCommitsScriptToTheRightHead,
-  singlePartyDepositReferenceScript,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
@@ -85,14 +85,13 @@ import Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
   waitsForChainInSyncAndSecure,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig)
+import Hydra.Cluster.Util (Timing (..), chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
   HydraClient (..),
-  Timing (..),
   getMetrics,
   getSnapshotUTxO,
   input,
@@ -248,113 +247,112 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
   describe "Cardano devnet" $ do
     describe "single party hydra head" $ do
-      it "full head life-cycle" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyHeadFullLifeCycle tracer tmpDir backend hydraScriptsTxId
-      it "can close with long deadline" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canCloseWithLongContestationPeriod tracer tmpDir backend hydraScriptsTxId
-      around_ requiresBlockfrost $ it "commits from external with utxo @requiresBlockfrost" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyCommitsFromExternal tracer tmpDir backend hydraScriptsTxId
-      it "commits from external with tx blueprint" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyCommitsFromExternalTxBlueprint tracer tmpDir backend hydraScriptsTxId
-      it "can decommit utxo" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canDecommit tracer tmpDir backend hydraScriptsTxId
-      it "can incrementally commit" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
-            canCommit tracer tmpDir blockTime backend hydraScriptsTxId
-      it "reject commits with too low value" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
-            rejectCommit tracer tmpDir blockTime backend hydraScriptsTxId
-      it "can recover deposit" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canRecoverDeposit tracer tmpDir backend hydraScriptsTxId
-      it "can recover deposit in any state" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canRecoverDepositInAnyState tracer tmpDir backend hydraScriptsTxId
-      it "can see pending deposits" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
-            canSeePendingDeposits tracer tmpDir blockTime backend hydraScriptsTxId
-      it "incrementally commit script using blueprint tx" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyCommitsScriptBlueprint tracer tmpDir backend hydraScriptsTxId
-      it "deposit reference script" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyDepositReferenceScript tracer tmpDir backend hydraScriptsTxId
-      it "incrementally commit script with security checks" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyCommitsScriptToTheRightHead tracer tmpDir backend hydraScriptsTxId
-      it "can deposit partial UTxO" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canDepositPartially tracer tmpDir blockTime backend hydraScriptsTxId
-      it "can submit a timed tx" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            timedTx tmpDir tracer backend hydraScriptsTxId
-      it "can spend from a script on L2" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyUsesScriptOnL2 tracer tmpDir backend hydraScriptsTxId
-      it "can use withdraw zero on L2" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            singlePartyUsesWithdrawZeroTrick tracer tmpDir backend hydraScriptsTxId
-      it "can submit a signed user transaction" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canSubmitTransactionThroughAPI tracer tmpDir backend hydraScriptsTxId
-      it "persistence can load with empty commit" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            persistenceCanLoadWithEmptyCommit tracer tmpDir backend hydraScriptsTxId
-      it "node re-observes on-chain txs" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            nodeReObservesOnChainTxs tracer tmpDir backend hydraScriptsTxId
+      it "full head life-cycle" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyHeadFullLifeCycle tracer tmpDir
+      it "can close with long deadline" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canCloseWithLongContestationPeriod tracer tmpDir
+      it "can deposit utxo" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDeposit tracer tmpDir
+      it "can deposit with tx blueprint" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDepositTxBlueprint tracer tmpDir
+      it "can decommit utxo" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDecommit tracer tmpDir
+      it "reject commits with too low value" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            rejectCommit tracer tmpDir
+      it "can recover deposit" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canRecoverDeposit tracer tmpDir
+      it "can recover deposit in any state" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canRecoverDepositInAnyState tracer tmpDir
+      it "can see pending deposits" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canSeePendingDeposits tracer tmpDir
+      it "incrementally commit script using blueprint tx" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyCommitsScriptBlueprint tracer tmpDir
+      it "deposit reference script" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDepositReferenceScript tracer tmpDir
+      it "incrementally commit script with security checks" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyCommitsScriptToTheRightHead tracer tmpDir
+      it "can deposit partial UTxO" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDepositPartially tracer tmpDir
+      it "can submit a timed tx" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            timedTx tmpDir tracer
+      it "can spend from a script on L2" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyUsesScriptOnL2 tracer tmpDir
+      it "can use withdraw zero on L2" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            singlePartyUsesWithdrawZeroTrick tracer tmpDir
+      it "can submit a signed user transaction" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canSubmitTransactionThroughAPI tracer tmpDir
+      it "persistence can load with empty commit" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            persistenceCanLoadWithEmptyCommit tracer tmpDir
+      it "node re-observes on-chain txs" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            nodeReObservesOnChainTxs tracer tmpDir
 
-    describe "three hydra nodes scenario" $ do
-      it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            oneOfThreeNodesStopsForAWhile tracer tmpDir backend hydraScriptsTxId
+    describe "two party hydra head" $ do
+      it "can deposit and distribute funds" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDeposit2 tracer tmpDir
+
+    describe "three party hydra head" $ do
+      it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            oneOfThreeNodesStopsForAWhile tracer tmpDir
 
       it "does not error when all nodes open the head concurrently" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-              threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId
+          withClusterTempDir $ \tmpDir ->
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              threeNodesNoErrorsOnOpen tracer tmpDir
 
       it "node can support multiple etcd clusters" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-              nodeCanSupportMultipleEtcdClusters tracer tmpDir backend hydraScriptsTxId
+          withClusterTempDir $ \tmpDir ->
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              nodeCanSupportMultipleEtcdClusters tracer tmpDir
 
       it "inits a Head, processes a single Cardano transaction and closes it again" $ \tracer ->
         failAfter 60 $
-          withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-              initAndClose tmpDir tracer 1 hydraScriptsTxId backend
+          withClusterTempDir $ \tmpDir ->
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              initAndClose tmpDir tracer 1
 
       it "inits a Head and closes it immediately" $ \tracer ->
         failAfter 60 $
@@ -392,27 +390,27 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 headId <-
                   waitForAllMatch 10 [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
-                -- Get some UTXOs to commit to a head
+                -- Deposit UTxOs into the head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
                 committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+                depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
+                Backend.submitTransaction backend depositTxAlice
 
                 (bobExternalVk, bobExternalSk) <- generate genKeyPair
                 committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
-                requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
-
-                requestCommitTx n3 mempty >>= Backend.submitTransaction backend
+                depositTxBob <- requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk
+                Backend.submitTransaction backend depositTxBob
 
                 let u0 = committedUTxOByAlice <> committedUTxOByBob
-
-                waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
+                waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+                  output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
+                waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+                  output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxBob]
 
                 send n1 $ input "Close" []
                 deadline <- waitMatch 3 n1 $ \v -> do
                   guard $ v ^? key "tag" == Just "HeadIsClosed"
                   guard $ v ^? key "headId" == Just (toJSON headId)
-                  snapshotNumber <- v ^? key "snapshotNumber"
-                  guard $ snapshotNumber == Aeson.Number 0
                   v ^? key "contestationDeadline" . _JSON
 
                 -- Expect to see ReadyToFanout within 3 seconds after deadline
@@ -458,20 +456,21 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               headId <-
                 waitForAllMatch 10 [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
-              -- Get some UTXOs to commit to a head
+              -- Deposit UTxOs into the head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
               committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-              requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+              depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
+              Backend.submitTransaction backend depositTxAlice
 
               (bobExternalVk, bobExternalSk) <- generate genKeyPair
               committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
-              requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
+              depositTxBob <- requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk
+              Backend.submitTransaction backend depositTxBob
 
-              requestCommitTx n3 mempty >>= Backend.submitTransaction backend
-
-              let u0 = committedUTxOByAlice <> committedUTxOByBob
-
-              waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
+              waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+                output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
+              waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+                output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxBob]
 
               let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByBob
               let Right tx =
@@ -523,8 +522,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "supports mirror party" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-              threeNodesWithMirrorParty tracer tmpDir backend hydraScriptsTxId
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              threeNodesWithMirrorParty tracer tmpDir
 
       describe "Fanout maximum UTxOs" $ do
         -- This constant is set to the maximum number of UTxOs that can be
@@ -552,26 +551,26 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "restarting nodes" $ do
       it "resume from latest observed point" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            resumeFromLatestKnownPoint tracer tmpDir backend hydraScriptsTxId
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            resumeFromLatestKnownPoint tracer tmpDir
 
       it "can abort head after restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            restartedNodeCanAbort tracer tmpDir backend hydraScriptsTxId
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            restartedNodeCanAbort tracer tmpDir
 
       it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            restartedNodeCanObserveCommitTx tracer tmpDir backend hydraScriptsTxId
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            restartedNodeCanObserveCommitTx tracer tmpDir
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir $ \tmp ->
           withHydraScriptsAndBackendRunning tracer tmp $ \backend hydraScriptsTxId -> do
             blockTime <- Backend.getBlockTime backend
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
-            let contestationPeriod = 10
-            aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] contestationPeriod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] timing
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
             (tip, aliceHeadId) <- withHydraNode hydraTracer blockTime aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
@@ -605,9 +604,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             tip <- Backend.queryTip backend
             let startFromTip = modifyConfig $ \x -> x{startChainFrom = Just tip}
-            let contestationPeriod = 10
-            aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [Bob] contestationPeriod <&> startFromTip
-            bobChainConfig <- chainConfigFor Bob tmp backend hydraScriptsTxId [Alice] contestationPeriod <&> startFromTip
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [Bob] timing <&> startFromTip
+            bobChainConfig <- chainConfigFor Bob tmp backend hydraScriptsTxId [Alice] timing <&> startFromTip
 
             let hydraTracer = contramap FromHydraNode tracer
             let aliceNodeId = 1
@@ -626,12 +625,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
                 committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-                requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+                depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
+                Backend.submitTransaction backend depositTxAlice
+                waitFor hydraTracer (depositTimeout timing) [n1, n2] $
+                  output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
 
                 (bobExternalVk, _bobExternalSk) <- generate genKeyPair
-                requestCommitTx n2 mempty >>= Backend.submitTransaction backend
-
-                waitFor hydraTracer 10 [n1, n2] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
 
                 -- Create an arbitrary transaction using some input.
                 let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice
@@ -677,8 +676,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can side load snapshot" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-            canSideLoadSnapshot tracer tmpDir backend hydraScriptsTxId
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canSideLoadSnapshot tracer tmpDir
 
       it "can resume when member has already been bootstrapped" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
@@ -698,20 +697,20 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withClusterTempDir $ \tmpDir -> do
             withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
               concurrentlyLabelled_
-                ("init-and-close-0", initAndClose tmpDir tracer 0 hydraScriptsTxId backend)
-                ("init-and-close-1", initAndClose tmpDir tracer 1 hydraScriptsTxId backend)
+                ("init-and-close-0", initAndClose tmpDir tracer 0 backend hydraScriptsTxId)
+                ("init-and-close-1", initAndClose tmpDir tracer 1 backend hydraScriptsTxId)
 
       it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-              initWithWrongKeys tmpDir tracer backend hydraScriptsTxId
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              initWithWrongKeys tmpDir tracer
 
       it "cluster id mismatch provides useful info in the logs" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-              startWithWrongPeers tmpDir tracer backend hydraScriptsTxId
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              startWithWrongPeers tmpDir tracer
 
       it "bob cannot abort alice's head" $ \tracer -> do
         failAfter 60 $
@@ -720,9 +719,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               blockTime <- Backend.getBlockTime backend
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
-              let contestationPeriod = 10
-              aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
-              bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice] contestationPeriod
+              let timing = mkTestTiming blockTime
+              aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
+              bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice] timing
               let hydraTracer = contramap FromHydraNode tracer
               withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
@@ -743,9 +742,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                     output "HeadIsAborted" ["utxo" .= Object mempty, "headId" .= headIdAliceAndBob]
 
                   -- Alice should be able to continue working with her Head
-                  requestCommitTx n1 mempty >>= Backend.submitTransaction backend
-                  waitFor hydraTracer 10 [n1] $
-                    output "HeadIsOpen" ["utxo" .= Object mempty, "headId" .= headIdAliceOnly]
+                  -- (verify by closing it)
+                  send n1 $ input "Close" []
+                  void $ waitMatch 10 n1 $ \v -> do
+                    guard $ v ^? key "tag" == Just "HeadIsClosed"
+                    guard $ v ^? key "headId" == Just (toJSON headIdAliceOnly)
 
     describe "Monitoring" $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
@@ -754,10 +755,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
             blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
-            let contestationPeriod = 10
-            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [Bob, Carol] contestationPeriod
-            bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice, Carol] contestationPeriod
-            carolChainConfig <- chainConfigFor Carol tmpDir backend hydraScriptsTxId [Alice, Bob] contestationPeriod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [Bob, Carol] timing
+            bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice, Carol] timing
+            carolChainConfig <- chainConfigFor Carol tmpDir backend hydraScriptsTxId [Alice, Bob] timing
             failAfter 20 $
               withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
@@ -800,8 +801,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
             blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
-            let contestationPeriod = 100
-            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] timing
 
             -- XXX: Need to do something in 'action' otherwise always green?
             withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
@@ -812,8 +813,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
             blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
-            let contestationPeriod = 100
-            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] timing
 
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
@@ -829,8 +830,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             blockTime <- Backend.getBlockTime backend
             let hydraTracer = contramap FromHydraNode tracer
             refuelIfNeeded tracer backend Alice 100_000_000
-            let contestationPeriod = 2
-            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] contestationPeriod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] timing
             withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
               send n1 $ input "Init" []
 
@@ -842,10 +843,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 timedTx :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> backend -> [TxId] -> IO ()
 timedTx tmpDir tracer backend hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
-  let contestationPeriod = 2
-  aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] contestationPeriod
-  let hydraTracer = contramap FromHydraNode tracer
   blockTime <- Backend.getBlockTime backend
+  let timing = mkTestTiming blockTime
+  aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
+  let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
     let lovelaceBalanceValue = 100_000_000
 
@@ -899,8 +900,8 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
       v ^? key "snapshot" . key "confirmed"
     confirmedTransactions ^.. values `shouldBe` [toJSON tx]
 
-initAndClose :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> Int -> [TxId] -> backend -> IO ()
-initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
+initAndClose :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> Int -> backend -> [TxId] -> IO ()
+initAndClose tmpDir tracer clusterIx backend hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
   carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -930,18 +931,21 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
       waitForAllMatch 10 [n1, n2, n3] $
         headIsOpenWith (Set.fromList [alice, bob, carol])
 
-    -- Get some UTXOs to commit to a head
+    -- Deposit UTxOs into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
     committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-    requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+    depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
+    Backend.submitTransaction backend depositTxAlice
 
     (bobExternalVk, bobExternalSk) <- generate genKeyPair
     committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
-    requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
+    depositTxBob <- requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk
+    Backend.submitTransaction backend depositTxBob
 
-    requestCommitTx n3 mempty >>= Backend.submitTransaction backend
-
-    waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= (committedUTxOByAlice <> committedUTxOByBob), "headId" .= headId]
+    waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+      output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
+    waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+      output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxBob]
 
     -- NOTE(AB): this is partial and will fail if we are not able to generate a payment
     let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice
@@ -986,13 +990,14 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
             ]
             <> fmap toJSON (Map.fromList (UTxO.toList committedUTxOByBob))
 
-    let expectedSnapshotNumber :: Int = 1
+    -- After 2 deposits + 1 tx, snapshot number should be 3
+    let expectedTxSnapshotNumber :: Int = 3
 
     waitMatch 10 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $ v ^? key "headId" == Just (toJSON headId)
       snapshotNumber <- v ^? key "snapshot" . key "number"
-      guard $ snapshotNumber == toJSON expectedSnapshotNumber
+      guard $ snapshotNumber == toJSON expectedTxSnapshotNumber
       utxo <- v ^? key "snapshot" . key "utxo"
       guard $ utxo == toJSON newUTxO
       confirmedTransactions <- v ^? key "snapshot" . key "confirmed"
@@ -1005,7 +1010,7 @@ initAndClose tmpDir tracer clusterIx hydraScriptsTxId backend = do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       guard $ v ^? key "headId" == Just (toJSON headId)
       snapshotNumber <- v ^? key "snapshotNumber"
-      guard $ snapshotNumber == toJSON expectedSnapshotNumber
+      guard $ snapshotNumber == toJSON expectedTxSnapshotNumber
       v ^? key "contestationDeadline" . _JSON
 
     -- Expect to see ReadyToFanout within 3 seconds after deadline
@@ -1045,12 +1050,13 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
       waitForAllMatch 10 [node] $
         headIsOpenWith (Set.fromList [alice])
 
-    -- Get some UTXOs to commit to a head
+    -- Deposit UTxOs into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
     committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue (fromInteger $ ledgerSize * 1_000_000)) (contramap FromFaucet tracer)
-    requestCommitTx node committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
-
-    waitFor hydraTracer 10 [node] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+    depositTxAlice <- requestCommitTx node committedUTxOByAlice <&> signTx aliceExternalSk
+    Backend.submitTransaction backend depositTxAlice
+    waitFor hydraTracer (depositTimeout timing) [node] $
+      output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
 
     -- Create many transactions to reach the ledger limit
     let loop 0 _ res = return res

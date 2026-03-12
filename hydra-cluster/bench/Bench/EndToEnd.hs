@@ -33,6 +33,8 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Scenarios (EndToEndLog (..))
+import Hydra.Cluster.Util (Timing (..))
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Logging (
   Tracer,

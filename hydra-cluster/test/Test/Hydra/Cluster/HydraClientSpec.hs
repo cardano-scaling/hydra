@@ -40,6 +40,7 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsOpenWith,
  )
+import Hydra.Cluster.Util (Timing (..))
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
@@ -47,7 +48,6 @@ import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
-  Timing (..),
   getSnapshotUTxO,
   input,
   output,

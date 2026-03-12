@@ -21,13 +21,13 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (chainConfigFor, keysFor)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (DirectOptions (..))
 import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
-import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
+import Test.Hydra.Tx.Fixture (aliceSk)
 
 spec :: Spec
 spec = do
@@ -41,7 +41,8 @@ spec = do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             (aliceCardanoVk, _) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] cperiod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
             withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver backend $ \observer -> do
                 seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)

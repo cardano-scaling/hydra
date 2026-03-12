@@ -43,7 +43,7 @@ import Hydra.Cluster.Fixture (
   carol,
   cperiod,
  )
-import Hydra.Cluster.Util (chainConfigFor, keysFor, modifyConfig, readConfigFile)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming, modifyConfig, readConfigFile)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
@@ -68,15 +68,16 @@ spec :: Spec
 spec = around (showLogsOnFailure "DirectChainSpec") $ do
   it "can open a head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \blockTime backend -> do
+        let timing = mkTestTiming blockTime
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [Bob, Carol] cperiod
+        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [Bob, Carol] timing
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $ \aliceChain@CardanoChainTest{postTx} -> do
           -- Bob setup
-          bobChainConfig <- chainConfigFor Bob tmp backend hydraScriptsTxId [Alice, Carol] cperiod
+          bobChainConfig <- chainConfigFor Bob tmp backend hydraScriptsTxId [Alice, Carol] timing
           withDirectChainTest nullTracer bobChainConfig bob $ \bobChain@CardanoChainTest{} -> do
             -- Scenario
             participants <- loadParticipants [Alice, Bob, Carol]
@@ -90,12 +91,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can open, close & fanout a Head" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \blockTime backend -> do
+        let timing = mkTestTiming blockTime
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] cperiod
+        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] timing
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
             -- Scenario
@@ -162,12 +164,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can restart head to point in the past and replay on-chain events" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \blockTime backend -> do
+        let timing = mkTestTiming blockTime
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         -- Alice setup
-        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] cperiod
+        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] timing
         participants <- loadParticipants [Alice]
         let headParameters = HeadParameters cperiod [alice]
         -- Scenario
@@ -187,7 +190,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "cannot restart head to an unknown point" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \blockTime backend -> do
+        let timing = mkTestTiming blockTime
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
@@ -195,7 +199,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
         let headerHash = fromString (replicate 64 '0')
         let fakeTip = ChainPoint 42 headerHash
         aliceChainConfig <-
-          chainConfigFor Alice tmp backend hydraScriptsTxId [] cperiod
+          chainConfigFor Alice tmp backend hydraScriptsTxId [] timing
             <&> modifyConfig (\cfg -> cfg{startChainFrom = Just fakeTip})
         let action = withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $ \_ ->
               threadDelay 5 >> fail "should not execute main action but did?"
@@ -205,7 +209,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can publish and query reference scripts in a timely manner" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_blockTime backend -> do
         readConfigFile ("credentials" </> "faucet.sk") >>= writeFileBS (tmp </> "faucet.sk")
         let DirectBackend DirectOptions{nodeSocket, networkId} = backend
         hydraScriptsTxIdStr <-
@@ -226,12 +230,13 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
   it "can only contest once" $ \tracer -> do
     withTempDir "hydra-cluster" $ \tmp -> do
-      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \_ backend -> do
+      withCardanoNodeDevnet (contramap FromNode tracer) tmp $ \blockTime backend -> do
+        let timing = mkTestTiming blockTime
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
         -- Alice setup
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] cperiod
+        aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] timing
         withDirectChainTest (contramap (FromDirectChain "alice") tracer) aliceChainConfig alice $
           \aliceChain@CardanoChainTest{postTx} -> do
             (aliceExternalVk, _aliceExternalSk) <- generate genKeyPair

@@ -24,15 +24,13 @@ import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (readConfigFile)
+import Hydra.Cluster.Util (Timing (..), readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
-import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
@@ -280,17 +278,6 @@ getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
       (Req.port $ 6_000 + hydraNodeId)
 
 -- * Start / connect to a cluster of nodes
-
--- | Expected time between blocks (on average)
-type BlockTime = NominalDiffTime
-
--- | Timing parameters that determing the behavior of a (cluster of) hydra-node.
-data Timing = Timing
-  { blockTime :: BlockTime
-  , contestationPeriod :: ContestationPeriod
-  , depositPeriod :: DepositPeriod
-  }
-  deriving (Show)
 
 -- XXX: The two lists need to be of same length. Also the verification keys can
 -- be derived from the signing keys.
