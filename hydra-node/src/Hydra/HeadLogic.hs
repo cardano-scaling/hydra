@@ -321,13 +321,22 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   -- received transaction. This eliminates the timer delay for single-tx
   -- patterns (submit → confirm → submit) where 'localTxs' would otherwise
   -- be empty when the timer fires.
+  --
+  -- Note: we guard against re-sending when already in 'RequestedSnapshot' for
+  -- the same snapshot number. 'snapshotInFlight' returns False in that case
+  -- (by design, so the leader can process its own echo), but we must NOT
+  -- broadcast a second 'ReqSn' with updated content — peers have already signed
+  -- the first one and a different broadcast would cause a signature mismatch.
   maybeRequestSnapshot nextSn outcome =
-    if not (snapshotInFlight seenSnapshot nextSn) && isLeader parameters party nextSn
-      then
-        outcome
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitToInclude (setExistingDeposit pendingDeposits depositToInclude))
-      else outcome
+    let alreadySentForThisSn = case seenSnapshot of
+          RequestedSnapshot{requested} -> requested == nextSn
+          _ -> False
+     in if not (snapshotInFlight seenSnapshot nextSn) && not alreadySentForThisSn && isLeader parameters party nextSn
+          then
+            outcome
+              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitToInclude (setExistingDeposit pendingDeposits depositToInclude))
+          else outcome
 
   Environment{party} = env
 

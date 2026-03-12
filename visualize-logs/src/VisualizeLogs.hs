@@ -167,6 +167,7 @@ processLogs decoded =
           case input of
             ClientInput{clientInput} -> logIt ClientSentLabel clientInput
             NetworkInput{} -> pure DropLog
+            TimerInput -> pure DropLog
             ChainInput{chainEvent} ->
               case chainEvent of
                 Observation{observedTx} -> logIt ObservationLabel observedTx

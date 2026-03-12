@@ -218,7 +218,11 @@ spec = parallel $ do
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1, 2, 3] Nothing Nothing]
+        -- With immediate snapshot chaining, the first ReqTx triggers ReqSn
+        -- immediately. Subsequent ReqTxs are queued for the next snapshot
+        -- (the leader does not re-broadcast with updated content to avoid
+        -- signature mismatches with peers who already signed the first ReqSn).
+        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
 
     it "rotates snapshot leaders" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
