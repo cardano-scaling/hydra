@@ -40,9 +40,10 @@ import Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
  )
-import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
+import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
+import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
@@ -61,6 +62,9 @@ import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = 10
+
+tuiDepositPeriod :: DepositPeriod
+tuiDepositPeriod = 10
 
 spec :: Spec
 spec = do
@@ -176,7 +180,7 @@ setupRotatedStateTUI action = do
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+        chainConfig <- chainConfigFor' Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
@@ -289,7 +293,7 @@ setupNodeAndTUI' hostname lovelace action =
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+        chainConfig <- chainConfigFor' Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 

@@ -34,6 +34,7 @@ import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
+import Hydra.Cluster.Util (Timing (..))
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Logging (
   Tracer,
@@ -44,7 +45,7 @@ import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey)
-import HydraNode (HydraClient, HydraNodeLog, Timing (..), getSnapshotUTxO, hydraNodeId, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withConnectionToNodeHost, withHydraCluster)
+import HydraNode (HydraClient, HydraNodeLog, getSnapshotUTxO, hydraNodeId, input, output, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitMatch, withConnectionToNodeHost, withHydraCluster)
 import System.FilePath ((</>))
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
