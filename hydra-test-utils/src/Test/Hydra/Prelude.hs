@@ -24,8 +24,8 @@ module Test.Hydra.Prelude (
   generateWith,
   shrinkListAggressively,
   MinimumSized (..),
-  HydraBackend (..),
-  getHydraBackend,
+  HydraTestnet (..),
+  getHydraNetwork,
 ) where
 
 import Hydra.Prelude
@@ -249,21 +249,27 @@ onlyNightly action = do
 --    ...
 requiresBlockfrost :: IO () -> IO ()
 requiresBlockfrost action = do
-  getHydraBackend >>= \case
-    DirectBackendType -> pendingWith "Only runs requiresBlockfrost"
-    BlockfrostBackendType -> action
+  getHydraNetwork >>= \case
+    BlockfrostTesting -> action
+    _ -> pendingWith "Only runs requiresBlockfrost"
 
-data HydraBackend
-  = DirectBackendType
-  | BlockfrostBackendType
+data HydraTestnet
+  = LocalDevnet
+  | PreviewTestnet
+  | PreproductionTestnet
+  | MainnetTesting
+  | BlockfrostTesting
 
-getHydraBackend :: IO HydraBackend
-getHydraBackend = do
+getHydraNetwork :: IO HydraTestnet
+getHydraNetwork = do
   backend <- lookupEnv "HYDRA_BACKEND"
   pure $ case backend of
-    Nothing -> DirectBackendType
-    Just "direct" -> DirectBackendType
-    Just "blockfrost" -> BlockfrostBackendType
+    Nothing -> LocalDevnet
+    Just "devnet" -> LocalDevnet
+    Just "preview" -> PreviewTestnet
+    Just "preproduction" -> PreproductionTestnet
+    Just "mainnet" -> MainnetTesting
+    Just "blockfrost" -> BlockfrostTesting
     Just other -> error $ "Unknown HYDRA_BACKEND: " <> Text.pack other
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'
