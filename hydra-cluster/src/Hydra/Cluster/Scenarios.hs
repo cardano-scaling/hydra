@@ -796,14 +796,14 @@ recomputeIntegrityHash pp languages tx = do
       (tx ^. witsTxL . rdmrsTxWitsL)
       (tx ^. witsTxL . datsTxWitsL)
 
-singlePartyCommitsScriptBlueprint ::
+canDepositScriptBlueprint ::
   ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
   backend ->
   [TxId] ->
   IO ()
-singlePartyCommitsScriptBlueprint tracer workDir backend hydraScriptsTxId =
+canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 20_000_000
     blockTime <- Backend.getBlockTime backend
@@ -992,14 +992,14 @@ canDepositReferenceScript tracer workDir backend hydraScriptsTxId =
       , blueprint
       )
 
-singlePartyCommitsScriptToTheRightHead ::
+ensureDepositScriptToTheRightHead ::
   ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
   backend ->
   [TxId] ->
   IO ()
-singlePartyCommitsScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
+ensureDepositScriptToTheRightHead tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 20_000_000
     blockTime <- Backend.getBlockTime backend
@@ -1604,8 +1604,8 @@ canDepositPartially tracer workDir backend hydraScriptsTxId =
       , UTxO.singleton blueprintTxIn o
       )
 
-rejectCommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-rejectCommit tracer workDir backend hydraScriptsTxId =
+rejectDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+rejectDeposit tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 30_000_000
     -- NOTE: Adapt periods to block times
@@ -1620,7 +1620,7 @@ rejectCommit tracer workDir backend hydraScriptsTxId =
     optionsWithUTxOCostPerByte <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] pparamsDecorator
     withPreparedHydraNodeInSync hydraTracer blockTime workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
       send n1 $ input "Init" []
-      headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+      _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
       -- Get some L1 funds
       (walletVk, _) <- generate genKeyPair

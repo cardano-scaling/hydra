@@ -54,6 +54,7 @@ import Hydra.Cluster.Scenarios (
   canDeposit2,
   canDepositPartially,
   canDepositReferenceScript,
+  canDepositScriptBlueprint,
   canDepositTxBlueprint,
   canRecoverDeposit,
   canRecoverDepositInAnyState,
@@ -61,6 +62,7 @@ import Hydra.Cluster.Scenarios (
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
+  ensureDepositScriptToTheRightHead,
   headIsFinalizedWith,
   headIsOpenWith,
   hydraNodeBaseUrl,
@@ -70,13 +72,11 @@ import Hydra.Cluster.Scenarios (
   oneOfThreeNodesStopsForAWhile,
   persistenceCanLoadWithEmptyCommit,
   refuelIfNeeded,
-  rejectCommit,
+  rejectDeposit,
   respendNTimes,
   restartedNodeCanAbort,
   restartedNodeCanObserveCommitTx,
   resumeFromLatestKnownPoint,
-  singlePartyCommitsScriptBlueprint,
-  singlePartyCommitsScriptToTheRightHead,
   singlePartyHeadFullLifeCycle,
   singlePartyUsesScriptOnL2,
   singlePartyUsesWithdrawZeroTrick,
@@ -270,7 +270,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "reject commits with too low value" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            rejectCommit tracer tmpDir
+            rejectDeposit tracer tmpDir
       it "can recover deposit" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
@@ -286,7 +286,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "incrementally commit script using blueprint tx" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            singlePartyCommitsScriptBlueprint tracer tmpDir
+            canDepositScriptBlueprint tracer tmpDir
       it "deposit reference script" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
@@ -294,7 +294,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "incrementally commit script with security checks" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            singlePartyCommitsScriptToTheRightHead tracer tmpDir
+            ensureDepositScriptToTheRightHead tracer tmpDir
       it "can deposit partial UTxO" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
