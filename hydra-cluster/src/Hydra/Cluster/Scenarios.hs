@@ -283,17 +283,18 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
   withHydraNode hydraTracer blockTime bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
     headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
       send n1 $ input "Init" []
-      -- XXX: might need to tweak the wait time
-      waitForAllMatch 10 [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
+      waitForAllMatch (10 * blockTime) [n1, n2] $ headIsInitializingWith (Set.fromList [alice, bob])
 
     -- n1 does a commit while n2 is down
     requestCommitTx n1 mempty >>= Backend.submitTransaction backend
-    waitFor hydraTracer 10 [n1] $
+    waitFor hydraTracer (10 * blockTime) [n1] $
       output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
-    -- n2 is back and does observe the commit
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
-      waitFor hydraTracer 10 [n2] $
+    -- n2 is back and should observe the commit replayed during chain sync.
+    -- We use withHydraNodeCatchingUp (not withHydraNode) so the Committed
+    -- message is not consumed by the NodeSynced wait before our assertion.
+    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
+      waitFor hydraTracer (10 * blockTime) [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
 resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
