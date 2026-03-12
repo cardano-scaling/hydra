@@ -150,7 +150,7 @@ withAPIServer config env stateFile party eventSource tracer initialChainState ch
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
-                  (\tx -> tryCallback (NewTx tx))
+                  (tryCallback . NewTx)
                   (apiTransactionTimeout config)
                   responseChannel
               )
@@ -264,6 +264,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.TransactionReceived{} -> Nothing
     StateChanged.SnapshotRequested{} -> Nothing
     StateChanged.SnapshotRequestDecided{} -> Nothing
+    StateChanged.SnapshotRequestAborted{} -> Nothing
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing

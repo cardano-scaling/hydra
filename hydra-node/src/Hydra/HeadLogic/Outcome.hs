@@ -83,6 +83,10 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
+  | -- | The leader's own ReqSn echo failed validation (e.g. stale decommit or
+    -- expired deposit). Resets 'seenSnapshot' back to 'LastSeenSnapshot' so the
+    -- timer can retry with fresh content instead of being stuck forever.
+    SnapshotRequestAborted {snapshotNumber :: SnapshotNumber, lastSeenSnapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.

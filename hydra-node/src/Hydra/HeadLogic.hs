@@ -414,54 +414,57 @@ onOpenNetworkReqSn ::
   Maybe (TxIdType tx) ->
   Outcome tx
 onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
-  -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
-  requireReqSn $
-    -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
-    -- Require any pending utxo to decommit to be consistent
-    requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
-      -- Wait for the deposit and require any pending commit to be consistent
-      waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
-        -- Resolve transactions by-id
-        waitResolvableTxs $ \requestedTxs -> do
-          -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
-          --       𝑈 ← 𝑈_active ◦ Treq
-          requireApplyTxs activeUTxO requestedTxs $ \u -> do
-            let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-            -- Spec: ŝ ← ̅S.s + 1
-            let nextSnapshot =
-                  Snapshot
-                    { headId
-                    , version = version
-                    , number = sn
-                    , confirmed = requestedTxs
-                    , utxo = snapshotUTxO
-                    , utxoToCommit = mUtxoToCommit
-                    , utxoToDecommit = mUtxoToDecommit
-                    }
+  -- When this is the leader's own echo and validation fails, reset seenSnapshot
+  -- so the timer can retry with fresh content instead of being stuck forever.
+  abortOwnEchoOnFail $
+    -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
+    requireReqSn $
+      -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
+      -- Require any pending utxo to decommit to be consistent
+      requireApplicableDecommitTx $ \(activeUTxOAfterDecommit, mUtxoToDecommit) ->
+        -- Wait for the deposit and require any pending commit to be consistent
+        waitForDeposit activeUTxOAfterDecommit $ \(activeUTxO, mUtxoToCommit) ->
+          -- Resolve transactions by-id
+          waitResolvableTxs $ \requestedTxs -> do
+            -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
+            --       𝑈 ← 𝑈_active ◦ Treq
+            requireApplyTxs activeUTxO requestedTxs $ \u -> do
+              let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+              -- Spec: ŝ ← ̅S.s + 1
+              let nextSnapshot =
+                    Snapshot
+                      { headId
+                      , version = version
+                      , number = sn
+                      , confirmed = requestedTxs
+                      , utxo = snapshotUTxO
+                      , utxoToCommit = mUtxoToCommit
+                      , utxoToDecommit = mUtxoToDecommit
+                      }
 
-            -- Spec: 𝜂 ← combine(𝑈)
-            --       𝜂𝛼 ← combine(𝑈𝛼)
-            --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
-            --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
-            let snapshotSignature = sign signingKey nextSnapshot
-            -- Spec: multicast (ackSn, ŝ, σᵢ)
-            (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
-              -- Spec: ̂Σ ← ∅
-              --       L̂ ← 𝑈
-              --       𝑋 ← T
-              --       T̂ ← ∅
-              --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-              --         T̂ ← T̂ ⋃ {tx}
-              --         L̂ ← L̂ ◦ tx
-              let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-              newState
-                SnapshotRequested
-                  { snapshot = nextSnapshot
-                  , requestedTxIds
-                  , newLocalUTxO
-                  , newLocalTxs
-                  , newCurrentDepositTxId = mDepositTxId
-                  }
+              -- Spec: 𝜂 ← combine(𝑈)
+              --       𝜂𝛼 ← combine(𝑈𝛼)
+              --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
+              --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
+              let snapshotSignature = sign signingKey nextSnapshot
+              -- Spec: multicast (ackSn, ŝ, σᵢ)
+              (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+                -- Spec: ̂Σ ← ∅
+                --       L̂ ← 𝑈
+                --       𝑋 ← T
+                --       T̂ ← ∅
+                --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+                --         T̂ ← T̂ ⋃ {tx}
+                --         L̂ ← L̂ ◦ tx
+                let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                newState
+                  SnapshotRequested
+                    { snapshot = nextSnapshot
+                    , requestedTxIds
+                    , newLocalUTxO
+                    , newLocalTxs
+                    , newCurrentDepositTxId = mDepositTxId
+                    }
  where
   requireReqSn continue
     -- Version mismatch means the ReqSn was sent before the version bumped (race
@@ -577,7 +580,19 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
 
   OpenState{parameters, coordinatedHeadState, headId} = st
 
-  Environment{signingKey} = env
+  Environment{signingKey, party} = env
+
+  -- Convert a RequireFailed outcome into a SnapshotRequestAborted when the
+  -- message is from our own party (our echo) and we are in RequestedSnapshot.
+  -- This prevents the leader from getting stuck forever when its own ReqSn
+  -- echo fails validation (e.g. stale decommit after a version bump).
+  abortOwnEchoOnFail outcome
+    | otherParty == party
+    , Error (RequireFailed _) <- outcome
+    , RequestedSnapshot{lastSeen, requested} <- seenSnapshot
+    , requested == sn =
+        newState SnapshotRequestAborted{snapshotNumber = sn, lastSeenSnapshotNumber = lastSeen}
+    | otherwise = outcome
 
 -- | Process a snapshot acknowledgement ('AckSn') from a party.
 --
@@ -946,14 +961,18 @@ determineNextDepositStatus env pendingDeposits chainTime =
 -- This is primarily used to track deposits status changes.
 onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
 onChainTick env pendingDeposits chainTime =
-  -- Determine new active and new expired
+  -- Determine new statuses and emit only for state *transitions* (not every tick).
   let nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
-      newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
-      newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
-   in -- Emit state change for both
-      -- XXX: This is a bit messy
-      mkDepositActivated newActive <> mkDepositExpired newExpired
+      -- Only newly-activated: was not Active before
+      newActive = Map.filterWithKey (isTransitionTo Active) nextDeposits
+      -- Only newly-expired: was not Expired before
+      newExpired = Map.filterWithKey (isTransitionTo Expired) nextDeposits
+   in mkDepositActivated newActive <> mkDepositExpired newExpired
  where
+  isTransitionTo target dtxId Deposit{status} =
+    status == target
+      && maybe True (\old -> old.status /= target) (Map.lookup dtxId pendingDeposits)
+
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
     pure DepositActivated{depositTxId, chainTime, deposit}
 
@@ -1992,6 +2011,15 @@ aggregateNodeState nodeState sc =
                                     , -- NOTE: This must correspond to the just finalized
                                       -- depositTxId, but we should not verify this here.
                                       currentDepositTxId = Nothing
+                                    , -- Clear decommitTx when the confirmed snapshot already
+                                      -- carried a decommit (utxoToDecommit /= Nothing). In
+                                      -- that case DecrementTx was posted and DecommitFinalized
+                                      -- will arrive shortly; keeping decommitTx set here would
+                                      -- cause the timer to include the stale decommit in the
+                                      -- next ReqSn, which fails validation (inputs already spent).
+                                      decommitTx = case coordinatedHeadState.confirmedSnapshot of
+                                        ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit = Just _}} -> Nothing
+                                        _ -> coordinatedHeadState.decommitTx
                                     , localUTxO = newLocalUTxO
                                     , localTxs = newLocalTxs
                                     , allTxs = newAllTxs
@@ -2151,6 +2179,17 @@ aggregate st = \case
             }
        where
         CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
+      _otherState -> st
+  SnapshotRequestAborted{lastSeenSnapshotNumber = lastSeen} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open
+          os
+            { coordinatedHeadState =
+                coordinatedHeadState
+                  { seenSnapshot = LastSeenSnapshot{lastSeen}
+                  }
+            }
       _otherState -> st
   SnapshotRequested{snapshot, requestedTxIds, newLocalUTxO, newLocalTxs, newCurrentDepositTxId} ->
     case st of
@@ -2397,6 +2436,7 @@ aggregateChainStateHistory history = \case
   HeadOpened{chainState} -> pushNewState chainState history
   TransactionAppliedToLocalUTxO{} -> history
   SnapshotRequestDecided{} -> history
+  SnapshotRequestAborted{} -> history
   SnapshotRequested{} -> history
   TransactionReceived{} -> history
   PartySignedSnapshot{} -> history

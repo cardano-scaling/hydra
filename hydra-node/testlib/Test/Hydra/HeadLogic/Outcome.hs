@@ -44,6 +44,7 @@ genStateChanged env =
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
+    , SnapshotRequestAborted <$> arbitrary <*> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
