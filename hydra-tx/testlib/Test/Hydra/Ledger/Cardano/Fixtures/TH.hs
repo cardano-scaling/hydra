@@ -40,6 +40,7 @@ loadCostModelTH genesisFile key lang = do
             PlutusV1 -> [|PlutusV1|]
             PlutusV2 -> [|PlutusV2|]
             PlutusV3 -> [|PlutusV3|]
+            PlutusV4 -> [|PlutusV4|]
           -- Lift and splice the values directly into the generated code
           [|either (error . show) id $ mkCostModel $(pure langExp) $(TH.lift costModelValues)|]
         Just _ -> fail $ key <> " in " <> genesisFile <> " is not an array"
