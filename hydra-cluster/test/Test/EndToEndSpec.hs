@@ -257,31 +257,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
               >>= canCloseWithLongContestationPeriod tracer tmpDir backend
-      it "can submit a timed tx" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= timedTx tmpDir tracer backend
       around_ requiresBlockfrost $ it "commits from external with utxo @requiresBlockfrost" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
             publishHydraScriptsAs backend Faucet
               >>= singlePartyCommitsFromExternal tracer tmpDir backend
-      it "can spend from a script on L2" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyUsesScriptOnL2 tracer tmpDir backend
-      it "can use withdraw zero on L2" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= singlePartyUsesWithdrawZeroTrick tracer tmpDir backend
-      it "can submit a signed user transaction" $ \tracer -> do
-        withClusterTempDir $ \tmpDir -> do
-          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
-            publishHydraScriptsAs backend Faucet
-              >>= canSubmitTransactionThroughAPI tracer tmpDir backend
       it "commits from external with tx blueprint" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
@@ -337,6 +317,26 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend ->
             publishHydraScriptsAs backend Faucet
               >>= canDepositPartially tracer tmpDir blockTime backend
+      it "can submit a timed tx" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
+            publishHydraScriptsAs backend Faucet
+              >>= timedTx tmpDir tracer backend
+      it "can spend from a script on L2" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= singlePartyUsesScriptOnL2 tracer tmpDir backend
+      it "can use withdraw zero on L2" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= singlePartyUsesWithdrawZeroTrick tracer tmpDir backend
+      it "can submit a signed user transaction" $ \tracer -> do
+        withClusterTempDir $ \tmpDir -> do
+          withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend -> do
+            publishHydraScriptsAs backend Faucet
+              >>= canSubmitTransactionThroughAPI tracer tmpDir backend
       it "persistence can load with empty commit" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
@@ -887,19 +887,16 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
       waitForAllMatch 10 [n1] $
         headIsOpenWith (Set.fromList [alice])
 
-    -- Get some UTXOs to commit to a head
+    -- Deposit some UTxO into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-    _ <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
-
-    waitFor hydraTracer 3 [n1] $ output "HeadIsOpen" ["utxo" .= committedUTxOByAlice, "headId" .= headId]
+    utxoToDeposit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+    txDeposit <- requestCommitTx n1 utxoToDeposit <&> signTx aliceExternalSk
+    Backend.submitTransaction backend txDeposit
+    waitFor hydraTracer 5 [n1] $ output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId txDeposit]
 
     -- Acquire a current point in time
     slotLengthSec <- protocolParamSlotLength <$> Backend.queryGenesisParameters backend
     currentSlot <- chainPointToSlot <$> Backend.queryTip backend
-
-    -- Create an arbitrary transaction using some input.
-    let firstCommittedUTxO = Prelude.head $ UTxO.toList committedUTxOByAlice
 
     -- Create a transaction which is only valid in 5 seconds
     let secondsToAwait = 5
@@ -910,7 +907,7 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
         -- TODO (later) use time in a script (as it is using POSIXTime)
         Right tx =
           mkRangedTx
-            firstCommittedUTxO
+            (Prelude.head $ UTxO.toList utxoToDeposit)
             (inHeadAddress aliceExternalVk, lovelaceToValue lovelaceToSend)
             aliceExternalSk
             (Just $ TxValidityLowerBound futureSlot, Nothing)
