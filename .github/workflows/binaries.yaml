@@ -19,7 +19,7 @@ jobs:
       matrix:
         os:
           - name: ubuntu-latest
-            arch: x86_linux
+            arch: x86_64-linux
           - name: ubuntu-24.04-arm
             arch: aarch64-linux
     steps:
