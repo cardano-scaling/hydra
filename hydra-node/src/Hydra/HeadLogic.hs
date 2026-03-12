@@ -1947,7 +1947,16 @@ aggregateNodeState nodeState sc =
             }
         DepositActivated{depositTxId, deposit} ->
           nodeState
-            { headState = st
+            { headState = case st of
+                Open os@OpenState{coordinatedHeadState = chs} ->
+                  Open
+                    os
+                      { coordinatedHeadState =
+                          chs
+                            { currentDepositTxId = chs.currentDepositTxId <|> Just depositTxId
+                            }
+                      }
+                _ -> st
             , pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
             }
         DepositExpired{depositTxId, deposit} ->
