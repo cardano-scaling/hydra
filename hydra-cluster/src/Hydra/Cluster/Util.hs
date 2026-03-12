@@ -26,9 +26,8 @@ import Hydra.Options (
   ChainConfig (..),
   DirectOptions (..),
   defaultCardanoChainConfig,
-  defaultDepositPeriod,
  )
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -66,6 +65,9 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure sk
 
+-- | Create a (test) chain config for a given actor. Note that this will set
+-- deposit period equal to the provided contestation period.
+-- TODO: derive both, cp and dp from a 'BlockTime'?
 chainConfigFor ::
   ChainBackend backend =>
   HasCallStack =>
@@ -78,7 +80,7 @@ chainConfigFor ::
   ContestationPeriod ->
   IO ChainConfig
 chainConfigFor me targetDir backend txids actors cp =
-  chainConfigFor' me targetDir backend txids actors cp defaultDepositPeriod
+  chainConfigFor' me targetDir backend txids actors cp (truncate $ toNominalDiffTime cp)
 
 chainConfigFor' ::
   ChainBackend backend =>

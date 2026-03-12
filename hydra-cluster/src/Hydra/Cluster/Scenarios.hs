@@ -1227,11 +1227,7 @@ canCloseWithLongContestationPeriod tracer workDir backend hydraScriptsTxId = do
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
-    headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
-    -- Commit nothing for now
-    requestCommitTx n1 mempty >>= Backend.submitTransaction backend
-    waitFor hydraTracer (10 * blockTime) [n1] $
-      output "HeadIsOpen" ["utxo" .= object mempty, "headId" .= headId]
+    _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
     -- Close head
     send n1 $ input "Close" []
     void $
