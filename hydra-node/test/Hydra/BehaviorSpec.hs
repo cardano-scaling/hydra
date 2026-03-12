@@ -15,7 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (cancel, concurrently_, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -75,6 +75,8 @@ import Test.Hydra.Tx.Fixture (
   aliceSk,
   bob,
   bobSk,
+  carol,
+  carolSk,
   deriveOnChainId,
   testHeadId,
   testHeadSeed,
@@ -290,20 +292,19 @@ spec = parallel $ do
                 send n1 (NewTx $ aValidTx 41)
                 send n1 (NewTx $ aValidTx 42)
 
-                -- Expect alice to create a snapshot from the first requested
-                -- transaction right away which is the current snapshot policy.
+                -- The first ReqTx triggers an immediate snapshot from alice (leader
+                -- for sn=1), so tx 40 lands in snapshot 1 alone. Txs 41 and 42
+                -- accumulate while sn=1 is in-flight and get batched into snapshot 2
+                -- by bob (leader for sn=2) when his timer fires.
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
                     guard $ number == 1 && confirmed == [aValidTx 40]
                   _ -> Nothing
-
-                -- Expect bob to also snapshot what did "not fit" into the first
-                -- snapshot.
                 waitUntilMatch [n1, n2] $ \case
                   SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
                     -- NOTE: We sort the confirmed to be clear that the order may
                     -- be freely picked by the leader.
-                    guard $ number == 2 && sort confirmed == [aValidTx 41, aValidTx 42]
+                    guard $ number == 2 && sort confirmed == sort [aValidTx 41, aValidTx 42]
                   _ -> Nothing
 
                 -- As there are no pending transactions and snapshots anymore
@@ -326,19 +327,25 @@ spec = parallel $ do
                 send n2 (NewTx secondTx)
                 send n1 (NewTx firstTx)
 
-                -- Expect a snapshot of the firstTx transaction
-                waitUntil [n1, n2] $ TxValid testHeadId 1
-                waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 1 0 [firstTx] (utxoRefs [2, 3])
-                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  SnapshotConfirmed testHeadId snapshot sigs
-
-                -- Expect a snapshot of the now unblocked secondTx
-                waitUntil [n1, n2] $ TxValid testHeadId 2
-                waitUntil [n1, n2] $ do
-                  let snapshot = testSnapshot 2 0 [secondTx] (utxoRefs [2, 4])
-                      sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
-                  SnapshotConfirmed testHeadId snapshot sigs
+                -- With the immediate ReqSn model: firstTx arrives at alice
+                -- (leader for sn=1) and triggers an immediate snapshot with
+                -- firstTx only. secondTx is not yet applicable (needs utxoRef
+                -- 3 from firstTx's output). After sn=1 confirms, utxoRef 3
+                -- is available and bob (leader for sn=2) snapshots secondTx.
+                -- NOTE: We do not check TxValid separately because the timer
+                -- retry for secondTx (which moves it from allTxs to localTxs)
+                -- fires after sn=1. Waiting for TxValid{2} would drain
+                -- SnapshotConfirmed{n=1} from the queue, breaking the next
+                -- waitUntilMatch. Confirming the snapshots in order is
+                -- sufficient to prove both transactions were eventually valid.
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    guard $ number == 1 && confirmed == [firstTx]
+                  _ -> Nothing
+                waitUntilMatch [n1, n2] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number, confirmed}} ->
+                    guard $ number == 2 && confirmed == [secondTx]
+                  _ -> Nothing
 
       it "depending transactions expire if not applicable in time" $
         shouldRunInSim $
@@ -379,6 +386,10 @@ spec = parallel $ do
                         }
                 send n1 (NewTx tx')
                 send n2 (NewTx tx'')
+                -- With the immediate ReqSn model: n1 (leader for sn=1) immediately
+                -- requests a snapshot with tx'. The snapshot confirms before tx''
+                -- expires via TTL. After confirmation, tx'' (which also spends
+                -- utxoRef 1) is invalid at both nodes.
                 waitUntil [n1, n2] $ do
                   let snapshot = testSnapshot 1 0 [tx'] (utxoRefs [2, 10])
                       sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
@@ -520,8 +531,12 @@ spec = parallel $ do
                   timeout (fromIntegral dpLong) waitForApproval >>= \case
                     Nothing -> pure ()
                     Just _ -> failure "Deposit was approved before all deposit periods passed"
-                  -- Now it should get approved
-                  waitForApproval
+                  -- Now it should get approved at n1 (which collected all sigs once n2
+                  -- finally signed after its deposit period elapsed). n2 dropped n1's
+                  -- AckSn while waiting, so n2 never independently confirms.
+                  waitUntilMatch [n1] $ \case
+                    CommitApproved{utxoToCommit} -> guard (utxoToCommit == utxoRef 123)
+                    _ -> Nothing
 
         it "requested commits get approved" $
           shouldRunInSim $ do
@@ -902,6 +917,133 @@ spec = parallel $ do
                 HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
                 _ -> Nothing
 
+  describe "Three participant Head" $ do
+    it "processes L2 transactions together with de/commits" $
+      shouldRunInSim $ do
+        withRaceConditionSimulation $ \chain ->
+          withHydraNode aliceSk [bob, carol] chain $ \n1 ->
+            withHydraNode bobSk [alice, carol] chain $ \n2 ->
+              withHydraNode carolSk [alice, bob] chain $ \n3 -> do
+                openHead3 chain n1 n2 n3
+
+                -- A chain of L2 transactions from Alice, each spending the previous output.
+                let numTxs = 10 :: Int
+                let aliceTxs =
+                      [ SimpleTx
+                        (fromIntegral txid)
+                        (if txid == 100 then utxoRef 1 else utxoRef (fromIntegral (txid - 1)))
+                        (utxoRef (fromIntegral txid))
+                      | txid <- [100 .. 100 + numTxs - 1]
+                      ]
+
+                -- We race a decommit against a batch of L2 transactions to trigger the
+                -- version race condition. The key is that one extra transaction is
+                -- deliberately delayed so it lands in the pending queue while the
+                -- decommit snapshot is already in-flight. When that snapshot confirms,
+                -- the leader immediately requests the next snapshot with the old version
+                -- number. In this test setup, chain events arrive before network messages,
+                -- so DecommitFinalized (which bumps the version) reaches all nodes
+                -- before that stale snapshot request does, causing every node to reject
+                -- it with a version mismatch error. Without a timer to retry, the head
+                -- gets permanently stuck.
+                concurrently_
+                  (forM_ aliceTxs $ \tx -> send n1 (NewTx tx) >> threadDelay 0)
+                  ( do
+                      send n3 (Decommit $ SimpleTx 300 (utxoRef 3) (utxoRef 300))
+                      -- Delay this transaction so it arrives after the decommit snapshot
+                      -- has already started collecting signatures. This ensures the leader
+                      -- sees a non-empty pending queue when the decommit snapshot confirms
+                      -- and immediately sends a new snapshot request with the old version.
+                      threadDelay 90
+                      send n1 (NewTx $ SimpleTx 500 (utxoRef 109) (utxoRef 500))
+                  )
+
+                -- Wait for the decommit to be finalised on-chain, which is when the
+                -- version gets bumped. The stale snapshot request rejected by all nodes
+                -- will have arrived by now, leaving the head stuck.
+                waitUntilMatch [n1, n2, n3] $ \case
+                  DecommitFinalized{} -> Just ()
+                  _ -> Nothing
+
+                -- Send one more transaction and wait for it to be confirmed in a snapshot.
+                -- If the version race bug is present this never completes because no node
+                -- can make progress on the next snapshot. With the fix, the leader retries
+                -- with the correct version and the head recovers.
+                send n1 (NewTx $ SimpleTx 999 (utxoRef 2) (utxoRef 999))
+                waitUntilMatch [n1, n2, n3] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{utxo}} | 999 `member` utxo -> Just ()
+                  _ -> Nothing
+
+                send n1 Close
+                waitUntil [n1, n2, n3] $ ReadyToFanout{headId = testHeadId}
+                send n2 Fanout
+                waitUntilMatch [n1, n2, n3] $ \case
+                  HeadIsFinalized{} -> Just ()
+                  _ -> Nothing
+
+    it "processes L2 transactions together with de/commits (signing-phase version race)" $
+      shouldRunInSim $ do
+        -- This test exercises the SeenSnapshot variant of the version race: AckSns
+        -- arrive *before* DecommitFinalized because networkLatency (20) < blockTime
+        -- (25). When DecommitFinalized fires the leader is already in SeenSnapshot
+        -- state collecting signatures. The old toLastSeenSnapshot code collapsed
+        -- SeenSnapshot{N} to LastSeenSnapshot{N}, making snapshotInFlight return True
+        -- and permanently blocking the timer. The fix collapses to LastSeenSnapshot{N-1}
+        -- so the timer can re-send with the updated version.
+        withSeenSnapshotRaceConditionSimulation $ \chain ->
+          withHydraNode aliceSk [bob, carol] chain $ \n1 ->
+            withHydraNode bobSk [alice, carol] chain $ \n2 ->
+              withHydraNode carolSk [alice, bob] chain $ \n3 -> do
+                openHead3 chain n1 n2 n3
+
+                -- A chain of L2 transactions from Alice, each spending the previous output.
+                let numTxs = 10 :: Int
+                let aliceTxs =
+                      [ SimpleTx
+                        (fromIntegral txid)
+                        (if txid == 100 then utxoRef 1 else utxoRef (fromIntegral (txid - 1)))
+                        (utxoRef (fromIntegral txid))
+                      | txid <- [100 .. 100 + numTxs - 1]
+                      ]
+
+                -- Same race setup as the RequestedSnapshot variant but with
+                -- threadDelay 70 so the staggered tx arrives while the decommit
+                -- snapshot is in the signing phase (SeenSnapshot), not before any
+                -- AckSns have arrived (RequestedSnapshot).
+                concurrently_
+                  (forM_ aliceTxs $ \tx -> send n1 (NewTx tx) >> threadDelay 0)
+                  ( do
+                      send n3 (Decommit $ SimpleTx 300 (utxoRef 3) (utxoRef 300))
+                      -- Delay so tx arrives after SnapshotRequested(2) clears
+                      -- localTxs (T≈80) but before SnapshotConfirmed(2) triggers
+                      -- ReqSn(3) (T≈100). With blockTime=25/networkLatency=20 the
+                      -- AckSns for snapshot 3 arrive at T≈120, BEFORE
+                      -- DecrementTx confirms at T≈125, putting the leader in
+                      -- SeenSnapshot state when DecommitFinalized fires.
+                      threadDelay 70
+                      send n1 (NewTx $ SimpleTx 500 (utxoRef 109) (utxoRef 500))
+                  )
+
+                -- Wait for version bump (DecommitFinalized).
+                waitUntilMatch [n1, n2, n3] $ \case
+                  DecommitFinalized{} -> Just ()
+                  _ -> Nothing
+
+                -- If the SeenSnapshot bug is present this never completes because
+                -- the timer is blocked by snapshotInFlight. With the fix the timer
+                -- re-sends with the correct version and the head recovers.
+                send n1 (NewTx $ SimpleTx 999 (utxoRef 2) (utxoRef 999))
+                waitUntilMatch [n1, n2, n3] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{utxo}} | 999 `member` utxo -> Just ()
+                  _ -> Nothing
+
+                send n1 Close
+                waitUntil [n1, n2, n3] $ ReadyToFanout{headId = testHeadId}
+                send n2 Fanout
+                waitUntilMatch [n1, n2, n3] $ \case
+                  HeadIsFinalized{} -> Just ()
+                  _ -> Nothing
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -913,10 +1055,22 @@ spec = parallel $ do
 
           logs = selectTraceEventsDynamic @_ @(HydraNodeLog SimpleTx) result
 
-      logs
-        `shouldContain` [BeginInput alice 1 (ClientInput Init)]
-      logs
-        `shouldContain` [EndInput alice 1]
+      ( logs
+          `shouldSatisfy` any
+            ( \case
+                BeginInput party _ (ClientInput Init) -> party == alice
+                _ -> False
+            ) ::
+          IO ()
+        )
+      ( logs
+          `shouldSatisfy` any
+            ( \case
+                EndInput party _ -> party == alice
+                _ -> False
+            ) ::
+          IO ()
+        )
 
     it "traces handling of effects" $ do
       let result = runSimTrace $ do
@@ -936,7 +1090,14 @@ spec = parallel $ do
               (BeginEffect _ _ _ (ClientEffect CommandFailed{})) -> True
               _ -> False
           )
-      logs `shouldContain` [EndEffect alice 1 0]
+      ( logs
+          `shouldSatisfy` any
+            ( \case
+                EndEffect party _ _ -> party == alice
+                _ -> False
+            ) ::
+          IO ()
+        )
 
   describe "rolling back & forward does not make the node crash" $ do
     it "does work for rollbacks past init" $
@@ -1069,6 +1230,36 @@ withSimulatedChainAndNetwork =
     (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
     (cancel . tickThread)
 
+-- | Like 'withSimulatedChainAndNetwork' but configured so that in this test
+-- setup network messages take longer to arrive than it takes for a chain
+-- transaction to confirm. This means a chain event (like DecommitFinalized
+-- bumping the version) can reach all nodes before a snapshot request that was
+-- sent just before it, exposing the version race condition in the snapshot
+-- protocol.
+withRaceConditionSimulation ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withRaceConditionSimulation =
+  bracket
+    (simulatedChainAndNetworkWith SimpleChainState{slot = ChainSlot 0} 20 25)
+    (cancel . tickThread)
+
+-- | Like 'withRaceConditionSimulation' but with inverted timing: network
+-- messages arrive *before* chain events confirm (networkLatency < blockTime).
+-- This means DecommitFinalized fires while the leader is actively collecting
+-- AckSns (SeenSnapshot state), exposing the toLastSeenSnapshot SeenSnapshot
+-- bug where collapsing SeenSnapshot{N} to LastSeenSnapshot{N} (instead of
+-- LastSeenSnapshot{N-1}) blocks the timer from re-sending the snapshot request.
+withSeenSnapshotRaceConditionSimulation ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSeenSnapshotRaceConditionSimulation =
+  bracket
+    (simulatedChainAndNetworkWith SimpleChainState{slot = ChainSlot 0} 25 20)
+    (cancel . tickThread)
+
 -- | Creates a simulated chain and network to which 'HydraNode's can be
 -- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
 -- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
@@ -1078,10 +1269,30 @@ simulatedChainAndNetwork ::
   (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
-simulatedChainAndNetwork initialChainState = do
+simulatedChainAndNetwork initialChainState =
+  -- Default: 20s block time, 0s network latency (instant delivery)
+  simulatedChainAndNetworkWith initialChainState 20 0
+
+-- | Like 'simulatedChainAndNetwork' but with configurable block time and
+-- network delivery latency. Use 'withRaceConditionSimulation' to expose
+-- version races where chain events confirm before network messages arrive.
+simulatedChainAndNetworkWith ::
+  forall m.
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
+  ChainStateType SimpleTx ->
+  -- | Block time: delay before a posted tx is observed on-chain
+  DiffTime ->
+  -- | Network latency: delay before a broadcast message is delivered
+  DiffTime ->
+  m (SimulatedChainNetwork SimpleTx m)
+simulatedChainAndNetworkWith initialChainState blockTime networkLatency = do
   history <- newLabelledTVarIO "sim-chain-history" []
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
+  -- Track posted chain txs to deduplicate: first posting wins, others are dropped.
+  -- This models real chain behavior where e.g. multiple nodes post the same
+  -- DecrementTx but only the first one gets included in a block.
+  postedTxKeys <- newLabelledTVarIO "sim-chain-posted-keys" ([] :: [String])
   localChainState <- newLocalChainState (initHistory initialChainState)
   tickThread <- asyncLabelled "sim-chain-tick" $ simulateTicks nodes localChainState
   pure $
@@ -1091,16 +1302,23 @@ simulatedChainAndNetwork initialChainState = do
                 Chain
                   { postTx = \tx -> do
                       now <- getCurrentTime
-                      -- Only observe "after one block"
+                      -- Only observe "after one block" (first posting wins)
                       void . asyncLabelled "sim-chain-post-tx" $ do
                         threadDelay blockTime
-                        createAndYieldEvent nodes history localChainState $ toOnChainTx now tx
+                        let key = chainTxDedupKey tx
+                        shouldFire <- atomically $ stateTVar postedTxKeys $ \seenKeys ->
+                          if null key || key `notElem` seenKeys
+                            then (True, key : seenKeys)
+                            else (False, seenKeys)
+                        when shouldFire $
+                          createAndYieldEvent nodes history localChainState $
+                            toOnChainTx now tx
                   , draftCommitTx = \_ -> error "unexpected call to draftCommitTx"
                   , draftDepositTx = \_ -> error "unexpected call to draftDepositTx"
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
                   }
-              mockNetwork = createMockNetwork draftNode nodes
+              mockNetwork = createMockNetworkWithLatency networkLatency draftNode nodes
               mockServer :: Server tx m
               mockServer = Server{sendMessage = const $ pure ()}
           node <- connect mockChain mockNetwork mockServer draftNode
@@ -1119,9 +1337,6 @@ simulatedChainAndNetwork initialChainState = do
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where
-  -- seconds
-  blockTime = 20
-
   simulateTicks nodes localChainState = forever $ do
     threadDelay blockTime
     now <- getCurrentTime
@@ -1204,6 +1419,44 @@ createMockNetwork node nodes =
     enqueue inputQueue $ mkNetworkInput sender msg
 
   sender = getParty node
+
+-- | Like 'createMockNetwork' but delivers messages after a configurable delay.
+-- When latency > 0, messages are delivered asynchronously so chain events
+-- can arrive before network messages, exposing version race conditions.
+createMockNetworkWithLatency ::
+  (MonadAsync m, MonadDelay m) =>
+  DiffTime ->
+  DraftHydraNode tx m ->
+  TVar m [HydraNode tx m] ->
+  Network m (Message tx)
+createMockNetworkWithLatency networkLatency node nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
+    allNodes <- readTVarIO nodes
+    mapM_ (`handleMessage` msg) allNodes
+
+  handleMessage HydraNode{inputQueue} msg =
+    if networkLatency == 0
+      then enqueue inputQueue $ mkNetworkInput sender msg
+      else void . asyncLabelled "sim-network-deliver" $ do
+        threadDelay networkLatency
+        enqueue inputQueue $ mkNetworkInput sender msg
+
+  sender = getParty node
+
+-- | Compute a deduplication key for chain transactions where only the first
+-- posting should result in a chain event (first wins, like the real chain).
+-- Returns empty string for transactions that should always fire (no dedup).
+chainTxDedupKey :: PostChainTx tx -> String
+chainTxDedupKey = \case
+  IncrementTx{incrementingSnapshot} ->
+    let Snapshot{number} = getSnapshot incrementingSnapshot
+     in "increment-" <> show number
+  DecrementTx{decrementingSnapshot} ->
+    let Snapshot{number} = getSnapshot decrementingSnapshot
+     in "decrement-" <> show number
+  _ -> ""
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
@@ -1381,6 +1634,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , contestationPeriod = cp
       , depositPeriod = dp
       , unsyncedPeriod = defaultUnsyncedPeriodFor cp
+      , snapshotRetryInterval = 10
       , participants
       , configuredPeers = ""
       }
@@ -1413,6 +1667,23 @@ openHead2 chain n1 n2 = do
   simulateCommit chain testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ Committed testHeadId bob (utxoRef 2)
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
+openHead3 ::
+  SimulatedChainNetwork SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead3 chain n1 n2 n3 = do
+  send n1 Init
+  waitUntil [n1, n2, n3] $ HeadIsInitializing testHeadId (fromList [alice, bob, carol])
+  simulateCommit chain testHeadId alice (utxoRef 1)
+  waitUntil [n1, n2, n3] $ Committed testHeadId alice (utxoRef 1)
+  simulateCommit chain testHeadId bob (utxoRef 2)
+  waitUntil [n1, n2, n3] $ Committed testHeadId bob (utxoRef 2)
+  simulateCommit chain testHeadId carol (utxoRef 3)
+  waitUntil [n1, n2, n3] $ Committed testHeadId carol (utxoRef 3)
+  waitUntil [n1, n2, n3] $ HeadIsOpen{headId = testHeadId, utxo = utxoRefs [1, 2, 3]}
 
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosed = \case

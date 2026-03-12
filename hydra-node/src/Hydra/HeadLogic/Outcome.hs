@@ -83,6 +83,10 @@ data StateChanged tx
       , newLocalUTxO :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
+  | -- | The leader's own ReqSn echo failed validation (e.g. stale decommit or
+    -- expired deposit). Resets 'seenSnapshot' back to 'LastSeenSnapshot' so the
+    -- timer can retry with fresh content instead of being stuck forever.
+    SnapshotRequestAborted {snapshotNumber :: SnapshotNumber, lastSeenSnapshotNumber :: SnapshotNumber}
   | -- | A snapshot was requested by some party.
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.
@@ -140,6 +144,10 @@ data StateChanged tx
       , participants :: [OnChainId]
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
+  | TxsRequeued
+      { txs :: [tx]
+      , newLocalUTxO :: UTxOType tx
+      }
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
   | Checkpoint {state :: NodeState tx}
   | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
@@ -192,9 +200,6 @@ changes stateChanges = Continue stateChanges []
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
-  | WaitOnSnapshotNumber {waitingForNumber :: SnapshotNumber}
-  | WaitOnSnapshotVersion {waitingForVersion :: SnapshotVersion}
-  | WaitOnSeenSnapshot
   | WaitOnTxs {waitingForTxIds :: [TxIdType tx]}
   | WaitOnContestationDeadline
   | WaitOnNotApplicableDecommitTx {notApplicableReason :: DecommitInvalidReason tx}

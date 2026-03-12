@@ -204,12 +204,15 @@ httpApp ::
   IO [TxIdType tx] ->
   -- | Callback to yield a 'ClientInput' to the main event loop.
   (ClientInput tx -> IO ()) ->
+  -- | Non-blocking callback for 'NewTx' submissions. Returns 'False' when the
+  -- input queue is full (back pressure); the caller should respond with 503.
+  (tx -> IO Bool) ->
   -- | Timeout for transaction submission
   ApiTransactionTimeout ->
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
+httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getPendingDeposits putClientInput tryPutNewTx apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -261,7 +264,7 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
         >>= respond
     ("POST", ["transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel
+        >>= handleSubmitL2Tx tryPutNewTx apiTransactionTimeout responseChannel
         >>= respond
     _ ->
       respond $ responseLBS status400 jsonContent . Aeson.encode $ Aeson.String "Resource not found"
@@ -513,12 +516,12 @@ handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body
 handleSubmitL2Tx ::
   forall tx.
   IsChainState tx =>
-  (ClientInput tx -> IO ()) ->
+  (tx -> IO Bool) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   LBS.ByteString ->
   IO Response
-handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
+handleSubmitL2Tx tryPutNewTx apiTransactionTimeout responseChannel body = do
   case Aeson.eitherDecode' @(SubmitL2TxRequest tx) body of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
@@ -526,36 +529,43 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
       -- Duplicate the channel to avoid consuming messages from other consumers.
       dupChannel <- atomically $ dupTChan responseChannel
 
-      -- Submit the transaction to the head
-      putClientInput (NewTx submitL2Tx)
-
-      let txid = txId submitL2Tx
-      result <-
-        timeout
-          (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
-          (waitForTransactionResult dupChannel txid)
-
-      case result of
-        Just (SubmitTxConfirmed snapshotNumber) ->
-          pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitTxConfirmed snapshotNumber)
-        Just (SubmitTxInvalidResponse validationError) ->
-          pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitTxInvalidResponse validationError)
-        Just (SubmitTxRejectedResponse reason) ->
-          pure $ responseLBS status503 jsonContent (Aeson.encode $ SubmitTxRejectedResponse reason)
-        Just SubmitTxSubmitted ->
-          pure $ responseLBS status202 jsonContent (Aeson.encode SubmitTxSubmitted)
-        Nothing ->
-          -- Timeout occurred - return 202 Accepted with timeout info
+      -- Try to submit the transaction; return 503 immediately if queue is full.
+      accepted <- tryPutNewTx submitL2Tx
+      if not accepted
+        then
           pure $
             responseLBS
-              status202
+              status503
               jsonContent
-              ( Aeson.encode $
-                  object
-                    [ "tag" .= Aeson.String "SubmitTxSubmitted"
-                    , "timeout" .= Aeson.String ("Transaction submission timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
-                    ]
-              )
+              (Aeson.encode $ SubmitTxRejectedResponse "Hydra input queue is full, please try again in a few moments.")
+        else do
+          let txid = txId submitL2Tx
+          result <-
+            timeout
+              (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
+              (waitForTransactionResult dupChannel txid)
+
+          case result of
+            Just (SubmitTxConfirmed snapshotNumber) ->
+              pure $ responseLBS status200 jsonContent (Aeson.encode $ SubmitTxConfirmed snapshotNumber)
+            Just (SubmitTxInvalidResponse validationError) ->
+              pure $ responseLBS status400 jsonContent (Aeson.encode $ SubmitTxInvalidResponse validationError)
+            Just (SubmitTxRejectedResponse reason) ->
+              pure $ responseLBS status503 jsonContent (Aeson.encode $ SubmitTxRejectedResponse reason)
+            Just SubmitTxSubmitted ->
+              pure $ responseLBS status202 jsonContent (Aeson.encode SubmitTxSubmitted)
+            Nothing ->
+              -- Timeout occurred - return 202 Accepted with timeout info
+              pure $
+                responseLBS
+                  status202
+                  jsonContent
+                  ( Aeson.encode $
+                      object
+                        [ "tag" .= Aeson.String "SubmitTxSubmitted"
+                        , "timeout" .= Aeson.String ("Transaction submission timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
+                        ]
+                  )
  where
   --  Wait for transaction result by listening to events
   waitForTransactionResult :: TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> TxIdType tx -> IO SubmitL2TxResponse

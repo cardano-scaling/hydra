@@ -148,6 +148,29 @@ For a deposit to be considered by the `hydra-node` the deadline must be further 
 
 See the [how-to](./how-to/incremental-commit) and [protocol documentation](./dev/protocol#incremental-commits) for more details.
 
+### Snapshot retry interval
+
+The snapshot retry interval controls how frequently the snapshot leader checks for pending work:
+
+```
+hydra-node --snapshot-retry-interval 0.005
+```
+
+The value is in **seconds** (floating point). The default is **0.005 s (5 ms)**.
+
+The snapshot leader starts a new round via two paths:
+
+- **Immediate** — when a new transaction (`ReqTx`) arrives and no snapshot is in flight, the leader broadcasts `ReqSn` straight away. This keeps latency low for one-at-a-time transaction patterns.
+- **Timer** — on each tick, if there is pending work (transactions, an active deposit, or a decommit) and no snapshot is in flight, the leader broadcasts `ReqSn`. The timer handles cases not covered by the immediate path: deposits, decommits, and idle recovery.
+
+When a snapshot is already in flight (the leader is collecting `AckSn` signatures), both paths are no-ops — delivery is guaranteed by the network layer.
+
+Lowering the timer interval reduces latency for deposit/decommit handling at the cost of higher CPU usage. Raising it reduces CPU pressure at the cost of higher latency for those cases.
+
+:::info
+Under pure L2 transaction load, the first transaction in a batch immediately triggers a snapshot. Subsequent transactions that arrive while the round is in progress accumulate and are confirmed in the next round. Up to 100 transactions are included per snapshot (`maxTxsPerSnapshot`).
+:::
+
 ### Reference scripts
 
 The `hydra-node` uses reference scripts to reduce transaction sizes driving the head's lifecycle. Specify the `--hydra-scripts-tx-id` to reference the correct scripts. The `hydra-node` will verify the availability of these scripts on-chain.

@@ -167,6 +167,7 @@ processLogs decoded =
           case input of
             ClientInput{clientInput} -> logIt ClientSentLabel clientInput
             NetworkInput{} -> pure DropLog
+            TimerInput -> pure DropLog
             ChainInput{chainEvent} ->
               case chainEvent of
                 Observation{observedTx} -> logIt ObservationLabel observedTx
@@ -190,6 +191,7 @@ processLogs decoded =
                     details@CommittedUTxO{} -> logIt (LogicLabel "CommittedUTxO") details
                     details@HeadAborted{} -> logIt (LogicLabel "HeadAborted") details
                     details@SnapshotRequestDecided{} -> logIt (LogicLabel "SnapshotRequestDecided") details
+                    details@SnapshotRequestAborted{} -> logIt (LogicLabel "SnapshotRequestAborted") details
                     details@SnapshotRequested{} -> logIt (LogicLabel "SnapshotRequested") details
                     details@PartySignedSnapshot{} -> logIt (LogicLabel "PartySignedSnapshot") details
                     details@SnapshotConfirmed{} -> logIt (LogicLabel "SnapshotConfirmed") details
@@ -209,6 +211,7 @@ processLogs decoded =
                     details@HeadFannedOut{} -> logIt (LogicLabel "HeadFannedOut") details
                     details@IgnoredHeadInitializing{} -> logIt (LogicLabel "IgnoredHeadInitializing") details
                     details@TxInvalid{} -> logIt (LogicLabel "TxInvalid") details
+                    TxsRequeued{} -> pure DropLog
                     NetworkConnected{} -> pure DropLog
                     NetworkDisconnected{} -> pure DropLog
                     PeerConnected{} -> pure DropLog

@@ -1,0 +1,25 @@
+{
+    "samples": [
+        {
+            "newLocalUTxO": {
+                "0001010000010000000101000001000000000100000101010100000001010000#34": {
+                    "address": "addr_test1xpfcje7ka7kmt6xvugl40r3g5e00nsms5elzt7un5t0v8ctttyfnsva5q49dnlyegtm0zkskxjxg25s72467cahrgmhqlpcapy",
+                    "datum": null,
+                    "datumhash": "26ab2249f3d8684c21e2da51d35c1c336f6bda5eef355cc42a79f45148c712b5",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "6a72db5176ad0611c6e6f5682561096d089219f4fc12f370889348f0": {
+                            "a04c07dbb20778bc0c29b811dc204f": 8990112881654613515
+                        },
+                        "lovelace": 1366270
+                    }
+                }
+            },
+            "tag": "TxsRequeued",
+            "txs": []
+        }
+    ],
+    "seed": 870907875
+}

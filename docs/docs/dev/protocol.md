@@ -2,6 +2,58 @@
 
 Additional implementation-specific documentation for the Hydra Head protocol and extensions like incremental decommits.
 
+## Snapshot protocol
+
+### How snapshots are initiated
+
+Snapshots are the mechanism by which all head participants agree on a new L2 state. A snapshot includes a set of transactions, an optional deposit, and an optional decommit, and once signed by all parties it can be used to close the head on L1.
+
+#### How snapshot rounds are triggered
+
+Snapshot rounds are initiated by **two complementary mechanisms**:
+
+1. **On `ReqTx` receipt** — when the leader receives a new transaction (`ReqTx`) and no snapshot is currently in flight, it immediately broadcasts a `ReqSn` containing that transaction and any other pending transactions (up to `maxTxsPerSnapshot = 100`). This ensures low latency for the common single-transaction-at-a-time pattern.
+
+2. **Periodic timer** — a timer fires every `snapshotRetryInterval` (default: 5 ms, configurable via `--snapshot-retry-interval`). On each tick, the snapshot leader checks whether there is pending work (transactions, an active deposit, or a decommit request) and no snapshot is in flight. If so, it broadcasts a `ReqSn`. The timer handles cases not covered by the `ReqTx` path: idle recovery, deposit and decommit processing, and continued batching after the first snapshot in a burst.
+
+**Batching behaviour**: When many transactions arrive in rapid succession, the first `ReqTx` triggers an immediate `ReqSn`. Subsequent transactions that arrive while the snapshot is in flight accumulate in the local pending pool. After the snapshot confirms, `maybeRequestNextSnapshot` chains the next `ReqSn` immediately — so those accumulated transactions are confirmed in the very next round without waiting for the timer.
+
+Transactions beyond `maxTxsPerSnapshot` per round are not dropped — they are carried forward and included in the next snapshot automatically.
+
+:::note
+Transactions submitted via `NewTx` are immediately validated against the local UTxO and broadcast to all peers as `ReqTx`. The leader then starts a snapshot as soon as the first `ReqTx` arrives (if no snapshot is in flight), or relies on the timer to batch accumulated transactions when already processing a round.
+:::
+
+#### Snapshot leadership
+
+The snapshot leader rotates in round-robin order by party index, based on the snapshot number. For snapshot number `s`, the leader is `parties[(s - 1) mod n]`. Any party can be the leader for a given round; if a party is not the leader it simply signs (`AckSn`) the snapshot proposed by the leader.
+
+### Snapshot in-flight semantics
+
+At any point, the `seenSnapshot` field in the head state records what the local party knows about the current snapshot round:
+
+| State | Meaning |
+|---|---|
+| `NoSeenSnapshot` | No snapshot activity since last confirmation |
+| `LastSeenSnapshot n` | Snapshot `n` was the last confirmed; no round in flight |
+| `RequestedSnapshot{lastSeen, requested}` | This party (the leader) sent `ReqSn` for `requested` but has not yet received its own network echo to sign it |
+| `SeenSnapshot snapshot sigs` | Collecting `AckSn` signatures for `snapshot`; `sigs` accumulates them |
+
+Only one snapshot round can be in flight at a time. The timer will not start a new round while `RequestedSnapshot` or `SeenSnapshot` is active.
+
+### Transaction recovery after a version bump
+
+When a `CommitFinalized` or `DecommitFinalized` event is observed on-chain, the head version is bumped. If a snapshot was in flight at that moment (`RequestedSnapshot` or `SeenSnapshot`), the in-flight snapshot is dead — its signatures were produced at the old version and will be rejected on-chain.
+
+The node handles this as follows:
+
+1. **Reset**: the in-flight snapshot is discarded and `seenSnapshot` is reset to `LastSeenSnapshot` (the last confirmed snapshot number).
+2. **Re-validate**: all transactions that were pending in the discarded snapshot (from `localTxs` and, if in `SeenSnapshot`, the snapshot's confirmed tx list) are re-applied against the confirmed UTxO at the new version.
+3. **Requeue or drop**: transactions that are still valid are emitted as a `TxsRequeued` event, which restores them to `localTxs`. Transactions that are no longer valid (e.g. they spent a UTxO that was decommitted) are emitted as `TxInvalid` and dropped.
+4. **Next snapshot**: the timer fires a fresh `ReqSn` at the new version, picking up the requeued transactions. Even if all transactions were dropped, a `versionNeedsSnapshot` flag ensures an empty snapshot is still requested so that the confirmed snapshot version matches the on-chain head datum version (required for a valid `CloseTx`).
+
+This prevents the head from getting stuck in a `WaitOnNotApplicableTx` loop when a transaction depends on outputs created by a dropped in-flight tx.
+
 ## General notes on incremental commits/decommits
 
 Especially, incremental commit and decommit are additions to the originally researched [Hydra Head protocol](https://eprint.iacr.org/2020/299.pdf) and deserve more explanation how they work under the hood. 
@@ -46,6 +98,9 @@ sequenceDiagram
 
     Node A -->> Alice: CommitRecorded
 
+    note over Node A,Node B: deposit becomes Active after deposit period elapses
+    note over Node A: timer fires (every snapshotRetryInterval, default 5ms)
+
     par Alice isLeader
         Node A->>Node A: ReqSn utxoToCommit
     and
@@ -71,7 +126,7 @@ sequenceDiagram
 
 ### Tracking deposits
 
-Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one.
+Once a hydra-node observes a deposit transaction it will record the deposit as pending in its local state. There can be many pending deposits but the new Snapshot will include them one by one. The snapshot leader's timer (see [Snapshot protocol](#snapshot-protocol)) will automatically include the next active deposit in the following `ReqSn`.
 
 :::info
 Note that any node that posts increment transaction will also pay the fees even if the deposit will not be owned by them on L2.
@@ -156,6 +211,7 @@ sequenceDiagram
 
     Node A -->> Alice: DecommitRequested
 
+    note over Node A: snapshot leader requests immediately on ReqDec
     par Alice isLeader
         Node A->>Node A: ReqSn decTx
     and

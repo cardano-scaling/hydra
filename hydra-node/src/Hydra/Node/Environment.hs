@@ -24,6 +24,10 @@ data Environment = Environment
   , unsyncedPeriod :: UnsyncedPeriod
   -- ^ Period of time after which we consider the node becoming unsynced with the chain.
   -- Beyond this period the node will refuse to process new transactions and signing snapshots.
+  , snapshotRetryInterval :: NominalDiffTime
+  -- ^ How often the snapshot leader retries sending a ReqSn after a version
+  -- mismatch. Should be shorter than the chain block time so stale requests
+  -- are corrected quickly.
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }

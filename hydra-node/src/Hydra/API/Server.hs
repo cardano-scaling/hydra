@@ -14,7 +14,7 @@ import Data.Conduit.Combinators (map)
 import Data.Conduit.List (catMaybes)
 import Data.Map qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
-import Hydra.API.ClientInput (ClientInput)
+import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.API.HTTPServer (httpApp)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
@@ -93,9 +93,12 @@ withAPIServer ::
   PParams LedgerEra ->
   ServerOutputFilter tx ->
   (ClientInput tx -> IO ()) ->
+  -- | Non-blocking callback for 'NewTx' inputs. Returns 'False' when the
+  -- input queue is full (back pressure signal).
+  (ClientInput tx -> IO Bool) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env stateFile party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
+withAPIServer config env stateFile party eventSource tracer initialChainState chain pparams serverOutputFilter callback tryCallback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -136,7 +139,7 @@ withAPIServer config env stateFile party eventSource tracer initialChainState ch
             . simpleCors
             $ websocketsOr
               defaultConnectionOptions
-              (wsApp env party tracer chain historyTimedOutputs callback nodeStateP networkInfoP responseChannel serverOutputFilter)
+              (wsApp env party tracer chain historyTimedOutputs callback tryCallback nodeStateP networkInfoP responseChannel serverOutputFilter)
               ( httpApp
                   tracer
                   chain
@@ -147,6 +150,7 @@ withAPIServer config env stateFile party eventSource tracer initialChainState ch
                   (atomically $ getLatest commitInfoP)
                   (atomically $ getLatest pendingDepositsP)
                   callback
+                  (tryCallback . NewTx)
                   (apiTransactionTimeout config)
                   responseChannel
               )
@@ -260,9 +264,11 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.TransactionReceived{} -> Nothing
     StateChanged.SnapshotRequested{} -> Nothing
     StateChanged.SnapshotRequestDecided{} -> Nothing
+    StateChanged.SnapshotRequestAborted{} -> Nothing
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
+    StateChanged.TxsRequeued{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
     StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
     StateChanged.NodeUnsynced{..} -> Just NodeUnsynced{..}

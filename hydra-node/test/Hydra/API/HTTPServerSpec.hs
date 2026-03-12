@@ -240,6 +240,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               300
               responseChannel
         )
@@ -273,6 +274,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               300
               responseChannel
           )
@@ -311,6 +313,7 @@ apiServerSpec = do
                   cantCommit
                   getPendingDeposits
                   putClientInput
+                  (\_ -> pure True)
                   300
                   responseChannelSimpleTx
               )
@@ -337,6 +340,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               300
               responseChannel
           )
@@ -358,6 +362,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               300
               responseChannel
           )
@@ -382,6 +387,7 @@ apiServerSpec = do
                   cantCommit
                   getPendingDeposits
                   putClientInput
+                  (\_ -> pure True)
                   300
                   responseChannelSimpleTx
               )
@@ -410,6 +416,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               0
               responseChannel
           )
@@ -438,6 +445,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               (const $ atomically $ writeTChan responseChannel (Left event))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -460,6 +468,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               (const $ atomically $ writeTChan responseChannel clientFailed)
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -489,6 +498,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -512,6 +522,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -533,6 +544,7 @@ apiServerSpec = do
               cantCommit
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               300
               responseChannel
           )
@@ -561,6 +573,7 @@ apiServerSpec = do
                   cantCommit
                   getPendingDeposits
                   putClientInput
+                  (\_ -> pure True)
                   300
                   responseChannelSimpleTx
               )
@@ -600,6 +613,7 @@ apiServerSpec = do
                 cantCommit
                 getPendingDeposits
                 putClientInput
+                (\_ -> pure True)
                 300
                 responseChannelSimpleTx
             )
@@ -635,6 +649,7 @@ apiServerSpec = do
               getHeadId
               getPendingDeposits
               putClientInput
+              (\_ -> pure True)
               300
               responseChannel
           )
@@ -683,6 +698,7 @@ apiServerSpec = do
                 getHeadId
                 getPendingDeposits
                 putClientInput
+                (\_ -> pure True)
                 300
                 responseChannel
             )
@@ -739,6 +755,7 @@ apiServerSpec = do
                 getHeadId
                 getPendingDeposits
                 putClientInput
+                (\_ -> pure True)
                 300
                 responseChannel
             )
@@ -764,6 +781,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ pure ())
+              (\_ -> pure True)
               0
               responseChannel
           )
@@ -798,7 +816,8 @@ apiServerSpec = do
               (pure inIdleState)
               (pure CannotCommit)
               (pure [])
-              (const $ atomically $ writeTChan responseChannel (Left event))
+              (const $ pure ())
+              (\_ -> True <$ atomically (writeTChan responseChannel (Left event)))
               10
               responseChannel
           )
@@ -830,7 +849,8 @@ apiServerSpec = do
               (pure inIdleState)
               (pure CannotCommit)
               (pure [])
-              (const $ atomically $ writeTChan responseChannel (Left event))
+              (const $ pure ())
+              (\_ -> True <$ atomically (writeTChan responseChannel (Left event)))
               10
               responseChannel
           )
@@ -850,7 +870,28 @@ apiServerSpec = do
               (pure inUnsyncedIdleState)
               (pure CannotCommit)
               (pure [])
-              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              (const $ pure ())
+              (\_ -> True <$ atomically (writeTChan responseChannel (Right clientFailed)))
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 503
+
+      it "returns 503 immediately when input queue is full" $ do
+        responseChannel <- newTChanIO
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              dummyStatePath
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ()) -- putClientInput (blocking, not used for NewTx)
+              (\_ -> pure False) -- tryPutNewTx: always rejects (simulates full queue)
               10
               responseChannel
           )
@@ -872,6 +913,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ pure ())
+              (\_ -> pure True)
               0
               responseChannel
           )
@@ -899,6 +941,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ atomically $ writeTChan responseChannel (Left event))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -926,6 +969,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ atomically $ writeTChan responseChannel (Left invalid))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -947,6 +991,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -967,6 +1012,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ pure ())
+              (\_ -> pure True)
               0
               responseChannel
           )
@@ -989,6 +1035,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ pure ())
+              (\_ -> pure True)
               0
               responseChannel
           )
@@ -1017,6 +1064,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ atomically $ writeTChan responseChannel (Left event))
+              (\_ -> pure True)
               10
               responseChannel
           )
@@ -1039,6 +1087,7 @@ apiServerSpec = do
               (pure CannotCommit)
               (pure [])
               (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              (\_ -> pure True)
               10
               responseChannel
           )

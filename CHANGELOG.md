@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Made the snapshot protocol resilient to races between version bumps and in-flight snapshots. The snapshot leader now sends `ReqSn` immediately on `ReqTx` receipt and also via a periodic timer, batching any accumulated transactions. When `CommitFinalized` or `DecommitFinalized` bumps the version while a snapshot is in-flight, the abandoned snapshot's pending transactions are re-validated against the new confirmed UTxO: valid ones are requeued and included in the next snapshot, while transactions that can no longer be applied (e.g. they spent a decommitted output) are dropped as `TxInvalid`. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
+  - Added `--snapshot-retry-interval` CLI option (default: 5ms) to control how often the snapshot leader retries a stalled request.
+- Added back pressure for `NewTx` client inputs. When the internal input queue is full, `POST /transaction` now returns HTTP 503 immediately and a WebSocket `NewTx` submission receives an `InvalidInput` error, instead of blocking or being silently dropped. [#2533](https://github.com/cardano-scaling/hydra/pull/2533)
+
 ## [1.3.0] - 2026.03.05
+
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
   See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).
@@ -49,6 +56,7 @@ changes.
 - Fixed the internal wallet fee estimation, which was more often than not using maximum plutus execution units. This reduces costs for initializing, open, etc. of a head by a factor of ~4x [#2473](https://github.com/cardano-scaling/hydra/pull/2473).
 - Fixed another race-condition around incremental commits/decommits [#2500](https://github.com/cardano-scaling/hydra/issues/2500)
 - Fixed infinite AckSn requeue loop after decommit when DecommitFinalized arrives before snapshot confirmation on the leader node [#2510](https://github.com/cardano-scaling/hydra/pull/2510)
+- Fix snapshots getting stuck under high L2 load by preventing duplicate snapshot requests and duplicate deposit/decommit inclusion across consecutive snapshots [#2519](https://github.com/cardano-scaling/hydra/pull/2519)
 - **BREAKING** Improved reporting of chain synchronization status by exposing the node's chain time and drift.
   - `NodeSynced` and `NodeUnsynced` state-changed events, and their corresponding server outputs, now include the observed chain time and drift.
   - `NodeState` now tracks the latest observed chan slot in addition to the chain time (`UTCTime`) and its drift measured in seconds.

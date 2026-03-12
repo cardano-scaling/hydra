@@ -22,6 +22,9 @@ data Input tx
     NetworkInput {ttl :: TTL, networkEvent :: NetworkEvent (Message tx)}
   | -- | Input received from the chain via a "Hydra.Chain".
     ChainInput {chainEvent :: ChainEvent tx}
+  | -- | Periodic timer tick used to drive the snapshot leader to retry sending
+    -- a 'ReqSn' when a previous request was rejected due to a version mismatch.
+    TimerInput
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (Input tx)

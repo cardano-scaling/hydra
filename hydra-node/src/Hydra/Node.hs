@@ -72,6 +72,7 @@ initEnvironment options = do
       , contestationPeriod
       , depositPeriod
       , unsyncedPeriod
+      , snapshotRetryInterval
       , configuredPeers
       }
  where
@@ -118,6 +119,7 @@ initEnvironment options = do
     , chainConfig
     , advertise
     , peers
+    , snapshotRetryInterval
     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function
@@ -237,6 +239,11 @@ wireClientInput node = enqueue . ClientInput
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
 
+tryWireClientInput :: DraftHydraNode tx m -> (ClientInput tx -> m Bool)
+tryWireClientInput node = tryEnqueueClient . ClientInput
+ where
+  DraftHydraNode{inputQueue = InputQueue{tryEnqueueClient}} = node
+
 wireNetworkInput :: DraftHydraNode tx m -> NetworkCallback (Authenticated (Message tx)) m
 wireNetworkInput node =
   NetworkCallback
@@ -287,17 +294,40 @@ data HydraNode tx m = HydraNode
 runHydraNode ::
   ( MonadCatch m
   , MonadAsync m
+  , MonadDelay m
   , MonadTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node =
-  -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
-  -- something like 'forM_ [0..1] $ async'
-  forever $ do
-    now <- getCurrentTime
-    stepHydraNode now node
+runHydraNode node@HydraNode{inputQueue = InputQueue{tryEnqueue}, nodeStateHandler = NodeStateHandler{queryNodeState}, env = Environment{snapshotRetryInterval}} =
+  withAsyncLabelled ("snapshot-retry-timer", timerThread) $ \_ ->
+    -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
+    -- something like 'forM_ [0..1] $ async'
+    forever $ do
+      now <- getCurrentTime
+      stepHydraNode now node
+ where
+  -- NOTE: Only enqueue TimerInput when the head is Open. In other states
+  -- (Idle, Initial, Closed) the timer is a no-op in HeadLogic, so firing it
+  -- 200×/s (default 5 ms interval) only creates noise: STM contention on the
+  -- input queue and pressure on the logging queue. Both stall the main loop
+  -- and delay chain event processing (e.g. OnCollectComTx → HeadIsOpen).
+  -- Use tryEnqueue (non-blocking) so a full queue never stalls this thread.
+  timerThread = forever $ do
+    threadDelay (realToFrac snapshotRetryInterval)
+    isOpen <- atomically $ do
+      -- NOTE: Reading nodeState here does not slow down the main loop. In GHC
+      -- STM, writers never retry because of readers in other transactions —
+      -- only readers retry when a concurrent write invalidates their snapshot.
+      -- The main loop's modifyNodeState (the critical path) is therefore
+      -- unaffected; only this timer read may occasionally retry, which is
+      -- harmless given the 5 ms sleep that follows.
+      ns <- queryNodeState
+      pure $ case headState ns of
+        Open{} -> True
+        _ -> False
+    when isOpen $ void $ tryEnqueue TimerInput
 
 stepHydraNode ::
   ( MonadCatch m
@@ -310,9 +340,20 @@ stepHydraNode ::
   m ()
 stepHydraNode now node = do
   i@Queued{queuedId, queuedItem} <- dequeue
-  traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
+  -- NOTE: Skip verbose per-tick tracing for TimerInput. The timer fires at
+  -- ~200 Hz (default 5 ms interval) and each trace call uses a bounded,
+  -- blocking log queue (capacity 500). At 600 trace entries/sec the log queue
+  -- fills in < 1 s, causing traceWith to block and stalling the main loop —
+  -- which delays chain event processing (e.g. OnCollectComTx → HeadIsOpen).
+  -- Any meaningful work the timer actually triggers (e.g. SnapshotRequested)
+  -- is already recorded through its own state-change and effect traces.
+  let skipTrace = case queuedItem of TimerInput -> True; _ -> False
+  unless skipTrace $
+    traceWith tracer $
+      BeginInput{by = party, inputId = queuedId, input = queuedItem}
   outcome <- atomically $ processNextInput node queuedItem now
-  traceWith tracer (LogicOutcome party outcome)
+  unless skipTrace $
+    traceWith tracer (LogicOutcome party outcome)
   case outcome of
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
@@ -321,7 +362,8 @@ stepHydraNode now node = do
       processStateChanges node stateChanges
       maybeReenqueue i
     Error{} -> pure ()
-  traceWith tracer EndInput{by = party, inputId = queuedId}
+  unless skipTrace $
+    traceWith tracer EndInput{by = party, inputId = queuedId}
  where
   maybeReenqueue q@Queued{queuedId, queuedItem} =
     case queuedItem of
@@ -393,15 +435,16 @@ processEffects node tracer inputId effects = do
       ClientEffect i -> sendMessage server i
       NetworkEffect msg -> broadcast hn msg
       OnChainEffect{postChainTx} ->
-        postTx postChainTx
-          `catch` \(postTxError :: PostTxError tx) ->
-            enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
+        asyncTracked $
+          postTx postChainTx
+            `catch` \(postTxError :: PostTxError tx) ->
+              enqueue (ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing})
     traceWith tracer $ EndEffect party inputId effectId
 
   HydraNode
     { hn
     , oc = Chain{postTx}
-    , inputQueue = InputQueue{enqueue}
+    , inputQueue = InputQueue{enqueue, asyncTracked}
     , env = Environment{party}
     , server
     } = node
