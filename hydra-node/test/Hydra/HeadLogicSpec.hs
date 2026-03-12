@@ -869,10 +869,8 @@ spec =
           -- Leader (bob) requests snapshot 2 (before DecommitFinalized)
           let reqTx3 = receiveMessage $ ReqTx (aValidTx 3)
           now <- nowFromSlot s1.chainPointTime.currentSlot
-          -- ReqTx no longer immediately triggers ReqSn; need TimerInput
-          let s2 = aggregateState s1 $ update bobEnv ledger now s1 reqTx3
-          now2 <- nowFromSlot s2.chainPointTime.currentSlot
-          let outcome = update bobEnv ledger now2 s2 TimerInput
+          -- With immediate snapshot chaining, ReqSn is sent during ReqTx processing.
+          let outcome = update bobEnv ledger now s1 reqTx3
 
           -- Should NOT include the decommit that was already posted in snapshot 1
           outcome `shouldNotHaveEffect` NetworkEffect (ReqSn 0 2 [3] (Just decommitTx') Nothing)
@@ -925,10 +923,8 @@ spec =
           -- Leader (bob) requests snapshot 2 (before CommitFinalized)
           let reqTx3 = receiveMessage $ ReqTx (aValidTx 3)
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          -- ReqTx no longer immediately triggers ReqSn; need TimerInput
-          let s1 = aggregateState s0 $ update bobEnv ledger now s0 reqTx3
-          now2 <- nowFromSlot s1.chainPointTime.currentSlot
-          let outcome = update bobEnv ledger now2 s1 TimerInput
+          -- With immediate snapshot chaining, ReqSn is sent during ReqTx processing.
+          let outcome = update bobEnv ledger now s0 reqTx3
 
           -- Should NOT include the deposit that was already posted in snapshot 1
           outcome `shouldNotHaveEffect` NetworkEffect (ReqSn 0 2 [3] Nothing (Just depositTxId))
@@ -1397,12 +1393,12 @@ spec =
 
           Map.lookup depositTxId s6.pendingDeposits `shouldBe` Nothing
 
-          -- Step 7: New transaction arrives, leader requests snapshot via timer
+          -- Step 7: New transaction arrives, leader immediately requests snapshot
           let newTx = aValidTx 1
           let reqTxInput = receiveMessage $ ReqTx newTx
 
-          let s7 = aggregateState s6 $ update aliceEnv' ledger now s6 reqTxInput
-          let outcome = update aliceEnv' ledger now s7 TimerInput
+          -- With immediate snapshot chaining, ReqSn is sent during ReqTx processing.
+          let outcome = update aliceEnv' ledger now s6 reqTxInput
 
           -- The ReqSn emitted by the leader does not reference the recovered deposit
           outcome `hasEffectSatisfying` \case

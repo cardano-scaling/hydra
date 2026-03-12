@@ -76,7 +76,7 @@ spec = do
     describe "Generic Snapshot property" $ do
       prop "there's always a leader for every snapshot number" prop_thereIsAlwaysALeader
       prop "timer is noop while waiting for ReqSn echo (RequestedSnapshot state)" prop_timerIsNoopInRequestedSnapshotState
-      prop "timer re-broadcasts in-flight ReqSn with correct version and number (SeenSnapshot state)" prop_timerSeenSnapshotRebroadcastMatchesInFlight
+      prop "timer is noop in SeenSnapshot state (no re-broadcast to prevent feedback loops)" prop_timerIsNoopInSeenSnapshotState
 
     describe "On ReqTx" $ do
       prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx
@@ -85,8 +85,8 @@ spec = do
         let tx = aValidTx 1
             s0 = inOpenState' [alice, bob] coordinatedHeadState
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
-        let s1 = aggregateState s0 $ update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
-            outcome = update (envFor aliceSk) simpleLedger now s1 TimerInput
+        -- With immediate snapshot chaining, ReqSn is sent during ReqTx processing.
+        let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
 
         outcome
           `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
@@ -228,15 +228,20 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         }
     s0 = inOpenState' [alice] st
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
-  let s1 = aggregateState s0 $ update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
-      outcome = update aliceEnv simpleLedger now s1 TimerInput
+  -- ReqSn is emitted either immediately on ReqTx (when confirmedSn+1 is not in
+  -- flight) or on the subsequent timer (when seenSnapshot is ahead of
+  -- confirmedSnapshot and the timer uses the correct max formula).
+  let reqTxOutcome = update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
+      s1 = aggregateState s0 reqTxOutcome
+      timerOutcome = update aliceEnv simpleLedger now s1 TimerInput
       Snapshot{number = confirmedSn} = getSnapshot sn
       -- NOTE: nextSn uses max to handle cases where seenSnapshot is ahead of confirmedSnapshot
       seenSn = latestSeenSnapshotNumber seenSnapshot
       nextSn = max confirmedSn seenSn + 1
   pure $
-    outcome `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing)
-      & counterexample (show outcome)
+    (reqTxOutcome <> timerOutcome)
+      `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing)
+      & counterexample ("reqTxOutcome: " <> show reqTxOutcome <> "\ntimerOutcome: " <> show timerOutcome)
 
 prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
@@ -288,8 +293,8 @@ prop_timerIsNoopInRequestedSnapshotState lastSeen requested = monadicIO $ do
 -- the timer re-broadcasts the snapshot using the in-flight snapshot's version
 -- and number — not the speculatively-computed 'nextSn'. This ensures all
 -- parties sign the same snapshot content after a re-broadcast.
-prop_timerSeenSnapshotRebroadcastMatchesInFlight :: Property
-prop_timerSeenSnapshotRebroadcastMatchesInFlight = monadicIO $ do
+prop_timerIsNoopInSeenSnapshotState :: Property
+prop_timerIsNoopInSeenSnapshotState = monadicIO $ do
   -- number >= 1: SeenSnapshot invariant (can't be in-flight for snapshot 0)
   -- and avoids Natural underflow in latestSeenSnapshotNumber (number - 1)
   snapshotNumber <- pick $ succ <$> arbitrary @SnapshotNumber
@@ -323,10 +328,12 @@ prop_timerSeenSnapshotRebroadcastMatchesInFlight = monadicIO $ do
     s0 = inOpenState' [alice] st
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
   let outcome = update aliceEnv simpleLedger now s0 TimerInput
+  -- Timer must NOT re-broadcast in SeenSnapshot: re-sending ReqSn after peers
+  -- have already signed would create a 200 Hz etcd-echo feedback loop.
   pure $
     outcome
-      `hasEffectSatisfying` ( \case
-                                NetworkEffect (ReqSn v sn _ _ _) -> v == snapshotVersion && sn == snapshotNumber
-                                _ -> False
-                            )
+      `hasNoEffectSatisfying` ( \case
+                                  NetworkEffect ReqSn{} -> True
+                                  _ -> False
+                              )
       & counterexample (show outcome)
