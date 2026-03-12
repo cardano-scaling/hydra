@@ -1139,10 +1139,10 @@ canDepositTxBlueprint tracer workDir backend hydraScriptsTxId =
       buildTransaction backend someAddress utxoToDeposit (fst <$> UTxO.toList utxoToDeposit) [someOutput] >>= \case
         Left e -> failure $ show e
         Right tx -> do
-          let unsignedTx = makeSignedTransaction [] $ getTxBody tx
+          let txBlueprint = makeSignedTransaction [] $ getTxBody tx
           let clientPayload =
                 Aeson.object
-                  [ "blueprintTx" .= unsignedTx
+                  [ "blueprintTx" .= txBlueprint
                   , "utxo" .= utxoToDeposit
                   ]
           res <-
@@ -1154,12 +1154,20 @@ canDepositTxBlueprint tracer workDir backend hydraScriptsTxId =
                 (Proxy :: Proxy (JsonResponse Tx))
                 (port $ 4000 + hydraNodeId)
 
-          let commitTx = responseBody res
-          let signedTx = signTx someExternalSk commitTx
-          Backend.submitTransaction backend signedTx
+          let txSigned = signTx someExternalSk $ responseBody res
+          Backend.submitTransaction backend $ spy' "txSigned" txSigned
 
-          waitFor hydraTracer (10 * blockTime) [n1] $
-            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody signedTx)]
+          waitFor hydraTracer (depositTimeout timing) [n1] $
+            output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId txSigned]
+
+          -- FIXME: This is broken now because deposits work differently with
+          -- blueprint txs than commits did? This assertion here expects the
+          -- _input_ of the blueprint to end up in the head, but in fact, the
+          -- _outputs_ of the 'txBlueprint' are ending up on the ledger state.
+
+          -- FIXME: Does this mean we can deposit from the hydra-node's fuel? It
+          -- seems to balance out the tx! TODO: verify this by building an
+          -- extracting tx using a less-safe api like cardano-ledger-api
           getSnapshotUTxO n1 `shouldReturn` utxoToDeposit
 
 -- | Initialize open and close a head on a real network and ensure contestation
