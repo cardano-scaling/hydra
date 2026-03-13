@@ -21,14 +21,13 @@ import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (readConfigFile)
+import Hydra.Cluster.Util (Timing (..), readConfigFile)
 import Hydra.HeadLogic.State (SeenSnapshot)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
-import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Req (GET (..), HttpException, JsonResponse, NoReqBody (..), POST (..), ReqBodyJson (..), defaultHttpConfig, responseBody, runReq, (/:))
@@ -281,7 +280,7 @@ getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
 withHydraCluster ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
-  NominalDiffTime ->
+  Timing ->
   FilePath ->
   SocketPath ->
   -- | First node id
@@ -292,10 +291,9 @@ withHydraCluster ::
   [SigningKey HydraKey] ->
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
-  ContestationPeriod ->
   (NonEmpty HydraClient -> IO a) ->
   IO a
-withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId contestationPeriod action = do
+withHydraCluster tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys hydraScriptsTxId action = do
   when (clusterSize == 0) $
     failure "Cannot run a cluster with 0 number of nodes"
   when (length allKeys /= length hydraKeys) $
@@ -309,6 +307,7 @@ withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKe
   startNodes [] allNodeIds
  where
   clusterSize = length allKeys
+
   allNodeIds = [firstNodeId .. firstNodeId + clusterSize - 1]
 
   startNodes clients = \case
@@ -325,6 +324,7 @@ withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKe
                 , cardanoSigningKey
                 , cardanoVerificationKeys
                 , contestationPeriod
+                , depositPeriod
                 , chainBackendOptions =
                     Direct
                       defaultDirectOptions
@@ -341,6 +341,8 @@ withHydraCluster tracer blockTime workDir nodeSocket firstNodeId allKeys hydraKe
         hydraVerificationKeys
         allNodeIds
         (\c -> startNodes (c : clients) rest)
+
+  Timing{blockTime, contestationPeriod, depositPeriod} = timing
 
 -- * Start / connect to a hydra-node
 

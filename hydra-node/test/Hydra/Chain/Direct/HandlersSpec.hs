@@ -6,14 +6,11 @@ import Hydra.Prelude hiding (label)
 
 import Control.Concurrent.Class.MonadSTM (MonadSTM (..))
 import Control.Tracer (nullTracer)
-import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
-  PaymentKey,
   SlotNo (..),
   Tx,
-  VerificationKey,
   fromLedgerTx,
   getChainPoint,
   toLedgerTx,
@@ -38,20 +35,13 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
-  HydraContext,
-  InitialState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
   ctxParticipants,
-  ctxVerificationKeys,
   getKnownUTxO,
   initialChainState,
   initialize,
-  observeCommit,
-  unsafeCommit,
-  unsafeObserveInit,
  )
-import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
 import Hydra.Tx.HeadParameters (HeadParameters)
 import Hydra.Tx.OnChainId (OnChainId)
@@ -59,9 +49,9 @@ import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
   genChainStateWithTx,
-  genCommit,
   genHydraContext,
  )
+import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 import Test.Hydra.Prelude
 import Test.QuickCheck (
@@ -155,9 +145,6 @@ spec = do
               let observedTransition =
                     case observedTx of
                       OnInitTx{} -> Transition.Init
-                      OnCommitTx{} -> Transition.Commit
-                      OnAbortTx{} -> Transition.Abort
-                      OnCollectComTx{} -> Transition.Collect
                       OnDecrementTx{} -> Transition.Decrement
                       OnIncrementTx{} -> Transition.Increment
                       OnCloseTx{} -> Transition.Close
@@ -356,9 +343,9 @@ genSequenceOfObservableBlocks = do
   -- Pick a peer context which will perform the init
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    initTx <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
-    -- Commit using all contexts
-    void $ stepCommits ctx initTx allContexts
+    _initTx <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
+    -- TODO: increment/decrement here (instead of commit before)
+    pure ()
   pure (cctx, initialChainState, reverse blks)
  where
   nextSlot :: Monad m => StateT [TestBlock] m SlotNo
@@ -384,27 +371,3 @@ genSequenceOfObservableBlocks = do
     seedTxIn <- lift genTxIn
     let initTx = initialize ctx seedTxIn participants params
     initTx <$ putNextBlock initTx
-
-  stepCommits ::
-    HydraContext ->
-    Tx ->
-    [ChainContext] ->
-    StateT [TestBlock] Gen [InitialState]
-  stepCommits hydraCtx initTx = \case
-    [] ->
-      pure []
-    ctx : rest -> do
-      stInitialized <- stepCommit ctx (ctxVerificationKeys hydraCtx) initTx
-      (stInitialized :) <$> stepCommits hydraCtx initTx rest
-
-  stepCommit ::
-    ChainContext ->
-    [VerificationKey PaymentKey] ->
-    Tx ->
-    StateT [TestBlock] Gen InitialState
-  stepCommit ctx allVerificationKeys initTx = do
-    let stInitial@InitialState{headId} = unsafeObserveInit ctx allVerificationKeys initTx
-    utxo <- lift genCommit
-    let commitTx = unsafeCommit ctx headId (getKnownUTxO stInitial) utxo
-    putNextBlock commitTx
-    pure $ snd $ fromJust $ observeCommit ctx stInitial commitTx

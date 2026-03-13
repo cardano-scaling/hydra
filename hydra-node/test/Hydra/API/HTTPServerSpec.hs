@@ -31,11 +31,11 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain (Chain, PostTxError (..), draftDepositTx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized, TickObserved))
+import Hydra.HeadLogic.Outcome (StateChanged (HeadOpened, TickObserved))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inIdleState, inUnsyncedIdleState, zeroChainPointTime)
 import Hydra.JSONSchema (SchemaSelector, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
@@ -284,9 +284,6 @@ apiServerSpec = do
         let isIdle = case headState nodeState of
               Idle{} -> True
               _ -> False
-        let isInitial = case headState nodeState of
-              Initial{} -> True
-              _ -> False
         let isOpen = case headState nodeState of
               Open{} -> True
               _ -> False
@@ -295,7 +292,6 @@ apiServerSpec = do
               _ -> False
         withMaxSuccess 20
           . cover 1 isIdle "IdleState"
-          . cover 1 isInitial "InitialState"
           . cover 1 isOpen "OpenState"
           . cover 1 isClosed "ClosedState"
           . withJsonSpecifications
@@ -583,7 +579,7 @@ apiServerSpec = do
               ClosedState{confirmedSnapshot} = closedState
               confirmedSnapshot' =
                 case confirmedSnapshot of
-                  InitialSnapshot{headId} -> InitialSnapshot{headId, initialUTxO = utxo'}
+                  InitialSnapshot{headId} -> InitialSnapshot{headId}
                   ConfirmedSnapshot{snapshot, signatures} ->
                     let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit} = snapshot
                         snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit}
@@ -612,26 +608,20 @@ apiServerSpec = do
                         else Nothing
                   }
 
+    -- TODO: change API to POST /deposits
     describe "POST /commit" $ do
-      let getHeadId = pure $ NormalCommit (generateWith arbitrary 42)
-      let workingChainHandle =
-            dummyChainHandle
-              { draftCommitTx = \_ _ -> do
-                  tx <- generate $ arbitrary @Tx
-                  pure $ Right tx
-              }
-      let initialHeadState = Initial (generateWith arbitrary 42)
+      let getHeadId = pure $ IncrementalCommit (generateWith arbitrary 42)
       let openHeadState = Open (generateWith arbitrary 42)
       responseChannel <- runIO newTChanIO
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
               nullTracer
-              workingChainHandle
+              dummyChainHandle -- TODO: this errors
               testEnvironment
               dummyStatePath
               defaultPParams
-              (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
+              (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -641,13 +631,6 @@ apiServerSpec = do
           $ do
             post "/commit" (Aeson.encode request)
               `shouldRespondWith` 200
-
-      let failingChainHandle :: PostTxError tx -> Chain tx IO
-          failingChainHandle postTxError =
-            dummyChainHandle
-              { draftCommitTx = \_ _ -> pure $ Left postTxError
-              , draftDepositTx = \_ _ _ _ _ -> pure $ Left postTxError
-              }
 
       prop "reject deposits with less than min ADA" $ do
         forAll (genUTxOAdaOnlyOfSize 1) $ \(utxo :: UTxO) -> do
@@ -660,15 +643,17 @@ apiServerSpec = do
             _ -> property True
 
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
+        let failingChainHandle :: PostTxError tx -> Chain tx IO
+            failingChainHandle err =
+              dummyChainHandle
+                { draftDepositTx = \_ _ _ _ _ -> pure $ Left err
+                }
+
         let coverage = case postTxError of
-              CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
-              CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
               DepositTooLow{} -> cover 1 True "DepositTooLow"
-              AmountTooLow{} -> cover 1 True "AmountTooLow"
               FailedToConstructDepositTx{} -> cover 1 True "FailedToConstructDepositTx"
-              FailedToDraftTxNotInitializing -> cover 1 True "FailedToDraftTxNotInitializing"
               _ -> property
         checkCoverage
           $ coverage
@@ -689,20 +674,17 @@ apiServerSpec = do
           $ do
             post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
               `shouldRespondWith` case postTxError of
-                CommittedTooMuchADAForMainnet{} -> 400
                 UnsupportedLegacyOutput{} -> 400
-                CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400
-                AmountTooLow{} -> 400
                 FailedToConstructDepositTx{} -> 400
-                FailedToDraftTxNotInitializing -> 500{matchBody = fromString "{\"tag\":\"FailedToDraftTxNotInitializing\"}"}
                 _ -> 500
 
+      -- TODO: drop this whole endpoint
       it "gives information on when the Head was initialized" $ do
         let genTick :: Gen (StateChanged Tx)
             genTick = TickObserved <$> arbitrary
             genInit :: Gen (StateChanged Tx)
-            genInit = HeadInitialized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+            genInit = HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
             mkStateLine :: Int -> Text -> StateChanged Tx -> Text
             mkStateLine eventId time stateChanged =
               decodeUtf8 . LBS.toStrict $
@@ -735,7 +717,7 @@ apiServerSpec = do
                 testEnvironment
                 statePath
                 defaultPParams
-                (pure NodeInSync{headState = initialHeadState, pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
+                (pure NodeInSync{headState = error "TODO: drop /head-initialization endpoint", pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
                 getHeadId
                 getPendingDeposits
                 putClientInput

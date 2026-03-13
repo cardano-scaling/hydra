@@ -95,7 +95,8 @@ healthyCloseInitialTx =
 
   headId = mkHeadId Fixture.testPolicyId
 
-  closingSnapshot = InitialSnapshot{headId, initialUTxO = healthyUTxO}
+  closingSnapshot :: ConfirmedSnapshot Tx
+  closingSnapshot = InitialSnapshot{headId}
 
 healthyInitialOpenDatum :: HeadState.State
 healthyInitialOpenDatum =
@@ -104,6 +105,7 @@ healthyInitialOpenDatum =
       { parties = healthyOnChainParties
       , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
       , contestationPeriod = healthyContestationPeriod
+      , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0
       }

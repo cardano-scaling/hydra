@@ -67,6 +67,7 @@ Get started with the [user manual 📖](https://hydra.family/head-protocol/docs/
 - [x] Locally persisted Head state
 - [x] Commit from any wallet (e.g. hardware wallets)
 - [x] Incremental de-/commit
+- [ ] Directly open heads
 
 Later:
 

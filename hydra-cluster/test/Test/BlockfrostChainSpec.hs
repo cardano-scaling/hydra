@@ -11,7 +11,7 @@ import Control.Concurrent.STM.TMVar (putTMVar)
 import Control.Exception (IOException)
 import Data.Time (secondsToNominalDiffTime)
 import Hydra.Chain (
-  Chain (Chain, draftCommitTx, postTx),
+  Chain (Chain, postTx),
   ChainEvent (..),
   OnChainTx (..),
   PostChainTx (..),
@@ -44,7 +44,6 @@ import Hydra.Options (
   ChainConfig (..),
   defaultBlockfrostOptions,
  )
-import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
@@ -54,10 +53,8 @@ import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.DirectChainSpec (
   CardanoChainTest (..),
   DirectChainTestLog (..),
-  externalCommit',
   hasInitTxWith,
   loadParticipants,
-  observesInTime',
   observesInTimeSatisfying',
   waitMatch,
  )
@@ -72,7 +69,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
       (_, sk) <- keysFor Faucet
       prj <- Blockfrost.projectFromFile blockfrostProjectPath
       (aliceCardanoVk, _) <- keysFor Alice
-      (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
+      (aliceExternalVk, _aliceExternalSk) <- generate genKeyPair
       let backend = BlockfrostBackend $ defaultBlockfrostOptions{projectPath = blockfrostProjectPath}
       hydraScriptsTxId <- publishHydraScripts backend sk
 
@@ -95,13 +92,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
           postTx $ InitTx{participants, headParameters}
           (headId, headSeed) <- observesInTimeSatisfying' aliceChain (secondsToNominalDiffTime $ fromIntegral $ queryTimeout defaultBlockfrostOptions) $ hasInitTxWith headParameters participants
 
-          let blueprintTx = txSpendingUTxO someUTxO
-          externalCommit' backend aliceChain [aliceExternalSk] headId someUTxO blueprintTx
-          aliceChain `observesInTime'` OnCommitTx headId alice someUTxO
-
-          postTx $ CollectComTx someUTxO headId headParameters
-          aliceChain `observesInTime'` OnCollectComTx{headId}
-
+          -- TODO: Deposit someUTxO
           let snapshotVersion = 0
           let snapshot =
                 Snapshot
@@ -171,14 +162,9 @@ withBlockfrostChainTest tracer config party action = do
   let callback event = atomically $ putTMVar eventMVar event
 
   wallet <- mkTinyWallet backend tracer configuration
-  withBlockfrostChain backend tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx, draftCommitTx} -> do
+  withBlockfrostChain backend tracer configuration ctx wallet (initHistory initialChainState) callback $ \Chain{postTx} -> do
     action
       CardanoChainTest
         { postTx
         , waitCallback = atomically $ takeTMVar eventMVar
-        , draftCommitTx = \headId utxo blueprintTx -> do
-            eTx <- draftCommitTx headId CommitBlueprintTx{lookupUTxO = utxo, blueprintTx}
-            case eTx of
-              Left e -> throwIO e
-              Right tx -> pure tx
         }

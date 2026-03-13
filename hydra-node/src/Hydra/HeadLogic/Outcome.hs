@@ -61,21 +61,13 @@ data StateChanged tx
       { clusterPeers :: Text
       , misconfiguredPeers :: Text
       }
-  | HeadInitialized
+  | HeadOpened
       { parameters :: HeadParameters
       , chainState :: ChainStateType tx
       , headId :: HeadId
       , headSeed :: HeadSeed
       , parties :: [Party]
       }
-  | CommittedUTxO
-      { headId :: HeadId
-      , party :: Party
-      , committedUTxO :: UTxOType tx
-      , chainState :: ChainStateType tx
-      }
-  | HeadAborted {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
-  | HeadOpened {headId :: HeadId, chainState :: ChainStateType tx, initialUTxO :: UTxOType tx}
   | TransactionReceived {tx :: tx}
   | TransactionAppliedToLocalUTxO
       { headId :: HeadId
@@ -111,8 +103,10 @@ data StateChanged tx
       , depositTxId :: TxIdType tx
       , recovered :: UTxOType tx
       }
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized
+  | -- TODO: Rename to DepositApproved
+    CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | -- TODO: Rename to DepositFinalized
+    CommitFinalized
       { chainState :: ChainStateType tx
       , headId :: HeadId
       , newVersion :: SnapshotVersion

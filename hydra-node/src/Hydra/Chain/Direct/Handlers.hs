@@ -52,11 +52,8 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
-  abort,
   chainSlotFromPoint,
   close,
-  collect,
-  commit',
   contest,
   decrement,
   fanout,
@@ -84,10 +81,7 @@ import Hydra.Tx (
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx)
 import Hydra.Tx.Observe (
-  AbortObservation (..),
   CloseObservation (..),
-  CollectComObservation (..),
-  CommitObservation (..),
   ContestObservation (..),
   DecrementObservation (..),
   FanoutObservation (..),
@@ -180,11 +174,6 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
             >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
-    , draftCommitTx = \headId commitBlueprintTx -> do
-        ChainStateAt{spendableUTxO} <- atomically getLatest
-        let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
-        traverse (finalizeTx wallet ctx spendableUTxO lookupUTxO) $
-          commit' ctx headId spendableUTxO commitBlueprintTx
     , draftDepositTx = \headId pparams commitBlueprintTx deadline changeAddress -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
         ChainStateAt{spendableUTxO} <- atomically getLatest
@@ -386,12 +375,6 @@ convertObservation TimeHandle{slotToUTCTime} = \case
   NoHeadTx -> Nothing
   Init InitObservation{headId, headSeed, headParameters, participants} ->
     pure OnInitTx{headId, headSeed, headParameters, participants}
-  Abort AbortObservation{headId} ->
-    pure OnAbortTx{headId}
-  Commit CommitObservation{headId, party, committed} ->
-    pure OnCommitTx{headId, party, committed}
-  CollectCom CollectComObservation{headId} ->
-    pure OnCollectComTx{headId}
   Deposit DepositObservation{headId, depositTxId, deposited, created, deadline} -> do
     createdTime <- either (const Nothing) Just $ slotToUTCTime created
     pure $ OnDepositTx{headId, depositTxId, deposited, created = createdTime, deadline}
@@ -426,38 +409,19 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
           pure $ initialize ctx seedInput participants headParameters
         Nothing ->
           throwIO (NoSeedInput @Tx)
-    AbortTx{utxo, headSeed} ->
-      case headSeedToTxIn headSeed of
-        Nothing ->
-          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
-        Just seedTxIn ->
-          case abort ctx seedTxIn spendableUTxO utxo of
-            Left _ -> throwIO (FailedToConstructAbortTx @Tx)
-            Right abortTx -> pure abortTx
-    -- TODO: We do not rely on the utxo from the collect com tx here because the
-    -- chain head-state is already tracking UTXO entries locked by commit scripts,
-    -- and thus, can re-construct the committed UTXO for the collectComTx from
-    -- the commits' datums.
-    --
-    -- Perhaps we do want however to perform some kind of sanity check to ensure
-    -- that both states are consistent.
-    CollectComTx{utxo, headId, headParameters} ->
-      case collect ctx headId headParameters utxo spendableUTxO of
-        Left _ -> throwIO (FailedToConstructCollectTx @Tx)
-        Right collectTx -> pure collectTx
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} -> do
+    IncrementTx{headSeed, headId, headParameters, incrementingSnapshot, depositTxId} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       (upperBound, _) <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case increment ctx spendableUTxO headId headParameters incrementingSnapshot depositTxId upperBound of
+      case increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot depositTxId upperBound of
         Left err -> throwIO (FailedToConstructIncrementTx{failureReason = show err} :: PostTxError Tx)
         Right incrementTx' -> pure incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do
       case recover ctx headId recoverTxId spendableUTxO (fromChainSlot deadline) of
         Left err -> throwIO (FailedToConstructRecoverTx{failureReason = show err} :: PostTxError Tx)
         Right recoverTx' -> pure recoverTx'
-    DecrementTx{headId, headParameters, decrementingSnapshot} ->
-      case decrement ctx spendableUTxO headId headParameters decrementingSnapshot of
+    DecrementTx{headSeed, headId, headParameters, decrementingSnapshot} ->
+      case decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapshot of
         Left err -> throwIO (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
         Right decrementTx' -> pure decrementTx'
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do

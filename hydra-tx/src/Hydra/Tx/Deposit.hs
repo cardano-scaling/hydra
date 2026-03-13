@@ -155,6 +155,12 @@ observeDepositTxOut network depositOut = do
   headId <- currencySymbolToHeadId headCurrencySymbol
   deposit <- do
     depositedUTxO <- UTxO.fromList <$> traverse (Commit.deserializeCommit network) onChainDeposits
+    -- TODO: This silently ignores deposits that deposit less ADA  than what the
+    -- min ADA for the deposit output would be. For example: a 1 ADA utxo can be
+    -- deposited, but the  deposit tx's output will require ~1.5  ADA because of
+    -- the inline datum on  it. Dropping this or changing to a  >= here will not
+    -- work because the increment redeemer of the  head validator requires an
+    -- exact balance (right now).
     guard $ depositValue == UTxO.totalValue depositedUTxO
     pure depositedUTxO
   pure (headId, deposit, deadline)

@@ -60,13 +60,10 @@ import Hydra.HeadLogic.Outcome (
  )
 import Hydra.HeadLogic.State (
   ClosedState (..),
-  Committed,
   CoordinatedHeadState (..),
   HeadState (..),
   IdleState (IdleState, chainState),
-  InitialState (..),
   OpenState (..),
-  PendingCommits,
   SeenSnapshot (..),
   getChainState,
   seenSnapshotNumber,
@@ -127,10 +124,9 @@ onIdleClientInit env =
 
   Environment{participants} = env
 
--- | Observe an init transaction, initialize parameters in an 'InitialState' and
--- notify clients that they can now commit.
+-- | Observe an init transaction and initialize parameters in an 'OpenState'.
 --
--- __Transition__: 'IdleState' → 'InitialState'
+-- __Transition__: 'IdleState' → 'OpenState'
 onIdleChainInitTx ::
   Environment ->
   -- | New chain state.
@@ -146,7 +142,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
       && configuredContestationPeriod == contestationPeriod
       && Set.fromList configuredParticipants == Set.fromList participants =
       newState
-        HeadInitialized
+        HeadOpened
           { parameters = headParameters
           , chainState = newChainState
           , headId
@@ -174,97 +170,6 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
     , contestationPeriod = configuredContestationPeriod
     , participants = configuredParticipants
     } = env
-
--- | Observe a commit transaction and record the committed UTxO in the state.
--- Also, if this is the last commit to be observed, post a collect-com
--- transaction on-chain.
---
--- __Transition__: 'InitialState' → 'InitialState'
-onInitialChainCommitTx ::
-  Monoid (UTxOType tx) =>
-  InitialState tx ->
-  -- | New chain state
-  ChainStateType tx ->
-  -- | Committing party
-  Party ->
-  -- | Committed UTxO
-  UTxOType tx ->
-  Outcome tx
-onInitialChainCommitTx st newChainState pt utxo =
-  newState CommittedUTxO{headId, party = pt, committedUTxO = utxo, chainState = newChainState}
-    <> causes [postCollectCom | canCollectCom]
- where
-  postCollectCom =
-    OnChainEffect
-      { postChainTx =
-          CollectComTx
-            { utxo = fold newCommitted
-            , headId
-            , headParameters = parameters
-            }
-      }
-
-  canCollectCom = null remainingParties
-
-  remainingParties = Set.delete pt pendingCommits
-
-  newCommitted = Map.insert pt utxo committed
-
-  InitialState{pendingCommits, committed, headId, parameters} = st
-
--- | Client request to abort the head. This leads to an abort transaction on
--- chain, reimbursing already committed UTxOs.
---
--- __Transition__: 'InitialState' → 'InitialState'
-onInitialClientAbort ::
-  Monoid (UTxOType tx) =>
-  InitialState tx ->
-  Outcome tx
-onInitialClientAbort st =
-  cause OnChainEffect{postChainTx = AbortTx{utxo = fold committed, headSeed}}
- where
-  InitialState{committed, headSeed} = st
-
--- | Observe an abort transaction by switching the state and notifying clients
--- about it.
---
--- __Transition__: 'InitialState' → 'IdleState'
-onInitialChainAbortTx ::
-  Monoid (UTxOType tx) =>
-  -- | New chain state
-  ChainStateType tx ->
-  Committed tx ->
-  HeadId ->
-  Outcome tx
-onInitialChainAbortTx newChainState committed headId =
-  newState HeadAborted{headId, utxo = fold committed, chainState = newChainState}
-
--- | Observe a collectCom transaction. We initialize the 'OpenState' using the
--- head parameters from 'IdleState' and construct an 'InitialSnapshot' holding
--- @u0@ from the committed UTxOs.
---
--- __Transition__: 'InitialState' → 'OpenState'
-onInitialChainCollectTx ::
-  IsChainState tx =>
-  InitialState tx ->
-  -- | New chain state
-  ChainStateType tx ->
-  Outcome tx
-onInitialChainCollectTx st newChainState =
-  -- Spec: 𝑈₀  ← ⋃ⁿⱼ₌₁ 𝑈ⱼ
-  let u0 = fold committed
-   in -- Spec: L̂  ← 𝑈₀
-      --       ̅S  ← snObj(0, 0, 𝑈₀, ∅, ∅)
-      --       v , ŝ ← 0
-      --       T̂  ← ∅
-      --       txω ← ⊥
-      --       𝑈𝛼 ← ∅
-      newState HeadOpened{headId, chainState = newChainState, initialUTxO = u0}
- where
-  -- TODO: Do we want to check whether this even matches our local state? For
-  -- example, we do expect `null remainingParties` but what happens if it's
-  -- untrue?
-  InitialState{committed, headId} = st
 
 -- ** Off-chain protocol
 
@@ -569,7 +474,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   seenSn = seenSnapshotNumber seenSnapshot
 
   confirmedUTxO = case confirmedSnapshot of
-    InitialSnapshot{initialUTxO} -> initialUTxO
+    InitialSnapshot{} -> mempty
     ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit}} -> utxo <> fromMaybe mempty utxoToCommit
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
@@ -700,7 +605,8 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
             OnChainEffect
               { postChainTx =
                   IncrementTx
-                    { headId
+                    { headSeed
+                    , headId
                     , headParameters = parameters
                     , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                     , depositTxId
@@ -722,7 +628,8 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
             OnChainEffect
               { postChainTx =
                   DecrementTx
-                    { headId
+                    { headSeed
+                    , headId
                     , headParameters = parameters
                     , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                     }
@@ -735,6 +642,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
     { parameters = parameters@HeadParameters{parties}
     , coordinatedHeadState
     , headId
+    , headSeed
     } = openState
 
   CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, currentDepositTxId, version} = coordinatedHeadState
@@ -942,14 +850,23 @@ determineNextDepositStatus env pendingDeposits chainTime =
 -- This is primarily used to track deposits status changes.
 onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
 onChainTick env pendingDeposits chainTime =
-  -- Determine new active and new expired
-  let nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
-      newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
-      newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
-   in -- Emit state change for both
-      -- XXX: This is a bit messy
-      mkDepositActivated newActive <> mkDepositExpired newExpired
+  mkDepositActivated newActive <> mkDepositExpired newExpired
  where
+  -- XXX: This is a bit messy
+  newActive = Map.difference nextActive pendingActive
+
+  newExpired = Map.difference nextExpired pendingExpired
+
+  pendingActive = Map.filter (\Deposit{status} -> status == Active) pendingDeposits
+
+  pendingExpired = Map.filter (\Deposit{status} -> status == Expired) pendingDeposits
+
+  nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
+
+  nextActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+
+  nextExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
+
   mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
     pure DepositActivated{depositTxId, chainTime, deposit}
 
@@ -1072,13 +989,14 @@ onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
 -- erased the original on-chain IncrementTx observation.
 maybeRepostIncrementTx ::
   IsTx tx =>
+  HeadSeed ->
   HeadId ->
   HeadParameters ->
   PendingDeposits tx ->
   Maybe (TxIdType tx) ->
   ConfirmedSnapshot tx ->
   Outcome tx
-maybeRepostIncrementTx headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
+maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
   case (mDepositTxId, confirmedSnapshot) of
     (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit}, signatures}) ->
       case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
@@ -1087,7 +1005,8 @@ maybeRepostIncrementTx headId parameters pendingDeposits mDepositTxId confirmedS
             OnChainEffect
               { postChainTx =
                   IncrementTx
-                    { headId
+                    { headSeed
+                    , headId
                     , headParameters = parameters
                     , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                     , depositTxId
@@ -1100,19 +1019,21 @@ maybeRepostIncrementTx headId parameters pendingDeposits mDepositTxId confirmedS
 -- confirmed snapshot contains a matching utxoToDecommit. The rollback may have
 -- erased the original on-chain DecrementTx observation.
 maybeRepostDecrementTx ::
+  HeadSeed ->
   HeadId ->
   HeadParameters ->
   Maybe tx ->
   ConfirmedSnapshot tx ->
   Outcome tx
-maybeRepostDecrementTx headId parameters mDecommitTx confirmedSnapshot =
+maybeRepostDecrementTx headSeed headId parameters mDecommitTx confirmedSnapshot =
   case (mDecommitTx, confirmedSnapshot) of
     (Just _, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToDecommit = Just _}, signatures}) ->
       cause
         OnChainEffect
           { postChainTx =
               DecrementTx
-                { headId
+                { headSeed
+                , headId
                 , headParameters = parameters
                 , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
                 }
@@ -1161,6 +1082,7 @@ onOpenClientClose st =
 --
 -- __Transition__: 'OpenState' → 'ClosedState'
 onOpenChainCloseTx ::
+  Monoid (UTxOType tx) =>
   OpenState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1289,6 +1211,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedChainContestTx ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   -- | New chain state.
   ChainStateType tx ->
@@ -1333,6 +1256,7 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 -- __Transition__: 'ClosedState' → 'ClosedState'
 onClosedClientFanout ::
+  Monoid (UTxOType tx) =>
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
@@ -1537,15 +1461,6 @@ handleChainInput ::
 handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
-  (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCommitTx{headId, party = pt, committed = utxo}, newChainState})
-    | ourHeadId == headId -> onInitialChainCommitTx initialState newChainState pt utxo
-    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial initialState@InitialState{headId = ourHeadId}, ChainInput Observation{observedTx = OnCollectComTx{headId}, newChainState})
-    | ourHeadId == headId -> onInitialChainCollectTx initialState newChainState
-    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Initial InitialState{headId = ourHeadId, committed}, ChainInput Observation{observedTx = OnAbortTx{headId}, newChainState})
-    | ourHeadId == headId -> onInitialChainAbortTx newChainState committed headId
-    | otherwise -> Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Open
   ( Open openState@OpenState{headId = ourHeadId}
     , ChainInput Observation{observedTx = OnCloseTx{headId, snapshotNumber = closedSnapshotNumber, contestationDeadline}, newChainState}
@@ -1554,10 +1469,6 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline
       | otherwise ->
           Error NotOurHead{ourHeadId, otherHeadId = headId}
-  -- NOTE: If posting the collectCom transaction failed in the open state, then
-  -- another party likely opened the head before us and it's okay to ignore.
-  (Open{}, ChainInput PostTxError{postChainTx = CollectComTx{}}) ->
-    noop
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Tick{chainTime, chainPoint}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
@@ -1602,7 +1513,8 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
   -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
   ( Open
       OpenState
-        { headId
+        { headSeed
+        , headId
         , parameters
         , coordinatedHeadState =
           CoordinatedHeadState
@@ -1615,8 +1527,8 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     ) ->
       newState ChainRolledBack{chainState = rolledBackChainState}
         <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
-        <> maybeRepostIncrementTx headId parameters pendingDeposits currentDepositTxId confirmedSnapshot
-        <> maybeRepostDecrementTx headId parameters decommitTx confirmedSnapshot
+        <> maybeRepostIncrementTx headSeed headId parameters pendingDeposits currentDepositTxId confirmedSnapshot
+        <> maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot
   -- General
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
@@ -1687,8 +1599,6 @@ handleClientInput ::
 handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev = case (st, ev) of
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
-  (Initial initialState, ClientInput Abort) ->
-    onInitialClientAbort initialState
   -- Open
   (Open openState, ClientInput Close) ->
     onOpenClientClose openState
@@ -1840,59 +1750,25 @@ aggregate st = \case
   NetworkClusterIDMismatch{} -> st
   PeerConnected{} -> st
   PeerDisconnected{} -> st
-  HeadInitialized{parameters = parameters@HeadParameters{parties}, headId, headSeed, chainState} ->
-    Initial
-      InitialState
-        { parameters = parameters
-        , pendingCommits = Set.fromList parties
-        , committed = mempty
-        , chainState
-        , headId
+  HeadOpened{headSeed, headId, parameters, chainState} ->
+    Open
+      OpenState
+        { headId
         , headSeed
+        , parameters
+        , coordinatedHeadState =
+            CoordinatedHeadState
+              { localUTxO = mempty
+              , allTxs = mempty
+              , localTxs = mempty
+              , confirmedSnapshot = InitialSnapshot{headId}
+              , seenSnapshot = NoSeenSnapshot
+              , currentDepositTxId = Nothing
+              , decommitTx = Nothing
+              , version = 0
+              }
+        , chainState
         }
-  CommittedUTxO{committedUTxO, chainState, party} ->
-    case st of
-      Initial InitialState{parameters, pendingCommits, committed, headId, headSeed} ->
-        Initial
-          InitialState
-            { parameters
-            , pendingCommits = remainingParties
-            , committed = newCommitted
-            , chainState
-            , headId
-            , headSeed
-            }
-       where
-        newCommitted = Map.insert party committedUTxO committed
-        remainingParties = Set.delete party pendingCommits
-      _otherState -> st
-  HeadAborted{chainState} ->
-    Idle $
-      IdleState
-        { chainState
-        }
-  HeadOpened{chainState, initialUTxO} ->
-    case st of
-      Initial InitialState{parameters, headId, headSeed} ->
-        Open
-          OpenState
-            { parameters
-            , coordinatedHeadState =
-                CoordinatedHeadState
-                  { localUTxO = initialUTxO
-                  , allTxs = mempty
-                  , localTxs = mempty
-                  , confirmedSnapshot = InitialSnapshot{headId, initialUTxO}
-                  , seenSnapshot = NoSeenSnapshot
-                  , currentDepositTxId = Nothing
-                  , decommitTx = Nothing
-                  , version = 0
-                  }
-            , chainState
-            , headId
-            , headSeed
-            }
-      _otherState -> st
   TransactionReceived{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
@@ -2001,9 +1877,9 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 case confirmedSnapshot of
-                  InitialSnapshot{initialUTxO} ->
+                  InitialSnapshot{} ->
                     coordinatedHeadState
-                      { localUTxO = initialUTxO
+                      { localUTxO = mempty
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
@@ -2140,9 +2016,6 @@ aggregateChainStateHistory history = \case
   NetworkClusterIDMismatch{} -> history
   PeerConnected{} -> history
   PeerDisconnected{} -> history
-  HeadInitialized{chainState} -> pushNewState chainState history
-  CommittedUTxO{chainState} -> pushNewState chainState history
-  HeadAborted{chainState} -> pushNewState chainState history
   HeadOpened{chainState} -> pushNewState chainState history
   TransactionAppliedToLocalUTxO{} -> history
   SnapshotRequestDecided{} -> history

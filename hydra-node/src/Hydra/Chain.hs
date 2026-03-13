@@ -34,7 +34,6 @@ import Hydra.Tx (
   HeadParameters (..),
   HeadSeed,
   IsTx (..),
-  Party,
   SnapshotNumber,
   SnapshotVersion,
   UTxOType,
@@ -45,21 +44,19 @@ import Hydra.Tx.OnChainId (OnChainId)
 maxMainnetLovelace :: Coin
 maxMainnetLovelace = Coin 100_000_000
 
--- | Hardcoded limit for maximum number of parties in a head protocol The value
--- is obtained from calculating the costs of running the scripts and on-chan
--- validators (see 'computeCollectComCost' 'computeAbortCost'). A too high
--- enough number would be detected by property and acceptance tests.
+-- | Hardcoded limit for maximum number of parties in a head protocol. A too
+-- high number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
 maximumNumberOfParties = 7
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
+-- TODO: somehow merge HeadSeed/HeadId
 data PostChainTx tx
   = InitTx {participants :: [OnChainId], headParameters :: HeadParameters}
-  | AbortTx {utxo :: UTxOType tx, headSeed :: HeadSeed}
-  | CollectComTx {utxo :: UTxOType tx, headId :: HeadId, headParameters :: HeadParameters}
   | IncrementTx
-      { headId :: HeadId
+      { headSeed :: HeadSeed
+      , headId :: HeadId
       , headParameters :: HeadParameters
       , incrementingSnapshot :: ConfirmedSnapshot tx
       , depositTxId :: TxIdType tx
@@ -71,7 +68,8 @@ data PostChainTx tx
       , recoverUTxO :: UTxOType tx
       }
   | DecrementTx
-      { headId :: HeadId
+      { headSeed :: HeadSeed
+      , headId :: HeadId
       , headParameters :: HeadParameters
       , decrementingSnapshot :: ConfirmedSnapshot tx
       }
@@ -104,13 +102,6 @@ data OnChainTx tx
       , headParameters :: HeadParameters
       , participants :: [OnChainId]
       }
-  | OnCommitTx
-      { headId :: HeadId
-      , party :: Party
-      , committed :: UTxOType tx
-      }
-  | OnAbortTx {headId :: HeadId}
-  | OnCollectComTx {headId :: HeadId}
   | OnDepositTx
       { headId :: HeadId
       , depositTxId :: TxIdType tx
@@ -156,9 +147,12 @@ data PostTxError tx
   = NoSeedInput
   | InvalidSeed {headSeed :: HeadSeed}
   | InvalidHeadId {headId :: HeadId}
-  | CannotFindOwnInitial {knownUTxO :: UTxOType tx}
   | -- | Committing byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
+  | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
+    -- we keep track of both the hardcoded limit and what the user originally tried to commit
+    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Coin, mainnetLimitLovelace :: Coin}
+  | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel {failingTx :: tx}
   | NoFuelUTXOFound {failingTx :: tx}
@@ -172,22 +166,13 @@ data PostTxError tx
     InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, failingTx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text, failingTx :: tx}
-  | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
-    -- we keep track of both the hardcoded limit and what the user originally tried to commit
-    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Coin, mainnetLimitLovelace :: Coin}
-  | -- | We can only draft commit tx for the user when in Initializing state
-    FailedToDraftTxNotInitializing
-  | FailedToConstructAbortTx
   | FailedToConstructCloseTx
   | FailedToConstructContestTx
-  | FailedToConstructCollectTx
   | FailedToConstructDepositTx {failureReason :: Text}
   | FailedToConstructRecoverTx {failureReason :: Text}
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
-  | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
-  | AmountTooLow {providedValue :: Coin, totalUTxOValue :: Coin}
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 
@@ -283,14 +268,6 @@ data Chain tx m = Chain
   -- reasonable local view of the chain and throw an exception when invalid.
   --
   -- Does at least throw 'PostTxError'.
-  , draftCommitTx ::
-      MonadThrow m =>
-      HeadId ->
-      CommitBlueprintTx tx ->
-      m (Either (PostTxError tx) tx)
-  -- ^ Create a commit transaction using user provided utxos (zero or many) and
-  -- a _blueprint_ transaction which spends these outputs.
-  -- Errors are handled at the call site.
   , draftDepositTx ::
       MonadThrow m =>
       HeadId ->

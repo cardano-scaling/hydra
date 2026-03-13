@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-plutus
-version:            1.3.0
+version:            2.0.0
 synopsis:           Hydra Plutus Contracts
 author:             IOG
 copyright:          2022 IOG
@@ -55,8 +55,6 @@ library
     Hydra.Contract.HeadState
     Hydra.Contract.HeadTokens
     Hydra.Contract.HeadTokensError
-    Hydra.Contract.Initial
-    Hydra.Contract.InitialError
     Hydra.Contract.MintAction
     Hydra.Contract.Util
     Hydra.Data.ContestationPeriod

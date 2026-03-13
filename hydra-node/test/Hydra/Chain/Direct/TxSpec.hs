@@ -39,19 +39,17 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
-import Hydra.Chain.Direct.State qualified as Transition
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.Commit (commitTx)
 import Hydra.Tx.HeadId (mkHeadId)
-import Hydra.Tx.Init (mkInitialOutput)
 import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed qualified as Gen
 import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
+import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Tx.Fixture (
   pparams,
   testNetworkId,
@@ -109,9 +107,6 @@ spec =
                  in case observeHeadTx testNetworkId utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
-                      Abort{} -> transition === Transition.Abort
-                      Commit{} -> transition === Transition.Commit
-                      CollectCom{} -> transition === Transition.Collect
                       Increment{} -> transition === Transition.Increment
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
@@ -123,6 +118,7 @@ spec =
                       Deposit{} -> property False
                       Recover{} -> property False
 
+    -- TODO: Convert this to tests on depositTx?
     describe "commitTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
 
@@ -133,7 +129,7 @@ spec =
           let healthyInitialTxOut :: TxOut CtxTx
               healthyInitialTxOut =
                 setMinUTxOValue Fixture.pparams . toCtxUTxOTxOut $
-                  mkInitialOutput Fixture.testNetworkId Fixture.testSeedInput $
+                  error "TODO: used to be mkInitialOutput" Fixture.testNetworkId Fixture.testSeedInput $
                     verificationKeyToOnChainId commitVerificationKey
           let healthyInitialTxIn = generateWith arbitrary 42
           let ChainContext{networkId, ownVerificationKey, ownParty, scriptRegistry} =
@@ -141,7 +137,8 @@ spec =
           forAllBlind genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx) ->
             counterexample ("Blueprint tx: " <> renderTxWithUTxO lookupUTxO blueprintTx) $ do
               let createdTx =
-                    commitTx
+                    error
+                      "TODO: used to be commitTx"
                       networkId
                       scriptRegistry
                       (mkHeadId Fixture.testPolicyId)

@@ -119,7 +119,6 @@ data ConfirmedSnapshot tx
   = InitialSnapshot
       { -- XXX: 'headId' is actually unused. Only 'getSnapshot' forces this to exist.
         headId :: HeadId
-      , initialUTxO :: UTxOType tx
       }
   | ConfirmedSnapshot
       { snapshot :: Snapshot tx
@@ -135,15 +134,15 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: Monoid (UTxOType tx) => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
-  InitialSnapshot{headId, initialUTxO} ->
+  InitialSnapshot{headId} ->
     Snapshot
       { headId
       , version = 0
       , number = 0
       , confirmed = []
-      , utxo = initialUTxO
+      , utxo = mempty
       , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
       }

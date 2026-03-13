@@ -37,10 +37,7 @@ instance
 genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)
 genStateChanged env =
   oneof
-    [ HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , CommittedUTxO <$> arbitrary <*> pure party <*> arbitrary <*> arbitrary
-    , HeadAborted <$> arbitrary <*> arbitrary <*> arbitrary
-    , HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary
+    [ HeadOpened (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
@@ -65,5 +62,3 @@ genStateChanged env =
     , NodeUnsynced <$> arbitrary <*> arbitrary <*> arbitrary
     , NodeSynced <$> arbitrary <*> arbitrary <*> arbitrary
     ]
- where
-  Environment{party} = env

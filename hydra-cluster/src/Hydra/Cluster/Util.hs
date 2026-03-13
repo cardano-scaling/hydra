@@ -1,3 +1,5 @@
+{-# LANGUAGE DuplicateRecordFields #-}
+
 -- | Utilities used across hydra-cluster
 module Hydra.Cluster.Util where
 
@@ -19,6 +21,7 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.DepositPeriod (DepositPeriod)
+import Hydra.Node.DepositPeriod qualified as DP
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -26,7 +29,6 @@ import Hydra.Options (
   ChainConfig (..),
   DirectOptions (..),
   defaultCardanoChainConfig,
-  defaultDepositPeriod,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Paths_hydra_cluster qualified as Pkg
@@ -66,6 +68,32 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure sk
 
+-- | Expected time between blocks (on average)
+type BlockTime = NominalDiffTime
+
+-- | Timing parameters that determing the behavior of a (cluster of) hydra-node.
+data Timing = Timing
+  { blockTime :: BlockTime
+  , contestationPeriod :: ContestationPeriod
+  , depositPeriod :: DepositPeriod
+  }
+  deriving (Show)
+
+-- | Set up reasonable timing parameters for testing given a 'BlockTime'.
+mkTestTiming :: BlockTime -> Timing
+mkTestTiming blockTime =
+  Timing
+    { blockTime
+    , contestationPeriod = truncate $ 20 * blockTime
+    , depositPeriod = truncate $ 20 * blockTime
+    }
+
+-- | Get a timeout until a deposit should have happened given a 'Timing'.
+depositTimeout :: Timing -> NominalDiffTime
+depositTimeout Timing{blockTime, depositPeriod} =
+  2 * DP.toNominalDiffTime depositPeriod + 5 * blockTime
+
+-- | Create a (test) chain config for a given actor.
 chainConfigFor ::
   ChainBackend backend =>
   HasCallStack =>
@@ -75,9 +103,12 @@ chainConfigFor ::
   -- | Transaction ids at which Hydra scripts should have been published.
   [TxId] ->
   [Actor] ->
-  ContestationPeriod ->
+  Timing ->
   IO ChainConfig
-chainConfigFor me targetDir backend txids actors cp = chainConfigFor' me targetDir backend txids actors cp defaultDepositPeriod
+chainConfigFor me targetDir backend txids actors timing =
+  chainConfigFor' me targetDir backend txids actors contestationPeriod depositPeriod
+ where
+  Timing{contestationPeriod, depositPeriod} = timing
 
 chainConfigFor' ::
   ChainBackend backend =>

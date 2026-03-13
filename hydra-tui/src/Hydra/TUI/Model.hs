@@ -11,7 +11,6 @@ import Hydra.Cardano.Api hiding (Active)
 
 import Brick.Forms (Form)
 import Data.Map qualified as Map
-import Data.Set qualified as Set
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
@@ -65,16 +64,6 @@ type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
 type TxIdRadioFieldForm e n = Form (TxId, TxIn, TxOut CtxUTxO) e n
 
 type ConfirmingRadioFieldForm e n = Form Bool e n
-
-data InitializingState = InitializingState
-  { remainingParties :: [Party]
-  , initializingScreen :: InitializingScreen
-  }
-
-data InitializingScreen
-  = InitializingHome
-  | CommitMenu {commitMenu :: UTxOCheckboxForm (HydraEvent Tx) Name}
-  | ConfirmingAbort {confirmingAbortForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
 
 data OpenScreen
   = OpenHome
@@ -134,8 +123,7 @@ data ActiveLink = ActiveLink
   }
 
 data ActiveHeadState
-  = Initializing {initializingState :: InitializingState}
-  | Open {openState :: OpenScreen}
+  = Open {openState :: OpenScreen}
   | Closed {closedState :: ClosedState}
   | FanoutPossible
   | Final
@@ -174,12 +162,6 @@ makeLensesFor
   ''ConnectedState
 
 makeLensesFor
-  [ ("commitMenu", "commitMenuL")
-  , ("confirmingAbortForm", "confirmingAbortFormL")
-  ]
-  ''InitializingScreen
-
-makeLensesFor
   [ ("transitionNote", "transitionNoteL")
   , ("me", "meL")
   , ("peers", "peersL")
@@ -188,12 +170,6 @@ makeLensesFor
   , ("headState", "headStateL")
   ]
   ''Connection
-
-makeLensesFor
-  [ ("remainingParties", "remainingPartiesL")
-  , ("initializingScreen", "initializingScreenL")
-  ]
-  ''InitializingState
 
 makeLensesFor
   [ ("activeLink", "activeLinkL")
@@ -230,14 +206,7 @@ newActiveLink :: [Party] -> HeadId -> ActiveLink
 newActiveLink parties headId =
   ActiveLink
     { parties
-    , activeHeadState =
-        Initializing
-          { initializingState =
-              InitializingState
-                { remainingParties = parties
-                , initializingScreen = InitializingHome
-                }
-          }
+    , activeHeadState = Open{openState = OpenHome}
     , utxo = mempty
     , pendingUTxOToDecommit = mempty
     , pendingIncrements = mempty
@@ -261,30 +230,6 @@ recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
 recoverHeadState now current nodeState =
   case nodeState.headState of
     State.Idle State.IdleState{} -> current
-    State.Initial
-      State.InitialState
-        { parameters
-        , committed
-        , headId
-        , pendingCommits
-        } ->
-        Active
-          ActiveLink
-            { utxo = fold committed
-            , pendingUTxOToDecommit = mempty
-            , pendingIncrements
-            , parties = HeadParameters.parties parameters
-            , headId
-            , activeHeadState =
-                Initializing
-                  InitializingState
-                    { remainingParties =
-                        filter
-                          (`Set.member` pendingCommits)
-                          (HeadParameters.parties parameters)
-                    , initializingScreen = InitializingHome
-                    }
-            }
     State.Open
       State.OpenState
         { parameters
