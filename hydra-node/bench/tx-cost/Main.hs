@@ -40,6 +40,7 @@ import TxCost (
   computeFanOutCost,
   computeIncrementCost,
   computeInitCost,
+  computePartialFanOutNominalCost,
  )
 
 data Options = Options {outputDirectory :: Maybe FilePath, seed :: Maybe Int}
@@ -99,6 +100,7 @@ writeTransactionCostMarkdown mseed hdl = do
   let closeC = costOfClose seed
   let contestC = costOfContest seed
   let fanoutC = costOfFanOut seed
+  let partialFanoutNominalC = costOfPartialFanOutNominal seed
   hPut hdl $
     encodeUtf8 $
       unlines $
@@ -112,6 +114,7 @@ writeTransactionCostMarkdown mseed hdl = do
             , closeC
             , contestC
             , fanoutC
+            , partialFanoutNominalC
             ]
 
 -- NOTE: GitHub actions CI depends on the number of header lines, see
@@ -322,6 +325,41 @@ costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
                 <> show parties
                 <> " | "
                 <> show numElems
+                <> " | "
+                <> show utxoSize
+                <> " | "
+                <> show txSize
+                <> " | "
+                <> show (mem `percentOf` maxMem)
+                <> " | "
+                <> show (cpu `percentOf` maxCpu)
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> " |"
+          )
+          stats
+
+costOfPartialFanOutNominal :: Int -> Text
+costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed computePartialFanOutNominalCost
+ where
+  markdownPartialFanOutNominalCost :: [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
+  markdownPartialFanOutNominalCost stats =
+    unlines $
+      [ "## `PartialFanOut` transaction costs"
+      , "One partial fanout transaction distributing exactly `fanoutChunkSize` ada-only outputs from a head with the given total UTxO count. "
+          <> "The last row is the maximum total UTxO count that still fits within the transaction size limit."
+      , ""
+      , "| Total UTxO | Distributed | Remaining | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ---------: | ----------: | --------: | -----------: | ------: | --------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(totalUTxO, numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
+              "| "
+                <> show totalUTxO
+                <> " | "
+                <> show (totalUTxO - numRemaining)
+                <> " | "
+                <> show numRemaining
                 <> " | "
                 <> show utxoSize
                 <> " | "
