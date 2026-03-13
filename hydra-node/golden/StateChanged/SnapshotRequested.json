@@ -7,7 +7,7 @@
                 "0100000100010100000001000001010000010000000100000101000001010000#10": {
                     "address": "addr_test1yzm0e4rsjn6pspnfm2tz60gtxavnl8896jmtf9e0wtyv5m0uvxv374qkxdxgtgvtyvjhs64favvr2rgnc9vyurehgvzq3j6fx2",
                     "datum": null,
-                    "datumhash": null,
+                    "datumhash": "103e2fac8ea28dfbb93f06061b0a87303d1c84a72a3c75df728b45bfcebf7597",
                     "inlineDatum": null,
                     "inlineDatumRaw": null,
                     "referenceScript": null,
