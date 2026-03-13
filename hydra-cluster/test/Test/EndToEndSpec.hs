@@ -291,7 +291,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
             publishHydraScriptsAs backend Faucet
               >>= canSeePendingDeposits tracer tmpDir blockTime backend
-      it "incrementally commit script using blueprint tx" $ \tracer -> do
+      it "deposit script with tx blueprint" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withBackend (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
             publishHydraScriptsAs backend Faucet
@@ -746,7 +746,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               publishHydraScriptsAs backend Faucet
                 >>= startWithWrongPeers tmpDir tracer backend
 
-      it "bob cannot abort alice's head" $ \tracer -> do
+      it "bob cannot close alice's head" $ \tracer -> do
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
             withBackend (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
@@ -766,17 +766,17 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   send n1 $ input "Init" []
                   headIdAliceOnly <- waitMatch 10 n1 $ headIsOpenWith (Set.fromList [alice])
 
-                  -- Bob opens and immediately aborts a Head with Alice, iow pulls Alice in
+                  -- Bob opens and immediately closes a Head with Alice, iow pulls Alice in
                   -- "his" Head
                   send n2 $ input "Init" []
                   headIdAliceAndBob <- waitMatch 10 n2 $ headIsOpenWith (Set.fromList [alice, bob])
 
-                  send n2 $ input "Abort" []
-                  waitFor hydraTracer 10 [n2] $
-                    output "HeadIsAborted" ["utxo" .= Object mempty, "headId" .= headIdAliceAndBob]
+                  send n2 $ input "Close" []
+                  void $ waitMatch 10 n2 $ \v -> do
+                    guard $ v ^? key "tag" == Just "HeadIsClosed"
+                    guard $ v ^? key "headId" == Just (toJSON headIdAliceAndBob)
 
-                  -- Alice should be able to continue working with her Head
-                  -- (verify by closing it)
+                  -- Alice should still have her head open (verify by closing)
                   send n1 $ input "Close" []
                   void $ waitMatch 10 n1 $ \v -> do
                     guard $ v ^? key "tag" == Just "HeadIsClosed"
