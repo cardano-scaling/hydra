@@ -485,7 +485,7 @@ prop_splitUTxO utxo =
 
 prop_canCloseFanoutEveryCollect :: Property
 prop_canCloseFanoutEveryCollect = monadicST $ do
-  let moreThanSupported = maximumNumberOfParties * 2
+  let moreThanSupported = maximumNumberOfParties * 3
   ctx@HydraContext{ctxContestationPeriod} <- pickBlind $ genHydraContext moreThanSupported
   cctx <- pickBlind $ pickChainContext ctx
   -- Init
