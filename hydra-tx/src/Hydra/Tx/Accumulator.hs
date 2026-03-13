@@ -27,9 +27,12 @@ import Accumulator qualified
 import Bindings (getPolyCommitOverG2)
 import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
+import Cardano.Crypto.Hash (Blake2b_256)
+import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Codec.Serialise (serialise)
 import Data.List (nub)
 import Data.Map.Strict qualified as Map
+import Data.Proxy (Proxy (..))
 import Field qualified as F
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
@@ -116,15 +119,18 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
    in
     build elements
 
--- | Get a simple hash of the accumulator state.
+-- | Get a blake2b-256 hash of the accumulator state.
 --
--- This is a pure function that returns a deterministic hash of the accumulator's contents.
--- For off-chain snapshots, we just need a commitment to the UTxO set, not a cryptographic proof.
--- This hash is what gets signed by all parties in the multi-signature.
+-- This is a pure function that returns a 32-byte deterministic hash of the
+-- accumulator's contents. It is what gets signed by all parties in the
+-- multi-signature and stored as 'accumulatorHash' in on-chain datums.
+--
+-- Using a fixed-size hash (rather than the full serialized map) keeps datum
+-- and redeemer sizes constant regardless of the number of remaining UTxOs,
+-- which is critical for keeping partial fanout transaction sizes bounded.
 getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash (HydraAccumulator acc) =
-  -- Simple serialization-based hash of the accumulator map
-  toStrict . serialise $ acc
+  digest (Proxy @Blake2b_256) . toStrict . serialise $ acc
 
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G2_Element
 getAccumulatorCommitment (HydraAccumulator acc) =

@@ -1051,6 +1051,23 @@ unsafeFanout ::
 unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
   either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
 
+unsafePartialFanout ::
+  HasCallStack =>
+  ChainContext ->
+  -- | Spendable UTxO containing head output
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Subset of UTxOs to distribute in this partial fanout
+  UTxO ->
+  -- | Remaining UTxOs after this partial fanout
+  UTxO ->
+  -- | Contestation deadline as SlotNo
+  SlotNo ->
+  Tx
+unsafePartialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo =
+  either (error . show) id $ partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo
+
 unsafeObserveInit ::
   HasCallStack =>
   ChainContext ->
