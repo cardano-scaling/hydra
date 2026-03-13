@@ -2,70 +2,45 @@
     "samples": [
         {
             "party": {
-                "vkey": "43672c4cbd485b4c49791f96d1388afd6f6e361a9abdb1d75b6856b4e6701177"
+                "vkey": "3225bf6c2d48d43472f7b7f5582db51190686df86b4d63ef4d52d21d6cc1e8e1"
             },
-            "signature": "93ccf23947af949af75057b04327c6214c1e729d4d29a1215f65774cf07d7b93d962ef626e5a0e2c3e7f8bbf1b3ffcb679389857b2876352be68d97f5f188a05",
+            "signature": "84401b452ee8a46af3d863ece1898aed5041c599ec8788bb93f6f25653d93605ac05a1e4641fded0c335cc88a6a1090e6a6a1bf6c3a337c16677c8522898c306",
             "snapshot": {
-                "confirmed": [
-                    {
-                        "cborHex": "84af00d90102818258208e4e6204c37ee053257f95f68407395e86a855e20131c06145c9080ac8ed2f270012d90102818258201cb935b6c4e68013b70afbc3d82f9add5472cada0fc9cc839b59c8831835ac0900018010a400585782d818584d83581ca9a5276a03a7bede26c4986b6d9a5172b51ee842a4780db274626d2da201582258206c6f6e616f717474766d6d6e6c6a756874697669696f6b767a6d61626b78746802451a0ff7b078021adcff009101821b4ccc0f5e4dfb74d4a1581c106395182bb236642c157aa055cac946709bac865cc2f5e6b1187680a15818076d2121aa245e96ad9aa45dd7b6a124709dd08d364c8be21b23959a263f92d79e028201d818587dd87a9f9f809f0041dcffa4224323cbde2044e65c69a02002418b41639f0142f3b620ff02ff4103a49f42949b42650aff4024d8799f02ffa30042aa01240040009f447a7b1e6c0244fbce389843b70f2840ff9f0505ffa42404040040050440a2d87e9f417a244021ffa043ddf094d8799f4042cc0f20447dd047d3ffff03d818458200820280111a0006858e021a00087ee3030104d901028184108200581c51f46c4976d38e61a59597f8427bb072f2c47a5b541c1b1538d0734f1a000df78682783168747470733a2f2f646a79367a6a3941686b745267446972666768466f6a6636656344566d6c562d59554d58632e636f6d5820e194cf9b862518ba6787c64cb0c1e05678cef49c8d9f859b141765707c66b6f409a1581cc266b6c604fb3ff4804572f46789a9294fbf937ae63872cae7d9f8cda1582038cc5443fc7cb5bba4189350f76ea5af620fdd5c49362e9138d7b5445de6fdab1b29c9f2ab118e78540b582039515fab92cba992e33b1e89b159debd4e95c78a3eac721f167eec13edca01d207582021da6807edece5f5885cea79ede78f57c39764279be37e4943ebccb9bb1475bf0f0014d9010281841a00076e02581df1c2c70c55ec86db9d3b2fce97c5209ac0bf4d5cfa48d4c699cc2d7adf830582582054eb27f3fb55a850807ec3dfabfc67b0b7beb89a3dce2b72071bb33b3343679f0082826f68747470733a2f2f35622d2e636f6d58204134f8663a093c10fe1cbaea2d23066ebfbf93ad775ba04dc1bbc612870feb12f682782e68747470733a2f2f572d332e327857536c5142764137765030476847416e4167566e63576a73667241412e636f6d582071c00088ec440874a48d44f38d8015b89b2318968359ab9c6d76d3a1eeebf8f0151a00015d2016193051a201d90102818200581c4404bee063242102a35f331ca5f31f5cce670fd9d2bc535d384a49b204d9010281d87e9f42e73e04a2a09f41c7422219234384e8adff9f4435a7427924030521ff02a1a22342b54e41ef0242be5404fff5d90103a100a10040",
-                        "description": "",
-                        "txId": "cf45e25c0b3e407c3b4f291b07def6d2046a123de7924351c85e9661d72dd629",
-                        "type": "Tx ConwayEra"
-                    }
-                ],
-                "headId": "00000100010100000100010101000001",
+                "accumulator": "a2582074df23a10f0a0f46a77720c5ba206548f414f1ab33f6e1324deefd5dc882549f82581c800bbdc5d888de38a2b2d52a295808b0bd9f7f735cf60adb260c0c35015820adc9f262d631535ca8ac9c3066c1ee254579c3f2b1cf31165d8fba589ded42d582581cb810aa24b857b086fcdec970239b62edaea5ea8505ebdd807c5b268901",
+                "confirmed": [],
+                "headId": "01010000010100010000010000000100",
                 "number": 1,
                 "utxo": {
-                    "0001010001010001010100000101000100010101000000000001010001010000#27": {
-                        "address": "addr_test1yp2ufplh0h247qqk6kruuynph790eta4x8agw6uxlxztnv65g2z68ghst8jjycnhkzjph4djduywr2vl2uk7k86dwvtsff9ahx",
+                    "0101010100010101010000000000010001010100010100000000010100010001#49": {
+                        "address": "addr_test1wq2fuq4c8zy5eyrfxzvnfx005fzucl92wmvhkewv950aw5q8q75pw",
                         "datum": null,
-                        "datumhash": "37fbbc0340e6af08f309e21fd6f0a0b472454b761433abb9c8fa87502554ec17",
+                        "datumhash": null,
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "820401",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
+                        "referenceScript": null,
                         "value": {
-                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                                "32": 9037098053186049560
-                            },
-                            "lovelace": 5978688693063840705
+                            "lovelace": 849070
                         }
                     }
                 },
                 "utxoToCommit": {
-                    "0001000000010101000001010100000101000001000100010000010000000100#14": {
-                        "address": "addr1wxyphs9a4m93pr02wrntuzw9vpx9md8jczkw035juvw3afga5d53e",
+                    "0100010101010101000101010101010100010100010000010001000000000101#55": {
+                        "address": "addr_test1yrqxxkqct4aql650nrswhsszkm6s4eqkx80hqm4kug8vfl8j32edw07vrrlcwr5namtq70sfyzldgmy96peak2qtn0vqh7ergm",
                         "datum": null,
-                        "datumhash": "37e675669f575b5aa09b4a4e8a82d62c2a19c86ffb356d820196073536dc9442",
+                        "datumhash": null,
                         "inlineDatum": null,
                         "inlineDatumRaw": null,
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "820501",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
+                        "referenceScript": null,
                         "value": {
-                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
-                                "d2703122b81040ffcad60474bc2bf1f1635bd0c9a4fdc6a242": 1
-                            }
+                            "lovelace": 45000000000000000
                         }
                     }
                 },
                 "utxoToDecommit": null,
-                "version": 0
+                "version": 1
             },
             "tag": "PartySignedSnapshot"
         }
     ],
-    "seed": 1197505237
+    "seed": -195047830
 }

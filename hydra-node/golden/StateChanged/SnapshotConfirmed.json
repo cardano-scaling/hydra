@@ -1,21 +1,60 @@
 {
     "samples": [
         {
-            "headId": "01000001000001010001010101000001",
+            "headId": "01010100000001010101010101000001",
             "signatures": {
-                "multiSignature": []
+                "multiSignature": [
+                    "0dacba1a414dfec2d4151e555a9dd730aaf88bfc408b6ef2d9017e2f76bc3c29a888f518ed1d5c5e5e97dbb3078ea6ea20f48f89cb2d7469da9d47d85e868a09"
+                ]
             },
             "snapshot": {
+                "accumulator": "a358201159aa6c77061c0fd52e1ee89d241e141e768a117d193d8a0850a544ec94564482581ca6219c5e0bcea0d75ad418e43b688773d79688b1c7923e84d81d537501582095bb120f9422e46b91c283a9a06d5a3248b7bd243d660c790fea3e1bf9bca06c82581c90463f766a7369260fd57fd9998e57ab03885bf093b4d996568da164015820a6e3ed826f872488276618e746e36e6dcfeea9fa3e726833cd6b4426aba78ae382581c3107df8dc0e529eba557feee3e16f62bab88a28538fafec86fe99f6b01",
                 "confirmed": [],
-                "headId": "00010000000001010001000101010101",
-                "number": 0,
-                "utxo": {},
-                "utxoToCommit": null,
-                "utxoToDecommit": null,
-                "version": 1
+                "headId": "01010100000001010101010001010101",
+                "number": 1,
+                "utxo": {
+                    "0001000001000100010000000001000001000101010001000100000000000100#66": {
+                        "address": "addr_test1ypa0qmm7h07pe0pae3mw475kgsmxmkttcamunce3qtww39czj8xthkm0u2a04vpufalg8m679w807lsyq5kf92hqarwskx3qup",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                },
+                "utxoToCommit": {
+                    "0001010100000100000101010100000000010000010000010001010101010101#93": {
+                        "address": "addr_test1zrlsn3ltxlnmxredgpryk52zguzkx50ra3v2tfgfvqkr3ag9adz75gu78eg97z62dcfdqq59x7vtfwrwl72ts9g36xdqkjrq3s",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                },
+                "utxoToDecommit": {
+                    "0000010001010101010100010001010101000100000100000100010000010000#90": {
+                        "address": "addr_test1qpn9s9ukdksewae7cy2azfvkfcwxy09g67wy3tpfdzksn26fft0p6cvkxcmm55xutxfmhq08da2stls5wgwve5fwrlsqjakgl2",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                },
+                "version": 0
             },
             "tag": "SnapshotConfirmed"
         }
     ],
-    "seed": -963847763
+    "seed": -1086421188
 }

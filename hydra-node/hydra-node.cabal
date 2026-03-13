@@ -120,7 +120,6 @@ library
     , cardano-crypto-wrapper
     , cardano-ledger-alonzo
     , cardano-ledger-api
-    , cardano-ledger-babbage
     , cardano-ledger-binary
     , cardano-ledger-byron
     , cardano-ledger-conway
@@ -154,6 +153,7 @@ library
     , ouroboros-consensus
     , ouroboros-network-api        >=0.7.1
     , ouroboros-network-protocols  >=0.8
+    , plutus-ledger-api
     , process
     , prometheus
     , QuickCheck
@@ -351,7 +351,6 @@ test-suite tests
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
-    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
@@ -427,7 +426,6 @@ test-suite tests
     , directory
     , filepath
     , generic-lens
-    , haskell-accumulator
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson

@@ -24,6 +24,7 @@ data ScriptRegistry = ScriptRegistry
   { initialReference :: (TxIn, TxOut CtxUTxO)
   , commitReference :: (TxIn, TxOut CtxUTxO)
   , headReference :: (TxIn, TxOut CtxUTxO)
+  , crsReference :: (TxIn, TxOut CtxUTxO)
   }
   deriving stock (Eq, Show, Generic)
 
@@ -59,7 +60,8 @@ newScriptRegistry =
     initialReference <- lookupScriptHash "νInitial" initialScriptHash m
     commitReference <- lookupScriptHash "νCommit" commitScriptHash m
     headReference <- lookupScriptHash "νHead" headScriptHash m
-    pure $ ScriptRegistry{initialReference, commitReference, headReference}
+    crsReference <- lookupScriptHash "νCRS" crsScriptHash m
+    pure $ ScriptRegistry{initialReference, commitReference, headReference, crsReference}
 
   lookupScriptHash :: Text -> ScriptHash -> Map ScriptHash (TxIn, TxOut CtxUTxO) -> Either NewScriptRegistryException (TxIn, TxOut CtxUTxO)
   lookupScriptHash name sh m =
@@ -71,6 +73,7 @@ newScriptRegistry =
     { initialScriptHash
     , commitScriptHash
     , headScriptHash
+    , crsScriptHash
     } = hydraScriptCatalogue
 
 -- | Get the UTxO that corresponds to a script registry.
@@ -80,10 +83,11 @@ newScriptRegistry =
 --     newScriptRegistry (registryUTxO r) === Just r
 registryUTxO :: ScriptRegistry -> UTxO
 registryUTxO scriptRegistry =
-  UTxO.fromList [initialReference, commitReference, headReference]
+  UTxO.fromList [initialReference, commitReference, headReference, crsReference]
  where
   ScriptRegistry
     { initialReference
     , commitReference
     , headReference
+    , crsReference
     } = scriptRegistry

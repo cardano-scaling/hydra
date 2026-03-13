@@ -131,6 +131,12 @@ data StateChanged tx
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, utxo :: UTxOType tx, chainState :: ChainStateType tx}
+  | HeadPartialFannedOut
+      { headId :: HeadId
+      , distributedUTxO :: UTxOType tx
+      , remainingUTxO :: UTxOType tx
+      , chainState :: ChainStateType tx
+      }
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainPoint :: ChainPointType tx}
   | IgnoredHeadInitializing

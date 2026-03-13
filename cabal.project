@@ -17,6 +17,21 @@ index-state:
 
 packages: **/*.cabal
 
+source-repository-package
+  type: git
+  location: https://github.com/IntersectMBO/cardano-api.git
+  tag: b29f11dfc19a81127a22962aa3f150eb88a83a60
+  subdir:
+    cardano-api
+    cardano-api-gen
+
+source-repository-package
+  type: git
+  location: https://github.com/cardano-scaling/plutus-accumulator.git
+  tag: f1ecb84d2d5f9ae4fc1f109c376eaaab53d0f052
+  subdir:
+    plutus-accumulator
+
 -- Compile more things in parallel
 package *
   ghc-options: -j8

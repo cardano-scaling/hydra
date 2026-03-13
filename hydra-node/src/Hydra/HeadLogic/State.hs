@@ -210,6 +210,9 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
+  , remainingFanoutUTxO :: Maybe (UTxOType tx)
+  -- ^ Tracks remaining UTxOs to fan out after partial fanouts.
+  -- Nothing means no partial fanout has occurred yet.
   }
   deriving stock (Generic)
 
