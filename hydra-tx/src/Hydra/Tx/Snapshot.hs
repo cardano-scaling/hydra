@@ -108,7 +108,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxo" .= utxo
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
-      , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
+      , "accumulator" .= String (decodeUtf8 $ Base16.encode $ toStrict $ serialise $ Accumulator.unHydraAccumulator accumulator)
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where

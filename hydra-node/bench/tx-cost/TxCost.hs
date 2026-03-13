@@ -37,7 +37,9 @@ import Hydra.Chain.Direct.State (
   unsafeContest,
   unsafeFanout,
   unsafeObserveInitAndCommits,
+  unsafePartialFanout,
  )
+import Hydra.HeadLogic (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Ledger.Cardano.Evaluate (
   usedExecutionUnits,
  )
@@ -276,6 +278,51 @@ computeFanOutCost = do
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
     pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+
+-- | Compute costs of partial fanout transactions across a range of total UTxO
+-- set sizes.
+--
+-- For each total UTxO count N (where N > 'fanoutOutputThreshold'), we build one
+-- partial fanout that distributes exactly 'fanoutChunkSize' outputs and keeps
+-- the rest. The tx size grows with the total UTxO count because the
+-- accumulator serialisation stored in the output datum grows linearly with
+-- remaining UTxO count, making this the binding constraint.
+computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+computePartialFanOutNominalCost = do
+  interesting <- catMaybes <$> mapM compute [fanoutOutputThreshold + 1, 25, 30, 40, 50, 75, 100]
+  limit <-
+    maybeToList . getFirst
+      <$> foldMapM
+        (fmap First . compute)
+        [500, 499 .. fanoutOutputThreshold + 1]
+  pure $ interesting <> limit
+ where
+  numberOfParties = 3
+
+  compute totalUTxO = do
+    let numToDistribute = min fanoutChunkSize totalUTxO
+        numRemaining = totalUTxO - numToDistribute
+    utxo <- genUTxOAdaOnlyOfSize totalUTxO
+    ctx <- genHydraContextFor numberOfParties
+    (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty []
+    cctx <- pickChainContext ctx
+    let cp = ctxContestationPeriod ctx
+    (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
+        stClosed = snd . fromJust $ observeClose stOpen closeTx
+        deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+        spendableUTxO = getKnownUTxO stClosed <> getKnownUTxO cctx
+        allPairs = UTxO.toList utxo
+        (toDistributePairs, remainingPairs) = splitAt numToDistribute allPairs
+        utxoToDistribute = UTxO.fromList toDistributePairs
+        utxoRemaining = UTxO.fromList remainingPairs
+        tx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
+    case checkSizeAndEvaluate tx spendableUTxO of
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
+      Nothing ->
+        pure Nothing
 
 newtype NumParties = NumParties Int
   deriving newtype (Eq, Show, Ord, Num, Real, Enum, Integral)
