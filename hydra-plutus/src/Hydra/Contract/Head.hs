@@ -150,6 +150,11 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
+  -- TODO: This is not as flexible as it could be and rejects deposits that are
+  -- smaller than what the deposit output's min utxo value is. For example: a 1
+  -- ADA utxo can be deposited, but the deposit tx's output will require ~1.5
+  -- ADA because of the inline datum on it. An increment of that deposit will
+  -- fail because the sum here is not exact.
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue <> depositValue == headOutValue

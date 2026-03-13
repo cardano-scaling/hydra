@@ -194,7 +194,7 @@ oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
     chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] timing
       <&> setNetworkId networkId
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
     withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
       withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         -- Init & open head
@@ -268,7 +268,7 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
       waitForAllMatch 10 [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
 
     -- n1 does a deposit while n2 is down
-    depositUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+    depositUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
     depositTx <- requestCommitTx n1 depositUTxO
     Backend.submitTransaction backend depositTx
     waitFor hydraTracer 10 [n1] $
@@ -1624,7 +1624,7 @@ rejectDeposit tracer workDir backend hydraScriptsTxId =
 
       -- Get some L1 funds
       (walletVk, _) <- generate genKeyPair
-      commitUTxO' <- seedFromFaucet backend walletVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+      commitUTxO' <- seedFromFaucet backend walletVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
       TxOut _ _ _ refScript <- generate genTxOutWithReferenceScript
       datum <- generate genDatum
       let commitUTxO :: UTxO =
@@ -2039,7 +2039,7 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
     withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
       -- Carol starts its node misconfigured
       let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
@@ -2207,10 +2207,10 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
         -- Carol deposits something
-        carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+        carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
         depositTx <- requestCommitTx n3 carolUTxO
         Backend.submitTransaction backend depositTx
-        waitFor hydraTracer (20 * blockTime) [n1, n2, n3] $
+        waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
           output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
         pure headId
@@ -2298,7 +2298,7 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
 
         -- N1 & N3 deposit the same thing at the same time
         -- XXX: one will fail but the head will still be usable
-        aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+        aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
         raceLabelled_
           ( "request-commit-tx-n1"
           , (requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
@@ -2310,7 +2310,7 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
           )
 
         -- N2 deposits something
-        bobUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 1_000_000) (contramap FromFaucet tracer)
+        bobUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
         depositTx <- requestCommitTx n2 bobUTxO
         Backend.submitTransaction backend depositTx
 
