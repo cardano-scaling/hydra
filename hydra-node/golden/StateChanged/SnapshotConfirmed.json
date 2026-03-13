@@ -3,7 +3,9 @@
         {
             "headId": "00010000000100010001000001010101",
             "signatures": {
-                "multiSignature": []
+                "multiSignature": [
+                    "0dacba1a414dfec2d4151e555a9dd730aaf88bfc408b6ef2d9017e2f76bc3c29a888f518ed1d5c5e5e97dbb3078ea6ea20f48f89cb2d7469da9d47d85e868a09"
+                ]
             },
             "snapshot": {
                 "confirmed": [],
