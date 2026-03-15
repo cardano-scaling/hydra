@@ -12,23 +12,23 @@ import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
 import Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import Data.ByteString qualified as BS
+import Control.Concurrent.STM (newTChanIO)
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
   Key (KChar, KEnter),
   Output (..),
   Vty (..),
-  defaultConfig,
   displayContext,
   initialAssumedState,
   outputPicture,
-  shutdownInput,
  )
 import Graphics.Vty.Config (userConfig)
 import Graphics.Vty.Image (DisplayRegion)
-import Graphics.Vty.Platform.Unix.Input (buildInput)
+import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
-import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
+import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..), currentTerminalName)
+import System.Posix.IO (stdOutput)
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (
@@ -424,16 +424,36 @@ withTUITest region action = do
   findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
 
   buildVty q frameBuffer = do
-    input <- buildInput defaultConfig =<< defaultSettings
+    -- NOTE(SN): We use a dummy input since events come from the test queue.
+    -- buildInput would try to attach to stdin and fail in non-interactive envs.
+    dummyEventChan <- newTChanIO
+    let input =
+          Input
+            { eventChannel = dummyEventChan
+            , shutdownInput = pure ()
+            , restoreInputState = pure ()
+            , inputLogMsg = \_ -> pure ()
+            }
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
     as <- newIORef initialAssumedState
     -- NOTE(SN): The null device should allow using this in CI, while we do
     -- capture the output via `outputByteBuffer` anyway.
+    -- We construct UnixSettings manually to avoid defaultSettings calling
+    -- flushStdin, which throws hWaitForInput EOF in non-interactive environments.
     nullFd <- openFd "/dev/null" WriteOnly defaultFileFlags
+    termName <- fromMaybe "xterm" <$> currentTerminalName
+    let settings =
+          UnixSettings
+            { settingVmin = 1
+            , settingVtime = 100
+            , settingInputFd = nullFd
+            , settingOutputFd = stdOutput
+            , settingTermName = termName
+            }
     userCfg <- userConfig
-    realOut <- buildOutput userCfg =<< defaultSettings
+    realOut <- buildOutput userCfg settings
     closeFd nullFd
     let output = testOut realOut as frameBuffer
     pure $
@@ -452,7 +472,7 @@ withTUITest region action = do
             dc <- displayContext output region
             outputPicture dc p
         , refresh = pure ()
-        , shutdown = shutdownInput input
+        , shutdown = pure ()
         , isShutdown = pure True
         }
 
