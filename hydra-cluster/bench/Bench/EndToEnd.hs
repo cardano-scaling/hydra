@@ -20,7 +20,7 @@ import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
-import Data.Aeson.Types (parseEither)
+import Data.Aeson.Types (parseEither, parseMaybe)
 import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -34,7 +34,7 @@ import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Scenarios (EndToEndLog (..))
-import Hydra.Cluster.Util (Timing (..))
+import Hydra.Cluster.Util (Timing (..), depositTimeout)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Logging (
   Tracer,
@@ -87,7 +87,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
           let hydraTracer = contramap FromHydraNode tracer
-          let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 20 * blockTime}
+          let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 50 * blockTime}
           putStrLn $ "Timing: " <> show timing
           withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
@@ -174,11 +174,14 @@ scenario hydraTracer timing backend workDir Dataset{clientDatasets, title, descr
   depositTxs <- commitUTxO backend clients clientDatasets
 
   putTextLn $ "Waiting for deposits to finalize: " <> show (txId <$> depositTxs)
-  forM_ depositTxs $ \depositTx ->
-    waitForAllMatch (6 * fromIntegral depositPeriod * fromIntegral clusterSize) clients $ \v -> do
+  -- NOTE: Need to wait for any CommitFinalized and only assert ids after as
+  -- waitForAllMatch skips over messages otherwise.
+  deposits <- replicateM (length depositTxs) $
+    waitForAllMatch (depositTimeout timing * fromIntegral clusterSize) clients $ \v -> do
       guard $ v ^? key "tag" == Just "CommitFinalized"
       guard $ v ^? key "headId" == Just (toJSON headId)
-      guard $ v ^? key "depositTxId" == Just (toJSON (txId depositTx))
+      v ^? key "depositTxId" >>= parseMaybe parseJSON
+  Set.fromList deposits `shouldBe` Set.fromList (txId <$> depositTxs)
 
   putTextLn "HeadIsOpen with deposits finalized"
   processedTransactions <- processTransactions clients clientDatasets
@@ -241,7 +244,7 @@ scenario hydraTracer timing backend workDir Dataset{clientDatasets, title, descr
       , numberOfFanoutOutputs
       }
  where
-  Timing{blockTime, depositPeriod} = timing
+  Timing{blockTime} = timing
 
 defaultDescription :: Text
 defaultDescription = ""
