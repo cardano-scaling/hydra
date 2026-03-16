@@ -8,9 +8,12 @@ import Test.Hydra.Prelude
 
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
+import Cardano.Slotting.EpochInfo (EpochInfo, epochInfoSlotToRelativeTime, fixedEpochInfo, hoistEpochInfo)
+import Cardano.Slotting.Time (RelativeTime (..), mkSlotLength)
 import Data.Aeson (eitherDecode, encode)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key)
+import Data.SOP.NonEmpty (NonEmpty (NonEmptyCons, NonEmptyOne))
 import Data.Text (unpack)
 import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Pretty (renderTx)
@@ -18,6 +21,20 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (cardanoLedger)
+import Ouroboros.Consensus.Block (GenesisWindow (..))
+import Ouroboros.Consensus.Cardano.Block (CardanoEras)
+import Ouroboros.Consensus.HardFork.History (
+  Bound (..),
+  EraEnd (..),
+  EraParams (..),
+  EraSummary (..),
+  SafeZone (..),
+  Summary (Summary),
+  initBound,
+  mkInterpreter,
+ )
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
+import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Gen.Cardano.Api.Typed (genChainPoint)
@@ -42,6 +59,76 @@ spec :: Spec
 spec =
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @AssetName)
+
+    describe "EpochInfo" $ do
+      it "fixedEpochInfo gives wrong slot-to-time for multi-era chains" $ do
+        -- On a real chain (mainnet/testnet), Byron era has 20s slots and
+        -- Shelley+ has 1s slots. fixedEpochInfo uses a single slot length,
+        -- which produces wrong POSIXTime conversions for Plutus scripts.
+        let
+          -- Byron era: 21600 slots per epoch, 20s per slot, runs for 208 epochs
+          byronSlots = 21600 * 208 -- 4,492,800 slots
+          byronSecondsPerSlot = 20
+          byronDuration = byronSlots * byronSecondsPerSlot -- seconds
+          -- A slot well into the Shelley era (1s slots)
+          testSlot = SlotNo (byronSlots + 1000)
+          -- Expected time: byron duration + 1000 seconds (1s per Shelley slot)
+          expectedRelativeTime = byronDuration + 1000
+
+          -- What fixedEpochInfo computes (assumes 1s slots from genesis):
+          fixedRelativeTime = unSlotNo testSlot -- 4,493,800 seconds
+
+        -- The multi-era EpochInfo should give a different (correct) time
+        -- than fixedEpochInfo. fixedEpochInfo assumes all slots are 1s,
+        -- but the Byron slots were actually 20s each.
+        expectedRelativeTime `shouldNotBe` fixedRelativeTime
+
+        -- The actual time via era-aware interpreter
+        let eraHistory = multiEraHistory
+            EraHistory interpreter = eraHistory
+        case Consensus.interpretQuery interpreter (Consensus.slotToWallclock testSlot) of
+          Left err -> expectationFailure $ "Failed to query era history: " <> show err
+          Right (relTime, _slotLen) -> do
+            -- Era-aware gives the correct time (byron duration + 1000s)
+            relTime `shouldBe` RelativeTime (fromIntegral expectedRelativeTime)
+            -- This differs from what fixedEpochInfo would compute
+            relTime `shouldNotBe` RelativeTime (fromIntegral fixedRelativeTime)
+
+      it "fixedEpochInfo causes wrong Globals for L2 Plutus evaluation on mainnet" $ do
+        -- This test demonstrates the actual bug: Globals constructed with
+        -- fixedEpochInfo (as in newGlobals) will have a different epochInfo
+        -- than Globals constructed with the correct era-aware EpochInfo.
+        -- When Ledger.applyTx evaluates Plutus scripts, it uses
+        -- Globals.epochInfo to convert slot numbers to POSIXTime in the
+        -- ScriptContext. With the wrong epochInfo, time-sensitive Plutus
+        -- scripts (like Close, Contest, Fanout) receive incorrect time values.
+        let shelleySlotLength = mkSlotLength 1
+            shelleyEpochSize = EpochSize 432000
+            -- This is what newGlobals currently does (wrong for multi-era):
+            fixedEI = fixedEpochInfo shelleyEpochSize shelleySlotLength
+            -- This is what it should do (correct for multi-era):
+            EraHistory interpreter = multiEraHistory
+            eraAwareEI :: EpochInfo (Either Text)
+            eraAwareEI =
+              hoistEpochInfo (first show . runExcept) $
+                Consensus.interpreterToEpochInfo interpreter
+            -- A slot in the Shelley era
+            testSlot = SlotNo 5000000
+
+        -- The two Globals will produce different results when the ledger
+        -- converts slots to POSIXTime for Plutus script evaluation.
+        -- We verify the epochInfos disagree on the time for the test slot.
+        let fixedResult = epochInfoSlotToRelativeTime fixedEI testSlot :: Either Text RelativeTime
+            eraAwareResult = epochInfoSlotToRelativeTime eraAwareEI testSlot :: Either Text RelativeTime
+        case (fixedResult, eraAwareResult) of
+          (Left err, _) -> expectationFailure $ "Fixed epochInfo failed: " <> show err
+          (_, Left err) -> expectationFailure $ "Era-aware epochInfo failed: " <> show err
+          (Right fixedTime, Right eraTime) -> do
+            -- fixedEpochInfo says: slot 5000000 * 1s = 5000000s from system start
+            fixedTime `shouldBe` RelativeTime 5000000
+            -- Era-aware says: byron(4492800 slots * 20s) + shelley(507200 slots * 1s)
+            --               = 89856000 + 507200 = 90363200s
+            eraTime `shouldNotBe` fixedTime
 
     -- XXX: Move API conformance tests to API specs and add any missing ones
     describe "UTxO" $ do
@@ -196,3 +283,63 @@ propGeneratesGoodTxOut txOut =
       case cred of
         KeyHashObj{} -> False
         ScriptHashObj{} -> True
+
+-- | A realistic multi-era 'EraHistory' mimicking mainnet/testnet where:
+-- - Byron era: 21600 slots/epoch, 20s/slot, runs for 208 epochs (4,492,800 slots)
+-- - Shelley+ era: 432000 slots/epoch, 1s/slot, open-ended
+--
+-- This causes slot-to-time conversions to differ from a simple fixedEpochInfo
+-- because Byron slots are 20x longer than Shelley slots.
+multiEraHistory :: EraHistory
+multiEraHistory =
+  EraHistory (mkInterpreter summary)
+ where
+  byronSlotsPerEpoch = 21600
+  byronEpochs = 208
+  byronSlots = byronSlotsPerEpoch * byronEpochs -- 4,492,800
+  byronSlotLength = mkSlotLength 20
+  byronDurationSeconds = fromIntegral byronSlots * 20 -- 89,856,000 seconds
+  summary :: Summary (CardanoEras StandardCrypto)
+  summary =
+    Summary $
+      NonEmptyCons
+        byronEra
+        ( NonEmptyOne shelleyEra
+        )
+
+  byronEra =
+    EraSummary
+      { eraStart = initBound
+      , eraEnd =
+          EraEnd
+            Bound
+              { boundTime = RelativeTime byronDurationSeconds
+              , boundSlot = SlotNo byronSlots
+              , boundEpoch = EpochNo byronEpochs
+              }
+      , eraParams =
+          EraParams
+            { eraEpochSize = EpochSize byronSlotsPerEpoch
+            , eraSlotLength = byronSlotLength
+            , eraSafeZone = StandardSafeZone (2 * byronSlotsPerEpoch)
+            , eraGenesisWin = GenesisWindow (2 * byronSlotsPerEpoch)
+            }
+      }
+
+  shelleyEra =
+    EraSummary
+      { eraStart =
+          Bound
+            { boundTime = RelativeTime byronDurationSeconds
+            , boundSlot = SlotNo byronSlots
+            , boundEpoch = EpochNo byronEpochs
+            }
+      , eraEnd = EraUnbounded
+      , eraParams =
+          EraParams
+            { eraEpochSize = EpochSize 432000
+            , eraSlotLength = mkSlotLength 1
+            , eraSafeZone = UnsafeIndefiniteSafeZone
+            , eraGenesisWin = GenesisWindow 432000
+            }
+      }

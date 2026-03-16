@@ -4,24 +4,17 @@ import Hydra.Prelude hiding (fromList)
 
 import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff, unNonZero)
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
-import Cardano.Slotting.EpochInfo (fixedEpochInfo)
+import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
+import Control.Monad.Trans.Except (runExcept)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
-import Hydra.Cardano.Api (
-  GenesisParameters (..),
-  LedgerEra,
-  PParams,
-  ProtocolParametersConversionError,
-  ShelleyEra,
-  SystemStart (..),
-  Tx,
-  toShelleyNetwork,
- )
+import Hydra.Cardano.Api (EraHistory (EraHistory), GenesisParameters (..), LedgerEra, PParams, ProtocolParametersConversionError, ShelleyEra, SystemStart (..), Tx, toShelleyNetwork)
 import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
-import Hydra.Chain.Backend (ChainBackend (queryGenesisParameters))
+import Hydra.Chain.Backend (ChainBackend (queryEraHistory, queryGenesisParameters))
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Cardano (withCardanoChain)
+import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Chain.Direct.State (initialChainState)
@@ -62,6 +55,7 @@ import Hydra.Options (
  )
 import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
+import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
 
 data ConfigurationException
@@ -182,13 +176,21 @@ run opts = do
 getGlobalsForChain :: ChainConfig -> IO Globals
 getGlobalsForChain = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
+    -- Offline/devnet: single era, fixedEpochInfo is correct
     loadGenesisFile ledgerGenesisFile
       >>= newGlobals
   Cardano CardanoChainConfig{chainBackendOptions} ->
+    -- Online mode: query era history from the chain for correct
+    -- slot-to-time conversions in Plutus script evaluation.
     case chainBackendOptions of
-      Direct directOptions -> queryGenesisParameters (DirectBackend directOptions)
-      Blockfrost blockfrostOptions -> queryGenesisParameters (BlockfrostBackend blockfrostOptions)
-      >>= newGlobals
+      Direct directOptions -> globalsFromBackend (DirectBackend directOptions)
+      Blockfrost blockfrostOptions -> globalsFromBackend (BlockfrostBackend blockfrostOptions)
+ where
+  globalsFromBackend :: ChainBackend b => b -> IO Globals
+  globalsFromBackend b = do
+    genesis <- queryGenesisParameters b
+    eraHistory <- queryEraHistory b QueryTip
+    newGlobalsWithEraHistory genesis eraHistory
 
 data GlobalsTranslationException = GlobalsTranslationException
   deriving stock (Eq, Show)
@@ -231,6 +233,46 @@ newGlobals genesisParameters = do
     , protocolParamEpochLength
     , protocolParamSlotLength
     } = genesisParameters
-  -- NOTE: uses fixed epoch info for our L2 ledger
+  -- NOTE: uses fixed epoch info for our L2 ledger (only correct for devnet/offline)
   epochInfo = fixedEpochInfo protocolParamEpochLength slotLength
   slotLength = mkSlotLength protocolParamSlotLength
+
+-- | Create new L2 ledger 'Globals' using a proper 'EraHistory' for era-aware
+-- slot-to-time conversions. This ensures Plutus scripts receive correct
+-- POSIXTime values in their ScriptContext on multi-era chains (mainnet/testnet).
+--
+-- Throws at least 'GlobalsTranslationException'
+newGlobalsWithEraHistory :: MonadThrow m => GenesisParameters ShelleyEra -> EraHistory -> m Globals
+newGlobalsWithEraHistory genesisParameters (EraHistory interpreter) = do
+  case mkActiveSlotCoeff <$> boundRational protocolParamActiveSlotsCoefficient of
+    Nothing -> throwIO GlobalsTranslationException
+    Just slotCoeff -> do
+      let k = unNonZero protocolParamSecurity
+      pure $
+        Globals
+          { activeSlotCoeff = slotCoeff
+          , epochInfo = eraAwareEpochInfo
+          , maxKESEvo = fromIntegral protocolParamMaxKESEvolutions
+          , maxLovelaceSupply = fromIntegral protocolParamMaxLovelaceSupply
+          , networkId = toShelleyNetwork protocolParamNetworkId
+          , quorum = fromIntegral protocolParamUpdateQuorum
+          , randomnessStabilisationWindow = computeRandomnessStabilisationWindow k slotCoeff
+          , securityParameter = protocolParamSecurity
+          , slotsPerKESPeriod = fromIntegral protocolParamSlotsPerKESPeriod
+          , stabilityWindow = computeStabilityWindow k slotCoeff
+          , systemStart = SystemStart protocolParamSystemStart
+          }
+ where
+  GenesisParameters
+    { protocolParamSlotsPerKESPeriod
+    , protocolParamUpdateQuorum
+    , protocolParamMaxLovelaceSupply
+    , protocolParamSecurity
+    , protocolParamActiveSlotsCoefficient
+    , protocolParamSystemStart
+    , protocolParamNetworkId
+    , protocolParamMaxKESEvolutions
+    } = genesisParameters
+  eraAwareEpochInfo =
+    hoistEpochInfo (first show . runExcept) $
+      Consensus.interpreterToEpochInfo interpreter
