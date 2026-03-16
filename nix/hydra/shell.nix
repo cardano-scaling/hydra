@@ -43,6 +43,7 @@
         pkgs.weeder
         pkgs.yarn
         pkgs.yq
+        pkgs.nix-fast-build
       ];
 
       libs = [
