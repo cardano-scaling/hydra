@@ -1517,11 +1517,11 @@ spec =
             step tickInput
             getState
 
-          -- Verify deposit is now active and currentDepositTxId is Nothing still
-          -- (it gets set only when ReqSn is processed)
+          -- Verify deposit is now active and currentDepositTxId is eagerly set
+          -- (DepositActivated now sets it immediately)
           case headState s2 of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
-              currentDepositTxId `shouldBe` Nothing
+              currentDepositTxId `shouldBe` Just depositTxId
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 3: Process ReqSn with the deposit (as if received from network)
@@ -1530,7 +1530,7 @@ spec =
             step reqSnWithDeposit
             getState
 
-          -- Verify currentDepositTxId is now set
+          -- Verify currentDepositTxId is still set
           case headState s3 of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
               currentDepositTxId `shouldBe` Just depositTxId

@@ -1953,7 +1953,10 @@ aggregateNodeState nodeState sc =
                     os
                       { coordinatedHeadState =
                           chs
-                            { currentDepositTxId = chs.currentDepositTxId <|> Just depositTxId
+                            { currentDepositTxId =
+                                if deposit.deposited == mempty
+                                  then chs.currentDepositTxId
+                                  else chs.currentDepositTxId <|> Just depositTxId
                             }
                       }
                 _ -> st
