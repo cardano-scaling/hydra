@@ -1083,7 +1083,6 @@ recoverSnapshotTxs ledger currentSlot headId chs =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainIncrementTx ::
-  IsTx tx =>
   Ledger tx ->
   ChainSlot ->
   OpenState tx ->
@@ -1110,7 +1109,6 @@ onOpenChainIncrementTx ledger currentSlot openState newChainState newVersion dep
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx ::
-  IsTx tx =>
   Ledger tx ->
   ChainSlot ->
   OpenState tx ->

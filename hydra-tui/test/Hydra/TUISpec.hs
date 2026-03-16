@@ -10,9 +10,9 @@ import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
+import Control.Concurrent.STM (newTChanIO)
 import Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import Data.ByteString qualified as BS
-import Control.Concurrent.STM (newTChanIO)
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
@@ -28,7 +28,6 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..), currentTerminalName)
-import System.Posix.IO (stdOutput)
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
 import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (
@@ -57,6 +56,7 @@ import HydraNode (
  )
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import System.Posix.IO (stdOutput)
 import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod

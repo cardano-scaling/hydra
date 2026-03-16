@@ -1407,20 +1407,7 @@ simulatedChainAndNetworkWith initialChainState blockTime networkLatency = do
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
-createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
-createMockNetwork node nodes =
-  Network{broadcast}
- where
-  broadcast msg = do
-    allNodes <- readTVarIO nodes
-    mapM_ (`handleMessage` msg) allNodes
-
-  handleMessage HydraNode{inputQueue} msg =
-    enqueue inputQueue $ mkNetworkInput sender msg
-
-  sender = getParty node
-
--- | Like 'createMockNetwork' but delivers messages after a configurable delay.
+-- | Like the simple mock network but delivers messages after a configurable delay.
 -- When latency > 0, messages are delivered asynchronously so chain events
 -- can arrive before network messages, exposing version race conditions.
 createMockNetworkWithLatency ::

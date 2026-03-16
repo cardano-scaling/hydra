@@ -305,11 +305,12 @@ spec =
           -- State: snapshot #1 in-flight (collecting signatures), deposit Inactive (about to activate).
           -- SeenSnapshot means signatures are being collected — snapshotInFlight returns True for all sn.
           let s0 =
-                (inOpenState' party $
-                  coordinatedHeadState
-                    { seenSnapshot = SeenSnapshot{snapshot = testSnapshot 1 0 [] mempty, signatories = mempty}
-                    , currentDepositTxId = Nothing
-                    })
+                ( inOpenState' party $
+                    coordinatedHeadState
+                      { seenSnapshot = SeenSnapshot{snapshot = testSnapshot 1 0 [] mempty, signatories = mempty}
+                      , currentDepositTxId = Nothing
+                      }
+                )
                   { pendingDeposits =
                       Map.fromList
                         [
