@@ -2024,7 +2024,6 @@ canDecommit tracer workDir backend hydraScriptsTxId =
 -- | Can side load snapshot and resume agreement after a peer comes back online with healthy configuration
 canSideLoadSnapshot :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
-  pendingWith "FIXME: Side-load snapshot interaction with deposits needs rework - snapshot UTxO state is incorrect after deposit+side-load"
   let clients = [Alice, Bob, Carol]
   [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)

@@ -1872,7 +1872,7 @@ aggregate st = \case
       _otherState -> st
   LocalStateCleared{snapshotNumber} ->
     case st of
-      Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
+      Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot, version = currentVersion}} ->
         Open
           os
             { coordinatedHeadState =
@@ -1884,9 +1884,17 @@ aggregate st = \case
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
                       }
-                  ConfirmedSnapshot{snapshot = Snapshot{utxo}} ->
+                  ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
                     coordinatedHeadState
-                      { localUTxO = utxo
+                      { -- NOTE: Include utxoToCommit in localUTxO when the corresponding
+                        -- increment has been finalized on-chain (i.e. the chain-observed
+                        -- version has advanced past the snapshot's version). Without this,
+                        -- a side-loaded deposit snapshot would leave the head unable to
+                        -- spend the deposited UTxO.
+                        localUTxO =
+                          if currentVersion > snapshotVersion
+                            then utxo <> fromMaybe mempty utxoToCommit
+                            else utxo
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
