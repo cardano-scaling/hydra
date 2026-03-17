@@ -74,7 +74,7 @@ import Hydra.Cluster.Scenarios (
   refuelIfNeeded,
   rejectDeposit,
   respendNTimes,
-  restartedNodeCanAbort,
+  restartedNodeCanClose,
   restartedNodeCanObserveCommitTx,
   resumeFromLatestKnownPoint,
   singlePartyHeadFullLifeCycle,
@@ -372,10 +372,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               let firstNodeId = clusterIx * 3
 
-              let contestationPeriod = 2
+              hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
               let hydraTracer = contramap FromHydraNode tracer
 
-              let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+              let timing = mkTestTiming blockTime
               withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
                 waitForNodesConnected hydraTracer 20 nodes
                 let [n1, n2, n3] = toList nodes
@@ -439,10 +439,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             let firstNodeId = clusterIx * 3
 
-            let contestationPeriod = 2
+            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let hydraTracer = contramap FromHydraNode tracer
 
-            let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+            let timing = mkTestTiming blockTime
             withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
               waitForNodesConnected hydraTracer 20 nodes
               let [n1, n2, n3] = toList nodes
@@ -508,7 +508,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 guard $ v ^? key "tag" == Just "HeadIsClosed"
                 guard $ v ^? key "headId" == Just (toJSON headId)
                 snapshotNumber <- v ^? key "snapshotNumber"
-                guard $ snapshotNumber == Aeson.Number 1
+                guard $ snapshotNumber == Aeson.Number 3
                 v ^? key "contestationDeadline" . _JSON
 
               -- Expect to see ReadyToFanout within 3 seconds after deadline
@@ -554,10 +554,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           withHydraScriptsAndBackendRunning tracer tmpDir $
             resumeFromLatestKnownPoint tracer tmpDir
 
-      it "can abort head after restart" $ \tracer -> do
+      it "can close head after restart" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            restartedNodeCanAbort tracer tmpDir
+            restartedNodeCanClose tracer tmpDir
 
       it "can observe a commit tx after a restart, even when a tx happened while down" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
@@ -910,13 +910,12 @@ initAndClose tmpDir tracer clusterIx backend hydraScriptsTxId = do
       hydraKeys = [aliceSk, bobSk, carolSk]
 
   let firstNodeId = clusterIx * 3
-  let contestationPeriod = 2
   let hydraTracer = contramap FromHydraNode tracer
   let nodeSocket' = case Backend.getOptions backend of
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
   blockTime <- Backend.getBlockTime backend
-  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+  let timing = mkTestTiming blockTime
   withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
@@ -1031,13 +1030,12 @@ reachFanoutLimit :: Integer -> ChainBackend backend => FilePath -> Tracer IO End
 reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
 
-  let contestationPeriod = 2
   let hydraTracer = contramap FromHydraNode tracer
   let nodeSocket' = case Backend.getOptions backend of
         Direct DirectOptions{nodeSocket} -> nodeSocket
         _ -> error "Unexpected Blockfrost backend"
   blockTime <- Backend.getBlockTime backend
-  let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+  let timing = mkTestTiming blockTime
   withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId $ \nodes -> do
     let [node] = toList nodes
     waitForNodesConnected hydraTracer 20 $ node :| []
