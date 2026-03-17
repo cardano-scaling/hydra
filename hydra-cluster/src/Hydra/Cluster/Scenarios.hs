@@ -807,13 +807,11 @@ canDepositScriptBlueprint ::
   backend ->
   [TxId] ->
   IO ()
-canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId = do
-  pendingWith "FIXME: broken now because deposit != commit with blueprint"
+canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 20_000_000
     blockTime <- Backend.getBlockTime backend
-    -- NOTE: Adapt periods to block times
-    let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 50 * blockTime}
+    let timing = mkTestTiming blockTime
     aliceChainConfig <-
       chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
     let hydraNodeId = 1
@@ -821,7 +819,7 @@ canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId = do
     withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
-      (clientPayload, scriptUTxO, _) <- prepareScriptPayload 7_000_000 0
+      (clientPayload, blueprint) <- prepareScriptPayload 7_000_000
 
       res <-
         runReq defaultHttpConfig $
@@ -835,57 +833,36 @@ canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId = do
       let commitTx = responseBody res
       Backend.submitTransaction backend commitTx
 
+      -- The deposited UTxO in the head is keyed by the blueprint tx's outputs,
+      -- not by the original script input's TxIn.
+      let expectedDeposit = constructDepositUTxO (getTxId (getTxBody blueprint)) (txOuts' blueprint)
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody commitTx)]
-      getSnapshotUTxO n1 `shouldReturn` scriptUTxO
-
-      -- incrementally commit script to a running Head
-      (clientPayload', _, blueprint) <- prepareScriptPayload 5_000_000 2_000_000
-
-      res' <-
-        runReq defaultHttpConfig $
-          req
-            POST
-            (http "127.0.0.1" /: "commit")
-            (ReqBodyJson clientPayload')
-            (Proxy :: Proxy (JsonResponse Tx))
-            (port $ 4000 + hydraNodeId)
-
-      let tx = responseBody res'
-      Backend.submitTransaction backend tx
-
-      let expectedDeposit = constructDepositUTxO (getTxId $ getTxBody blueprint) (txOuts' blueprint)
-      waitFor hydraTracer (depositTimeout timing) [n1] $
-        output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= expectedDeposit]
-      waitFor hydraTracer (depositTimeout timing) [n1] $
-        output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
-      getSnapshotUTxO n1 `shouldReturn` scriptUTxO <> expectedDeposit
+      getSnapshotUTxO n1 `shouldReturn` expectedDeposit
  where
-  prepareScriptPayload lovelaceAmt commitAmount = do
+  prepareScriptPayload lovelaceAmt = do
     networkId <- Backend.queryNetworkId backend
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
     let datumHash :: TxOutDatum ctx
         datumHash = mkTxOutDatumHash ()
     (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
-    let scriptOut' = modifyTxOutValue (const $ lovelaceToValue commitAmount) scriptOut
     let scriptUTxO = UTxO.singleton scriptIn scriptOut
 
     let scriptWitness =
           BuildTxWith $
             ScriptWitness scriptWitnessInCtx $
               mkScriptWitness dummyValidatorScript (mkScriptDatum ()) (toScriptData ())
-    let spendingTx =
+    let blueprint =
           unsafeBuildTransaction $
             defaultTxBodyContent
               & addTxIns [(scriptIn, scriptWitness)]
-              & addTxOut (fromCtxUTxOTxOut scriptOut')
+              & addTxOut (fromCtxUTxOTxOut scriptOut)
     pure
       ( Aeson.object
-          [ "blueprintTx" .= spendingTx
+          [ "blueprintTx" .= blueprint
           , "utxo" .= scriptUTxO
           ]
-      , scriptUTxO
-      , spendingTx
+      , blueprint
       )
 
 canDepositReferenceScript ::
@@ -1111,7 +1088,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir backend hydraScriptsTxId =
 
           getSnapshotUTxO n1 `shouldReturn` mempty
 
--- | Single hydra-node where the commit is done from a raw transaction
+-- | Single hydra-node where the deposit is done from a raw transaction
 -- blueprint.
 canDepositTxBlueprint ::
   ChainBackend backend =>

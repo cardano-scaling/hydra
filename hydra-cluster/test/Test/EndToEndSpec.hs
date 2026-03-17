@@ -259,10 +259,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canDeposit tracer tmpDir
-      it "can deposit with tx blueprint" $ \tracer ->
+      it "can deposit utxo with tx blueprint" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canDepositTxBlueprint tracer tmpDir
+      it "can deposit partial utxo" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            canDepositPartially tracer tmpDir
       it "can decommit utxo" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
@@ -283,7 +287,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canSeePendingDeposits tracer tmpDir
-      it "deposit script with tx blueprint" $ \tracer ->
+      it "deposit from script with tx blueprint" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canDepositScriptBlueprint tracer tmpDir
@@ -295,10 +299,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             ensureDepositScriptToTheRightHead tracer tmpDir
-      it "can deposit partial UTxO" $ \tracer ->
-        withClusterTempDir $ \tmpDir ->
-          withHydraScriptsAndBackendRunning tracer tmpDir $
-            canDepositPartially tracer tmpDir
       it "can submit a timed tx" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
