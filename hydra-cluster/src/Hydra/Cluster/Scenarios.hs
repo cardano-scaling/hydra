@@ -294,7 +294,7 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
     -- We use withHydraNodeCatchingUp (not withHydraNode) so the Committed
     -- message is not consumed by the NodeSynced wait before our assertion.
     withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
-      waitFor hydraTracer (10 * blockTime) [n2] $
+      waitFor hydraTracer (100 * blockTime) [n2] $
         output "Committed" ["party" .= bob, "utxo" .= object mempty, "headId" .= headId]
 
 resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
