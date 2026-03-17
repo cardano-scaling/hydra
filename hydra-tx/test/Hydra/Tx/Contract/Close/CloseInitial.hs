@@ -32,7 +32,6 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyOnChainParties,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
-  healthyUTxO,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Snapshot (getSnapshot)
@@ -103,7 +102,7 @@ healthyInitialOpenDatum =
   Head.Open
     Head.OpenDatum
       { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+      , utxoHash = toBuiltin $ hashUTxO @Tx mempty
       , contestationPeriod = healthyContestationPeriod
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
