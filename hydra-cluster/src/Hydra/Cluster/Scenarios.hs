@@ -2021,129 +2021,49 @@ canDecommit tracer workDir backend hydraScriptsTxId =
 
   hydraTracer = contramap FromHydraNode tracer
 
--- | Can side load snapshot and resume agreement after a peer comes back online with healthy configuration
+-- | Integration test for the SideLoadSnapshot API: open a single-party head,
+-- deposit UTxO, side-load the deposit snapshot, then spend the deposited UTxO.
+-- This exercises the real Cardano ledger and network to ensure the API inputs
+-- and outputs are wired up correctly. The consensus-resumption logic is covered
+-- by the BehaviorSpec unit tests.
 canSideLoadSnapshot :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
-  let clients = [Alice, Bob, Carol]
-  [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
+  (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
   seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
   blockTime <- Backend.getBlockTime backend
   let timing = mkTestTiming blockTime
 
   networkId <- Backend.queryNetworkId backend
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] timing
-      <&> setNetworkId networkId
-  bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] timing
-      <&> setNetworkId networkId
-  carolChainConfig <-
-    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] timing
+    chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
       <&> setNetworkId networkId
 
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      -- Carol starts its node misconfigured
-      let pparamsDecorator = atKey "maxTxSize" ?~ toJSON (Aeson.Number 0)
-      wrongOptions <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] pparamsDecorator
-      tx <- withPreparedHydraNodeInSync hydraTracer blockTime workDir 3 wrongOptions $ \n3 -> do
-        send n1 $ input "Init" []
-        headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
-        -- Alice deposits something
-        depositTx <- requestCommitTx n1 aliceUTxO
-        Backend.submitTransaction backend depositTx
-        waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
-          output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
+    send n1 $ input "Init" []
+    headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
-        -- Alice submits a new transaction
-        utxo <- getSnapshotUTxO n1
-        tx <- mkTransferTx testNetworkId utxo aliceCardanoSk aliceCardanoVk
-        send n1 $ input "NewTx" ["transaction" .= tx]
+    -- Deposit something and wait for it to be finalized on-chain
+    depositTx <- requestCommitTx n1 aliceUTxO
+    Backend.submitTransaction backend depositTx
+    waitFor hydraTracer (depositTimeout timing) [n1] $
+      output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
-        -- Alice and Bob accept it
-        waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
-          guard $ v ^? key "tag" == Just "TxValid"
-          guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
+    -- Side-load the deposit snapshot (sn=1)
+    snapshotConfirmed <- getSnapshotConfirmed n1
+    send n1 $ input "SideLoadSnapshot" ["snapshot" .= snapshotConfirmed]
+    waitMatch (10 * blockTime) n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
+      guard $ v ^? key "snapshotNumber" == Just (toJSON (1 :: Integer))
 
-        -- Carol does not because of its node being misconfigured
-        waitMatch (20 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "TxInvalid"
-          guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
-
-        -- We observe that a snapshot is in progress, but Carol has not signed it.
-        seenSn1 <- getSnapshotLastSeen n1
-        seenSn2 <- getSnapshotLastSeen n2
-        seenSn1 `shouldBe` seenSn2
-        seenSn3 <- getSnapshotLastSeen n3
-        seenSn2 `shouldNotBe` seenSn3
-
-        pure tx
-
-      -- Carol disconnects and the others observe it
-      waitForAllMatch 5 [n1, n2] $ \v -> do
-        guard $ v ^? key "tag" == Just "PeerDisconnected"
-
-      -- Carol reconnects with healthy reconfigured node
-      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
-        -- Wait for Carol to be synced and stable before sending transactions
-        waitMatch (200 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "NodeSynced"
-        -- Give some additional time for drift to stabilize
-        threadDelay 2
-        -- Carol re-submits the same transaction
-        send n3 $ input "NewTx" ["transaction" .= tx]
-        -- Carol accepts it
-        waitMatch (200 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "TxValid"
-          guard $ v ^? key "transactionId" == Just (toJSON $ txId tx)
-        -- But now Alice and Bob does not because they already applied it
-        waitForAllMatch (20 * blockTime) [n1, n2] $ \v -> do
-          guard $ v ^? key "tag" == Just "TxInvalid"
-          guard $ v ^? key "transaction" . key "txId" == Just (toJSON $ txId tx)
-
-        -- \| Up to this point the head became stuck and no further SnapshotConfirmed
-        -- including above tx will be seen signed by everyone.
-        -- We observe that a snapshot is in progress, but Carol has not signed it.
-        seenSn1 <- getSnapshotLastSeen n1
-        seenSn2 <- getSnapshotLastSeen n2
-        seenSn1 `shouldBe` seenSn2
-        seenSn3 <- getSnapshotLastSeen n3
-        seenSn2 `shouldNotBe` seenSn3
-
-        -- The party side-loads latest confirmed snapshot (which is the deposit snapshot)
-        -- This also prunes local txs, and discards any signing round inflight
-        snapshotConfirmed <- getSnapshotConfirmed n1
-        flip mapConcurrently_ [n1, n2, n3] $ \n -> do
-          send n $ input "SideLoadSnapshot" ["snapshot" .= snapshotConfirmed]
-          waitMatch (200 * blockTime) n $ \v -> do
-            guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
-            guard $ v ^? key "snapshotNumber" == Just (toJSON (1 :: Integer))
-
-        -- Carol re-submits the same transaction (but anyone can at this point)
-        send n3 $ input "NewTx" ["transaction" .= tx]
-
-        -- Everyone confirms it
-        -- Note: We can't use `waitForAllMatch` here as it expects them to
-        -- emit the exact same datatype; but Carol will be behind in sequence
-        -- numbers as she was offline.
-        flip mapConcurrently_ [n1, n2, n3] $ \n ->
-          waitMatch (200 * blockTime) n $ \v -> do
-            guard $ v ^? key "tag" == Just "SnapshotConfirmed"
-            guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
-            -- Just check that everyone signed it.
-            let sigs = v ^.. key "signatures" . key "multiSignature" . values
-            guard $ length sigs == 3
-
-        -- Finally observe everyone having the same latest seen snapshot.
-        seenSn1' <- getSnapshotLastSeen n1
-        seenSn2' <- getSnapshotLastSeen n2
-        seenSn1' `shouldBe` seenSn2'
-        seenSn3' <- getSnapshotLastSeen n3
-        seenSn2' `shouldBe` seenSn3'
+    -- After sideload, spending the deposited UTxO must work on the real ledger
+    utxo <- getSnapshotUTxO n1
+    tx <- mkTransferTx networkId utxo aliceCardanoSk aliceCardanoVk
+    send n1 $ input "NewTx" ["transaction" .= tx]
+    waitMatch (20 * blockTime) n1 $ \v -> do
+      guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+      guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
  where
   hydraTracer = contramap FromHydraNode tracer
 

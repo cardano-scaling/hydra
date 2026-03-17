@@ -69,7 +69,7 @@ import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty, getParty)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -773,6 +773,68 @@ spec = parallel $ do
                   send n1 Fanout
                   waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs []}
 
+      describe "Side load snapshot" $ do
+        it "head remains functional after side-loading a snapshot" $
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  -- Produce confirmed snapshot sn=1 with tx 42 included.
+                  let tx = aValidTx 42
+                  send n1 (NewTx tx)
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number}} -> guard $ number == 1
+                    _ -> Nothing
+                  -- Capture sn=1 and immediately side-load it on all nodes,
+                  -- resetting local state back to the confirmed snapshot.
+                  snapshot1 <- getConfirmedSnapshotFromNode n1
+                  send n1 (SideLoadSnapshot snapshot1)
+                  send n2 (SideLoadSnapshot snapshot1)
+                  waitUntil [n1, n2] $ SnapshotSideLoaded{headId = testHeadId, snapshotNumber = 1}
+                  -- After sideload the head must still be functional: a new
+                  -- transaction can be submitted and confirmed by all parties.
+                  let tx2 = aValidTx 88
+                  send n1 (NewTx tx2)
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number}} -> guard $ number == 2
+                    _ -> Nothing
+
+        it "side-loaded deposit snapshot allows spending the deposited UTxO" $
+          -- NOTE: This is a regression test: after a deposit is confirmed and
+          -- its on-chain increment finalized, side-loading the deposit snapshot
+          -- must restore localUTxO to include the deposited funds. The deposit
+          -- snapshot has utxo=⦰ and utxoToCommit={11}, so naive sideload using
+          -- only snapshot.utxo leaves localUTxO=⦰, making any tx spending the
+          -- deposited input invalid.
+          shouldRunInSim $ do
+            withSimulatedChainAndNetwork $ \chain ->
+              withHydraNode aliceSk [bob] chain $ \n1 ->
+                withHydraNode bobSk [alice] chain $ \n2 -> do
+                  openHead2 n1 n2
+                  -- Deposit utxoRef 11 and wait for the on-chain increment to
+                  -- finalize. Confirmed snapshot is now sn=1, sv=0,
+                  -- utxo={}, utxoToCommit={11}, and version=1 on-chain.
+                  depositHead chain [n1, n2] $ utxoRefs [11]
+                  -- Capture the deposit snapshot (sn=1) before submitting any
+                  -- further transactions.
+                  depositSnapshot <- getConfirmedSnapshotFromNode n1
+                  -- Side-load the deposit snapshot on all nodes, resetting
+                  -- confirmed snapshot and local state.
+                  send n1 (SideLoadSnapshot depositSnapshot)
+                  send n2 (SideLoadSnapshot depositSnapshot)
+                  waitUntil [n1, n2] $ SnapshotSideLoaded{headId = testHeadId, snapshotNumber = 1}
+                  -- A tx spending from the deposited utxoRef 11 must be valid
+                  -- after sideload. Without the fix, localUTxO would be ⦰ and
+                  -- this would be TxInvalid with BadInputsUTxO.
+                  let spendDeposit = SimpleTx{txSimpleId = 42, txInputs = utxoRefs [11], txOutputs = utxoRefs [42]}
+                  send n1 (NewTx spendDeposit)
+                  waitUntil [n1, n2] $ TxValid testHeadId 42
+                  -- Both nodes should reach a new confirmed snapshot.
+                  waitUntilMatch [n1, n2] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number}} -> guard $ number == 2
+                    _ -> Nothing
+
     it "can be finalized by all parties after contestation period" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->
@@ -1346,3 +1408,16 @@ getHeadUTxO :: HeadState tx -> Maybe (UTxOType tx)
 getHeadUTxO = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO}} -> Just localUTxO
   _ -> Nothing
+
+-- | Get the latest confirmed snapshot from an open node, failing if the node
+-- is not in an open state.
+getConfirmedSnapshotFromNode ::
+  (HasCallStack, MonadThrow m, IsChainState tx) =>
+  TestHydraClient tx m ->
+  m (ConfirmedSnapshot tx)
+getConfirmedSnapshotFromNode node = do
+  st <- queryState node
+  case headState st of
+    Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
+      pure confirmedSnapshot
+    _ -> failure "getConfirmedSnapshotFromNode: node is not in Open state"
