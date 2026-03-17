@@ -30,7 +30,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
-import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBFQueryTimeout)
+import Hydra.Options qualified as Options
 import Hydra.Tx (balance, txId)
 import System.Directory (doesFileExist)
 import System.FilePath ((</>))
@@ -53,7 +53,7 @@ data FaucetLog
 delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
 delayBF backend = do
   let delay = case Backend.getOptions backend of
-        Blockfrost _ -> defaultBFQueryTimeout
+        Options.Blockfrost _ -> Options.defaultBFQueryTimeout
         _ -> 1
   threadDelay $ fromIntegral delay
 
@@ -117,7 +117,7 @@ findFaucetUTxO networkId backend lovelace = do
   findUTxO faucetUTxO lovelace
 
 seedFromFaucetBlockfrost ::
-  BlockfrostOptions ->
+  Options.BlockfrostOptions ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet

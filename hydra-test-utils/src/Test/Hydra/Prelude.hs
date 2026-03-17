@@ -250,15 +250,15 @@ onlyNightly action = do
 requiresBlockfrost :: IO () -> IO ()
 requiresBlockfrost action = do
   getHydraNetwork >>= \case
-    BlockfrostTesting -> action
+    Blockfrost -> action
     _ -> pendingWith "Only runs requiresBlockfrost"
 
 data HydraTestnet
   = LocalDevnet
-  | PreviewTestnet
-  | PreproductionTestnet
-  | MainnetTesting
-  | BlockfrostTesting
+  | Preview
+  | Preproduction
+  | Mainnet
+  | Blockfrost
 
 getHydraNetwork :: IO HydraTestnet
 getHydraNetwork = do
@@ -266,10 +266,10 @@ getHydraNetwork = do
   pure $ case backend of
     Nothing -> LocalDevnet
     Just "devnet" -> LocalDevnet
-    Just "preview" -> PreviewTestnet
-    Just "preproduction" -> PreproductionTestnet
-    Just "mainnet" -> MainnetTesting
-    Just "blockfrost" -> BlockfrostTesting
+    Just "preview" -> Preview
+    Just "preproduction" -> Preproduction
+    Just "mainnet" -> Mainnet
+    Just "blockfrost" -> Blockfrost
     Just other -> error $ "Unknown HYDRA_BACKEND: " <> Text.pack other
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'
