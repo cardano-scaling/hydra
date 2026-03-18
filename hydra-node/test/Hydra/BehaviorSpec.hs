@@ -201,6 +201,37 @@ spec = parallel $ do
                 SnapshotConfirmed{snapshot = Snapshot{version = 2}} -> Just ()
                 _ -> Nothing
 
+    -- Reproduces the version-race for CommitFinalized using a slow network.
+    -- After the deposit snapshot confirms (ver=0), maybeRequestNextSnapshot
+    -- fires ReqSn(ver=0, sn=2) immediately for pending L2 txs. Then
+    -- CommitFinalized bumps version to 1 before the echo returns (25s).
+    -- The stale ReqSn(ver=0) is rejected with ReqSvNumberInvalid and nobody
+    -- re-triggers ReqSn(ver=1) → head permanently stuck without the fix.
+    it "snapshot does not get stuck on CommitFinalized version race with slow network" $
+      shouldRunInSim $
+        withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 chain n1 n2
+              deadline <- newDeadlineFarEnoughFromNow
+              -- Submit a deposit and a pending L2 tx so there is pending work
+              -- when the deposit snapshot confirms (triggering immediate ReqSn).
+              void $ simulateDeposit chain testHeadId (utxoRef 500) deadline
+              send n1 (NewTx (aValidTx 999))
+              -- Wait for the deposit snapshot to confirm (version still 0 at
+              -- this point — CommitFinalized fires after posting to chain).
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxoToCommit = Just _}} -> Just ()
+                _ -> Nothing
+              -- After the deposit snapshot confirms, the leader sends
+              -- ReqSn(ver=0, sn=2) for tx 999. CommitFinalized then arrives
+              -- and bumps version to 1. The stale ReqSn(ver=0) echo is
+              -- rejected. Without the fix the head gets permanently stuck
+              -- as nobody re-triggers ReqSn(ver=1).
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{version = 1}} -> Just ()
+                _ -> Nothing
+
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
         shouldRunInSim $ do
