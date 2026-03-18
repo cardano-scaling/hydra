@@ -1082,10 +1082,7 @@ withSimulatedChainAndNetwork ::
   (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
   (SimulatedChainNetwork SimpleTx m -> m a) ->
   m a
-withSimulatedChainAndNetwork =
-  bracket
-    (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
-    (cancel . tickThread)
+withSimulatedChainAndNetwork = withSimulatedChainAndSlowNetwork 0 0
 
 -- | Creates a simulated chain and network to which 'HydraNode's can be
 -- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
@@ -1096,7 +1093,20 @@ simulatedChainAndNetwork ::
   (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
-simulatedChainAndNetwork initialChainState = do
+simulatedChainAndNetwork = simulatedChainAndNetworkUsing createMockNetwork 0
+
+-- | Like 'simulatedChainAndNetwork' but accepts a custom network factory and
+-- an optional chain observation delay. When 'chainDelay' > 0, each chain event
+-- is delivered to nodes asynchronously after that delay, allowing tests to
+-- reproduce races where nodes observe the same on-chain event at different times.
+simulatedChainAndNetworkUsing ::
+  forall m.
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
+  (DraftHydraNode SimpleTx m -> TVar m [HydraNode SimpleTx m] -> Network m (Message SimpleTx)) ->
+  DiffTime ->
+  ChainStateType SimpleTx ->
+  m (SimulatedChainNetwork SimpleTx m)
+simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
   history <- newLabelledTVarIO "sim-chain-history" []
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
@@ -1117,7 +1127,7 @@ simulatedChainAndNetwork initialChainState = do
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
                   }
-              mockNetwork = createMockNetwork draftNode nodes
+              mockNetwork = networkCallback draftNode nodes
               mockServer :: Server tx m
               mockServer = Server{sendMessage = const $ pure ()}
           node <- connect mockChain mockNetwork mockServer draftNode
@@ -1170,7 +1180,9 @@ simulatedChainAndNetwork initialChainState = do
       modifyTVar' history (chainEvent :)
       readTVar nodes
     forM_ ns $ \n ->
-      handleChainEvent n chainEvent
+      void . asyncLabelled "sim-chain-event" $ do
+        threadDelay chainDelay
+        handleChainEvent n chainEvent
 
   rollbackAndForward ::
     IsChainState tx =>
@@ -1219,6 +1231,46 @@ createMockNetwork node nodes =
     enqueue inputQueue $ mkNetworkInput sender msg
 
   sender = getParty node
+
+-- | Like 'createMockNetwork' but delivers messages asynchronously after a
+-- configurable delay. When the delay exceeds the chain's block time (20s),
+-- on-chain events arrive at nodes before network echoes, reproducing
+-- version-race conditions seen in production.
+createMockNetworkWithDelay ::
+  (MonadAsync m, MonadDelay m) =>
+  DiffTime ->
+  DraftHydraNode tx m ->
+  TVar m [HydraNode tx m] ->
+  Network m (Message tx)
+createMockNetworkWithDelay networkDelay node nodes =
+  Network{broadcast}
+ where
+  broadcast msg = do
+    allNodes <- readTVarIO nodes
+    forM_ allNodes $ \HydraNode{inputQueue} ->
+      void . async $ do
+        threadDelay networkDelay
+        enqueue inputQueue $ mkNetworkInput sender msg
+
+  sender = getParty node
+
+-- | Simulated chain and network where the network and/or chain observations
+-- can be delivered with a configurable delay. Handy to reproduce race
+-- conditions related to message ordering.
+withSimulatedChainAndSlowNetwork ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  -- | Network message delay
+  DiffTime ->
+  -- | Chain observation delay
+  DiffTime ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndSlowNetwork networkDelay chainDelay =
+  bracket
+    (simulatedChainAndNetworkUsing (createMockNetworkWithDelay networkDelay) chainDelay initialChainState)
+    (cancel . tickThread)
+ where
+  initialChainState = SimpleChainState{slot = ChainSlot 0}
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
