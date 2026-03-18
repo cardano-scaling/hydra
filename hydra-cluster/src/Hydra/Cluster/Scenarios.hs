@@ -1194,11 +1194,12 @@ canDeposit2 tracer workDir backend hydraScriptsTxId =
  where
   hydraTracer = contramap FromHydraNode tracer
 
-rejectDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> NominalDiffTime -> backend -> [TxId] -> IO ()
-rejectDeposit tracer workDir blockTime backend hydraScriptsTxId =
+rejectDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+rejectDeposit tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 30_000_000
     -- NOTE: Adapt periods to block times
+    blockTime <- Backend.getBlockTime backend
     let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 100 * blockTime}
     networkId <- Backend.queryNetworkId backend
     aliceChainConfig <-

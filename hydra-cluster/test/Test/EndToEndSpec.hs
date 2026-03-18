@@ -356,7 +356,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               let firstNodeId = clusterIx * 3
 
-              hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
               let hydraTracer = contramap FromHydraNode tracer
 
               let timing = mkTestTiming blockTime
@@ -422,10 +421,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 hydraKeys = [aliceSk, bobSk, carolSk]
 
             let firstNodeId = clusterIx * 3
-
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             let hydraTracer = contramap FromHydraNode tracer
-
             let timing = mkTestTiming blockTime
             withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
               waitForNodesConnected hydraTracer 20 nodes
