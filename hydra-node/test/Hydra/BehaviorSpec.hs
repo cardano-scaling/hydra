@@ -15,7 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (async, cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -235,6 +235,41 @@ spec = parallel $ do
               waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
               headUTxO <- getHeadUTxO . headState <$> queryState n1
               fromMaybe mempty headUTxO `shouldBe` utxoRefs [1]
+
+    -- Reproduces the version-race using a slow network.
+    -- DecommitFinalized arrives at ALL nodes BEFORE the ReqSn
+    -- echo. When the stale ReqSn(ver=0) echo arrives, both
+    -- nodes already have version=1 → ReqSvNumberInvalid → snapshot stuck.
+    it "snapshot does not get stuck on version race with slow network" $
+      shouldRunInSim $
+        withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 chain n1 n2
+              deadline <- newDeadlineFarEnoughFromNow
+              depositId <- simulateDeposit chain testHeadId (utxoRef 500) deadline
+              waitUntilMatch [n1, n2] $ \case
+                CommitFinalized{depositTxId} | depositTxId == depositId -> Just ()
+                _ -> Nothing
+              -- Send a decommit and an L2 tx so there is pending work that
+              -- triggers ReqSn(ver=0) immediately after the decommit snapshot
+              -- confirms. With networkDelay=25s, DecommitFinalized arrives
+              -- 5 seconds before the ReqSn echo — reproducing the race.
+              send n1 (Decommit (SimpleTx 300 (utxoRef 500) (utxoRef 5000)))
+              send n1 (NewTx (aValidTx 999))
+              -- Wait for decommit snapshot to confirm
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit = Just _}} -> Just ()
+                _ -> Nothing
+
+              send n1 (NewTx (aValidTx 8888))
+              -- The next snapshot must confirm with version=2 (deposit bumped
+              -- 0→1, decommit bumps 1→2). Without the fix the head is
+              -- permanently stuck: the stale ReqSn(ver=1) is rejected and
+              -- the leader stays in RequestedSnapshot, blocking retries.
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{version = 2}} -> Just ()
+                _ -> Nothing
 
     describe "in an open head" $ do
       it "sees the head closed by other nodes" $
