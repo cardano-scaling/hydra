@@ -1,10 +1,15 @@
 # A shell setup providing build tools and utilities for a development
 # environment. The main shell environment is based on haskell.nix and uses the
 # same nixpkgs as the default nix builds (see default.nix).
-
-{ self, ... }: {
-
-  perSystem = { pkgs, hsPkgs, compiler, self', ... }:
+{
+  perSystem =
+    {
+      pkgs,
+      hsPkgs,
+      compiler,
+      self',
+      ...
+    }:
     let
 
       buildInputs = [
@@ -61,42 +66,46 @@
         pkgs.etcd # Build-time dependency (static binary to be embedded)
         pkgs.librust_accumulator # From cardano-scaling/rust-accumulator
       ]
-      ++
-      pkgs.lib.optionals pkgs.stdenv.isLinux [
+      ++ pkgs.lib.optionals pkgs.stdenv.isLinux [
         pkgs.systemd
       ];
 
-      haskellNixShell = (hsPkgs.shellFor {
-        buildInputs = libs ++ buildInputs;
-        # Always create missing golden files
-        shellHook = ''
-          if ! which cardano-node > /dev/null 2>&1; then
-            echo "WARNING: 'cardano-node' not found"
-          fi
-          if ! which cardano-cli > /dev/null 2>&1; then
-            echo "WARNING: 'cardano-cli' not found"
-          fi
-        '';
-      }).overrideAttrs {
+      haskellNixShell =
+        (hsPkgs.shellFor {
+          buildInputs = libs ++ buildInputs;
+          # Always create missing golden files
+          shellHook = ''
+            if ! which cardano-node > /dev/null 2>&1; then
+              echo "WARNING: 'cardano-node' not found"
+            fi
+            if ! which cardano-cli > /dev/null 2>&1; then
+              echo "WARNING: 'cardano-cli' not found"
+            fi
+          '';
+        }).overrideAttrs
+          {
 
-        CREATE_MISSING_GOLDEN = 1;
+            CREATE_MISSING_GOLDEN = 1;
 
-        # Force a UTF-8 locale because many Haskell programs and tests
-        # assume this.
-        LANG = "en_US.UTF-8";
+            # Force a UTF-8 locale because many Haskell programs and tests
+            # assume this.
+            LANG = "en_US.UTF-8";
 
-        GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+            GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
-      };
+          };
       # A "cabal-only" shell which does not use haskell.nix
       cabalShell = pkgs.mkShell {
         name = "hydra-node-cabal-shell";
 
-        buildInputs = libs ++ [
-          pkgs.buildPackages.haskell-nix.compiler.${compiler}
-          pkgs.cabal-install
-          pkgs.pkg-config
-        ] ++ buildInputs;
+        buildInputs =
+          libs
+          ++ [
+            pkgs.buildPackages.haskell-nix.compiler.${compiler}
+            pkgs.cabal-install
+            pkgs.pkg-config
+          ]
+          ++ buildInputs;
 
         # Ensure that libz.so and other libraries are available to TH splices.
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath libs;
@@ -148,22 +157,15 @@
         ];
       };
 
-      # Shell for computing tx-cost-differences
-      costDifferencesShell = pkgs.mkShell {
-        name = "tx-cost-differences-shell";
-        buildInputs = [
-          pkgs.pandoc
-          (pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]))
-        ];
-      };
-
       # If you want to modify `Python` code add `libtmux` and pyyaml to the
       # `buildInputs` then enter it and then run `Python` module directly so you
       # have fast devel cycle.
-      run-tmux = pkgs.writers.writePython3Bin
-        "run-tmux"
-        { libraries = with pkgs.python3Packages; [ libtmux pyyaml ]; }
-        (builtins.readFile "${self}/demo/run-tmux.py");
+      run-tmux = pkgs.writers.writePython3Bin "run-tmux" {
+        libraries = with pkgs.python3Packages; [
+          libtmux
+          pyyaml
+        ];
+      } (builtins.readFile "${self'}/demo/run-tmux.py");
     in
     {
       devShells = {
@@ -172,7 +174,6 @@
         exes = exeShell;
         demo = demoShell;
         ci = ciShell;
-        costDifferences = costDifferencesShell;
       };
     };
 }

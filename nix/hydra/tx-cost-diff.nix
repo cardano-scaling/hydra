@@ -1,12 +1,16 @@
-{ self, ... }: {
-  perSystem = { pkgs, ... }: {
-    packages.tx-cost-diff =
-      pkgs.writers.writeHaskellBin
-        "tx-cost-diff"
-        {
-          libraries =
-            with pkgs.haskellPackages;
-            [ aeson text bytestring lens lens-aeson shh ];
-        } ''${builtins.readFile "${self}/scripts/tx-cost-diff.hs"}'';
-  };
+{ self, ... }:
+{
+  perSystem =
+    { pkgs, ... }:
+    {
+      packages.tx-cost-diff = pkgs.writers.writeHaskellBin "tx-cost-diff" {
+        libraries = with pkgs.haskellPackages; [
+          pandoc
+          pandoc-types
+          shh
+          text
+          bytestring
+        ];
+      } "${builtins.readFile "${self}/scripts/tx-cost-diff.hs"}";
+    };
 }
