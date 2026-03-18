@@ -1412,7 +1412,7 @@ getHeadUTxO = \case
 -- | Get the latest confirmed snapshot from an open node, failing if the node
 -- is not in an open state.
 getConfirmedSnapshotFromNode ::
-  (HasCallStack, MonadThrow m, IsChainState tx) =>
+  (HasCallStack, MonadThrow m) =>
   TestHydraClient tx m ->
   m (ConfirmedSnapshot tx)
 getConfirmedSnapshotFromNode node = do

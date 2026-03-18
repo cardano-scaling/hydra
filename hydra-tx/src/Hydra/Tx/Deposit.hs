@@ -20,6 +20,7 @@ import PlutusLedgerApi.V3 (POSIXTime)
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
 depositTx ::
+  HasCallStack =>
   NetworkId ->
   PParams LedgerEra ->
   HeadId ->

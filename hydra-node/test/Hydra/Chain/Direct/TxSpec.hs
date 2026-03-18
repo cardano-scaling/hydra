@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-missing-local-signatures #-}
+
 -- | Remainder of tests covering observation and tx creation by the "direct"
 -- chain component.
 -- XXX: This does not have a corresponding "source" module which it tests.
@@ -14,6 +16,7 @@ import Cardano.Ledger.Api (
   IsValid (..),
   Metadatum,
   TxAuxData,
+  ValidityInterval (..),
   auxDataHashTxBodyL,
   auxDataTxL,
   bodyTxL,
@@ -33,19 +36,20 @@ import Cardano.Ledger.Api (
  )
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
+import Cardano.Ledger.Val (pointwise)
 import Control.Lens ((.~), (^.))
 import Data.Map qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
-import Hydra.Chain.Direct.State (ChainContext (..), HasKnownUTxO (getKnownUTxO))
+import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
+import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
-import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
 import Test.Gen.Cardano.Api.Typed qualified as Gen
 import Test.Hydra.Chain.Direct.State (genChainStateWithTx)
@@ -56,7 +60,7 @@ import Test.Hydra.Tx.Fixture (
  )
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (
-  genSigningKey,
+  genTxOut,
   genTxOutWithReferenceScript,
   genUTxO1,
   genUTxOAdaOnlyOfSize,
@@ -72,6 +76,7 @@ import Test.QuickCheck (
   cover,
   forAll,
   forAllBlind,
+  forAllShow,
   oneof,
   property,
   (.&&.),
@@ -86,6 +91,175 @@ spec =
     -- TODO: DRY with prop_observeAnyTx
     describe "observeHeadTx" $ do
       prop "Invalid transactions are never observed" $
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+        -- state transition happened.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- NOTE: Generate a valid state transition, but then mark it as invalid.
+        -- This is sufficient to simulate an where and adversary would create a
+        -- This is sufficient to simulate an where and adversary would create a
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- transaction that looks like a proper transaction, but not entirely and
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- scripts would fail, but deliberately marks the tx as invalid (only at
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- the expense of collateral) to trick the hydra-node into thinking the
+        -- state transition happened.
+        -- state transition happened.
+
         -- NOTE: Generate a valid state transition, but then mark it as invalid.
         -- This is sufficient to simulate an where and adversary would create a
         -- transaction that looks like a proper transaction, but not entirely and
@@ -118,70 +292,66 @@ spec =
                       Deposit{} -> property False
                       Recover{} -> property False
 
-    -- TODO: Convert this to tests on depositTx?
-    describe "commitTx" $ do
+    describe "depositTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
 
-      prop "Validate blueprint and commit transactions" $ do
-        forAllBlind arbitrary $ \chainContext -> do
-          let commitSigningKey = genSigningKey `generateWith` 42
-          let commitVerificationKey = getVerificationKey commitSigningKey
-          let healthyInitialTxOut :: TxOut CtxTx
-              healthyInitialTxOut =
-                setMinUTxOValue Fixture.pparams . toCtxUTxOTxOut $
-                  error "TODO: used to be mkInitialOutput" Fixture.testNetworkId Fixture.testSeedInput $
-                    verificationKeyToOnChainId commitVerificationKey
-          let healthyInitialTxIn = generateWith arbitrary 42
-          let ChainContext{networkId, ownVerificationKey, ownParty, scriptRegistry} =
-                chainContext{ownVerificationKey = getVerificationKey commitSigningKey, networkId = testNetworkId}
-          forAllBlind genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx) ->
-            counterexample ("Blueprint tx: " <> renderTxWithUTxO lookupUTxO blueprintTx) $ do
-              let createdTx =
-                    error
-                      "TODO: used to be commitTx"
-                      networkId
-                      scriptRegistry
-                      (mkHeadId Fixture.testPolicyId)
-                      ownParty
-                      CommitBlueprintTx{lookupUTxO, blueprintTx}
-                      (healthyInitialTxIn, toCtxUTxOTxOut healthyInitialTxOut, verificationKeyHash ownVerificationKey)
-              counterexample ("\n\n\nCommit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
-                let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
-                let commitTxBody = toLedgerTx createdTx ^. bodyTxL
-                let spendableUTxO =
-                      UTxO.singleton healthyInitialTxIn (toCtxUTxOTxOut healthyInitialTxOut)
-                        <> lookupUTxO
-                        <> registryUTxO scriptRegistry
+      prop "creates valid txs from blueprint" prop_validDepositTx
 
-                conjoin
-                  [ propTransactionEvaluates (blueprintTx, lookupUTxO)
-                      & counterexample "Blueprint transaction failed to evaluate"
-                  , propTransactionEvaluates (createdTx, spendableUTxO)
-                      & counterexample "Commit transaction failed to evaluate"
-                  , conjoin
-                      [ getAuxMetadata blueprintTx `propIsSubmapOf` getAuxMetadata createdTx
-                          & counterexample "Blueprint metadata incomplete"
-                      , propHasValidAuxData blueprintTx
-                          & counterexample "Blueprint tx has invalid aux data"
-                      , propHasValidAuxData createdTx
-                          & counterexample "Commit tx has invalid aux data"
-                      ]
-                  , blueprintBody ^. vldtTxBodyL === commitTxBody ^. vldtTxBodyL
-                      & counterexample "Validity range mismatch"
-                  , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. inputsTxBodyL)
-                      & counterexample "Blueprint inputs missing"
-                  , length (toLedgerTx blueprintTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
-                      + 1
-                      === length (toLedgerTx createdTx ^. witsTxL . rdmrsTxWitsL & unRedeemers)
-                      & counterexample "Blueprint witnesses missing"
-                  , property
-                      ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (commitTxBody ^. outputsTxBodyL)))
-                      & counterexample "Blueprint outputs not discarded"
-                  , (blueprintBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL) `propIsSubsetOf` (commitTxBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL)
-                      & counterexample "Blueprint required signatures missing"
-                  , (blueprintBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL) `propIsSubsetOf` (commitTxBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL)
-                      & counterexample "Blueprint reference inputs missing"
-                  ]
+-- | Transactions produced by 'depositTx' provided with arbitrary, valid
+-- blueprint txs, are valid.
+prop_validDepositTx :: Property
+prop_validDepositTx = do
+  -- These are not under test here and known good values
+  let depositSlot = 0
+      depositDeadline = slotNoToUTCTime Fixture.systemStart Fixture.slotLength 100
+  forAllBlind genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx) ->
+    forAllShow arbitrary showChangeAddress $ \mayChangeAddress ->
+      counterexample ("Blueprint tx: " <> renderTxWithUTxO lookupUTxO blueprintTx) $ do
+        let createdTx =
+              depositTx
+                testNetworkId
+                Fixture.pparams
+                (mkHeadId Fixture.testPolicyId)
+                CommitBlueprintTx{lookupUTxO, blueprintTx}
+                depositSlot
+                depositDeadline
+                mayChangeAddress
+        counterexample ("\n\n\nDeposit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
+          let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
+          let depositTxBody = toLedgerTx createdTx ^. bodyTxL
+          let spendableUTxO = lookupUTxO
+          conjoin
+            [ propTransactionEvaluates (blueprintTx, lookupUTxO)
+                & counterexample "Blueprint transaction failed to evaluate"
+            , propTransactionEvaluates (createdTx, spendableUTxO)
+                & counterexample "Deposit transaction failed to evaluate"
+            , conjoin
+                [ getAuxMetadata blueprintTx `propIsSubmapOf` getAuxMetadata createdTx
+                    & counterexample "Blueprint metadata incomplete"
+                , propHasValidAuxData blueprintTx
+                    & counterexample "Blueprint tx has invalid aux data"
+                , propHasValidAuxData createdTx
+                    & counterexample "Deposit tx has invalid aux data"
+                ]
+            , depositTxBody ^. vldtTxBodyL === ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust depositSlot}
+                & counterexample "Validity range overridden by blueprint"
+            , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (depositTxBody ^. inputsTxBodyL)
+                & counterexample "Blueprint inputs missing"
+            , redeemerCount blueprintTx === redeemerCount createdTx
+                & counterexample "Blueprint redeemers missing"
+            , property
+                ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (depositTxBody ^. outputsTxBodyL)))
+                & counterexample "Blueprint outputs not discarded"
+            , (blueprintBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL) `propIsSubsetOf` (depositTxBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL)
+                & counterexample "Blueprint required signatures missing"
+            , (blueprintBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL) `propIsSubsetOf` (depositTxBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL)
+                & counterexample "Blueprint reference inputs missing"
+            ]
+ where
+  redeemerCount tx = length $ toLedgerTx tx ^. witsTxL . rdmrsTxWitsL & unRedeemers
+
+  showChangeAddress Nothing = "No change address"
+  showChangeAddress (Just a) = "Change address: " <> toString (serialiseAddress a)
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
@@ -223,6 +393,7 @@ genBlueprintTxWithUTxO =
       >>= addRandomMetadata
       >>= addCollateralInput
       >>= sometimesAddRewardRedeemer
+      >>= sometimesExtractsValue
  where
   spendingPubKeyOutput (utxo, txbody) = do
     utxoToSpend <- genUTxOAdaOnlyOfSize =<< choose (0, 3)
@@ -235,11 +406,11 @@ genBlueprintTxWithUTxO =
     let alwaysSucceedingScript = dummyValidatorScript
     datum <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
     redeemer <- unsafeHashableScriptData . fromPlutusData <$> arbitrary
-    let genTxOut = do
+    let genTxOutScript = do
           value <- genValue
           let scriptAddress = mkScriptAddress testNetworkId alwaysSucceedingScript
           pure $ TxOut scriptAddress value (TxOutDatumInline datum) ReferenceScriptNone
-    utxoToSpend <- genUTxO1 genTxOut
+    utxoToSpend <- genUTxO1 genTxOutScript
     pure
       ( utxo <> utxoToSpend
       , txbody
@@ -310,8 +481,21 @@ genBlueprintTxWithUTxO =
             )
       ]
 
+  -- More value in output than input
+  sometimesExtractsValue (utxo, txbody) =
+    oneof
+      [ pure (utxo, txbody)
+      , -- Add an output with more value than the total input value
+        do
+          out <- modifyTxOutValue (<> txInsTotalValue utxo txbody) <$> genTxOut
+          pure
+            ( utxo
+            , txbody{txOuts = out : txOuts txbody}
+            )
+      ]
+
 genMetadata :: Gen TxMetadataInEra
-genMetadata = do
+genMetadata =
   genMetadata' @LedgerEra >>= \(ShelleyTxAuxData m) ->
     pure . TxMetadataInEra . TxMetadata $ fromShelleyMetadata m
 
@@ -322,15 +506,15 @@ getAuxMetadata tx =
     SJust (AlonzoTxAuxData m _ _) -> m
 
 prop_interestingBlueprintTx :: Property
-prop_interestingBlueprintTx = do
-  forAll genBlueprintTxWithUTxO $ \(utxo, tx) ->
-    checkCoverage
-      True
-      & cover 1 (spendsFromScript (utxo, tx)) "blueprint spends script UTxO"
-      & cover 1 (spendsFromPubKey (utxo, tx)) "blueprint spends pub key UTxO"
-      & cover 1 (spendsFromPubKey (utxo, tx) && spendsFromScript (utxo, tx)) "blueprint spends from script AND pub key"
-      & cover 1 (hasReferenceInputs tx) "blueprint has reference input"
-      & cover 1 (hasRewardRedeemer tx) "blueprint has reward redeemer"
+prop_interestingBlueprintTx = forAll genBlueprintTxWithUTxO $ \(utxo, tx) ->
+  checkCoverage
+    True
+    & cover 1 (spendsFromScript (utxo, tx)) "blueprint spends script UTxO"
+    & cover 1 (spendsFromPubKey (utxo, tx)) "blueprint spends pub key UTxO"
+    & cover 1 (spendsFromPubKey (utxo, tx) && spendsFromScript (utxo, tx)) "blueprint spends from script AND pub key"
+    & cover 1 (hasReferenceInputs tx) "blueprint has reference input"
+    & cover 1 (hasRewardRedeemer tx) "blueprint has reward redeemer"
+    & cover 1 (hasMoreOutputThanInput (utxo, tx)) "blueprint tries to extract value"
  where
   hasRewardRedeemer tx =
     toLedgerTx tx ^. witsTxL . rdmrsTxWitsL
@@ -375,3 +559,15 @@ prop_interestingBlueprintTx = do
             . unRedeemers
             $ toLedgerTx @Era tx ^. witsTxL . rdmrsTxWitsL
         )
+
+  hasMoreOutputThanInput (utxo, tx) =
+    let inputsValue = toMaryValue . txInsTotalValue utxo $ getTxBodyContent $ getTxBody tx
+        outputsValue = toMaryValue . UTxO.totalValue $ utxoFromTx tx
+     in pointwise (>=) outputsValue inputsValue
+
+txInsTotalValue :: UTxO -> TxBodyContent build -> Value
+txInsTotalValue utxo txbody =
+  foldMap txOutValue
+    . mapMaybe ((`UTxO.resolveTxIn` utxo) . fst)
+    . toList
+    $ txIns txbody

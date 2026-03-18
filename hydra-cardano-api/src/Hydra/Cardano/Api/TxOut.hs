@@ -148,7 +148,8 @@ fromLedgerTxOut =
   fromShelleyTxOut shelleyBasedEra
 
 -- | Convert a cardano-api 'TxOut' into a cardano-ledger 'TxOut'
-toLedgerTxOut :: IsShelleyBasedEra era => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
+-- NOTE: This is partial for negative 'Value'.
+toLedgerTxOut :: (HasCallStack, IsShelleyBasedEra era) => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
 toLedgerTxOut =
   toShelleyTxOut shelleyBasedEra
 
