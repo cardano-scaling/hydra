@@ -17,7 +17,7 @@ import CardanoNode (
   withHydraScriptsAndBackendRunning,
  )
 import Control.Lens ((^..), (^?))
-import Data.Aeson (Result (..), Value (Null, Object, String), fromJSON, object, (.=))
+import Data.Aeson (Result (..), Value (Null, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
 import Data.ByteString qualified as BS
@@ -82,13 +82,12 @@ import Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
   waitsForChainInSyncAndSecure,
  )
-import Hydra.Cluster.Util (Timing (..), chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
+import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
 import HydraNode (
-  HydraClient (..),
   getMetrics,
   getSnapshotUTxO,
   input,
@@ -106,7 +105,7 @@ import HydraNode (
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
-import System.Directory (removeDirectoryRecursive, removeFile)
+import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
 import Test.Hydra.Tx.Fixture (testNetworkId)
