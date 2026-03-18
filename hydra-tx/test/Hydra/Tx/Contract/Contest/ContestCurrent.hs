@@ -25,11 +25,13 @@ import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (mkHeadId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
   healthyClosedHeadTxOut,
   healthyClosedState,
+  healthyContestSnapshot,
   healthyContestSnapshotNumber,
   healthyContestUTxOHash,
   healthyContestUTxOToDecommitHash,
@@ -79,6 +81,10 @@ import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, s
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances ()
+
+healthyContestAccumulatorHash :: Head.Hash
+healthyContestAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
@@ -173,6 +179,7 @@ genContestMutation (tx, _utxo) =
           Head.Contest
             Head.ContestCurrent
               { signature = toPlutusSignatures mutatedSignature
+              , accumulatorHash = healthyContestAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
@@ -193,6 +200,7 @@ genContestMutation (tx, _utxo) =
                     { signature =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
+                    , accumulatorHash = healthyContestAccumulatorHash
                     }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
@@ -215,6 +223,7 @@ genContestMutation (tx, _utxo) =
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber
+                            , accumulatorHash = healthyContestAccumulatorHash
                             }
                       )
                 )
