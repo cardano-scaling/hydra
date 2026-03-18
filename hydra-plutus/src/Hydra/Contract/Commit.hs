@@ -33,6 +33,10 @@ PlutusTx.unstableMakeIsData ''Commit
 
 -- | Record an off-chain 'TxOut' as a 'Commit' on-chain.
 -- NOTE: Depends on the 'Serialise' instance for Plutus' 'Data'.
+-- NOTE: Reference scripts on the 'TxOut' are NOT preserved. The Plutus 'TxOut'
+-- representation used for serialization has no reference script field, so any
+-- inline reference script is silently dropped. Address, value and datum are
+-- preserved faithfully.
 serializeCommit :: (OffChain.TxIn, OffChain.TxOut CtxUTxO) -> Maybe Commit
 serializeCommit (i, o) = do
   preSerializedOutput <- toBuiltin . toStrict . serialise . toData <$> toPlutusTxOut o

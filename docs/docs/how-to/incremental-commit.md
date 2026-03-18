@@ -281,6 +281,10 @@ The last option is most flexible one for dApp builders since they can just speci
 
 This will result in a deposit being detected by the `hydra-node` and consequently the funds to be deposited to the Head.
 
+:::warning Reference scripts are not preserved
+If a deposited UTxO has an inline reference script attached, **that reference script will not be available in L2**. The deposit datum encodes UTxOs using the Plutus `TxOut` representation, which has no reference script field. The address, value and datum of the deposited UTxO are preserved faithfully, but the reference script is silently dropped. If your use case depends on reference scripts being available inside the Head, they must be published separately on L2.
+:::
+
 ### Recover a deposit
 
 Once we deposited funds we should not see the corresponding UTxO on L1.

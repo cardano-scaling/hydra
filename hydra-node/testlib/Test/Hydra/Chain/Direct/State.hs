@@ -363,7 +363,6 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   cctx <- pickChainContext ctx
   let stOpen = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
-  -- FIXME: This should generate some utxo in an open state
   pure (mempty, stOpen)
 
 genStClosed ::

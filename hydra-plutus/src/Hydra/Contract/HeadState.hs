@@ -66,7 +66,6 @@ data ClosedDatum = ClosedDatum
 
 PlutusTx.unstableMakeIsData ''ClosedDatum
 
--- TODO: Update on-chain section of specfication (removed initial state)
 data State
   = Open OpenDatum
   | Closed ClosedDatum

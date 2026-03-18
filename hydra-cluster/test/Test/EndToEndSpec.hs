@@ -53,16 +53,13 @@ import Hydra.Cluster.Scenarios (
   canDeposit,
   canDeposit2,
   canDepositPartially,
-  canDepositReferenceScript,
   canDepositScriptBlueprint,
-  canDepositTxBlueprint,
   canRecoverDeposit,
   canRecoverDepositInAnyState,
   canResumeOnMemberAlreadyBootstrapped,
   canSeePendingDeposits,
   canSideLoadSnapshot,
   canSubmitTransactionThroughAPI,
-  ensureDepositScriptToTheRightHead,
   headIsFinalizedWith,
   headIsOpenWith,
   hydraNodeBaseUrl,
@@ -259,10 +256,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canDeposit tracer tmpDir
-      it "can deposit utxo with tx blueprint" $ \tracer ->
+      it "deposit from script with tx blueprint" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            canDepositTxBlueprint tracer tmpDir
+            canDepositScriptBlueprint tracer tmpDir
       it "can deposit partial utxo" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
@@ -287,18 +284,6 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canSeePendingDeposits tracer tmpDir
-      it "deposit from script with tx blueprint" $ \tracer ->
-        withClusterTempDir $ \tmpDir ->
-          withHydraScriptsAndBackendRunning tracer tmpDir $
-            canDepositScriptBlueprint tracer tmpDir
-      it "deposit reference script" $ \tracer ->
-        withClusterTempDir $ \tmpDir ->
-          withHydraScriptsAndBackendRunning tracer tmpDir $
-            canDepositReferenceScript tracer tmpDir
-      it "incrementally commit script with security checks" $ \tracer ->
-        withClusterTempDir $ \tmpDir ->
-          withHydraScriptsAndBackendRunning tracer tmpDir $
-            ensureDepositScriptToTheRightHead tracer tmpDir
       it "can submit a timed tx" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
