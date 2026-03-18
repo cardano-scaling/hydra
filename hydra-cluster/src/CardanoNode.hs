@@ -257,12 +257,12 @@ withBackend ::
 withBackend tracer stateDirectory action = do
   getHydraNetwork >>= \case
     LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
-    Preview -> withPublicTestnetNode Fixture.Preview action
-    Preproduction -> withPublicTestnetNode Fixture.Preproduction action
-    Mainnet -> withPublicTestnetNode Fixture.Mainnet action
+    Preview -> withNode Fixture.Preview action
+    Preproduction -> withNode Fixture.Preproduction action
+    Mainnet -> withNode Fixture.Mainnet action
     Blockfrost -> withBlockfrostBackend tracer stateDirectory action
  where
-  withPublicTestnetNode network action' = do
+  withNode network action' = do
     nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
     createDirectoryIfMissing True nodeDir
     let syncAndRun blockTime backend = do
