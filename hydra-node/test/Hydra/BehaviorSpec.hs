@@ -1132,6 +1132,24 @@ withSimulatedChainAndNetwork ::
   m a
 withSimulatedChainAndNetwork = withSimulatedChainAndSlowNetwork 0 0
 
+-- | Simulated chain and network where the network and/or chain observations
+-- can be delivered with a configurable delay. Handy to reproduce race
+-- conditions related to message ordering.
+withSimulatedChainAndSlowNetwork ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  -- | Network message delay
+  DiffTime ->
+  -- | Chain observation delay
+  DiffTime ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndSlowNetwork networkDelay chainDelay =
+  bracket
+    (simulatedChainAndNetworkUsing (createMockNetworkWithDelay networkDelay) chainDelay initialChainState)
+    (cancel . tickThread)
+ where
+  initialChainState = SimpleChainState{slot = ChainSlot 0}
+
 -- | Creates a simulated chain and network to which 'HydraNode's can be
 -- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
 -- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
@@ -1304,24 +1322,6 @@ createMockNetworkWithDelay networkDelay node nodes =
         enqueue inputQueue $ mkNetworkInput sender msg
 
   sender = getParty node
-
--- | Simulated chain and network where the network and/or chain observations
--- can be delivered with a configurable delay. Handy to reproduce race
--- conditions related to message ordering.
-withSimulatedChainAndSlowNetwork ::
-  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
-  -- | Network message delay
-  DiffTime ->
-  -- | Chain observation delay
-  DiffTime ->
-  (SimulatedChainNetwork SimpleTx m -> m a) ->
-  m a
-withSimulatedChainAndSlowNetwork networkDelay chainDelay =
-  bracket
-    (simulatedChainAndNetworkUsing (createMockNetworkWithDelay networkDelay) chainDelay initialChainState)
-    (cancel . tickThread)
- where
-  initialChainState = SimpleChainState{slot = ChainSlot 0}
 
 -- | Derive an 'OnChainTx' from 'PostChainTx' to simulate a "perfect" chain.
 -- NOTE: This implementation announces hard-coded contestationDeadlines. Also,
