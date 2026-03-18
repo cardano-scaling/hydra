@@ -40,7 +40,7 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsOpenWith,
  )
-import Hydra.Cluster.Util (Timing (..))
+import Hydra.Cluster.Util (Timing (..), depositTimeout)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
@@ -267,7 +267,7 @@ scenarioSetup tracer tmpDir action = do
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
-    let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
+    let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 100 * blockTime}
     withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
@@ -287,13 +287,15 @@ prepareScenario ::
 prepareScenario backend nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
+  blockTime <- Backend.getBlockTime backend
+  let timing = Timing{blockTime, contestationPeriod = 2, depositPeriod = truncate $ 100 * blockTime}
 
   send n1 $ input "Init" []
   headId <-
     waitForAllMatch 10 [n1, n2, n3] $
       headIsOpenWith (Set.fromList [alice, bob, carol])
 
-  -- Get some UTXOs to commit to a head
+  -- Deposit UTxOs into the open head for Alice and Bob.
   aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
   committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
   requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
@@ -302,18 +304,18 @@ prepareScenario backend nodes tracer = do
   committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
   requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
 
-  requestCommitTx n3 mempty >>= Backend.submitTransaction backend
-
-  let u0 = committedUTxOByAlice <> committedUTxOByBob
-
-  waitFor hydraTracer 10 [n1, n2, n3] $ output "HeadIsOpen" ["utxo" .= u0, "headId" .= headId]
+  -- Wait for both deposits to be finalized on-chain.
+  replicateM_ 2 $
+    waitForAllMatch (depositTimeout timing) [n1, n2, n3] $ \v -> do
+      guard $ v ^? key "tag" == Just "CommitFinalized"
+      guard $ v ^? key "headId" == Just (toJSON headId)
 
   -- Create an arbitrary transaction using some input to have history.
   tx <- sendTx nodes committedUTxOByAlice aliceExternalSk bobExternalVk paymentFromAliceToBob
   waitFor hydraTracer 10 (toList nodes) $
     output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
-  let expectedSnapshotNumber :: Int = 1
+  let expectedSnapshotNumber :: Int = 3  -- sn=1 deposit Alice, sn=2 deposit Bob, sn=3 tx
 
   waitMatch 10 n1 $ \v -> do
     guard $ v ^? key "tag" == Just "SnapshotConfirmed"
