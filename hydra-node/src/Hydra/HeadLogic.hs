@@ -966,6 +966,9 @@ onOpenChainIncrementTx openState newChainState newVersion depositTxId =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainDecrementTx ::
+  IsTx tx =>
+  Environment ->
+  PendingDeposits tx ->
   OpenState tx ->
   ChainStateType tx ->
   -- | New open state version
@@ -973,7 +976,7 @@ onOpenChainDecrementTx ::
   -- | Outputs removed by the decrement
   UTxOType tx ->
   Outcome tx
-onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
+onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO =
   newState
     DecommitFinalized
       { chainState = newChainState
@@ -981,8 +984,27 @@ onOpenChainDecrementTx openState newChainState newVersion distributedUTxO =
       , newVersion
       , distributedUTxO
       }
+    <> maybeRequestSnapshotAfterDecommit
  where
-  OpenState{headId} = openState
+  OpenState{headId, parameters, coordinatedHeadState} = openState
+
+  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId} = coordinatedHeadState
+
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+
+  Environment{party} = env
+
+  nextSn = confirmedSn + 1
+
+  -- After DecommitFinalized is aggregated, seenSnapshot becomes
+  -- LastSeenSnapshot{confirmedSn}, so snapshotInFlight will be False and we
+  -- can immediately request the next snapshot for any pending work using newVersion.
+  maybeRequestSnapshotAfterDecommit =
+    if isLeader parameters party nextSn && not (null localTxs)
+      then
+        newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing (setExistingDeposit pendingDeposits currentDepositTxId))
+      else noop
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit whose
 -- confirmed snapshot contains a matching utxoToCommit. The rollback may have
@@ -1485,7 +1507,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx openState newChainState newVersion distributedUTxO
+        onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -1926,17 +1948,18 @@ aggregate st = \case
   DecommitFinalized{chainState, newVersion} ->
     case st of
       Open
-        os@OpenState{coordinatedHeadState} ->
-          Open
-            os
-              { chainState
-              , coordinatedHeadState =
-                  coordinatedHeadState
-                    { decommitTx = Nothing
-                    , version = newVersion
-                    , seenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
-                    }
-              }
+        os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
+          let Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+           in Open
+                os
+                  { chainState
+                  , coordinatedHeadState =
+                      coordinatedHeadState
+                        { decommitTx = Nothing
+                        , version = newVersion
+                        , seenSnapshot = LastSeenSnapshot{lastSeen = confirmedSn}
+                        }
+                  }
       _otherState -> st
   HeadClosed{chainState, contestationDeadline} ->
     case st of
