@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
   BlockHeader,
   ChainPoint (..),
   LedgerEra,
+  NetworkId (Mainnet),
   Tx,
   TxId,
   UTxO,
@@ -29,8 +30,11 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   liftEither,
+  selectLovelace,
   shelleyBasedEra,
   throwError,
+  txOutAddress,
+  pattern ByronAddressInEra,
  )
 import Hydra.Chain (
   Chain (..),
@@ -41,6 +45,7 @@ import Hydra.Chain (
   PostChainTx (..),
   PostTxError (..),
   currentState,
+  maxMainnetLovelace,
   pushNewState,
   rollbackHistory,
  )
@@ -182,6 +187,8 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         runExceptT $
           do
             liftEither $ do
+              rejectByronAddresses lookupUTxO
+              rejectMoreThanMainnetLimit (networkId ctx) lookupUTxO
               rejectLowDeposits pparams lookupUTxO
             (currentSlot, currentTime) <- case currentPointInTime of
               Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
@@ -223,6 +230,26 @@ rejectLowDeposits pparams utxo = do
   case lefts results of
     [] -> pure ()
     (e : _) -> Left e
+
+-- | Reject any UTxO containing a Byron address, which cannot be represented
+-- in the Hydra head protocol.
+rejectByronAddresses :: UTxO -> Either (PostTxError Tx) ()
+rejectByronAddresses utxo =
+  case foldMap toByronAddr (UTxO.toList utxo) of
+    (addr : _) -> Left (UnsupportedLegacyOutput addr)
+    [] -> Right ()
+ where
+  toByronAddr (_, out) = case txOutAddress out of
+    ByronAddressInEra addr -> [addr]
+    _ -> []
+
+-- | Reject deposits on mainnet exceeding the 'maxMainnetLovelace' limit.
+-- NOTE: Remove this limit once we have more experiments on mainnet.
+rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
+rejectMoreThanMainnetLimit network utxo = do
+  let lovelaceAmt = selectLovelace $ UTxO.totalValue utxo
+  when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
+    Left CommittedTooMuchADAForMainnet{userCommittedLovelace = lovelaceAmt, mainnetLimitLovelace = maxMainnetLovelace}
 
 -- | Balance and sign the given partial transaction.
 finalizeTx ::

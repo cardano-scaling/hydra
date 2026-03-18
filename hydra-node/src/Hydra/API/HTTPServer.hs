@@ -40,7 +40,7 @@ import Hydra.Node.DepositPeriod (toNominalDiffTime)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
-import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status503)
+import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
 import System.Directory (doesFileExist)
 
@@ -314,15 +314,19 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
     -- expires one deposit period before deadline.
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     result <- draftDepositTx headId pparams commitBlueprint deadline changeAddress
-    -- FIXME: Deposit is not checking for byron addresses or the
-    -- maxMainnetLovelace (like commit did before!)
     case result of
-      Left e -> do
-        traceWith tracer $
-          APIReturnedError
-            { reason = "Failed to draft deposit transaction: " <> show e
-            }
-        pure $ responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
+      Left e ->
+        case e of
+          CommittedTooMuchADAForMainnet _ _ -> pure $ badRequest e
+          UnsupportedLegacyOutput _ -> pure $ badRequest e
+          DepositTooLow _ _ -> pure $ badRequest e
+          FailedToConstructDepositTx _ -> pure $ badRequest e
+          _ -> do
+            traceWith tracer $
+              APIReturnedError
+                { reason = "Failed to draft deposit transaction: " <> show e
+                }
+            pure $ responseLBS status500 jsonContent (Aeson.encode $ toJSON e)
       Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
 
   Chain{draftDepositTx} = directChain
