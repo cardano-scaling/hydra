@@ -112,11 +112,9 @@ observeInitTx tx = do
       pure (pid, fromChain contestationPeriod, parties, fromPlutusTxOutRef headSeed)
     _ -> Left NotAHeadDatum
 
-  -- TODO: Update spec about this: check minted value needed as otherwise
-  -- increment/decrement are mistaken as init
+  -- Check minted value to distinguish from increment/decrement
   let mintedValue = txMintValueToValue . txMintValue . getTxBodyContent $ getTxBody tx
       stAssetId = AssetId pid hydraHeadV1AssetName
-
   unless (selectAsset mintedValue stAssetId == 1) $
     Left NoTokensMinted
 
