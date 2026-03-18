@@ -57,7 +57,10 @@ Note that, as with any adjustments of this kind, it is good practice to make a b
 
 ### Training wheels
 
-There is a hard-coded limit in hydra-node when used on **mainnet**: only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
+The following restrictions apply when **depositing** funds into a Hydra head (via `POST /commit`):
+
+- **Byron addresses are not supported.** Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.
+- **Mainnet ADA limit.** When running on **mainnet**, only up to 100 ADA can be deposited into a Hydra head in a single deposit transaction. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on mainnet.
 
 ### Deposit periods
 
