@@ -91,8 +91,8 @@ headValidator oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, crsRef}) ->
-      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, proof, crsRef}) ->
+      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef
     (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
       checkPartialFanout ctx closedDatum numberOfPartialOutputs crsRef
     _ ->
@@ -281,7 +281,6 @@ checkClose ctx openBefore redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
-    , accumulatorHash = accumulatorHash'
     } = decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =
@@ -295,46 +294,46 @@ checkClose ctx openBefore redeemer =
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
-      CloseAny{signature} ->
+      CloseAny{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
             && alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash' :: Hash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash)
               signature
-      CloseUnusedDec{signature} ->
+      CloseUnusedDec{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' /= emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash' :: Hash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash)
               signature
-      CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
+      CloseUsedDec{signature, alreadyDecommittedUTxOHash, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash' :: Hash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash)
               signature
-      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUnusedInc{signature, alreadyCommittedUTxOHash, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash' :: Hash)
+              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash)
               signature
-      CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
+      CloseUsedInc{signature, alreadyCommittedUTxOHash, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
           alphaUTxOHash' == alreadyCommittedUTxOHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash' :: Hash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash)
               signature
 
   checkDeadline =
@@ -389,42 +388,42 @@ checkContest ctx closedDatum redeemer =
 
   mustBeValidSnapshot =
     case redeemer of
-      ContestCurrent{signature} ->
+      ContestCurrent{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedContestCurrent) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash')
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash)
               signature
-      ContestUsedDec{signature, alreadyDecommittedUTxOHash} ->
+      ContestUsedDec{signature, alreadyDecommittedUTxOHash, accumulatorHash} ->
         traceIfFalse $(errorCode FailedContestUsedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash')
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash)
               signature
-      ContestUnusedDec{signature} ->
+      ContestUnusedDec{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedContestUnusedDec) $
           alphaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash')
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash)
               signature
-      ContestUnusedInc{signature, alreadyCommittedUTxOHash} ->
+      ContestUnusedInc{signature, alreadyCommittedUTxOHash, accumulatorHash} ->
         traceIfFalse $(errorCode FailedContestUnusedInc) $
           omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash')
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash)
               signature
-      ContestUsedInc{signature} ->
+      ContestUsedInc{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedContestUsedInc) $
           omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', emptyHash, accumulatorHash')
+              (headId, version, snapshotNumber', utxoHash', alphaUTxOHash', emptyHash, accumulatorHash)
               signature
 
   mustBeWithinContestationPeriod =
@@ -468,7 +467,6 @@ checkContest ctx closedDatum redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
-    , accumulatorHash = accumulatorHash'
     } = decodeHeadOutputClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -494,10 +492,12 @@ headIsFinalizedWith ::
   Integer ->
   -- | Number of delta outputs to fanout
   Integer ->
+  -- | Membership proof for the fanout outputs
+  BuiltinBLS12_381_G2_Element ->
   -- | Reference input containing crs
   TxOutRef ->
   Bool
-headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs crsRef =
+headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && hashChecks
     && afterContestationDeadline
@@ -542,7 +542,7 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
     let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
      in fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) (L.take totalOutputs txInfoOutputs)
 
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, proof, accumulatorCommitment} = closedDatum
+  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
 
   afterContestationDeadline =

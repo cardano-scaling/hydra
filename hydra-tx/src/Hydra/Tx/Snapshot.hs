@@ -6,10 +6,8 @@ module Hydra.Tx.Snapshot where
 import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
-import Codec.Serialise (deserialiseOrFail, serialise)
+import Codec.Serialise (serialise)
 import Data.Aeson (Value (String), object, withObject, (.:), (.:?), (.=))
-import Data.Aeson.Types (Parser)
-import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
@@ -76,11 +74,10 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- utxoHash = bytes
 -- utxoToCommitHash = bytes
 -- utxoToDecommitHash = bytes
--- accumulator = bytes  ; serialized HydraAccumulator
+-- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the serialized HydraAccumulator
 --
--- The accumulator is built from [utxoHash, utxoToCommitHash, utxoToDecommitHash].
--- Parties sign the snapshot containing both the individual hashes (for backward compatibility)
--- and the accumulator structure (for on-chain verification against the datum).
+-- The accumulator hash is derived from the HydraAccumulator built over all UTxOs
+-- and is what gets stored in the on-chain ClosedDatum for verification.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator} =
     LBS.toStrict $
@@ -108,7 +105,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxo" .= utxo
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
-      , "accumulator" .= String (decodeUtf8 $ Base16.encode $ toStrict $ serialise $ Accumulator.unHydraAccumulator accumulator)
+      , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
@@ -126,24 +123,11 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       obj .:? "utxoToDecommit" >>= \case
         Nothing -> pure mempty
         (Just utxoD) -> pure utxoD
-    -- Parse accumulator, or reconstruct it if not present (for backward compatibility)
-    accumulator <-
-      (obj .:? "accumulator" >>= traverse parseBase16) >>= \case
-        Just accBytes | not (BS.null accBytes) -> do
-          -- Deserialize the accumulator from its serialized form
-          case deserialiseOrFail (fromStrict accBytes) of
-            Left _ -> fail "Failed to deserialize accumulator"
-            Right acc -> pure $ Accumulator.HydraAccumulator acc
-        _ -> do
-          -- Reconstruct accumulator from all UTxOs (including commit/decommit) for backward compatibility (or if empty)
-          pure $ Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    -- Reconstruct accumulator from all UTxOs (including commit/decommit).
+    -- The "accumulator" JSON field stores only the hash (consistent with signing
+    -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
-   where
-    parseBase16 :: Text -> Parser ByteString
-    parseBase16 t =
-      case Base16.decode (encodeUtf8 t) of
-        Left e -> fail $ "invalid base16: " <> show e
-        Right bs -> pure bs
 
 -- * ConfirmedSnapshot
 

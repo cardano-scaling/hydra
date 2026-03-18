@@ -6,7 +6,7 @@
                     "multiSignature": []
                 },
                 "snapshot": {
-                    "accumulator": "a3582001f42bc646fb27b7431ab530f925694de0eb5019b2e8ce7c02401ea92dd9e5c582581c2a6d9e89e2364daa01ace441e9a44f2145ff0c462feb4428c585d52d0158200c9e3d1804c543f99badc5b438cf7974d39d8a9f1aa7afd51bfb5f65dcfee0a382581c60bc69cf37dc806045b97ffc0487eb2d25375231c3a6c05d05a8d1ec015820f7bdfe337f6b1e40ff71f1c7d1f25978a5835b0fdfd27d04ba3f71a4dfa2e71582581c9d1f621cb01124220454e5eb1944411ab4de76c408a482025b4f533701",
+                    "accumulator": "55ca8bb135ee27633fbb970d16fffac9a5f349deb38aaa3c91cd4368ac50f833",
                     "confirmed": [],
                     "headId": "00000100010100010000000101010101",
                     "number": 1,
