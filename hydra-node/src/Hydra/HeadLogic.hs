@@ -943,8 +943,13 @@ onOpenChainTick env chainTime pendingDeposits st =
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
 -- increment UTxO from 'pendingDeposits' from the local state.
 --
+-- Finally, if the client observing happens to be the leader, then a new ReqSn
+-- is broadcasted.
+--
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenChainIncrementTx ::
+  IsTx tx =>
+  Environment ->
   OpenState tx ->
   ChainStateType tx ->
   -- | New open state version
@@ -952,10 +957,29 @@ onOpenChainIncrementTx ::
   -- | Deposit TxId
   TxIdType tx ->
   Outcome tx
-onOpenChainIncrementTx openState newChainState newVersion depositTxId =
+onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
   newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
+    <> maybeRequestSnapshotAfterCommit
  where
-  OpenState{headId} = openState
+  OpenState{headId, parameters, coordinatedHeadState} = openState
+
+  CoordinatedHeadState{localTxs, confirmedSnapshot} = coordinatedHeadState
+
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+
+  Environment{party} = env
+
+  nextSn = confirmedSn + 1
+
+  -- After CommitFinalized is aggregated, seenSnapshot becomes
+  -- LastSeenSnapshot{confirmedSn}, so snapshotInFlight will be False and we
+  -- can immediately request the next snapshot for any pending work using newVersion.
+  maybeRequestSnapshotAfterCommit =
+    if isLeader parameters party nextSn && not (null localTxs)
+      then
+        newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing Nothing)
+      else noop
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
@@ -1501,7 +1525,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
       <> onOpenChainTick env chainTime (depositsForHead ourHeadId pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx openState newChainState newVersion depositTxId
+        onOpenChainIncrementTx env openState newChainState newVersion depositTxId
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO}, newChainState})
@@ -1719,13 +1743,14 @@ aggregateNodeState nodeState sc =
                                       -- depositTxId, but we should not verify this here.
                                       currentDepositTxId = Nothing
                                     , localUTxO = localUTxO <> newUTxO
-                                    , seenSnapshot = toLastSeenSnapshot (seenSnapshot coordinatedHeadState)
+                                    , seenSnapshot = LastSeenSnapshot{lastSeen = confirmedSn}
                                     }
                               }
                       , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                       }
                where
-                CoordinatedHeadState{localUTxO} = coordinatedHeadState
+                CoordinatedHeadState{localUTxO, confirmedSnapshot} = coordinatedHeadState
+                Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
             _otherState ->
               nodeState
                 { headState = st
