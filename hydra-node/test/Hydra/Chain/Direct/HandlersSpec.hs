@@ -19,6 +19,7 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
@@ -37,14 +38,17 @@ import Hydra.Chain.Direct.State (
   ChainStateAt (..),
   chainSlotFromPoint,
   ctxHeadParameters,
+  ctxNetworkId,
   ctxParticipants,
   getKnownUTxO,
   initialChainState,
   initialize,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
-import Hydra.Tx.HeadParameters (HeadParameters)
-import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Tx (mkSimpleBlueprintTx)
+import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
 import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
@@ -53,12 +57,16 @@ import Test.Hydra.Chain.Direct.State (
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
+import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
+  chooseEnum,
   counterexample,
   elements,
   label,
   oneof,
+  suchThat,
   (===),
  )
 import Test.QuickCheck.Monadic (
@@ -332,23 +340,25 @@ genRollbackBlocks blocks =
 -- transaction, starting from the returned on-chain head state.
 --
 -- Note that this does not generate the entire spectrum of observable
--- transactions in Hydra, but only init and commits, which is already sufficient
+-- transactions in Hydra, but only init and deposits, which is already sufficient
 -- to observe at least one state transition and different levels of rollback.
 genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [TestBlock])
 genSequenceOfObservableBlocks = do
   ctx <- genHydraContext maximumNumberOfParties
-  -- NOTE: commits must be generated from each participant POV, and thus, we
+  let networkId = ctxNetworkId ctx
+  -- NOTE: deposits must be generated from each participant POV, and thus, we
   -- need all their respective ChainContext to move on.
+  -- XXX: This is not as important anymore with deposits
   allContexts <- deriveChainContexts ctx
   -- Pick a peer context which will perform the init
   cctx <- elements allContexts
   blks <- flip execStateT [] $ do
-    _initTx <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
-    -- TODO: increment/decrement here (instead of commit before)
-    pure ()
+    txInit <- stepInit cctx (ctxParticipants ctx) (ctxHeadParameters ctx)
+    let InitObservation{headId} = either (error . show) id $ observeInitTx txInit
+    replicateM_ (length allContexts) $
+      stepDeposit networkId headId
   pure (cctx, initialChainState, reverse blks)
  where
-  nextSlot :: Monad m => StateT [TestBlock] m SlotNo
   nextSlot = do
     get <&> \case
       [] -> 1
@@ -356,18 +366,32 @@ genSequenceOfObservableBlocks = do
 
   blockSlotNo (TestBlock (BlockHeader slotNo _ _) _) = slotNo
 
-  putNextBlock :: Tx -> StateT [TestBlock] Gen ()
   putNextBlock tx = do
     sl <- nextSlot
     blk <- lift $ genBlockAt sl [tx]
     modify' (blk :)
 
-  stepInit ::
-    ChainContext ->
-    [OnChainId] ->
-    HeadParameters ->
-    StateT [TestBlock] Gen Tx
   stepInit ctx participants params = do
     seedTxIn <- lift genTxIn
-    let initTx = initialize ctx seedTxIn participants params
-    initTx <$ putNextBlock initTx
+    let tx = initialize ctx seedTxIn participants params
+    tx <$ putNextBlock tx
+
+  stepDeposit networkId headId = do
+    utxoToDeposit <- lift $ genUTxOAdaOnlyOfSize 1 `suchThat` (not . UTxO.null)
+    slot <- nextSlot
+    slotsUntilDeadline <- lift $ chooseEnum (0, 86400)
+    let deadline =
+          slotNoToUTCTime
+            Fixture.systemStart
+            Fixture.slotLength
+            (slot + slotsUntilDeadline)
+    let tx =
+          depositTx
+            networkId
+            Fixture.pparams
+            headId
+            (mkSimpleBlueprintTx utxoToDeposit)
+            slot
+            deadline
+            Nothing
+    putNextBlock tx
