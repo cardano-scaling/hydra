@@ -40,7 +40,7 @@ import Hydra.Cluster.Scenarios (
   EndToEndLog (..),
   headIsOpenWith,
  )
-import Hydra.Cluster.Util (Timing (..), depositTimeout)
+import Hydra.Cluster.Util (Timing (..), depositTimeout, mkTestTiming')
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
@@ -267,7 +267,8 @@ scenarioSetup tracer tmpDir action = do
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
-    let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 100 * blockTime}
+    let Timing{depositPeriod} = mkTestTiming' 2 blockTime
+        timing = Timing{blockTime, contestationPeriod, depositPeriod}
     withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
       let [n1, n2, n3] = toList nodes
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
@@ -288,7 +289,7 @@ prepareScenario backend nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
   blockTime <- Backend.getBlockTime backend
-  let timing = Timing{blockTime, contestationPeriod = 2, depositPeriod = truncate $ 100 * blockTime}
+  let timing = (mkTestTiming' 2 blockTime){contestationPeriod = 2}
 
   send n1 $ input "Init" []
   headId <-

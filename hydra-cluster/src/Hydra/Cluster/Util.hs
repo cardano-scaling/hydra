@@ -81,11 +81,17 @@ data Timing = Timing
 
 -- | Set up reasonable timing parameters for testing given a 'BlockTime'.
 mkTestTiming :: BlockTime -> Timing
-mkTestTiming blockTime =
+mkTestTiming = mkTestTiming' 1
+
+-- | Like 'mkTestTiming' but scales 'depositPeriod' by the number of concurrent
+-- deposits expected. Each increment tx must be processed sequentially on-chain,
+-- so N concurrent deposits require N times the base deposit period.
+mkTestTiming' :: Int -> BlockTime -> Timing
+mkTestTiming' numDeposits blockTime =
   Timing
     { blockTime
     , contestationPeriod = truncate $ 20 * blockTime
-    , depositPeriod = truncate $ 20 * blockTime
+    , depositPeriod = truncate $ fromIntegral numDeposits * 20 * blockTime
     }
 
 -- | Get a timeout until a deposit should have happened given a 'Timing'.

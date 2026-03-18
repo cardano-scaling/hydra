@@ -106,7 +106,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, modifyConfig, setNetworkId)
+import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, setNetworkId)
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
@@ -1125,7 +1125,8 @@ canDeposit2 tracer workDir backend hydraScriptsTxId =
       refuelIfNeeded tracer backend Alice 30_000_000
       refuelIfNeeded tracer backend Bob 30_000_000
       blockTime <- Backend.getBlockTime backend
-      let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 300 * blockTime}
+      -- 2 concurrent deposits = 2 sequential increments on-chain
+      let timing = mkTestTiming' 2 blockTime
       networkId <- Backend.queryNetworkId backend
       aliceChainConfig <-
         chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
