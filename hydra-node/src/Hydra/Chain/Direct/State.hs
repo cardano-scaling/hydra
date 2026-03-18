@@ -80,6 +80,7 @@ import Hydra.Tx (
   registryUTxO,
  )
 import Hydra.Tx.Abort (AbortTxError (..), abortTx)
+import Hydra.Tx.Accumulator (HydraAccumulator)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), PointInTime, closeTx)
 import Hydra.Tx.CollectCom (UTxOHash, collectComTx)
@@ -107,7 +108,6 @@ import Hydra.Tx.Observe (
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (toBuiltin)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
 -- all the relevant UTxO for resolving transaction inputs.
@@ -663,16 +663,18 @@ fanout ::
   Maybe UTxO ->
   -- | Snapshot UTxO to decommit to fanout
   Maybe UTxO ->
+  -- | Full snapshot accumulator matching accumulatorCommitment in the closed datum
+  HydraAccumulator ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Either FanoutTxError Tx
-fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
+fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccumulator deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- checkHeadDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
-  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
+  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -720,13 +722,15 @@ partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadline
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToPartialFanout
   closedDatum <- checkHeadDatum headUTxO
-  -- Guard against stale chain state: verify the on-chain accumulator matches
-  -- the UTxOs we intend to distribute. In a multi-node setup, another node may
-  -- have already posted a partial fanout, advancing the on-chain state. If so,
-  -- the current split is stale and we should not build a doomed transaction.
-  let fullAccumulatorHash = Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO @Tx (utxoToDistribute <> remainingUTxO))
-      Head.ClosedDatum{accumulatorHash = onChainHash} = closedDatum
-  unless (toBuiltin fullAccumulatorHash == onChainHash) $
+  -- Guard against stale chain state: verify the on-chain accumulator commitment
+  -- matches what we'd expect from the UTxOs we intend to distribute. In a
+  -- multi-node setup, another node may have already posted a partial fanout,
+  -- advancing the on-chain state. If so, the current split is stale and we
+  -- should not build a doomed transaction.
+  let fullAccumulator = Accumulator.buildFromUTxO @Tx (utxoToDistribute <> remainingUTxO)
+      expectedCommitment = Accumulator.getAccumulatorCommitment fullAccumulator
+      Head.ClosedDatum{accumulatorCommitment = onChainCommitment} = closedDatum
+  unless (expectedCommitment == onChainCommitment) $
     Left StaleChainStateForPartialFanout
   let remainingAccumulator = Accumulator.buildFromUTxO @Tx remainingUTxO
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo closedDatum remainingAccumulator
@@ -1045,11 +1049,13 @@ unsafeFanout ::
   Maybe UTxO ->
   -- | Snapshot decommit UTxO to fanout
   Maybe UTxO ->
+  -- | Full snapshot accumulator matching the accumulatorCommitment in the closed datum.
+  HydraAccumulator ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
+unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccumulator deadlineSlotNo =
+  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccumulator deadlineSlotNo
 
 unsafePartialFanout ::
   HasCallStack =>

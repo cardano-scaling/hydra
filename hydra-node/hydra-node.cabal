@@ -153,7 +153,6 @@ library
     , ouroboros-consensus
     , ouroboros-network-api        >=0.7.1
     , ouroboros-network-protocols  >=0.8
-    , plutus-ledger-api
     , process
     , prometheus
     , QuickCheck

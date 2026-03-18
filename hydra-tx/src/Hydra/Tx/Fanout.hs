@@ -15,7 +15,7 @@ import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusTx.Builtins (bls12_381_G2_compressed_generator, bls12_381_G2_uncompress)
+import PlutusTx.Builtins (bls12_381_G2_uncompress)
 
 -- * Creation
 
@@ -31,6 +31,8 @@ fanoutTx ::
   Maybe UTxO ->
   -- | Snapshotted decommit UTxO to fanout on layer 1
   Maybe UTxO ->
+  -- | Full snapshot accumulator matching accumulatorCommitment in the closed datum.
+  HydraAccumulator ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -38,7 +40,7 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
@@ -71,8 +73,18 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
         { numberOfFanoutOutputs = fromIntegral utxoLength
         , numberOfCommitOutputs = fromIntegral toCommitLength
         , numberOfDecommitOutputs = fromIntegral toDecommitLength
+        , proof = fanoutProof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
+
+  fanoutProof =
+    let allUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
+        -- Use the full snapshot accumulator (same one used for accumulatorCommitment in the
+        -- closed datum). CRS must be sized for the full accumulator, not just the fanout subset.
+        crs = Accumulator.generateCRS $ Accumulator.requiredCRSSize snapshotAccumulator + 1
+     in bls12_381_G2_uncompress $
+          toBuiltin $
+            Accumulator.createMembershipProofFromUTxO @Tx allUTxO snapshotAccumulator crs
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
@@ -147,13 +159,8 @@ partialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadline
           { Head.utxoHash = emptyHash
           , Head.alphaUTxOHash = emptyHash
           , Head.omegaUTxOHash = emptyHash
-          , Head.accumulatorHash = toBuiltin remainingAccumulatorHash
-          , Head.accumulatorCommitment = remainingAccumulatorCommitment
-          , Head.proof = bls12_381_G2_uncompress bls12_381_G2_compressed_generator
+          , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment remainingAccumulator
           }
-
-  remainingAccumulatorHash = Accumulator.getAccumulatorHash remainingAccumulator
-  remainingAccumulatorCommitment = Accumulator.getAccumulatorCommitment remainingAccumulator
 
   orderedDistributedOutputs =
     fromCtxUTxOTxOut <$> UTxO.txOutputs utxoToDistribute

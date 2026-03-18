@@ -73,6 +73,7 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.Initial qualified as Initial
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus (initialValidatorScript)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.Observe (
@@ -509,7 +510,7 @@ prop_canCloseFanoutEveryCollect = monadicST $ do
     _ -> fail "not observed close"
   -- Fanout
   let fanoutUTxO = getKnownUTxO stClosed
-  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing Nothing (slotNoFromUTCTime systemStart slotLength deadline)
+  let txFanout = unsafeFanout cctx fanoutUTxO seedTxIn initialUTxO Nothing Nothing (Accumulator.buildFromUTxO @Tx initialUTxO) (slotNoFromUTCTime systemStart slotLength deadline)
 
   -- Properties
   let collectOrFanoutFails =

@@ -45,6 +45,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
 import Test.Hydra.Chain.Direct.State (
@@ -277,7 +278,8 @@ computeFanOutCost = do
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+    let snapshotAcc = (getSnapshot snapshot).accumulator
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty snapshotAcc deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 -- | Compute costs of partial fanout transactions across a range of total UTxO
 -- set sizes.

@@ -29,10 +29,12 @@ import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
 import Cardano.Crypto.Hash (Blake2b_256)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
-import Codec.Serialise (serialise)
+import Codec.Serialise (deserialiseOrFail, serialise)
+import Data.Aeson (Value (String), withText)
+import Data.ByteString.Base16 qualified as Base16
+import Data.ByteString.Lazy qualified as BSL
 import Data.List (nub)
 import Data.Map.Strict qualified as Map
-import Data.Proxy (Proxy (..))
 import Field qualified as F
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
@@ -53,6 +55,19 @@ import PlutusTx.Prelude (scale)
 
 newtype HydraAccumulator = HydraAccumulator {unHydraAccumulator :: Accumulator}
   deriving newtype (Eq, Show)
+
+instance ToJSON HydraAccumulator where
+  toJSON (HydraAccumulator acc) =
+    String $ decodeUtf8 $ Base16.encode $ BSL.toStrict $ serialise acc
+
+instance FromJSON HydraAccumulator where
+  parseJSON = withText "HydraAccumulator" $ \t ->
+    case Base16.decode (encodeUtf8 t) of
+      Left err -> fail $ "Invalid base16 for HydraAccumulator: " <> show err
+      Right bs ->
+        case deserialiseOrFail (BSL.fromStrict bs) of
+          Left err -> fail $ "Failed to deserialize HydraAccumulator: " <> show err
+          Right acc -> pure $ HydraAccumulator acc
 
 build :: [ByteString] -> HydraAccumulator
 build = HydraAccumulator . Accumulator.buildAccumulator
@@ -130,7 +145,7 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
 -- which is critical for keeping partial fanout transaction sizes bounded.
 getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash (HydraAccumulator acc) =
-  digest (Proxy @Blake2b_256) . toStrict . serialise $ acc
+  digest (Proxy @Blake2b_256) . BSL.toStrict . serialise $ acc
 
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G2_Element
 getAccumulatorCommitment (HydraAccumulator acc) =

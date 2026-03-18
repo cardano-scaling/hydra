@@ -411,7 +411,8 @@ genFanoutTx numParties = do
   let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
-  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
+  let snapshotAcc = (getSnapshot confirmed).accumulator
+  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing snapshotAcc deadlineSlotNo)
 
 genStOpen ::
   HydraContext ->

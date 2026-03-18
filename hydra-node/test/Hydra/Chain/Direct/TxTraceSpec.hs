@@ -916,12 +916,17 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      (realWorldModelUTxO utxo)
+      fanoutUTxO
       -- Model world has no 'Maybe ModelUTxO', but real world does.
-      (if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit)
-      (if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit)
+      fanoutCommit
+      fanoutDecommit
+      snapshotAcc
       deadline
  where
+  fanoutUTxO = realWorldModelUTxO utxo
+  fanoutCommit = if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit
+  fanoutDecommit = if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit
+  snapshotAcc = Accumulator.buildFromSnapshotUTxOs @Tx fanoutUTxO fanoutCommit fanoutDecommit
   deadline = SlotNo $ fromIntegral Fixture.cperiod * fromIntegral (length allActors)
 
 -- | Cardano payment keys for 'alice', 'bob', and 'carol'.

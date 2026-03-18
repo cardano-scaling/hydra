@@ -6,7 +6,7 @@
             },
             "signature": "84401b452ee8a46af3d863ece1898aed5041c599ec8788bb93f6f25653d93605ac05a1e4641fded0c335cc88a6a1090e6a6a1bf6c3a337c16677c8522898c306",
             "snapshot": {
-                "accumulator": "a2582074df23a10f0a0f46a77720c5ba206548f414f1ab33f6e1324deefd5dc882549f82581c800bbdc5d888de38a2b2d52a295808b0bd9f7f735cf60adb260c0c35015820adc9f262d631535ca8ac9c3066c1ee254579c3f2b1cf31165d8fba589ded42d582581cb810aa24b857b086fcdec970239b62edaea5ea8505ebdd807c5b268901",
+                "accumulator": "5a912e320a045d6a7969da4927d3a6dbba3d27d9d80c75d0f10efcc52c20865f",
                 "confirmed": [],
                 "headId": "01010000010100010000010000000100",
                 "number": 1,

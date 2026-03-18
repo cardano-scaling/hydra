@@ -8,7 +8,6 @@ import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point2)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (LowerBoundBeforeContestationDeadline, PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
@@ -21,11 +20,10 @@ import Hydra.Tx (registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO, utxoToElement))
+import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusTx.Builtins (bls12_381_G2_uncompress)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
@@ -110,9 +108,6 @@ remainingAccumulator =
 crsSize :: Int
 crsSize = Accumulator.requiredCRSSize fullAccumulator + 1
 
-crs :: [Point2]
-crs = Accumulator.generateCRS crsSize
-
 -- | The ClosedDatum that the head output currently carries (before partial fanout).
 -- This represents a freshly-closed head with the full accumulator.
 healthyClosedDatum :: Head.ClosedDatum
@@ -128,13 +123,6 @@ healthyClosedDatum =
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     , version = 0
-    , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash fullAccumulator
-    , proof =
-        let allOutputs = UTxO.txOutputs healthyFullUTxO
-            subsetElements = utxoToElement @Tx <$> allOutputs
-         in bls12_381_G2_uncompress $
-              toBuiltin $
-                Accumulator.createMembershipProof subsetElements fullAccumulator crs
     , accumulatorCommitment =
         Accumulator.getAccumulatorCommitment fullAccumulator
     }

@@ -5,7 +5,6 @@ module Hydra.Tx.Close where
 import Hydra.Cardano.Api hiding (utxo)
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
@@ -30,7 +29,6 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (toPlutusSignatures)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusTx.Builtins (bls12_381_G2_uncompress)
 
 -- * Construction
 
@@ -97,59 +95,45 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       InitialSnapshot{} ->
         Head.CloseInitial
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
-        case incrementalAction of
-          ToCommit utxo' ->
-            if version == openVersion
-              then
-                Head.CloseUnusedInc
+        let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+         in case incrementalAction of
+              ToCommit utxo' ->
+                if version == openVersion
+                  then
+                    Head.CloseUnusedInc
+                      { signature = toPlutusSignatures signatures
+                      , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                      , accumulatorHash = accHash
+                      }
+                  else
+                    Head.CloseUsedInc
+                      { signature = toPlutusSignatures signatures
+                      , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                      , accumulatorHash = accHash
+                      }
+              ToDecommit utxo' ->
+                if version == openVersion
+                  then
+                    Head.CloseUnusedDec
+                      { signature = toPlutusSignatures signatures
+                      , accumulatorHash = accHash
+                      }
+                  else
+                    Head.CloseUsedDec
+                      { signature = toPlutusSignatures signatures
+                      , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                      , accumulatorHash = accHash
+                      }
+              NoThing ->
+                Head.CloseAny
                   { signature = toPlutusSignatures signatures
-                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  , accumulatorHash = accHash
                   }
-              else
-                Head.CloseUsedInc
-                  { signature = toPlutusSignatures signatures
-                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                  }
-          ToDecommit utxo' ->
-            if version == openVersion
-              then
-                Head.CloseUnusedDec
-                  { signature = toPlutusSignatures signatures
-                  }
-              else
-                Head.CloseUsedDec
-                  { signature = toPlutusSignatures signatures
-                  , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                  }
-          NoThing ->
-            Head.CloseAny
-              { signature = toPlutusSignatures signatures
-              }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
   Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator} = getSnapshot confirmedSnapshot
-
-  snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
-
-  crs = Accumulator.generateCRS $ UTxO.size snapshotUTxO + 1
-
-  proof =
-    let utxoToCloseWith =
-          utxo
-            <> case closeRedeemer of
-              Head.CloseUsedInc{} ->
-                fromMaybe mempty utxoToCommit
-              Head.CloseUnusedDec{} ->
-                fromMaybe mempty utxoToDecommit
-              _ -> mempty
-     in bls12_381_G2_uncompress $
-          toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx
-              utxoToCloseWith
-              accumulator
-              crs
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -173,13 +157,8 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , headId = headIdToCurrencySymbol headId
           , contesters = []
           , version = fromIntegral openVersion
-          , accumulatorHash = toBuiltin closedAccumulatorHash
-          , accumulatorCommitment
-          , proof
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
           }
-   where
-    closedAccumulatorHash = Accumulator.getAccumulatorHash accumulator
-    accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
 
   contestationDeadline =
     addContestationPeriod (posixFromUTCTime utcTime) openContestationPeriod

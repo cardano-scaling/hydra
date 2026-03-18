@@ -1371,8 +1371,10 @@ onClosedClientFanout closedState =
                         }
                   }
         else case remainingFanoutUTxO of
-          -- After partial fanouts, the remaining fits in a single fanout
-          Just _remaining ->
+          -- After partial fanouts, the remaining fits in a single fanout.
+          -- The accumulatorCommitment on-chain is for the remaining UTxOs only,
+          -- so we rebuild the accumulator from the remaining UTxOs.
+          Just remaining ->
             cause
               OnChainEffect
                 { postChainTx =
@@ -1380,11 +1382,12 @@ onClosedClientFanout closedState =
                       { utxo = allUTxO
                       , utxoToCommit = Nothing
                       , utxoToDecommit = Nothing
+                      , snapshotAccumulator = Accumulator.buildFromUTxO remaining
                       , headSeed
                       , contestationDeadline
                       }
                 }
-          -- First fanout, use the original snapshot UTxOs
+          -- First fanout, use the original snapshot UTxOs.
           Nothing ->
             cause
               OnChainEffect
@@ -1406,12 +1409,13 @@ onClosedClientFanout closedState =
                           if snapshotVersion == version
                             then utxoToDecommit
                             else Nothing
+                      , snapshotAccumulator = accumulator
                       , headSeed
                       , contestationDeadline
                       }
                 }
  where
-  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion, accumulator} = getSnapshot confirmedSnapshot
 
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
 
@@ -1505,6 +1509,7 @@ onClosedChainPartialFanoutTx closedState newChainState distributedUTxO =
                       { utxo = remaining
                       , utxoToCommit = Nothing
                       , utxoToDecommit = Nothing
+                      , snapshotAccumulator = Accumulator.buildFromUTxO remaining
                       , headSeed
                       , contestationDeadline
                       }

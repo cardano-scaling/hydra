@@ -39,6 +39,7 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
+import Hydra.Tx.Accumulator (HydraAccumulator)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | Hardcoded limit for commit tx on mainnet
@@ -87,7 +88,16 @@ data PostChainTx tx
       , openVersion :: SnapshotVersion
       , contestingSnapshot :: ConfirmedSnapshot tx
       }
-  | FanoutTx {utxo :: UTxOType tx, utxoToCommit :: Maybe (UTxOType tx), utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
+  | FanoutTx
+      { utxo :: UTxOType tx
+      , utxoToCommit :: Maybe (UTxOType tx)
+      , utxoToDecommit :: Maybe (UTxOType tx)
+      , snapshotAccumulator :: HydraAccumulator
+      -- ^ Full snapshot accumulator matching the accumulatorCommitment in the closed datum.
+      -- Used to compute the membership proof for the fanout outputs.
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
   | PartialFanoutTx
       { utxoToDistribute :: UTxOType tx
       , remainingUTxO :: UTxOType tx

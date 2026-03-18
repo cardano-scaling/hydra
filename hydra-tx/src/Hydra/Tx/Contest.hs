@@ -3,7 +3,6 @@ module Hydra.Tx.Contest where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
@@ -22,7 +21,6 @@ import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxNa
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
-import PlutusTx.Builtins (bls12_381_G2_uncompress)
 
 import Hydra.Plutus.Orphans ()
 
@@ -86,6 +84,8 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   headScriptRef =
     fst (headReference scriptRegistry)
 
+  accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+
   contestRedeemer =
     case incrementalAction of
       ToCommit utxo' ->
@@ -94,23 +94,31 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
             Head.ContestUnusedInc
               { signature = toPlutusSignatures sig
               , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              , accumulatorHash = accHash
               }
           else
             Head.ContestUsedInc
               { signature = toPlutusSignatures sig
+              , accumulatorHash = accHash
               }
       ToDecommit utxo' ->
         if version == openVersion
           then
             Head.ContestUnusedDec
               { signature = toPlutusSignatures sig
+              , accumulatorHash = accHash
               }
           else
             Head.ContestUsedDec
               { signature = toPlutusSignatures sig
               , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+              , accumulatorHash = accHash
               }
-      NoThing -> Head.ContestCurrent{signature = toPlutusSignatures sig}
+      NoThing ->
+        Head.ContestCurrent
+          { signature = toPlutusSignatures sig
+          , accumulatorHash = accHash
+          }
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 
@@ -125,23 +133,6 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
     if length (contester : closedContesters) == length closedParties
       then closedContestationDeadline
       else addContestationPeriod closedContestationDeadline onChainConstestationPeriod
-
-  fullSnapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
-
-  crs = Accumulator.generateCRS $ UTxO.size fullSnapshotUTxO + 1
-
-  proof =
-    let snapshotUTxO =
-          utxo
-            <> case contestRedeemer of
-              Head.ContestUsedInc{} ->
-                fromMaybe mempty utxoToCommit
-              Head.ContestUnusedDec{} ->
-                fromMaybe mempty utxoToDecommit
-              _ -> mempty
-     in bls12_381_G2_uncompress $
-          toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx snapshotUTxO accumulator crs
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -165,13 +156,8 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , headId = headIdToCurrencySymbol headId
           , contesters = contester : closedContesters
           , version = toInteger openVersion
-          , accumulatorHash = toBuiltin contestAccumulatorHash
-          , proof
-          , accumulatorCommitment
+          , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
           }
-   where
-    contestAccumulatorHash = Accumulator.getAccumulatorHash accumulator
-    accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit)
 
 -- * Observation
 

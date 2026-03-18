@@ -116,6 +116,10 @@ healthyOpenStateVersion = healthyOutdatedSnapshotVersion + 1
 healthyOutdatedConfirmedClosingSnapshot :: ConfirmedSnapshot Tx
 healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
 
+healthyOutdatedAccumulatorHash :: Head.Hash
+healthyOutdatedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyOutdatedSnapshot
+
 healthyCloseOutdatedTx :: (Tx, UTxO)
 healthyCloseOutdatedTx =
   (tx, lookupUTxO)
@@ -251,7 +255,7 @@ genCloseOutdatedMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature}
+        pure $ Head.Close Head.CloseUnusedDec{signature, accumulatorHash = healthyOutdatedAccumulatorHash}
     , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -320,6 +324,7 @@ genCloseOutdatedMutation (tx, _utxo) =
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyOutdatedSnapshot
+                            , accumulatorHash = healthyOutdatedAccumulatorHash
                             }
                       )
                 )
@@ -350,6 +355,7 @@ genCloseOutdatedMutation (tx, _utxo) =
             Head.CloseUsedDec
               { signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot
               , alreadyDecommittedUTxOHash = toBuiltin mutatedUTxOHash
+              , accumulatorHash = healthyOutdatedAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateCloseSignatures . ChangeHeadRedeemer <$> do
         -- Close redeemer contains the signatures. If we change them should
@@ -365,12 +371,13 @@ genCloseOutdatedMutation (tx, _utxo) =
             Head.CloseUsedDec
               { signature
               , alreadyDecommittedUTxOHash = toBuiltin healthyUTxOToDecommitHash
+              , accumulatorHash = healthyOutdatedAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateCloseType . ChangeHeadRedeemer <$> do
         -- Close redeemer claims whether the snapshot is valid against current
         -- or previous version. If we change it then it should cause invalid
         -- signature error.
-        pure $ Head.Close Head.CloseUnusedDec{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot}
+        pure $ Head.Close Head.CloseUnusedDec{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash}
     ]
  where
   genOversizedTransactionValidity = do

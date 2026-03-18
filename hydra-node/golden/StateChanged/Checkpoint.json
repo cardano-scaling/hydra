@@ -36,7 +36,7 @@
                                 ]
                             },
                             "snapshot": {
-                                "accumulator": "a25820d4297558aa69a7c7914dfe5554316228869f34213a80f1dfeeb948f2342b1def82581c8028098027a5a58598eda4b67b91758b02b82a2d1d342689c0da2a3f015820e2a02bac9c3b271fdd30411f413295b9166e3311c14a134858596de447759b8182581c1d095e5e2a32f7104c309bdffe18b332899e42a933d969f2b2464e8801",
+                                "accumulator": "fd9362284542a56cff8e1624ee8a1d0ffc99836dca52d86880df4843cc9e607e",
                                 "confirmed": [],
                                 "headId": "00000101010101010101010001000000",
                                 "number": 1,

@@ -28,7 +28,7 @@
             },
             "requestedTxIds": [],
             "snapshot": {
-                "accumulator": "a258200a21cd45549e678fcee5663c3403896ca53bf410881f910c3f07b68db8d486ee82581ca0ce57aa93864a168095420a705d056a237adf8b9c9d79da007f5a76015820ae187a5edbf47ff2b75eda9d70d46b5ae2623df6a9a975a7dec600a11f708eb382581c89fd30b2bb7efff54c88e116037cb499964f619d996e75455151fb5a01",
+                "accumulator": "3d8c17417b86917364ad267ed3254251158daa99d5dd375840fd52d99541da69",
                 "confirmed": [],
                 "headId": "00000000000101010001000000010101",
                 "number": 1,

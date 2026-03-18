@@ -338,6 +338,9 @@ instance Arbitrary TxId where
    where
     onlyTxId (TxIn txi _) = txi
 
+instance Arbitrary Accumulator.HydraAccumulator where
+  arbitrary = Accumulator.build <$> listOf (BS.pack <$> vectorOf 32 arbitrary)
+
 genScriptRegistry :: Gen ScriptRegistry
 genScriptRegistry = genScriptRegistryWithCRSSize defaultItems
 
