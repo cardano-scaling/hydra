@@ -22,9 +22,9 @@ When new blocks become available, the `ChainSync` client receives a `RollForward
 
 ## How do rollbacks impact the Hydra node?
 
-Rollbacks pose challenges because when a transaction is observed on-chain, it can alter the state of the head in several stages: _initializing_ it, collecting _commits_, opening the head via the `CollectCom` transaction, and ultimately _closing_ it and _fanning out_ the head's final UTXO.
+Rollbacks pose challenges because when a transaction is observed on-chain, it can alter the state of the head in several stages: opening it via `Init`, observing deposits (`CommitRecorded`/`CommitFinalized`), and ultimately _closing_ it and _fanning out_ the head's final UTXO.
 
-The following diagram illustrates the issue where a rollback can lead to potentially conflicting `Commit` transactions:
+The following diagram illustrates the issue where a rollback can lead to potentially conflicting deposit transactions:
 
 ![](rollbacks-3.jpg)
 
@@ -32,15 +32,15 @@ If the head does not properly handle the rollback, it risks becoming inconsisten
 
 The consequences of a rollback on the head's state vary depending on when the rollback occurs:
 
-1. If the rollback occurs before or after the head is opened – for example, before the `CollectCom` transaction or after the `Close` – the resolution is relatively straightforward: the head's state can be reset to the point it was at before the rolled-back transaction was observed.
+1. If the rollback occurs before or after the head is opened – for example, before the `Init` transaction or after the `Close` – the resolution is relatively straightforward: the head's state can be reset to the point it was at before the rolled-back transaction was observed.
 
-2. If the rollback occurs while the head is open – for instance, if the `CollectCom` transaction is rolled back – it poses greater challenges. At this point, the node has already begun exchanging messages with its peers, and its state no longer depends solely on the blockchain.
+2. If the rollback occurs while the head is open – for instance, if a deposit or `Close` transaction is rolled back – it poses greater challenges. At this point, the node has already begun exchanging messages with its peers, and its state no longer depends solely on the blockchain.
 
 ## How do we handle them?
 
 :::warning
 
-🛠 Hydra currently handles rollbacks gracefully in simpler cases, such as scenario 1 above. However, in cases where a `CollectCom` transaction rollback occurs, which can easily lead to a head becoming stale due to desynchronization among nodes (where one node resets its state before the rollback and loses track of subsequent events during the head's open phase), the head will need to be closed.
+🛠 Hydra currently handles rollbacks gracefully in simpler cases, such as scenario 1 above. However, rollbacks of transactions while the head is open (deposits, decommits, or the `Init` itself) can lead to a head becoming stale due to desynchronization among nodes, and the head will need to be closed.
 :::
 
 Rollback handling has been partially deactivated in Hydra per [ADR-23](https://github.com/cardano-scaling/hydra/blob/master/docs/adr/2023-04-26_023-single-state.md). This section will be updated with a more comprehensive and refined rollback handling approach with issue [#185](https://github.com/cardano-scaling/hydra/issues/185).

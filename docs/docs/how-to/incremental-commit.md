@@ -7,9 +7,7 @@ sidebar_position: 5
 Assuming we already have an open Head and some funds on the L1 we would like to deposit.
 
 
-The `/commit` endpoint supports two ways of specifying what to deposit, one is just by showing the UTxO (which is assumed to be owned by public keys), while the more advanced way would be using _blueprint_ transaction as a recipe on what to deposit.
-
-Blueprint transactions work differently in deposits (incremental commits) compared to commits (committing before the Head is in the open state).
+The `POST /commit` endpoint supports two ways of specifying what to deposit: the simple way is to provide the UTxO directly (assumed to be owned by public keys), while the more advanced way is to use a _blueprint_ transaction as a recipe for what to deposit.
 
 When it comes to **depositing** our users have four ways of using the blueprint transaction so it should work for even more involved scenarios:
 

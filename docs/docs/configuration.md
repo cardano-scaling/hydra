@@ -20,7 +20,7 @@ cardano-cli address key-gen \
   --signing-key-file cardano.sk
 ```
 
-These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, aborting an initialized head). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
+These keys authenticate on-chain transactions and ensure that only authorized participants can control the head's lifecycle, preventing unauthorized actors from interfering (eg, posting a spurious `Close`). While this issue does not put participants' funds at risk, it is still inconvenient and can be avoided.
 
 ### Hydra keys
 
@@ -208,7 +208,7 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel vs funds
 
-Transactions driving the head lifecycle (`Init`, `Abort`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 
@@ -217,20 +217,13 @@ cardano-cli address build --verification-key-file cardano.vk --mainnet
 # addr1v92l229athdj05l20ggnqz24p4ltlj55e7n4xplt2mxw8tqsehqnt
 ```
 
-<!-- TODO: this part below feels a bit odd here, rather move to API or how-to? -->
-
-While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to commit **funds** into an `initializing` Hydra head. The `hydra-node` provides an HTTP endpoint at `/commit`, allowing you to specify either:
- - A set of `UTXO` outputs to commit (belonging to public keys), or
+While the `hydra-node` needs to pay fees for protocol transactions, any wallet can be used to deposit **funds** into an open Hydra head. The `hydra-node` provides an HTTP endpoint at `POST /commit`, allowing you to specify either:
+ - A set of `UTXO` outputs to deposit (belonging to public keys), or
  - A _blueprint_ transaction along with the `UTXO` that resolves it.
 
-This endpoint returns a commit transaction, which is balanced, and all fees are paid by the `hydra-node`. The integrated wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
+This endpoint returns a deposit transaction, which is balanced, and all fees are paid by the `hydra-node`. The wallet must sign and submit this transaction to the Cardano network. See the [API documentation](pathname:///api-reference/#operation-publish-/commit) for details.
 
-If using your own UTXO to commit to a head, send the appropriate JSON representation of the said UTXO to the `/commit` API endpoint.
-Using a _blueprint_ transaction with `/commit` offers flexibility, as `hydra-node` adds necessary commit transaction data without removing additional information specified in the blueprint transaction (eg, reference inputs, redeemers, validity ranges).
-
-> Note: Outputs of a blueprint transaction are not considered — only inputs are used to commit funds to the head. The `hydra-node` will also **ignore** any minting or burning specified in the blueprint transaction.
-
-For more details, refer to this [how to](./how-to/commit-blueprint) guide on committing to a head using a blueprint transaction.
+For more details, refer to the [how to deposit funds](./how-to/incremental-commit) guide.
 
 ### Connect to Cardano
 
