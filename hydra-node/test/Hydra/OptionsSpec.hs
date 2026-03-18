@@ -3,7 +3,7 @@
 module Hydra.OptionsSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Control.Lens ((.~))
 import Data.Generics.Labels ()

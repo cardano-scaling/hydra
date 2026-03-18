@@ -5,7 +5,7 @@
 module Hydra.Chain.Direct.StateSpec where
 
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
