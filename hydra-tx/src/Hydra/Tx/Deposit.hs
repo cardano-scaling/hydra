@@ -8,6 +8,7 @@ import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), ValidityInterval (..)
 import Control.Lens ((.~))
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict qualified as StrictSeq
+import GHC.IsList qualified as IsList
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
@@ -62,7 +63,10 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
 
                     completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
 
-                    leftoverValue = txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
+                    leftoverValue = capNegative . txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
+
+                    capNegative =
+                      fromList . map (second (max 0)) . IsList.toList
 
                     changeOutput = toLedgerTxOut $ TxOut addr leftoverValue TxOutDatumNone ReferenceScriptNone
                  in toLedgerTx partialTx
