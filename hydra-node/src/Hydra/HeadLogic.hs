@@ -1026,8 +1026,8 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   nextSn = confirmedSn + 1
 
   -- After DecommitFinalized is aggregated, seenSnapshot becomes
-  -- LastSeenSnapshot{confirmedSn}, so snapshotInFlight will be False and we
-  -- can immediately request the next snapshot for any pending work using newVersion.
+  -- LastSeenSnapshot (via toLastSeenSnapshot), so snapshotInFlight will be False
+  -- and we can immediately request the next snapshot for any pending work using newVersion.
   -- Guard on version /= newVersion mirrors the CommitFinalized guard: prevents a
   -- duplicate SnapshotRequestDecided when multiple DecrementTx postings fire
   -- separate DecommitFinalized observations for the same decommit.
