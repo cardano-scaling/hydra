@@ -1,11 +1,14 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module HydraNode where
+module HydraNode (
+  module HydraNode,
+  HydraNodeLog (..),
+) where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (STM, delete)
 
-import CardanoNode (cliQueryProtocolParameters)
+import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Exception (Handler (..), IOException, catches)
@@ -49,7 +52,8 @@ import System.Process.Typed (
   waitExitCode,
   withProcessTerm,
  )
-import Test.Hydra.Prelude (HydraBackend (..), failAfter, failure, getHydraBackend, shouldNotBe, withLogFile)
+import Test.Hydra.Prelude (failure)
+import Test.Hydra.Prelude qualified as Prelude
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -90,8 +94,8 @@ output tag pairs = object $ ("tag" .= tag) : pairs
 
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 setupBFDelay d = do
-  getHydraBackend >>= \case
-    BlockfrostBackendType -> pure $ d * fromIntegral defaultBFQueryTimeout
+  Prelude.getHydraNetwork >>= \case
+    Prelude.Blockfrost -> pure $ d * fromIntegral defaultBFQueryTimeout
     _backend -> pure d
 
 -- | Wait some time for a single API server output from each of given nodes.
@@ -261,7 +265,7 @@ getSnapshotLastSeen HydraClient{apiHost = Host{hostname, port}} =
 
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 getMetrics HydraClient{hydraNodeId, apiHost = Host{hostname}} = do
-  failAfter 3 $
+  Prelude.failAfter 3 $
     try (runReq defaultHttpConfig request) >>= \case
       Left (e :: HttpException) -> failure $ "Request for hydra-node metrics failed: " <> show e
       Right body -> pure $ Req.responseBody body
@@ -391,7 +395,7 @@ prepareHydraNode ::
   IO RunOptions
 prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds paramsDecorator = do
   -- NOTE: AirPlay on MacOS uses 5000 and we must avoid it.
-  when (os == "darwin") $ port `shouldNotBe` (5_000 :: Network.PortNumber)
+  when (os == "darwin") $ port `Prelude.shouldNotBe` (5_000 :: Network.PortNumber)
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
@@ -447,12 +451,13 @@ withPreparedHydraNodeInSync ::
   (HydraClient -> IO a) ->
   IO a
 withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
-  let waitTime = blockTime * waitFactor
   withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
  where
   waitFactor = 5
-  action' waitTime client = do
-    waitForNodesSynced waitTime $ client :| []
+  waitTime = blockTime * waitFactor
+
+  action' wt client = do
+    waitForNodesSynced wt (client :| [])
     action client
 
 -- | Run a hydra-node with given 'RunOptions'.
@@ -465,7 +470,7 @@ withPreparedHydraNode ::
   (HydraClient -> IO a) ->
   IO a
 withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
-  withLogFile logFilePath $ \logFileHandle -> do
+  Prelude.withLogFile logFilePath $ \logFileHandle -> do
     let cmd =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
@@ -540,9 +545,9 @@ withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> M
 withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryParams action = do
   connectedOnce <- newIORef False
   (retries, delay) <-
-    getHydraBackend >>= \case
-      DirectBackendType -> pure (200, 0.1)
-      BlockfrostBackendType -> pure (300, 1)
+    Prelude.getHydraNetwork >>= \case
+      Prelude.Blockfrost -> pure (300, 1)
+      _ -> pure (200, 0.1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay
@@ -583,13 +588,3 @@ waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesSynced delay clients = do
   waitForAllMatch delay (toList clients) $ \v -> do
     guard $ v ^? key "tag" == Just "NodeSynced"
-
-data HydraNodeLog
-  = HydraNodeCommandSpec {cmd :: Text}
-  | NodeStarted {nodeId :: Int}
-  | SentMessage {nodeId :: Int, message :: Aeson.Value}
-  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
-  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
-  | EndWaiting {nodeId :: Int}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)

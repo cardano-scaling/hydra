@@ -3,7 +3,7 @@
 module Test.BlockfrostChainSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.STM (takeTMVar)

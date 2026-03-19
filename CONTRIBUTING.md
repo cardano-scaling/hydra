@@ -98,6 +98,16 @@ In addition to these general build instructions, individual components might hav
 
 While warnings are not treated as errors during builds, CI will check for them before we merge any contributions.
 
+#### Code quality
+
+You can run the code quality check locally with
+[`nix-fast-build`](https://github.com/Mic92/nix-fast-build/tree/main) from the
+default devShell:
+
+```
+nix-fast-build
+```
+
 ### Coding standards
 
 Be sure to follow our [coding standards](https://github.com/cardano-scaling/hydra/wiki/Coding-Standards), which include guidelines on Haskell code style, Git commit messages, and various processes. (TODO: clarify separation or unify with these guidelines). To propose new standards or suggest changes to existing ones, please file an issue.

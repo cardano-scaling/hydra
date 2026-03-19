@@ -1,7 +1,7 @@
 module Hydra.Chain.ScriptRegistrySpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScripts)
 
