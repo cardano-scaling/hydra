@@ -78,11 +78,6 @@ spec =
           -- What fixedEpochInfo computes (assumes 1s slots from genesis):
           fixedRelativeTime = unSlotNo testSlot -- 4,493,800 seconds
 
-        -- The multi-era EpochInfo should give a different (correct) time
-        -- than fixedEpochInfo. fixedEpochInfo assumes all slots are 1s,
-        -- but the Byron slots were actually 20s each.
-        expectedRelativeTime `shouldNotBe` fixedRelativeTime
-
         -- The actual time via era-aware interpreter
         let eraHistory = multiEraHistory
             EraHistory interpreter = eraHistory
@@ -101,12 +96,13 @@ spec =
         -- When Ledger.applyTx evaluates Plutus scripts, it uses
         -- Globals.epochInfo to convert slot numbers to POSIXTime in the
         -- ScriptContext. With the wrong epochInfo, time-sensitive Plutus
-        -- scripts (like Close, Contest, Fanout) receive incorrect time values.
+        -- scripts receive incorrect time values.
         let shelleySlotLength = mkSlotLength 1
             shelleyEpochSize = EpochSize 432000
-            -- This is what newGlobals currently does (wrong for multi-era):
+            -- Fixed epoch info
+            fixedEI :: EpochInfo (Either Text)
             fixedEI = fixedEpochInfo shelleyEpochSize shelleySlotLength
-            -- This is what it should do (correct for multi-era):
+            -- Correct for multi-era
             EraHistory interpreter = multiEraHistory
             eraAwareEI :: EpochInfo (Either Text)
             eraAwareEI =
@@ -115,20 +111,11 @@ spec =
             -- A slot in the Shelley era
             testSlot = SlotNo 5000000
 
-        -- The two Globals will produce different results when the ledger
-        -- converts slots to POSIXTime for Plutus script evaluation.
-        -- We verify the epochInfos disagree on the time for the test slot.
-        let fixedResult = epochInfoSlotToRelativeTime fixedEI testSlot :: Either Text RelativeTime
-            eraAwareResult = epochInfoSlotToRelativeTime eraAwareEI testSlot :: Either Text RelativeTime
-        case (fixedResult, eraAwareResult) of
-          (Left err, _) -> expectationFailure $ "Fixed epochInfo failed: " <> show err
-          (_, Left err) -> expectationFailure $ "Era-aware epochInfo failed: " <> show err
-          (Right fixedTime, Right eraTime) -> do
-            -- fixedEpochInfo says: slot 5000000 * 1s = 5000000s from system start
-            fixedTime `shouldBe` RelativeTime 5000000
-            -- Era-aware says: byron(4492800 slots * 20s) + shelley(507200 slots * 1s)
-            --               = 89856000 + 507200 = 90363200s
-            eraTime `shouldNotBe` fixedTime
+        -- fixedEpochInfo says: slot 5000000 * 1s = 5000000s from system start
+        -- Era-aware says: byron(4492800 slots * 20s) + shelley(507200 slots * 1s)
+        --               = 89856000 + 507200 = 90363200s
+        epochInfoSlotToRelativeTime fixedEI testSlot `shouldBe` Right (RelativeTime 5000000)
+        epochInfoSlotToRelativeTime eraAwareEI testSlot `shouldBe` Right (RelativeTime 90363200)
 
     -- XXX: Move API conformance tests to API specs and add any missing ones
     describe "UTxO" $ do
