@@ -7,6 +7,8 @@ import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
 import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
+import Data.Time.Calendar (fromGregorian)
+import Data.Time.Clock (UTCTime (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
@@ -425,17 +427,26 @@ createMockEventStore = do
       rotate _ checkpoint = atomically $ writeTVar tvar [checkpoint]
   pure (EventStore source sink rotate)
 
+-- | Synthetic inputs that simulate a head opening and funds being deposited.
+-- The version is bumped to 1, but next snapshot number is 1, so alice is
+-- the first snapshot leader.
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
   [ observationInput $ OnInitTx testHeadId testHeadSeed headParameters participants
-  , -- TODO: inline deposited utxo to OnIncrementTx to not need to mock OnDepositTx here
-    observationInput $ OnIncrementTx testHeadId 1 123
-  , observationInput $ OnIncrementTx testHeadId 2 456
+  , -- FIXME: This does not emulate the behavior completely. While the deposit
+    -- will be seen as finalized, there is no ConfirmedSnapshot here that could be
+    -- adopted and thus the confirmed utxo (ledger state) will be not set. We
+    -- should instead create utxos out of thin air (as we are using the SimpleTx
+    -- ledger).
+    observationInput $ OnDepositTx testHeadId 123 (utxoRefs [1, 2, 3]) beforeCardano afterWeAreAllDead
+  , observationInput $ OnIncrementTx testHeadId 1 123
   ]
  where
   parties = [alice, bob, carol]
   headParameters = HeadParameters cperiod parties
   participants = deriveOnChainId <$> parties
+  beforeCardano = UTCTime (fromGregorian 2000 1 1) 0
+  afterWeAreAllDead = UTCTime (fromGregorian 2200 1 1) 0
 
 observationInput :: OnChainTx SimpleTx -> Input SimpleTx
 observationInput observedTx =
