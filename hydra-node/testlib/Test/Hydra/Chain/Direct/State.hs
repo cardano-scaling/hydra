@@ -37,6 +37,7 @@ import Hydra.Tx (
   mkSimpleBlueprintTx,
   utxoFromTx,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
 import Hydra.Tx.Recover (recoverTx)
@@ -410,7 +411,8 @@ genFanoutTx numParties = do
   let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
-  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
+  let snapshotAcc = (getSnapshot confirmed).accumulator
+  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing snapshotAcc deadlineSlotNo)
 
 genStOpen ::
   HydraContext ->
@@ -445,16 +447,17 @@ genStClosed ctx utxo utxoToCommit utxoToDecommit = do
           , 0
           )
         ConfirmedSnapshot{snapshot = snap, signatures} ->
-          ( number snap
-          , ConfirmedSnapshot
-              { snapshot = snap{utxo = utxo, utxoToDecommit, utxoToCommit}
-              , signatures
-              }
-          , utxo
-          , utxoToCommit
-          , utxoToDecommit
-          , Hydra.Tx.version snap
-          )
+          let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+           in ( number snap
+              , ConfirmedSnapshot
+                  { snapshot = snap{utxo = utxo, utxoToDecommit, utxoToCommit, accumulator}
+                  , signatures
+                  }
+              , utxo
+              , utxoToCommit
+              , utxoToDecommit
+              , Hydra.Tx.version snap
+              )
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp

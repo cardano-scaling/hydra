@@ -7,10 +7,12 @@ import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.Serialise (serialise)
-import Data.Aeson (object, withObject, (.:), (.:?), (.=))
+import Data.Aeson (Value (String), object, withObject, (.:), (.:?), (.=))
+import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
 import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
@@ -54,6 +56,8 @@ data Snapshot tx = Snapshot
   -- ^ UTxO to be committed. Spec: Uα
   , utxoToDecommit :: Maybe (UTxOType tx)
   -- ^ UTxO to be decommitted. Spec: Uω
+  , accumulator :: Accumulator.HydraAccumulator
+  -- ^ The cryptographic accumulator built from UTxO hashes. Spec: A
   }
   deriving stock (Generic)
 
@@ -61,8 +65,8 @@ deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
--- 'headId', 'version', 'number', 'utxoHash' and 'utxoToDecommitHash' according
--- to CDDL schemata:
+-- 'headId', 'version', 'number', 'utxoHash', 'utxoToCommitHash', 'utxoToDecommitHash',
+-- and 'accumulator' according to CDDL schemata:
 --
 -- headId = bytes .size 16
 -- version = uint
@@ -70,20 +74,29 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- utxoHash = bytes
 -- utxoToCommitHash = bytes
 -- utxoToDecommitHash = bytes
+-- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the serialized HydraAccumulator
 --
--- where hashes are the result of applying 'hashUTxO'.
+-- The accumulator hash is derived from the HydraAccumulator built over all UTxOs
+-- and is what gets stored in the on-chain ClosedDatum for verification.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit} =
+  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
         <> serialise (toData . toBuiltin $ toInteger number)
-        <> serialise (toData . toBuiltin $ hashUTxO @tx utxo)
-        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToCommit)
-        <> serialise (toData . toBuiltin . hashUTxO @tx $ fromMaybe mempty utxoToDecommit)
+        <> serialise (toData $ toBuiltin utxoHash)
+        <> serialise (toData $ toBuiltin utxoToCommitHash)
+        <> serialise (toData $ toBuiltin utxoToDecommitHash)
+        <> serialise (toData $ toBuiltin accumulatorBytes)
+   where
+    utxoHash = hashUTxO utxo
+    utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
+    utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
+    -- Serialize the accumulator for signing
+    accumulatorBytes = Accumulator.getAccumulatorHash accumulator
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator} =
     object
       [ "headId" .= headId
       , "version" .= version
@@ -92,24 +105,29 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxo" .= utxo
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
+      , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
-  parseJSON = withObject "Snapshot" $ \obj ->
-    Snapshot
-      <$> (obj .: "headId")
-      <*> (obj .: "version")
-      <*> (obj .: "number")
-      <*> (obj .: "confirmed")
-      <*> (obj .: "utxo")
-      <*> ( obj .:? "utxoToCommit" >>= \case
-              Nothing -> pure mempty
-              (Just utxo) -> pure utxo
-          )
-      <*> ( obj .:? "utxoToDecommit" >>= \case
-              Nothing -> pure mempty
-              (Just utxo) -> pure utxo
-          )
+  parseJSON = withObject "Snapshot" $ \obj -> do
+    headId <- obj .: "headId"
+    version <- obj .: "version"
+    number <- obj .: "number"
+    confirmed <- obj .: "confirmed"
+    utxo <- obj .: "utxo"
+    utxoToCommit <-
+      obj .:? "utxoToCommit" >>= \case
+        Nothing -> pure mempty
+        (Just utxoC) -> pure utxoC
+    utxoToDecommit <-
+      obj .:? "utxoToDecommit" >>= \case
+        Nothing -> pure mempty
+        (Just utxoD) -> pure utxoD
+    -- Reconstruct accumulator from all UTxOs (including commit/decommit).
+    -- The "accumulator" JSON field stores only the hash (consistent with signing
+    -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
 -- * ConfirmedSnapshot
 
@@ -135,7 +153,7 @@ data ConfirmedSnapshot tx
 -- add a new branch to the sumtype. So, we explicitly define a getter which
 -- will force us into thinking about changing the signature properly if this
 -- happens.
-getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: forall tx. IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 getSnapshot = \case
   InitialSnapshot{headId, initialUTxO} ->
     Snapshot
@@ -146,5 +164,6 @@ getSnapshot = \case
       , utxo = initialUTxO
       , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
+      , accumulator = Accumulator.buildFromUTxO initialUTxO
       }
   ConfirmedSnapshot{snapshot} -> snapshot

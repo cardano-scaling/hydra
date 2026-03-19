@@ -18,6 +18,7 @@ import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -124,7 +125,12 @@ healthyCurrentSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
+
+healthyCurrentAccumulatorHash :: Head.Hash
+healthyCurrentAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCurrentSnapshot
 
 healthyCurrentOpenDatum :: Head.State
 healthyCurrentOpenDatum =
@@ -224,7 +230,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature}
+        pure $ Head.Close Head.CloseUnusedDec{signature, accumulatorHash = healthyCurrentAccumulatorHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -291,6 +297,7 @@ genCloseCurrentMutation (tx, _utxo) =
                       ( Head.Close
                           Head.CloseUnusedDec
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
+                            , accumulatorHash = healthyCurrentAccumulatorHash
                             }
                       )
                 )

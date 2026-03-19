@@ -1,21 +1,60 @@
 {
     "samples": [
         {
-            "headId": "01000001000001010001010101000001",
+            "headId": "01010100000001010101010101000001",
             "signatures": {
-                "multiSignature": []
+                "multiSignature": [
+                    "0dacba1a414dfec2d4151e555a9dd730aaf88bfc408b6ef2d9017e2f76bc3c29a888f518ed1d5c5e5e97dbb3078ea6ea20f48f89cb2d7469da9d47d85e868a09"
+                ]
             },
             "snapshot": {
+                "accumulator": "26c9d4d428a22f9be9e53d5fbd496f6b0df369f104204206be54b40a5bcd62c6",
                 "confirmed": [],
-                "headId": "00010000000001010001000101010101",
-                "number": 0,
-                "utxo": {},
-                "utxoToCommit": null,
-                "utxoToDecommit": null,
-                "version": 1
+                "headId": "01010100000001010101010001010101",
+                "number": 1,
+                "utxo": {
+                    "0001000001000100010000000001000001000101010001000100000000000100#66": {
+                        "address": "addr_test1ypa0qmm7h07pe0pae3mw475kgsmxmkttcamunce3qtww39czj8xthkm0u2a04vpufalg8m679w807lsyq5kf92hqarwskx3qup",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                },
+                "utxoToCommit": {
+                    "0001010100000100000101010100000000010000010000010001010101010101#93": {
+                        "address": "addr_test1zrlsn3ltxlnmxredgpryk52zguzkx50ra3v2tfgfvqkr3ag9adz75gu78eg97z62dcfdqq59x7vtfwrwl72ts9g36xdqkjrq3s",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                },
+                "utxoToDecommit": {
+                    "0000010001010101010100010001010101000100000100000100010000010000#90": {
+                        "address": "addr_test1qpn9s9ukdksewae7cy2azfvkfcwxy09g67wy3tpfdzksn26fft0p6cvkxcmm55xutxfmhq08da2stls5wgwve5fwrlsqjakgl2",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 969750
+                        }
+                    }
+                },
+                "version": 0
             },
             "tag": "SnapshotConfirmed"
         }
     ],
-    "seed": -963847763
+    "seed": -1086421188
 }

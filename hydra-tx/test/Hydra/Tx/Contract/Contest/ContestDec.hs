@@ -11,14 +11,16 @@ import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
-import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
-
-import Hydra.Tx (Snapshot)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
+  healthyContestSnapshot,
   healthyContestSnapshotNumber,
   healthySignature,
  )
+import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Snapshot (Snapshot (..))
+import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
@@ -28,6 +30,10 @@ import Test.Hydra.Tx.Mutation (
  )
 import Test.QuickCheck (arbitrarySizedNatural, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+
+healthyContestAccumulatorHash :: Head.Hash
+healthyContestAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
 
 data ContestDecMutation
   = ContestUsedDecAlterRedeemerDecommitHash
@@ -48,6 +54,7 @@ genContestDecMutation (tx, _utxo) =
               Head.ContestUsedDec
                 { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
                 , alreadyDecommittedUTxOHash = mempty
+                , accumulatorHash = healthyContestAccumulatorHash
                 }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUnusedDecAlterRedeemerDecommitHash . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
@@ -55,6 +62,7 @@ genContestDecMutation (tx, _utxo) =
           Head.Contest
             Head.ContestUnusedDec
               { signature = toPlutusSignatures mutatedSignature
+              , accumulatorHash = healthyContestAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode FailedContestUsedDec) ContestUsedDecAlterRedeemerDecommitHash <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)
@@ -64,6 +72,7 @@ genContestDecMutation (tx, _utxo) =
               Head.ContestUsedDec
                 { signature = toPlutusSignatures (healthySignature healthyContestSnapshotNumber)
                 , alreadyDecommittedUTxOHash = mutatedHash
+                , accumulatorHash = healthyContestAccumulatorHash
                 }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) ContestUsedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= mempty)

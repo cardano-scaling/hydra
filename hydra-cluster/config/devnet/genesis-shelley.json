@@ -30,7 +30,7 @@
         "nOpt": 100,
         "poolDeposit": 0,
         "protocolVersion": {
-            "major": 9,
+            "major": 11,
             "minor": 0
         },
         "rho": 0.1,

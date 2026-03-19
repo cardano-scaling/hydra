@@ -237,6 +237,7 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
     StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
     StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
+    StateChanged.HeadPartialFannedOut{} -> Nothing
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
     StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}

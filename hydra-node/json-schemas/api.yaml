@@ -2666,6 +2666,7 @@ components:
           required:
             - tag
             - utxo
+            - snapshotAccumulator
             - headSeed
             - contestationDeadline
           description: |
@@ -2684,6 +2685,36 @@ components:
              oneOf:
               - $ref: "api.yaml#/components/schemas/UTxO"
               - type: "null"
+            snapshotAccumulator:
+              type: string
+              description: |
+                Hex-encoded CBOR serialization of the HydraAccumulator used to compute
+                the accumulatorCommitment in the closed datum. Required for generating
+                the membership proof during fanout.
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
+            contestationDeadline:
+              $ref: "api.yaml#/components/schemas/UTCTime"
+
+        - title: PartialFanoutTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - utxoToDistribute
+            - remainingUTxO
+            - headSeed
+            - contestationDeadline
+          description: |
+            Distribute a subset of UTxOs from the closed Head on-chain as part of a partial fanout sequence.
+          properties:
+            tag:
+              type: string
+              enum: ["PartialFanoutTx"]
+            utxoToDistribute:
+              $ref: "api.yaml#/components/schemas/UTxO"
+            remainingUTxO:
+              $ref: "api.yaml#/components/schemas/UTxO"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
@@ -3021,6 +3052,17 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructFanoutTx"]
+        - title: FailedToConstructPartialFanoutTx
+          description: |
+            Raised if the node fails to construct a partial fanout transaction.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructPartialFanoutTx"]
         - title: DepositTooLow
           description: |
             Raised if the user requests a deposit using too small UTxO.
@@ -3733,6 +3775,10 @@ components:
           $ref: "api.yaml#/components/schemas/HeadSeed"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        remainingFanoutUTxO:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/UTxO"
 
     CoordinatedHeadState:
       type: object
