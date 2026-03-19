@@ -1046,7 +1046,7 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, version} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1057,8 +1057,13 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
   -- After CommitFinalized is aggregated, seenSnapshot becomes
   -- LastSeenSnapshot{confirmedSn}, so snapshotInFlight will be False and we
   -- can immediately request the next snapshot for any pending work using newVersion.
+  -- Guard on version /= newVersion prevents a duplicate SnapshotRequestDecided when
+  -- multiple parties post IncrementTx for the same deposit and each posting fires a
+  -- separate CommitFinalized observation. The second observation finds version already
+  -- bumped and must not re-advance seenSnapshot to RequestedSnapshot, which would
+  -- permanently block the leader's echo via waitNoSnapshotInFlight.
   maybeRequestSnapshotAfterCommit =
-    if isLeader parameters party nextSn && not (null localTxs)
+    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion
       then
         newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing Nothing)
@@ -1095,7 +1100,7 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1106,8 +1111,11 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   -- After DecommitFinalized is aggregated, seenSnapshot becomes
   -- LastSeenSnapshot{confirmedSn}, so snapshotInFlight will be False and we
   -- can immediately request the next snapshot for any pending work using newVersion.
+  -- Guard on version /= newVersion mirrors the CommitFinalized guard: prevents a
+  -- duplicate SnapshotRequestDecided when multiple DecrementTx postings fire
+  -- separate DecommitFinalized observations for the same decommit.
   maybeRequestSnapshotAfterDecommit =
-    if isLeader parameters party nextSn && not (null localTxs)
+    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion
       then
         newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing (setExistingDeposit pendingDeposits currentDepositTxId))
