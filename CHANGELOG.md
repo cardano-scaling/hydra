@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+[UNRELEASED]
+
+- Fix head getting permanently stuck after CommitFinalized or DecommitFinalized bumps the snapshot version before a pending ReqSn echo returns, causing stale-version rejection with no re-trigger.
+
 ## [1.3.0] - 2026.03.05
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
