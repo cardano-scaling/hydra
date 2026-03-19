@@ -210,8 +210,12 @@ spec = parallel $ do
     it "snapshot does not get stuck on CommitFinalized version race with slow network" $
       shouldRunInSim $
         withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
-          withHydraNode aliceSk [bob] chain $ \n1 ->
-            withHydraNode bobSk [alice] chain $ \n2 -> do
+          -- Use a short depositPeriod (1s) so the deposit activates on the
+          -- first chain tick (blockTime=20s), before tx 999 is snapshotted
+          -- (ReqTx echo arrives at networkDelay=25s). This ensures tx 999 is
+          -- still pending in localTxs when the deposit snapshot confirms.
+          withHydraNode' (DepositPeriod 1) aliceSk [bob] chain $ \n1 ->
+            withHydraNode' (DepositPeriod 1) bobSk [alice] chain $ \n2 -> do
               openHead2 chain n1 n2
               deadline <- newDeadlineFarEnoughFromNow
               -- Submit a deposit and a pending L2 tx so there is pending work
