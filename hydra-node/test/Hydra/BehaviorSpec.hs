@@ -1137,17 +1137,6 @@ withSimulatedChainAndSlowNetwork networkDelay chainDelay =
  where
   initialChainState = SimpleChainState{slot = ChainSlot 0}
 
--- | Creates a simulated chain and network to which 'HydraNode's can be
--- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
--- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
--- possible.
-simulatedChainAndNetwork ::
-  forall m.
-  (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
-  ChainStateType SimpleTx ->
-  m (SimulatedChainNetwork SimpleTx m)
-simulatedChainAndNetwork = simulatedChainAndNetworkUsing createMockNetwork 0
-
 -- | Like 'simulatedChainAndNetwork' but accepts a custom network factory and
 -- an optional chain observation delay. When 'chainDelay' > 0, each chain event
 -- is delivered to nodes asynchronously after that delay, allowing tests to
@@ -1272,20 +1261,7 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
-createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
-createMockNetwork node nodes =
-  Network{broadcast}
- where
-  broadcast msg = do
-    allNodes <- readTVarIO nodes
-    mapM_ (`handleMessage` msg) allNodes
-
-  handleMessage HydraNode{inputQueue} msg =
-    enqueue inputQueue $ mkNetworkInput sender msg
-
-  sender = getParty node
-
--- | Like 'createMockNetwork' but delivers messages asynchronously after a
+-- | Delivers messages asynchronously after a
 -- configurable delay. When the delay exceeds the chain's block time (20s),
 -- on-chain events arrive at nodes before network echoes, reproducing
 -- version-race conditions seen in production.

@@ -1026,9 +1026,9 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   nextSn = confirmedSn + 1
 
   -- After DecommitFinalized is aggregated, seenSnapshot becomes
-  -- LastSeenSnapshot (via toLastSeenSnapshot), so snapshotInFlight will be False
-  -- and we can immediately request the next snapshot for any pending work using newVersion.
-  -- Guard on version /= newVersion mirrors the CommitFinalized guard: prevents a
+  -- LastSeenSnapshot so snapshotInFlight will be False and we can immediately
+  -- request the next snapshot for any pending work using newVersion. Guard on
+  -- version /= newVersion mirrors the CommitFinalized guard: prevents a
   -- duplicate SnapshotRequestDecided when multiple DecrementTx postings fire
   -- separate DecommitFinalized observations for the same decommit.
   maybeRequestSnapshotAfterDecommit =
@@ -1776,25 +1776,6 @@ aggregateNodeState nodeState sc =
           nodeState{headState = st}
 
 -- * HeadState aggregate
-
--- | Convert any SeenSnapshot to LastSeenSnapshot, preserving the correct snapshot number.
--- Used by CommitFinalized and DecommitFinalized to handle race conditions where
--- on-chain transaction confirmation happens before AckSn messages arrive.
-toLastSeenSnapshot :: SeenSnapshot tx -> SeenSnapshot tx
-toLastSeenSnapshot = \case
-  NoSeenSnapshot ->
-    LastSeenSnapshot{lastSeen = 0}
-  LastSeenSnapshot{lastSeen} ->
-    LastSeenSnapshot{lastSeen}
-  -- NB: Use 'requested' not 'lastSeen' to prevent infinite AckSn loop.
-  -- When leader requests snapshot N with commit/decommit and the on-chain transaction
-  -- is observed before AckSn messages arrive, the transaction is part of snapshot N
-  -- (requested), not snapshot N-1 (lastSeen). Using lastSeen would cause AckSn(N)
-  -- messages to fail the guard check and be requeued infinitely.
-  RequestedSnapshot{requested} ->
-    LastSeenSnapshot{lastSeen = requested}
-  SeenSnapshot{snapshot = Snapshot{number}} ->
-    LastSeenSnapshot{lastSeen = number}
 
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
