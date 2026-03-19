@@ -19,7 +19,10 @@ changes.
   - All on-chain scripts are affected by this change, as well as several API changes.
   - This decision is documented in [ADR-33](https://hydra.family/head-protocol/adr/33)
 
-## [1.3.0] - 2026-03-05
+- Fix head getting permanently stuck after CommitFinalized or DecommitFinalized bumps the snapshot version before a pending ReqSn echo returns, causing stale-version rejection with no re-trigger.
+
+
+## [1.3.0] - 2026.03.05
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
   See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).
