@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain, PostTxError (..), draftDepositTx)
+import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
@@ -64,9 +64,6 @@ import Test.QuickCheck (
   property,
   withMaxSuccess,
  )
-
-dummyStatePath :: FilePath
-dummyStatePath = "~"
 
 spec :: Spec
 spec = do
@@ -232,7 +229,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               getNodeState
               cantCommit
@@ -265,7 +261,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -299,7 +294,6 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
-                  dummyStatePath
                   defaultPParams
                   (pure nodeState)
                   cantCommit
@@ -325,7 +319,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -346,7 +339,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -370,7 +362,6 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
-                  dummyStatePath
                   defaultPParams
                   (pure NodeInSync{headState = Closed closedState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                   cantCommit
@@ -398,7 +389,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -426,7 +416,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -448,7 +437,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -477,7 +465,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               cantCommit
@@ -500,7 +487,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               cantCommit
@@ -521,7 +507,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure nodeState)
               cantCommit
@@ -549,7 +534,6 @@ apiServerSpec = do
                   nullTracer
                   dummyChainHandle
                   testEnvironment
-                  dummyStatePath
                   defaultPParams
                   (pure nodeState)
                   cantCommit
@@ -588,7 +572,6 @@ apiServerSpec = do
                 nullTracer
                 dummyChainHandle
                 testEnvironment
-                dummyStatePath
                 defaultPParams
                 (pure NodeInSync{headState = Closed closedState', pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                 cantCommit
@@ -624,7 +607,6 @@ apiServerSpec = do
               nullTracer
               workingChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
               getHeadId
@@ -668,7 +650,6 @@ apiServerSpec = do
                 nullTracer
                 (failingChainHandle postTxError)
                 testEnvironment
-                dummyStatePath
                 defaultPParams
                 (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
                 getHeadId
@@ -700,7 +681,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -735,7 +715,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -767,7 +746,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -787,7 +765,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               (pure CannotCommit)
@@ -808,7 +785,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -835,7 +811,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -862,7 +837,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -883,7 +857,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               (pure CannotCommit)
@@ -903,7 +876,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure $ error "Not called")
               (pure CannotCommit)
@@ -925,7 +897,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -953,7 +924,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inIdleState)
               (pure CannotCommit)
@@ -975,7 +945,6 @@ apiServerSpec = do
               nullTracer
               dummyChainHandle
               testEnvironment
-              dummyStatePath
               defaultPParams
               (pure inUnsyncedIdleState)
               (pure CannotCommit)

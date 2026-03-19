@@ -321,7 +321,7 @@ spec =
                     , apiTransactionTimeout = 1000000
                     }
                 initialChainState = 0
-            withAPIServer @SimpleTx config testEnvironment "~" alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
+            withAPIServer @SimpleTx config testEnvironment alice (mockSource []) tracer initialChainState dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop $ \_ -> do
               let clientParams = defaultParamsClient "127.0.0.1" ""
                   allowAnyParams =
                     clientParams{clientHooks = (clientHooks clientParams){onServerCertificate = \_ _ _ _ -> pure []}}
@@ -391,7 +391,7 @@ withTestAPIServer ::
   ((EventSink (StateEvent SimpleTx) IO, Server SimpleTx IO) -> IO ()) ->
   IO ()
 withTestAPIServer port actor eventSource tracer =
-  withAPIServer @SimpleTx config testEnvironment "~" actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
+  withAPIServer @SimpleTx config testEnvironment actor eventSource tracer 0 dummyChainHandle defaultPParams allowEverythingServerOutputFilter noop
  where
   config = APIServerConfig{host = "127.0.0.1", port, tlsCertPath = Nothing, tlsKeyPath = Nothing, apiTransactionTimeout = 1000000}
 
