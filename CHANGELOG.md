@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Fix Plutus script evaluation on mainnet/testnet: L2 ledger `Globals` now uses era-aware `EpochInfo` (queried from chain) instead of `fixedEpochInfo`, ensuring correct `POSIXTime` values in Plutus `ScriptContext` for time-sensitive scripts on multi-era chains. Offline/devnet mode is unaffected.
+
 ## [1.3.0] - 2026.03.05
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
