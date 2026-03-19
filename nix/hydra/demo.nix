@@ -3,12 +3,11 @@
 {
 
   perSystem =
-    {
-      config,
-      pkgs,
-      pkgs-2411,
-      self',
-      ...
+    { config
+    , pkgs
+    , pkgs-2411
+    , self'
+    , ...
     }:
     {
       process-compose."demo" = {

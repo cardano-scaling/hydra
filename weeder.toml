@@ -12,6 +12,12 @@ roots = [
   "spy'$",
   "redeemer$",
   "evaluateTx'$",
+  "alwaysFailingScript'$",
+  "dummyValidatorScriptAlwaysFailingScript'$",
+  "exampleValidator'$",
+  "exampleSecureValidatorScript'$",
+  "shouldNotBe'$",
+  "propTransactionFailsEvaluation$",
 ]
 
 root-instances = [

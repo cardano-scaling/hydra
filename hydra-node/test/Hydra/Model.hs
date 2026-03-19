@@ -369,11 +369,6 @@ genSeed = do
     pure (sk, value)
   pure $ Seed{seedKeys, contestationPeriod, additionalUTxO}
 
-genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
-genToCommit (hk, ck) = do
-  value <- genAdaValue
-  pure $ Map.singleton (deriveParty hk) [(ck, value)]
-
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod =
   chooseEnum (1, 200)

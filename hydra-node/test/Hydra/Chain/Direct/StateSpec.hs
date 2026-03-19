@@ -498,10 +498,3 @@ forAllFanout action =
     | len >= 10 = "10-40"
     | len >= 1 = "1-10"
     | otherwise = "0"
-
--- * Helpers
-
-mfail :: MonadFail m => Maybe a -> m a
-mfail = \case
-  Nothing -> fail "encountered Nothing"
-  Just a -> pure a

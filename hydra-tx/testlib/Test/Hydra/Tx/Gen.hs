@@ -110,43 +110,6 @@ noRefScripts :: TxOut ctx -> TxOut ctx
 noRefScripts out =
   out{txOutReferenceScript = ReferenceScriptNone}
 
--- | Adjusts a transaction output to remove any policy asset groups that contain
--- non-positive quantities, while preserving the ADA amount. If a 'PolicyId' is
--- provided, all remaining non-ADA assets are collapsed under that single policy.
--- This ensures the output value has no negative or zero asset quantities.
-noNegativeAssetsWithPotentialPolicy :: Maybe PolicyId -> TxOut ctx -> TxOut ctx
-noNegativeAssetsWithPotentialPolicy mpid out =
-  let val = txOutValue out
-      nonAdaAssets =
-        Map.foldrWithKey
-          (\pid policyAssets def -> policyAssetsToValue (fromMaybe pid mpid) policyAssets <> def)
-          mempty
-          (filterNegativeVals (valueToPolicyAssets val))
-      ada = selectLovelace val
-   in out{txOutValue = lovelaceToValue ada <> nonAdaAssets}
- where
-  filterNegativeVals =
-    Map.filterWithKey
-      ( \pid passets ->
-          all
-            (\(_, Quantity n) -> n > 0)
-            (toList $ policyAssetsToValue pid passets)
-      )
-
-genTxOutWithAssets :: Maybe PolicyId -> Gen (TxOut ctx)
-genTxOutWithAssets pid =
-  ((fromLedgerTxOut <$> arbitrary) `suchThat` notByronAddress)
-    >>= realisticAda
-    <&> noNegativeAssetsWithPotentialPolicy pid . ensureMinAda . noRefScripts . noStakeRefPtr
-
--- | Generate a 'TxOut' with a byron address. This is usually not supported by
--- Hydra or Plutus.
-genTxOutByron :: Gen (TxOut ctx)
-genTxOutByron = do
-  addr <- ByronAddressInEra <$> arbitrary
-  value <- genValue
-  pure $ TxOut addr value TxOutDatumNone ReferenceScriptNone
-
 -- | Generate an ada-only 'TxOut' paid to an arbitrary public key.
 genTxOutAdaOnly :: VerificationKey PaymentKey -> Gen (TxOut ctx)
 genTxOutAdaOnly vk = do
@@ -182,16 +145,6 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
 -- | Generate a 'Conway' era 'UTxO'. See also 'genTxOut'.
 genUTxO :: Gen UTxO
 genUTxO = sized genUTxOSized
-
--- | Generate UTxO with some assets. If `PolicyId` argument is specified then
--- we set assets with the specified 'PolicyId' since in some tests we need to
--- make sure ledger rules are passing.
-genUTxOWithAssetsSized :: Int -> Maybe PolicyId -> Gen UTxO
-genUTxOWithAssetsSized numUTxO pid =
-  fold <$> vectorOf numUTxO gen
- where
-  gen :: Gen UTxO
-  gen = UTxO.singleton <$> arbitrary <*> genTxOutWithAssets pid
 
 -- | Generate a 'Conway' era 'UTxO' with given number of outputs. See also
 -- 'genTxOut'.

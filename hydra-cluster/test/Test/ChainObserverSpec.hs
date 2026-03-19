@@ -9,7 +9,6 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (HydraNodeLog, NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Lens ((^?))
@@ -24,7 +23,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (DirectOptions (..))
-import HydraNode (HydraNodeLog, input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (input, output, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk)

@@ -20,7 +20,7 @@ import Hydra.Cardano.Api (
 import Hydra.Contract (HydraScriptCatalogue (..), hydraScriptCatalogue)
 
 -- | Hydra scripts published as reference scripts at these UTxO.
-data ScriptRegistry = ScriptRegistry
+newtype ScriptRegistry = ScriptRegistry
   { headReference :: (TxIn, TxOut CtxUTxO)
   -- TODO: why is here no deposit script reference?
   }

@@ -610,13 +610,6 @@ getTxOutDatum o =
     OutputDatum d -> d
 {-# INLINEABLE getTxOutDatum #-}
 
--- | Check if 'TxOut' contains the PT token.
-hasPT :: CurrencySymbol -> TxOut -> Bool
-hasPT headCurrencySymbol txOut =
-  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
-   in L.length pts == 1
-{-# INLINEABLE hasPT #-}
-
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
 -- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See
 -- 'SignableRepresentation Snapshot' for more details.

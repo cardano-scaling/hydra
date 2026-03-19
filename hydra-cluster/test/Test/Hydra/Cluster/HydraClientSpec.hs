@@ -37,7 +37,6 @@ import Hydra.Cluster.Fixture (
   carolSk,
  )
 import Hydra.Cluster.Scenarios (
-  EndToEndLog (..),
   headIsOpenWith,
  )
 import Hydra.Cluster.Util (Timing (..), depositTimeout, mkTestTiming')
@@ -47,7 +46,6 @@ import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (
   HydraClient (..),
-  HydraNodeLog,
   getSnapshotUTxO,
   input,
   output,
@@ -316,8 +314,7 @@ prepareScenario backend nodes tracer = do
   waitFor hydraTracer 10 (toList nodes) $
     output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
-  let expectedSnapshotNumber :: Int = 3  -- sn=1 deposit Alice, sn=2 deposit Bob, sn=3 tx
-
+  let expectedSnapshotNumber :: Int = 3 -- sn=1 deposit Alice, sn=2 deposit Bob, sn=3 tx
   waitMatch 10 n1 $ \v -> do
     guard $ v ^? key "tag" == Just "SnapshotConfirmed"
     guard $ v ^? key "headId" == Just (toJSON headId)

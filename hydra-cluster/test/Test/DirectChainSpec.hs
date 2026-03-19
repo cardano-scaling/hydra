@@ -369,10 +369,6 @@ observesInTime chain expected =
 observesInTimeSatisfying :: CardanoChainTest tx IO -> (OnChainTx tx -> IO a) -> IO a
 observesInTimeSatisfying directChainTest = observesInTimeSatisfying' directChainTest 10
 
-observesInTime' :: IsTx tx => CardanoChainTest tx IO -> OnChainTx tx -> IO ()
-observesInTime' chain expected =
-  observesInTimeSatisfying' chain 200 (`shouldBe` expected)
-
 observesInTimeSatisfying' :: CardanoChainTest tx IO -> NominalDiffTime -> (OnChainTx tx -> IO a) -> IO a
 observesInTimeSatisfying' CardanoChainTest{waitCallback} waitTime check =
   failAfter waitTime go

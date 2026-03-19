@@ -45,7 +45,6 @@ library
   exposed-modules:
     Hydra.Contract
     Hydra.Contract.Commit
-    Hydra.Contract.CommitError
     Hydra.Contract.Deposit
     Hydra.Contract.DepositError
     Hydra.Contract.Dummy

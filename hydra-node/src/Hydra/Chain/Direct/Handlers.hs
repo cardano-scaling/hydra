@@ -16,12 +16,15 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
 import Hydra.Cardano.Api (
+  Address,
   BlockHeader,
+  ByronAddr,
   ChainPoint (..),
   LedgerEra,
   NetworkId (Mainnet),
   Tx,
   TxId,
+  TxOut,
   UTxO,
   calculateMinimumUTxO,
   chainPointToSlotNo,
@@ -239,6 +242,7 @@ rejectByronAddresses utxo =
     (addr : _) -> Left (UnsupportedLegacyOutput addr)
     [] -> Right ()
  where
+  toByronAddr :: forall a era. (a, TxOut era) -> [Address ByronAddr]
   toByronAddr (_, out) = case txOutAddress out of
     ByronAddressInEra addr -> [addr]
     _ -> []

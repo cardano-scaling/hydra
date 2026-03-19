@@ -158,7 +158,6 @@ import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
@@ -903,22 +902,3 @@ replaceContesters contesters = \case
         , Head.version = version
         }
   otherState -> otherState
-
-removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
-removePTFromMintedValue output tx =
-  case toList $ txMintValueToValue $ txMintValue $ getTxBodyContent $ txBody tx of
-    [] -> error "expected minted value"
-    v -> fromList $ filter (not . isPT) v
- where
-  outValue = txOutValue output
-  assetNames =
-    [ (policyId, pkh) | (AssetId policyId pkh, _) <- toList outValue, policyId == testPolicyId
-    ]
-  (headId, assetName) =
-    case assetNames of
-      [assetId] -> assetId
-      _ -> error "expected one assetId"
-  isPT = \case
-    (AssetId pid asset, _) ->
-      pid == headId && asset == assetName
-    _ -> False

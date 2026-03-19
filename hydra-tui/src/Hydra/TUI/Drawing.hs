@@ -221,14 +221,6 @@ drawRemainingContestationPeriod deadline now =
         then padLeftRight 1 $ vBox [txt "Remaining time to contest: ", str (renderTime remaining)]
         else txt "Contestation period passed, ready to fan out soon."
 
-drawRemainingParties :: IdentifiedState -> [Party] -> Widget n
-drawRemainingParties k xs =
-  str "Waiting for parties to commit:"
-    <=> ( case k of
-            Unidentified -> emptyWidget
-            Identified p -> drawPartiesWithOwnHighlighted p xs
-        )
-
 drawPartiesWithOwnHighlighted :: Party -> [Party] -> Widget n
 drawPartiesWithOwnHighlighted k = drawParties (\p -> drawParty (if k == p then own else mempty) p)
 

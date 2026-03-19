@@ -71,7 +71,7 @@ createAndSaveSigningKey path = do
 -- | Expected time between blocks (on average)
 type BlockTime = NominalDiffTime
 
--- | Timing parameters that determing the behavior of a (cluster of) hydra-node.
+-- | Timing parameters that determine the behavior of a (cluster of) hydra-node.
 data Timing = Timing
   { blockTime :: BlockTime
   , contestationPeriod :: ContestationPeriod
