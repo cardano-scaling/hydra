@@ -234,7 +234,7 @@ createOutputAtAddress networkId opts atAddress datum val = do
   let output = TxOut atAddress val datum ReferenceScriptNone
   runBackend opts (buildTransaction (mkVkAddress networkId faucetVk) utxo collateralTxIns [output]) >>= \case
     Left e ->
-      failure $ show e
+      throwErrorM e
     Right x -> do
       let body = getTxBody x
       let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
