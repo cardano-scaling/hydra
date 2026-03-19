@@ -279,6 +279,28 @@ executable hydra-node
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
+executable dump-fanout-args
+  import:         project-config
+  hs-source-dirs: exe/dump-fanout-args
+  main-is:        Main.hs
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , cardano-api
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-node:testlib
+    , hydra-plutus
+    , hydra-prelude
+    , hydra-test-utils
+    , hydra-tx
+    , hydra-tx:testlib
+    , plutus-ledger-api
+    , QuickCheck
+
+  ghc-options:    -threaded -rtsopts
+
 benchmark tx-cost
   import:         project-config
   hs-source-dirs: bench/tx-cost
