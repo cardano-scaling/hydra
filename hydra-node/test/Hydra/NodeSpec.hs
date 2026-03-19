@@ -218,7 +218,7 @@ spec = parallel $ do
         runToCompletion node
         getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
 
-    it "rotates snapshot leaders" $
+    it "rotates snapshot leaders" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
             sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
@@ -238,7 +238,7 @@ spec = parallel $ do
 
         getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
 
-    it "processes out-of-order AckSn" $
+    it "processes out-of-order AckSn" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
         let snapshot = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
             sigBob = sign bobSk snapshot
