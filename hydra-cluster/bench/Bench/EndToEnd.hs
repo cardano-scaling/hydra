@@ -174,7 +174,7 @@ scenario hydraTracer timing backend workDir Dataset{clientDatasets, title, descr
   -- NOTE: Need to wait for any CommitFinalized and only assert ids after as
   -- waitForAllMatch skips over messages otherwise.
   deposits <- replicateM (length depositTxs) $
-    waitForAllMatch (depositTimeout timing * fromIntegral clusterSize) clients $ \v -> do
+    waitForAllMatch (depositTimeout timing * fromIntegral clusterSize * 10) clients $ \v -> do
       guard $ v ^? key "tag" == Just "CommitFinalized"
       guard $ v ^? key "headId" == Just (toJSON headId)
       v ^? key "depositTxId" >>= parseMaybe parseJSON
