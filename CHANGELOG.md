@@ -21,6 +21,8 @@ changes.
 * Upgrade token name to HydraHeadV2 (from HydraHeadV1) [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 * Continue encouraging conversative ADA deposits until partial fanout is completed [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 
+- Remove head-initialization endpoint
+
 - Fix Plutus script evaluation on mainnet/testnet: L2 ledger `Globals` now uses era-aware `EpochInfo` (queried from chain) instead of `fixedEpochInfo`, ensuring correct `POSIXTime` values in Plutus `ScriptContext` for time-sensitive scripts on multi-era chains. Offline/devnet mode is unaffected.
 
 - Fix head getting permanently stuck in `RequestedSnapshot` when `CommitFinalized` races with an in-flight `ReqSn` — only `SeenSnapshot` (AckSns collecting) now blocks an immediate re-request, while `RequestedSnapshot` (stale echo) correctly retries with the new version.
