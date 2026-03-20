@@ -559,12 +559,11 @@ spec = parallel $ do
                   deadline <- newDeadlineFarEnoughFromNow
                   depositTxId <- simulateDeposit chain testHeadId depositUTxO deadline
                   waitUntil [n2] $ CommitRecorded{headId = testHeadId, utxoToCommit = depositUTxO, pendingDeposit = depositTxId, deadline}
+                  waitUntil [n1] $ CommitFinalized{headId = testHeadId, depositTxId}
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  -- REVIEW: Why is this expected to be empty? Should we wait
-                  -- for CommitFinalized instead and assert 11 being fanned out?
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = depositUTxO}
 
         -- XXX: This could be a single node test
         it "multiple commits and decommits in sequence" $
