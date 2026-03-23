@@ -244,6 +244,56 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just 1
             _ -> False
 
+        it "deposit activated while snapshot in-flight is picked up by next chained snapshot" $ do
+          -- Regression: a deposit that becomes Active while a snapshot is in-flight
+          -- (so the tick cannot request a snapshot for it) must be included in the
+          -- next chained ReqSn once the in-flight snapshot confirms.
+          --
+          -- After DepositActivated is aggregated the deposit sits in pendingDeposits
+          -- with status=Active, but currentDepositTxId stays Nothing (the bug).
+          -- When maybeRequestNextSnapshot fires it calls
+          --   setExistingDeposit pendingDeposits Nothing = Nothing
+          -- so the deposit is silently dropped from every subsequent ReqSn.
+          now <- getCurrentTime
+          let
+            depositId = 999
+            deposit =
+              Deposit
+                { headId = testHeadId
+                , deposited = utxoRef 50
+                , created = now
+                , deadline = addUTCTime 3600 now
+                , status = Active
+                }
+            -- Single-party head: alice is always leader, so maybeRequestNextSnapshot
+            -- fires for sn=2 when she receives her own AckSn for sn=1.
+            singleParty = [alice]
+            -- sn=1 in SeenSnapshot — no deposit was included (activated too late).
+            snapshot1 = testSnapshot 1 0 [] mempty
+            -- Pending L2 tx ensures not (null localTxs) → maybeRequestNextSnapshot fires.
+            tx2 = aValidTx 2
+            -- State as it would be after DepositActivated was processed:
+            -- pendingDeposits has the Active deposit, currentDepositTxId is still Nothing.
+            s0 =
+              ( inOpenState' singleParty $
+                  coordinatedHeadState
+                    { seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = Map.empty}
+                    , localTxs = [tx2]
+                    , currentDepositTxId = Nothing
+                    }
+              )
+                { pendingDeposits = Map.singleton depositId deposit }
+
+          -- Alice's AckSn confirms sn=1; maybeRequestNextSnapshot fires for sn=2.
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          let ackSn = receiveMessageFrom alice $ AckSn (sign aliceSk snapshot1) 1
+          let outcome = update aliceEnv ledger now' s0 ackSn
+
+          -- The chained ReqSn for sn=2 must include the active deposit.
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositId
+            _ -> False
+
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
