@@ -5,20 +5,9 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (
-  ConduitT,
-  MonadUnliftIO,
-  concatC,
-  linesUnboundedAsciiC,
-  mapMC,
-  sinkList,
-  (.|),
- )
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Control.Lens ((^?))
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
@@ -547,22 +536,6 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
               else go
           _ -> go
         Right _ -> go
-
-parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
-parseInitializingTime =
-  linesUnboundedAsciiC
-    .| mapMC maybeDecode
-    .| concatC
-    .| sinkList
- where
-  maybeDecode :: Monad m => ByteString -> m (Maybe Text)
-  maybeDecode bs =
-    case bs ^? key "stateChanged" . key "tag" . _String of
-      Nothing -> pure Nothing
-      Just tag ->
-        if tag == "HeadInitialized"
-          then pure $ bs ^? key "time" . _String
-          else pure Nothing
 
 badRequest :: IsChainState tx => PostTxError tx -> Response
 badRequest = responseLBS status400 jsonContent . Aeson.encode . toJSON
