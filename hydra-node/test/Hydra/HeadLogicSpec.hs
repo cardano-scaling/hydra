@@ -283,7 +283,8 @@ spec =
                     , currentDepositTxId = Nothing
                     }
               )
-                { pendingDeposits = Map.singleton depositId deposit }
+                { pendingDeposits = Map.singleton depositId deposit
+                }
 
           -- Alice's AckSn confirms sn=1; maybeRequestNextSnapshot fires for sn=2.
           now' <- nowFromSlot s0.chainPointTime.currentSlot

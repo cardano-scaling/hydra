@@ -336,7 +336,20 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
           -- spec. Do we really need to store that we have
           -- requested a snapshot? If yes, should update spec.
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs') decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
+          <> cause
+            ( NetworkEffect $
+                ReqSn
+                  version
+                  nextSn
+                  (txId <$> take maxTxsPerSnapshot localTxs')
+                  decommitTx
+                  ( selectNextDeposit
+                      pendingDeposits
+                      currentDepositTxId
+                      decommitTx
+                      ((.utxoToCommit) (getSnapshot confirmedSnapshot))
+                  )
+            )
       else outcome
 
   Environment{party} = env
@@ -356,7 +369,6 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   OpenState{coordinatedHeadState, headId, parameters} = st
-
 
   -- NOTE: Order of transactions is important here. See also
   -- 'pruneTransactions'.
@@ -679,11 +691,12 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
 
   maybeRequestNextSnapshot previous outcome = do
     let nextSn = previous.number + 1
+        nextDeposit = selectNextDeposit pendingDeposits currentDepositTxId decommitTx previous.utxoToCommit
     if isLeader parameters party nextSn && not (null localTxs)
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx (setExistingDeposit pendingDeposits currentDepositTxId))
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) decommitTx nextDeposit)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -890,7 +903,6 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   nextSn = number + 1
 
-
   CoordinatedHeadState
     { decommitTx = mExistingDecommitTx
     , confirmedSnapshot
@@ -1007,7 +1019,6 @@ onOpenChainTick env chainTime pendingDeposits st =
 
   OpenState{coordinatedHeadState, parameters} = st
 
-
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
 -- increment UTxO from 'pendingDeposits' from the local state.
@@ -1039,7 +1050,6 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
   Environment{party} = env
 
   nextSn = confirmedSn + 1
-
 
   -- Only request a new snapshot when no snapshot is already in-flight.
   -- If we are in SeenSnapshot, all parties have already processed the ReqSn
@@ -1095,7 +1105,6 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   Environment{party} = env
 
   nextSn = confirmedSn + 1
-
 
   -- Only request a new snapshot when no snapshot is already in-flight.
   -- If we are in SeenSnapshot, all parties have already processed the ReqSn
@@ -1491,6 +1500,37 @@ setExistingDeposit pendingDeposits currentDeposit = do
       case Map.lookup depositTxId pendingDeposits of
         Nothing -> Nothing
         Just _ -> currentDeposit
+
+-- | Find the oldest non-empty active deposit, if any. Deposits are selected
+-- in FIFO order by their 'created' timestamp. This mirrors the selection
+-- logic in 'withNextActive' used by 'onOpenChainTick'.
+nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
+nextActiveDepositId deposits =
+  case filter (\(_, Deposit{deposited, status}) -> deposited /= mempty && status == Active) (Map.toList deposits) of
+    [] -> Nothing
+    xs -> Just (fst (minimumBy (comparing ((.created) . snd)) xs))
+
+-- | Select the deposit to include in the next snapshot.
+--
+-- Prefers a deposit already tracked in 'currentDepositTxId' (if still pending).
+-- Falls back to the oldest active deposit from 'pendingDeposits', but only
+-- when neither a decommit is pending nor the last confirmed snapshot already
+-- included a deposit (to avoid double-posting 'IncrementTx' before
+-- 'CommitFinalized' removes the deposit).
+selectNextDeposit ::
+  IsTx tx =>
+  PendingDeposits tx ->
+  Maybe (TxIdType tx) ->
+  -- | Pending decommit tx
+  Maybe tx ->
+  -- | utxoToCommit of the last relevant confirmed snapshot
+  Maybe (UTxOType tx) ->
+  Maybe (TxIdType tx)
+selectNextDeposit pendingDeposits currentDepositTxId mDecommitTx mConfirmedUtxoToCommit =
+  setExistingDeposit pendingDeposits currentDepositTxId
+    <|> case (mDecommitTx, mConfirmedUtxoToCommit) of
+      (Nothing, Nothing) -> nextActiveDepositId pendingDeposits
+      _ -> Nothing
 
 -- | Handles inputs and converts them into 'StateChanged' events along with
 -- 'Effect's, in case it is processed successfully. Later, the Node will
@@ -2055,7 +2095,15 @@ aggregate st = \case
             }
       _otherState -> st
   DepositRecorded{} -> st
-  DepositActivated{} -> st
+  DepositActivated{depositTxId} -> case st of
+    Open os@OpenState{coordinatedHeadState = chs} ->
+      -- Spec: txω = ⊥ ∨ txα = ⊥ — deposit and decommit are mutually exclusive.
+      -- Only queue the deposit when no decommit is pending; otherwise the tick
+      -- will pick it up once the decommit completes.
+      case chs.decommitTx of
+        Just _ -> st
+        Nothing -> Open os{coordinatedHeadState = chs{currentDepositTxId = chs.currentDepositTxId <|> Just depositTxId}}
+    _ -> st
   DepositExpired{} -> st
   CommitApproved{} -> st
   DepositRecovered{} -> st
