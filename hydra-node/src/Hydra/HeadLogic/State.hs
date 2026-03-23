@@ -195,6 +195,14 @@ seenSnapshotNumber = \case
   RequestedSnapshot{lastSeen} -> lastSeen
   SeenSnapshot{snapshot = Snapshot{number}} -> number
 
+-- | Whether a snapshot is currently in-flight (requested or being signed).
+snapshotInFlight :: SeenSnapshot tx -> Bool
+snapshotInFlight = \case
+  NoSeenSnapshot -> False
+  LastSeenSnapshot{} -> False
+  RequestedSnapshot{} -> True
+  SeenSnapshot{} -> True
+
 -- ** Closed
 
 -- | An 'Closed' head with an current candidate 'ConfirmedSnapshot', which may

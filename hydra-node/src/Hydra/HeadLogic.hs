@@ -71,6 +71,7 @@ import Hydra.HeadLogic.State (
   getChainState,
   seenSnapshotNumber,
   setChainState,
+  snapshotInFlight,
  )
 import Hydra.Ledger (Ledger (..), applyTransactions)
 import Hydra.Network qualified as Network
@@ -328,7 +329,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
             newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome =
-    if not snapshotInFlight && isLeader parameters party nextSn
+    if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
       then
         outcome
           -- XXX: This state update has no equivalence in the
@@ -356,11 +357,6 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
 
   OpenState{coordinatedHeadState, headId, parameters} = st
 
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
 
   -- NOTE: Order of transactions is important here. See also
   -- 'pruneTransactions'.
@@ -882,7 +878,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
                 }
 
   maybeRequestSnapshot =
-    if not snapshotInFlight && isLeader parameters party nextSn
+    if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
       then cause (NetworkEffect (ReqSn version nextSn (txId <$> take maxTxsPerSnapshot localTxs) (Just decommitTx) Nothing))
       else noop
 
@@ -894,11 +890,6 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   nextSn = number + 1
 
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
 
   CoordinatedHeadState
     { decommitTx = mExistingDecommitTx
@@ -977,7 +968,7 @@ onOpenChainTick env chainTime pendingDeposits st =
         -- TODO: Spec: wait tx𝜔 = ⊥ ∧ 𝑈𝛼 = ∅
         if isNothing decommitTx
           && isNothing currentDepositTxId
-          && not snapshotInFlight
+          && not (snapshotInFlight seenSnapshot)
           && isLeader parameters party nextSn
           then
             -- XXX: This state update has no equivalence in the
@@ -1016,11 +1007,6 @@ onOpenChainTick env chainTime pendingDeposits st =
 
   OpenState{coordinatedHeadState, parameters} = st
 
-  snapshotInFlight = case seenSnapshot of
-    NoSeenSnapshot -> False
-    LastSeenSnapshot{} -> False
-    RequestedSnapshot{} -> True
-    SeenSnapshot{} -> True
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1046,7 +1032,7 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, version} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, version, seenSnapshot} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1054,16 +1040,18 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
 
   nextSn = confirmedSn + 1
 
-  -- After CommitFinalized is aggregated, seenSnapshot becomes
-  -- LastSeenSnapshot{confirmedSn}, so snapshotInFlight will be False and we
-  -- can immediately request the next snapshot for any pending work using newVersion.
+
+  -- Only request a new snapshot when no snapshot is already in-flight.
+  -- If we are in SeenSnapshot, all parties have already processed the ReqSn
+  -- and sent their AckSns — that snapshot will complete and maybeRequestNextSnapshot
+  -- will chain the next one using the bumped version. Firing here with stale
+  -- localTxs (pruned against the in-flight snapshot's UTxO) would cause
+  -- BadInputsUTxO on the receiving parties.
   -- Guard on version /= newVersion prevents a duplicate SnapshotRequestDecided when
   -- multiple parties post IncrementTx for the same deposit and each posting fires a
-  -- separate CommitFinalized observation. The second observation finds version already
-  -- bumped and must not re-advance seenSnapshot to RequestedSnapshot, which would
-  -- permanently block the leader's echo via waitNoSnapshotInFlight.
+  -- separate CommitFinalized observation.
   maybeRequestSnapshotAfterCommit =
-    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion
+    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (snapshotInFlight seenSnapshot)
       then
         newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing Nothing)
@@ -1100,7 +1088,7 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot} = coordinatedHeadState
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1108,14 +1096,18 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
 
   nextSn = confirmedSn + 1
 
-  -- After DecommitFinalized is aggregated, seenSnapshot becomes
-  -- LastSeenSnapshot so snapshotInFlight will be False and we can immediately
-  -- request the next snapshot for any pending work using newVersion. Guard on
-  -- version /= newVersion mirrors the CommitFinalized guard: prevents a
+
+  -- Only request a new snapshot when no snapshot is already in-flight.
+  -- If we are in SeenSnapshot, all parties have already processed the ReqSn
+  -- and sent their AckSns — that snapshot will complete and maybeRequestNextSnapshot
+  -- will chain the next one using the bumped version. Firing here with stale
+  -- localTxs (pruned against the in-flight snapshot's UTxO) would cause
+  -- BadInputsUTxO on the receiving parties.
+  -- Guard on version /= newVersion mirrors the CommitFinalized guard: prevents a
   -- duplicate SnapshotRequestDecided when multiple DecrementTx postings fire
   -- separate DecommitFinalized observations for the same decommit.
   maybeRequestSnapshotAfterDecommit =
-    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion
+    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (snapshotInFlight seenSnapshot)
       then
         newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing (setExistingDeposit pendingDeposits currentDepositTxId))
@@ -1841,13 +1833,20 @@ aggregateNodeState nodeState sc =
                                       -- depositTxId, but we should not verify this here.
                                       currentDepositTxId = Nothing
                                     , localUTxO = localUTxO <> newUTxO
-                                    , seenSnapshot = LastSeenSnapshot{lastSeen = confirmedSn}
+                                    , -- If a snapshot is already in SeenSnapshot, all parties
+                                      -- have processed the ReqSn and sent AckSns — preserve it
+                                      -- so that snapshot can still complete and chain the next
+                                      -- one with the bumped version. Only reset when nothing
+                                      -- is in-flight.
+                                      seenSnapshot = case seenSnapshot of
+                                        SeenSnapshot{} -> seenSnapshot
+                                        _ -> LastSeenSnapshot{lastSeen = confirmedSn}
                                     }
                               }
                       , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                       }
                where
-                CoordinatedHeadState{localUTxO, confirmedSnapshot} = coordinatedHeadState
+                CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
                 Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
             _otherState ->
               nodeState
@@ -2078,7 +2077,7 @@ aggregate st = \case
   DecommitFinalized{chainState, newVersion} ->
     case st of
       Open
-        os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot}} ->
+        os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}} ->
           let Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
            in Open
                 os
@@ -2087,7 +2086,13 @@ aggregate st = \case
                       coordinatedHeadState
                         { decommitTx = Nothing
                         , version = newVersion
-                        , seenSnapshot = LastSeenSnapshot{lastSeen = confirmedSn}
+                        , -- If a snapshot is already in SeenSnapshot, all parties have
+                          -- processed the ReqSn and sent AckSns — preserve it so that
+                          -- snapshot can still complete and chain the next one with the
+                          -- bumped version. Only reset when nothing is in-flight.
+                          seenSnapshot = case seenSnapshot of
+                            SeenSnapshot{} -> seenSnapshot
+                            _ -> LastSeenSnapshot{lastSeen = confirmedSn}
                         }
                   }
       _otherState -> st
