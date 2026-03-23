@@ -510,6 +510,76 @@ spec =
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
             _ -> fail "expected Open state"
 
+        it "DecommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
+          let localUTxO = utxoRefs [1]
+              decommitTx = SimpleTx 10 mempty (utxoRef 99)
+              snapshot1 = testSnapshot 0 3 [] localUTxO & \s -> s{number = 1}
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , decommitTx = Just decommitTx
+                    }
+
+          let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now s0 decrementObservation
+
+          -- No new snapshot should be requested: the one in SeenSnapshot will complete
+          outcome `hasNoStateChangedSatisfying` \case
+            SnapshotRequestDecided{} -> True
+            _ -> False
+
+          -- seenSnapshot must be preserved so AckSns can still be collected
+          let s1 = aggregateState s0 outcome
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+            _ -> fail "expected Open state"
+
+        it "CommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
+          let localUTxO = utxoRefs [1]
+              snapshot1 = testSnapshot 0 3 [] localUTxO & \s -> s{number = 1}
+              confirmedSn =
+                ConfirmedSnapshot
+                  { snapshot = testSnapshot 0 3 [] localUTxO
+                  , signatures = Crypto.aggregate []
+                  }
+              depositTxId = 42
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { localUTxO
+                    , version = 3
+                    , confirmedSnapshot = confirmedSn
+                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , currentDepositTxId = Just depositTxId
+                    }
+
+          let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId}
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now s0 incrementObservation
+
+          -- No new snapshot should be requested: the one in SeenSnapshot will complete
+          outcome `hasNoStateChangedSatisfying` \case
+            SnapshotRequestDecided{} -> True
+            _ -> False
+
+          -- seenSnapshot must be preserved so AckSns can still be collected
+          let s1 = aggregateState s0 outcome
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+            _ -> fail "expected Open state"
+
         it "CommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
           let localUTxO = utxoRefs [1]
               confirmedSn =
