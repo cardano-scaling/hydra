@@ -152,6 +152,9 @@ prop_validateJSONSchema specFileName selector =
 --        type: object
 --  ...
 -- @@
+--
+-- NOTE: Use 'withMaxSuccess 1' at the call site — the spec file does not
+-- change between runs so repeating is wasteful.
 prop_specIsComplete ::
   forall a.
   (Arbitrary a, Show a) =>
