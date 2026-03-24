@@ -19,11 +19,11 @@ import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
-import System.IO.Temp (writeSystemTempFile)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (..), traceInTVar)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
+import System.IO.Temp (writeSystemTempFile)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
 

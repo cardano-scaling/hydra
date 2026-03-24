@@ -69,6 +69,7 @@ import Hydra.HeadLogic.State (
   PendingCommits,
   SeenSnapshot (..),
   getChainState,
+  isCollectingAcks,
   seenSnapshotNumber,
   setChainState,
   snapshotInFlight,
@@ -1051,17 +1052,18 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
 
   nextSn = confirmedSn + 1
 
-  -- Only request a new snapshot when no snapshot is already in-flight.
-  -- If we are in SeenSnapshot, all parties have already processed the ReqSn
-  -- and sent their AckSns — that snapshot will complete and maybeRequestNextSnapshot
-  -- will chain the next one using the bumped version. Firing here with stale
-  -- localTxs (pruned against the in-flight snapshot's UTxO) would cause
+  -- Do not re-request if AckSns are already being collected (SeenSnapshot): that
+  -- snapshot will complete and maybeRequestNextSnapshot will chain the next one
+  -- using the bumped version. Firing here with stale localTxs would cause
   -- BadInputsUTxO on the receiving parties.
+  -- RequestedSnapshot is allowed: the in-flight ReqSn carries the old version and
+  -- will be rejected with ReqSvNumberInvalid, so we must re-request immediately
+  -- with the new version to avoid a permanently stuck head.
   -- Guard on version /= newVersion prevents a duplicate SnapshotRequestDecided when
   -- multiple parties post IncrementTx for the same deposit and each posting fires a
   -- separate CommitFinalized observation.
   maybeRequestSnapshotAfterCommit =
-    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (snapshotInFlight seenSnapshot)
+    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
       then
         newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing Nothing)
@@ -1106,17 +1108,18 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
 
   nextSn = confirmedSn + 1
 
-  -- Only request a new snapshot when no snapshot is already in-flight.
-  -- If we are in SeenSnapshot, all parties have already processed the ReqSn
-  -- and sent their AckSns — that snapshot will complete and maybeRequestNextSnapshot
-  -- will chain the next one using the bumped version. Firing here with stale
-  -- localTxs (pruned against the in-flight snapshot's UTxO) would cause
+  -- Do not re-request if AckSns are already being collected (SeenSnapshot): that
+  -- snapshot will complete and maybeRequestNextSnapshot will chain the next one
+  -- using the bumped version. Firing here with stale localTxs would cause
   -- BadInputsUTxO on the receiving parties.
+  -- RequestedSnapshot is allowed: the in-flight ReqSn carries the old version and
+  -- will be rejected with ReqSvNumberInvalid, so we must re-request immediately
+  -- with the new version to avoid a permanently stuck head.
   -- Guard on version /= newVersion mirrors the CommitFinalized guard: prevents a
   -- duplicate SnapshotRequestDecided when multiple DecrementTx postings fire
   -- separate DecommitFinalized observations for the same decommit.
   maybeRequestSnapshotAfterDecommit =
-    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (snapshotInFlight seenSnapshot)
+    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
       then
         newState SnapshotRequestDecided{snapshotNumber = nextSn}
           <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing (setExistingDeposit pendingDeposits currentDepositTxId))
