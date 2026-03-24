@@ -248,11 +248,9 @@ propIsDistributive f x y =
 -- an old snapshot
 partyContestsToWrongClosedSnapshot :: DL WorldState ()
 partyContestsToWrongClosedSnapshot = do
-  seedTheWorld
-  initHead
-  eventually ObserveHeadIsOpen
+  anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
@@ -273,7 +271,7 @@ fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
 fanoutContainsWholeConfirmedUTxO = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
@@ -298,7 +296,7 @@ conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)

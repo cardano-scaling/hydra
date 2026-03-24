@@ -379,7 +379,7 @@ genInit hydraParties = do
   let party = deriveParty key
   pure $ Init party
 
-genPayment :: WorldState -> Gen (Party, Payment)
+genPayment :: HasCallStack => WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
