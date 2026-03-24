@@ -47,6 +47,7 @@ root-instances = [
   { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" },
   # TODO: Remove this
   { module = "Hydra.Model.Payment", instance = "IsTx" },
+  { module = "Hydra.Model", instance = "HasVariables" },
   # These are used for debugging.
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" },
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" },
