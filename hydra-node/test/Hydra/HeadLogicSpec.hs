@@ -527,7 +527,7 @@ spec =
             Continue{} -> True
             Error{} -> True
             Wait{} -> False -- Must NOT Wait (infinite AckSn requeue)
-        it "DecommitFinalized with SeenSnapshot state extracts correct snapshot number" $ do
+        it "DecommitFinalized with SeenSnapshot preserves seenSnapshot so AckSns can still be collected" $ do
           let localUTxO = utxoRefs [1]
               decommitTx = SimpleTx 10 mempty (utxoRef 99)
               snapshot1 = testSnapshot 0 3 [] localUTxO & \s -> s{number = 1}
@@ -553,12 +553,13 @@ spec =
           let decommitFinalizedOutcome = update bobEnv ledger now s0 decrementObservation
           let s1 = aggregateState s0 decommitFinalizedOutcome
 
-          -- Verify DecommitFinalized resets seenSnapshot to confirmedSn (0)
+          -- DecommitFinalized preserves SeenSnapshot so AckSns can still be collected.
+          -- seenSnapshot stays as SeenSnapshot (not reset to LastSeenSnapshot).
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
               chs.decommitTx `shouldBe` Nothing
-              chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
             _ -> fail "expected Open state"
 
         it "DecommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
@@ -1022,11 +1023,11 @@ spec =
             step tickInput
             getState
 
-          -- Verify deposit is now active and currentDepositTxId is Nothing still
-          -- (it gets set only when ReqSn is processed)
+          -- Verify deposit is now active. DepositActivated queues the deposit
+          -- immediately into currentDepositTxId (via <|> in the aggregate).
           case headState s2 of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
-              currentDepositTxId `shouldBe` Nothing
+              currentDepositTxId `shouldBe` Just depositTxId
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 3: Process ReqSn with the deposit (as if received from network)
