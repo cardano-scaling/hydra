@@ -44,7 +44,7 @@ spec = parallel $ do
           eventStore <- createMockEventStore
           -- NOTE: because there will be 5 inputs processed in total, after ticks,
           -- this is hardcoded to ensure we get a checkpoint + single event at the end
-          let rotationConfig = RotateAfter (Positive 5)
+          let rotationConfig = RotateAfter (Positive 2)
           let s0 = initNodeState 0
           rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
           testHydrate rotatingEventStore []
@@ -53,7 +53,7 @@ spec = parallel $ do
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
           rotatedHistory <- getEvents (eventSource rotatingEventStore)
-          length rotatedHistory `shouldBe` 2
+          length rotatedHistory `shouldBe` 1
       it "consistent state after restarting with rotation" $ \testHydrate -> do
         failAfter 1 $ do
           eventStore <- createMockEventStore
