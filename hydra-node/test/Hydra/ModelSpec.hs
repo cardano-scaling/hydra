@@ -94,9 +94,7 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
-  genInit,
   genPayment,
-  genSeed,
   headUTxO,
   runMonad,
   toRealUTxO,
@@ -258,12 +256,6 @@ partyContestsToWrongClosedSnapshot = do
       void $ action $ Model.Fanout party
     _ -> pure ()
   action_ Model.StopTheWorld
- where
-  seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const True) (const [])) >>= action_
-
-  initHead = do
-    WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const True) (const [])) >>= action_
 
 -- | Given any random walk of the model, if the Head is open a NewTx getting
 -- confirmed must be part of the UTxO after finalization.
