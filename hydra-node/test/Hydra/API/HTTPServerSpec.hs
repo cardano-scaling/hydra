@@ -614,11 +614,17 @@ apiServerSpec = do
       let getHeadId = pure $ IncrementalCommit (generateWith arbitrary 42)
       let openHeadState = Open (generateWith arbitrary 42)
       responseChannel <- runIO newTChanIO
+      let workingChainHandle =
+            dummyChainHandle
+              { draftDepositTx = \_ _ _ _ _ -> do
+                  tx <- generate $ arbitrary @Tx
+                  pure $ Right tx
+              }
       prop "responds on valid requests" $ \(request :: DraftCommitTxRequest Tx) ->
         withApplication
           ( httpApp
               nullTracer
-              dummyChainHandle -- TODO: this errors
+              workingChainHandle
               testEnvironment
               dummyStatePath
               defaultPParams
@@ -681,53 +687,6 @@ apiServerSpec = do
                 FailedToConstructDepositTx{} -> 400
                 CommittedTooMuchADAForMainnet{} -> 400
                 _ -> 500
-
-      -- TODO: drop this whole endpoint
-      it "gives information on when the Head was initialized" $ do
-        let genTick :: Gen (StateChanged Tx)
-            genTick = TickObserved <$> arbitrary
-            genInit :: Gen (StateChanged Tx)
-            genInit = HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-            mkStateLine :: Int -> Text -> StateChanged Tx -> Text
-            mkStateLine eventId time stateChanged =
-              decodeUtf8 . LBS.toStrict $
-                Aeson.encode $
-                  object
-                    [ "eventId" .= eventId
-                    , "stateChanged" .= stateChanged
-                    , "time" .= time
-                    ]
-        withTempDir "http-server-spec" $ \tmpDir -> do
-          -- NOTE: These lines do NOT represent real state events.
-          -- They are synthetic log entries, only used to mimic the shape of the
-          -- state file so the endpoint can extract the `time` field from
-          -- `HeadInitialized` `stateChanged` events during parsing.
-          stateLines <-
-            sequenceA
-              [ mkStateLine 163 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
-              , mkStateLine 164 "2025-10-08T09:33:02.30814188Z" <$> generate genInit
-              , mkStateLine 258 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
-              , mkStateLine 259 "2025-10-08T09:33:02.224666984Z" <$> generate genTick
-              , mkStateLine 300 "2025-10-08T10:33:02.30814188Z" <$> generate genInit
-              ]
-          let statePath = tmpDir </> "state"
-          writeFileText statePath (unlines stateLines)
-          chainTime <- getCurrentTime
-          withApplication
-            ( httpApp @Tx
-                nullTracer
-                dummyChainHandle
-                testEnvironment
-                statePath
-                defaultPParams
-                (pure NodeInSync{headState = error "TODO: drop /head-initialization endpoint", pendingDeposits = mempty, chainPointTime = ChainPointTime{currentSlot = ChainSlot 152, currentChainTime = chainTime, drift = 0}})
-                getHeadId
-                getPendingDeposits
-                putClientInput
-                300
-                responseChannel
-            )
-            $ get "/head-initialization" `shouldRespondWith` 200{matchBody = fromString "\"2025-10-08T10:33:02.30814188Z\""}
 
     describe "POST /transaction" $ do
       let mkReq :: SimpleTx -> LBS.ByteString

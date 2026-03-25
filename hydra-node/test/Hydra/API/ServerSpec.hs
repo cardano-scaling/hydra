@@ -246,9 +246,8 @@ spec =
                   Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
 
             waitForValue port $ \v -> do
-              guard $ v ^? key "headStatus" == Just (Aeson.String "Idle")
-              -- test that the 'snapshotUtxo' is excluded from json if there is no utxo
-              guard $ isNothing (v ^? key "snapshotUtxo")
+              guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
+              guard $ v ^? key "snapshotUtxo" == Just (Aeson.Array mempty)
 
             (headId, headIsOpenMsg) <- generate $ do
               headId <- arbitrary
