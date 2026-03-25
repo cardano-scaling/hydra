@@ -473,15 +473,50 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
     networkId <- Backend.queryNetworkId backend
     contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
     aliceChainConfig <-
-      chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 100)
+      chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 300)
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
           . setNetworkId networkId
+    -- Prepare deposit payload
+    (walletVk, walletSk) <- generate genKeyPair
+    let depositAmount = 10_000_000
+    depositUTxO <- seedFromFaucet backend walletVk (lovelaceToValue depositAmount) (contramap FromFaucet tracer)
+    let changeAddress = mkVkAddress @Era networkId walletVk
+    let (i, o) = List.head $ UTxO.toList depositUTxO
+    let witness = BuildTxWith $ KeyWitness KeyWitnessForSpending
+    let blueprint =
+          unsafeBuildTransaction $
+            defaultTxBodyContent
+              & addTxIns [(i, witness)]
+              & addTxOut (fromCtxUTxOTxOut o)
+    let clientPayload =
+          Aeson.object
+            [ "blueprintTx" .= blueprint
+            , "utxo" .= depositUTxO
+            , "changeAddress" .= changeAddress
+            ]
+
     withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Open head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+      -- Deposit UTxO
+      res <-
+        runReq defaultHttpConfig $
+          req POST (http "127.0.0.1" /: "commit") (ReqBodyJson clientPayload) (Proxy :: Proxy (JsonResponse Tx)) (port $ 4000 + 1)
+
+      let tx = signTx walletSk $ responseBody res
+      Backend.submitTransaction backend tx
+
+      waitMatch (50 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "CommitFinalized"
+        guard $ v ^? key "headId" == Just (toJSON headId)
+
+        guard $ v ^? key "depositTxId" == Just (toJSON $ getTxId (getTxBody tx))
+        pure ()
+
       -- Close head
       send n1 $ input "Close" []
+
       deadline <- waitMatch (50 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "HeadIsClosed"
         guard $ v ^? key "headId" == Just (toJSON headId)
