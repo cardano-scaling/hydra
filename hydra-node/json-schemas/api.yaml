@@ -2423,6 +2423,7 @@ components:
           required:
             - tag
             - headId
+            - headSeed
             - headParameters
             - incrementingSnapshot
             - depositTxId
@@ -2434,6 +2435,8 @@ components:
               enum: ["IncrementTx"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
             incrementingSnapshot:
@@ -2446,6 +2449,7 @@ components:
           required:
             - tag
             - headId
+            - headSeed
             - headParameters
             - decrementingSnapshot
           description: |
@@ -2456,6 +2460,8 @@ components:
               enum: ["DecrementTx"]
             headId:
               $ref: "api.yaml#/components/schemas/HeadId"
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
             decrementingSnapshot:
@@ -2624,6 +2630,23 @@ components:
               enum: ["NoFuelUTXOFound"]
             failingTx:
               $ref: "api.yaml#/components/schemas/Transaction"
+        - title: CommittedTooMuchADAForMainnet
+          description: |
+            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - userCommittedLovelace
+          - mainnetLimitLovelace
+          properties:
+            userCommittedLovelace:
+              type: number
+            mainnetLimitLovelace:
+              type: number
+            tag:
+              type: string
+              enum: ["CommittedTooMuchADAForMainnet"]
         - title: UnsupportedLegacyOutput
           type: object
           additionalProperties: false
