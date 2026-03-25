@@ -2118,7 +2118,6 @@ components:
         additionalProperties: false
         required:
           - headId
-          - initialUTxO
           - tag
         properties:
           headId:
