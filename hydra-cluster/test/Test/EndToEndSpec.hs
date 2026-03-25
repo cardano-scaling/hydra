@@ -51,7 +51,7 @@ import Hydra.Cluster.Scenarios (
   canCloseWithLongContestationPeriod,
   canDecommit,
   canDeposit,
-  canDeposit2,
+  canDepositConcurrently,
   canDepositPartially,
   canDepositScriptBlueprint,
   canRecoverDeposit,
@@ -312,7 +312,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "can deposit and distribute funds" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            canDeposit2 tracer tmpDir
+            canDepositConcurrently tracer tmpDir
 
     describe "three party hydra head" $ do
       it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer ->

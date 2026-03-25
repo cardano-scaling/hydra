@@ -1153,8 +1153,8 @@ startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
       configuredPeers `shouldBe` "0.0.0.0:5004=http://0.0.0.0:5004"
 
 -- | Open a a two participant head, deposit funds to it and distribute them on fanout.
-canDeposit2 :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canDeposit2 tracer workDir backend hydraScriptsTxId =
+canDepositConcurrently :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canDepositConcurrently tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $
     (`finally` returnFundsToFaucet tracer backend Bob) $ do
       refuelIfNeeded tracer backend Alice 30_000_000
