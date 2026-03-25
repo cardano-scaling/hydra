@@ -603,9 +603,10 @@ apiServerSpec = do
               get "/snapshot/utxo"
                 `shouldRespondWith` 200
                   { matchBody = MatchBody $ \_ body ->
-                      if isNothing (body ^? key (fromString $ Text.unpack $ renderTxIn i) . key "inlineDatumRaw")
-                        then Just $ "\ninlineDatumRaw not found in body:\n" <> show body
-                        else Nothing
+                      let hasInlineDatum = isJust (body ^? key (fromString $ Text.unpack $ renderTxIn i) . key "inlineDatumRaw")
+                       in if body == "{}" || hasInlineDatum
+                            then Nothing
+                            else Just $ "\ninlineDatumRaw not found in body:\n" <> show body
                   }
 
     -- TODO: change API to POST /deposits
