@@ -110,7 +110,6 @@ import Hydra.Cluster.Util (Timing (..), chainConfigFor, chainConfigFor', deposit
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (SyncedStatus (..))
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
@@ -456,7 +455,6 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
 -- | Step through the full life cycle of a Hydra Head with only a single
 -- participant. This scenario is also used by the smoke test run via the
 -- `hydra-cluster` executable.
--- TODO: deposit and withdraw in this scenario
 singlePartyHeadFullLifeCycle ::
   ChainBackend backend =>
   Tracer IO EndToEndLog ->
@@ -471,11 +469,17 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
     tip <- Backend.queryTip backend
     blockTime <- Backend.getBlockTime backend
     networkId <- Backend.queryNetworkId backend
+    let timing = mkTestTiming blockTime
+    let Timing{depositPeriod = timingDepositPeriod} = timing
     contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
     aliceChainConfig <-
-      chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod (DepositPeriod 300)
+      chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod timingDepositPeriod
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
           . setNetworkId networkId
+
+    (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+    let aliceAddress = mkVkAddress networkId aliceCardanoVk
+
     -- Prepare deposit payload
     (walletVk, walletSk) <- generate genKeyPair
     let depositAmount = 10_000_000
@@ -498,7 +502,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
     withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Open head
       send n1 $ input "Init" []
-      headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+      headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
       -- Deposit UTxO
       res <-
         runReq defaultHttpConfig $
@@ -507,12 +511,34 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
       let tx = signTx walletSk $ responseBody res
       Backend.submitTransaction backend tx
 
-      waitMatch (50 * blockTime) n1 $ \v -> do
+      waitMatch (depositTimeout timing) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "CommitFinalized"
         guard $ v ^? key "headId" == Just (toJSON headId)
-
         guard $ v ^? key "depositTxId" == Just (toJSON $ getTxId (getTxBody tx))
         pure ()
+
+      utxo <- getSnapshotUTxO n1
+      l2tx <- mkTransferTx networkId utxo walletSk aliceCardanoVk
+      send n1 $ input "NewTx" ["transaction" .= l2tx]
+      waitMatch (20 * blockTime) n1 $ \v -> do
+        guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        guard $ v ^? key "snapshot" . key "number" == Just (toJSON (2 :: Integer))
+
+      utxo' <- getSnapshotUTxO n1
+
+      decommitTx <- do
+        let (input', output') = List.head $ UTxO.toList utxo'
+        either (failure . show) pure $
+          mkSimpleTx (input', output') (aliceAddress, txOutValue o) aliceCardanoSk
+
+      send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
+
+      distributedUTxO <- waitForAllMatch (50 * blockTime) [n1] $ \v -> do
+        guard $ v ^? key "tag" == Just "DecommitFinalized"
+        guard $ v ^? key "headId" == Just (toJSON headId)
+        v ^? key "distributedUTxO" . _JSON
+
+      guard $ distributedUTxO `UTxO.containsOutputs` UTxO.txOutputs (utxoFromTx decommitTx)
 
       -- Close head
       send n1 $ input "Close" []

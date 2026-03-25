@@ -17,7 +17,7 @@ import Control.Monad.Class.MonadAsync (forConcurrently)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
-import Data.Aeson.Lens (atKey, key)
+import Data.Aeson.Lens (atKey, key, _String)
 import Data.Aeson.Types (Pair)
 import Data.ByteString (hGetContents)
 import Data.List qualified as List
@@ -574,5 +574,16 @@ waitForNodesDisconnected tracer delay clients =
 
 waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesSynced delay clients = do
-  waitForAllMatch delay (toList clients) $ \v -> do
-    guard $ v ^? key "tag" == Just "NodeSynced"
+  -- Wait for Greetings from each client. Greetings is always sent AFTER
+  -- historical replay, so receiving it means we've consumed all historical
+  -- messages. This prevents tests from matching on historical HeadIsOpen or
+  -- NodeSynced messages from previous runs when using a persistent state dir.
+  syncedStatuses <- forConcurrently (toList clients) $ \client ->
+    waitMatch delay client $ \v -> do
+      guard $ v ^? key "tag" == Just "Greetings"
+      v ^? key "chainSyncedStatus" . _String
+  -- If any node is still catching up, additionally wait for a fresh NodeSynced
+  when ("CatchingUp" `elem` syncedStatuses) $
+    forConcurrently_ (toList clients) $ \client ->
+      waitMatch delay client $ \v ->
+        guard $ v ^? key "tag" == Just "NodeSynced"
