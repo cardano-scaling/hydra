@@ -23,7 +23,7 @@ import Hydra.Cluster.Scenarios (respendNTimes, singlePartyHeadFullLifeCycle, sin
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Prelude (withTempDir)
 
@@ -71,8 +71,14 @@ run options =
         action blockTime backend
       Nothing -> do
         when (useMithril == UseMithril) $ do
-          removeDirectoryRecursive (workDir </> "db") `catch` (\(_ :: SomeException) -> pure ())
-          downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
+          let dbDir = workDir </> "db"
+          let networkFile = workDir </> ".mithril-network"
+          dbExists <- doesDirectoryExist dbDir
+          storedNetwork <- (decodeUtf8 @Text <$> readFileBS networkFile) `catch` (\(_ :: SomeException) -> pure "")
+          when (not dbExists || storedNetwork /= show network) $ do
+            removeDirectoryRecursive dbDir `catch` (\(_ :: SomeException) -> pure ())
+            downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
+            writeFileBS networkFile (encodeUtf8 @Text $ show network)
         withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
   withStateDirectory action = case stateDirectory of

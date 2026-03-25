@@ -16,6 +16,8 @@ data MithrilLog
   = StartSnapshotDownload {network :: KnownNetwork, directory :: FilePath}
   | -- | Output captured directly from mithril-client stderr.
     StdErr {output :: Value}
+  | -- | Non-JSON line captured from mithril-client stderr.
+    StdErrLine {raw :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -51,7 +53,7 @@ downloadLatestSnapshotTo tracer network directory = do
     ignoreEOFErrors . forever $ do
       bytes <- BS.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bytes of
-        Left err -> error $ "failed to decode: \n" <> show bytes <> "\nerror: " <> show err
+        Left _err -> traceWith tracer StdErrLine{raw = decodeUtf8 bytes}
         Right output -> traceWith tracer StdErr{output}
 
   ignoreEOFErrors =
