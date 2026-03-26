@@ -131,7 +131,6 @@ spec = parallel $ do
           rotatingEventStore2 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint rotatingEventStore1
           testHydrate rotatingEventStore2 []
             >>= notConnect
-            >>= primeWithTime
             >>= primeWith inputs2
             >>= runToCompletion
           -- run non-restarted node with prepared inputs
@@ -147,8 +146,7 @@ spec = parallel $ do
           [StateEvent{eventId = eventId', stateChanged = checkpoint'}] <- getEvents (eventSource rotatingEventStore')
           checkpoint `shouldBe` checkpoint'
           -- stored events should yield consistent event id
-          -- note the restarting node has more Tick events
-          eventId `shouldBe` eventId' + 2
+          eventId `shouldBe` eventId'
 
   describe "Rotation algorithm" $ do
     prop "rotates on startup" $
