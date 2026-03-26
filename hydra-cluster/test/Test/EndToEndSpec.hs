@@ -129,7 +129,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     it "can process transactions in single participant offline head persistently" $ \tracer -> do
       withClusterTempDir $ \tmpDir -> do
         (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-        (bobCardanoVk, _) <- keysFor Bob
+        (bobCardanoVk, bobCardanoSk) <- keysFor Bob
         initialUTxO <- generate $ do
           a <- genOneUTxOFor aliceCardanoVk
           b <- genOneUTxOFor bobCardanoVk
@@ -163,8 +163,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             Right bobToAlice =
               mkSimpleTx
                 (mkTxIn aliceToBob 0, bobTxOut)
-                (mkVkAddress testNetworkId bobCardanoVk, txOutValue bobTxOut)
-                aliceCardanoSk
+                (mkVkAddress testNetworkId aliceCardanoVk, txOutValue bobTxOut)
+                bobCardanoSk
           send node $ input "NewTx" ["transaction" .= bobToAlice]
           waitMatch 10 node $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
