@@ -33,7 +33,6 @@ import Data.List (nub, (\\))
 import Data.List qualified as List
 import Data.Map ((!))
 import Data.Map qualified as Map
-import Data.Maybe (fromJust)
 import Data.Set qualified as Set
 import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
@@ -68,7 +67,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Tx.Gen (genSigningKey)
-import Test.QuickCheck (choose, chooseEnum, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
+import Test.QuickCheck (choose, chooseEnum, discard, elements, frequency, listOf, resize, sized, sublistOf, tabulate, vectorOf)
 import Test.QuickCheck.DynamicLogic (DynLogicModel)
 import Test.QuickCheck.StateModel (Any (..), HasVariables, PostconditionM, Realized, RunModel (..), StateModel (..), Var, VarContext, counterexamplePost)
 import Test.QuickCheck.StateModel.Variables (HasVariables (..))
@@ -88,6 +87,9 @@ data WorldState = WorldState
   -- ^ UTxO available to be committed incrementally. NOTE: We must not add UTxO
   -- we decommitted to this as the 'Payment' transaction model results in
   -- non-unique transaction ids when running the model.
+  -- NOTE: Deposits are not randomly generated in 'anyActions_' — they are only
+  -- performed explicitly in scripted tests (e.g. 'propFanoutLimit'). Adding
+  -- real support for random deposit actions is left for the future.
   }
   deriving stock (Eq, Show)
 
@@ -225,9 +227,8 @@ instance StateModel WorldState where
       && (from tx, value tx) `List.elem` confirmedUTxO offChainState
   precondition _ Wait{} =
     True
-  precondition WorldState{hydraState = Open{headIdVar}, availableToDeposit} Deposit{headIdVar = var, utxoToDeposit} =
+  precondition WorldState{hydraState = Open{headIdVar}} Deposit{headIdVar = var} =
     var == headIdVar
-      && all (`elem` availableToDeposit) utxoToDeposit
   precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
@@ -253,8 +254,8 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraState, availableToDeposit} a result =
     case a of
-      Seed{seedKeys, contestationPeriod, additionalUTxO} ->
-        s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO}
+      Seed{seedKeys, contestationPeriod} ->
+        s{hydraParties = seedKeys, hydraState = idleState}
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
         idleParties = map (deriveParty . fst) seedKeys
@@ -337,10 +338,11 @@ instance StateModel WorldState where
       StopTheWorld -> s
 
   shrinkAction _ctx _st = \case
-    seed@Seed{seedKeys} -> do
+    seed@Seed{seedKeys, additionalUTxO} -> do
       seedKeys' <- shrink seedKeys
       guard $ length seedKeys' < length seedKeys
-      pure $ Some $ seed{seedKeys = seedKeys'}
+      let cardanoKeys' = snd <$> seedKeys'
+      pure $ Some $ seed{seedKeys = seedKeys', additionalUTxO = filter ((`elem` cardanoKeys') . fst) additionalUTxO}
     _other -> []
 
 instance HasVariables WorldState where
@@ -379,17 +381,24 @@ genInit hydraParties = do
   let party = deriveParty key
   pure $ Init party
 
-genPayment :: HasCallStack => WorldState -> Gen (Party, Payment)
+genPayment :: WorldState -> Gen (Party, Payment)
 genPayment WorldState{hydraParties, hydraState} =
   case hydraState of
     Open{offChainState = OffChainState{confirmedUTxO}} -> do
-      (from, value) <-
-        elements (filter (not . null . toList . snd) confirmedUTxO)
-      let party = deriveParty $ fst $ fromJust $ List.find ((== from) . snd) hydraParties
-      -- NOTE: It's perfectly possible this yields a payment to self and it
-      -- assumes hydraParties is not empty else `elements` will crash
-      (_, to) <- elements hydraParties
-      pure (party, Payment{from, to, value})
+      let spendable =
+            mapMaybe
+              ( \(from, value) ->
+                  (from,value,) . deriveParty . fst <$> List.find ((== from) . snd) hydraParties
+              )
+              $ filter (not . null . toList . snd) confirmedUTxO
+      case spendable of
+        [] -> discard
+        _ -> do
+          (from, value, party) <- elements spendable
+          -- NOTE: It's perfectly possible this yields a payment to self and it
+          -- assumes hydraParties is not empty else `elements` will crash
+          (_, to) <- elements hydraParties
+          pure (party, Payment{from, to, value})
     _ -> error $ "genPayment impossible in state: " <> show hydraState
 
 unsafeConstructorName :: Show a => a -> String
@@ -803,7 +812,7 @@ toRealUTxO paymentUTxO =
     , (ix, val) <- zip [0 ..] vals
     ]
  where
-  skMap = foldMap (\(sk, v) -> Map.singleton sk [v]) paymentUTxO
+  skMap = Map.fromListWith (++) $ map (\(sk, v) -> (sk, [v])) paymentUTxO
 
 mkTxOut :: CardanoSigningKey -> Value -> TxOut CtxUTxO
 mkTxOut (CardanoSigningKey sk) val =
