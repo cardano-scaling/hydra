@@ -47,7 +47,7 @@ maxMainnetLovelace = Coin 100_000_000
 -- | Hardcoded limit for maximum number of parties in a head protocol. A too
 -- high number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
-maximumNumberOfParties = 7
+maximumNumberOfParties = 29
 
 -- | Data type used to post transactions on chain. It holds everything to
 -- construct corresponding Head protocol transactions.
