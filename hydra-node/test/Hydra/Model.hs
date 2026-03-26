@@ -253,8 +253,8 @@ instance StateModel WorldState where
 
   nextState s@WorldState{hydraState, availableToDeposit} a result =
     case a of
-      Seed{seedKeys, contestationPeriod} ->
-        s{hydraParties = seedKeys, hydraState = idleState}
+      Seed{seedKeys, contestationPeriod, additionalUTxO} ->
+        s{hydraParties = seedKeys, hydraState = idleState, availableToDeposit = additionalUTxO}
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
         idleParties = map (deriveParty . fst) seedKeys

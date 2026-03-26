@@ -150,11 +150,11 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
-  -- This scenario seeds a head with a single party and an UTxO set of 47 elements,
+  -- This scenario seeds a head with a single party and an UTxO set of 50 elements,
   -- which is over the budget of the mocked chain implementation.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
-  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 48)
-  prop "succeeds fanout under the limit" $ propFanoutLimit 47
+  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 50)
+  prop "succeeds fanout under the limit" $ propFanoutLimit 49
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO
@@ -164,14 +164,16 @@ propFanoutLimit :: Int -> Property
 propFanoutLimit limit =
   within 10000000 $ propDL $ do
     aliceCardanoSks <- forAllQ $ withGenQ ((:|) <$> arbitrary <*> vectorOf limit (arbitrary @Payment.CardanoSigningKey)) (const True) (const [])
+    let utxo = toList $ fmap (,lovelaceToValue 1_000_000) aliceCardanoSks
     void $
       action $
         Seed
           { seedKeys = [(aliceSk, head aliceCardanoSks)]
           , contestationPeriod = UnsafeContestationPeriod 10
-          , additionalUTxO = mempty
+          , additionalUTxO = utxo
           }
-    void $ action $ Init alice
+    headId <- action $ Init alice
+    void $ action $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
     void $ action Close{party = alice}
     void $ action $ Wait 3600
     void $ action $ Fanout alice
