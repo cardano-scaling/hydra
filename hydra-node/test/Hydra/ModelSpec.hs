@@ -171,6 +171,7 @@ propFanoutLimit limit =
           , contestationPeriod = UnsafeContestationPeriod 10
           , additionalUTxO = mempty
           }
+    void $ action $ Init alice
     void $ action Close{party = alice}
     void $ action $ Wait 3600
     void $ action $ Fanout alice
