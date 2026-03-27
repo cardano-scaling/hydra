@@ -67,7 +67,7 @@ import Hydra.Cluster.Scenarios (
   nodeCanSupportMultipleEtcdClusters,
   nodeReObservesOnChainTxs,
   oneOfThreeNodesStopsForAWhile,
-  persistenceCanLoadWithEmptyCommit,
+  persistenceCanLoadWithNothingCommitted,
   refuelIfNeeded,
   rejectDeposit,
   respendNTimes,
@@ -87,22 +87,7 @@ import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import HydraNode (
-  getMetrics,
-  getSnapshotUTxO,
-  input,
-  output,
-  prepareHydraNode,
-  requestCommitTx,
-  send,
-  waitFor,
-  waitForAllMatch,
-  waitForNodesConnected,
-  waitMatch,
-  withHydraCluster,
-  withHydraNode,
-  withPreparedHydraNodeInSync,
- )
+import HydraNode (getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNode, withUnsyncedHydraNode)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive)
@@ -200,7 +185,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
-        diff2 <- withPreparedHydraNodeInSync (contramap FromHydraNode tracer) blockTime tmpDir 1 options' $ \_ -> do
+        diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \n -> do
+          void $ waitForNodesSynced (5 * blockTime) [n]
           t2 <- getCurrentTime
           let diff = diffUTCTime t2 t1
           pure diff
@@ -299,10 +285,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canSubmitTransactionThroughAPI tracer tmpDir
-      it "persistence can load with empty commit" $ \tracer ->
+      it "persistence can load with nothing committed" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
-            persistenceCanLoadWithEmptyCommit tracer tmpDir
+            persistenceCanLoadWithNothingCommitted tracer tmpDir
       it "node re-observes on-chain txs" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
@@ -568,8 +554,8 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
 
             let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
-            withHydraNode hydraTracer blockTime aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
-              headId' <- waitForAllMatch 10 [n1] $ headIsOpenWith (Set.fromList [alice])
+            withUnsyncedHydraNode hydraTracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
+              headId' <- waitForAllMatch (10 * blockTime * 10) [n1] $ headIsOpenWith (Set.fromList [alice])
               headId' `shouldBe` aliceHeadId
 
       it "can side load snapshot" $ \tracer -> do

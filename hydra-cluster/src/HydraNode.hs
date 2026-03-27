@@ -428,26 +428,6 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
     , i /= hydraNodeId
     ]
 
--- | Run a hydra-node with given 'RunOptions' and in sync with chain backend.
-withPreparedHydraNodeInSync ::
-  HasCallStack =>
-  Tracer IO HydraNodeLog ->
-  NominalDiffTime ->
-  FilePath ->
-  Int ->
-  RunOptions ->
-  (HydraClient -> IO a) ->
-  IO a
-withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId runOptions action = do
-  withPreparedHydraNode tracer workDir hydraNodeId runOptions (action' waitTime)
- where
-  waitFactor = 5
-  waitTime = blockTime * waitFactor
-
-  action' wt client = do
-    waitForNodesSynced wt (client :| [])
-    action client
-
 -- | Run a hydra-node with given 'RunOptions'.
 withPreparedHydraNode ::
   HasCallStack =>
@@ -487,8 +467,10 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
 
--- | Run a hydra-node with given 'ChainConfig' and using the config from
--- config/.
+-- | Run a hydra-node just like `withHydraNode`; but before running any
+-- action, observe a `Greetings` message with the node in sync first. NOTE
+-- that importantly, any messages seen BEFORE we observe this will be lost;
+-- i.e. unobservable by subsequent `waitFor`s.
 withHydraNode ::
   HasCallStack =>
   Tracer IO HydraNodeLog ->
@@ -503,7 +485,29 @@ withHydraNode ::
   IO a
 withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
-  withPreparedHydraNodeInSync tracer blockTime workDir hydraNodeId opts action
+  withPreparedHydraNode tracer workDir hydraNodeId opts action'
+ where
+  waitTime = blockTime * 5
+  action' client = do
+    waitForNodesSynced waitTime [client]
+    action client
+
+-- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- config/, but, importantly, do NOT wait for the sync status to be reported.
+withUnsyncedHydraNode ::
+  HasCallStack =>
+  Tracer IO HydraNodeLog ->
+  ChainConfig ->
+  FilePath ->
+  Int ->
+  SigningKey HydraKey ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  (HydraClient -> IO a) ->
+  IO a
+withUnsyncedHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+  withPreparedHydraNode tracer workDir hydraNodeId opts action
 
 -- | Run a hydra-node with given 'ChainConfig' and using the config from
 -- config and catching up with chain backend/.
@@ -572,7 +576,7 @@ waitForNodesDisconnected tracer delay clients =
   waitFor tracer delay (toList clients) $
     output "NetworkDisconnected" []
 
-waitForNodesSynced :: NominalDiffTime -> NonEmpty HydraClient -> IO ()
+waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 waitForNodesSynced delay clients = do
   -- Wait for Greetings from each client. Greetings is always sent AFTER
   -- historical replay, so receiving it means we've consumed all historical

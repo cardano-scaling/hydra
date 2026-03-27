@@ -132,11 +132,13 @@ import HydraNode (
   waitForAllMatch,
   waitForNodesConnected,
   waitForNodesDisconnected,
+  waitForNodesSynced,
   waitMatch,
   withHydraCluster,
   withHydraNode,
   withHydraNodeCatchingUp,
-  withPreparedHydraNodeInSync,
+  withPreparedHydraNode,
+  withUnsyncedHydraNode,
  )
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Conduit qualified as L
@@ -266,8 +268,8 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
       guard $ v ^? key "utxoToCommit" == Just (toJSON depositUTxO)
 
     -- n2 is back and does observe the deposit
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
-      waitMatch 10 n2 $ \v -> do
+    withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
+      waitMatch (10 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "CommitRecorded"
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "utxoToCommit" == Just (toJSON depositUTxO)
@@ -321,17 +323,17 @@ restartedNodeCanClose tracer workDir backend hydraScriptsTxId = do
     send n1 $ input "Init" []
     waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
     -- Also expect to see past server outputs replayed
-    headId2 <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+    headId2 <- waitMatch (20 * blockTime * 10) n1 $ headIsOpenWith (Set.fromList [alice])
     headId1 `shouldBe` headId2
     -- Heads now open directly, so we close instead of abort
     send n1 $ input "Close" []
     waitMatch 20 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       guard $ v ^? key "headId" == Just (toJSON headId2)
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-    waitMatch (20 * blockTime) n1 $ \v -> do
+  withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    waitMatch (20 * blockTime * 10) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just "Closed"
       guard $ v ^? key "me" == Just (toJSON alice)
@@ -427,9 +429,9 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       callProcess "cp" ["-r", workDir </> "state-2", tmpDir]
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "state*"]
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]
-      withHydraNode hydraTracer blockTime bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withUnsyncedHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
         -- Also expect to see past server outputs replayed
-        headId2 <- waitMatch (10 * blockTime) n2 $ headIsOpenWith (Set.fromList [alice, bob])
+        headId2 <- waitMatch (10 * blockTime * 10) n2 $ headIsOpenWith (Set.fromList [alice, bob])
         headId2 `shouldBe` headId'
 
         distributedUTxO <- waitForAllMatch 5 [n2] $ \v -> do
@@ -596,7 +598,8 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
     let hydraTracer = contramap FromHydraNode tracer
     options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
     let options' = options{persistenceRotateAfter}
-    withPreparedHydraNodeInSync hydraTracer blockTime workDir 1 options' $ \n1 -> do
+    withPreparedHydraNode hydraTracer workDir 1 options' $ \n1 -> do
+      void $ waitForNodesSynced (5 * blockTime) [n1]
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
@@ -905,14 +908,14 @@ canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
       , blueprint
       )
 
-persistenceCanLoadWithEmptyCommit ::
+persistenceCanLoadWithNothingCommitted ::
   ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
   backend ->
   [TxId] ->
   IO ()
-persistenceCanLoadWithEmptyCommit tracer workDir backend hydraScriptsTxId =
+persistenceCanLoadWithNothingCommitted tracer workDir backend hydraScriptsTxId =
   (`finally` returnFundsToFaucet tracer backend Alice) $ do
     refuelIfNeeded tracer backend Alice 20_000_000
     blockTime <- Backend.getBlockTime backend
@@ -930,7 +933,7 @@ persistenceCanLoadWithEmptyCommit tracer workDir backend hydraScriptsTxId =
       Nothing -> error "Failed to find HeadIsOpened in the state file"
       Just headIsOpen -> do
         headIsOpen `shouldBe` "HeadOpened"
-        withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        withUnsyncedHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
           headId' <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
           headId' `shouldBe` headId
 
@@ -1269,7 +1272,8 @@ rejectDeposit tracer workDir backend hydraScriptsTxId =
 
     let pparamsDecorator = atKey "utxoCostPerByte" ?~ toJSON (Aeson.Number 4310)
     optionsWithUTxOCostPerByte <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] pparamsDecorator
-    withPreparedHydraNodeInSync hydraTracer blockTime workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
+    withPreparedHydraNode hydraTracer workDir 1 optionsWithUTxOCostPerByte $ \n1 -> do
+      void $ waitForNodesSynced (10 * blockTime) [n1]
       send n1 $ input "Init" []
       _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
