@@ -2699,9 +2699,6 @@ withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))
 -- | Access inputs of a transaction, as an ordered list.
 txIns' :: Tx era -> [TxIn]
 
--- | Access inputs of a transaction, as an ordered set.
-txInputSet :: Tx era -> Set TxIn
-
 -- | Convert a cardano-ledger <a>TxIn</a> into a cardano-api <a>TxIn</a>
 fromLedgerTxIn :: TxIn -> TxIn
 
@@ -2799,9 +2796,6 @@ fromPlutusValue :: Value -> Maybe Value
 module Hydra.Cardano.Api.TxOut
 txOuts' :: Tx era -> [TxOut CtxTx era]
 
--- | Modify a <a>TxOut</a> to set the minimum ada on the value.
-setMinUTxOValue :: PParams LedgerEra -> TxOut CtxUTxO Era -> TxOut ctx Era
-
 -- | Automatically balance a given output with the minimum required amount.
 --   Number of assets, presence of datum and/or reference scripts may
 --   affect this minimum value.
@@ -2837,7 +2831,8 @@ isScriptTxOut :: forall lang ctx era. IsPlutusScriptLanguage lang => PlutusScrip
 fromLedgerTxOut :: IsShelleyBasedEra era => TxOut (ShelleyLedgerEra era) -> TxOut ctx era
 
 -- | Convert a cardano-api <a>TxOut</a> into a cardano-ledger <a>TxOut</a>
-toLedgerTxOut :: IsShelleyBasedEra era => TxOut CtxUTxO era -> TxOut (ShelleyLedgerEra era)
+--   NOTE: This is partial for negative <a>Value</a>.
+toLedgerTxOut :: (HasCallStack, IsShelleyBasedEra era) => TxOut CtxUTxO era -> TxOut (ShelleyLedgerEra era)
 
 -- | Convert a plutus <a>TxOut</a> into a cardano-api <a>TxOut</a>. NOTE:
 --   Reference scripts are not resolvable right now. NOTE: Requires the
@@ -3194,9 +3189,6 @@ toPlutusCurrencySymbol :: PolicyId -> CurrencySymbol
 -- | Attach some verification-key witness to a <a>TxIn</a>.
 withWitness :: TxIn -> (TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn Era))
 
--- | Access inputs of a transaction, as an ordered set.
-txInputSet :: Tx era -> Set TxIn
-
 -- | Convert a cardano-ledger <a>TxIn</a> into a cardano-api <a>TxIn</a>
 fromLedgerTxIn :: TxIn -> TxIn
 
@@ -3237,15 +3229,6 @@ valueSize :: Value -> Int
 --   <a>AdaAssetId</a> entry in it.
 fromLedgerMultiAsset :: MultiAsset -> Value
 
--- | Modify a <a>TxOut</a> to set the minimum ada on the value.
-setMinUTxOValue :: PParams LedgerEra -> TxOut CtxUTxO Era -> TxOut ctx Era
-
--- | Convert a cardano-ledger <a>TxOut</a> into a cardano-api <a>TxOut</a>
-fromLedgerTxOut :: IsShelleyBasedEra era => TxOut (ShelleyLedgerEra era) -> TxOut ctx era
-
--- | Convert a cardano-api <a>TxOut</a> into a cardano-ledger <a>TxOut</a>
-toLedgerTxOut :: IsShelleyBasedEra era => TxOut CtxUTxO era -> TxOut (ShelleyLedgerEra era)
-
 -- | Automatically balance a given output with the minimum required amount.
 --   Number of assets, presence of datum and/or reference scripts may
 --   affect this minimum value.
@@ -3276,6 +3259,13 @@ isVkTxOut :: forall ctx era. VerificationKey PaymentKey -> TxOut ctx era -> Bool
 --   script. This is better than comparing the full address as it does not
 --   require a network discriminator.
 isScriptTxOut :: forall lang ctx era. IsPlutusScriptLanguage lang => PlutusScript lang -> TxOut ctx era -> Bool
+
+-- | Convert a cardano-ledger <a>TxOut</a> into a cardano-api <a>TxOut</a>
+fromLedgerTxOut :: IsShelleyBasedEra era => TxOut (ShelleyLedgerEra era) -> TxOut ctx era
+
+-- | Convert a cardano-api <a>TxOut</a> into a cardano-ledger <a>TxOut</a>
+--   NOTE: This is partial for negative <a>Value</a>.
+toLedgerTxOut :: (HasCallStack, IsShelleyBasedEra era) => TxOut CtxUTxO era -> TxOut (ShelleyLedgerEra era)
 
 -- | Convert a plutus <a>TxOut</a> into a cardano-api <a>TxOut</a>. NOTE:
 --   Reference scripts are not resolvable right now. NOTE: Requires the

@@ -4,12 +4,11 @@
 
 -- | The Hydra node
 @package hydra-node
-@version 1.3.0
+@version 2.0.0
 
 module Hydra.API.ClientInput
 data ClientInput tx
 Init :: ClientInput tx
-Abort :: ClientInput tx
 NewTx :: tx -> ClientInput tx
 [$sel:transaction:Init] :: ClientInput tx -> tx
 Recover :: TxIdType tx -> ClientInput tx
@@ -75,27 +74,19 @@ module Hydra.Chain
 -- | Hardcoded limit for commit tx on mainnet
 maxMainnetLovelace :: Coin
 
--- | Hardcoded limit for maximum number of parties in a head protocol The
---   value is obtained from calculating the costs of running the scripts
---   and on-chan validators (see <tt>computeCollectComCost</tt>
---   <tt>computeAbortCost</tt>). A too high enough number would be detected
---   by property and acceptance tests.
+-- | Hardcoded limit for maximum number of parties in a head protocol. A
+--   too high number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
 
 -- | Data type used to post transactions on chain. It holds everything to
---   construct corresponding Head protocol transactions.
+--   construct corresponding Head protocol transactions. TODO: somehow
+--   merge HeadSeed/HeadId
 data PostChainTx tx
 InitTx :: [OnChainId] -> HeadParameters -> PostChainTx tx
 [$sel:participants:InitTx] :: PostChainTx tx -> [OnChainId]
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
-AbortTx :: UTxOType tx -> HeadSeed -> PostChainTx tx
-[$sel:utxo:InitTx] :: PostChainTx tx -> UTxOType tx
+IncrementTx :: HeadSeed -> HeadId -> HeadParameters -> ConfirmedSnapshot tx -> TxIdType tx -> PostChainTx tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
-CollectComTx :: UTxOType tx -> HeadId -> HeadParameters -> PostChainTx tx
-[$sel:utxo:InitTx] :: PostChainTx tx -> UTxOType tx
-[$sel:headId:InitTx] :: PostChainTx tx -> HeadId
-[$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
-IncrementTx :: HeadId -> HeadParameters -> ConfirmedSnapshot tx -> TxIdType tx -> PostChainTx tx
 [$sel:headId:InitTx] :: PostChainTx tx -> HeadId
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
 [$sel:incrementingSnapshot:InitTx] :: PostChainTx tx -> ConfirmedSnapshot tx
@@ -105,7 +96,8 @@ RecoverTx :: HeadId -> TxIdType tx -> ChainSlot -> UTxOType tx -> PostChainTx tx
 [$sel:recoverTxId:InitTx] :: PostChainTx tx -> TxIdType tx
 [$sel:deadline:InitTx] :: PostChainTx tx -> ChainSlot
 [$sel:recoverUTxO:InitTx] :: PostChainTx tx -> UTxOType tx
-DecrementTx :: HeadId -> HeadParameters -> ConfirmedSnapshot tx -> PostChainTx tx
+DecrementTx :: HeadSeed -> HeadId -> HeadParameters -> ConfirmedSnapshot tx -> PostChainTx tx
+[$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:headId:InitTx] :: PostChainTx tx -> HeadId
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
 [$sel:decrementingSnapshot:InitTx] :: PostChainTx tx -> ConfirmedSnapshot tx
@@ -134,14 +126,6 @@ OnInitTx :: HeadId -> HeadSeed -> HeadParameters -> [OnChainId] -> OnChainTx tx
 [$sel:headSeed:OnInitTx] :: OnChainTx tx -> HeadSeed
 [$sel:headParameters:OnInitTx] :: OnChainTx tx -> HeadParameters
 [$sel:participants:OnInitTx] :: OnChainTx tx -> [OnChainId]
-OnCommitTx :: HeadId -> Party -> UTxOType tx -> OnChainTx tx
-[$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
-[$sel:party:OnInitTx] :: OnChainTx tx -> Party
-[$sel:committed:OnInitTx] :: OnChainTx tx -> UTxOType tx
-OnAbortTx :: HeadId -> OnChainTx tx
-[$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
-OnCollectComTx :: HeadId -> OnChainTx tx
-[$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 OnDepositTx :: HeadId -> TxIdType tx -> UTxOType tx -> UTCTime -> UTCTime -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:depositTxId:OnInitTx] :: OnChainTx tx -> TxIdType tx
@@ -179,12 +163,20 @@ InvalidSeed :: HeadSeed -> PostTxError tx
 [$sel:headSeed:NoSeedInput] :: PostTxError tx -> HeadSeed
 InvalidHeadId :: HeadId -> PostTxError tx
 [$sel:headId:NoSeedInput] :: PostTxError tx -> HeadId
-CannotFindOwnInitial :: UTxOType tx -> PostTxError tx
-[$sel:knownUTxO:NoSeedInput] :: PostTxError tx -> UTxOType tx
 
 -- | Committing byron addresses is not supported.
 UnsupportedLegacyOutput :: Address ByronAddr -> PostTxError tx
 [$sel:byronAddress:NoSeedInput] :: PostTxError tx -> Address ByronAddr
+
+-- | User tried to commit more than <a>maxMainnetLovelace</a> hardcoded
+--   limit on mainnet we keep track of both the hardcoded limit and what
+--   the user originally tried to commit
+CommittedTooMuchADAForMainnet :: Coin -> Coin -> PostTxError tx
+[$sel:userCommittedLovelace:NoSeedInput] :: PostTxError tx -> Coin
+[$sel:mainnetLimitLovelace:NoSeedInput] :: PostTxError tx -> Coin
+DepositTooLow :: Coin -> Coin -> PostTxError tx
+[$sel:providedValue:NoSeedInput] :: PostTxError tx -> Coin
+[$sel:minimumValue:NoSeedInput] :: PostTxError tx -> Coin
 InvalidStateToPost :: PostChainTx tx -> ChainStateType tx -> PostTxError tx
 [$sel:txTried:NoSeedInput] :: PostTxError tx -> PostChainTx tx
 [$sel:chainState:NoSeedInput] :: PostTxError tx -> ChainStateType tx
@@ -214,20 +206,8 @@ InternalWalletError :: UTxOType tx -> Text -> tx -> PostTxError tx
 FailedToPostTx :: Text -> tx -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 [$sel:failingTx:NoSeedInput] :: PostTxError tx -> tx
-
--- | User tried to commit more than <a>maxMainnetLovelace</a> hardcoded
---   limit on mainnet we keep track of both the hardcoded limit and what
---   the user originally tried to commit
-CommittedTooMuchADAForMainnet :: Coin -> Coin -> PostTxError tx
-[$sel:userCommittedLovelace:NoSeedInput] :: PostTxError tx -> Coin
-[$sel:mainnetLimitLovelace:NoSeedInput] :: PostTxError tx -> Coin
-
--- | We can only draft commit tx for the user when in Initializing state
-FailedToDraftTxNotInitializing :: PostTxError tx
-FailedToConstructAbortTx :: PostTxError tx
 FailedToConstructCloseTx :: PostTxError tx
 FailedToConstructContestTx :: PostTxError tx
-FailedToConstructCollectTx :: PostTxError tx
 FailedToConstructDepositTx :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructRecoverTx :: Text -> PostTxError tx
@@ -237,12 +217,6 @@ FailedToConstructIncrementTx :: Text -> PostTxError tx
 FailedToConstructDecrementTx :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructFanoutTx :: PostTxError tx
-DepositTooLow :: Coin -> Coin -> PostTxError tx
-[$sel:providedValue:NoSeedInput] :: PostTxError tx -> Coin
-[$sel:minimumValue:NoSeedInput] :: PostTxError tx -> Coin
-AmountTooLow :: Coin -> Coin -> PostTxError tx
-[$sel:providedValue:NoSeedInput] :: PostTxError tx -> Coin
-[$sel:totalUTxOValue:NoSeedInput] :: PostTxError tx -> Coin
 InvalidTokenRequest :: [(PolicyId, PolicyAssets)] -> PostTxError tx
 
 -- | A non empty sequence of chain states that can be rolled back. This is
@@ -281,7 +255,7 @@ prefixOf :: IsChainState tx => ChainStateHistory tx -> NonEmpty (ChainPointType 
 
 -- | Handle to interface with the main chain network
 data Chain tx m
-Chain :: (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> (ConfirmedSnapshot tx -> Either Value ()) -> Chain tx m
+Chain :: (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> PParams LedgerEra -> CommitBlueprintTx tx -> UTCTime -> Maybe AddressInEra -> m (Either (PostTxError tx) tx)) -> (MonadThrow m => tx -> m ()) -> (ConfirmedSnapshot tx -> Either Value ()) -> Chain tx m
 
 -- | Construct and send a transaction to the main chain corresponding to
 --   the given <a>PostChainTx</a> description. This function is not
@@ -291,11 +265,6 @@ Chain :: (MonadThrow m => PostChainTx tx -> m ()) -> (MonadThrow m => HeadId -> 
 --   
 --   Does at least throw <a>PostTxError</a>.
 [$sel:postTx:Chain] :: Chain tx m -> MonadThrow m => PostChainTx tx -> m ()
-
--- | Create a commit transaction using user provided utxos (zero or many)
---   and a _blueprint_ transaction which spends these outputs. Errors are
---   handled at the call site.
-[$sel:draftCommitTx:Chain] :: Chain tx m -> MonadThrow m => HeadId -> CommitBlueprintTx tx -> m (Either (PostTxError tx) tx)
 
 -- | Create a deposit transaction using user provided utxos (zero or many)
 --   , _blueprint_ transaction which spends these outputs and a deadline
@@ -608,9 +577,9 @@ module Hydra.HeadLogic.State
 --   overall protocol state, but also the off-chain
 --   <a>CoordinatedHeadState</a>.
 --   
---   Each of the sub-types (InitialState, OpenState, etc.) contain a
---   black-box <a>IdleState</a> corresponding to the <tt>ChainEvent</tt>
---   that has been observed leading to the state.
+--   Each of the sub-types (OpenState, etc.) contain a black-box
+--   <a>IdleState</a> corresponding to the <tt>ChainEvent</tt> that has
+--   been observed leading to the state.
 --   
 --   Note that rollbacks are currently not fully handled in the head logic
 --   and only this internal chain state gets replaced with the "rolled back
@@ -621,7 +590,6 @@ module Hydra.HeadLogic.State
 --   HeadLogic either.
 data HeadState tx
 Idle :: IdleState tx -> HeadState tx
-Initial :: InitialState tx -> HeadState tx
 Open :: OpenState tx -> HeadState tx
 Closed :: ClosedState tx -> HeadState tx
 
@@ -642,19 +610,6 @@ getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 newtype IdleState tx
 IdleState :: ChainStateType tx -> IdleState tx
 [$sel:chainState:IdleState] :: IdleState tx -> ChainStateType tx
-
--- | An <a>Initial</a> head which already has an identity and is collecting
---   commits.
-data InitialState tx
-InitialState :: HeadParameters -> PendingCommits -> Committed tx -> ChainStateType tx -> HeadId -> HeadSeed -> InitialState tx
-[$sel:parameters:InitialState] :: InitialState tx -> HeadParameters
-[$sel:pendingCommits:InitialState] :: InitialState tx -> PendingCommits
-[$sel:committed:InitialState] :: InitialState tx -> Committed tx
-[$sel:chainState:InitialState] :: InitialState tx -> ChainStateType tx
-[$sel:headId:InitialState] :: InitialState tx -> HeadId
-[$sel:headSeed:InitialState] :: InitialState tx -> HeadSeed
-type PendingCommits = Set Party
-type Committed tx = Map Party (UTxOType tx)
 
 -- | An <a>Open</a> head with a <a>CoordinatedHeadState</a> tracking
 --   off-chain transactions.
@@ -743,7 +698,6 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.IdleState tx)
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.InitialState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.OpenState tx)
@@ -757,10 +711,6 @@ instance GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx) => GHC.Classe
 instance GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx) => GHC.Show.Show (Hydra.HeadLogic.State.IdleState tx)
 instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.IdleState tx)
 instance Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.IdleState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.InitialState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.InitialState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.InitialState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.InitialState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.OpenState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.OpenState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.OpenState tx)
@@ -894,19 +844,6 @@ ChainStateAt :: UTxO -> Maybe ChainPoint -> ChainStateAt
 --   0 is used for the genesis point.
 chainSlotFromPoint :: ChainPoint -> ChainSlot
 
--- | A definition of all transitions between <a>ChainState</a>s. Enumerable
---   and bounded to be used as labels for checking coverage.
-data ChainTransition
-Init :: ChainTransition
-Abort :: ChainTransition
-Commit :: ChainTransition
-Collect :: ChainTransition
-Increment :: ChainTransition
-Decrement :: ChainTransition
-Close :: ChainTransition
-Contest :: ChainTransition
-Fanout :: ChainTransition
-
 -- | An enumeration of all possible on-chain states of a Hydra Head, where
 --   each case stores the relevant information to construct &amp; observe
 --   transactions to other states.
@@ -915,7 +852,6 @@ data ChainState
 -- | The idle state does not contain any head-specific information and
 --   exists to be used as a starting and terminal state.
 Idle :: ChainState
-Initial :: InitialState -> ChainState
 Open :: OpenState -> ChainState
 Closed :: ClosedState -> ChainState
 
@@ -930,26 +866,11 @@ ChainContext :: NetworkId -> VerificationKey PaymentKey -> Party -> ScriptRegist
 [$sel:ownVerificationKey:ChainContext] :: ChainContext -> VerificationKey PaymentKey
 [$sel:ownParty:ChainContext] :: ChainContext -> Party
 [$sel:scriptRegistry:ChainContext] :: ChainContext -> ScriptRegistry
-
--- | Representation of the Head output after an Init transaction.
-data InitialThreadOutput
-InitialThreadOutput :: (TxIn, TxOut CtxUTxO) -> ContestationPeriod -> [Party] -> InitialThreadOutput
-[$sel:initialThreadUTxO:InitialThreadOutput] :: InitialThreadOutput -> (TxIn, TxOut CtxUTxO)
-[$sel:initialContestationPeriod:InitialThreadOutput] :: InitialThreadOutput -> ContestationPeriod
-[$sel:initialParties:InitialThreadOutput] :: InitialThreadOutput -> [Party]
-data InitialState
-InitialState :: InitialThreadOutput -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)] -> HeadId -> TxIn -> InitialState
-[$sel:initialThreadOutput:InitialState] :: InitialState -> InitialThreadOutput
-[$sel:initialInitials:InitialState] :: InitialState -> [(TxIn, TxOut CtxUTxO)]
-[$sel:initialCommits:InitialState] :: InitialState -> [(TxIn, TxOut CtxUTxO)]
-[$sel:headId:InitialState] :: InitialState -> HeadId
-[$sel:seedTxIn:InitialState] :: InitialState -> TxIn
 data OpenState
-OpenState :: UTxO -> HeadId -> TxIn -> UTxOHash -> OpenState
+OpenState :: UTxO -> HeadId -> TxIn -> OpenState
 [$sel:openUTxO:OpenState] :: OpenState -> UTxO
 [$sel:headId:OpenState] :: OpenState -> HeadId
 [$sel:seedTxIn:OpenState] :: OpenState -> TxIn
-[$sel:openUtxoHash:OpenState] :: OpenState -> UTxOHash
 data ClosedState
 ClosedState :: UTxO -> HeadId -> TxIn -> UTCTime -> ClosedState
 [$sel:closedUTxO:ClosedState] :: ClosedState -> UTxO
@@ -960,61 +881,28 @@ ClosedState :: UTxO -> HeadId -> TxIn -> UTCTime -> ClosedState
 -- | Construct an init transaction given some general <a>ChainContext</a>,
 --   the <a>HeadParameters</a> and a seed <a>TxIn</a> which will be spent.
 initialize :: ChainContext -> TxIn -> [OnChainId] -> HeadParameters -> Tx
-
--- | Construct a commit transaction based on known, spendable UTxO and some
---   arbitrary UTxOs to commit. This does look for "our initial output" to
---   spend and check the given <a>UTxO</a> to be compatible. Hence, this
---   function does fail if already committed or if the head is not
---   initializing.
---   
---   NOTE: This version of <a>commit</a> does only commit outputs which are
---   held by payment keys. For a variant which supports committing scripts,
---   see <a>commit'</a>.
-commit :: ChainContext -> HeadId -> UTxO -> UTxO -> Either (PostTxError Tx) Tx
-
--- | Construct a commit transaction based on known, spendable UTxO and some
---   user UTxO inputs to commit. This does look for "our initial output" to
---   spend and check the given <a>UTxO</a> to be compatible. Hence, this
---   function does fail if already committed or if the head is not
---   initializing.
---   
---   NOTE: A simpler variant only supporting pubkey outputs is
---   <a>commit</a>.
-commit' :: ChainContext -> HeadId -> UTxO -> CommitBlueprintTx Tx -> Either (PostTxError Tx) Tx
-rejectByronAddress :: UTxO -> Either (PostTxError Tx) ()
-rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
-
--- | Construct a abort transaction based on known, spendable UTxO. This
---   function looks for head, initial and commit outputs to spend and it
---   will fail if we can't find the head output.
-abort :: ChainContext -> TxIn -> UTxO -> UTxO -> Either AbortTxError Tx
-data CollectTxError
-InvalidHeadIdInCollect :: HeadId -> CollectTxError
-[$sel:headId:InvalidHeadIdInCollect] :: CollectTxError -> HeadId
-CannotFindHeadOutputToCollect :: CollectTxError
-
--- | Construct a collect transaction based on known, spendable UTxO. This
---   function looks for head output and commit outputs to spend and it will
---   fail if we can't find the head output.
-collect :: ChainContext -> HeadId -> HeadParameters -> UTxO -> UTxO -> Either CollectTxError Tx
 data IncrementTxError
+InvalidHeadSeedInIncrement :: HeadSeed -> IncrementTxError
+[$sel:headSeed:InvalidHeadSeedInIncrement] :: IncrementTxError -> HeadSeed
 InvalidHeadIdInIncrement :: HeadId -> IncrementTxError
-[$sel:headId:InvalidHeadIdInIncrement] :: IncrementTxError -> HeadId
+[$sel:headId:InvalidHeadSeedInIncrement] :: IncrementTxError -> HeadId
 CannotFindHeadOutputInIncrement :: IncrementTxError
 CannotFindDepositOutputInIncrement :: TxId -> IncrementTxError
-[$sel:depositTxId:InvalidHeadIdInIncrement] :: IncrementTxError -> TxId
+[$sel:depositTxId:InvalidHeadSeedInIncrement] :: IncrementTxError -> TxId
 SnapshotMissingIncrementUTxO :: IncrementTxError
 SnapshotIncrementUTxOIsNull :: IncrementTxError
 
 -- | Construct a increment transaction spending the head and deposit
 --   outputs in given <a>UTxO</a>, and producing single head output for
 --   pending <a>$sel:utxoToCommit:Snapshot</a> of given <a>Snapshot</a>.
-increment :: ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Either IncrementTxError Tx
+increment :: ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Either IncrementTxError Tx
 
 -- | Possible errors when trying to construct decrement tx
 data DecrementTxError
+InvalidHeadSeedInDecrement :: HeadSeed -> DecrementTxError
+[$sel:headSeed:InvalidHeadSeedInDecrement] :: DecrementTxError -> HeadSeed
 InvalidHeadIdInDecrement :: HeadId -> DecrementTxError
-[$sel:headId:InvalidHeadIdInDecrement] :: DecrementTxError -> HeadId
+[$sel:headId:InvalidHeadSeedInDecrement] :: DecrementTxError -> HeadId
 CannotFindHeadOutputInDecrement :: DecrementTxError
 DecrementValueNegative :: DecrementTxError
 SnapshotDecrementUTxOIsNull :: DecrementTxError
@@ -1022,7 +910,7 @@ SnapshotDecrementUTxOIsNull :: DecrementTxError
 -- | Construct a decrement transaction spending the head output in given
 --   <a>UTxO</a>, and producing outputs for all pending
 --   <a>$sel:utxoToDecommit:Snapshot</a> of given <a>Snapshot</a>.
-decrement :: ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> Either DecrementTxError Tx
+decrement :: ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> ConfirmedSnapshot Tx -> Either DecrementTxError Tx
 data CloseTxError
 InvalidHeadIdInClose :: HeadId -> CloseTxError
 [$sel:headId:InvalidHeadIdInClose] :: CloseTxError -> HeadId
@@ -1070,21 +958,9 @@ BothCommitAndDecommitInFanout :: FanoutTxError
 fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
 
--- | Observe an init transition using a <a>InitialState</a> and
+-- | Observe an init transition using a <tt>InitialState</tt> and
 --   <a>observeInitTx</a>.
-observeInit :: ChainContext -> [VerificationKey PaymentKey] -> Tx -> Either NotAnInitReason (OnChainTx Tx, InitialState)
-
--- | Observe an commit transition using a <a>InitialState</a> and
---   <a>observeCommitTx</a>. NOTE: This function is a bit fragile as it
---   assumes commit output on first output while the underlying
---   observeCommitTx could deal with commit outputs at any index. Only use
---   this function in tests and benchmarks.
-observeCommit :: ChainContext -> InitialState -> Tx -> Maybe (OnChainTx Tx, InitialState)
-
--- | Observe an collect transition using a <a>InitialState</a> and
---   <a>observeCollectComTx</a>. This function checks the head id and
---   ignores if not relevant.
-observeCollect :: InitialState -> Tx -> Maybe (OnChainTx Tx, OpenState)
+observeInit :: ChainContext -> [VerificationKey PaymentKey] -> Tx -> Either NotAnInitReason (OnChainTx Tx, OpenState)
 
 -- | Observe a close transition using a <a>OpenState</a> and
 --   <a>observeCloseTx</a>. This function checks the head id and ignores if
@@ -1111,40 +987,26 @@ HydraContext :: [VerificationKey PaymentKey] -> [SigningKey HydraKey] -> Network
 ctxParties :: HydraContext -> [Party]
 ctxParticipants :: HydraContext -> [OnChainId]
 ctxHeadParameters :: HydraContext -> HeadParameters
-unsafeCommit :: HasCallStack => ChainContext -> HeadId -> UTxO -> UTxO -> Tx
-unsafeAbort :: HasCallStack => ChainContext -> TxIn -> UTxO -> UTxO -> Tx
-unsafeIncrement :: HasCallStack => ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Tx
-unsafeDecrement :: HasCallStack => ChainContext -> UTxO -> HeadId -> HeadParameters -> ConfirmedSnapshot Tx -> Tx
+unsafeIncrement :: HasCallStack => ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> ConfirmedSnapshot Tx -> TxId -> SlotNo -> Tx
+unsafeDecrement :: HasCallStack => ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> ConfirmedSnapshot Tx -> Tx
 
 -- | Unsafe version of <a>close</a> that throws an error if the transaction
 --   fails to build.
 unsafeClose :: HasCallStack => ChainContext -> UTxO -> HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot Tx -> SlotNo -> PointInTime -> Tx
-unsafeCollect :: ChainContext -> HeadId -> HeadParameters -> UTxO -> UTxO -> Tx
 
 -- | Unsafe version of <a>contest</a> that throws an error if the
 --   transaction fails to build.
 unsafeContest :: HasCallStack => ChainContext -> UTxO -> HeadId -> ContestationPeriod -> SnapshotVersion -> ConfirmedSnapshot Tx -> PointInTime -> Tx
 unsafeFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Tx
-unsafeObserveInit :: HasCallStack => ChainContext -> [VerificationKey PaymentKey] -> Tx -> InitialState
-unsafeObserveInitAndCommits :: HasCallStack => ChainContext -> [VerificationKey PaymentKey] -> Tx -> [Tx] -> ([UTxO], InitialState)
+unsafeObserveInit :: HasCallStack => ChainContext -> [VerificationKey PaymentKey] -> Tx -> OpenState
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.State.ChainStateAt
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.State.ChainStateAt
 instance GHC.Generics.Generic Hydra.Chain.Direct.State.ChainStateAt
 instance GHC.Show.Show Hydra.Chain.Direct.State.ChainStateAt
 instance GHC.Classes.Eq Hydra.Chain.Direct.State.ChainStateAt
-instance GHC.Enum.Bounded Hydra.Chain.Direct.State.ChainTransition
-instance GHC.Enum.Enum Hydra.Chain.Direct.State.ChainTransition
-instance GHC.Show.Show Hydra.Chain.Direct.State.ChainTransition
-instance GHC.Classes.Eq Hydra.Chain.Direct.State.ChainTransition
 instance GHC.Generics.Generic Hydra.Chain.Direct.State.ChainContext
 instance GHC.Show.Show Hydra.Chain.Direct.State.ChainContext
 instance GHC.Classes.Eq Hydra.Chain.Direct.State.ChainContext
-instance GHC.Generics.Generic Hydra.Chain.Direct.State.InitialThreadOutput
-instance GHC.Show.Show Hydra.Chain.Direct.State.InitialThreadOutput
-instance GHC.Classes.Eq Hydra.Chain.Direct.State.InitialThreadOutput
-instance GHC.Generics.Generic Hydra.Chain.Direct.State.InitialState
-instance GHC.Show.Show Hydra.Chain.Direct.State.InitialState
-instance GHC.Classes.Eq Hydra.Chain.Direct.State.InitialState
 instance GHC.Generics.Generic Hydra.Chain.Direct.State.OpenState
 instance GHC.Show.Show Hydra.Chain.Direct.State.OpenState
 instance GHC.Classes.Eq Hydra.Chain.Direct.State.OpenState
@@ -1154,7 +1016,6 @@ instance GHC.Classes.Eq Hydra.Chain.Direct.State.ClosedState
 instance GHC.Generics.Generic Hydra.Chain.Direct.State.ChainState
 instance GHC.Show.Show Hydra.Chain.Direct.State.ChainState
 instance GHC.Classes.Eq Hydra.Chain.Direct.State.ChainState
-instance GHC.Show.Show Hydra.Chain.Direct.State.CollectTxError
 instance GHC.Show.Show Hydra.Chain.Direct.State.IncrementTxError
 instance GHC.Show.Show Hydra.Chain.Direct.State.DecrementTxError
 instance GHC.Show.Show Hydra.Chain.Direct.State.CloseTxError
@@ -1165,7 +1026,6 @@ instance GHC.Show.Show Hydra.Chain.Direct.State.HydraContext
 instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.ChainState
 instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.ClosedState
 instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.OpenState
-instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.InitialState
 instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.ChainContext
 instance Hydra.Chain.ChainState.IsChainState Hydra.Cardano.Api.Tx
 
@@ -2318,16 +2178,9 @@ PeerConnected :: Host -> ServerOutput tx
 [$sel:peer:NetworkConnected] :: ServerOutput tx -> Host
 PeerDisconnected :: Host -> ServerOutput tx
 [$sel:peer:NetworkConnected] :: ServerOutput tx -> Host
-HeadIsInitializing :: HeadId -> [Party] -> ServerOutput tx
+HeadIsOpen :: HeadId -> [Party] -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
 [$sel:parties:NetworkConnected] :: ServerOutput tx -> [Party]
-Committed :: HeadId -> Party -> UTxOType tx -> ServerOutput tx
-[$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-[$sel:party:NetworkConnected] :: ServerOutput tx -> Party
-[$sel:utxo:NetworkConnected] :: ServerOutput tx -> UTxOType tx
-HeadIsOpen :: HeadId -> UTxOType tx -> ServerOutput tx
-[$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-[$sel:utxo:NetworkConnected] :: ServerOutput tx -> UTxOType tx
 HeadIsClosed :: HeadId -> SnapshotNumber -> UTCTime -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
 [$sel:snapshotNumber:NetworkConnected] :: ServerOutput tx -> SnapshotNumber
@@ -2350,9 +2203,6 @@ HeadIsContested :: HeadId -> SnapshotNumber -> UTCTime -> ServerOutput tx
 [$sel:contestationDeadline:NetworkConnected] :: ServerOutput tx -> UTCTime
 ReadyToFanout :: HeadId -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-HeadIsAborted :: HeadId -> UTxOType tx -> ServerOutput tx
-[$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-[$sel:utxo:NetworkConnected] :: ServerOutput tx -> UTxOType tx
 HeadIsFinalized :: HeadId -> UTxOType tx -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
 [$sel:utxo:NetworkConnected] :: ServerOutput tx -> UTxOType tx
@@ -2467,7 +2317,6 @@ handleUtxoInclusion :: ServerOutputConfig -> (a -> a) -> a -> a
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
 Idle :: HeadStatus
-Initializing :: HeadStatus
 Open :: HeadStatus
 Closed :: HeadStatus
 FanoutPossible :: HeadStatus
@@ -2475,7 +2324,6 @@ FanoutPossible :: HeadStatus
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
 CannotCommit :: CommitInfo
-NormalCommit :: HeadId -> CommitInfo
 IncrementalCommit :: HeadId -> CommitInfo
 
 -- | L2 Hydra network status information.
@@ -2488,10 +2336,10 @@ NetworkInfo :: Bool -> Map Host Bool -> NetworkInfo
 getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
 
 -- | Get latest seen snapshot from <a>HeadState</a>.
-getSeenSnapshot :: HeadState tx -> SeenSnapshot tx
+getSeenSnapshot :: Monoid (UTxOType tx) => HeadState tx -> SeenSnapshot tx
 
 -- | Get latest confirmed snapshot from <a>HeadState</a>.
-getConfirmedSnapshot :: IsChainState tx => HeadState tx -> Maybe (ConfirmedSnapshot tx)
+getConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 instance GHC.Generics.Generic (Hydra.API.ServerOutput.DecommitInvalidReason tx)
 instance GHC.Generics.Generic (Hydra.API.ServerOutput.ClientMessage tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.API.ServerOutput.ClientMessage tx)
@@ -2577,25 +2425,12 @@ NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> StateChang
 NetworkClusterIDMismatch :: Text -> Text -> StateChanged tx
 [$sel:clusterPeers:NetworkConnected] :: StateChanged tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: StateChanged tx -> Text
-HeadInitialized :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
+HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
 [$sel:parameters:NetworkConnected] :: StateChanged tx -> HeadParameters
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:headSeed:NetworkConnected] :: StateChanged tx -> HeadSeed
 [$sel:parties:NetworkConnected] :: StateChanged tx -> [Party]
-CommittedUTxO :: HeadId -> Party -> UTxOType tx -> ChainStateType tx -> StateChanged tx
-[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:party:NetworkConnected] :: StateChanged tx -> Party
-[$sel:committedUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-HeadAborted :: HeadId -> UTxOType tx -> ChainStateType tx -> StateChanged tx
-[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:utxo:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-HeadOpened :: HeadId -> ChainStateType tx -> UTxOType tx -> StateChanged tx
-[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-[$sel:initialUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 TransactionReceived :: tx -> StateChanged tx
 [$sel:tx:NetworkConnected] :: StateChanged tx -> tx
 TransactionAppliedToLocalUTxO :: HeadId -> tx -> UTxOType tx -> StateChanged tx
@@ -2948,37 +2783,11 @@ isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 --   <b>Transition</b>: <a>IdleState</a> → <a>IdleState</a>
 onIdleClientInit :: Environment -> Outcome tx
 
--- | Observe an init transaction, initialize parameters in an
---   <a>InitialState</a> and notify clients that they can now commit.
+-- | Observe an init transaction and initialize parameters in an
+--   <a>OpenState</a>.
 --   
---   <b>Transition</b>: <a>IdleState</a> → <a>InitialState</a>
+--   <b>Transition</b>: <a>IdleState</a> → <a>OpenState</a>
 onIdleChainInitTx :: Environment -> ChainStateType tx -> HeadId -> HeadSeed -> HeadParameters -> [OnChainId] -> Outcome tx
-
--- | Observe a commit transaction and record the committed UTxO in the
---   state. Also, if this is the last commit to be observed, post a
---   collect-com transaction on-chain.
---   
---   <b>Transition</b>: <a>InitialState</a> → <a>InitialState</a>
-onInitialChainCommitTx :: Monoid (UTxOType tx) => InitialState tx -> ChainStateType tx -> Party -> UTxOType tx -> Outcome tx
-
--- | Client request to abort the head. This leads to an abort transaction
---   on chain, reimbursing already committed UTxOs.
---   
---   <b>Transition</b>: <a>InitialState</a> → <a>InitialState</a>
-onInitialClientAbort :: Monoid (UTxOType tx) => InitialState tx -> Outcome tx
-
--- | Observe an abort transaction by switching the state and notifying
---   clients about it.
---   
---   <b>Transition</b>: <a>InitialState</a> → <a>IdleState</a>
-onInitialChainAbortTx :: Monoid (UTxOType tx) => ChainStateType tx -> Committed tx -> HeadId -> Outcome tx
-
--- | Observe a collectCom transaction. We initialize the <a>OpenState</a>
---   using the head parameters from <a>IdleState</a> and construct an
---   <a>InitialSnapshot</a> holding <tt>u0</tt> from the committed UTxOs.
---   
---   <b>Transition</b>: <a>InitialState</a> → <a>OpenState</a>
-onInitialChainCollectTx :: IsChainState tx => InitialState tx -> ChainStateType tx -> Outcome tx
 
 -- | Client request to ingest a new transaction into the head.
 --   
@@ -3105,13 +2914,13 @@ onOpenChainDecrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -
 --   whose confirmed snapshot contains a matching utxoToCommit. The
 --   rollback may have erased the original on-chain IncrementTx
 --   observation.
-maybeRepostIncrementTx :: IsTx tx => HeadId -> HeadParameters -> PendingDeposits tx -> Maybe (TxIdType tx) -> ConfirmedSnapshot tx -> Outcome tx
+maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> Maybe (TxIdType tx) -> ConfirmedSnapshot tx -> Outcome tx
 
 -- | On rollback, re-post the DecrementTx if there is a pending decommit
 --   whose confirmed snapshot contains a matching utxoToDecommit. The
 --   rollback may have erased the original on-chain DecrementTx
 --   observation.
-maybeRepostDecrementTx :: HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Outcome tx
+maybeRepostDecrementTx :: HeadSeed -> HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Outcome tx
 
 -- | Client request to close the head. This leads to a close transaction on
 --   chain using the latest confirmed snaphshot of the <a>OpenState</a>.
@@ -3124,7 +2933,7 @@ onOpenClientClose :: OpenState tx -> Outcome tx
 --   schedule a notification for clients to fanout at the deadline.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>ClosedState</a>
-onOpenChainCloseTx :: OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
+onOpenChainCloseTx :: Monoid (UTxOType tx) => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
 
 -- | Client request to side load confirmed snapshot.
 --   
@@ -3147,13 +2956,13 @@ onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx 
 --   transaction.
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
-onClosedChainContestTx :: ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
+onClosedChainContestTx :: Monoid (UTxOType tx) => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
 
 -- | Client request to fanout leads to a fanout transaction on chain using
 --   the latest confirmed snapshot from <a>ClosedState</a>.
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
-onClosedClientFanout :: ClosedState tx -> Outcome tx
+onClosedClientFanout :: Monoid (UTxOType tx) => ClosedState tx -> Outcome tx
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 --   clients about it.
@@ -3266,9 +3075,9 @@ RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 --   overall protocol state, but also the off-chain
 --   <a>CoordinatedHeadState</a>.
 --   
---   Each of the sub-types (InitialState, OpenState, etc.) contain a
---   black-box <a>IdleState</a> corresponding to the <tt>ChainEvent</tt>
---   that has been observed leading to the state.
+--   Each of the sub-types (OpenState, etc.) contain a black-box
+--   <a>IdleState</a> corresponding to the <tt>ChainEvent</tt> that has
+--   been observed leading to the state.
 --   
 --   Note that rollbacks are currently not fully handled in the head logic
 --   and only this internal chain state gets replaced with the "rolled back
@@ -3279,20 +3088,8 @@ RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 --   HeadLogic either.
 data HeadState tx
 Idle :: IdleState tx -> HeadState tx
-Initial :: InitialState tx -> HeadState tx
 Open :: OpenState tx -> HeadState tx
 Closed :: ClosedState tx -> HeadState tx
-
--- | An <a>Initial</a> head which already has an identity and is collecting
---   commits.
-data InitialState tx
-InitialState :: HeadParameters -> PendingCommits -> Committed tx -> ChainStateType tx -> HeadId -> HeadSeed -> InitialState tx
-[$sel:parameters:InitialState] :: InitialState tx -> HeadParameters
-[$sel:pendingCommits:InitialState] :: InitialState tx -> PendingCommits
-[$sel:committed:InitialState] :: InitialState tx -> Committed tx
-[$sel:chainState:InitialState] :: InitialState tx -> ChainStateType tx
-[$sel:headId:InitialState] :: InitialState tx -> HeadId
-[$sel:headSeed:InitialState] :: InitialState tx -> HeadSeed
 
 -- | An <a>Open</a> head with a <a>CoordinatedHeadState</a> tracking
 --   off-chain transactions.
@@ -3343,7 +3140,6 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapsh
 
 -- | Collected signatures and so far.
 [$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
-type Committed tx = Map Party (UTxOType tx)
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
@@ -3384,7 +3180,6 @@ CoordinatedHeadState :: UTxOType tx -> [tx] -> !Map (TxIdType tx) tx -> Confirme
 newtype IdleState tx
 IdleState :: ChainStateType tx -> IdleState tx
 [$sel:chainState:IdleState] :: IdleState tx -> ChainStateType tx
-type PendingCommits = Set Party
 
 -- | Get the chain state in any <a>HeadState</a>.
 getChainState :: HeadState tx -> ChainStateType tx
@@ -3446,25 +3241,12 @@ NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> StateChang
 NetworkClusterIDMismatch :: Text -> Text -> StateChanged tx
 [$sel:clusterPeers:NetworkConnected] :: StateChanged tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: StateChanged tx -> Text
-HeadInitialized :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
+HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
 [$sel:parameters:NetworkConnected] :: StateChanged tx -> HeadParameters
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:headSeed:NetworkConnected] :: StateChanged tx -> HeadSeed
 [$sel:parties:NetworkConnected] :: StateChanged tx -> [Party]
-CommittedUTxO :: HeadId -> Party -> UTxOType tx -> ChainStateType tx -> StateChanged tx
-[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:party:NetworkConnected] :: StateChanged tx -> Party
-[$sel:committedUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-HeadAborted :: HeadId -> UTxOType tx -> ChainStateType tx -> StateChanged tx
-[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:utxo:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-HeadOpened :: HeadId -> ChainStateType tx -> UTxOType tx -> StateChanged tx
-[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
-[$sel:initialUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 TransactionReceived :: tx -> StateChanged tx
 [$sel:tx:NetworkConnected] :: StateChanged tx -> tx
 TransactionAppliedToLocalUTxO :: HeadId -> tx -> UTxOType tx -> StateChanged tx
@@ -4274,6 +4056,15 @@ type GetTimeHandle m = m TimeHandle
 mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
 rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 
+-- | Reject any UTxO containing a Byron address, which cannot be
+--   represented in the Hydra head protocol.
+rejectByronAddresses :: UTxO -> Either (PostTxError Tx) ()
+
+-- | Reject deposits on mainnet exceeding the <a>maxMainnetLovelace</a>
+--   limit. NOTE: Remove this limit once we have more experiments on
+--   mainnet.
+rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
+
 -- | Balance and sign the given partial transaction.
 finalizeTx :: MonadThrow m => TinyWallet m -> ChainContext -> UTxO -> UTxO -> Tx -> m Tx
 
@@ -4482,9 +4273,8 @@ mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged tx -> [TxIdType tx]
 
 -- | Projection to obtain <a>CommitInfo</a> needed to draft commit
---   transactions. NOTE: We only want to project <tt>HeadId</tt> when the
---   Head is in the <tt>Initializing</tt> state since this is when Head
---   parties need to commit some funds.
+--   transactions. NOTE: We only project <tt>HeadId</tt> when the Head is
+--   <a>Open</a> since that is when deposits can be made.
 projectCommitInfo :: CommitInfo -> StateChanged tx -> CommitInfo
 projectNetworkInfo :: NetworkInfo -> StateChanged tx -> NetworkInfo
 instance GHC.Show.Show Hydra.API.Server.RunServerException

@@ -194,6 +194,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2025-02-12_032-network-properties-etcd.md\n"
     }
   },
+  "adr/33": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI adr/2026-03-10_033-directly-open-head.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2026-03-10_033-directly-open-head.md\n"
+    }
+  },
   "benchmarks": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/index.md\n",
