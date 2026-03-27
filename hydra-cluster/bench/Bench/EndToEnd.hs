@@ -20,7 +20,7 @@ import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
-import Data.Aeson.Types (parseEither)
+import Data.Aeson.Types (parseEither, parseMaybe)
 import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Map qualified as Map
@@ -28,11 +28,12 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx)
+import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
+import Hydra.Cluster.Util (Timing (..), depositTimeout)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Logging (
   Tracer,
@@ -73,6 +74,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newLabelledTVarIO "bench-stats" mempty
         scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \blockTime backend -> do
+          let contestationPeriod = truncate $ 10 * blockTime
           let nodeSocket' = case Backend.getOptions backend of
                 Direct DirectOptions{nodeSocket} -> nodeSocket
                 _ -> error "Unexpected Blockfrost backend"
@@ -82,9 +84,11 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
           let hydraTracer = contramap FromHydraNode tracer
-          withHydraCluster hydraTracer blockTime workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId 10 $ \clients -> do
+          let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 50 * blockTime}
+          putStrLn $ "Timing: " <> show timing
+          withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
-            scenario hydraTracer backend workDir dataset clients
+            scenario hydraTracer timing backend workDir dataset clients
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -106,16 +110,18 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
         findRunningCardanoNode' cardanoTracer networkId nodeSocket >>= \case
           Nothing ->
             error ("Not found running node at socket: " <> show nodeSocket <> ", and network: " <> show networkId)
-          Just (_blockTime, backend) -> do
+          Just (blockTime, backend) -> do
             putTextLn "Seeding network"
             seedNetwork backend dataset (contramap FromFaucet tracer)
             (`finally` returnFaucetFunds tracer backend) $ do
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
+              -- XXX: Assumes contestation and deposit periods
+              let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 20 * blockTime}
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  (,[]) <$> scenario hydraTracer backend workDir dataset (leader :| followers)
+                  (,[]) <$> scenario hydraTracer timing backend workDir dataset (leader :| followers)
  where
   withHydraClientConnections ::
     Tracer IO HydraNodeLog ->
@@ -142,12 +148,13 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
 scenario ::
   ChainBackend backend =>
   Tracer IO HydraNodeLog ->
+  Timing ->
   backend ->
   FilePath ->
   Dataset ->
   NonEmpty HydraClient ->
   IO Summary
-scenario hydraTracer backend workDir Dataset{clientDatasets, title, description} nonEmptyClients = do
+scenario hydraTracer timing backend workDir Dataset{clientDatasets, title, description} nonEmptyClients = do
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients
       clients = toList nonEmptyClients
@@ -156,23 +163,30 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
   putTextLn "Initializing Head"
   send leader $ input "Init" []
   headId :: HeadId <-
-    waitForAllMatch (fromIntegral $ 10 * clusterSize) clients $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsInitializing"
+    waitForAllMatch (5 * blockTime) clients $ \v -> do
+      guard $ v ^? key "tag" == Just "HeadIsOpen"
       v ^? key "headId" . _JSON
 
-  putTextLn "Committing initialUTxO from dataset"
-  expectedUTxO <- commitUTxO backend clients clientDatasets
+  putTextLn "Depositing initialUTxO from datasets"
+  depositTxs <- commitUTxO backend clients clientDatasets
 
-  waitFor hydraTracer (fromIntegral $ 10 * clusterSize) clients $
-    output "HeadIsOpen" ["utxo" .= expectedUTxO, "headId" .= headId]
+  putTextLn $ "Waiting for deposits to finalize: " <> show (txId <$> depositTxs)
+  -- NOTE: Need to wait for any CommitFinalized and only assert ids after as
+  -- waitForAllMatch skips over messages otherwise.
+  deposits <- replicateM (length depositTxs) $
+    waitForAllMatch (depositTimeout timing * fromIntegral clusterSize * 30) clients $ \v -> do
+      guard $ v ^? key "tag" == Just "CommitFinalized"
+      guard $ v ^? key "headId" == Just (toJSON headId)
+      v ^? key "depositTxId" >>= parseMaybe parseJSON
+  Set.fromList deposits `shouldBe` Set.fromList (txId <$> depositTxs)
 
-  putTextLn "HeadIsOpen"
+  putTextLn "HeadIsOpen with deposits finalized"
   processedTransactions <- processTransactions clients clientDatasets
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
 
-  deadline <- waitMatch 300 leader $ \v -> do
+  deadline <- waitMatch (5 * blockTime) leader $ \v -> do
     guard $ v ^? key "tag" == Just "HeadIsClosed"
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "contestationDeadline" . _JSON
@@ -226,6 +240,8 @@ scenario hydraTracer backend workDir Dataset{clientDatasets, title, description}
       , numberOfInvalidTxs
       , numberOfFanoutOutputs
       }
+ where
+  Timing{blockTime} = timing
 
 defaultDescription :: Text
 defaultDescription = ""
@@ -287,17 +303,17 @@ seedNetwork backend Dataset{fundingTransaction, hydraNodeKeys} tracer = do
     putTextLn $ "Fuel node key " <> show vk
     seedFromFaucet backend vk (lovelaceToValue 100_000_000) tracer
 
--- | Commit all (expected to exit) 'initialUTxO' from the dataset using the
--- (assumed same sequence) of clients.
-commitUTxO :: ChainBackend backend => backend -> [HydraClient] -> [ClientDataset] -> IO UTxO
+-- | Deposit all 'initialUTxO' of each client data set.
+commitUTxO :: ChainBackend backend => backend -> [HydraClient] -> [ClientDataset] -> IO [Tx]
 commitUTxO backend clients clientDatasets =
-  mconcat <$> forM (zip clients clientDatasets) doCommit
+  forM (zip clients clientDatasets) doCommit
  where
   doCommit (client, ClientDataset{initialUTxO, paymentKey}) = do
-    requestCommitTx client initialUTxO
-      <&> signTx paymentKey
-        >>= Backend.submitTransaction backend
-    pure initialUTxO
+    depositTx <-
+      requestCommitTx client initialUTxO
+        <&> signTx paymentKey
+    Backend.submitTransaction backend depositTx
+    pure depositTx
 
 data Event = Event
   { submittedAt :: UTCTime

@@ -21,13 +21,12 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.Utils (splitUTxO)
+import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genForParty, genOneUTxOFor, genValidityBoundsFromContestationPeriod, genVerificationKey)
-import Test.Hydra.Tx.Mutation (addParticipationTokens)
 import Test.QuickCheck (elements)
 import Test.QuickCheck.Instances ()
 
@@ -53,9 +52,11 @@ healthyOpenHeadTxIn :: TxIn
 healthyOpenHeadTxIn = generateWith arbitrary healthySeed
 
 healthyOpenHeadTxOut :: TxOutDatum CtxUTxO -> TxOut CtxUTxO
-healthyOpenHeadTxOut headTxOutDatum =
-  mkHeadOutput Fixture.testNetworkId Fixture.testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParticipants
+healthyOpenHeadTxOut =
+  mkHeadOutput
+    Fixture.testNetworkId
+    Fixture.testPolicyId
+    (verificationKeyToOnChainId <$> healthyParticipants)
 
 healthyContestationPeriodSeconds :: Integer
 healthyContestationPeriodSeconds = 10

@@ -19,13 +19,12 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
   arbitrary = genericArbitrary
   shrink = \case
     InitTx{participants, headParameters} -> InitTx <$> shrink participants <*> shrink headParameters
-    AbortTx{utxo, headSeed} -> AbortTx <$> shrink utxo <*> shrink headSeed
-    CollectComTx{utxo, headId, headParameters} -> CollectComTx <$> shrink utxo <*> shrink headId <*> shrink headParameters
-    IncrementTx{headId, headParameters, incrementingSnapshot, depositTxId} ->
-      IncrementTx <$> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositTxId
+    IncrementTx{headSeed, headId, headParameters, incrementingSnapshot, depositTxId} ->
+      IncrementTx <$> shrink headSeed <*> shrink headId <*> shrink headParameters <*> shrink incrementingSnapshot <*> shrink depositTxId
     RecoverTx{headId, recoverTxId, deadline, recoverUTxO} ->
       RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline <*> shrink recoverUTxO
-    DecrementTx{headId, headParameters, decrementingSnapshot} -> DecrementTx <$> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
+    DecrementTx{headSeed, headId, headParameters, decrementingSnapshot} ->
+      DecrementTx <$> shrink headSeed <*> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
     FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline

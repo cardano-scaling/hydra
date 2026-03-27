@@ -56,7 +56,6 @@ import Hydra.HeadLogic (
   ClosedState (..),
   HeadState (..),
   IdleState (..),
-  InitialState (..),
   Input (..),
   OpenState (..),
  )
@@ -103,9 +102,8 @@ mockChainAndNetwork ::
   ) =>
   Tracer m CardanoChainLog ->
   [(SigningKey HydraKey, CardanoSigningKey)] ->
-  UTxO ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetwork tr seedKeys commits = do
+mockChainAndNetwork tr seedKeys = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
@@ -116,12 +114,11 @@ mockChainAndNetwork tr seedKeys commits = do
       { connectNode = connectNode nodes chain queue
       , tickThread
       , rollbackAndForward = rollbackAndForward nodes chain
-      , simulateCommit = simulateCommit nodes
       , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       }
  where
-  initialUTxO = seedUTxO <> commits <> registryUTxO scriptRegistry
+  initialUTxO = seedUTxO <> registryUTxO scriptRegistry
 
   seedUTxO :: UTxO
   seedUTxO = UTxO.fromList [(seedInput, (arbitrary >>= genTxOutAdaOnly) `generateWith` 42)]
@@ -201,16 +198,6 @@ mockChainAndNetwork tr seedKeys commits = do
     atomically $ modifyTVar nodes (mockNode :)
     pure node'
 
-  simulateCommit :: TVar m [MockHydraNode m] -> HeadId -> Party -> UTxO -> m ()
-  simulateCommit nodes headId party utxoToCommit = do
-    hydraNodes <- readTVarIO nodes
-    case find (matchingParty party) hydraNodes of
-      Nothing -> error "simulateCommit: Could not find matching HydraNode"
-      Just MockHydraNode{node = HydraNode{oc = Chain{submitTx, draftCommitTx}}} ->
-        draftCommitTx headId (mkSimpleBlueprintTx utxoToCommit) >>= \case
-          Left e -> throwIO e
-          Right tx -> submitTx tx
-
   simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
   simulateDeposit nodes headId utxoToDeposit deadline = do
     -- XXX: Weird that we need a registered node here and cannot just draft the
@@ -223,8 +210,8 @@ mockChainAndNetwork tr seedKeys commits = do
           Right tx -> submitTx tx $> Hydra.Tx.txId tx
 
   -- REVIEW: Is this still needed now as we have TxTraceSpec?
-  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> (Party, UTxO) -> m ()
-  closeWithInitialSnapshot nodes (party, modelInitialUTxO) = do
+  closeWithInitialSnapshot :: TVar m [MockHydraNode m] -> Party -> m ()
+  closeWithInitialSnapshot nodes party = do
     hydraNodes <- readTVarIO nodes
     case find (matchingParty party) hydraNodes of
       Nothing -> error "closeWithInitialSnapshot: Could not find matching HydraNode"
@@ -235,14 +222,13 @@ mockChainAndNetwork tr seedKeys commits = do
           nodeState <- atomically queryNodeState
           case headState nodeState of
             Idle IdleState{} -> error "Cannot post Close tx when in Idle state"
-            Initial InitialState{} -> error "Cannot post Close tx when in Initial state"
             Open OpenState{headId = openHeadId, parameters = headParameters} -> do
               postTx
                 CloseTx
                   { headId = openHeadId
                   , headParameters
                   , openVersion = 0
-                  , closingSnapshot = InitialSnapshot{headId = openHeadId, initialUTxO = modelInitialUTxO}
+                  , closingSnapshot = InitialSnapshot{headId = openHeadId}
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
 

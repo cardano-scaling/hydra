@@ -185,10 +185,7 @@ processLogs decoded =
             Continue{stateChanges} ->
               foldM
                 ( \_ a -> case a of
-                    details@HeadInitialized{} -> logIt (LogicLabel "HeadInitialized") details
                     details@HeadOpened{} -> logIt (LogicLabel "HeadOpened") details
-                    details@CommittedUTxO{} -> logIt (LogicLabel "CommittedUTxO") details
-                    details@HeadAborted{} -> logIt (LogicLabel "HeadAborted") details
                     details@SnapshotRequestDecided{} -> logIt (LogicLabel "SnapshotRequestDecided") details
                     details@SnapshotRequested{} -> logIt (LogicLabel "SnapshotRequested") details
                     details@PartySignedSnapshot{} -> logIt (LogicLabel "PartySignedSnapshot") details

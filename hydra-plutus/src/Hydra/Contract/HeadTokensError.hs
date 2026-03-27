@@ -10,15 +10,14 @@ data HeadTokensError
   = SeedNotSpent
   | WrongNumberOfTokensMinted
   | MissingST
-  | WrongNumberOfInitialOutputs
+  | MissingPTs
   | WrongDatum
   | MintingNotAllowed
-  | NoPT
+  | NoPTs
   | WrongQuantity
   | ExpectedHeadDatumType
   | ExpectedInlineDatum
   | MultipleHeadOutput
-  | WrongInitialDatum
   deriving stock (Show)
 
 instance ToErrorCode HeadTokensError where
@@ -26,12 +25,11 @@ instance ToErrorCode HeadTokensError where
     SeedNotSpent -> "M01"
     WrongNumberOfTokensMinted -> "M02"
     MissingST -> "M03"
-    WrongNumberOfInitialOutputs -> "M04"
+    MissingPTs -> "M04"
     WrongDatum -> "M05"
     MintingNotAllowed -> "M06"
-    NoPT -> "M07"
+    NoPTs -> "M07"
     WrongQuantity -> "M08"
     ExpectedHeadDatumType -> "M09"
     ExpectedInlineDatum -> "M10"
     MultipleHeadOutput -> "M11"
-    WrongInitialDatum -> "M12"

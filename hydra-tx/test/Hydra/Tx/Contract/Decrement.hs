@@ -8,7 +8,6 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
-  addParticipationTokens,
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotVersion,
@@ -16,13 +15,14 @@ import Test.Hydra.Tx.Mutation (
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import GHC.IsList qualified as IsList
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Plutus.Gen ()
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
-import Hydra.Tx.Contract.CollectCom (extractHeadOutputValue)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Decrement (
   decrementTx,
@@ -34,10 +34,17 @@ import Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
-import Hydra.Tx.Utils (adaOnly, splitUTxO)
+import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistry, genUTxOSized, genValue, genVerificationKey)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Gen (
+  genAddressInEra,
+  genForParty,
+  genScriptRegistry,
+  genUTxOSized,
+  genValue,
+  genVerificationKey,
+ )
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, oneof)
 import Test.QuickCheck.Gen (suchThat)
 import Test.QuickCheck.Instances ()
@@ -54,7 +61,7 @@ healthyDecrementTx =
     decrementTx
       scriptRegistry
       somePartyCardanoVerificationKey
-      (mkHeadId testPolicyId)
+      (testSeedInput, mkHeadId testPolicyId)
       parameters
       (headInput, headOutput)
       healthySnapshot
@@ -71,8 +78,11 @@ healthyDecrementTx =
   headInput = generateWith arbitrary 42
 
   headOutput =
-    mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyDatum)
-      & addParticipationTokens healthyParticipants
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline healthyDatum)
       & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
@@ -134,10 +144,11 @@ healthyDatum =
   let (_utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
    in Head.Open
         Head.OpenDatum
-          { utxoHash = toBuiltin $ hashUTxO @Tx utxo
+          { headSeed = toPlutusTxOutRef testSeedInput
+          , headId = toPlutusCurrencySymbol testPolicyId
+          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
           , parties = healthyOnChainParties
           , contestationPeriod = toChain healthyContestationPeriod
-          , headId = toPlutusCurrencySymbol testPolicyId
           , version = toInteger healthySnapshotVersion
           }
 
@@ -209,3 +220,26 @@ genDecrementMutation (tx, _utxo) =
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
+
+-- | Remove a random asset and quantity from headOutput by adding another output
+-- that "extracts" that value.
+extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
+extractHeadOutputValue headTxOut policyId = do
+  removedValue <- do
+    let allAssets = IsList.toList $ txOutValue headTxOut
+        nonPTs = flip filter allAssets $ \case
+          (AssetId pid _, _) -> pid /= policyId
+          _ -> True
+    (assetId, Quantity n) <- elements nonPTs
+    q <- Quantity <$> choose (1, n)
+    pure $ fromList [(assetId, q)]
+  -- Add another output which would extract the 'removedValue'. The ledger would
+  -- require this to have a balanced transaction.
+  extractionTxOut <- do
+    someAddress <- genAddressInEra testNetworkId
+    pure $ TxOut someAddress removedValue TxOutDatumNone ReferenceScriptNone
+  pure $
+    Changes
+      [ ChangeOutput 0 $ modifyTxOutValue (\v -> v <> negateValue removedValue) headTxOut
+      , AppendOutput extractionTxOut
+      ]

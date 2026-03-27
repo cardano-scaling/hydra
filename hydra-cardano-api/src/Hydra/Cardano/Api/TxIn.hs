@@ -7,7 +7,6 @@ import Hydra.Cardano.Api.Prelude
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Plutus (transSafeHash)
 import Cardano.Ledger.TxIn qualified as Ledger
-import Data.Set qualified as Set
 import PlutusLedgerApi.V3 qualified as Plutus
 
 -- * Extras
@@ -27,10 +26,6 @@ txIns' :: Tx era -> [TxIn]
 txIns' (getTxBodyContent . getTxBody -> txBodyContent) =
   let TxBodyContent{txIns} = txBodyContent
    in fst <$> txIns
-
--- | Access inputs of a transaction, as an ordered set.
-txInputSet :: Tx era -> Set TxIn
-txInputSet = Set.fromList . txIns'
 
 -- * Type Conversions
 

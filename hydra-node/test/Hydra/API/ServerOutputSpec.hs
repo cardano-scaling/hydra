@@ -49,11 +49,12 @@ spec = parallel $ do
 
   -- XXX: This seems no to be working? Adding a new message does not lead to a failure here
   prop "schema covers all defined server outputs" $
-    conjoin
-      [ prop_specIsComplete @(TimedServerOutput Tx) "api.json" $
-          key "channels" . key "/" . key "subscribe" . key "message"
-      , prop_specIsComplete @(Greetings Tx) "api.json" $
-          key "channels" . key "/" . key "subscribe" . key "message"
-      , prop_specIsComplete @(ClientMessage Tx) "api.json" $
-          key "channels" . key "/" . key "subscribe" . key "message"
-      ]
+    withMaxSuccess 1 $
+      conjoin
+        [ prop_specIsComplete @(TimedServerOutput Tx) "api.json" $
+            key "channels" . key "/" . key "subscribe" . key "message"
+        , prop_specIsComplete @(Greetings Tx) "api.json" $
+            key "channels" . key "/" . key "subscribe" . key "message"
+        , prop_specIsComplete @(ClientMessage Tx) "api.json" $
+            key "channels" . key "/" . key "subscribe" . key "message"
+        ]

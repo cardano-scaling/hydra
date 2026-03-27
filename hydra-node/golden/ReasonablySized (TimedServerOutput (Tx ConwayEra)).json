@@ -478,77 +478,11 @@
             }
         },
         {
-            "headId": "04050107060307080601060006000005",
-            "seq": 1,
-            "tag": "HeadIsAborted",
-            "timestamp": "1864-05-15T13:47:32.02149464911Z",
-            "utxo": {
-                "0205070106020203010304020704040503060704010001020401070206010607#45": {
-                    "address": "addr1z904zhdrguuxzu6hr0g4r7m8ehfp9tje2wtrujyajtwjzm56jyqtwkqt2j0cnsrtv8ehmqxkdm8cfrgau54l2kt5dz3qundzlw",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "2e12c5e499e0521b13837391beed1248a2e36117370662ee75918b56": {
-                            "31": 2044807896174290666
-                        },
-                        "lovelace": 373341914111724808
-                    }
-                },
-                "0601030303040404020801050305060307050404070100050803030307020205#16": {
-                    "address": "addr_test1zr0lhxpd9vmwlt9uzyafawhksca70eqaaj4dgv5vfu6qqpqg76efxhm4zu9g57x3m3r8mt6fd7hjz204jp2dvmlxg2wqhhnjxg",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": {
-                        "script": {
-                            "cborHex": "820406",
-                            "description": "",
-                            "type": "SimpleScript"
-                        },
-                        "scriptLanguage": "SimpleScriptLanguage"
-                    },
-                    "value": {
-                        "38dee1228320c42e7292897efc6182f094cb8c7a73909dec3c1cc525": {
-                            "2793a8892c0a317b36a678d643b1dd9fcf0b43b797d3d0529f39": 1
-                        },
-                        "lovelace": 8594508813841923977
-                    }
-                }
-            }
-        },
-        {
             "headId": "00000807050502040705000305030807",
             "seq": 0,
             "tag": "HeadIsOpen",
             "timestamp": "1864-05-12T22:12:01.740456399988Z",
             "utxo": {}
-        },
-        {
-            "headId": "02060505020704070805010106050404",
-            "parties": [
-                {
-                    "vkey": "eb99720705ba21bb37c1eb2f7c817828450f7aeca06739cd14209cac03a4c4da"
-                },
-                {
-                    "vkey": "e7578643cd98ad3348c11da3fab83615f1b9eaf1ff2e8cbea3f7a91b2b8d3200"
-                },
-                {
-                    "vkey": "eb2b5065f3e25ad7a4e86846ac742b6ba6d0ff7f3556bdfc6419a03c90d34bde"
-                },
-                {
-                    "vkey": "1c98f0c31a6deb19321c86d6345b2d28c2a763bd7f472d8f1979b9e550e1c87f"
-                },
-                {
-                    "vkey": "12dccdde07a83b85ff8f4feb5af5832512579ce338334107704faca0bf318640"
-                }
-            ],
-            "seq": 3,
-            "tag": "HeadIsInitializing",
-            "timestamp": "1864-05-03T01:44:30.3976680603Z"
         }
     ],
     "seed": 1544258544
