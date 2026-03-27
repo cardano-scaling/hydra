@@ -1098,9 +1098,9 @@ nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
 
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+  withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+    withUnsyncedHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withUnsyncedHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
     bobChainConfig' <-
@@ -1112,12 +1112,12 @@ nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
 
     waitForNodesDisconnected hydraTracer 60 $ n1 :| []
 
-    withHydraNode hydraTracer blockTime bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
-      withHydraNode hydraTracer blockTime carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
+    withUnsyncedHydraNode hydraTracer bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
+      withUnsyncedHydraNode hydraTracer carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n2 :| [n3]
 
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+    withUnsyncedHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+      withUnsyncedHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
