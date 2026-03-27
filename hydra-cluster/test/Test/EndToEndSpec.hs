@@ -142,7 +142,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           pure aliceToBob
 
         -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
-        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        withUnsyncedHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
           let
             bobTxOut = toCtxUTxOTxOut $ List.head (txOuts' aliceToBob)
             Right bobToAlice =
@@ -151,7 +151,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 (mkVkAddress testNetworkId aliceCardanoVk, txOutValue bobTxOut)
                 bobCardanoSk
           send node $ input "NewTx" ["transaction" .= bobToAlice]
-          waitMatch 10 node $ \v -> do
+          waitMatch (10 * blockTime) node $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
 
     it "rotates persistence on start up" $ \tracer -> do
