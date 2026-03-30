@@ -57,7 +57,7 @@ Note that, as with any adjustments of this kind, it is good practice to make a b
 The following restrictions apply when **depositing** funds into a Hydra head (via `POST /commit`):
 
 - **Byron addresses are not supported.** Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.
-- **Mainnet ADA limit.** When running on **mainnet**, only up to 100 ADA can be deposited into a Hydra head in a single deposit transaction. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on mainnet.
+- **Mainnet ADA recommendation.** When running on **mainnet**, we recommend only up to 100 ADA be deposited into a Hydra head in a single deposit transaction. This is a recommendation only, and we will lift it once we implement [partial fanout](https://github.com/cardano-scaling/hydra/issues/1468).
 
 ### Deposit periods
 
