@@ -379,6 +379,25 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
           fetchConfigFile (knownNetworkPath </> fn)
             >>= writeFileBS (stateDirectory </> fn)
 
+    when (knownNetwork `elem` [Mainnet, Preview, Preproduction]) $ do
+      -- NOTE: cardano-node >= 10.6.2 expects a specific format for peer-snapshot.json
+      -- but network config servers may serve an older format. We patch it to the new
+      -- format: add "version", rename "bigLedgerPools" -> "bigLedgerPeers", and
+      -- extract "slotNo" from "Point.blockPointSlot".
+      do
+        peerSnapshotRaw <- fetchConfigFile (knownNetworkPath </> "peer-snapshot.json")
+        case Aeson.decodeStrict peerSnapshotRaw of
+          Just v@(Aeson.Object _) ->
+            Aeson.encodeFile
+              (stateDirectory </> "peer-snapshot.json")
+              ( v
+                  & atKey "version" ?~ Aeson.toJSON (1 :: Int)
+                  & atKey "bigLedgerPeers" %~ (<|> (v ^? key "bigLedgerPools"))
+                  & atKey "slotNo" %~ (<|> (v ^? key "Point" . key "blockPointSlot"))
+              )
+          _ ->
+            writeFileBS (stateDirectory </> "peer-snapshot.json") peerSnapshotRaw
+
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
 
@@ -387,13 +406,13 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
 
   -- Network name on remote
   knownNetworkName = case knownNetwork of
-    Fixture.Preview -> "environments-pre/preview"
-    Fixture.Preproduction -> "environments-pre/preprod"
+    Fixture.Preview -> "environments/preview"
+    Fixture.Preproduction -> "environments/preprod"
     Fixture.Mainnet -> "environments/mainnet"
     -- NOTE: Here we map blockfrost networks to cardano ones since we expect to find actor keys
     -- in known locations when running smoke-tests.
-    Fixture.BlockfrostPreview -> "environments-pre/preview"
-    Fixture.BlockfrostPreprod -> "environments-pre/preprod"
+    Fixture.BlockfrostPreview -> "environments/preview"
+    Fixture.BlockfrostPreprod -> "environments/preprod"
     Fixture.BlockfrostMainnet -> "environments/mainnet"
 
   fetchConfigFile :: String -> IO ByteString
