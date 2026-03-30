@@ -19,7 +19,11 @@ changes.
   - All on-chain scripts are affected by this change, as well as several API changes.
   - This decision is documented in [ADR-33](https://hydra.family/head-protocol/adr/33)
 
-- Fix head getting permanently stuck after CommitFinalized or DecommitFinalized bumps the snapshot version before a pending ReqSn echo returns, causing stale-version rejection with no re-trigger.
+  - Fix head getting permanently stuck in `RequestedSnapshot` when `CommitFinalized` races with an in-flight `ReqSn` — only `SeenSnapshot` (AckSns collecting) now blocks an immediate re-request, while `RequestedSnapshot` (stale echo) correctly retries with the new version.
+
+  - Fix active deposit being silently dropped when it becomes active while a snapshot is in-flight - the next chained snapshot after confirmation now picks it up via `selectNextDeposit`.
+
+  - Fix deposits from other heads being picked up when selecting the next deposit for `ReqSn` in the `ReqTx`, `OnDecrementTx`, and rollback repost handlers - `depositsForHead` is now applied consistently in all head-level handlers.
 
 
 ## [1.3.0] - 2026.03.05
