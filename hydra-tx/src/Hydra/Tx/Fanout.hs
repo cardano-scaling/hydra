@@ -10,7 +10,7 @@ import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (burnTokens, unsafeBuildTransaction)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
-import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV2TxName)
 
 -- * Creation
 
@@ -41,7 +41,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
       & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "FanoutTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "FanoutTx")
  where
   headWitness =
     BuildTxWith $

@@ -18,7 +18,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Utils (hydraHeadV1AssetName)
+import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Hydra.Tx.Fixture (testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOnChainId, genOneUTxOFor)
 import Test.Hydra.Tx.Mutation (
@@ -109,5 +109,5 @@ genInitMutation (tx, _utxo) =
   headTxOut = fromJust $ txOuts' tx !!? 0
 
   isPT = \case
-    (AssetId _ an) -> an /= hydraHeadV1AssetName
+    (AssetId _ an) -> an /= hydraHeadV2AssetName
     _ -> False

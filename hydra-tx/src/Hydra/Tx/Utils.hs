@@ -14,14 +14,14 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Dummy (dummyValidatorScript)
-import Hydra.Contract.Util (hydraHeadV1)
+import Hydra.Contract.Util (hydraHeadV2)
 import Hydra.Tx.HeadId (HeadId, mkHeadId)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
-hydraHeadV1AssetName :: AssetName
-hydraHeadV1AssetName = UnsafeAssetName (fromBuiltin hydraHeadV1)
+hydraHeadV2AssetName :: AssetName
+hydraHeadV2AssetName = UnsafeAssetName (fromBuiltin hydraHeadV2)
 
 -- | The metadata label used for identifying Hydra protocol transactions. As
 -- suggested by a friendly large language model: The number most commonly
@@ -34,9 +34,9 @@ hydraMetadataLabel = 55555
 
 -- | Create a transaction metadata entry to identify Hydra transactions (for
 -- informational purposes).
-mkHydraHeadV1TxName :: Text -> TxMetadata
-mkHydraHeadV1TxName name =
-  TxMetadata $ Map.fromList [(hydraMetadataLabel, TxMetaText $ "HydraV1/" <> name)]
+mkHydraHeadV2TxName :: Text -> TxMetadata
+mkHydraHeadV2TxName name =
+  TxMetadata $ Map.fromList [(hydraMetadataLabel, TxMetaText $ "HydraV2/" <> name)]
 
 assetNameToOnChainId :: AssetName -> OnChainId
 assetNameToOnChainId (UnsafeAssetName bs) = UnsafeOnChainId bs
@@ -114,7 +114,7 @@ findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
 findHeadAssetId txOut =
   flip findFirst (toList $ txOutValue txOut) $ \case
     (AssetId pid aname, q)
-      | aname == hydraHeadV1AssetName && q == 1 ->
+      | aname == hydraHeadV2AssetName && q == 1 ->
           Just (pid, aname)
     _ ->
       Nothing

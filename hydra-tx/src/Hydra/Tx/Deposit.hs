@@ -14,7 +14,7 @@ import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime, posixToUTCTime)
 import Hydra.Tx (CommitBlueprintTx (..), HeadId, currencySymbolToHeadId, headIdToCurrencySymbol, txId)
-import Hydra.Tx.Utils (addMetadata, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (addMetadata, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (POSIXTime)
 
 -- * Construction
@@ -75,7 +75,7 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
    in fromLedgerTx $
         blueprint
           & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
-          & addMetadata (mkHydraHeadV1TxName "DepositTx") blueprintTx
+          & addMetadata (mkHydraHeadV2TxName "DepositTx") blueprintTx
  where
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
 

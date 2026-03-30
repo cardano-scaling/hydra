@@ -35,7 +35,7 @@ import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
-import Hydra.Tx.Utils (hydraHeadV1AssetName)
+import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -519,7 +519,7 @@ instance Arbitrary ChainSlot where
 
 -- | Generates value such that:
 -- - alters between policy id we use in test fixtures with a random one.
--- - mixing arbitrary token names with 'hydraHeadV1AssetName'
+-- - mixing arbitrary token names with 'hydraHeadV2AssetName'
 -- - excluding 0 for quantity to mimic minting/burning
 genMintedOrBurnedValue :: Gen Value
 genMintedOrBurnedValue = do
@@ -528,6 +528,6 @@ genMintedOrBurnedValue = do
       [ headPolicyId <$> arbitrary
       , pure Fixture.testPolicyId
       ]
-  tokenName <- oneof [arbitrary, pure hydraHeadV1AssetName]
+  tokenName <- oneof [arbitrary, pure hydraHeadV2AssetName]
   quantity <- arbitrary `suchThat` (/= 0)
   pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]

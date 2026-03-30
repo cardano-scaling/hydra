@@ -17,7 +17,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
-import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -46,7 +46,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       & addTxInsReference [headScriptRef] mempty
       & addTxOuts (headOutput' : map fromCtxUTxOTxOut decommitOutputs)
       & addTxExtraKeyWits [verificationKeyHash vk]
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "DecrementTx")
  where
   headRedeemer =
     toScriptData $

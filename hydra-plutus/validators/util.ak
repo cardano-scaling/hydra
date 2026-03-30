@@ -1,11 +1,11 @@
 use cardano/assets.{PolicyId, Value}
 
-pub const hydra_head_v1: ByteArray = "HydraHeadV1"
+pub const hydra_head_v2: ByteArray = "HydraHeadV2"
 
 pub fn must_burn_st(head_id: PolicyId, mint: Value) -> Bool {
   let quantity =
     mint
-      |> assets.quantity_of(head_id, hydra_head_v1)
+      |> assets.quantity_of(head_id, hydra_head_v2)
 
   quantity == -1
 }
