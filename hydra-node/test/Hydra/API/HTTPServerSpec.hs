@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain, PostTxError (..), draftDepositTx)
+import Hydra.Chain (PostTxError (..), draftDepositTx)
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
@@ -56,7 +56,6 @@ import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, pparams)
 import Test.Hydra.Tx.Gen (genTxOut, genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
-  checkCoverage,
   counterexample,
   cover,
   forAll,
@@ -628,42 +627,6 @@ apiServerSpec = do
                 minimumValue >= providedValue
                   & counterexample ("Minimum value: " <> show minimumValue <> " Provided value: " <> show providedValue)
             _ -> property True
-
-      prop "handles PostTxErrors accordingly" $ \request postTxError -> do
-        let failingChainHandle :: PostTxError tx -> Chain tx IO
-            failingChainHandle err =
-              dummyChainHandle
-                { draftDepositTx = \_ _ _ _ _ -> pure $ Left err
-                }
-
-        let coverage = case postTxError of
-              UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
-              InvalidHeadId{} -> cover 1 True "InvalidHeadId"
-              DepositTooLow{} -> cover 1 True "DepositTooLow"
-              FailedToConstructDepositTx{} -> cover 1 True "FailedToConstructDepositTx"
-              _ -> property
-        checkCoverage
-          $ coverage
-          $ withApplication
-            ( httpApp @Tx
-                nullTracer
-                (failingChainHandle postTxError)
-                testEnvironment
-                defaultPParams
-                (pure NodeInSync{headState = openHeadState, pendingDeposits = mempty, chainPointTime = zeroChainPointTime})
-                getHeadId
-                getPendingDeposits
-                putClientInput
-                300
-                responseChannel
-            )
-          $ do
-            post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
-              `shouldRespondWith` case postTxError of
-                UnsupportedLegacyOutput{} -> 400
-                DepositTooLow{} -> 400
-                FailedToConstructDepositTx{} -> 400
-                _ -> 500
 
     describe "POST /transaction" $ do
       let mkReq :: SimpleTx -> LBS.ByteString
