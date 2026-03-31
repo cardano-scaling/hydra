@@ -29,7 +29,7 @@ import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
-import Hydra.Contract.Util (hasST, hydraHeadV1, scriptOutputsAt)
+import Hydra.Contract.Util (hasST, hydraHeadV2, scriptOutputsAt)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
@@ -104,7 +104,7 @@ validateTokensMinting headValidator seedInput context =
         -- NOTE: Ideally this would be a filterWithKey
         AssocMap.elems . flip AssocMap.mapMaybeWithKey tokenMap $ \an qty ->
           if
-            | an == TokenName hydraHeadV1 -> Nothing
+            | an == TokenName hydraHeadV2 -> Nothing
             | qty == 1 -> Just an
             | otherwise -> traceError $(errorCode WrongQuantity)
 

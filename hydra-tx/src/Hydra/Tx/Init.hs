@@ -15,7 +15,7 @@ import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
-import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV1AssetName, mkHydraHeadV1TxName, onChainIdToAssetName)
+import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV2AssetName, mkHydraHeadV2TxName, onChainIdToAssetName)
 import PlutusLedgerApi.Common (FromData, toBuiltin)
 
 -- * Construction
@@ -35,8 +35,8 @@ initTx networkId seedTxIn participants parameters =
     defaultTxBodyContent
       & addTxInsSpending [seedTxIn]
       & addTxOuts [openHeadOutput]
-      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint (fromList $ (hydraHeadV1AssetName, 1) : participationTokens)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "InitTx")
+      & mintTokens (HeadTokens.mkHeadTokenScript seedTxIn) Mint (fromList $ (hydraHeadV2AssetName, 1) : participationTokens)
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "InitTx")
  where
   participationTokens =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
@@ -67,7 +67,7 @@ mkHeadOutput networkId tokenPolicyId participants datum =
     datum
     ReferenceScriptNone
  where
-  st = (AssetId tokenPolicyId hydraHeadV1AssetName, 1)
+  st = (AssetId tokenPolicyId hydraHeadV2AssetName, 1)
 
   pts =
     [ (AssetId tokenPolicyId an, 1)
@@ -114,7 +114,7 @@ observeInitTx tx = do
 
   -- Check minted value to distinguish from increment/decrement
   let mintedValue = txMintValueToValue . txMintValue . getTxBodyContent $ getTxBody tx
-      stAssetId = AssetId pid hydraHeadV1AssetName
+      stAssetId = AssetId pid hydraHeadV2AssetName
   unless (selectAsset mintedValue stAssetId == 1) $
     Left NoTokensMinted
 
@@ -148,5 +148,5 @@ observeInitTx tx = do
     | (AssetId policyId assetName, q) <- toList $ txMintValueToValue $ txMintValue $ getTxBodyContent $ getTxBody tx
     , q == 1 -- NOTE: Only consider unique tokens
     , policyId == pid
-    , assetName /= hydraHeadV1AssetName
+    , assetName /= hydraHeadV2AssetName
     ]

@@ -659,7 +659,6 @@ apiServerSpec = do
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
               DepositTooLow{} -> cover 1 True "DepositTooLow"
               FailedToConstructDepositTx{} -> cover 1 True "FailedToConstructDepositTx"
-              CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               _ -> property
         checkCoverage
           $ coverage
@@ -683,7 +682,6 @@ apiServerSpec = do
                 UnsupportedLegacyOutput{} -> 400
                 DepositTooLow{} -> 400
                 FailedToConstructDepositTx{} -> 400
-                CommittedTooMuchADAForMainnet{} -> 400
                 _ -> 500
 
     describe "POST /transaction" $ do

@@ -40,10 +40,6 @@ import Hydra.Tx (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 
--- | Hardcoded limit for commit tx on mainnet
-maxMainnetLovelace :: Coin
-maxMainnetLovelace = Coin 100_000_000
-
 -- | Hardcoded limit for maximum number of parties in a head protocol. A too
 -- high number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
@@ -149,9 +145,6 @@ data PostTxError tx
   | InvalidHeadId {headId :: HeadId}
   | -- | Committing byron addresses is not supported.
     UnsupportedLegacyOutput {byronAddress :: Address ByronAddr}
-  | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
-    -- we keep track of both the hardcoded limit and what the user originally tried to commit
-    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Coin, mainnetLimitLovelace :: Coin}
   | DepositTooLow {providedValue :: Coin, minimumValue :: Coin}
   | InvalidStateToPost {txTried :: PostChainTx tx, chainState :: ChainStateType tx}
   | NotEnoughFuel {failingTx :: tx}

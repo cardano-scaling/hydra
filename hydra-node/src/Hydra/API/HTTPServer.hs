@@ -317,7 +317,6 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
     case result of
       Left e ->
         case e of
-          CommittedTooMuchADAForMainnet _ _ -> pure $ badRequest e
           UnsupportedLegacyOutput _ -> pure $ badRequest e
           DepositTooLow _ _ -> pure $ badRequest e
           FailedToConstructDepositTx _ -> pure $ badRequest e

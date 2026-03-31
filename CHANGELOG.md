@@ -18,6 +18,8 @@ changes.
   - Reduced overall life-cycle cost for most use cases. See [transaction cost benchmarks](https://hydra.family/head-protocol/unstable/benchmarks/transaction-cost) for details.
   - All on-chain scripts are affected by this change, as well as several API changes.
   - This decision is documented in [ADR-33](https://hydra.family/head-protocol/adr/33)
+* Upgrade token name to HydraHeadV2 (from HydraHeadV1) [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
+* Continue encouraging conversative ADA deposits until partial fanout is completed [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 
 ## [1.3.0] - 2026-03-05
 

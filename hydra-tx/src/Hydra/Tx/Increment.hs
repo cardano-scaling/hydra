@@ -21,7 +21,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
-import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -54,7 +54,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       & addTxOuts [headOutput']
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityUpperBound (TxValidityUpperBound upperValiditySlot)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "IncrementTx")
  where
   headRedeemer =
     toScriptData $

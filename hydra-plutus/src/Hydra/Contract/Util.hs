@@ -35,18 +35,17 @@ import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
 import PlutusTx.Prelude
 
--- TODO: Bump this to V2?
-hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = stringToBuiltinByteString "HydraHeadV1"
-{-# INLINEABLE hydraHeadV1 #-}
+hydraHeadV2 :: BuiltinByteString
+hydraHeadV2 = stringToBuiltinByteString "HydraHeadV2"
+{-# INLINEABLE hydraHeadV2 #-}
 
 -- | Checks that the output contains the state token (ST) with the head
--- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
+-- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV2'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
   fromMaybe False $ do
     tokenMap <- AssocMap.lookup headPolicyId $ getValue v
-    quantity <- AssocMap.lookup (TokenName hydraHeadV1) tokenMap
+    quantity <- AssocMap.lookup (TokenName hydraHeadV2) tokenMap
     pure $ quantity == 1
 {-# INLINEABLE hasST #-}
 
