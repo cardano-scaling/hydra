@@ -71,9 +71,6 @@ mkProjection :: MonadLabelledSTM m => String -> model -> (model -> event -> mode
 --   abstracts away the details of the structure of the transaction.
 module Hydra.Chain
 
--- | Hardcoded limit for commit tx on mainnet
-maxMainnetLovelace :: Coin
-
 -- | Hardcoded limit for maximum number of parties in a head protocol. A
 --   too high number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
@@ -167,13 +164,6 @@ InvalidHeadId :: HeadId -> PostTxError tx
 -- | Committing byron addresses is not supported.
 UnsupportedLegacyOutput :: Address ByronAddr -> PostTxError tx
 [$sel:byronAddress:NoSeedInput] :: PostTxError tx -> Address ByronAddr
-
--- | User tried to commit more than <a>maxMainnetLovelace</a> hardcoded
---   limit on mainnet we keep track of both the hardcoded limit and what
---   the user originally tried to commit
-CommittedTooMuchADAForMainnet :: Coin -> Coin -> PostTxError tx
-[$sel:userCommittedLovelace:NoSeedInput] :: PostTxError tx -> Coin
-[$sel:mainnetLimitLovelace:NoSeedInput] :: PostTxError tx -> Coin
 DepositTooLow :: Coin -> Coin -> PostTxError tx
 [$sel:providedValue:NoSeedInput] :: PostTxError tx -> Coin
 [$sel:minimumValue:NoSeedInput] :: PostTxError tx -> Coin
@@ -4059,11 +4049,6 @@ rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 -- | Reject any UTxO containing a Byron address, which cannot be
 --   represented in the Hydra head protocol.
 rejectByronAddresses :: UTxO -> Either (PostTxError Tx) ()
-
--- | Reject deposits on mainnet exceeding the <a>maxMainnetLovelace</a>
---   limit. NOTE: Remove this limit once we have more experiments on
---   mainnet.
-rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
 
 -- | Balance and sign the given partial transaction.
 finalizeTx :: MonadThrow m => TinyWallet m -> ChainContext -> UTxO -> UTxO -> Tx -> m Tx

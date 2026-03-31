@@ -275,10 +275,10 @@ instance PlutusTx.IsData.Class.FromData Hydra.Data.Party.Party
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Data.Party.Party
 
 module Hydra.Contract.Util
-hydraHeadV1 :: BuiltinByteString
+hydraHeadV2 :: BuiltinByteString
 
 -- | Checks that the output contains the state token (ST) with the head
---   <a>CurrencySymbol</a> and <a>TokenName</a> of <a>hydraHeadV1</a>
+--   <a>CurrencySymbol</a> and <a>TokenName</a> of <a>hydraHeadV2</a>
 hasST :: CurrencySymbol -> Value -> Bool
 
 -- | Checks all tokens related to some specific <a>CurrencySymbol</a>.

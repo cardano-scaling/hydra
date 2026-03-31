@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.d959eb6e.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.7759e9a5.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.9f3943e8.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d42fd4bf.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -77,7 +77,7 @@ here: <a href="/head-protocol/unstable/docs/configuration#auto-compaction-of-net
 <p>The following restrictions apply when <strong>depositing</strong> funds into a Hydra head (via <code>POST /commit</code>):</p>
 <ul>
 <li><strong>Byron addresses are not supported.</strong> Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.</li>
-<li><strong>Mainnet ADA limit.</strong> When running on <strong>mainnet</strong>, only up to 100 ADA can be deposited into a Hydra head in a single deposit transaction. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on mainnet.</li>
+<li><strong>Mainnet ADA recommendation.</strong> When running on <strong>mainnet</strong>, we recommend only up to 100 ADA be deposited into a Hydra head in a single deposit transaction. This is a recommendation only, and we will lift it once we implement <a href="https://github.com/cardano-scaling/hydra/issues/1468" target="_blank" rel="noopener noreferrer">partial fanout</a>.</li>
 </ul>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="deposit-periods">Deposit periods<a href="#deposit-periods" class="hash-link" aria-label="Direct link to Deposit periods" title="Direct link to Deposit periods">​</a></h3>
 <p>The <code>--deposit-period</code> allows an individual <code>hydra-node</code> operator to decide how long they want a deposit to have settled at least. However, differences bigger than <a href="https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:waitDelay" target="_blank" rel="noopener noreferrer"><code>defaultTTL * waitDelay</code></a> (currently 10 minutes) result in non-approved snapshots. This is due to the way the <code>HeadLogic</code> is implemented and snapshot requests are not retried currently. See <a href="https://github.com/cardano-scaling/hydra/issues/1999" target="_blank" rel="noopener noreferrer">hydra#1999</a> for more context.</p>

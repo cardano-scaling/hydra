@@ -635,14 +635,14 @@ findStateToken :: TxOut ctx -> Maybe HeadId
 
 -- | Create a transaction metadata entry to identify Hydra transactions
 --   (for informational purposes).
-mkHydraHeadV1TxName :: Text -> TxMetadata
+mkHydraHeadV2TxName :: Text -> TxMetadata
 addMetadata :: TxMetadata -> Tx -> AlonzoTx ConwayEra -> AlonzoTx ConwayEra
 headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
 assetNameToOnChainId :: AssetName -> OnChainId
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
-hydraHeadV1AssetName :: AssetName
+hydraHeadV2AssetName :: AssetName
 onChainIdToAssetName :: OnChainId -> AssetName
 
 -- | The metadata label used for identifying Hydra protocol transactions.
