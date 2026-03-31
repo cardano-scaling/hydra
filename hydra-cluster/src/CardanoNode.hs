@@ -379,7 +379,7 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
           fetchConfigFile (knownNetworkPath </> fn)
             >>= writeFileBS (stateDirectory </> fn)
 
-    when (knownNetwork `elem` [Mainnet, Preview, Preproduction]) $ do
+    when (knownNetwork `elem` [Fixture.Mainnet, Fixture.Preview, Fixture.Preproduction]) $ do
       -- NOTE: cardano-node >= 10.6.2 expects a specific format for peer-snapshot.json
       -- but network config servers may serve an older format. We patch it to the new
       -- format: add "version", rename "bigLedgerPools" -> "bigLedgerPeers", and

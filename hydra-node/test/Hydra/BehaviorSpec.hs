@@ -159,12 +159,16 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               send n1 Init
-              waitUntil [n1, n2] $ HeadIsInitializing testHeadId (fromList [alice, bob])
-              simulateCommit chain testHeadId alice (utxoRef 1)
+              waitUntil [n1, n2] $ HeadIsOpen testHeadId (fromList [alice, bob])
 
-              waitUntil [n2] $ Committed testHeadId alice (utxoRef 1)
+              deadline <- newDeadlineFarEnoughFromNow
+              depositId <- simulateDeposit chain testHeadId (utxoRef 500) deadline
+              waitUntilMatch [n1, n2] $ \case
+                CommitFinalized{depositTxId} | depositTxId == depositId -> Just ()
+                _ -> Nothing
+
               headUTxO <- getHeadUTxO . headState <$> queryState n1
-              fromMaybe mempty headUTxO `shouldBe` utxoRefs [1]
+              fromMaybe mempty headUTxO `shouldBe` utxoRefs [500]
 
     -- Reproduces the version-race using a slow network.
     -- DecommitFinalized arrives at ALL nodes BEFORE the ReqSn
@@ -175,7 +179,7 @@ spec = parallel $ do
         withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
-              openHead2 chain n1 n2
+              openHead2 n1 n2
               deadline <- newDeadlineFarEnoughFromNow
               depositId <- simulateDeposit chain testHeadId (utxoRef 500) deadline
               waitUntilMatch [n1, n2] $ \case
@@ -216,7 +220,7 @@ spec = parallel $ do
           -- still pending in localTxs when the deposit snapshot confirms.
           withHydraNode' (DepositPeriod 1) aliceSk [bob] chain $ \n1 ->
             withHydraNode' (DepositPeriod 1) bobSk [alice] chain $ \n2 -> do
-              openHead2 chain n1 n2
+              openHead2 n1 n2
               deadline <- newDeadlineFarEnoughFromNow
               -- Submit a deposit and a pending L2 tx so there is pending work
               -- when the deposit snapshot confirms (triggering immediate ReqSn).

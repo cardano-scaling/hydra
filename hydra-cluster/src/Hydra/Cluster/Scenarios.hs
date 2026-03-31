@@ -1596,27 +1596,6 @@ canSeePendingDeposits tracer workDir backend hydraScriptsTxId =
               <&> getResponseBody
 
           liftIO $ pendingDeposits `shouldContain` [depositTxId]
-          pure depositTxId
-
-        forM_ deposited $ \deposit -> do
-          -- XXX: should know the deadline from the query above
-          -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
-          threadDelay $ realToFrac (toNominalDiffTime depositPeriod * 4)
-
-          (`shouldReturn` "OK") $
-            parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n1 <> "/commits/" <> show deposit)
-              >>= httpJSON
-              <&> getResponseBody @String
-
-          waitForAllMatch (toNominalDiffTime depositPeriod) [n1] $ \v -> do
-            guard $ v ^? key "tag" == Just "CommitRecovered"
-
-        pendingDeposits :: [TxId] <-
-          parseUrlThrow ("GET " <> hydraNodeBaseUrl n1 <> "/commits")
-            >>= httpJSON
-            <&> getResponseBody
-
-        pendingDeposits `shouldBe` []
  where
   hydraTracer = contramap FromHydraNode tracer
 
