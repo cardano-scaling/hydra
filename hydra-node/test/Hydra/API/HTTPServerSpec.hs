@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (
   renderTxIn,
   serialiseToTextEnvelope,
  )
-import Hydra.Chain (Chain (draftCommitTx), PostTxError (..), draftDepositTx)
+import Hydra.Chain (Chain, PostTxError (..), draftDepositTx)
 import Hydra.Chain.Direct.Handlers (rejectLowDeposits)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), SeenSnapshot (..))
