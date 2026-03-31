@@ -1567,17 +1567,17 @@
         "nixpkgs": "nixpkgs_17"
       },
       "locked": {
-        "lastModified": 1769172731,
-        "narHash": "sha256-lzfahbO4a9KpqNcUhfRn9uhd2NzWIUGO0un/qHnAatY=",
+        "lastModified": 1774960491,
+        "narHash": "sha256-HGiki4Xsc6peoHjCPZmcWnGjL3x1WaGjDgwDdOwnAxU=",
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "895bd8a8ce5ad2911aee8add207bea2a87bc73aa",
+        "rev": "d9d4ba5a09b7fd33c38d1cd579b1e1d66cdc1ee9",
         "type": "github"
       },
       "original": {
         "owner": "cardano-scaling",
         "repo": "hydra-formal-specification",
-        "rev": "895bd8a8ce5ad2911aee8add207bea2a87bc73aa",
+        "rev": "d9d4ba5a09b7fd33c38d1cd579b1e1d66cdc1ee9",
         "type": "github"
       }
     },
