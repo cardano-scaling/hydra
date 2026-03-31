@@ -337,7 +337,6 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
         -- Distinguish between errors users can actually benefit from and
         -- other errors that are turned into 500 responses.
         case e of
-          CommittedTooMuchADAForMainnet _ _ -> pure $ badRequest e
           UnsupportedLegacyOutput _ -> pure $ badRequest e
           CannotFindOwnInitial _ -> pure $ badRequest e
           DepositTooLow _ _ -> pure $ badRequest e

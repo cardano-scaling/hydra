@@ -41,10 +41,6 @@ import Hydra.Tx (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 
--- | Hardcoded limit for commit tx on mainnet
-maxMainnetLovelace :: Coin
-maxMainnetLovelace = Coin 100_000_000
-
 -- | Hardcoded limit for maximum number of parties in a head protocol The value
 -- is obtained from calculating the costs of running the scripts and on-chan
 -- validators (see 'computeCollectComCost' 'computeAbortCost'). A too high
@@ -172,9 +168,6 @@ data PostTxError tx
     InternalWalletError {headUTxO :: UTxOType tx, reason :: Text, failingTx :: tx}
   | -- | An error occurred when submitting a transaction to the cardano-node.
     FailedToPostTx {failureReason :: Text, failingTx :: tx}
-  | -- | User tried to commit more than 'maxMainnetLovelace' hardcoded limit on mainnet
-    -- we keep track of both the hardcoded limit and what the user originally tried to commit
-    CommittedTooMuchADAForMainnet {userCommittedLovelace :: Coin, mainnetLimitLovelace :: Coin}
   | -- | We can only draft commit tx for the user when in Initializing state
     FailedToDraftTxNotInitializing
   | FailedToConstructAbortTx

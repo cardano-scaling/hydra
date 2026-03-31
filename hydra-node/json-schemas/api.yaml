@@ -170,7 +170,6 @@ channels:
       description: |
         Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
-          * CommittedTooMuchADAForMainnet - 400 bad request
           * UnsupportedLegacyOutput - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
@@ -2854,23 +2853,6 @@ components:
               type: string
             failingTx:
               $ref: "api.yaml#/components/schemas/Transaction"
-        - title: CommittedTooMuchADAForMainnet
-          description: |
-            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - userCommittedLovelace
-          - mainnetLimitLovelace
-          properties:
-            userCommittedLovelace:
-              type: number
-            mainnetLimitLovelace:
-              type: number
-            tag:
-              type: string
-              enum: ["CommittedTooMuchADAForMainnet"]
         - title: FailedToDraftTxNotInitializing
           description: |
             Raised if the user tried to draft a commit tx while Head is not in Initializing state.

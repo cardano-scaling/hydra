@@ -21,7 +21,7 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey, VerificationKey, verificationKeyHash),
-  NetworkId (Mainnet),
+  NetworkId,
   PaymentKey,
   PolicyId,
   SerialiseAsRawBytes (serialiseToRawBytes),
@@ -53,7 +53,6 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (
   OnChainTx (..),
   PostTxError (..),
-  maxMainnetLovelace,
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
@@ -304,7 +303,6 @@ commit' ctx headId spendableUTxO commitBlueprintTx = do
   pid <- headIdToPolicyId headId ?> InvalidHeadId{headId}
   (i, o) <- ownInitial pid ?> CannotFindOwnInitial{knownUTxO = spendableUTxO}
   rejectByronAddress lookupUTxO
-  rejectMoreThanMainnetLimit networkId lookupUTxO
   pure $ commitTx networkId scriptRegistry headId ownParty commitBlueprintTx (i, o, vkh)
  where
   CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
@@ -326,16 +324,6 @@ rejectByronAddress u = do
       Left (UnsupportedLegacyOutput addr)
     (TxOut ShelleyAddressInEra{} _ _ _) ->
       Right ()
-
--- Rejects outputs with more than 'maxMainnetLovelace' lovelace on mainnet
--- NOTE: Remove this limit once we have more experiments on mainnet.
-rejectMoreThanMainnetLimit :: NetworkId -> UTxO -> Either (PostTxError Tx) ()
-rejectMoreThanMainnetLimit network u = do
-  when (network == Mainnet && lovelaceAmt > maxMainnetLovelace) $
-    Left $
-      CommittedTooMuchADAForMainnet lovelaceAmt maxMainnetLovelace
- where
-  lovelaceAmt = UTxO.totalLovelace u
 
 -- | Construct a abort transaction based on known, spendable UTxO. This function
 -- looks for head, initial and commit outputs to spend and it will fail if we

@@ -661,7 +661,6 @@ apiServerSpec = do
 
       prop "handles PostTxErrors accordingly" $ \request postTxError -> do
         let coverage = case postTxError of
-              CommittedTooMuchADAForMainnet{} -> cover 1 True "CommittedTooMuchADAForMainnet"
               UnsupportedLegacyOutput{} -> cover 1 True "UnsupportedLegacyOutput"
               InvalidHeadId{} -> cover 1 True "InvalidHeadId"
               CannotFindOwnInitial{} -> cover 1 True "CannotFindOwnInitial"
@@ -689,7 +688,6 @@ apiServerSpec = do
           $ do
             post "/commit" (Aeson.encode (request :: DraftCommitTxRequest Tx))
               `shouldRespondWith` case postTxError of
-                CommittedTooMuchADAForMainnet{} -> 400
                 UnsupportedLegacyOutput{} -> 400
                 CannotFindOwnInitial{} -> 400
                 DepositTooLow{} -> 400

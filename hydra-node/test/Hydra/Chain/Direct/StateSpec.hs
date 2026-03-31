@@ -12,7 +12,6 @@ import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Set qualified as Set
 import Hydra.Cardano.Api (
-  NetworkId (Mainnet),
   SlotNo,
   Tx,
   TxIn,
@@ -23,10 +22,8 @@ import Hydra.Cardano.Api (
   getTxId,
   hashScript,
   isScriptTxOut,
-  lovelaceToValue,
   mkScriptAddress,
   modifyTxOutAddress,
-  modifyTxOutValue,
   scriptPolicyId,
   toPlutusCurrencySymbol,
   toScriptData,
@@ -40,7 +37,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (OnChainTx (..), PostTxError (..), maxMainnetLovelace, maximumNumberOfParties)
+import Hydra.Chain (OnChainTx (..), PostTxError (..), maximumNumberOfParties)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -119,7 +116,7 @@ import Test.Hydra.Chain.Direct.State (
  )
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, genTxOutByron, genUTxO1, genUTxOSized, genValidityBoundsFromContestationPeriod, propTransactionEvaluates, propTransactionFailsEvaluation)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   applyMutation,
@@ -139,7 +136,6 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   forAllShrink,
-  getPositive,
   label,
   sublistOf,
   tabulate,
@@ -274,20 +270,6 @@ spec = parallel $ do
         pure $
           case commit ctx headId (getKnownUTxO stInitial) utxo of
             Left UnsupportedLegacyOutput{} -> property True
-            _ -> property False
-
-    prop "reject Commits with more than maxMainnetLovelace Lovelace" $
-      monadicST $ do
-        hctx <- pickBlind $ genHydraContext maximumNumberOfParties
-        (ctx, stInitial@InitialState{headId}) <- pickBlind $ genStInitial hctx
-        utxo <- pickBlind genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit
-        let mainnetChainContext = ctx{networkId = Mainnet}
-        pure $
-          case commit mainnetChainContext headId (getKnownUTxO stInitial) utxo of
-            Left CommittedTooMuchADAForMainnet{userCommittedLovelace, mainnetLimitLovelace} ->
-              -- check that user committed more than our limit but also use 'maxMainnetLovelace'
-              -- to be sure we didn't construct 'CommittedTooMuchADAForMainnet' wrongly
-              property $ userCommittedLovelace > mainnetLimitLovelace && userCommittedLovelace > maxMainnetLovelace
             _ -> property False
 
   describe "abort" $ do
@@ -428,11 +410,6 @@ genCommitTxMutation utxo tx =
   fakeScriptAddress = mkScriptAddress testNetworkId fakeScript
 
   fakeScript = dummyValidatorScript
-
-genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
-genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit = do
-  adaAmount <- (+ maxMainnetLovelace) . getPositive <$> arbitrary
-  genUTxO1 (modifyTxOutValue (const $ lovelaceToValue adaAmount) <$> genTxOut)
 
 -- * Properties
 
