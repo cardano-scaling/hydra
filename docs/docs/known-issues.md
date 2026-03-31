@@ -52,13 +52,6 @@ Now, because of etcd, it is important to only delete the `hydra-node` specific f
 
 Note that, as with any adjustments of this kind, it is good practice to make a backup first!
 
-### Training wheels
-
-The following restrictions apply when **depositing** funds into a Hydra head (via `POST /commit`):
-
-- **Byron addresses are not supported.** Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.
-- **Mainnet ADA limit.** When running on **mainnet**, only up to 100 ADA can be deposited into a Hydra head in a single deposit transaction. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on mainnet.
-
 ### Deposit periods
 
 The `--deposit-period` allows an individual `hydra-node` operator to decide how long they want a deposit to have settled at least. However, differences bigger than [`defaultTTL * waitDelay`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-Node.html#v:waitDelay) (currently 10 minutes) result in non-approved snapshots. This is due to the way the `HeadLogic` is implemented and snapshot requests are not retried currently. See [hydra#1999](https://github.com/cardano-scaling/hydra/issues/1999) for more context.

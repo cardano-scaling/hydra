@@ -40,10 +40,6 @@ import Hydra.Tx (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 
--- | Hardcoded limit for commit tx on mainnet
-maxMainnetLovelace :: Coin
-maxMainnetLovelace = Coin 100_000_000
-
 -- | Hardcoded limit for maximum number of parties in a head protocol. A too
 -- high number would be detected by property and acceptance tests.
 maximumNumberOfParties :: Int
