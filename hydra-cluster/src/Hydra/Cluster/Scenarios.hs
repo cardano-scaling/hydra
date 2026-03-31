@@ -1608,7 +1608,7 @@ canSeePendingDeposits tracer workDir backend hydraScriptsTxId =
               >>= httpJSON
               <&> getResponseBody @String
 
-          waitForAllMatch (blockTime * 20) [n1] $ \v -> do
+          waitForAllMatch (toNominalDiffTime depositPeriod) [n1] $ \v -> do
             guard $ v ^? key "tag" == Just "CommitRecovered"
 
         pendingDeposits :: [TxId] <-
