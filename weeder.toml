@@ -12,6 +12,12 @@ roots = [
   "spy'$",
   "redeemer$",
   "evaluateTx'$",
+  "alwaysFailingScript$",
+  "dummyValidatorScriptAlwaysFails$",
+  "exampleValidator$",
+  "exampleSecureValidatorScript$",
+  "shouldNotBe$",
+  "propTransactionFailsEvaluation$",
 ]
 
 root-instances = [
@@ -36,10 +42,12 @@ root-instances = [
   { module = "Hydra.Contract.MintAction", instance = "FromData MintAction" },
   { module = "Hydra.Contract.Initial", instance = "UnsafeFromData RedeemerType" },
   { module = "Hydra.Contract.Dummy", instance = "FromData R" },
+  { module = "Hydra.Contract.Dummy", instance = "ToData R" },
   # This one is odd.
   { module = "Hydra.Network.Ouroboros.Type", instance = "Protocol" },
   # TODO: Remove this
   { module = "Hydra.Model.Payment", instance = "IsTx" },
+  { module = "Hydra.Model", instance = "HasVariables" },
   # These are used for debugging.
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "HasVariables" },
   { module = "Hydra.Chain.Direct.TxTraceSpec", instance = "MonadFail AppM" },

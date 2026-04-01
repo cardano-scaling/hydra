@@ -26,6 +26,7 @@ import Hydra.Tx.Utils (
   IncrementalAction (..),
   setIncrementalActionMaybe,
   splitUTxO,
+  verificationKeyToOnChainId,
  )
 import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
@@ -34,9 +35,6 @@ import Test.Hydra.Tx.Gen (
   genOneUTxOFor,
   genScriptRegistry,
   genVerificationKey,
- )
-import Test.Hydra.Tx.Mutation (
-  addParticipationTokens,
  )
 import Test.QuickCheck (elements, suchThat)
 import Test.QuickCheck.Instances ()
@@ -155,11 +153,11 @@ healthyClosedHeadTxIn = generateWith arbitrary 42
 
 healthyClosedHeadTxOut :: TxOut CtxUTxO
 healthyClosedHeadTxOut =
-  mkHeadOutput testNetworkId testPolicyId headTxOutDatum
-    & addParticipationTokens healthyParticipants
- where
-  headTxOutDatum :: TxOutDatum CtxUTxO
-  headTxOutDatum = mkTxOutDatumInline healthyClosedState
+  mkHeadOutput
+    testNetworkId
+    testPolicyId
+    (verificationKeyToOnChainId <$> healthyParticipants)
+    (mkTxOutDatumInline healthyClosedState)
 
 healthyOnChainContestationPeriod :: OnChain.ContestationPeriod
 healthyOnChainContestationPeriod = OnChain.contestationPeriodFromDiffTime $ fromInteger healthyContestationPeriodSeconds

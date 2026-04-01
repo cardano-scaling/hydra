@@ -5,32 +5,18 @@ module Hydra.API.HTTPServer where
 import Hydra.Prelude
 
 import Cardano.Ledger.Core (PParams)
-import Conduit (
-  ConduitT,
-  MonadUnliftIO,
-  concatC,
-  linesUnboundedAsciiC,
-  mapMC,
-  runConduitRes,
-  sinkList,
-  sourceFileBS,
-  (.|),
- )
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Control.Lens ((^?))
-import Data.Aeson (KeyValue ((.=)), Value (String), object, withObject, (.:), (.:?))
+import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (Parser, parseEither)
 import Data.ByteString.Lazy qualified as LBS
 import Data.ByteString.Short ()
-import Data.List qualified as List
 import Data.Text (pack)
 import Hydra.API.APIServerLog (APIServerLog (..), Method (..), PathInfo (..))
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.Cardano.Api (AddressInEra, LedgerEra, SlotNo, Tx)
-import Hydra.Chain (Chain (..), PostTxError (..), draftCommitTx)
+import Hydra.Chain (Chain (..), PostTxError (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Ledger (ValidationError (..))
@@ -42,7 +28,6 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
 import Network.HTTP.Types (ResponseHeaders, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, responseLBS)
-import System.Directory (doesFileExist)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -194,7 +179,6 @@ httpApp ::
   Tracer IO APIServerLog ->
   Chain tx IO ->
   Environment ->
-  FilePath ->
   PParams LedgerEra ->
   -- | Get latest 'NodeState'.
   IO (NodeState tx) ->
@@ -209,7 +193,7 @@ httpApp ::
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
+httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -231,10 +215,6 @@ httpApp tracer directChain env stateFile pparams getNodeState getCommitInfo getP
     ("GET", ["snapshot", "last-seen"]) -> do
       hs <- headState <$> getNodeState
       respond . okJSON $ getSeenSnapshot hs
-    -- FIXME: We should not be parsing the state file here.
-    ("GET", ["head-initialization"]) ->
-      handleHeadInitializationTime stateFile
-        >>= respond
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
         >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel
@@ -294,13 +274,6 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right someCommitRequest ->
       getCommitInfo >>= \case
-        NormalCommit headId ->
-          case someCommitRequest of
-            FullCommitRequest{blueprintTx, utxo} -> do
-              draftCommit headId utxo blueprintTx
-            SimpleCommitRequest{utxoToCommit} -> do
-              let blueprintTx = txSpendingUTxO utxoToCommit
-              draftCommit headId utxoToCommit blueprintTx
         IncrementalCommit headId -> do
           case someCommitRequest of
             FullCommitRequest{blueprintTx, utxo, changeAddress} -> do
@@ -310,10 +283,10 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
         CannotCommit -> do
           traceWith tracer $
             APIInvalidInput
-              { reason = "CannotCommit: Hydra node is not in the Initialializing state."
+              { reason = "CannotCommit: Hydra node does not have an open Head."
               , inputReceived = show body
               }
-          pure $ responseLBS status400 [] (Aeson.encode (FailedToDraftTxNotInitializing :: PostTxError tx))
+          pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Head is not open")
  where
   deposit headId commitBlueprint changeAddress = do
     -- NOTE: Three times deposit period means we have one deposit period time to
@@ -322,37 +295,20 @@ handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
     deadline <- addUTCTime (3 * toNominalDiffTime depositPeriod) <$> getCurrentTime
     result <- draftDepositTx headId pparams commitBlueprint deadline changeAddress
     case result of
-      Left e -> do
-        traceWith tracer $
-          APIReturnedError
-            { reason = "Failed to draft deposit transaction: " <> show e
-            }
-        pure $ responseLBS status400 jsonContent (Aeson.encode $ toJSON e)
-      Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
-
-  draftCommit headId lookupUTxO blueprintTx = do
-    result <- draftCommitTx headId CommitBlueprintTx{lookupUTxO, blueprintTx}
-    case result of
       Left e ->
-        -- Distinguish between errors users can actually benefit from and
-        -- other errors that are turned into 500 responses.
         case e of
-          CommittedTooMuchADAForMainnet _ _ -> pure $ badRequest e
           UnsupportedLegacyOutput _ -> pure $ badRequest e
-          CannotFindOwnInitial _ -> pure $ badRequest e
           DepositTooLow _ _ -> pure $ badRequest e
-          AmountTooLow _ _ -> pure $ badRequest e
           FailedToConstructDepositTx _ -> pure $ badRequest e
           _ -> do
             traceWith tracer $
               APIReturnedError
-                { reason = "Failed to draft commit transaction: " <> show e
+                { reason = "Failed to draft deposit transaction: " <> show e
                 }
-            pure $ responseLBS status500 [] (Aeson.encode $ toJSON e)
-      Right commitTx ->
-        pure $ okJSON $ DraftCommitTxResponse commitTx
+            pure $ responseLBS status500 jsonContent (Aeson.encode $ toJSON e)
+      Right depositTx -> pure $ okJSON $ DraftCommitTxResponse depositTx
 
-  Chain{draftCommitTx, draftDepositTx} = directChain
+  Chain{draftDepositTx} = directChain
 
   Environment{depositPeriod} = env
 
@@ -580,33 +536,6 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
               else go
           _ -> go
         Right _ -> go
-
-handleHeadInitializationTime :: MonadUnliftIO m => FilePath -> m Response
-handleHeadInitializationTime stateFile =
-  liftIO (doesFileExist stateFile) >>= \case
-    False -> pure $ responseLBS status400 jsonContent (Aeson.encode $ String $ "Could not read state file at path: " <> show stateFile)
-    True -> do
-      initializations <- runConduitRes $ sourceFileBS stateFile .| parseInitializingTime
-      case initializations of
-        [] -> pure $ responseLBS status400 jsonContent (Aeson.encode $ String "Unable to find Head initialization time in your state file.")
-        as ->
-          pure $ responseLBS status200 jsonContent (Aeson.encode $ List.last as)
-
-parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
-parseInitializingTime =
-  linesUnboundedAsciiC
-    .| mapMC maybeDecode
-    .| concatC
-    .| sinkList
- where
-  maybeDecode :: Monad m => ByteString -> m (Maybe Text)
-  maybeDecode bs =
-    case bs ^? key "stateChanged" . key "tag" . _String of
-      Nothing -> pure Nothing
-      Just tag ->
-        if tag == "HeadInitialized"
-          then pure $ bs ^? key "time" . _String
-          else pure Nothing
 
 badRequest :: IsChainState tx => PostTxError tx -> Response
 badRequest = responseLBS status400 jsonContent . Aeson.encode . toJSON

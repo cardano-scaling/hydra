@@ -15,11 +15,10 @@ import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Events (EventSink (..), EventSource (..), getEventId)
 import Hydra.Events.Rotation (EventStore (..), LogId)
-import Hydra.HeadLogic (Input (..), TTL)
-import Hydra.HeadLogic.Outcome (StateChanged (HeadInitialized))
+import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.HeadLogicSpec (inInitialState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
+import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
+import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRefs)
 import Hydra.Logging (Tracer, showLogsOnFailure, traceInTVar)
 import Hydra.Logging qualified as Logging
 import Hydra.Network (Network (..))
@@ -120,12 +119,12 @@ spec = parallel $ do
             env
               /= testEnvironment
               ==> do
-                -- XXX: This is very tied to the fact that 'HeadInitialized' results in
+                -- XXX: This is very tied to the fact that 'HeadOpened' results in
                 -- a head state that gets checked by 'checkHeadState'
                 let genEvent = do
                       StateEvent
                         <$> arbitrary
-                        <*> (HeadInitialized (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
+                        <*> (HeadOpened (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary)
                         <*> pure now
                 forAllShrink genEvent shrink $ \incompatibleEvent ->
                   testHydrate (mockEventStore [incompatibleEvent]) []
@@ -182,15 +181,12 @@ spec = parallel $ do
             >>= primeWith inputsToOpenHead
             >>= runToCompletion
 
-          let reqTx = receiveMessage ReqTx{transaction = tx1}
-              tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-
           (recordingSink, getRecordedEvents) <- createRecordingSink
 
           (node, getServerOutputs) <-
             testHydrate eventStore [recordingSink]
               >>= notConnect
-              >>= primeWith [reqTx]
+              >>= primeWith [receiveMessage ReqTx{transaction = aValidTx 1}]
               >>= recordServerOutputs
           runToCompletion node
 
@@ -202,16 +198,13 @@ spec = parallel $ do
 
     it "emits a single ReqSn as leader, even after multiple ReqTxs" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        -- NOTE(SN): Sequence of parties in OnInitTx of
-        -- 'inputsToOpenHead' is relevant, so 10 is the (initial) snapshot leader
-        let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-            tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [4], txOutputs = utxoRefs [5]}
-            tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [5], txOutputs = utxoRefs [6]}
-            inputs =
+        -- NOTE(SN): Sequence of parties in OnInitTx of 'inputsToOpenHead' is
+        -- relevant, so alice is the (initial) snapshot leader
+        let inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqTx{transaction = tx1}
-                   , receiveMessage ReqTx{transaction = tx2}
-                   , receiveMessage ReqTx{transaction = tx3}
+                <> [ receiveMessage ReqTx{transaction = aValidTx 1}
+                   , receiveMessage ReqTx{transaction = aValidTx 2}
+                   , receiveMessage ReqTx{transaction = aValidTx 3}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
@@ -219,10 +212,10 @@ spec = parallel $ do
         runToCompletion node
         getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
 
-    it "rotates snapshot leaders" $
+    it "rotates snapshot leaders" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-            sn1 = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
+        let tx1 = SimpleTx{txSimpleId = 1, txInputs = mempty, txOutputs = utxoRefs [4]}
+            sn1 = testSnapshot 1 0 [] (utxoRefs [])
             inputs =
               inputsToOpenHead
                 <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
@@ -239,9 +232,9 @@ spec = parallel $ do
 
         getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
 
-    it "processes out-of-order AckSn" $
+    it "processes out-of-order AckSn" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
-        let snapshot = testSnapshot 1 0 [] (utxoRefs [1, 2, 3])
+        let snapshot = testSnapshot 1 0 [] mempty
             sigBob = sign bobSk snapshot
             sigAlice = sign aliceSk snapshot
             inputs =
@@ -278,21 +271,38 @@ spec = parallel $ do
     it "signs snapshot even if it has seen conflicting transactions" $
       failAfter 1 $
         showLogsOnFailure "NodeSpec" $ \tracer -> do
-          let tx1 = SimpleTx{txSimpleId = 1, txInputs = utxoRefs [2], txOutputs = utxoRefs [4]}
-              tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [2], txOutputs = utxoRefs [5]}
-              snapshot = testSnapshot 1 0 [tx2] (utxoRefs [1, 3, 5])
-              sigBob = sign bobSk snapshot
+          let tx1 = aValidTx 1
+              tx2 = SimpleTx{txSimpleId = 2, txInputs = utxoRefs [1], txOutputs = utxoRefs [4]}
+              tx3 = SimpleTx{txSimpleId = 3, txInputs = utxoRefs [1], txOutputs = utxoRefs [5]}
               inputs =
                 inputsToOpenHead
-                  <> [ NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx1}}
-                     , NetworkInput testTTL $ ReceivedMessage{sender = bob, msg = ReqTx{transaction = tx2}}
-                     , NetworkInput testTTL $ ReceivedMessage{sender = alice, msg = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [2], decommitTx = Nothing, depositTxId = Nothing}}
+                  <> [ NetworkInput testTTL $ ReceivedMessage{sender = alice, msg = ReqTx{transaction = tx1}}
+                     , NetworkInput testTTL $ ReceivedMessage{sender = alice, msg = ReqTx{transaction = tx2}}
+                     , NetworkInput testTTL $ ReceivedMessage{sender = carol, msg = ReqTx{transaction = tx3}}
+                     , -- Alice's ledger decides whether tx2 or tx3 wins
+                       NetworkInput testTTL $
+                        ReceivedMessage
+                          { sender = alice
+                          , msg =
+                              ReqSn
+                                { snapshotVersion = 0
+                                , snapshotNumber = 1
+                                , transactionIds = [1, 2]
+                                , decommitTx = Nothing
+                                , depositTxId = Nothing
+                                }
+                          }
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
               >>= recordNetwork
           runToCompletion node
-          getNetworkEvents `shouldReturn` [AckSn{signed = sigBob, snapshotNumber = 1}]
+          getNetworkEvents
+            `shouldReturn` [ AckSn
+                              { signed = sign bobSk $ testSnapshot 1 0 [tx2] (utxoRefs [4])
+                              , snapshotNumber = 1
+                              }
+                           ]
 
   describe "checkHeadState" $ do
     let defaultEnv =
@@ -306,7 +316,7 @@ spec = parallel $ do
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
             }
-        nodeState = inInitialState [alice, bob]
+        nodeState = inOpenState [alice, bob]
 
     it "accepts configuration consistent with HeadState" $
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -378,7 +388,6 @@ mockChain :: MonadThrow m => Chain tx m
 mockChain =
   Chain
     { postTx = \_ -> pure ()
-    , draftCommitTx = \_ _ -> failure "mockChain: unexpected draftCommitTx"
     , draftDepositTx = \_ _ _ _ _ -> failure "mockChain: unexpected draftDepositTx"
     , submitTx = \_ -> failure "mockChain: unexpected submitTx"
     , checkNonADAAssets = \_ -> error "mockChain: unexpected checkNonADAAssets"
@@ -427,13 +436,16 @@ createMockEventStore = do
       rotate _ checkpoint = atomically $ writeTVar tvar [checkpoint]
   pure (EventStore source sink rotate)
 
+-- | Synthetic inputs that simulate a head opening. The head will be empty
+-- though and this test hardness can not reliably simulate deposits. Use
+-- 'aValidTx' to create utxos out of thin air instead.
+--
+-- Explanation why we can't just emualte OnDepositTx and OnIncrementTx here:
+-- While the deposit will be seen as finalized, there is no ConfirmedSnapshot
+-- here that could be adopted and thus the confirmed utxo (legder state).
 inputsToOpenHead :: [Input SimpleTx]
 inputsToOpenHead =
   [ observationInput $ OnInitTx testHeadId testHeadSeed headParameters participants
-  , observationInput $ OnCommitTx testHeadId carol (utxoRef 3)
-  , observationInput $ OnCommitTx testHeadId bob (utxoRef 2)
-  , observationInput $ OnCommitTx testHeadId alice (utxoRef 1)
-  , observationInput $ OnCollectComTx testHeadId
   ]
  where
   parties = [alice, bob, carol]
@@ -542,7 +554,6 @@ throwExceptionOnPostTx exception node =
       { oc =
           Chain
             { postTx = \_ -> throwIO exception
-            , draftCommitTx = \_ -> error "draftCommitTx not implemented"
             , draftDepositTx = \_ -> error "draftDepositTx not implemented"
             , submitTx = \_ -> error "submitTx not implemented"
             , checkNonADAAssets = \_ -> error "checkNonADAAssets not implemented"

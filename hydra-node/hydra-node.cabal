@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-node
-version:            1.3.0
+version:            2.0.0
 synopsis:           The Hydra node
 author:             IOG
 copyright:          2022 IOG
@@ -449,6 +449,8 @@ test-suite tests
     , lens-aeson
     , network-simple-wss
     , network-udp
+    , ouroboros-consensus
+    , ouroboros-consensus-cardano
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck
@@ -458,6 +460,7 @@ test-suite tests
     , req
     , resourcet
     , silently
+    , sop-extras
     , stm
     , temporary
     , text

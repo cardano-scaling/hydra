@@ -21,11 +21,11 @@ import Hydra.Tx (registryUTxO)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
-import Hydra.Tx.Party (Party, partyToChain, vkey)
-import Hydra.Tx.Utils (adaOnly, splitUTxO)
+import Hydra.Tx.Party (Party, partyToChain)
+import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue)
+import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -54,18 +54,12 @@ healthyFanoutTx =
 
   headTokenScript = mkHeadTokenScript testSeedInput
 
-  headOutput' :: TxOut CtxUTxO
-  headOutput' = mkHeadOutput testNetworkId testPolicyId (mkTxOutDatumInline healthyFanoutDatum)
-
-  headOutput = modifyTxOutValue (<> participationTokens) headOutput'
-
-  participationTokens =
-    fromList $
-      map
-        ( \party ->
-            (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
-        )
-        healthyParties
+  headOutput =
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline healthyFanoutDatum)
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
@@ -106,6 +100,10 @@ healthyParties :: [Party]
 healthyParties =
   [ generateWith arbitrary i | i <- [1 .. 3]
   ]
+
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyParticipants =
+  genForParty genVerificationKey <$> healthyParties
 
 data FanoutMutation
   = MutateValidityBeforeDeadline

@@ -9,30 +9,24 @@ module Test.ChainObserverSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
-import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (HydraNodeLog, NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
-import Data.Aeson.Lens (key, _JSON, _String)
+import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
-import Data.List qualified as List
 import Data.Text qualified as T
-import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), lovelaceToValue, mkVkAddress, signTx, unFile, utxoFromTx)
-import Hydra.Chain.Backend qualified as Backend
+import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet, seedFromFaucet_)
+import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (chainConfigFor, keysFor)
-import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (DirectOptions (..))
-import HydraNode (input, output, requestCommitTx, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (input, output, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
-import Test.Hydra.Tx.Fixture (aliceSk, cperiod)
-import Test.Hydra.Tx.Gen (genKeyPair)
-import Test.QuickCheck (generate)
+import Test.Hydra.Tx.Fixture (aliceSk)
 
 spec :: Spec
 spec = do
@@ -46,63 +40,24 @@ spec = do
             let hydraTracer = contramap FromHydraNode tracer
             hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
             (aliceCardanoVk, _) <- keysFor Alice
-            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] cperiod
+            let timing = mkTestTiming blockTime
+            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
             withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
               withChainObserver backend $ \observer -> do
                 seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-                (walletVk, walletSk) <- generate genKeyPair
-
-                commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
-
                 send hydraNode $ input "Init" []
-
                 headId <- waitMatch 5 hydraNode $ \v -> do
-                  guard $ v ^? key "tag" == Just "HeadIsInitializing"
+                  guard $ v ^? key "tag" == Just "HeadIsOpen"
                   v ^? key "headId" . _String
-
                 chainObserverSees observer "HeadInitTx" headId
 
-                commitTx <- requestCommitTx hydraNode commitUTxO
-
-                Backend.submitTransaction backend (signTx walletSk commitTx)
-
-                waitFor hydraTracer 5 [hydraNode] $
-                  output "HeadIsOpen" ["utxo" .= commitUTxO, "headId" .= headId]
-
-                chainObserverSees observer "HeadCommitTx" headId
-                chainObserverSees observer "HeadCollectComTx" headId
-                networkId <- Backend.queryNetworkId backend
-
-                let walletAddress = mkVkAddress networkId walletVk
-
-                decommitTx <-
-                  either (failure . show) pure $
-                    mkSimpleTx
-                      (List.head $ UTxO.toList commitUTxO)
-                      (walletAddress, lovelaceToValue 2_000_000)
-                      walletSk
-
-                send hydraNode $ input "Decommit" ["decommitTx" .= decommitTx]
-
-                chainObserverSees observer "HeadDecrementTx" headId
-
-                distributedUTxO <- waitMatch 50 hydraNode $ \v -> do
-                  guard $ v ^? key "tag" == Just "DecommitFinalized"
-                  guard $ v ^? key "headId" == Just (toJSON headId)
-                  v ^? key "distributedUTxO" . _JSON
-
-                guard $ distributedUTxO `UTxO.containsOutputs` UTxO.txOutputs (utxoFromTx decommitTx)
-
                 send hydraNode $ input "Close" []
-
                 chainObserverSees observer "HeadCloseTx" headId
 
                 waitFor hydraTracer 50 [hydraNode] $
                   output "ReadyToFanout" ["headId" .= headId]
-
                 send hydraNode $ input "Fanout" []
-
                 chainObserverSees observer "HeadFanoutTx" headId
 
 chainObserverSees :: HasCallStack => ChainObserverHandle -> Value -> Text -> IO ()

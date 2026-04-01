@@ -7,11 +7,14 @@ import Cardano.Slotting.Time (SystemStart (SystemStart), mkSlotLength)
 import Control.Monad.Class.MonadAsync (link)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types qualified as Aeson
+import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
+  AsType (..),
   BlockHeader,
   ChainPoint (..),
   GenesisParameters (..),
   Hash,
+  SerialiseAsRawBytes (deserialiseFromRawBytes),
   ShelleyEra,
   ShelleyGenesis (..),
   Tx,
@@ -23,14 +26,16 @@ import Hydra.Chain (
   ChainEvent (..),
   ChainStateHistory,
   OnChainTx (..),
+  PostChainTx (..),
   PostTxError (..),
   chainTime,
   initHistory,
  )
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
-import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod)
+import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), getSnapshot)
 import Hydra.Utils (readJsonFileThrow)
 
@@ -91,9 +96,23 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
   chainHandle =
     Chain
       { submitTx = const $ pure ()
-      , draftCommitTx = \_ _ -> pure $ Left FailedToDraftTxNotInitializing
       , draftDepositTx = \_ _ _ _ _ -> pure $ Left FailedToConstructDepositTx{failureReason = "not implemented"}
-      , postTx = const $ pure ()
+      , postTx = \case
+          -- Simulate on-chain confirmation of increment by immediately emitting
+          -- OnIncrementTx. This allows the offline head to go through the full
+          -- deposit snapshot flow
+          IncrementTx{depositTxId, incrementingSnapshot} ->
+            callback $
+              Observation
+                { newChainState = initialChainState
+                , observedTx =
+                    OnIncrementTx
+                      { headId
+                      , newVersion = version (getSnapshot incrementingSnapshot) + 1
+                      , depositTxId
+                      }
+                }
+          _ -> pure ()
       , checkNonADAAssets = \confirmedSnapshot -> do
           let Snapshot{utxo, utxoToCommit, utxoToDecommit} = getSnapshot confirmedSnapshot
           let snapshotUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
@@ -105,8 +124,6 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
 
     -- if we don't have a chainStateHistory to restore from disk from, start a new one
     when (chainStateHistory == emptyChainStateHistory) $ do
-      initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
-
       callback $
         Observation
           { newChainState = initialChainState
@@ -123,31 +140,27 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
                 , participants = []
                 }
           }
+
+      initialUTxO <- readJsonFileThrow parseJSON initialUTxOFile
+      depositTxId <- case deserialiseFromRawBytes AsTxId $ BS.replicate 32 0 of
+        Left e -> error $ "Failed to mock offline deposit: " <> show e
+        Right x -> pure x
+      -- Set timestamps so the deposit is immediately Active on the first chain
+      -- tick. The deposit period used by HeadLogic is 'defaultDepositPeriod'
+      -- (because no override via OfflineChainConfig).
+      now <- getCurrentTime
+      let depositBuffer = 2 * toNominalDiffTime defaultDepositPeriod
       callback $
         Observation
           { newChainState = initialChainState
           , observedTx =
-              OnCommitTx
-                { party
-                , committed = initialUTxO
-                , headId
+              OnDepositTx
+                { headId
+                , depositTxId
+                , deposited = initialUTxO
+                , created = addUTCTime (-depositBuffer) now
+                , deadline = addUTCTime depositBuffer now
                 }
-          }
-      forM_ otherParties $ \p ->
-        callback $
-          Observation
-            { newChainState = initialChainState
-            , observedTx =
-                OnCommitTx
-                  { party = p
-                  , committed = mempty
-                  , headId
-                  }
-            }
-      callback $
-        Observation
-          { newChainState = initialChainState
-          , observedTx = OnCollectComTx{headId}
           }
 
 -- | Continuously produces offline chain ticks according to wall-clock time.

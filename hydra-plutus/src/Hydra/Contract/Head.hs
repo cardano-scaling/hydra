@@ -15,7 +15,6 @@ import Hydra.Cardano.Api (
   pattern PlutusScriptSerialised,
  )
 import Hydra.Contract.Commit (Commit (..))
-import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (
@@ -32,13 +31,12 @@ import Hydra.Contract.HeadState (
   SnapshotVersion,
   State (..),
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn)
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V1.Value (lovelaceValue)
 import PlutusLedgerApi.V3 (
   Address,
   CurrencySymbol,
@@ -80,10 +78,6 @@ headValidator ::
   Bool
 headValidator oldState input ctx =
   case (oldState, input) of
-    (Initial{contestationPeriod, parties, headId}, CollectCom) ->
-      checkCollectCom ctx (contestationPeriod, parties, headId)
-    (Initial{parties, headId}, Abort) ->
-      checkAbort ctx headId parties
     (Open openDatum, Increment redeemer) ->
       checkIncrement ctx openDatum redeemer
     (Open openDatum, Decrement redeemer) ->
@@ -93,147 +87,9 @@ headValidator oldState input ctx =
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
-      checkFanout ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
+      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
-
--- | On-Chain verification for 'Abort' transition. It verifies that:
---
---   * All PTs have been burnt: The right number of Head tokens with the correct
---     head id are burnt, one PT for each party and a state token ST.
---
---   * All committed funds have been redistributed. This is done via v_commit
---     and it only needs to ensure that we have spent all committed outputs,
---     which follows from burning all the PTs.
-checkAbort ::
-  ScriptContext ->
-  CurrencySymbol ->
-  [Party] ->
-  Bool
-checkAbort ctx@ScriptContext{scriptContextTxInfo = txInfo} headCurrencySymbol parties =
-  mustBurnAllHeadTokens minted headCurrencySymbol parties
-    && mustBeSignedByParticipant ctx headCurrencySymbol
-    && mustReimburseCommittedUTxO
- where
-  minted = txInfoMint txInfo
-
-  mustReimburseCommittedUTxO =
-    traceIfFalse $(errorCode ReimbursedOutputsDontMatch) $
-      hashOfCommittedUTxO == hashOfOutputs
-
-  hashOfOutputs =
-    -- NOTE: It is enough to just _take_ the same number of outputs that
-    -- correspond to the number of commit inputs to make sure everything is
-    -- reimbursed because we assume the outputs are correctly sorted with
-    -- reimbursed commits coming first
-    hashTxOuts $ L.take (L.length committed) (txInfoOutputs txInfo)
-
-  hashOfCommittedUTxO =
-    hashPreSerializedCommits committed
-
-  committed = committedUTxO [] (txInfoInputs txInfo)
-
-  committedUTxO commits = \case
-    [] -> commits
-    TxInInfo{txInInfoResolved = txOut} : rest
-      | hasPT headCurrencySymbol txOut ->
-          committedUTxO (commitDatum txOut <> commits) rest
-      | otherwise ->
-          committedUTxO commits rest
-
--- | On-Chain verification for 'CollectCom' transition. It verifies that:
---
---   * All participants have committed (even empty commits)
---
---   * All commits are properly collected and locked into η as a hash
---     of serialized tx outputs in the same sequence as commit inputs!
---
---   * The transaction is performed (i.e. signed) by one of the head participants
---
---   * State token (ST) is present in the output
-checkCollectCom ::
-  -- | Script execution context
-  ScriptContext ->
-  (ContestationPeriod, [Party], CurrencySymbol) ->
-  Bool
-checkCollectCom ctx@ScriptContext{scriptContextTxInfo = txInfo} (contestationPeriod, parties, headId) =
-  mustCollectUtxoHash
-    && mustInitVersion
-    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
-    && mustCollectAllValue
-    -- XXX: Is this really needed? If yes, why not check on the output?
-    && traceIfFalse $(errorCode STNotSpent) (hasST headId val)
-    && everyoneHasCommitted
-    && mustBeSignedByParticipant ctx headId
-    && mustNotMintOrBurn txInfo
- where
-  mustCollectUtxoHash =
-    traceIfFalse $(errorCode IncorrectUtxoHash) $
-      utxoHash == hashPreSerializedCommits collectedCommits
-
-  mustInitVersion =
-    traceIfFalse $(errorCode IncorrectVersion) $
-      version' == 0
-
-  mustCollectAllValue =
-    traceIfFalse $(errorCode NotAllValueCollected) $
-      -- NOTE: Instead of checking the head output val' against all collected
-      -- value, we do ensure the output value is all non collected value - fees.
-      -- This makes the script not scale badly with number of participants as it
-      -- would commonly only be a small number of inputs/outputs to pay fees.
-      otherValueOut == notCollectedValueIn - lovelaceValue (txInfoFee txInfo)
-
-  OpenDatum
-    { utxoHash
-    , parties = parties'
-    , contestationPeriod = contestationPeriod'
-    , headId = headId'
-    , version = version'
-    } = decodeHeadOutputOpenDatum ctx
-
-  headAddress = getHeadAddress ctx
-
-  everyoneHasCommitted =
-    traceIfFalse $(errorCode MissingCommits) $
-      nTotalCommits == L.length parties
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
-  otherValueOut =
-    case txInfoOutputs txInfo of
-      -- NOTE: First output must be head output
-      (_ : rest) -> F.foldMap txOutValue rest
-      _ -> mempty
-
-  -- NOTE: We do keep track of the value we do not want to collect as this is
-  -- typically less, ideally only a single other input with only ADA in it.
-  (collectedCommits, nTotalCommits, notCollectedValueIn) =
-    F.foldr
-      extractAndCountCommits
-      ([], 0, mempty)
-      (txInfoInputs txInfo)
-
-  extractAndCountCommits TxInInfo{txInInfoResolved} (commits, nCommits, notCollected)
-    | isHeadOutput txInInfoResolved =
-        (commits, nCommits, notCollected)
-    | hasPT headId txInInfoResolved =
-        (commitDatum txInInfoResolved <> commits, succ nCommits, notCollected)
-    | otherwise =
-        (commits, nCommits, notCollected <> txOutValue txInInfoResolved)
-
-  isHeadOutput txOut = txOutAddress txOut == headAddress
-{-# INLINEABLE checkCollectCom #-}
-
--- | Try to find the commit datum in the input and
--- if it is there return the committed utxo
-commitDatum :: TxOut -> [Commit]
-commitDatum input = do
-  let datum = getTxOutDatum input
-  case fromBuiltinData @Commit.DatumType $ getDatum datum of
-    Just (_party, commits, _headId) ->
-      commits
-    Nothing -> []
-{-# INLINEABLE commitDatum #-}
 
 -- | Try to find the deposit datum in the input and
 -- if it is there return the committed utxo
@@ -294,6 +150,11 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
+  -- TODO: This is not as flexible as it could be and rejects deposits that are
+  -- smaller than what the deposit output's min utxo value is. For example: a 1
+  -- ADA utxo can be deposited, but the deposit tx's output will require ~1.5
+  -- ADA because of the inline datum on it. An increment of that deposit will
+  -- fail because the sum here is not exact.
   mustIncreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue <> depositValue == headOutValue
@@ -387,7 +248,7 @@ checkClose ctx openBefore redeemer =
     && mustNotChangeVersion
     && mustBeValidSnapshot
     && mustInitializeContesters
-    && mustPreserveValue
+    && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
  where
   OpenDatum
@@ -397,14 +258,6 @@ checkClose ctx openBefore redeemer =
     , headId
     , version
     } = openBefore
-
-  mustPreserveValue =
-    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val == val'
-
-  val' = txOutValue . L.head $ txInfoOutputs txInfo
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
   hasBoundedValidity =
     traceIfFalse $(errorCode HasBoundedValidityCheckFailed) $
@@ -516,16 +369,8 @@ checkContest ctx closedDatum redeemer =
     && mustUpdateContesters
     && mustPushDeadline
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
-    && mustPreserveValue
+    && mustPreserveHeadValue ctx
  where
-  mustPreserveValue =
-    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      val == val'
-
-  val' = txOutValue . L.head $ txInfoOutputs txInfo
-
-  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
-
   mustBeNewer =
     traceIfFalse $(errorCode TooOldSnapshot) $
       snapshotNumber' > snapshotNumber
@@ -630,7 +475,7 @@ checkContest ctx closedDatum redeemer =
 {-# INLINEABLE checkContest #-}
 
 -- | Verify a fanout transaction.
-checkFanout ::
+headIsFinalizedWith ::
   ScriptContext ->
   -- | Closed state before the fanout
   ClosedDatum ->
@@ -641,7 +486,7 @@ checkFanout ::
   -- | Number of delta outputs to fanout
   Integer ->
   Bool
-checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
+headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
   mustBurnAllHeadTokens minted headId parties
     && hasSameUTxOHash
     && hasSameCommitUTxOHash
@@ -678,7 +523,7 @@ checkFanout ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFano
         traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
           time > contestationDeadline
       _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
-{-# INLINEABLE checkFanout #-}
+{-# INLINEABLE headIsFinalizedWith #-}
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -764,13 +609,6 @@ getTxOutDatum o =
     OutputDatumHash _dh -> traceError $(errorCode UnexpectedNonInlineDatum)
     OutputDatum d -> d
 {-# INLINEABLE getTxOutDatum #-}
-
--- | Check if 'TxOut' contains the PT token.
-hasPT :: CurrencySymbol -> TxOut -> Bool
-hasPT headCurrencySymbol txOut =
-  let pts = findParticipationTokens headCurrencySymbol (txOutValue txOut)
-   in L.length pts == 1
-{-# INLINEABLE hasPT #-}
 
 -- | Verify the multi-signature of a snapshot using given constituents 'headId',
 -- 'version', 'number', 'utxoHash' and 'utxoToDecommitHash'. See

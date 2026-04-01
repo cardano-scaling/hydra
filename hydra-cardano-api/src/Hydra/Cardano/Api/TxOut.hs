@@ -24,14 +24,6 @@ txOuts' (getTxBodyContent . getTxBody -> txBody) =
   let TxBodyContent{txOuts} = txBody
    in txOuts
 
--- | Modify a 'TxOut' to set the minimum ada on the value.
-setMinUTxOValue ::
-  Ledger.PParams LedgerEra ->
-  TxOut CtxUTxO Era ->
-  TxOut ctx Era
-setMinUTxOValue pparams =
-  fromLedgerTxOut . Ledger.setMinCoinTxOut pparams . toLedgerTxOut
-
 -- | Automatically balance a given output with the minimum required amount.
 -- Number of assets, presence of datum and/or reference scripts may affect this
 -- minimum value.
@@ -148,7 +140,8 @@ fromLedgerTxOut =
   fromShelleyTxOut shelleyBasedEra
 
 -- | Convert a cardano-api 'TxOut' into a cardano-ledger 'TxOut'
-toLedgerTxOut :: IsShelleyBasedEra era => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
+-- NOTE: This is partial for negative 'Value'.
+toLedgerTxOut :: (HasCallStack, IsShelleyBasedEra era) => TxOut CtxUTxO era -> Ledger.TxOut (ShelleyLedgerEra era)
 toLedgerTxOut =
   toShelleyTxOut shelleyBasedEra
 

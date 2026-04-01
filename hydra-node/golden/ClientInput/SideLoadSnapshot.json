@@ -2,34 +2,61 @@
     "samples": [
         {
             "snapshot": {
-                "headId": "00000001010101000000000000010100",
-                "initialUTxO": {
-                    "0100010000010100000101010001000100010001000100010000000101000000#35": {
-                        "address": "addr_test1vrpy9sm0frzc7etxckrrg0v8su7wqfzwvpz757m860yv39s34s6qh",
-                        "datum": null,
-                        "datumhash": null,
-                        "inlineDatum": null,
-                        "inlineDatumRaw": null,
-                        "referenceScript": {
-                            "script": {
-                                "cborHex": "83030080",
-                                "description": "",
-                                "type": "SimpleScript"
-                            },
-                            "scriptLanguage": "SimpleScriptLanguage"
-                        },
-                        "value": {
-                            "5c69113c77be6cec56dbfc61d31df95264a9952a0ed36284e2cdd696": {
-                                "32": 1
-                            },
-                            "lovelace": 1139531366464006203
-                        }
-                    }
+                "signatures": {
+                    "multiSignature": []
                 },
-                "tag": "InitialSnapshot"
+                "snapshot": {
+                    "confirmed": [],
+                    "headId": "00000100010100010000000101010101",
+                    "number": 1,
+                    "utxo": {
+                        "0100000101010101000001010101000101000000000001010000010101000101#91": {
+                            "address": "addr_test1zr47j84yq8nvfjjerw27kcxey8jjhp64j254epkkklekg07xrem7zvw4dy6mt709uhvr8d07f4g47qwamsp5lwq2rvkqep02lh",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "lovelace": 969750
+                            }
+                        }
+                    },
+                    "utxoToCommit": {
+                        "0100000100000001010100000101010100000101010000000101000101000000#15": {
+                            "address": "addr_test1wznqg7wqcq4dq9yt48wdsvumcepkg2c4xe3qf2sp2swu5cse87d7t",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "lovelace": 849070
+                            }
+                        }
+                    },
+                    "utxoToDecommit": {
+                        "0101000100010000010000010001000000000000000101010100000001000001#31": {
+                            "address": "addr_test1zzpwh7g8zucdlfzkcxeljlhzm2ssa3kefljf5n3nulkyrt9zyltwuhwhn294shx0kjr3fgspm50aktxknwyewmz0gxpqs3jt0a",
+                            "datum": null,
+                            "datumhash": null,
+                            "inlineDatum": null,
+                            "inlineDatumRaw": null,
+                            "referenceScript": null,
+                            "value": {
+                                "2d725128406dc832eb74c4709aca0512499b3c7b17e00d7cb2e6d1b1": {
+                                    "d569e8": 1
+                                },
+                                "lovelace": 45000000000000000
+                            }
+                        }
+                    },
+                    "version": 0
+                },
+                "tag": "ConfirmedSnapshot"
             },
             "tag": "SideLoadSnapshot"
         }
     ],
-    "seed": 1614547275
+    "seed": -1465376009
 }

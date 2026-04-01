@@ -8,13 +8,14 @@ import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
-import PlutusLedgerApi.V1.Value (isZero)
+import PlutusLedgerApi.V1.Value (geq, isZero)
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
   CurrencySymbol,
   MintValue,
   OutputDatum (..),
+  ScriptContext (..),
   ScriptHash (..),
   TokenName (..),
   TxInfo (..),
@@ -24,7 +25,9 @@ import PlutusLedgerApi.V3 (
   mintValueBurned,
   mintValueMinted,
   mintValueToMap,
+  txInInfoResolved,
  )
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
 import PlutusTx.AssocMap qualified as AssocMap
 import PlutusTx.Builtins qualified as Builtins
 import PlutusTx.Builtins.HasOpaque (stringToBuiltinByteString)
@@ -32,17 +35,17 @@ import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
 import PlutusTx.Prelude
 
-hydraHeadV1 :: BuiltinByteString
-hydraHeadV1 = stringToBuiltinByteString "HydraHeadV1"
-{-# INLINEABLE hydraHeadV1 #-}
+hydraHeadV2 :: BuiltinByteString
+hydraHeadV2 = stringToBuiltinByteString "HydraHeadV2"
+{-# INLINEABLE hydraHeadV2 #-}
 
 -- | Checks that the output contains the state token (ST) with the head
--- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV1'
+-- 'CurrencySymbol' and 'TokenName' of 'hydraHeadV2'
 hasST :: CurrencySymbol -> Value -> Bool
 hasST headPolicyId v =
   fromMaybe False $ do
     tokenMap <- AssocMap.lookup headPolicyId $ getValue v
-    quantity <- AssocMap.lookup (TokenName hydraHeadV1) tokenMap
+    quantity <- AssocMap.lookup (TokenName hydraHeadV2) tokenMap
     pure $ quantity == 1
 {-# INLINEABLE hasST #-}
 
@@ -65,6 +68,21 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
   traceIfFalse "U01" $
     isZero (mintValueMinted txInfoMint) && isZero (mintValueBurned txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
+
+-- | Check whether own input and first output preserve value.
+mustPreserveHeadValue :: ScriptContext -> Bool
+mustPreserveHeadValue ctx =
+  traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+    -- XXX: The spec says == but in the real world the datum may grow between
+    -- states, which requires more ADA to cover "min utxo".
+    val' `geq` val
+ where
+  val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
+  val' = txOutValue . L.head $ txInfoOutputs txInfo
+
+  ScriptContext{scriptContextTxInfo = txInfo} = ctx
+{-# INLINEABLE mustPreserveHeadValue #-}
 
 -- | Hash a potentially unordered list of commits by sorting them, concatenating
 -- their 'preSerializedOutput' bytes and creating a SHA2_256 digest over that.

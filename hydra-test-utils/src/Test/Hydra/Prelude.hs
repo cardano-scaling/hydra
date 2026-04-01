@@ -16,7 +16,6 @@ module Test.Hydra.Prelude (
   exceptionContaining,
   withClearedPATH,
   onlyNightly,
-  requiresBlockfrost,
   Gen,
   Arbitrary (..),
   genericArbitrary,
@@ -238,20 +237,6 @@ onlyNightly action = do
   lookupEnv "CI_NIGHTLY" >>= \case
     Nothing -> pendingWith "Only runs nightly"
     Just _ -> action
-
--- | Only run this task when the HYDRA_BACKEND environment variable is set (to
--- anything).
---
--- If you're using this, you want to tag the test with `@requiresBlockfrost` as well;
--- like:
---
---  spec = around_ requiresBlockfrost $ describe "... @requiresBlockfrost" $ do
---    ...
-requiresBlockfrost :: IO () -> IO ()
-requiresBlockfrost action = do
-  getHydraNetwork >>= \case
-    Blockfrost -> action
-    _ -> pendingWith "Only runs requiresBlockfrost"
 
 data HydraTestnet
   = LocalDevnet

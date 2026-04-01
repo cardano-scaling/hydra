@@ -19,11 +19,11 @@ import Hydra.Cluster.Faucet (publishHydraScriptsAs)
 import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
-import Hydra.Cluster.Scenarios (respendUTxO, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
+import Hydra.Cluster.Scenarios (respendNTimes, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
 import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
-import System.Directory (removeDirectoryRecursive)
+import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Prelude (withTempDir)
 
@@ -61,8 +61,7 @@ run options =
                 Idle -> forever $ pure ()
                 RespendUTxO -> do
                   -- Start respending the same UTxO with a 100ms delay.
-                  -- XXX: Should make this configurable
-                  respendUTxO client walletSk 0.1
+                  forever $ respendNTimes client walletSk 0.1 100
  where
   Options{knownNetwork, stateDirectory, publishHydraScripts, useMithril, scenario, persistenceRotateAfter} = options
 
@@ -72,8 +71,14 @@ run options =
         action blockTime backend
       Nothing -> do
         when (useMithril == UseMithril) $ do
-          removeDirectoryRecursive (workDir </> "db") `catch` (\(_ :: SomeException) -> pure ())
-          downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
+          let dbDir = workDir </> "db"
+          let networkFile = workDir </> ".mithril-network"
+          dbExists <- doesDirectoryExist dbDir
+          storedNetwork <- (decodeUtf8 @Text <$> readFileBS networkFile) `catch` (\(_ :: SomeException) -> pure "")
+          when (not dbExists || storedNetwork /= show network) $ do
+            removeDirectoryRecursive dbDir `catch` (\(_ :: SomeException) -> pure ())
+            downloadLatestSnapshotTo (contramap FromMithril tracer) network workDir
+            writeFileBS networkFile (encodeUtf8 @Text $ show network)
         withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
   withStateDirectory action = case stateDirectory of

@@ -35,7 +35,6 @@ import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
   HeadState (..),
-  InitialState (..),
   OpenState (..),
   aggregateNodeState,
  )
@@ -84,7 +83,6 @@ withAPIServer ::
   IsChainState tx =>
   APIServerConfig ->
   Environment ->
-  FilePath ->
   Party ->
   EventSource (StateEvent tx) IO ->
   Tracer IO APIServerLog ->
@@ -95,7 +93,7 @@ withAPIServer ::
   (ClientInput tx -> IO ()) ->
   ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) ->
   IO ()
-withAPIServer config env stateFile party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
+withAPIServer config env party eventSource tracer initialChainState chain pparams serverOutputFilter callback action =
   handle onIOException $ do
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
@@ -141,7 +139,6 @@ withAPIServer config env stateFile party eventSource tracer initialChainState ch
                   tracer
                   chain
                   env
-                  stateFile
                   pparams
                   (atomically $ getLatest nodeStateP)
                   (atomically $ getLatest commitInfoP)
@@ -229,13 +226,10 @@ mkTimedServerOutputFromStateEvent event =
   StateEvent{eventId, time, stateChanged} = event
 
   mapStateChangedToServerOutput = \case
-    StateChanged.HeadInitialized{headId, parties} -> Just HeadIsInitializing{headId, parties}
-    StateChanged.CommittedUTxO{..} -> Just $ Committed{headId, party, utxo = committedUTxO}
-    StateChanged.HeadOpened{headId, initialUTxO} -> Just HeadIsOpen{headId, utxo = initialUTxO}
+    StateChanged.HeadOpened{..} -> Just HeadIsOpen{..}
     StateChanged.HeadClosed{..} -> Just HeadIsClosed{..}
     StateChanged.HeadContested{..} -> Just HeadIsContested{..}
     StateChanged.HeadIsReadyToFanout{..} -> Just ReadyToFanout{..}
-    StateChanged.HeadAborted{headId, utxo} -> Just HeadIsAborted{headId, utxo}
     StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
@@ -278,18 +272,15 @@ projectPendingDeposits txIds = \case
   _other -> txIds
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.
--- NOTE: We only want to project 'HeadId' when the Head is in the 'Initializing'
--- state since this is when Head parties need to commit some funds.
+-- NOTE: We only project 'HeadId' when the Head is 'Open' since that is when
+-- deposits can be made.
 projectCommitInfo :: CommitInfo -> StateChanged.StateChanged tx -> CommitInfo
 projectCommitInfo commitInfo = \case
   StateChanged.Checkpoint state ->
     case headState state of
-      Initial InitialState{headId} -> NormalCommit headId
       Open OpenState{headId} -> IncrementalCommit headId
       _ -> CannotCommit
-  StateChanged.HeadInitialized{headId} -> NormalCommit headId
   StateChanged.HeadOpened{headId} -> IncrementalCommit headId
-  StateChanged.HeadAborted{} -> CannotCommit
   StateChanged.HeadClosed{} -> CannotCommit
   _other -> commitInfo
 

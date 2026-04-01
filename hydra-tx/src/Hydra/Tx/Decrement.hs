@@ -17,7 +17,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
-import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -29,8 +29,8 @@ decrementTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | Head identifier
-  HeadId ->
+  -- | Head seed and identifier
+  (TxIn, HeadId) ->
   -- | Parameters of the head.
   HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
@@ -39,14 +39,14 @@ decrementTx ::
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot signatures =
+decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot signatures =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
       & addTxInsReference [headScriptRef] mempty
       & addTxOuts (headOutput' : map fromCtxUTxOTxOut decommitOutputs)
       & addTxExtraKeyWits [verificationKeyHash vk]
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "DecrementTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "DecrementTx")
  where
   headRedeemer =
     toScriptData $
@@ -82,7 +82,8 @@ decrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     mkTxOutDatumInline $
       Head.Open
         Head.OpenDatum
-          { Head.parties = partyToChain <$> parties
+          { headSeed = toPlutusTxOutRef seedTxIn
+          , Head.parties = partyToChain <$> parties
           , utxoHash
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId

@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip))
-import Control.Lens ((?~), (^?!))
+import Control.Lens ((%~), (?~), (^?), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
@@ -350,18 +350,53 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
       , "shelley-genesis.json"
       , "alonzo-genesis.json"
       , "conway-genesis.json"
-      , "peer-snapshot.json"
       ]
       $ \fn -> do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
           >>= writeFileBS (stateDirectory </> fn)
+    -- NOTE: cardano-node >= 10.6.2 expects a specific format for peer-snapshot.json
+    -- but network config servers may serve an older format. We patch it to the new
+    -- format: add "version", rename "bigLedgerPools" -> "bigLedgerPeers", and
+    -- extract "slotNo" from "Point.blockPointSlot".
+    do
+      peerSnapshotRaw <- fetchConfigFile (knownNetworkPath </> "peer-snapshot.json")
+      case Aeson.decodeStrict peerSnapshotRaw of
+        Just v@(Aeson.Object _) ->
+          Aeson.encodeFile
+            (stateDirectory </> "peer-snapshot.json")
+            ( v
+                & atKey "version" ?~ Aeson.toJSON (1 :: Int)
+                & atKey "bigLedgerPeers" %~ (<|> (v ^? key "bigLedgerPools"))
+                & atKey "slotNo" %~ (<|> (v ^? key "Point" . key "blockPointSlot"))
+            )
+        _ ->
+          writeFileBS (stateDirectory </> "peer-snapshot.json") peerSnapshotRaw
     when (knownNetwork `elem` [Fixture.Mainnet, Fixture.Preview]) $ do
       forM_ ["checkpoints.json"] $
         \fn -> do
           createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
           fetchConfigFile (knownNetworkPath </> fn)
             >>= writeFileBS (stateDirectory </> fn)
+
+    when (knownNetwork `elem` [Fixture.Mainnet, Fixture.Preview, Fixture.Preproduction]) $ do
+      -- NOTE: cardano-node >= 10.6.2 expects a specific format for peer-snapshot.json
+      -- but network config servers may serve an older format. We patch it to the new
+      -- format: add "version", rename "bigLedgerPools" -> "bigLedgerPeers", and
+      -- extract "slotNo" from "Point.blockPointSlot".
+      do
+        peerSnapshotRaw <- fetchConfigFile (knownNetworkPath </> "peer-snapshot.json")
+        case Aeson.decodeStrict peerSnapshotRaw of
+          Just v@(Aeson.Object _) ->
+            Aeson.encodeFile
+              (stateDirectory </> "peer-snapshot.json")
+              ( v
+                  & atKey "version" ?~ Aeson.toJSON (1 :: Int)
+                  & atKey "bigLedgerPeers" %~ (<|> (v ^? key "bigLedgerPools"))
+                  & atKey "slotNo" %~ (<|> (v ^? key "Point" . key "blockPointSlot"))
+              )
+          _ ->
+            writeFileBS (stateDirectory </> "peer-snapshot.json") peerSnapshotRaw
 
   knownNetworkPath =
     knownNetworkConfigBaseURL </> knownNetworkName
@@ -371,13 +406,13 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
 
   -- Network name on remote
   knownNetworkName = case knownNetwork of
-    Fixture.Preview -> "environments-pre/preview"
-    Fixture.Preproduction -> "environments-pre/preprod"
+    Fixture.Preview -> "environments/preview"
+    Fixture.Preproduction -> "environments/preprod"
     Fixture.Mainnet -> "environments/mainnet"
     -- NOTE: Here we map blockfrost networks to cardano ones since we expect to find actor keys
     -- in known locations when running smoke-tests.
-    Fixture.BlockfrostPreview -> "environments-pre/preview"
-    Fixture.BlockfrostPreprod -> "environments-pre/preprod"
+    Fixture.BlockfrostPreview -> "environments/preview"
+    Fixture.BlockfrostPreprod -> "environments/preprod"
     Fixture.BlockfrostMainnet -> "environments/mainnet"
 
   fetchConfigFile :: String -> IO ByteString

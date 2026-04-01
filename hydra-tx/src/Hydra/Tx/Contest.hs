@@ -16,7 +16,7 @@ import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
-import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -64,7 +64,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & addTxOuts [headOutputAfter]
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "ContestTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
   Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit} = snapshot
 
