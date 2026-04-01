@@ -26,7 +26,7 @@ import Hydra.Tx (
   headReference,
  )
 import Hydra.Tx.Crypto (toPlutusSignatures)
-import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -71,7 +71,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityLowerBound (TxValidityLowerBound startSlotNo)
       & setTxValidityUpperBound (TxValidityUpperBound endSlotNo)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "CloseTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "CloseTx")
  where
   OpenThreadOutput
     { openThreadUTxO = (headInput, headOutputBefore)

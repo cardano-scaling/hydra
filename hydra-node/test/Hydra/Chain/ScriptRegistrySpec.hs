@@ -1,7 +1,7 @@
 module Hydra.Chain.ScriptRegistrySpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScripts)
 
@@ -50,7 +50,7 @@ spec = describe "publishHydraScripts" $ do
             )
     let backend = SuccessfulBackend vk utxo
     txIds <- publishHydraScripts backend sk
-    length txIds `shouldBe` 3
+    length txIds `shouldBe` 1
 
   it "throws PublishingFundsMissing error if no UTxO is found for the given address" $ do
     (vk, sk) <- generate genKeyPair

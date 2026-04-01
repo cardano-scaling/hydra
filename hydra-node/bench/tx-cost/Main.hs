@@ -34,10 +34,7 @@ import TxCost (
   NumParties,
   NumUTxO,
   TxSize,
-  computeAbortCost,
   computeCloseCost,
-  computeCollectComCost,
-  computeCommitCost,
   computeContestCost,
   computeDecrementCost,
   computeFanOutCost,
@@ -97,13 +94,10 @@ writeTransactionCostMarkdown mseed hdl = do
     Nothing -> generate chooseAny
     Just s -> pure s
   let initC = costOfInit seed
-  let commitC = costOfCommit seed
-  let collectComC = costOfCollectCom seed
   let incrementC = costOfIncrement seed
   let decrementC = costOfDecrement seed
   let closeC = costOfClose seed
   let contestC = costOfContest seed
-  let abortC = costOfAbort seed
   let fanoutC = costOfFanOut seed
   hPut hdl $
     encodeUtf8 $
@@ -113,13 +107,10 @@ writeTransactionCostMarkdown mseed hdl = do
           <> intersperse
             ""
             [ initC
-            , commitC
-            , collectComC
             , incrementC
             , decrementC
             , closeC
             , contestC
-            , abortC
             , fanoutC
             ]
 
@@ -155,8 +146,6 @@ scriptSizes =
   , ""
   , "| Name   | Hash | Size (Bytes) "
   , "| :----- | :--- | -----------: "
-  , "| " <> "νInitial" <> " | " <> serialiseToRawBytesHexText initialScriptHash <> " | " <> show initialScriptSize <> " | "
-  , "| " <> "νCommit" <> " | " <> serialiseToRawBytesHexText commitScriptHash <> " | " <> show commitScriptSize <> " | "
   , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
   , "| " <> "μHead" <> " | " <> serialiseToRawBytesHexText mintingScriptHash <> "* | " <> show mintingScriptSize <> " | "
   , "| " <> "νDeposit" <> " | " <> serialiseToRawBytesHexText depositScriptHash <> " | " <> show depositScriptSize <> " | "
@@ -168,10 +157,6 @@ scriptSizes =
   HydraScriptCatalogue
     { mintingScriptHash
     , mintingScriptSize
-    , initialScriptHash
-    , initialScriptSize
-    , commitScriptHash
-    , commitScriptSize
     , headScriptHash
     , headScriptSize
     , depositScriptHash
@@ -197,63 +182,6 @@ costOfInit = markdownInitCost . genFromSeed computeInitCost
               "| "
                 <> show numParties
                 <> "| "
-                <> show txSize
-                <> " | "
-                <> show (mem `percentOf` maxMem)
-                <> " | "
-                <> show (cpu `percentOf` maxCpu)
-                <> " | "
-                <> show (realToFrac minFee / 1_000_000 :: Centi)
-                <> " |"
-          )
-          stats
-
-costOfCommit :: Int -> Text
-costOfCommit = markdownCommitCost . genFromSeed computeCommitCost
- where
-  markdownCommitCost :: [(NumUTxO, TxSize, MemUnit, CpuUnit, Coin)] -> Text
-  markdownCommitCost stats =
-    unlines $
-      [ "## `Commit` transaction costs"
-      , " This uses ada-only outputs for better comparability."
-      , ""
-      , "| UTxO | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| :--- | ------: | --------: | --------: | --------: |"
-      ]
-        <> map
-          ( \(ulen, txSize, mem, cpu, Coin minFee) ->
-              "| "
-                <> show ulen
-                <> "| "
-                <> show txSize
-                <> " | "
-                <> show (mem `percentOf` maxMem)
-                <> " | "
-                <> show (cpu `percentOf` maxCpu)
-                <> " | "
-                <> show (realToFrac minFee / 1_000_000 :: Centi)
-                <> " |"
-          )
-          stats
-
-costOfCollectCom :: Int -> Text
-costOfCollectCom = markdownCollectComCost . genFromSeed computeCollectComCost
- where
-  markdownCollectComCost :: [(NumParties, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
-  markdownCollectComCost stats =
-    unlines $
-      [ "## `CollectCom` transaction costs"
-      , ""
-      , "| Parties | UTxO (bytes) |Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| :------ | :----------- |------: | --------: | --------: | --------: |"
-      ]
-        <> fmap
-          ( \(numParties, utxoSize, txSize, mem, cpu, Coin minFee) ->
-              "| "
-                <> show numParties
-                <> " | "
-                <> show utxoSize
-                <> " | "
                 <> show txSize
                 <> " | "
                 <> show (mem `percentOf` maxMem)
@@ -353,34 +281,6 @@ costOfContest = markdownContest . genFromSeed computeContestCost
   markdownContest stats =
     unlines $
       [ "## `Contest` transaction costs"
-      , ""
-      , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
-      , "| :------ | ------: | --------: | --------: | --------: |"
-      ]
-        <> fmap
-          ( \(numParties, txSize, mem, cpu, Coin minFee) ->
-              "| "
-                <> show numParties
-                <> "| "
-                <> show txSize
-                <> " | "
-                <> show (mem `percentOf` maxMem)
-                <> " | "
-                <> show (cpu `percentOf` maxCpu)
-                <> " | "
-                <> show (realToFrac minFee / 1_000_000 :: Centi)
-                <> " |"
-          )
-          stats
-
-costOfAbort :: Int -> Text
-costOfAbort = markdownAbortCost . genFromSeed computeAbortCost
- where
-  markdownAbortCost :: [(NumParties, TxSize, MemUnit, CpuUnit, Coin)] -> Text
-  markdownAbortCost stats =
-    unlines $
-      [ "## `Abort` transaction costs"
-      , "There is some variation due to the random mixture of initial and already committed outputs."
       , ""
       , "| Parties | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| :------ | ------: | --------: | --------: | --------: |"

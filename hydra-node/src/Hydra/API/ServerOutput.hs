@@ -13,7 +13,7 @@ import Hydra.API.ClientInput (ClientInput)
 import Hydra.Chain (PostChainTx, PostTxError)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure)
-import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), InitialState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State (ClosedState (..), HeadState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion)
@@ -26,7 +26,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
@@ -144,9 +144,7 @@ data ServerOutput tx
       }
   | PeerConnected {peer :: Host}
   | PeerDisconnected {peer :: Host}
-  | HeadIsInitializing {headId :: HeadId, parties :: [Party]}
-  | Committed {headId :: HeadId, party :: Party, utxo :: UTxOType tx}
-  | HeadIsOpen {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadIsOpen {headId :: HeadId, parties :: [Party]}
   | HeadIsClosed
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
@@ -159,7 +157,6 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | ReadyToFanout {headId :: HeadId}
-  | HeadIsAborted {headId :: HeadId, utxo :: UTxOType tx}
   | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
@@ -184,8 +181,8 @@ data ServerOutput tx
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
-  | -- XXX: Rename to DepositRecorded following the state events naming. But only
-    -- do this when changing the endpoint also to /commits
+  | -- TODO: Rename to DepositRecorded following the state events naming. But only
+    -- do this when changing the endpoint also to /deposits
     CommitRecorded
       { headId :: HeadId
       , utxoToCommit :: UTxOType tx
@@ -195,10 +192,12 @@ data ServerOutput tx
       }
   | DepositActivated {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
   | DepositExpired {headId :: HeadId, depositTxId :: TxIdType tx, deadline :: UTCTime, chainTime :: UTCTime}
-  | CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
-  | CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
-  | -- XXX: Rename to DepositRecovered to be more consistent. But only do this
-    -- when changing the endpoint also to /commits
+  | -- TODO: Rename to DepositApproved
+    CommitApproved {headId :: HeadId, utxoToCommit :: UTxOType tx}
+  | -- TODO: Rename to DepositFinalized
+    CommitFinalized {headId :: HeadId, depositTxId :: TxIdType tx}
+  | -- TODO: Rename to DepositRecovered to be more consistent. But only do this
+    -- when changing the endpoint also to /deposits
     CommitRecovered {headId :: HeadId, recoveredUTxO :: UTxOType tx, recoveredTxId :: TxIdType tx}
   | -- | Snapshot was side-loaded, and the included transactions can be considered final.
     -- The local state has been reset, meaning pending transactions were pruned.
@@ -243,13 +242,10 @@ prepareServerOutput ::
   LBS.ByteString
 prepareServerOutput config response =
   case output response of
-    Committed{} -> encodedResponse
-    HeadIsInitializing{} -> encodedResponse
     HeadIsOpen{} -> encodedResponse
     HeadIsClosed{} -> encodedResponse
     HeadIsContested{} -> encodedResponse
     ReadyToFanout{} -> encodedResponse
-    HeadIsAborted{} -> encodedResponse
     HeadIsFinalized{} -> encodedResponse
     TxValid{} -> encodedResponse
     TxInvalid{} -> encodedResponse
@@ -291,7 +287,6 @@ handleUtxoInclusion config f bs =
 -- | All possible Hydra states displayed in the API server outputs.
 data HeadStatus
   = Idle
-  | Initializing
   | Open
   | Closed
   | FanoutPossible
@@ -301,7 +296,6 @@ data HeadStatus
 -- | All information needed to distinguish behavior of the commit endpoint.
 data CommitInfo
   = CannotCommit
-  | NormalCommit HeadId
   | IncrementalCommit HeadId
 
 -- | L2 Hydra network status information.
@@ -317,9 +311,6 @@ getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
   HeadState.Idle{} ->
     Nothing
-  HeadState.Initial InitialState{committed} ->
-    let u0 = fold committed
-     in Just u0
   HeadState.Open OpenState{coordinatedHeadState} ->
     let snapshot = getSnapshot coordinatedHeadState.confirmedSnapshot
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
@@ -328,11 +319,9 @@ getSnapshotUtxo = \case
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
-getSeenSnapshot :: HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot :: Monoid (UTxOType tx) => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
   HeadState.Idle{} ->
-    NoSeenSnapshot
-  HeadState.Initial{} ->
     NoSeenSnapshot
   HeadState.Open OpenState{coordinatedHeadState} ->
     coordinatedHeadState.seenSnapshot
@@ -341,13 +330,10 @@ getSeenSnapshot = \case
      in LastSeenSnapshot number
 
 -- | Get latest confirmed snapshot from 'HeadState'.
-getConfirmedSnapshot :: IsChainState tx => HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
+getConfirmedSnapshot :: HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
 getConfirmedSnapshot = \case
   HeadState.Idle{} ->
     Nothing
-  HeadState.Initial InitialState{headId, committed} ->
-    let u0 = fold committed
-     in Just $ InitialSnapshot headId u0
   HeadState.Open OpenState{coordinatedHeadState} ->
     Just coordinatedHeadState.confirmedSnapshot
   HeadState.Closed ClosedState{confirmedSnapshot} ->

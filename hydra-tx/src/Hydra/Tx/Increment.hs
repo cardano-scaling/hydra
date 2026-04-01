@@ -5,6 +5,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List qualified as List
+import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -20,7 +21,7 @@ import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
-import Hydra.Tx.Utils (findStateToken, mkHydraHeadV1TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
 -- * Construction
@@ -32,8 +33,8 @@ incrementTx ::
   ScriptRegistry ->
   -- | Party who's authorizing this transaction
   VerificationKey PaymentKey ->
-  -- | Head identifier
-  HeadId ->
+  -- | Head seed and identifier
+  (TxIn, HeadId) ->
   -- | Parameters of the head.
   HeadParameters ->
   -- | Everything needed to spend the Head state-machine output.
@@ -45,7 +46,7 @@ incrementTx ::
   SlotNo ->
   MultiSignature (Snapshot Tx) ->
   Tx
-incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
+incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
@@ -53,7 +54,7 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
       & addTxOuts [headOutput']
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxValidityUpperBound (TxValidityUpperBound upperValiditySlot)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV1TxName "IncrementTx")
+      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "IncrementTx")
  where
   headRedeemer =
     toScriptData $
@@ -84,7 +85,8 @@ incrementTx scriptRegistry vk headId headParameters (headInput, headOutput) snap
     mkTxOutDatumInline $
       Head.Open
         Head.OpenDatum
-          { Head.parties = partyToChain <$> parties
+          { headSeed = toPlutusTxOutRef seedTxIn
+          , Head.parties = partyToChain <$> parties
           , utxoHash
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
@@ -111,21 +113,25 @@ data IncrementObservation = IncrementObservation
   { headId :: HeadId
   , newVersion :: SnapshotVersion
   , depositTxId :: TxId
+  , deposited :: UTxO
   }
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 observeIncrementTx ::
+  NetworkId ->
   UTxO ->
   Tx ->
   Maybe IncrementObservation
-observeIncrementTx utxo tx = do
+observeIncrementTx networkId utxo tx = do
   let inputUTxO = resolveInputsUTxO utxo tx
   (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
   (TxIn depositTxId _, depositOutput) <- findTxOutByScript inputUTxO depositValidatorScript
   dat <- txOutScriptData $ fromCtxUTxOTxOut depositOutput
-  -- we need to be able to decode the datum, no need to use it tho
-  _ :: Deposit.DepositDatum <- fromScriptData dat
+  (_, _, onChainDeposits) <- fromScriptData dat :: Maybe Deposit.DepositDatum
+  deposited <- do
+    depositedUTxO <- traverse (Commit.deserializeCommit (toShelleyNetwork networkId)) onChainDeposits
+    pure $ UTxO.fromList depositedUTxO
   redeemer <- findRedeemerSpending tx headInput
   oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
   datum <- fromScriptData oldHeadDatum
@@ -141,6 +147,7 @@ observeIncrementTx utxo tx = do
               { headId
               , newVersion = fromChainSnapshotVersion version
               , depositTxId
+              , deposited
               }
         _ -> Nothing
     _ -> Nothing

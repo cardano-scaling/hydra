@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip))
-import Control.Lens ((?~), (^?!))
+import Control.Lens ((%~), (?~), (^?), (^?!))
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value (String), (.=))
 import Data.Aeson qualified as Aeson
@@ -18,10 +18,13 @@ import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Data.Vector qualified as Vector
 import Hydra.Cardano.Api (
+  Coin,
   File (..),
   NetworkId,
   NetworkMagic (..),
   SocketPath,
+  TxId (..),
+  UTxO,
   getProgress,
  )
 import Hydra.Cardano.Api qualified as Api
@@ -29,13 +32,16 @@ import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
 import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (delayBF)
-import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
+import Hydra.Cluster.Faucet (FaucetLog, delayBF, publishOrReuseHydraScripts)
+import Hydra.Cluster.Fixture qualified as Fixture
+import Hydra.Cluster.Mithril (MithrilLog, downloadLatestSnapshotTo)
+import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (readConfigFile)
 import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (
   createDirectoryIfMissing,
+  doesDirectoryExist,
   doesFileExist,
   getCurrentDirectory,
   removeFile,
@@ -54,6 +60,31 @@ import System.Process (
   withCreateProcess,
  )
 import Test.Hydra.Prelude
+
+data HydraNodeLog
+  = HydraNodeCommandSpec {cmd :: Text}
+  | NodeStarted {nodeId :: Int}
+  | SentMessage {nodeId :: Int, message :: Aeson.Value}
+  | StartWaiting {nodeIds :: [Int], messages :: [Aeson.Value]}
+  | ReceivedMessage {nodeId :: Int, message :: Aeson.Value}
+  | EndWaiting {nodeId :: Int}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
+data EndToEndLog
+  = ClusterOptions {options :: Options}
+  | FromCardanoNode NodeLog
+  | FromFaucet FaucetLog
+  | FromHydraNode HydraNodeLog
+  | FromMithril MithrilLog
+  | StartingFunds {actor :: String, utxo :: UTxO}
+  | RefueledFunds {actor :: String, refuelingAmount :: Coin, utxo :: UTxO}
+  | RemainingFunds {actor :: String, utxo :: UTxO}
+  | PublishedHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
+  | CreatedKey {keyPath :: FilePath}
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
 
 data NodeLog
   = MsgNodeCmdSpec {cmd :: Text}
@@ -140,11 +171,11 @@ getCardanoNodeVersion =
 -- | Tries to find an communicate with an existing cardano-node running in given
 -- work directory. NOTE: This is using the default node socket name as defined
 -- by 'defaultCardanoNodeArgs'.
-findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe (NominalDiffTime, DirectBackend))
+findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> Fixture.KnownNetwork -> IO (Maybe (NominalDiffTime, DirectBackend))
 findRunningCardanoNode tracer workDir knownNetwork = do
   findRunningCardanoNode' tracer knownNetworkId socketPath
  where
-  knownNetworkId = toNetworkId knownNetwork
+  knownNetworkId = Fixture.toNetworkId knownNetwork
 
   socketPath = File $ workDir </> nodeSocket
 
@@ -175,7 +206,7 @@ withCardanoNodeDevnet tracer stateDirectory action = do
   withCardanoNode tracer stateDirectory args action
 
 withBlockfrostBackend ::
-  Tracer IO NodeLog ->
+  Tracer IO EndToEndLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
   (NominalDiffTime -> BlockfrostBackend -> IO a) ->
@@ -219,14 +250,72 @@ findFileStartingAtDirectory maxDepth fileName = do
 
 withBackend ::
   forall a.
-  Tracer IO NodeLog ->
+  Tracer IO EndToEndLog ->
   FilePath ->
   (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
-  getHydraBackend >>= \case
-    DirectBackendType -> withCardanoNodeDevnet tracer stateDirectory action
-    BlockfrostBackendType -> withBlockfrostBackend tracer stateDirectory action
+  getHydraNetwork >>= \case
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
+    Preview -> withNode Fixture.Preview action
+    Preproduction -> withNode Fixture.Preproduction action
+    Mainnet -> withNode Fixture.Mainnet action
+    Blockfrost -> withBlockfrostBackend tracer stateDirectory action
+ where
+  withNode network action' = do
+    nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
+    createDirectoryIfMissing True nodeDir
+    let syncAndRun blockTime backend = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
+          action' blockTime backend
+    findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
+      Just (blockTime, backend) ->
+        syncAndRun blockTime backend
+      Nothing -> do
+        let dbDir = nodeDir </> "db"
+        dbExists <- doesDirectoryExist dbDir
+        unless dbExists $ do
+          downloadLatestSnapshotTo (contramap FromMithril tracer) network nodeDir
+        withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) nodeDir network syncAndRun
+
+-- | Like 'withBackend', but also publishes (or reuses cached) Hydra scripts.
+-- On public testnets the cache file is stored in the persistent 'HYDRA_WORK_DIR',
+-- so scripts are published once and reused across test runs. On local devnet,
+-- the per-test 'stateDirectory' is used, so scripts are always published fresh.
+withHydraScriptsAndBackendRunning ::
+  forall a.
+  Tracer IO EndToEndLog ->
+  FilePath ->
+  (forall backend. ChainBackend backend => backend -> [TxId] -> IO a) ->
+  IO a
+withHydraScriptsAndBackendRunning tracer stateDirectory action = do
+  getHydraNetwork >>= \case
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \_ backend -> do
+      txIds <- publishOrReuseHydraScripts backend Fixture.Faucet stateDirectory
+      action backend txIds
+    Preview -> withPublicTestnetNode Fixture.Preview
+    Preproduction -> withPublicTestnetNode Fixture.Preproduction
+    Mainnet -> withPublicTestnetNode Fixture.Mainnet
+    Blockfrost -> withBlockfrostBackend tracer stateDirectory $ \_ backend -> do
+      txIds <- publishOrReuseHydraScripts backend Fixture.Faucet stateDirectory
+      action backend txIds
+ where
+  withPublicTestnetNode network = do
+    nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
+    createDirectoryIfMissing True nodeDir
+    let syncPublishAndRun _ backend = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
+          txIds <- publishOrReuseHydraScripts backend Fixture.Faucet nodeDir
+          action backend txIds
+    findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
+      Just (blockTime, backend) ->
+        syncPublishAndRun blockTime backend
+      Nothing -> do
+        let dbDir = nodeDir </> "db"
+        dbExists <- doesDirectoryExist dbDir
+        unless dbExists $ do
+          downloadLatestSnapshotTo (contramap FromMithril tracer) network nodeDir
+        withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) nodeDir network syncPublishAndRun
 
 -- | Run a cardano-node as normal network participant on a known network.
 withCardanoNodeOnKnownNetwork ::
@@ -234,7 +323,7 @@ withCardanoNodeOnKnownNetwork ::
   -- | State directory in which node db & logs are persisted.
   FilePath ->
   -- | A well-known Cardano network to connect to.
-  KnownNetwork ->
+  Fixture.KnownNetwork ->
   (NominalDiffTime -> DirectBackend -> IO a) ->
   IO a
 withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
@@ -261,13 +350,29 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
       , "shelley-genesis.json"
       , "alonzo-genesis.json"
       , "conway-genesis.json"
-      , "peer-snapshot.json"
       ]
       $ \fn -> do
         createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
         fetchConfigFile (knownNetworkPath </> fn)
           >>= writeFileBS (stateDirectory </> fn)
-    when (knownNetwork `elem` [Mainnet, Preview]) $ do
+    -- NOTE: cardano-node >= 10.6.2 expects a specific format for peer-snapshot.json
+    -- but network config servers may serve an older format. We patch it to the new
+    -- format: add "version", rename "bigLedgerPools" -> "bigLedgerPeers", and
+    -- extract "slotNo" from "Point.blockPointSlot".
+    do
+      peerSnapshotRaw <- fetchConfigFile (knownNetworkPath </> "peer-snapshot.json")
+      case Aeson.decodeStrict peerSnapshotRaw of
+        Just v@(Aeson.Object _) ->
+          Aeson.encodeFile
+            (stateDirectory </> "peer-snapshot.json")
+            ( v
+                & atKey "version" ?~ Aeson.toJSON (1 :: Int)
+                & atKey "bigLedgerPeers" %~ (<|> (v ^? key "bigLedgerPools"))
+                & atKey "slotNo" %~ (<|> (v ^? key "Point" . key "blockPointSlot"))
+            )
+        _ ->
+          writeFileBS (stateDirectory </> "peer-snapshot.json") peerSnapshotRaw
+    when (knownNetwork `elem` [Fixture.Mainnet, Fixture.Preview]) $ do
       forM_ ["checkpoints.json"] $
         \fn -> do
           createDirectoryIfMissing True $ stateDirectory </> takeDirectory fn
@@ -282,14 +387,14 @@ withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
 
   -- Network name on remote
   knownNetworkName = case knownNetwork of
-    Preview -> "environments-pre/preview"
-    Preproduction -> "environments-pre/preprod"
-    Mainnet -> "environments/mainnet"
+    Fixture.Preview -> "environments-pre/preview"
+    Fixture.Preproduction -> "environments-pre/preprod"
+    Fixture.Mainnet -> "environments/mainnet"
     -- NOTE: Here we map blockfrost networks to cardano ones since we expect to find actor keys
     -- in known locations when running smoke-tests.
-    BlockfrostPreview -> "environments-pre/preview"
-    BlockfrostPreprod -> "environments-pre/preprod"
-    BlockfrostMainnet -> "environments/mainnet"
+    Fixture.BlockfrostPreview -> "environments-pre/preview"
+    Fixture.BlockfrostPreprod -> "environments-pre/preprod"
+    Fixture.BlockfrostMainnet -> "environments/mainnet"
 
   fetchConfigFile :: String -> IO ByteString
   fetchConfigFile path =

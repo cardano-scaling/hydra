@@ -152,13 +152,12 @@ import Hydra.Data.ContestationPeriod
 import Hydra.Data.Party qualified as Data (Party)
 import Hydra.Plutus.Orphans ()
 import Hydra.Prelude hiding (label, toList)
-import Hydra.Tx.Utils (findFirst, onChainIdToAssetName, verificationKeyToOnChainId)
+import Hydra.Tx.Utils (findFirst)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Fixture (testPolicyId)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
@@ -548,19 +547,6 @@ modifyInlineDatum fn txOut =
           txOut{txOutDatum = mkTxOutDatumInline $ fn st}
         Nothing -> error "invalid data"
 
-addParticipationTokens :: [VerificationKey PaymentKey] -> TxOut CtxUTxO -> TxOut CtxUTxO
-addParticipationTokens vks txOut =
-  txOut{txOutValue = val'}
- where
-  val' =
-    txOutValue txOut
-      <> fromList
-        [ (AssetId testPolicyId (onChainIdToAssetName oid), 1)
-        | oid <- participants
-        ]
-
-  participants = verificationKeyToOnChainId <$> vks
-
 -- | Ensures the included datums of given 'TxOut's are included in the transactions' 'TxBodyScriptData'.
 ensureDatums :: [TxOut CtxTx] -> TxBodyScriptData -> TxBodyScriptData
 ensureDatums outs scriptData =
@@ -717,10 +703,11 @@ replacePolicyInValue original replacement =
 
 replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
 replaceSnapshotVersion snapshotVersion = \case
-  Head.Open Head.OpenDatum{parties, utxoHash, headId, contestationPeriod} ->
+  Head.Open Head.OpenDatum{headSeed, parties, utxoHash, headId, contestationPeriod} ->
     Head.Open
       Head.OpenDatum
-        { Head.parties = parties
+        { Head.headSeed = headSeed
+        , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -762,17 +749,11 @@ replaceSnapshotNumber snapshotNumber = \case
 
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
-  Head.Initial{contestationPeriod, headId, seed} ->
-    Head.Initial
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.headId = headId
-      , Head.seed = seed
-      }
-  Head.Open Head.OpenDatum{contestationPeriod, utxoHash, headId, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, headId, version} ->
     Head.Open
       Head.OpenDatum
-        { Head.contestationPeriod = contestationPeriod
+        { Head.headSeed = headSeed
+        , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.headId = headId
@@ -796,10 +777,11 @@ replaceParties parties = \case
 
 replaceUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceUTxOHash utxoHash = \case
-  Head.Open Head.OpenDatum{contestationPeriod, parties, headId, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, headId, version} ->
     Head.Open
       Head.OpenDatum
-        { Head.contestationPeriod = contestationPeriod
+        { Head.headSeed = headSeed
+        , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.headId = headId
@@ -877,17 +859,11 @@ replaceContestationPeriod contestationPeriod = \case
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
 replaceHeadId headId = \case
-  Head.Initial{contestationPeriod, parties, seed} ->
-    Head.Initial
-      { Head.contestationPeriod = contestationPeriod
-      , Head.parties = parties
-      , Head.headId = headId
-      , Head.seed = seed
-      }
-  Head.Open Head.OpenDatum{contestationPeriod, utxoHash, parties, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, parties, version} ->
     Head.Open
       Head.OpenDatum
-        { Head.contestationPeriod = contestationPeriod
+        { Head.headSeed = headSeed
+        , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
         , Head.utxoHash = utxoHash
         , Head.headId = headId
@@ -926,22 +902,3 @@ replaceContesters contesters = \case
         , Head.version = version
         }
   otherState -> otherState
-
-removePTFromMintedValue :: TxOut CtxUTxO -> Tx -> Value
-removePTFromMintedValue output tx =
-  case toList $ txMintValueToValue $ txMintValue $ getTxBodyContent $ txBody tx of
-    [] -> error "expected minted value"
-    v -> fromList $ filter (not . isPT) v
- where
-  outValue = txOutValue output
-  assetNames =
-    [ (policyId, pkh) | (AssetId policyId pkh, _) <- toList outValue, policyId == testPolicyId
-    ]
-  (headId, assetName) =
-    case assetNames of
-      [assetId] -> assetId
-      _ -> error "expected one assetId"
-  isPT = \case
-    (AssetId pid asset, _) ->
-      pid == headId && asset == assetName
-    _ -> False

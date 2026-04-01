@@ -16,7 +16,6 @@ module Test.Hydra.Prelude (
   exceptionContaining,
   withClearedPATH,
   onlyNightly,
-  requiresBlockfrost,
   Gen,
   Arbitrary (..),
   genericArbitrary,
@@ -24,8 +23,8 @@ module Test.Hydra.Prelude (
   generateWith,
   shrinkListAggressively,
   MinimumSized (..),
-  HydraBackend (..),
-  getHydraBackend,
+  HydraTestnet (..),
+  getHydraNetwork,
 ) where
 
 import Hydra.Prelude
@@ -239,31 +238,23 @@ onlyNightly action = do
     Nothing -> pendingWith "Only runs nightly"
     Just _ -> action
 
--- | Only run this task when the HYDRA_BACKEND environment variable is set (to
--- anything).
---
--- If you're using this, you want to tag the test with `@requiresBlockfrost` as well;
--- like:
---
---  spec = around_ requiresBlockfrost $ describe "... @requiresBlockfrost" $ do
---    ...
-requiresBlockfrost :: IO () -> IO ()
-requiresBlockfrost action = do
-  getHydraBackend >>= \case
-    DirectBackendType -> pendingWith "Only runs requiresBlockfrost"
-    BlockfrostBackendType -> action
+data HydraTestnet
+  = LocalDevnet
+  | Preview
+  | Preproduction
+  | Mainnet
+  | Blockfrost
 
-data HydraBackend
-  = DirectBackendType
-  | BlockfrostBackendType
-
-getHydraBackend :: IO HydraBackend
-getHydraBackend = do
+getHydraNetwork :: IO HydraTestnet
+getHydraNetwork = do
   backend <- lookupEnv "HYDRA_BACKEND"
   pure $ case backend of
-    Nothing -> DirectBackendType
-    Just "direct" -> DirectBackendType
-    Just "blockfrost" -> BlockfrostBackendType
+    Nothing -> LocalDevnet
+    Just "devnet" -> LocalDevnet
+    Just "preview" -> Preview
+    Just "preproduction" -> Preproduction
+    Just "mainnet" -> Mainnet
+    Just "blockfrost" -> Blockfrost
     Just other -> error $ "Unknown HYDRA_BACKEND: " <> Text.pack other
 
 -- | Provides a sensible way of automatically deriving generic 'Arbitrary'

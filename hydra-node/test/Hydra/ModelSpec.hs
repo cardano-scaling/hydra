@@ -53,10 +53,8 @@
 -- failure:
 --
 -- @@
---   do action $ Seed {seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d",CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = 46s, seedDepositDeadline = 50s, toCommit = fromList [(Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},[(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])])]}
+--   do action $ Seed {seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d",CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = 46s, seedDepositDeadline = 50s}
 --      var2 <- action $ Init (Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
---      action $ Commit {headIdVar = var2, party = Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, utxoToCommit = [(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])]}
---      action $ Decommit {party = Party {vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, decommitTx = Payment { from = CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, to = CardanoSigningKey {signingKey = "0702050602000101050108060302010707060007020308080801060700030306"}, value = valueFromList [(AdaAssetId,54862683)] }}
 --      action $ Deposit {headIdVar = var2, utxoToDeposit = [(CardanoSigningKey {signingKey = "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList [(AdaAssetId,54862683)])], deadline = 1864-06-06 08:24:08.669152896211 UTC}
 --      pure ()
 -- @@
@@ -68,10 +66,8 @@
 --
 -- @@
 --   it "troubleshoot" . withMaxSuccess 1 . flip forAllDL propHydraModel $ do
---     action $ Seed{seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d", CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = UnsafeContestationPeriod 46, seedDepositDeadline = UnsafeDepositDeadline 50, toCommit = fromList [(Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])])]}
+--     action $ Seed{seedKeys = [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d", CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"})], seedContestationPeriod = UnsafeContestationPeriod 46, seedDepositDeadline = UnsafeDepositDeadline 50}
 --     var2 <- action $ Init (Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
---     action $ Commit{headIdVar = var2, party = Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, utxoToCommit = [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])]}
---     action $ Decommit{party = Party{vkey = "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"}, decommitTx = Payment{from = CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, to = CardanoSigningKey{signingKey = "0702050602000101050108060302010707060007020308080801060700030306"}, value = valueFromList [(AdaAssetId, 54862683)]}}
 --     action $ Deposit{headIdVar = var2, utxoToDeposit = [(CardanoSigningKey{signingKey = "0400020803030302070808060405040001050408070401040604000005010603"}, valueFromList [(AdaAssetId, 54862683)])], deadline = read "1864-06-06 08:24:08.669152896211 UTC"}
 --     pure ()
 -- @@
@@ -98,9 +94,7 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
-  genInit,
   genPayment,
-  genSeed,
   headUTxO,
   runMonad,
   toRealUTxO,
@@ -156,14 +150,13 @@ spec = do
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
   prop "check model" propHydraModel
   prop "check model balances" propCheckModelBalances
-  -- This scenario seeds a head with a single party and an UTxO set of 47 elements,
+  -- This scenario seeds a head with a single party and an UTxO set of 50 elements,
   -- which is over the budget of the mocked chain implementation.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
-  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 48)
-  prop "succeeds fanout under the limit" $ propFanoutLimit 47
+  prop "fails fanout over the limit" $ expectFailure (propFanoutLimit 50)
+  prop "succeeds fanout under the limit" $ propFanoutLimit 49
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
-    prop "check head opens if all participants commit" $ propDL headOpensIfAllPartiesCommit
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO
     prop "parties contest to wrong closed snapshot" $ propDL partyContestsToWrongClosedSnapshot
 
@@ -177,11 +170,10 @@ propFanoutLimit limit =
         Seed
           { seedKeys = [(aliceSk, head aliceCardanoSks)]
           , contestationPeriod = UnsafeContestationPeriod 10
-          , toCommit = Map.fromList [(alice, utxo)]
-          , additionalUTxO = mempty
+          , additionalUTxO = utxo
           }
     headId <- action $ Init alice
-    void $ action $ Commit headId alice utxo
+    void $ action $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
     void $ action Close{party = alice}
     void $ action $ Wait 3600
     void $ action $ Fanout alice
@@ -257,9 +249,9 @@ propIsDistributive f x y =
 -- an old snapshot
 partyContestsToWrongClosedSnapshot :: DL WorldState ()
 partyContestsToWrongClosedSnapshot = do
-  headOpensIfAllPartiesCommit
+  anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
@@ -274,7 +266,7 @@ fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
 fanoutContainsWholeConfirmedUTxO = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
@@ -289,34 +281,6 @@ nonConflictingTx st =
   withGenQ (genPayment st) (const True) (const [])
     `whereQ` \(party, tx) -> precondition st (Model.NewTx party tx)
 
-headOpensIfAllPartiesCommit :: DL WorldState ()
-headOpensIfAllPartiesCommit = do
-  seedTheWorld
-  initHead
-  everybodyCommit
-  eventually' ObserveHeadIsOpen
- where
-  eventually' :: Action WorldState () -> DL WorldState ()
-  eventually' a = action (Wait 1000) >> action_ a
-
-  seedTheWorld = forAllNonVariableQ (withGenQ genSeed (const True) (const [])) >>= action_
-
-  initHead = do
-    WorldState{hydraParties} <- getModelStateDL
-    forAllQ (withGenQ (genInit hydraParties) (const True) (const [])) >>= action_
-
-  everybodyCommit = do
-    WorldState{hydraParties, hydraState} <- getModelStateDL
-    case hydraState of
-      Initial{headIdVar, pendingCommits} ->
-        forM_ hydraParties $ \p -> do
-          let party = deriveParty (fst p)
-          case Map.lookup party pendingCommits of
-            Nothing -> pure ()
-            Just utxo ->
-              void $ action $ Model.Commit headIdVar party utxo
-      _ -> pure ()
-
 -- • Conflict-Free Liveness (Head):
 --
 -- In presence of a network adversary, a conflict-free execution satisfies the following condition:
@@ -327,7 +291,7 @@ conflictFreeLiveness :: DL WorldState ()
 conflictFreeLiveness = do
   anyActions_
   getModelStateDL >>= \case
-    st@WorldState{hydraState = Open{}} -> do
+    st@WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}} | not (null confirmedUTxO) -> do
       (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
       tx <- action $ Model.NewTx party payment
       eventually (ObserveConfirmedTx tx)
@@ -342,7 +306,7 @@ propDoesNotGenerate0AdaUTxO (Actions actions) =
  where
   contains0AdaUTxO :: Step WorldState -> Bool
   contains0AdaUTxO = \case
-    _anyVar := (ActionWithPolarity (Model.Commit _ _anyParty utxos) _) -> any contains0Ada utxos
+    _anyVar := (ActionWithPolarity (Model.Deposit _ utxo) _) -> any contains0Ada utxo
     _anyVar := (ActionWithPolarity (Model.NewTx _anyParty Payment.Payment{value}) _) -> value == lovelaceToValue 0
     _anyOtherStep -> False
 

@@ -54,10 +54,10 @@ spec = do
 
     let coordinatedHeadState =
           CoordinatedHeadState
-            { localUTxO = u0
+            { localUTxO = mempty
             , allTxs = mempty
             , localTxs = mempty
-            , confirmedSnapshot = InitialSnapshot testHeadId u0
+            , confirmedSnapshot = InitialSnapshot testHeadId
             , seenSnapshot = NoSeenSnapshot
             , currentDepositTxId = Nothing
             , decommitTx = Nothing

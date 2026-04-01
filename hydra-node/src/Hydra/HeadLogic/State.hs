@@ -26,7 +26,7 @@ import Hydra.Tx.Snapshot (
 -- | The main state of the Hydra protocol state machine. It holds both, the
 -- overall protocol state, but also the off-chain 'CoordinatedHeadState'.
 --
--- Each of the sub-types (InitialState, OpenState, etc.) contain a black-box
+-- Each of the sub-types (OpenState, etc.) contain a black-box
 -- 'chainState' corresponding to the 'ChainEvent' that has been observed leading
 -- to the state.
 --
@@ -38,7 +38,6 @@ import Hydra.Tx.Snapshot (
 -- do not persist the 'HeadState' and not access it in the HeadLogic either.
 data HeadState tx
   = Idle (IdleState tx)
-  | Initial (InitialState tx)
   | Open (OpenState tx)
   | Closed (ClosedState tx)
   deriving stock (Generic)
@@ -52,7 +51,6 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
 setChainState chainState = \case
   Idle st -> Idle st{chainState}
-  Initial st -> Initial st{chainState}
   Open st -> Open st{chainState}
   Closed st -> Closed st{chainState}
 
@@ -60,7 +58,6 @@ setChainState chainState = \case
 getChainState :: HeadState tx -> ChainStateType tx
 getChainState = \case
   Idle IdleState{chainState} -> chainState
-  Initial InitialState{chainState} -> chainState
   Open OpenState{chainState} -> chainState
   Closed ClosedState{chainState} -> chainState
 
@@ -68,7 +65,6 @@ getChainState = \case
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
 getHeadParameters = \case
   Idle _ -> Nothing
-  Initial InitialState{parameters} -> Just parameters
   Open OpenState{parameters} -> Just parameters
   Closed ClosedState{parameters} -> Just parameters
 
@@ -76,7 +72,6 @@ getHeadParameters = \case
 getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 getOpenStateConfirmedSnapshot = \case
   Idle _ -> Nothing
-  Initial InitialState{} -> Nothing
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> Just confirmedSnapshot
   Closed ClosedState{} -> Nothing
 
@@ -90,28 +85,6 @@ deriving stock instance Eq (ChainStateType tx) => Eq (IdleState tx)
 deriving stock instance Show (ChainStateType tx) => Show (IdleState tx)
 deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (IdleState tx)
 deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (IdleState tx)
-
--- ** Initial
-
--- | An 'Initial' head which already has an identity and is collecting commits.
-data InitialState tx = InitialState
-  { parameters :: HeadParameters
-  , pendingCommits :: PendingCommits
-  , committed :: Committed tx
-  , chainState :: ChainStateType tx
-  , headId :: HeadId
-  , headSeed :: HeadSeed
-  }
-  deriving stock (Generic)
-
-deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (InitialState tx)
-deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (InitialState tx)
-deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (InitialState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (InitialState tx)
-
-type PendingCommits = Set Party
-
-type Committed tx = Map Party (UTxOType tx)
 
 -- ** Open
 

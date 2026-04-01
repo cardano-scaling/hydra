@@ -40,9 +40,10 @@ import Hydra.Cluster.Fixture (
   Actor (..),
   aliceSk,
  )
-import Hydra.Cluster.Util (chainConfigFor, createAndSaveSigningKey, keysFor)
+import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
+import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
@@ -61,6 +62,9 @@ import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod
 tuiContestationPeriod = 10
+
+tuiDepositPeriod :: DepositPeriod
+tuiDepositPeriod = 10
 
 spec :: Spec
 spec = do
@@ -84,25 +88,8 @@ spec = do
             shouldRender "Idle"
             sendInputEvent $ EvKey (KChar 'i') []
             threadDelay 1
-            shouldRender "Initializing"
-            restartNode
-            sendInputEvent $ EvKey (KChar 'h') []
-            threadDelay 1
-            shouldNotRender "HeadIsInitializing"
-            shouldRender "Checkpoint triggered"
-            sendInputEvent $ EvKey (KChar 's') []
-            threadDelay 1
-            shouldRender "Initializing"
-            shouldRender "Head id"
-            -- open the head
-            sendInputEvent $ EvKey (KChar 'c') []
-            threadDelay 1
-            shouldRender "42000000 lovelace"
-            sendInputEvent $ EvKey (KChar '>') []
-            sendInputEvent $ EvKey (KChar ' ') []
-            sendInputEvent $ EvKey KEnter []
-            threadDelay 1
             shouldRender "Open"
+            shouldRender "Head id"
             restartNode
             sendInputEvent $ EvKey (KChar 'h') []
             threadDelay 1
@@ -132,37 +119,12 @@ spec = do
           threadDelay 1
           shouldRender "TUI"
           sendInputEvent $ EvKey (KChar 'q') []
-      it "supports the init & abort Head life cycle" $
-        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
-          threadDelay 1
-          shouldRender "Connected"
-          shouldRender "Idle"
-          shouldNotRender "Head id"
-          sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 1
-          shouldRender "Initializing"
-          shouldRender "Head id"
-          sendInputEvent $ EvKey (KChar 'a') []
-          threadDelay 1
-          sendInputEvent $ EvKey KEnter []
-          threadDelay 1
-          shouldRender "Idle"
-          sendInputEvent $ EvKey (KChar 'q') []
-
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
           shouldRender "Connected"
           shouldRender "Idle"
           sendInputEvent $ EvKey (KChar 'i') []
-          threadDelay 1
-          shouldRender "Initializing"
-          sendInputEvent $ EvKey (KChar 'c') []
-          threadDelay 1
-          shouldRender "42000000 lovelace"
-          sendInputEvent $ EvKey (KChar '>') []
-          sendInputEvent $ EvKey (KChar ' ') []
-          sendInputEvent $ EvKey KEnter []
           threadDelay 1
           shouldRender "Open"
           sendInputEvent $ EvKey (KChar 'c') []
@@ -187,11 +149,7 @@ spec = do
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
           shouldRender "Final"
-          shouldRender "42000000 lovelace"
           sendInputEvent $ EvKey (KChar 'q') []
-
-  it "doesn't allow multiple initializations" $
-    pendingWith "The logic of the TUI has changed and this test should be rewritten accordingly"
 
   context "text rendering tests" $ do
     it "should format time with whole values for every unit, not total values" $ do
@@ -222,7 +180,7 @@ setupRotatedStateTUI action = do
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+        chainConfig <- chainConfigFor' Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
@@ -335,7 +293,7 @@ setupNodeAndTUI' hostname lovelace action =
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
         hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod
+        chainConfig <- chainConfigFor' Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 

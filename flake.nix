@@ -9,7 +9,7 @@
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.6.5";
-    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/895bd8a8ce5ad2911aee8add207bea2a87bc73aa";
+    hydra-spec.url = "github:cardano-scaling/hydra-formal-specification/d9d4ba5a09b7fd33c38d1cd579b1e1d66cdc1ee9";
     import-tree.url = "github:vic/import-tree";
     iohk-nix.url = "github:input-output-hk/iohk-nix";
     mithril.url = "github:input-output-hk/mithril/2524.0";
@@ -18,6 +18,7 @@
     nix-npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
     process-compose-flake.url = "github:Platonic-Systems/process-compose-flake";
     rust-accumulator.url = "github:cardano-scaling/rust-accumulator";
+    nix-fast-build.url = "github:Mic92/nix-fast-build";
   };
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./nix);

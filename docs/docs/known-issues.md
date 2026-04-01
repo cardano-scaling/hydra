@@ -6,17 +6,14 @@ Before running a Hydra node on the Cardano mainnet, it is important to be aware 
 
 Due to the limitations on transaction sizes and execution budgets on Cardano, the Hydra protocol has the following constraints:
 
-- The protocol can only handle a maximum number of participants in a head (see [the cost of CollectCom transaction](https://hydra.family/head-protocol/benchmarks/transaction-cost#collectcom-transaction-costs)). When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.
+- The protocol can only handle a maximum number of participants in a head. When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.
 
-Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being committed or created while the head is open:
+Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being deposited or created while the head is open:
 
 - The Hydra head cannot be _finalized_ if it holds more than approximately 40 UTxOs (see [the cost of FanOut transaction](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/test/Hydra/ModelSpec.hs#L162) for latest numbers), although it can be _closed_
 - Tokens that are minted and not burned within an open Hydra head will prevent the head from being _finalized_
-- If one or more participants commit UTXOs that are too large to be processed together in a `CollectCom` or  `Abort` transaction, the Hydra head will remain stuck in the _initialising_ stage.
 
 See these resources for additional information about reducing the risk of locking up funds in a Hydra head:
-
-* [Directly open heads](https://github.com/cardano-scaling/hydra/issues/1329)
 * [Always abortable head](https://github.com/cardano-scaling/hydra/issues/699)
 * [Limit size/complexity of UTXOs in the head](https://github.com/cardano-scaling/hydra/issues/698)
 * [Only sign closable snapshots](https://github.com/cardano-scaling/hydra/issues/370).
@@ -57,7 +54,10 @@ Note that, as with any adjustments of this kind, it is good practice to make a b
 
 ### Training wheels
 
-There is a hard-coded limit in hydra-node when used on **mainnet**: only up to 100 ada can be committed into the Hydra head. This is a safety precaution and will be increased as more experience is gained in running Hydra heads on the mainnet.
+The following restrictions apply when **depositing** funds into a Hydra head (via `POST /commit`):
+
+- **Byron addresses are not supported.** Any UTxO held at a Byron-era address will be rejected with an error. Only Shelley-era (and later) addresses are accepted.
+- **Mainnet ADA recommendation.** When running on **mainnet**, we recommend only up to 100 ADA be deposited into a Hydra head in a single deposit transaction. This is a recommendation only, and we will lift it once we implement [partial fanout](https://github.com/cardano-scaling/hydra/issues/1468).
 
 ### Deposit periods
 

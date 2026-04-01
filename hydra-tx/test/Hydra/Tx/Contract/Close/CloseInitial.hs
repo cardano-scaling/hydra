@@ -32,7 +32,6 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyOnChainParties,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
-  healthyUTxO,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Snapshot (getSnapshot)
@@ -95,15 +94,17 @@ healthyCloseInitialTx =
 
   headId = mkHeadId Fixture.testPolicyId
 
-  closingSnapshot = InitialSnapshot{headId, initialUTxO = healthyUTxO}
+  closingSnapshot :: ConfirmedSnapshot Tx
+  closingSnapshot = InitialSnapshot{headId}
 
 healthyInitialOpenDatum :: HeadState.State
 healthyInitialOpenDatum =
   Head.Open
     Head.OpenDatum
       { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+      , utxoHash = toBuiltin $ hashUTxO @Tx mempty
       , contestationPeriod = healthyContestationPeriod
+      , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0
       }

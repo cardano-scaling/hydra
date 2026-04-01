@@ -25,19 +25,20 @@ import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
 import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
-import Hydra.Plutus (commitValidatorScript, initialValidatorScript)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
 import Hydra.Tx.Close (CloseObservation)
-import Hydra.Tx.CollectCom
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
-import Hydra.Tx.Observe (AbortObservation, CommitObservation, ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
+import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
+import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)
+import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.QuickCheck (Property, choose, counterexample, frequency, listOf, listOf1, oneof, property, scale, shrinkList, shrinkMapBy, sized, suchThat, vector, vectorOf)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary (..))
 import Test.QuickCheck.Gen (chooseWord64)
@@ -109,43 +110,6 @@ noRefScripts :: TxOut ctx -> TxOut ctx
 noRefScripts out =
   out{txOutReferenceScript = ReferenceScriptNone}
 
--- | Adjusts a transaction output to remove any policy asset groups that contain
--- non-positive quantities, while preserving the ADA amount. If a 'PolicyId' is
--- provided, all remaining non-ADA assets are collapsed under that single policy.
--- This ensures the output value has no negative or zero asset quantities.
-noNegativeAssetsWithPotentialPolicy :: Maybe PolicyId -> TxOut ctx -> TxOut ctx
-noNegativeAssetsWithPotentialPolicy mpid out =
-  let val = txOutValue out
-      nonAdaAssets =
-        Map.foldrWithKey
-          (\pid policyAssets def -> policyAssetsToValue (fromMaybe pid mpid) policyAssets <> def)
-          mempty
-          (filterNegativeVals (valueToPolicyAssets val))
-      ada = selectLovelace val
-   in out{txOutValue = lovelaceToValue ada <> nonAdaAssets}
- where
-  filterNegativeVals =
-    Map.filterWithKey
-      ( \pid passets ->
-          all
-            (\(_, Quantity n) -> n > 0)
-            (toList $ policyAssetsToValue pid passets)
-      )
-
-genTxOutWithAssets :: Maybe PolicyId -> Gen (TxOut ctx)
-genTxOutWithAssets pid =
-  ((fromLedgerTxOut <$> arbitrary) `suchThat` notByronAddress)
-    >>= realisticAda
-    <&> noNegativeAssetsWithPotentialPolicy pid . ensureMinAda . noRefScripts . noStakeRefPtr
-
--- | Generate a 'TxOut' with a byron address. This is usually not supported by
--- Hydra or Plutus.
-genTxOutByron :: Gen (TxOut ctx)
-genTxOutByron = do
-  addr <- ByronAddressInEra <$> arbitrary
-  value <- genValue
-  pure $ TxOut addr value TxOutDatumNone ReferenceScriptNone
-
 -- | Generate an ada-only 'TxOut' paid to an arbitrary public key.
 genTxOutAdaOnly :: VerificationKey PaymentKey -> Gen (TxOut ctx)
 genTxOutAdaOnly vk = do
@@ -181,16 +145,6 @@ shrinkUTxO = shrinkMapBy (UTxO . fromList) UTxO.toList (shrinkList shrinkOne)
 -- | Generate a 'Conway' era 'UTxO'. See also 'genTxOut'.
 genUTxO :: Gen UTxO
 genUTxO = sized genUTxOSized
-
--- | Generate UTxO with some assets. If `PolicyId` argument is specified then
--- we set assets with the specified 'PolicyId' since in some tests we need to
--- make sure ledger rules are passing.
-genUTxOWithAssetsSized :: Int -> Maybe PolicyId -> Gen UTxO
-genUTxOWithAssetsSized numUTxO pid =
-  fold <$> vectorOf numUTxO gen
- where
-  gen :: Gen UTxO
-  gen = UTxO.singleton <$> arbitrary <*> genTxOutWithAssets pid
 
 -- | Generate a 'Conway' era 'UTxO' with given number of outputs. See also
 -- 'genTxOut'.
@@ -337,15 +291,7 @@ genScriptRegistry = do
   txOut <- genTxOutAdaOnly vk
   pure $
     ScriptRegistry
-      { initialReference =
-          ( TxIn txId' (TxIx 0)
-          , txOut{txOutReferenceScript = mkScriptRef initialValidatorScript}
-          )
-      , commitReference =
-          ( TxIn txId' (TxIx 1)
-          , txOut{txOutReferenceScript = mkScriptRef commitValidatorScript}
-          )
-      , headReference =
+      { headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
           )
@@ -371,18 +317,6 @@ instance Arbitrary HeadObservation where
 deriving instance ToADTArbitrary HeadObservation
 
 instance Arbitrary InitObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary AbortObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary CommitObservation where
-  arbitrary = genericArbitrary
-  shrink = genericShrink
-
-instance Arbitrary CollectComObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
@@ -540,7 +474,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
 
   shrink = \case
-    InitialSnapshot hid sn -> [InitialSnapshot hid sn' | sn' <- shrink sn]
+    InitialSnapshot hid -> [InitialSnapshot hid]
     ConfirmedSnapshot sn sigs -> ConfirmedSnapshot <$> shrink sn <*> shrink sigs
 
 genConfirmedSnapshot ::
@@ -562,13 +496,10 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
-        [ (1, initialSnapshot)
+        [ (1, InitialSnapshot <$> arbitrary)
         , (9, confirmedSnapshot)
         ]
  where
-  initialSnapshot =
-    InitialSnapshot <$> arbitrary <*> pure utxo
-
   confirmedSnapshot = do
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
@@ -586,5 +517,17 @@ instance Arbitrary SnapshotVersion where
 instance Arbitrary ChainSlot where
   arbitrary = genericArbitrary
 
-instance Arbitrary UTxOHash where
-  arbitrary = UTxOHash . BS.pack <$> vectorOf 32 arbitrary
+-- | Generates value such that:
+-- - alters between policy id we use in test fixtures with a random one.
+-- - mixing arbitrary token names with 'hydraHeadV2AssetName'
+-- - excluding 0 for quantity to mimic minting/burning
+genMintedOrBurnedValue :: Gen Value
+genMintedOrBurnedValue = do
+  policyId <-
+    oneof
+      [ headPolicyId <$> arbitrary
+      , pure Fixture.testPolicyId
+      ]
+  tokenName <- oneof [arbitrary, pure hydraHeadV2AssetName]
+  quantity <- arbitrary `suchThat` (/= 0)
+  pure $ fromList [(AssetId policyId tokenName, Quantity quantity)]

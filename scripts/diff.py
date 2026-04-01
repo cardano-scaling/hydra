@@ -21,9 +21,6 @@ def script_size(df):
 def parties(df):
   return df.set_index("Parties")
 
-def utxo(df):
-  return df.set_index("UTxO")
-
 def utxo_and_parties(df):
   df = df.set_index(["UTxO", "Parties"])
 
@@ -67,22 +64,17 @@ def to_markdown(df):
 # index starts at 1.
 
 diffs = [
-  # First is the script size
+  # First is the script sizes
     (headers[0], compare( script_size, base[1], branch[1]))
-  # Then Init,
-  , (headers[1], compare( parties,     base[2], branch[2]))
-  # Then Commit is different; it doesn't have a "Parties" column
-  , (headers[2], compare( utxo,        base[3], branch[3]))
+  # Then Init, Increment, Decrement, Close, Contest — all indexed by Parties
+  , (headers[1], compare( parties, base[2], branch[2]))
+  , (headers[2], compare( parties, base[3], branch[3]))
+  , (headers[3], compare( parties, base[4], branch[4]))
+  , (headers[4], compare( parties, base[5], branch[5]))
+  , (headers[5], compare( parties, base[6], branch[6]))
+  # FanOut is different; it has parties _and_ UTxO
+  , (headers[6], compare( utxo_and_parties, base[7], branch[7]))
   ]
-
-# Then (almost all) the remaining are all the same,
-for i in range(4, 8 + 1):
-  diffs.append(( headers[i - 1]
-               , compare( parties, base[i], branch[i] )
-               ))
-
-# Except fanout is different; it has parties _and_ UTxO
-diffs.append((headers[9], compare(utxo_and_parties, base[10], branch[10])))
 
 # Check that ther was _some_ difference, at least.
 some_change = any( df.to_numpy().sum() != 0 for _, df in diffs )

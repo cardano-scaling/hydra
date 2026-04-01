@@ -2,7 +2,13 @@
 { self, ... }:
 {
 
-  perSystem = { config, pkgs, pkgs-2411, self', ... }:
+  perSystem =
+    { config
+    , pkgs
+    , pkgs-2411
+    , self'
+    , ...
+    }:
     {
       process-compose."demo" = {
         package = pkgs.process-compose;
@@ -73,7 +79,7 @@
                     --node-socket devnet/node.socket \
                     --persistence-dir devnet/persistence/alice \
                     --contestation-period 3s \
-                    --deposit-period 300s
+                    --deposit-period 10s
                 '';
               };
               working_dir = ".";
@@ -107,7 +113,7 @@
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/bob \
                   --contestation-period 3s \
-                  --deposit-period 300s
+                  --deposit-period 10s
                 '';
               };
               working_dir = ".";
@@ -141,7 +147,7 @@
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/carol \
                   --contestation-period 3s \
-                  --deposit-period 300s
+                  --deposit-period 10s
                 '';
               };
               working_dir = ".";

@@ -10,6 +10,7 @@
           # crypto libraries above
           inputs.iohk-nix.overlays.haskell-nix-crypto
           (final: prev: {
+            nix-fast-build = inputs.nix-fast-build.packages.${final.system}.default;
             librust_accumulator = inputs.rust-accumulator.defaultPackage.${final.system};
             haskell-nix = prev.haskell-nix // {
               extraPkgconfigMappings = prev.haskell-nix.extraPkgconfigMappings or { } // {

@@ -1,7 +1,7 @@
 module Test.CardanoNodeSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import CardanoNode (
   findRunningCardanoNode,
