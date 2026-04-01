@@ -20,7 +20,7 @@ jobs:
     name: Compute cost differences
     runs-on: ubuntu-latest
     # Only run on PR
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request'
     steps:
     - name: "Checkout the PR as the 'new' source"
       uses: actions/checkout@v4
@@ -39,7 +39,15 @@ jobs:
       run: |
         nix run ".#tx-cost-diff"
 
-    - name: 🔎 Find Comment
+    - name: 💾 Upload tx cost diff artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: tx-cost-diff
+        path: diff.md
+        if-no-files-found: error
+
+   - name: 🔎 Find Comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
       uses: peter-evans/find-comment@v3
       id: find-comment
       with:
@@ -48,6 +56,7 @@ jobs:
         body-includes: Transaction cost differences
 
     - name: ✏ Create or update comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
       uses: peter-evans/create-or-update-comment@v4
       with:
         comment-id: ${{ steps.find-comment.outputs.comment-id }}
