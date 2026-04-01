@@ -1835,33 +1835,35 @@ aggregateNodeState nodeState sc =
               -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
               pendingDeposits = Map.insert depositTxId deposit currentPendingDeposits
             }
-        DepositRecovered{depositTxId} ->
+        DepositRecovered{headId, depositTxId} ->
           case st of
             Open
-              os@OpenState{coordinatedHeadState} ->
-                nodeState
-                  { headState =
-                      Open
-                        os
-                          { coordinatedHeadState =
-                              coordinatedHeadState
-                                { currentDepositTxId =
-                                    if coordinatedHeadState.currentDepositTxId == Just depositTxId
-                                      then Nothing
-                                      else coordinatedHeadState.currentDepositTxId
-                                }
-                          }
-                  , pendingDeposits = Map.delete depositTxId currentPendingDeposits
-                  }
-            _otherState ->
+              os@OpenState{headId = ourHeadId, coordinatedHeadState}
+                | headId == ourHeadId ->
+                    nodeState
+                      { headState =
+                          Open
+                            os
+                              { coordinatedHeadState =
+                                  coordinatedHeadState
+                                    { currentDepositTxId =
+                                        if coordinatedHeadState.currentDepositTxId == Just depositTxId
+                                          then Nothing
+                                          else coordinatedHeadState.currentDepositTxId
+                                    }
+                              }
+                      , pendingDeposits = Map.delete depositTxId currentPendingDeposits
+                      }
+            _ ->
               nodeState
                 { headState = st
                 , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                 }
-        CommitFinalized{chainState, newVersion, depositTxId} ->
+        CommitFinalized{chainState, headId, newVersion, depositTxId} ->
           case st of
             Open
-              os@OpenState{coordinatedHeadState} ->
+              os@OpenState{headId = ourHeadId, coordinatedHeadState}
+                | headId == ourHeadId ->
                 let deposit = Map.lookup depositTxId currentPendingDeposits
                     newUTxO = maybe mempty (\Deposit{deposited} -> deposited) deposit
                  in nodeState
@@ -1891,7 +1893,7 @@ aggregateNodeState nodeState sc =
                where
                 CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
                 Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-            _otherState ->
+            _ ->
               nodeState
                 { headState = st
                 , pendingDeposits = Map.delete depositTxId currentPendingDeposits
@@ -2098,14 +2100,15 @@ aggregate st = \case
             }
       _otherState -> st
   DepositRecorded{} -> st
-  DepositActivated{depositTxId} -> case st of
-    Open os@OpenState{coordinatedHeadState = chs} ->
-      -- Spec: txω = ⊥ ∨ txα = ⊥ — deposit and decommit are mutually exclusive.
-      -- Only queue the deposit when no decommit is pending; otherwise the tick
-      -- will pick it up once the decommit completes.
-      case chs.decommitTx of
-        Just _ -> st
-        Nothing -> Open os{coordinatedHeadState = chs{currentDepositTxId = chs.currentDepositTxId <|> Just depositTxId}}
+  DepositActivated{depositTxId, deposit} -> case st of
+    Open os@OpenState{headId = ourHeadId, coordinatedHeadState = chs}
+      | deposit.headId == ourHeadId ->
+          -- Spec: txω = ⊥ ∨ txα = ⊥ — deposit and decommit are mutually exclusive.
+          -- Only queue the deposit when no decommit is pending; otherwise the tick
+          -- will pick it up once the decommit completes.
+          case chs.decommitTx of
+            Just _ -> st
+            Nothing -> Open os{coordinatedHeadState = chs{currentDepositTxId = chs.currentDepositTxId <|> Just depositTxId}}
     _ -> st
   DepositExpired{} -> st
   CommitApproved{} -> st
