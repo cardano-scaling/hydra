@@ -671,6 +671,15 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapsh
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
 
+-- | Whether a snapshot is currently in-flight (requested or being signed).
+snapshotInFlight :: SeenSnapshot tx -> Bool
+
+-- | Whether AckSns are currently being collected for a snapshot. Unlike
+--   <a>snapshotInFlight</a>, returns False for <a>RequestedSnapshot</a> —
+--   a snapshot sent but not yet echoed is stale once the version bumps and
+--   should not block a fresh request with the new version.
+isCollectingAcks :: SeenSnapshot tx -> Bool
+
 -- | An <a>Closed</a> head with an current candidate
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>$sel:contestationDeadline:ClosedState</a>.
@@ -2672,7 +2681,7 @@ HeadInitializationDetails :: UTCTime -> SlotNo -> HeadInitializationDetails
 jsonContent :: ResponseHeaders
 
 -- | Hydra HTTP server
-httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> FilePath -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
+httpApp :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Chain tx IO -> Environment -> PParams LedgerEra -> IO (NodeState tx) -> IO CommitInfo -> IO [TxIdType tx] -> (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Application
 
 -- | Handle request to obtain a draft commit tx.
 handleDraftCommitUtxo :: forall tx. IsChainState tx => Tracer IO APIServerLog -> Environment -> PParams LedgerEra -> Chain tx IO -> IO CommitInfo -> ByteString -> IO Response
@@ -2689,8 +2698,6 @@ handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()
 
 -- | Handle request to submit a transaction to the head.
 handleSubmitL2Tx :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ByteString -> IO Response
-handleHeadInitializationTime :: MonadUnliftIO m => FilePath -> m Response
-parseInitializingTime :: MonadUnliftIO m => ConduitT ByteString Void m [Text]
 badRequest :: IsChainState tx => PostTxError tx -> Response
 notFound :: Response
 okJSON :: ToJSON a => a -> Response
@@ -2795,22 +2802,16 @@ onOpenClientNewTx :: tx -> Outcome tx
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenNetworkReqTx :: IsTx tx => Environment -> Ledger tx -> ChainSlot -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Outcome tx
 
--- | Validate whether a current deposit in the local state actually exists
---   in the map of pending deposits.
+-- | Select the deposit to include in the next snapshot.
 --   
---   <ul>
---   <li>If <tt>currentDeposit</tt> is <a>Nothing</a>, returns
---   <a>Nothing</a>.</li>
---   <li>If <tt>currentDeposit</tt> is <tt><a>Just</a> txId</tt> and
---   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a>,
---   returns the original <tt>currentDeposit</tt>.</li>
---   <li>Otherwise, returns <a>Nothing</a>.</li>
---   </ul>
---   
---   This is typically used to confirm that a local deposit that is to be
---   requested in <a>ReqSn</a> is indeed still pending and has not been
---   processed or removed.
-setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
+--   Prefers a deposit already tracked in
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> (if still
+--   pending). Falls back to the oldest active deposit from
+--   <a>$sel:pendingDeposits:NodeInSync</a>, but only when neither a
+--   decommit is pending nor the last confirmed snapshot already included a
+--   deposit (to avoid double-posting <a>IncrementTx</a> before
+--   <a>CommitFinalized</a> removes the deposit).
+selectNextDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
 
 -- | Process a snapshot request (<a>ReqSn</a>) from party.
 --   
@@ -2882,13 +2883,40 @@ onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcom
 --   request snapshots for inclusion.
 onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
 
+-- | If this node is the snapshot leader and there are pending local
+--   transactions, request the next snapshot with the bumped version after
+--   a commit or decommit finalises on-chain.
+--   
+--   Guards: * Only fires when 'version /= newVersion' to avoid duplicate
+--   <a>SnapshotRequestDecided</a> events when multiple parties post the
+--   same on-chain tx and each posting produces a separate finalisation
+--   observation. * Skips when AckSns are already being collected
+--   (<a>SeenSnapshot</a>): the in-flight snapshot will complete and
+--   <tt>maybeRequestNextSnapshot</tt> will chain the next one with the
+--   bumped version. Firing here would use stale
+--   <a>$sel:localTxs:CoordinatedHeadState</a> and cause
+--   <tt>BadInputsUTxO</tt> on other parties. * Allows
+--   <a>RequestedSnapshot</a>: the in-flight ReqSn carries the old version
+--   and will be rejected with <a>ReqSvNumberInvalid</a>, so we must
+--   re-request immediately with the new version to avoid a permanently
+--   stuck head.
+--   
+--   The optional <a>StateChanged</a> argument is forwarded into
+--   <a>ReqSn</a>: commit finalisation passes <a>Nothing</a> (deposit
+--   already included), while decommit finalisation passes the next queued
+--   deposit if one is pending.
+maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> SnapshotNumber -> [tx] -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Outcome tx
+
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
 --   and remove the increment UTxO from
 --   <a>$sel:pendingDeposits:NodeInSync</a> from the local state.
 --   
+--   Finally, if the client observing happens to be the leader, then a new
+--   ReqSn is broadcasted.
+--   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenChainIncrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> Outcome tx
+onOpenChainIncrementTx :: IsTx tx => Environment -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> Outcome tx
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 --   pending decommit tx, then we consider the decommit finalized, and
@@ -2898,7 +2926,24 @@ onOpenChainIncrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -
 --   ReqSn is broadcasted.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenChainDecrementTx :: OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Outcome tx
+onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Outcome tx
+
+-- | Validate whether a current deposit in the local state actually exists
+--   in the map of pending deposits.
+--   
+--   <ul>
+--   <li>If <tt>currentDeposit</tt> is <a>Nothing</a>, returns
+--   <a>Nothing</a>.</li>
+--   <li>If <tt>currentDeposit</tt> is <tt><a>Just</a> txId</tt> and
+--   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a>,
+--   returns the original <tt>currentDeposit</tt>.</li>
+--   <li>Otherwise, returns <a>Nothing</a>.</li>
+--   </ul>
+--   
+--   This is typically used to confirm that a local deposit that is to be
+--   requested in <a>ReqSn</a> is indeed still pending and has not been
+--   processed or removed.
+setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit
 --   whose confirmed snapshot contains a matching utxoToCommit. The
@@ -2963,18 +3008,18 @@ onClosedChainFanoutTx :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> O
 -- | Detect our view of the chain going out of sync and issue a
 --   <a>NodeUnsynced</a> event when this is the case.
 handleOutOfSync :: IsChainState tx => Environment -> UTCTime -> ChainPointType tx -> UTCTime -> SyncedStatus -> Outcome tx
+
+-- | Find the oldest non-empty active deposit, if any. Deposits are
+--   selected in FIFO order by their <a>StateChanged</a> timestamp. This
+--   mirrors the selection logic in <tt>withNextActive</tt> used by
+--   <a>onOpenChainTick</a>.
+nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
 updateCatchingUpHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 updateInSyncHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 handleClientInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 onConnectionEvent :: Text -> Connectivity -> Outcome tx
-
--- | Convert any SeenSnapshot to LastSeenSnapshot, preserving the correct
---   snapshot number. Used by CommitFinalized and DecommitFinalized to
---   handle race conditions where on-chain transaction confirmation happens
---   before AckSn messages arrive.
-toLastSeenSnapshot :: SeenSnapshot tx -> SeenSnapshot tx
 
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
@@ -3174,11 +3219,20 @@ IdleState :: ChainStateType tx -> IdleState tx
 -- | Get the chain state in any <a>HeadState</a>.
 getChainState :: HeadState tx -> ChainStateType tx
 
+-- | Whether AckSns are currently being collected for a snapshot. Unlike
+--   <a>snapshotInFlight</a>, returns False for <a>RequestedSnapshot</a> —
+--   a snapshot sent but not yet echoed is stale once the version bumps and
+--   should not block a fresh request with the new version.
+isCollectingAcks :: SeenSnapshot tx -> Bool
+
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
 
 -- | Update the chain state in any <a>HeadState</a>.
 setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
+
+-- | Whether a snapshot is currently in-flight (requested or being signed).
+snapshotInFlight :: SeenSnapshot tx -> Bool
 
 -- | Analogous to inputs, the pure head logic "core" can have effects
 --   emitted to the "shell" layers and we distinguish the same: effects
@@ -4234,7 +4288,7 @@ APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTr
 [$sel:tlsCertPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:tlsKeyPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:apiTransactionTimeout:APIServerConfig] :: APIServerConfig -> ApiTransactionTimeout
-withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> Environment -> FilePath -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
+withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
 
 -- | An <a>IOException</a> with more <a>IP</a> and <a>PortNumber</a> added
 --   as context.
@@ -4462,6 +4516,14 @@ GlobalsTranslationException :: GlobalsTranslationException
 --   
 --   Throws at least <a>GlobalsTranslationException</a>
 newGlobals :: MonadThrow m => GenesisParameters ShelleyEra -> m Globals
+
+-- | Create new L2 ledger <a>Globals</a> using a proper <a>EraHistory</a>
+--   for era-aware slot-to-time conversions. This ensures Plutus scripts
+--   receive correct POSIXTime values in their ScriptContext on multi-era
+--   chains (mainnet/testnet).
+--   
+--   Throws at least <a>GlobalsTranslationException</a>
+newGlobalsWithEraHistory :: MonadThrow m => GenesisParameters ShelleyEra -> EraHistory -> m Globals
 instance GHC.Show.Show Hydra.Node.Run.ConfigurationException
 instance GHC.Show.Show Hydra.Node.Run.GlobalsTranslationException
 instance GHC.Classes.Eq Hydra.Node.Run.GlobalsTranslationException

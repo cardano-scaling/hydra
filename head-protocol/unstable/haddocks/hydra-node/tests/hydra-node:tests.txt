@@ -292,7 +292,6 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Prop
 prop_thereIsAlwaysALeader :: Property
 
 module Hydra.API.HTTPServerSpec
-dummyStatePath :: FilePath
 spec :: Spec
 apiServerSpec :: Spec
 
@@ -580,6 +579,15 @@ propHasEnoughLovelace :: TxOut CtxUTxO -> Property
 --   does not use unsupported features. See <a>genTxOut</a> for rationale.
 propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
 
+-- | A realistic multi-era <a>EraHistory</a> mimicking mainnet/testnet
+--   where: - Byron era: 21600 slots<i>epoch, 20s</i>slot, runs for 208
+--   epochs (4,492,800 slots) - Shelley+ era: 432000 slots<i>epoch,
+--   1s</i>slot, open-ended
+--   
+--   This causes slot-to-time conversions to differ from a simple
+--   fixedEpochInfo because Byron slots are 20x longer than Shelley slots.
+multiEraHistory :: EraHistory
+
 module Hydra.CryptoSpec
 spec :: Spec
 specSigningKey :: Spec
@@ -631,21 +639,31 @@ SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m 
 [$sel:closeWithInitialSnapshot:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Party -> m ()
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 
--- | With-pattern wrapper around <a>simulatedChainAndNetwork</a> which does
---   <a>cancel</a> the <a>$sel:tickThread:SimulatedChainNetwork</a>. Also,
---   this will fix tx to <a>SimpleTx</a> so that it can pick an initial
---   chain state to play back to our test nodes. NOTE: The simulated
---   network has a block time of 20 (simulated) seconds.
+-- | With-pattern wrapper around <tt>simulatedChainAndNetwork</tt> which
+--   does <a>cancel</a> the <a>$sel:tickThread:SimulatedChainNetwork</a>.
+--   Also, this will fix tx to <a>SimpleTx</a> so that it can pick an
+--   initial chain state to play back to our test nodes. NOTE: The
+--   simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => (SimulatedChainNetwork SimpleTx m -> m a) -> m a
 
--- | Creates a simulated chain and network to which <a>HydraNode</a>s can
---   be connected to using <a>$sel:connectNode:SimulatedChainNetwork</a>.
---   NOTE: The <a>$sel:tickThread:SimulatedChainNetwork</a> needs to be
---   <a>cancel</a>ed after use. Use <a>withSimulatedChainAndNetwork</a>
---   instead where possible.
-simulatedChainAndNetwork :: forall m. (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => ChainStateType SimpleTx -> m (SimulatedChainNetwork SimpleTx m)
+-- | Simulated chain and network where the network and/or chain
+--   observations can be delivered with a configurable delay. Handy to
+--   reproduce race conditions related to message ordering.
+withSimulatedChainAndSlowNetwork :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => DiffTime -> DiffTime -> (SimulatedChainNetwork SimpleTx m -> m a) -> m a
+
+-- | Like <tt>simulatedChainAndNetwork</tt> but accepts a custom network
+--   factory and an optional chain observation delay. When
+--   <tt>chainDelay</tt> &gt; 0, each chain event is delivered to nodes
+--   asynchronously after that delay, allowing tests to reproduce races
+--   where nodes observe the same on-chain event at different times.
+simulatedChainAndNetworkUsing :: forall m. (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => (DraftHydraNode SimpleTx m -> TVar m [HydraNode SimpleTx m] -> Network m (Message SimpleTx)) -> DiffTime -> ChainStateType SimpleTx -> m (SimulatedChainNetwork SimpleTx m)
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
+
+-- | Delivers messages asynchronously after a configurable delay. When the
+--   delay exceeds the chain's block time (20s), on-chain events arrive at
+--   nodes before network echoes, reproducing version-race conditions seen
+--   in production.
+createMockNetworkWithDelay :: (MonadAsync m, MonadDelay m) => DiffTime -> DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 
 -- | Derive an <a>OnChainTx</a> from <a>PostChainTx</a> to simulate a
 --   "perfect" chain. NOTE: This implementation announces hard-coded
