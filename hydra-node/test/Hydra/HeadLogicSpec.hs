@@ -295,6 +295,63 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositId
             _ -> False
 
+        it "DepositActivated from another head does not set currentDepositTxId" $ do
+          now <- getCurrentTime
+          otherHeadId :: HeadId <- generate arbitrary
+          let foreignDeposit =
+                Deposit
+                  { headId = otherHeadId
+                  , deposited = utxoRef 99
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 = inOpenState threeParties
+          let s1 = aggregateState s0 $ Continue [DepositActivated{depositTxId = 99, chainTime = now, deposit = foreignDeposit}] []
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.currentDepositTxId `shouldBe` Nothing
+            _ -> fail "expected Open state"
+
+        it "DepositRecovered from another head does not clear currentDepositTxId" $ do
+          now <- getCurrentTime
+          otherHeadId :: HeadId <- generate arbitrary
+          let ownDepositId = 1
+              foreignDepositId = 99
+              foreignDeposit =
+                Deposit
+                  { headId = otherHeadId
+                  , deposited = utxoRef 99
+                  , created = now
+                  , deadline = addUTCTime 3600 now
+                  , status = Active
+                  }
+              s0 =
+                (inOpenState' threeParties coordinatedHeadState{currentDepositTxId = Just ownDepositId})
+                  { pendingDeposits = Map.singleton foreignDepositId foreignDeposit
+                  }
+          let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = otherHeadId, depositTxId = foreignDepositId, recovered = mempty}] []
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.currentDepositTxId `shouldBe` Just ownDepositId
+            _ -> fail "expected Open state"
+
+        it "CommitFinalized from another head does not update version or localUTxO" $ do
+          otherHeadId :: HeadId <- generate arbitrary
+          let ownUTxO = utxoRefs [1, 2]
+              s0 =
+                inOpenState' threeParties
+                  coordinatedHeadState
+                    { localUTxO = ownUTxO
+                    , version = 3
+                    }
+          let s1 = aggregateState s0 $ Continue [CommitFinalized{chainState = 0, headId = otherHeadId, newVersion = 99, depositTxId = 42}] []
+          case s1 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
+              chs.version `shouldBe` 3
+              chs.localUTxO `shouldBe` ownUTxO
+            _ -> fail "expected Open state"
+
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
