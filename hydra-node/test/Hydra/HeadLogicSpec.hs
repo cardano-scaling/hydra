@@ -340,7 +340,8 @@ spec =
           otherHeadId :: HeadId <- generate arbitrary
           let ownUTxO = utxoRefs [1, 2]
               s0 =
-                inOpenState' threeParties
+                inOpenState'
+                  threeParties
                   coordinatedHeadState
                     { localUTxO = ownUTxO
                     , version = 3

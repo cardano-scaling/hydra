@@ -253,7 +253,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
                       pendingDeposits
                       currentDepositTxId
                       decommitTx
-                      ((.utxoToCommit) (getSnapshot confirmedSnapshot))
+                      (getSnapshot confirmedSnapshot).utxoToCommit
                   )
             )
       else outcome
@@ -937,6 +937,43 @@ onOpenChainTick env chainTime pendingDeposits st =
 
   OpenState{coordinatedHeadState, parameters} = st
 
+-- | If this node is the snapshot leader and there are pending local transactions,
+-- request the next snapshot with the bumped version after a commit or decommit
+-- finalises on-chain.
+--
+-- Guards:
+--   * Only fires when 'version /= newVersion' to avoid duplicate
+--     'SnapshotRequestDecided' events when multiple parties post the same
+--     on-chain tx and each posting produces a separate finalisation observation.
+--   * Skips when AckSns are already being collected ('SeenSnapshot'): the
+--     in-flight snapshot will complete and 'maybeRequestNextSnapshot' will chain
+--     the next one with the bumped version. Firing here would use stale
+--     'localTxs' and cause 'BadInputsUTxO' on other parties.
+--   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
+--     and will be rejected with 'ReqSvNumberInvalid', so we must re-request
+--     immediately with the new version to avoid a permanently stuck head.
+--
+-- The optional 'depositTxId' argument is forwarded into 'ReqSn': commit
+-- finalisation passes 'Nothing' (deposit already included), while decommit
+-- finalisation passes the next queued deposit if one is pending.
+maybeRequestSnapshotAfterVersionBump ::
+  IsTx tx =>
+  HeadParameters ->
+  Party ->
+  SnapshotNumber ->
+  [tx] ->
+  SnapshotVersion ->
+  SnapshotVersion ->
+  SeenSnapshot tx ->
+  Maybe (TxIdType tx) ->
+  Outcome tx
+maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot depositTxId =
+  if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
+    then
+      newState SnapshotRequestDecided{snapshotNumber = nextSn}
+        <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing depositTxId)
+    else noop
+
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
 -- increment UTxO from 'pendingDeposits' from the local state.
@@ -957,7 +994,7 @@ onOpenChainIncrementTx ::
   Outcome tx
 onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
   newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
-    <> maybeRequestSnapshotAfterCommit
+    <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot Nothing
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -968,23 +1005,6 @@ onOpenChainIncrementTx env openState newChainState newVersion depositTxId =
   Environment{party} = env
 
   nextSn = confirmedSn + 1
-
-  -- Do not re-request if AckSns are already being collected (SeenSnapshot): that
-  -- snapshot will complete and maybeRequestNextSnapshot will chain the next one
-  -- using the bumped version. Firing here with stale localTxs would cause
-  -- BadInputsUTxO on the receiving parties.
-  -- RequestedSnapshot is allowed: the in-flight ReqSn carries the old version and
-  -- will be rejected with ReqSvNumberInvalid, so we must re-request immediately
-  -- with the new version to avoid a permanently stuck head.
-  -- Guard on version /= newVersion prevents a duplicate SnapshotRequestDecided when
-  -- multiple parties post IncrementTx for the same deposit and each posting fires a
-  -- separate CommitFinalized observation.
-  maybeRequestSnapshotAfterCommit =
-    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
-      then
-        newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing Nothing)
-      else noop
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
@@ -1013,7 +1033,7 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
       , newVersion
       , distributedUTxO
       }
-    <> maybeRequestSnapshotAfterDecommit
+    <> maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version newVersion seenSnapshot (setExistingDeposit pendingDeposits currentDepositTxId)
  where
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1024,23 +1044,6 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   Environment{party} = env
 
   nextSn = confirmedSn + 1
-
-  -- Do not re-request if AckSns are already being collected (SeenSnapshot): that
-  -- snapshot will complete and maybeRequestNextSnapshot will chain the next one
-  -- using the bumped version. Firing here with stale localTxs would cause
-  -- BadInputsUTxO on the receiving parties.
-  -- RequestedSnapshot is allowed: the in-flight ReqSn carries the old version and
-  -- will be rejected with ReqSvNumberInvalid, so we must re-request immediately
-  -- with the new version to avoid a permanently stuck head.
-  -- Guard on version /= newVersion mirrors the CommitFinalized guard: prevents a
-  -- duplicate SnapshotRequestDecided when multiple DecrementTx postings fire
-  -- separate DecommitFinalized observations for the same decommit.
-  maybeRequestSnapshotAfterDecommit =
-    if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
-      then
-        newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> take maxTxsPerSnapshot localTxs) Nothing (setExistingDeposit pendingDeposits currentDepositTxId))
-      else noop
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit whose
 -- confirmed snapshot contains a matching utxoToCommit. The rollback may have
@@ -1798,9 +1801,9 @@ aggregateNodeState nodeState sc =
                                 }
                         , pendingDeposits = Map.delete depositTxId currentPendingDeposits
                         }
-               where
-                CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
-                Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+             where
+              CoordinatedHeadState{localUTxO, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
+              Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
             _ ->
               nodeState
                 { headState = st
