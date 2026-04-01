@@ -6,7 +6,6 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe)
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
-import Control.Monad.Class.MonadSay (say)
 import Control.Monad.IOSim (
   Failure (FailureException),
   IOSim,
@@ -24,6 +23,7 @@ import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (..), traceInTVar)
 import Hydra.Network (NetworkCallback (..))
 import Hydra.Node (HydraNodeLog)
+import System.IO.Temp (writeSystemTempFile)
 import Test.HUnit.Lang (FailureReason (ExpectedButGot))
 import Test.QuickCheck (forAll, withMaxSuccess)
 
@@ -49,7 +49,9 @@ shouldRunInSim action =
       throwIO ex
  where
   tr = runSimTrace action
-  dumpTrace = say (toString $ printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr)
+  dumpTrace = do
+    fp <- writeSystemTempFile "io-sim-trace" $ toString $ printTrace (Proxy :: Proxy (HydraNodeLog SimpleTx)) tr
+    putStrLn $ "IOSim trace written to: " <> fp
 
 -- | Utility function to dump logs given a `SimTrace`.
 printTrace :: forall log a. (Typeable log, ToJSON log) => Proxy log -> SimTrace a -> Text

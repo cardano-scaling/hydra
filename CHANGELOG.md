@@ -21,7 +21,21 @@ changes.
 * Upgrade token name to HydraHeadV2 (from HydraHeadV1) [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 * Continue encouraging conversative ADA deposits until partial fanout is completed [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 
-## [1.3.0] - 2026-03-05
+- Remove head-initialization endpoint
+
+- Fix Plutus script evaluation on mainnet/testnet: L2 ledger `Globals` now uses era-aware `EpochInfo` (queried from chain) instead of `fixedEpochInfo`, ensuring correct `POSIXTime` values in Plutus `ScriptContext` for time-sensitive scripts on multi-era chains. Offline/devnet mode is unaffected.
+
+- Fix head getting permanently stuck in `RequestedSnapshot` when `CommitFinalized` races with an in-flight `ReqSn` — only `SeenSnapshot` (AckSns collecting) now blocks an immediate re-request, while `RequestedSnapshot` (stale echo) correctly retries with the new version.
+
+- Fix active deposit being silently dropped when it becomes active while a snapshot is in-flight - the next chained snapshot after confirmation now picks it up via `selectNextDeposit`.
+
+- Fix deposits from other heads being picked up when selecting the next deposit for `ReqSn` in the `ReqTx`, `OnDecrementTx`, and rollback repost handlers - `depositsForHead` is now applied consistently in all head-level handlers.
+
+- Guard deposit aggregate cases by headId to prevent one head's deposits from corrupting another head's state when multiple heads share the same network.
+
+- Remove the hard-coded 100 ADA commit limit on mainnet. The `rejectMoreThanMainnetLimit` safety cap and the `CommittedTooMuchADAForMainnet` error are no longer needed and have been removed.
+
+## [1.3.0] - 2026.03.05
 
 - Upgrade all `PlutusTx` plugin target versions to `1.1.0`.
   See the improvements in the [PR 2517](https://github.com/cardano-scaling/hydra/pull/2517).

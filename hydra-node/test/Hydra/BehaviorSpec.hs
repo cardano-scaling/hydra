@@ -15,7 +15,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
   writeTVar,
  )
-import Control.Monad.Class.MonadAsync (cancel, forConcurrently)
+import Control.Monad.Class.MonadAsync (async, cancel, forConcurrently)
 import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
@@ -151,6 +151,93 @@ spec = parallel $ do
               waitUntilMatch [n2] $ \case
                 IgnoredHeadInitializing{headId, parties} ->
                   guard $ headId == testHeadId && parties == fromList [alice]
+                _ -> Nothing
+
+    it "outputs committed utxo when client requests it" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1, n2] $ HeadIsOpen testHeadId (fromList [alice, bob])
+
+              deadline <- newDeadlineFarEnoughFromNow
+              depositId <- simulateDeposit chain testHeadId (utxoRef 500) deadline
+              waitUntilMatch [n1, n2] $ \case
+                CommitFinalized{depositTxId} | depositTxId == depositId -> Just ()
+                _ -> Nothing
+
+              headUTxO <- getHeadUTxO . headState <$> queryState n1
+              fromMaybe mempty headUTxO `shouldBe` utxoRefs [500]
+
+    -- Reproduces the version-race using a slow network.
+    -- DecommitFinalized arrives at ALL nodes BEFORE the ReqSn
+    -- echo. When the stale ReqSn(ver=0) echo arrives, both
+    -- nodes already have version=1 → ReqSvNumberInvalid → snapshot stuck.
+    it "snapshot does not get stuck on version race with slow network" $
+      shouldRunInSim $
+        withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 n1 n2
+              deadline <- newDeadlineFarEnoughFromNow
+              depositId <- simulateDeposit chain testHeadId (utxoRef 500) deadline
+              waitUntilMatch [n1, n2] $ \case
+                CommitFinalized{depositTxId} | depositTxId == depositId -> Just ()
+                _ -> Nothing
+              -- Send a decommit and an L2 tx so there is pending work that
+              -- triggers ReqSn(ver=0) immediately after the decommit snapshot
+              -- confirms. With networkDelay=25s, DecommitFinalized arrives
+              -- 5 seconds before the ReqSn echo — reproducing the race.
+              send n1 (Decommit (SimpleTx 300 (utxoRef 500) (utxoRef 5000)))
+              send n1 (NewTx (aValidTx 999))
+              -- Wait for decommit snapshot to confirm
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxoToDecommit = Just _}} -> Just ()
+                _ -> Nothing
+
+              send n1 (NewTx (aValidTx 8888))
+              -- The next snapshot must confirm with version=2 (deposit bumped
+              -- 0→1, decommit bumps 1→2). Without the fix the head is
+              -- permanently stuck: the stale ReqSn(ver=1) is rejected and
+              -- the leader stays in RequestedSnapshot, blocking retries.
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{version = 2}} -> Just ()
+                _ -> Nothing
+
+    -- Reproduces the version-race for CommitFinalized using a slow network.
+    -- After the deposit snapshot confirms (ver=0), maybeRequestNextSnapshot
+    -- fires ReqSn(ver=0, sn=2) immediately for pending L2 txs. Then
+    -- CommitFinalized bumps version to 1 before the echo returns (25s).
+    -- The stale ReqSn(ver=0) is rejected with ReqSvNumberInvalid and nobody
+    -- re-triggers ReqSn(ver=1) → head permanently stuck without the fix.
+    it "snapshot does not get stuck on CommitFinalized version race with slow network" $
+      shouldRunInSim $
+        withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
+          -- Use a short depositPeriod (1s) so the deposit activates on the
+          -- first chain tick (blockTime=20s), before tx 999 is snapshotted
+          -- (ReqTx echo arrives at networkDelay=25s). This ensures tx 999 is
+          -- still pending in localTxs when the deposit snapshot confirms.
+          withHydraNode' (DepositPeriod 1) aliceSk [bob] chain $ \n1 ->
+            withHydraNode' (DepositPeriod 1) bobSk [alice] chain $ \n2 -> do
+              openHead2 n1 n2
+              deadline <- newDeadlineFarEnoughFromNow
+              -- Submit a deposit and a pending L2 tx so there is pending work
+              -- when the deposit snapshot confirms (triggering immediate ReqSn).
+              void $ simulateDeposit chain testHeadId (utxoRef 500) deadline
+              send n1 (NewTx (aValidTx 999))
+              -- Wait for the deposit snapshot to confirm (version still 0 at
+              -- this point — CommitFinalized fires after posting to chain).
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxoToCommit = Just _}} -> Just ()
+                _ -> Nothing
+              -- After the deposit snapshot confirms, the leader sends
+              -- ReqSn(ver=0, sn=2) for tx 999. CommitFinalized then arrives
+              -- and bumps version to 1. The stale ReqSn(ver=0) echo is
+              -- rejected. Without the fix the head gets permanently stuck
+              -- as nobody re-triggers ReqSn(ver=1).
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{version = 1}} -> Just ()
                 _ -> Nothing
 
     describe "in an open head" $ do
@@ -1034,21 +1121,38 @@ withSimulatedChainAndNetwork ::
   (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
   (SimulatedChainNetwork SimpleTx m -> m a) ->
   m a
-withSimulatedChainAndNetwork =
-  bracket
-    (simulatedChainAndNetwork SimpleChainState{slot = ChainSlot 0})
-    (cancel . tickThread)
+withSimulatedChainAndNetwork = withSimulatedChainAndSlowNetwork 0 0
 
--- | Creates a simulated chain and network to which 'HydraNode's can be
--- connected to using 'connectNode'. NOTE: The 'tickThread' needs to be
--- 'cancel'ed after use. Use 'withSimulatedChainAndNetwork' instead where
--- possible.
-simulatedChainAndNetwork ::
+-- | Simulated chain and network where the network and/or chain observations
+-- can be delivered with a configurable delay. Handy to reproduce race
+-- conditions related to message ordering.
+withSimulatedChainAndSlowNetwork ::
+  (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) =>
+  -- | Network message delay
+  DiffTime ->
+  -- | Chain observation delay
+  DiffTime ->
+  (SimulatedChainNetwork SimpleTx m -> m a) ->
+  m a
+withSimulatedChainAndSlowNetwork networkDelay chainDelay =
+  bracket
+    (simulatedChainAndNetworkUsing (createMockNetworkWithDelay networkDelay) chainDelay initialChainState)
+    (cancel . tickThread)
+ where
+  initialChainState = SimpleChainState{slot = ChainSlot 0}
+
+-- | Like 'simulatedChainAndNetwork' but accepts a custom network factory and
+-- an optional chain observation delay. When 'chainDelay' > 0, each chain event
+-- is delivered to nodes asynchronously after that delay, allowing tests to
+-- reproduce races where nodes observe the same on-chain event at different times.
+simulatedChainAndNetworkUsing ::
   forall m.
   (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) =>
+  (DraftHydraNode SimpleTx m -> TVar m [HydraNode SimpleTx m] -> Network m (Message SimpleTx)) ->
+  DiffTime ->
   ChainStateType SimpleTx ->
   m (SimulatedChainNetwork SimpleTx m)
-simulatedChainAndNetwork initialChainState = do
+simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
   history <- newLabelledTVarIO "sim-chain-history" []
   nodes <- newLabelledTVarIO "sim-chain-nodes" []
   nextTxId <- newLabelledTVarIO "sim-chain-next-txid" 10000
@@ -1069,7 +1173,7 @@ simulatedChainAndNetwork initialChainState = do
                   , submitTx = \_ -> error "unexpected call to submitTx"
                   , checkNonADAAssets = \_ -> error "unexpected call to checkNonADAAssets"
                   }
-              mockNetwork = createMockNetwork draftNode nodes
+              mockNetwork = networkCallback draftNode nodes
               mockServer :: Server tx m
               mockServer = Server{sendMessage = const $ pure ()}
           node <- connect mockChain mockNetwork mockServer draftNode
@@ -1122,7 +1226,9 @@ simulatedChainAndNetwork initialChainState = do
       modifyTVar' history (chainEvent :)
       readTVar nodes
     forM_ ns $ \n ->
-      handleChainEvent n chainEvent
+      void . asyncLabelled "sim-chain-event" $ do
+        threadDelay chainDelay
+        handleChainEvent n chainEvent
 
   rollbackAndForward ::
     IsChainState tx =>
@@ -1159,16 +1265,25 @@ simulatedChainAndNetwork initialChainState = do
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
 handleChainEvent HydraNode{inputQueue} = enqueue inputQueue . ChainInput
 
-createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
-createMockNetwork node nodes =
+-- | Delivers messages asynchronously after a
+-- configurable delay. When the delay exceeds the chain's block time (20s),
+-- on-chain events arrive at nodes before network echoes, reproducing
+-- version-race conditions seen in production.
+createMockNetworkWithDelay ::
+  (MonadAsync m, MonadDelay m) =>
+  DiffTime ->
+  DraftHydraNode tx m ->
+  TVar m [HydraNode tx m] ->
+  Network m (Message tx)
+createMockNetworkWithDelay networkDelay node nodes =
   Network{broadcast}
  where
   broadcast msg = do
     allNodes <- readTVarIO nodes
-    mapM_ (`handleMessage` msg) allNodes
-
-  handleMessage HydraNode{inputQueue} msg =
-    enqueue inputQueue $ mkNetworkInput sender msg
+    forM_ allNodes $ \HydraNode{inputQueue} ->
+      void . async $ do
+        threadDelay networkDelay
+        enqueue inputQueue $ mkNetworkInput sender msg
 
   sender = getParty node
 

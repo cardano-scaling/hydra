@@ -168,6 +168,23 @@ seenSnapshotNumber = \case
   RequestedSnapshot{lastSeen} -> lastSeen
   SeenSnapshot{snapshot = Snapshot{number}} -> number
 
+-- | Whether a snapshot is currently in-flight (requested or being signed).
+snapshotInFlight :: SeenSnapshot tx -> Bool
+snapshotInFlight = \case
+  NoSeenSnapshot -> False
+  LastSeenSnapshot{} -> False
+  RequestedSnapshot{} -> True
+  SeenSnapshot{} -> True
+
+-- | Whether AckSns are currently being collected for a snapshot.
+-- Unlike 'snapshotInFlight', returns False for 'RequestedSnapshot' — a
+-- snapshot sent but not yet echoed is stale once the version bumps and should
+-- not block a fresh request with the new version.
+isCollectingAcks :: SeenSnapshot tx -> Bool
+isCollectingAcks = \case
+  SeenSnapshot{} -> True
+  _ -> False
+
 -- ** Closed
 
 -- | An 'Closed' head with an current candidate 'ConfirmedSnapshot', which may

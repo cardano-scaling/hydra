@@ -166,7 +166,6 @@ channels:
       description: |
         Possible responses of this endpoint are:
           * DraftCommitTxResponse - 200 ok
-          * CommittedTooMuchADAForMainnet - 400 bad request
           * UnsupportedLegacyOutput - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
@@ -470,20 +469,6 @@ channels:
         http:
           type: response
           method: POST
-          bindingVersion: '0.1.0'
-  /head-initialization:
-    servers:
-      - localhost-http
-    subscribe:
-      description: Get the last Head initialization time.
-      operationId: getHeadInitialization
-      message:
-        summary: |
-           Timestamp of the last seen Head initialization.
-      bindings:
-        http:
-          type: response
-          method: GET
           bindingVersion: '0.1.0'
 
 components:
