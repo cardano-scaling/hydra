@@ -46,7 +46,7 @@ jobs:
         path: diff.md
         if-no-files-found: error
 
-   - name: 🔎 Find Comment
+    - name: 🔎 Find Comment
       if: github.event.pull_request.head.repo.full_name == github.repository
       uses: peter-evans/find-comment@v3
       id: find-comment
