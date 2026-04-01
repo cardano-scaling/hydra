@@ -612,10 +612,10 @@ peerParser =
         <> short 'P'
         <> help
           ( "A peer address in the form <host>:<port>, where <host> can be an IP \
-            \address, or a host name. Can be provided multiple times, once for \
-            \each peer (current maximum limit is "
+            \address or a host name. Can be provided multiple times, once for \
+            \each peer. Heads currently support at most "
               <> show maximumNumberOfParties
-              <> " peers)."
+              <> " parties; mirror nodes may also connect as peers."
           )
     )
 
