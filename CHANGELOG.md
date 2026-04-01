@@ -31,6 +31,8 @@ changes.
 
 - Fix deposits from other heads being picked up when selecting the next deposit for `ReqSn` in the `ReqTx`, `OnDecrementTx`, and rollback repost handlers - `depositsForHead` is now applied consistently in all head-level handlers.
 
+- Guard deposit aggregate cases by headId to prevent one head's deposits from corrupting another head's state when multiple heads share the same network.
+
 - Remove the hard-coded 100 ADA commit limit on mainnet. The `rejectMoreThanMainnetLimit` safety cap and the `CommittedTooMuchADAForMainnet` error are no longer needed and have been removed.
 
 ## [1.3.0] - 2026.03.05
