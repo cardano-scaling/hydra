@@ -8,9 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [2.0.0] - UNRELEASED
+## [2.0.0] - 2026.04.05
 
-- **BREAKING** Directly open heads
+- **BREAKING** Directly open heads [#2536](https://github.com/cardano-scaling/hydra/pull/2536)
   - There is no `commit` phase anymore and hence any initialized head will be directly open.
   - This means that funds need to be added "incrementally" via `deposit` transactions.
   - Greatly simplifies the head protocol and life-cycle (no `collectCom` and `abort` transactions).
@@ -21,19 +21,19 @@ changes.
 * Upgrade token name to HydraHeadV2 (from HydraHeadV1) [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 * Continue encouraging conversative ADA deposits until partial fanout is completed [#2561](https://github.com/cardano-scaling/hydra/pull/2561)
 
-- Remove head-initialization endpoint
+- Remove head-initialization endpoint [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
-- Fix Plutus script evaluation on mainnet/testnet: L2 ledger `Globals` now uses era-aware `EpochInfo` (queried from chain) instead of `fixedEpochInfo`, ensuring correct `POSIXTime` values in Plutus `ScriptContext` for time-sensitive scripts on multi-era chains. Offline/devnet mode is unaffected.
+- Fix Plutus script evaluation on mainnet/testnet: L2 ledger `Globals` now uses era-aware `EpochInfo` (queried from chain) instead of `fixedEpochInfo`, ensuring correct `POSIXTime` values in Plutus `ScriptContext` for time-sensitive scripts on multi-era chains. Offline/devnet mode is unaffected. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
-- Fix head getting permanently stuck in `RequestedSnapshot` when `CommitFinalized` races with an in-flight `ReqSn` — only `SeenSnapshot` (AckSns collecting) now blocks an immediate re-request, while `RequestedSnapshot` (stale echo) correctly retries with the new version.
+- Fix head getting permanently stuck in `RequestedSnapshot` when `CommitFinalized` races with an in-flight `ReqSn` — only `SeenSnapshot` (AckSns collecting) now blocks an immediate re-request, while `RequestedSnapshot` (stale echo) correctly retries with the new version. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
-- Fix active deposit being silently dropped when it becomes active while a snapshot is in-flight - the next chained snapshot after confirmation now picks it up via `selectNextDeposit`.
+- Fix active deposit being silently dropped when it becomes active while a snapshot is in-flight - the next chained snapshot after confirmation now picks it up via `selectNextDeposit`. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
-- Fix deposits from other heads being picked up when selecting the next deposit for `ReqSn` in the `ReqTx`, `OnDecrementTx`, and rollback repost handlers - `depositsForHead` is now applied consistently in all head-level handlers.
+- Fix deposits from other heads being picked up when selecting the next deposit for `ReqSn` in the `ReqTx`, `OnDecrementTx`, and rollback repost handlers - `depositsForHead` is now applied consistently in all head-level handlers. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
-- Guard deposit aggregate cases by headId to prevent one head's deposits from corrupting another head's state when multiple heads share the same network.
+- Guard deposit aggregate cases by headId to prevent one head's deposits from corrupting another head's state when multiple heads share the same network. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
-- Remove the hard-coded 100 ADA commit limit on mainnet. The `rejectMoreThanMainnetLimit` safety cap and the `CommittedTooMuchADAForMainnet` error are no longer needed and have been removed.
+- Remove the hard-coded 100 ADA commit limit on mainnet. The `rejectMoreThanMainnetLimit` safety cap and the `CommittedTooMuchADAForMainnet` error are no longer needed and have been removed. [#2564](https://github.com/cardano-scaling/hydra/pull/2564)
 
 ## [1.3.0] - 2026.03.05
 
