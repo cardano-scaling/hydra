@@ -4,83 +4,10 @@
 
 -- | Hydra transaction library
 @package hydra-tx:tests
-@version 1.3.0
+@version 2.0.0
 
 module Hydra.Tx.ContestationPeriodSpec
 spec :: Spec
-
-
--- | Mutation-based script validator tests for the abort transaction where
---   a <a>healthyAbortTx</a> gets mutated by an arbitrary
---   <a>AbortMutation</a>.
-module Hydra.Tx.Contract.Abort
-healthyAbortTx :: HasCallStack => (Tx, UTxO)
-healthyHeadInput :: TxIn
-healthyHeadParameters :: HeadParameters
-healthyInitials :: [(TxIn, TxOut CtxUTxO)]
-healthyCommits :: [(TxIn, TxOut CtxUTxO, UTxO)]
-healthyParties :: [Party]
-propHasInitial :: (Tx, UTxO) -> Property
-propHasCommit :: (Tx, UTxO) -> Property
-data AbortMutation
-
--- | Add one more party to the hydra keys. This is essentially the same as
---   not collecting all inputs.
-MutateParties :: AbortMutation
-
--- | Not collect one committed UTxO by removing the input and not burn the
---   corresponding PT.
-DropCollectedInput :: AbortMutation
-
--- | Not reimburse one of the parties.
-DropOneCommitOutput :: AbortMutation
-
--- | Burning one PT more. This should be an impossible situation, but it is
---   tested nonetheless.
-BurnOneTokenMore :: AbortMutation
-
--- | Meant to test that the minting policy is burning all PTs present in tx
-MutateThreadTokenQuantity :: AbortMutation
-
--- | Check an arbitrary key cannot authenticate abort.
-MutateRequiredSigner :: AbortMutation
-
--- | Use a different head output to abort.
-MutateUseDifferentHeadToAbort :: AbortMutation
-
--- | Spend some abortable output from a different Head e.g. replace a
---   commit by another commit from a different Head.
-UseInputFromOtherHead :: AbortMutation
-
--- | Re-ordering outputs would not be a big deal, but it is still
---   prevented.
-ReorderCommitOutputs :: AbortMutation
-
--- | Only burning should be allowed in abort (by the minting policy).
-MintOnAbort :: AbortMutation
-
--- | Not spend from v_head and also not burn anything to extract value.
-ExtractValue :: AbortMutation
-
--- | State token is not burned
-DoNotBurnST :: AbortMutation
-
--- | Here we want to check that the initial validator also fails on abort.
-DoNotBurnSTInitial :: AbortMutation
-genAbortMutation :: (Tx, UTxO) -> Gen SomeMutation
-genAbortableOutputs :: [Party] -> Gen ([(TxIn, TxOut CtxUTxO)], [(TxIn, TxOut CtxUTxO, UTxO)])
-
--- | Generate a UTXO representing <i>commit</i> outputs for a given list of
---   <a>Party</a>. NOTE: Uses <a>testPolicyId</a> for the datum. NOTE: We
---   don't generate empty commits and it is used only at one place so
---   perhaps move it? FIXME: This function is very complicated and it's
---   hard to understand it after a while
-generateCommitUTxOs :: [Party] -> Gen (Map TxIn (TxOut CtxUTxO, UTxO))
-assetNameFromVerificationKey :: VerificationKey PaymentKey -> AssetName
-instance GHC.Enum.Bounded Hydra.Tx.Contract.Abort.AbortMutation
-instance GHC.Enum.Enum Hydra.Tx.Contract.Abort.AbortMutation
-instance GHC.Show.Show Hydra.Tx.Contract.Abort.AbortMutation
-instance GHC.Generics.Generic Hydra.Tx.Contract.Abort.AbortMutation
 
 module Hydra.Tx.Contract.Close.Healthy
 healthySeed :: Int
@@ -102,135 +29,6 @@ healthyParties :: [Party]
 healthyOnChainParties :: [Party]
 healthySignature :: Snapshot Tx -> MultiSignature (Snapshot Tx)
 healthyConfirmedSnapshot :: Snapshot Tx -> ConfirmedSnapshot Tx
-
-module Hydra.Tx.Contract.Close.CloseInitial
-data CloseInitialMutation
-MutateCloseContestationDeadline' :: CloseInitialMutation
-healthyCloseSnapshotVersion :: SnapshotVersion
-
--- | Healthy close transaction for the specific case were we close a head
---   with the initial UtxO, that is, no snapshot have been agreed upon and
---   signed by the head members yet.
-healthyCloseInitialTx :: (Tx, UTxO)
-healthyInitialOpenDatum :: State
-genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
-
--- | Generate not acceptable, but interesting deadlines.
-genMutatedDeadline :: Gen POSIXTime
-instance GHC.Enum.Bounded Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
-instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
-instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
-instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
-
-
--- | Mutation-based script validator tests for the commit transaction where
---   a <a>healthyCommitTx</a> gets mutated by an arbitrary
---   <a>CommitMutation</a>.
-module Hydra.Tx.Contract.Commit
-healthyCommitTx :: (Tx, UTxO)
-commitSigningKey :: SigningKey PaymentKey
-commitVerificationKey :: VerificationKey PaymentKey
-healthyInitialTxIn :: TxIn
-healthyInitialTxOut :: TxOut CtxTx
-healthyCommittedUTxO :: UTxO
-data CommitMutation
-
--- | The headId in the output datum must match the one from the input
---   datum.
-NonContinuousHeadId :: CommitMutation
-
--- | Invalidates the transaction by changing the committed output value.
-MutateCommitOutputValue :: CommitMutation
-
--- | Invalidates the transaction by changing the value of the committed
---   utxo on the input side of the transaction.
-MutateCommittedValue :: CommitMutation
-
--- | Ensures the datum recording the commit is consistent with the UTxO
---   being committed.
-MutateCommittedAddress :: CommitMutation
-
--- | Ensures a commit cannot be left out when "declared" in the commit
---   transaction output datum.
-RecordAllCommittedUTxO :: CommitMutation
-
--- | Ensures commit is authenticated by a Head party by changing the signer
---   used on the transaction to be the one in the PT.
-MutateRequiredSigner :: CommitMutation
-
--- | Change the head policy id to simulate commit using a PT and signer
---   from a different head. The signer shows a correct signature but from a
---   different head. This will cause the signer to not be present in the
---   participation tokens.
-UsePTFromDifferentHead :: CommitMutation
-
--- | Minting or burning of the tokens should not be possible in commit.
-MutateTokenMintingOrBurning :: CommitMutation
-genCommitMutation :: (Tx, UTxO) -> Gen SomeMutation
-
--- | Generates value such that: - alters between policy id we use in test
---   fixtures with a random one. - mixing arbitrary token names with
---   <a>hydraHeadV1</a> - excluding 0 for quantity to mimic minting/burning
-genMintedOrBurnedValue :: Gen Value
-instance GHC.Enum.Bounded Hydra.Tx.Contract.Commit.CommitMutation
-instance GHC.Enum.Enum Hydra.Tx.Contract.Commit.CommitMutation
-instance GHC.Show.Show Hydra.Tx.Contract.Commit.CommitMutation
-instance GHC.Generics.Generic Hydra.Tx.Contract.Commit.CommitMutation
-
-module Hydra.Tx.Contract.CollectCom
-healthyCollectComTx :: (Tx, UTxO)
-healthyParticipants :: [VerificationKey PaymentKey]
-healthyCommits :: Map TxIn HealthyCommit
-healthyContestationPeriod :: ContestationPeriod
-healthyHeadTxIn :: TxIn
-healthyHeadTxOut :: TxOut CtxUTxO
-healthyCollectComInitialDatum :: State
-healthyOnChainParties :: [Party]
-healthyParties :: [Party]
-data HealthyCommit
-HealthyCommit :: OnChainId -> TxOut CtxUTxO -> UTxO -> HealthyCommit
-[$sel:participant:HealthyCommit] :: HealthyCommit -> OnChainId
-[$sel:txOut:HealthyCommit] :: HealthyCommit -> TxOut CtxUTxO
-[$sel:committed:HealthyCommit] :: HealthyCommit -> UTxO
-healthyCommitOutput :: OnChainId -> Party -> UTxO -> (TxIn, HealthyCommit)
-data CollectComMutation
-
--- | Ensures collectCom does not allow any output address but νHead.
-NotContinueContract :: CollectComMutation
-
--- | Needs to prevent that not all value is collected into the head output.
-ExtractSomeValue :: CollectComMutation
-MutateOpenUTxOHash :: CollectComMutation
-MutateOpenVersion :: CollectComMutation
-
--- | Ensures collectCom cannot collect from an initial UTxO.
-MutateCommitToInitial :: CollectComMutation
-
--- | Every party should have committed and been taken into account for the
---   collectCom transaction to be valid. Here we increase the number of
---   parties in input and output but keep the commits unchanged. This
---   simulates the situation where one participant would not have committed
---   already or whose commit would have been ignored by the collectCom
---   transaction.
-MutateNumberOfParties :: CollectComMutation
-MutateHeadId :: CollectComMutation
-MutateRequiredSigner :: CollectComMutation
-
--- | Minting or burning of tokens should not be possible in collectCom.
-MutateTokenMintingOrBurning :: CollectComMutation
-
--- | νCommit validator checks the ST is in the output
-RemoveSTFromOutput :: CollectComMutation
-genCollectComMutation :: (Tx, UTxO) -> Gen SomeMutation
-
--- | Remove a random asset and quantity from headOutput by adding another
---   output that "extracts" that value.
-extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
-instance GHC.Show.Show Hydra.Tx.Contract.CollectCom.HealthyCommit
-instance GHC.Enum.Bounded Hydra.Tx.Contract.CollectCom.CollectComMutation
-instance GHC.Enum.Enum Hydra.Tx.Contract.CollectCom.CollectComMutation
-instance GHC.Show.Show Hydra.Tx.Contract.CollectCom.CollectComMutation
-instance GHC.Generics.Generic Hydra.Tx.Contract.CollectCom.CollectComMutation
 
 module Hydra.Tx.Contract.Close.CloseUsed
 healthyOutdatedSnapshotNumber :: SnapshotNumber
@@ -484,6 +282,25 @@ instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseUnused.CloseMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseUnused.CloseMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseUnused.CloseMutation
 
+module Hydra.Tx.Contract.Close.CloseInitial
+data CloseInitialMutation
+MutateCloseContestationDeadline' :: CloseInitialMutation
+healthyCloseSnapshotVersion :: SnapshotVersion
+
+-- | Healthy close transaction for the specific case were we close a head
+--   with the initial UtxO, that is, no snapshot have been agreed upon and
+--   signed by the head members yet.
+healthyCloseInitialTx :: (Tx, UTxO)
+healthyInitialOpenDatum :: State
+genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
+
+-- | Generate not acceptable, but interesting deadlines.
+genMutatedDeadline :: Gen POSIXTime
+instance GHC.Enum.Bounded Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
+instance GHC.Show.Show Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseInitial.CloseInitialMutation
+
 module Hydra.Tx.Contract.Contest.Healthy
 
 -- | Healthy contest tx where the contester is the first one to contest and
@@ -682,6 +499,10 @@ ExtractSomeValue :: DecrementMutation
 --   output.
 UseDifferentSnapshotVersion :: DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
+
+-- | Remove a random asset and quantity from headOutput by adding another
+--   output that "extracts" that value.
+extractHeadOutputValue :: TxOut CtxTx -> PolicyId -> Gen Mutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Decrement.DecrementMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Decrement.DecrementMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Decrement.DecrementMutation
@@ -714,6 +535,7 @@ healthyContestationDeadline :: UTCTime
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutDatum :: State
 healthyParties :: [Party]
+healthyParticipants :: [VerificationKey PaymentKey]
 data FanoutMutation
 MutateValidityBeforeDeadline :: FanoutMutation
 
@@ -792,11 +614,9 @@ data InitMutation
 -- | Mint more than one ST and PTs.
 MintTooManyTokens :: InitMutation
 MutateAddAnotherPT :: InitMutation
-MutateDropInitialOutput :: InitMutation
 MutateDropSeedInput :: InitMutation
-MutateInitialOutputValue :: InitMutation
+RemovePTsFromHead :: InitMutation
 MutateHeadIdInDatum :: InitMutation
-MutateHeadIdInInitialDatum :: InitMutation
 MutateSeedInDatum :: InitMutation
 data ObserveInitMutation
 MutateSomePT :: ObserveInitMutation

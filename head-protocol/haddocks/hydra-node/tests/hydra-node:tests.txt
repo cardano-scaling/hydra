@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 1.3.0
+@version 2.0.0
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
@@ -66,7 +66,7 @@ genRollbackBlocks :: [TestBlock] -> Gen (ChainPoint, [TestBlock])
 --   transaction, starting from the returned on-chain head state.
 --   
 --   Note that this does not generate the entire spectrum of observable
---   transactions in Hydra, but only init and commits, which is already
+--   transactions in Hydra, but only init and deposits, which is already
 --   sufficient to observe at least one state transition and different
 --   levels of rollback.
 genSequenceOfObservableBlocks :: Gen (ChainContext, ChainStateAt, [TestBlock])
@@ -77,8 +77,6 @@ spec :: Spec
 module Hydra.Chain.Direct.StateSpec
 spec :: Spec
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
-genCommitTxMutation :: UTxO -> Tx -> Gen Mutation
-genAdaOnlyUTxOOnMainnetWithAmountBiggerThanOutLimit :: Gen UTxO
 
 -- | Given any Head protocol state and the transaction corresponding a
 --   protocol transition we should be able to observe this transition
@@ -89,15 +87,10 @@ prop_observeAnyTx :: Property
 -- | Given a UTxO with more than one entry, we can split it into two
 --   non-empty UTxO.
 prop_splitUTxO :: UTxO -> Property
-prop_canCloseFanoutEveryCollect :: Property
 prop_incrementObservesCorrectUTxO :: Property
 propBelowSizeLimit :: Natural -> ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
 propIsValid :: ((UTxO -> Tx -> Property) -> Property) -> SpecWith ()
 forAllInit :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllCommit :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllCommit' :: Testable property => (ChainContext -> InitialState -> UTxO -> Tx -> property) -> Property
-forAllAbort :: Testable property => (UTxO -> Tx -> property) -> Property
-forAllCollectCom :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllDeposit :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllRecover :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllIncrement :: Testable property => (UTxO -> Tx -> property) -> Property
@@ -108,10 +101,6 @@ forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
 
--- | Generate an init tx with the used seed TxIn.
-genInitTxWithSeed :: HydraContext -> Gen (Tx, TxIn)
-mfail :: MonadFail m => Maybe a -> m a
-
 module Hydra.Chain.Direct.TimeHandleSpec
 spec :: Spec
 
@@ -121,6 +110,10 @@ spec :: Spec
 --   "source" module which it tests.
 module Hydra.Chain.Direct.TxSpec
 spec :: Spec
+
+-- | Transactions produced by <a>depositTx</a> provided with arbitrary,
+--   valid blueprint txs, are valid.
+prop_validDepositTx :: Property
 
 -- | Check auxiliary data of a transaction against <a>pparams</a> and
 --   whether the aux data hash is consistent.
@@ -137,6 +130,7 @@ genBlueprintTxWithUTxO :: Gen (UTxO, Tx)
 genMetadata :: Gen TxMetadataInEra
 getAuxMetadata :: Tx -> Map Word64 Metadatum
 prop_interestingBlueprintTx :: Property
+txInsTotalValue :: UTxO -> TxBodyContent build -> Value
 
 module Hydra.Chain.Direct.WalletSpec
 spec :: Spec
@@ -255,12 +249,11 @@ observeTx :: OnChainTx SimpleTx -> Input SimpleTx
 connectivityChanged :: TTL -> Connectivity -> Input SimpleTx
 inIdleState :: NodeState SimpleTx
 inUnsyncedIdleState :: NodeState SimpleTx
-inInitialState :: [Party] -> NodeState SimpleTx
 inOpenState :: [Party] -> NodeState SimpleTx
 inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
 inClosedState :: [Party] -> NodeState SimpleTx
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
-getConfirmedSnapshot :: NodeState tx -> Maybe (Snapshot tx)
+getConfirmedSnapshot :: Monoid (UTxOType tx) => NodeState tx -> Maybe (Snapshot tx)
 data StepState tx
 StepState :: NodeState tx -> Environment -> Ledger tx -> StepState tx
 [$sel:nodeState:StepState] :: StepState tx -> NodeState tx
@@ -299,7 +292,6 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Prop
 prop_thereIsAlwaysALeader :: Property
 
 module Hydra.API.HTTPServerSpec
-dummyStatePath :: FilePath
 spec :: Spec
 apiServerSpec :: Spec
 
@@ -486,6 +478,15 @@ mockEventStore :: forall a m. Monad m => [a] -> EventStore a m
 mockSource :: Monad m => [a] -> EventSource a m
 createRecordingSink :: IO (EventSink a IO, IO [a])
 createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
+
+-- | Synthetic inputs that simulate a head opening. The head will be empty
+--   though and this test hardness can not reliably simulate deposits. Use
+--   <a>aValidTx</a> to create utxos out of thin air instead.
+--   
+--   Explanation why we can't just emualte OnDepositTx and OnIncrementTx
+--   here: While the deposit will be seen as finalized, there is no
+--   ConfirmedSnapshot here that could be adopted and thus the confirmed
+--   utxo (legder state).
 inputsToOpenHead :: [Input SimpleTx]
 observationInput :: OnChainTx SimpleTx -> Input SimpleTx
 runToCompletion :: IsChainState tx => HydraNode tx IO -> IO ()
@@ -578,6 +579,15 @@ propHasEnoughLovelace :: TxOut CtxUTxO -> Property
 --   does not use unsupported features. See <a>genTxOut</a> for rationale.
 propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
 
+-- | A realistic multi-era <a>EraHistory</a> mimicking mainnet/testnet
+--   where: - Byron era: 21600 slots<i>epoch, 20s</i>slot, runs for 208
+--   epochs (4,492,800 slots) - Shelley+ era: 432000 slots<i>epoch,
+--   1s</i>slot, open-ended
+--   
+--   This causes slot-to-time conversions to differ from a simple
+--   fixedEpochInfo because Byron slots are 20x longer than Shelley slots.
+multiEraHistory :: EraHistory
+
 module Hydra.CryptoSpec
 spec :: Spec
 specSigningKey :: Spec
@@ -621,35 +631,44 @@ TestHydraClient :: (ClientInput tx -> m ()) -> m (ServerOutput tx) -> m (ClientM
 --   can also <a>$sel:rollbackAndForward:SimulatedChainNetwork</a> any
 --   number of these "transactions".
 data SimulatedChainNetwork tx m
-SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> Party -> UTxOType tx -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> ((Party, UTxOType tx) -> m ()) -> SimulatedChainNetwork tx m
+SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (Party -> m ()) -> SimulatedChainNetwork tx m
 [$sel:connectNode:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> DraftHydraNode tx m -> m (HydraNode tx m)
 [$sel:tickThread:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Async m ()
 [$sel:rollbackAndForward:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Natural -> m ()
-[$sel:simulateCommit:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> Party -> UTxOType tx -> m ()
 [$sel:simulateDeposit:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
-[$sel:closeWithInitialSnapshot:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> (Party, UTxOType tx) -> m ()
+[$sel:closeWithInitialSnapshot:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Party -> m ()
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 
--- | With-pattern wrapper around <a>simulatedChainAndNetwork</a> which does
---   <a>cancel</a> the <a>$sel:tickThread:SimulatedChainNetwork</a>. Also,
---   this will fix tx to <a>SimpleTx</a> so that it can pick an initial
---   chain state to play back to our test nodes. NOTE: The simulated
---   network has a block time of 20 (simulated) seconds.
+-- | With-pattern wrapper around <tt>simulatedChainAndNetwork</tt> which
+--   does <a>cancel</a> the <a>$sel:tickThread:SimulatedChainNetwork</a>.
+--   Also, this will fix tx to <a>SimpleTx</a> so that it can pick an
+--   initial chain state to play back to our test nodes. NOTE: The
+--   simulated network has a block time of 20 (simulated) seconds.
 withSimulatedChainAndNetwork :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => (SimulatedChainNetwork SimpleTx m -> m a) -> m a
 
--- | Creates a simulated chain and network to which <a>HydraNode</a>s can
---   be connected to using <a>$sel:connectNode:SimulatedChainNetwork</a>.
---   NOTE: The <a>$sel:tickThread:SimulatedChainNetwork</a> needs to be
---   <a>cancel</a>ed after use. Use <a>withSimulatedChainAndNetwork</a>
---   instead where possible.
-simulatedChainAndNetwork :: forall m. (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => ChainStateType SimpleTx -> m (SimulatedChainNetwork SimpleTx m)
+-- | Simulated chain and network where the network and/or chain
+--   observations can be delivered with a configurable delay. Handy to
+--   reproduce race conditions related to message ordering.
+withSimulatedChainAndSlowNetwork :: (MonadTime m, MonadDelay m, MonadAsync m, MonadThrow m, MonadLabelledSTM m) => DiffTime -> DiffTime -> (SimulatedChainNetwork SimpleTx m -> m a) -> m a
+
+-- | Like <tt>simulatedChainAndNetwork</tt> but accepts a custom network
+--   factory and an optional chain observation delay. When
+--   <tt>chainDelay</tt> &gt; 0, each chain event is delivered to nodes
+--   asynchronously after that delay, allowing tests to reproduce races
+--   where nodes observe the same on-chain event at different times.
+simulatedChainAndNetworkUsing :: forall m. (MonadTime m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => (DraftHydraNode SimpleTx m -> TVar m [HydraNode SimpleTx m] -> Network m (Message SimpleTx)) -> DiffTime -> ChainStateType SimpleTx -> m (SimulatedChainNetwork SimpleTx m)
 handleChainEvent :: HydraNode tx m -> ChainEvent tx -> m ()
-createMockNetwork :: MonadSTM m => DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
+
+-- | Delivers messages asynchronously after a configurable delay. When the
+--   delay exceeds the chain's block time (20s), on-chain events arrive at
+--   nodes before network echoes, reproducing version-race conditions seen
+--   in production.
+createMockNetworkWithDelay :: (MonadAsync m, MonadDelay m) => DiffTime -> DraftHydraNode tx m -> TVar m [HydraNode tx m] -> Network m (Message tx)
 
 -- | Derive an <a>OnChainTx</a> from <a>PostChainTx</a> to simulate a
 --   "perfect" chain. NOTE: This implementation announces hard-coded
 --   contestationDeadlines. Also, all heads will have the same
---   <a>InitialState</a> and <a>InitialState</a>.
+--   <a>OpenState</a> and <a>OpenState</a>.
 toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 nothingHappensFor :: (MonadTimer m, MonadThrow m, IsChainState tx) => TestHydraClient tx m -> NominalDiffTime -> m ()
@@ -657,8 +676,10 @@ withHydraNode :: forall s a. SigningKey HydraKey -> [Party] -> SimulatedChainNet
 withHydraNode' :: DepositPeriod -> SigningKey HydraKey -> [Party] -> SimulatedChainNetwork SimpleTx (IOSim s) -> (TestHydraClient SimpleTx (IOSim s) -> IOSim s b) -> IOSim s b
 createTestHydraClient :: MonadSTM m => TQueue m (ServerOutput tx) -> TQueue m (ClientMessage tx) -> TVar m [ServerOutput tx] -> HydraNode tx m -> TestHydraClient tx m
 createHydraNode :: (IsChainState tx, MonadDelay m, MonadAsync m, MonadLabelledSTM m, MonadThrow m) => Tracer m (HydraNodeLog tx) -> Ledger tx -> ChainStateType tx -> SigningKey HydraKey -> [Party] -> TQueue m (ServerOutput tx) -> TQueue m (ClientMessage tx) -> TVar m [ServerOutput tx] -> SimulatedChainNetwork tx m -> ContestationPeriod -> DepositPeriod -> m (HydraNode tx m)
-openHead :: SimulatedChainNetwork SimpleTx (IOSim s) -> TestHydraClient SimpleTx (IOSim s) -> IOSim s ()
-openHead2 :: SimulatedChainNetwork SimpleTx (IOSim s) -> TestHydraClient SimpleTx (IOSim s) -> TestHydraClient SimpleTx (IOSim s) -> IOSim s ()
+openHead :: TestHydraClient SimpleTx (IOSim s) -> IOSim s ()
+openHead2 :: TestHydraClient SimpleTx (IOSim s) -> TestHydraClient SimpleTx (IOSim s) -> IOSim s ()
+depositHead :: SimulatedChainNetwork SimpleTx (IOSim s) -> [TestHydraClient SimpleTx (IOSim s)] -> UTxOType SimpleTx -> IOSim s ()
+headIsClosed :: HeadId -> ServerOutput tx -> Bool
 assertHeadIsClosed :: (HasCallStack, MonadThrow m) => ServerOutput tx -> m ()
 assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> ServerOutput tx -> m ()
 
@@ -666,7 +687,11 @@ assertHeadIsClosedWith :: (HasCallStack, MonadThrow m) => SnapshotNumber -> Serv
 shortLabel :: SigningKey HydraKey -> String
 
 -- | Get the head <tt>UTxO</tt> from open <a>HeadState</a>.
-getHeadUTxO :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
+getHeadUTxO :: HeadState tx -> Maybe (UTxOType tx)
+
+-- | Get the latest confirmed snapshot from an open node, failing if the
+--   node is not in an open state.
+getConfirmedSnapshotFromNode :: (HasCallStack, MonadThrow m) => TestHydraClient tx m -> m (ConfirmedSnapshot tx)
 instance GHC.Show.Show Hydra.BehaviorSpec.NodeId
 instance GHC.Enum.Enum Hydra.BehaviorSpec.NodeId
 
@@ -678,7 +703,7 @@ module Hydra.Model.MockChain
 --   <a>$sel:onRollForward:ChainSyncHandler</a> on every <tt>blockTime</tt>
 --   and performs <a>$sel:rollbackAndForward:SimulatedChainNetwork</a>
 --   every couple blocks.
-mockChainAndNetwork :: forall m. (MonadTimer m, MonadAsync m, MonadMask m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadDelay m, MonadTime m) => Tracer m CardanoChainLog -> [(SigningKey HydraKey, CardanoSigningKey)] -> UTxO -> m (SimulatedChainNetwork Tx m)
+mockChainAndNetwork :: forall m. (MonadTimer m, MonadAsync m, MonadMask m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadDelay m, MonadTime m) => Tracer m CardanoChainLog -> [(SigningKey HydraKey, CardanoSigningKey)] -> m (SimulatedChainNetwork Tx m)
 
 -- | Construct fixed <a>TimeHandle</a> that starts from 0 and has the era
 --   horizon far in the future. This is used in our <tt>Model</tt> tests
@@ -739,7 +764,11 @@ WorldState :: [(SigningKey HydraKey, CardanoSigningKey)] -> GlobalState -> UTxOT
 
 -- | UTxO available to be committed incrementally. NOTE: We must not add
 --   UTxO we decommitted to this as the <a>Payment</a> transaction model
---   results in non-unique transaction ids when running the model.
+--   results in non-unique transaction ids when running the model. NOTE:
+--   Deposits are not randomly generated in <tt>anyActions_</tt> — they are
+--   only performed explicitly in scripted tests (e.g.
+--   <tt>propFanoutLimit</tt>). Adding real support for random deposit
+--   actions is left for the future.
 [$sel:availableToDeposit:WorldState] :: WorldState -> UTxOType Payment
 
 -- | Global state of the Head protocol. While each participant in the Hydra
@@ -752,33 +781,25 @@ data GlobalState
 -- | Start of the "world". This state is left implicit in the node's logic
 --   as it represents that state where the node does not even exist.
 Start :: GlobalState
-Idle :: [Party] -> [VerificationKey PaymentKey] -> ContestationPeriod -> Uncommitted -> GlobalState
+Idle :: [Party] -> [VerificationKey PaymentKey] -> ContestationPeriod -> GlobalState
 [$sel:idleParties:Start] :: GlobalState -> [Party]
 [$sel:cardanoKeys:Start] :: GlobalState -> [VerificationKey PaymentKey]
 [$sel:contestationPeriod:Start] :: GlobalState -> ContestationPeriod
-[$sel:toCommit:Start] :: GlobalState -> Uncommitted
-Initial :: Var HeadId -> HeadParameters -> Committed Payment -> Uncommitted -> GlobalState
-[$sel:headIdVar:Start] :: GlobalState -> Var HeadId
-[$sel:headParameters:Start] :: GlobalState -> HeadParameters
-[$sel:commits:Start] :: GlobalState -> Committed Payment
-[$sel:pendingCommits:Start] :: GlobalState -> Uncommitted
-Open :: Var HeadId -> HeadParameters -> OffChainState -> Committed Payment -> GlobalState
+Open :: Var HeadId -> HeadParameters -> OffChainState -> Map Party (UTxOType Payment) -> GlobalState
 [$sel:headIdVar:Start] :: GlobalState -> Var HeadId
 [$sel:headParameters:Start] :: GlobalState -> HeadParameters
 [$sel:offChainState:Start] :: GlobalState -> OffChainState
-[$sel:committed:Start] :: GlobalState -> Committed Payment
+[$sel:committed:Start] :: GlobalState -> Map Party (UTxOType Payment)
 Closed :: HeadParameters -> UTxOType Payment -> GlobalState
 [$sel:headParameters:Start] :: GlobalState -> HeadParameters
 [$sel:closedUTxO:Start] :: GlobalState -> UTxOType Payment
 Final :: UTxOType Payment -> GlobalState
 [$sel:finalUTxO:Start] :: GlobalState -> UTxOType Payment
-type Uncommitted = Map Party (UTxOType Payment)
 newtype OffChainState
 OffChainState :: UTxOType Payment -> OffChainState
 [$sel:confirmedUTxO:OffChainState] :: OffChainState -> UTxOType Payment
 type ActualCommitted = UTxOType Payment
 genSeed :: Gen (Action WorldState ())
-genToCommit :: (SigningKey HydraKey, CardanoSigningKey) -> Gen (Map Party [(CardanoSigningKey, Value)])
 genContestationPeriod :: Gen ContestationPeriod
 genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
 genPayment :: WorldState -> Gen (Party, Payment)
@@ -832,8 +853,7 @@ sortTxOuts :: [TxOut ctx] -> [TxOut ctx]
 
 -- | Deposit period used by all nodes and the <a>performDeposit</a>.
 testDepositPeriod :: DepositPeriod
-seedWorld :: (MonadAsync m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadMask m, MonadDelay m, MonadTime m) => [(SigningKey HydraKey, CardanoSigningKey)] -> ContestationPeriod -> Uncommitted -> RunMonad m ()
-performCommit :: (MonadThrow m, MonadTimer m, MonadAsync m, MonadLabelledSTM m) => HeadId -> Party -> [(CardanoSigningKey, Value)] -> RunMonad m ()
+seedWorld :: (MonadAsync m, MonadTimer m, MonadThrow (STM m), MonadLabelledSTM m, MonadFork m, MonadMask m, MonadDelay m, MonadTime m) => [(SigningKey HydraKey, CardanoSigningKey)] -> ContestationPeriod -> RunMonad m ()
 performDeposit :: (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m, MonadLabelledSTM m) => HeadId -> [(CardanoSigningKey, Value)] -> RunMonad m ()
 performDecommit :: (MonadThrow m, MonadTimer m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) => Party -> Payment -> RunMonad m ()
 performNewTx :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> Payment -> RunMonad m Payment
@@ -850,7 +870,6 @@ waitForReadyToFanout :: MonadDelay m => TestHydraClient tx m -> RunMonad m ()
 sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad m ()
 getActorNode :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m (TestHydraClient Tx m)
 performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
-performAbort :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
 performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
@@ -966,25 +985,11 @@ instance Test.QuickCheck.StateModel.Variables.HasVariables (Test.QuickCheck.Stat
 --   [("8bbc9f32e4faff669ed1561025f243649f1332902aa79ad7e6e6bbae663f332d",CardanoSigningKey
 --   {signingKey =
 --   "0400020803030302070808060405040001050408070401040604000005010603"})],
---   seedContestationPeriod = 46s, seedDepositDeadline = 50s, toCommit =
---   fromList [(Party {vkey =
---   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},[(CardanoSigningKey
---   {signingKey =
---   "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList
---   [(AdaAssetId,54862683)])])]} var2 &lt;- action $ Init (Party {vkey =
+--   seedContestationPeriod = 46s, seedDepositDeadline = 50s} var2 &lt;-
+--   action $ Init (Party {vkey =
 --   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
---   action $ Commit {headIdVar = var2, party = Party {vkey =
---   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},
---   utxoToCommit = [(CardanoSigningKey {signingKey =
---   "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList
---   [(AdaAssetId,54862683)])]} action $ Decommit {party = Party {vkey =
---   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},
---   decommitTx = Payment { from = CardanoSigningKey {signingKey =
---   "0400020803030302070808060405040001050408070401040604000005010603"},
---   to = CardanoSigningKey {signingKey =
---   "0702050602000101050108060302010707060007020308080801060700030306"},
---   value = valueFromList [(AdaAssetId,54862683)] }} action $ Deposit
---   {headIdVar = var2, utxoToDeposit = [(CardanoSigningKey {signingKey =
+--   action $ Deposit {headIdVar = var2, utxoToDeposit =
+--   [(CardanoSigningKey {signingKey =
 --   "0400020803030302070808060405040001050408070401040604000005010603"},valueFromList
 --   [(AdaAssetId,54862683)])], deadline = 1864-06-06 08:24:08.669152896211
 --   UTC} pure () </tt>@
@@ -1001,27 +1006,10 @@ instance Test.QuickCheck.StateModel.Variables.HasVariables (Test.QuickCheck.Stat
 --   CardanoSigningKey{signingKey =
 --   "0400020803030302070808060405040001050408070401040604000005010603"})],
 --   seedContestationPeriod = UnsafeContestationPeriod 46,
---   seedDepositDeadline = UnsafeDepositDeadline 50, toCommit = fromList
---   [(Party{vkey =
---   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},
---   [(CardanoSigningKey{signingKey =
---   "0400020803030302070808060405040001050408070401040604000005010603"},
---   valueFromList [(AdaAssetId, 54862683)])])]} var2 &lt;- action $ Init
---   (Party{vkey =
+--   seedDepositDeadline = UnsafeDepositDeadline 50} var2 &lt;- action $
+--   Init (Party{vkey =
 --   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"})
---   action $ Commit{headIdVar = var2, party = Party{vkey =
---   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},
---   utxoToCommit = [(CardanoSigningKey{signingKey =
---   "0400020803030302070808060405040001050408070401040604000005010603"},
---   valueFromList [(AdaAssetId, 54862683)])]} action $ Decommit{party =
---   Party{vkey =
---   "b4ea494b4bda6281899727bf4cfef5cdeba8fb3fec4edebc408aa72dfd6ad4f0"},
---   decommitTx = Payment{from = CardanoSigningKey{signingKey =
---   "0400020803030302070808060405040001050408070401040604000005010603"},
---   to = CardanoSigningKey{signingKey =
---   "0702050602000101050108060302010707060007020308080801060700030306"},
---   value = valueFromList [(AdaAssetId, 54862683)]}} action $
---   Deposit{headIdVar = var2, utxoToDeposit =
+--   action $ Deposit{headIdVar = var2, utxoToDeposit =
 --   [(CardanoSigningKey{signingKey =
 --   "0400020803030302070808060405040001050408070401040604000005010603"},
 --   valueFromList [(AdaAssetId, 54862683)])], deadline = read "1864-06-06
@@ -1042,7 +1030,6 @@ partyContestsToWrongClosedSnapshot :: DL WorldState ()
 --   getting confirmed must be part of the UTxO after finalization.
 fanoutContainsWholeConfirmedUTxO :: DL WorldState ()
 nonConflictingTx :: WorldState -> Quantification (Party, Payment)
-headOpensIfAllPartiesCommit :: DL WorldState ()
 conflictFreeLiveness :: DL WorldState ()
 propDoesNotGenerate0AdaUTxO :: Actions WorldState -> Property
 

@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx
-@version 1.3.0
+@version 2.0.0
 
 
 -- | Utilities to building transactions on top of the cardano-api.
@@ -464,10 +464,8 @@ instance GHC.Classes.Eq Hydra.Tx.HeadParameters.HeadParameters
 module Hydra.Tx.ScriptRegistry
 
 -- | Hydra scripts published as reference scripts at these UTxO.
-data ScriptRegistry
-ScriptRegistry :: (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> ScriptRegistry
-[$sel:initialReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
-[$sel:commitReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
+newtype ScriptRegistry
+ScriptRegistry :: (TxIn, TxOut CtxUTxO) -> ScriptRegistry
 [$sel:headReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
 data NewScriptRegistryException
 MissingScript :: Text -> ScriptHash -> Set ScriptHash -> NewScriptRegistryException
@@ -526,9 +524,8 @@ Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -
 -- | A snapshot that can be used to close a head with. Either the initial
 --   one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
-InitialSnapshot :: HeadId -> UTxOType tx -> ConfirmedSnapshot tx
+InitialSnapshot :: HeadId -> ConfirmedSnapshot tx
 [$sel:headId:InitialSnapshot] :: ConfirmedSnapshot tx -> HeadId
-[$sel:initialUTxO:InitialSnapshot] :: ConfirmedSnapshot tx -> UTxOType tx
 ConfirmedSnapshot :: Snapshot tx -> MultiSignature (Snapshot tx) -> ConfirmedSnapshot tx
 [$sel:snapshot:InitialSnapshot] :: ConfirmedSnapshot tx -> Snapshot tx
 [$sel:signatures:InitialSnapshot] :: ConfirmedSnapshot tx -> MultiSignature (Snapshot tx)
@@ -540,7 +537,7 @@ ConfirmedSnapshot :: Snapshot tx -> MultiSignature (Snapshot tx) -> ConfirmedSna
 --   (and lead to unnoticed runtime errors) if we ever add a new branch to
 --   the sumtype. So, we explicitly define a getter which will force us
 --   into thinking about changing the signature properly if this happens.
-getSnapshot :: ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: Monoid (UTxOType tx) => ConfirmedSnapshot tx -> Snapshot tx
 instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotNumber
@@ -635,17 +632,17 @@ NoThing :: IncrementalAction
 -- | Find (if it exists) the head identifier contained in given
 --   <a>TxOut</a>.
 findStateToken :: TxOut ctx -> Maybe HeadId
-headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
 
 -- | Create a transaction metadata entry to identify Hydra transactions
 --   (for informational purposes).
-mkHydraHeadV1TxName :: Text -> TxMetadata
+mkHydraHeadV2TxName :: Text -> TxMetadata
 addMetadata :: TxMetadata -> Tx -> AlonzoTx ConwayEra -> AlonzoTx ConwayEra
+headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
 assetNameToOnChainId :: AssetName -> OnChainId
 
 -- | Find first occurrence including a transformation.
 findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
-hydraHeadV1AssetName :: AssetName
+hydraHeadV2AssetName :: AssetName
 onChainIdToAssetName :: OnChainId -> AssetName
 
 -- | The metadata label used for identifying Hydra protocol transactions.
@@ -694,9 +691,7 @@ module Hydra.Tx.Init
 -- | Create the init transaction from some <a>HeadParameters</a> and a
 --   single TxIn which will be used as unique parameter for minting NFTs.
 initTx :: NetworkId -> TxIn -> [OnChainId] -> HeadParameters -> Tx
-mkHeadOutput :: NetworkId -> PolicyId -> TxOutDatum ctx -> TxOut ctx
-mkHeadOutputInitial :: NetworkId -> TxIn -> HeadParameters -> TxOut CtxTx
-mkInitialOutput :: NetworkId -> TxIn -> OnChainId -> TxOut CtxTx
+mkHeadOutput :: NetworkId -> PolicyId -> [OnChainId] -> TxOutDatum ctx -> TxOut ctx
 
 -- | Data which can be observed from an <a>initTx</a>.
 data InitObservation
@@ -711,6 +706,7 @@ NotAHeadDatum :: NotAnInitReason
 InvalidPartyInDatum :: NotAnInitReason
 NoSTFound :: NotAnInitReason
 NotAHeadPolicy :: NotAnInitReason
+NoTokensMinted :: NotAnInitReason
 
 -- | Identify a init tx by checking the output value for holding tokens
 --   that are valid head tokens (checked by seed + policy).
@@ -728,13 +724,14 @@ module Hydra.Tx.Increment
 
 -- | Construct a _increment_ transaction which takes as input some
 --   <a>UTxO</a> locked at v_deposit and make it available on L2.
-incrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> UTxO -> SlotNo -> MultiSignature (Snapshot Tx) -> Tx
+incrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> UTxO -> SlotNo -> MultiSignature (Snapshot Tx) -> Tx
 data IncrementObservation
-IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> IncrementObservation
+IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> IncrementObservation
 [$sel:headId:IncrementObservation] :: IncrementObservation -> HeadId
 [$sel:newVersion:IncrementObservation] :: IncrementObservation -> SnapshotVersion
 [$sel:depositTxId:IncrementObservation] :: IncrementObservation -> TxId
-observeIncrementTx :: UTxO -> Tx -> Maybe IncrementObservation
+[$sel:deposited:IncrementObservation] :: IncrementObservation -> UTxO
+observeIncrementTx :: NetworkId -> UTxO -> Tx -> Maybe IncrementObservation
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Increment.IncrementObservation
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Increment.IncrementObservation
 instance GHC.Generics.Generic Hydra.Tx.Increment.IncrementObservation
@@ -764,7 +761,7 @@ instance GHC.Classes.Eq Hydra.Tx.Fanout.FanoutObservation
 module Hydra.Tx.Deposit
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
-depositTx :: NetworkId -> PParams LedgerEra -> HeadId -> CommitBlueprintTx Tx -> SlotNo -> UTCTime -> Maybe AddressInEra -> Tx
+depositTx :: HasCallStack => NetworkId -> PParams LedgerEra -> HeadId -> CommitBlueprintTx Tx -> SlotNo -> UTCTime -> Maybe AddressInEra -> Tx
 mkDepositOutput :: NetworkId -> HeadId -> UTxO -> UTCTime -> TxOut ctx
 constructDepositUTxO :: TxId -> [TxOut CtxTx] -> UTxO
 depositAddress :: NetworkId -> AddressInEra
@@ -796,7 +793,7 @@ module Hydra.Tx.Decrement
 -- | Construct a _decrement_ transaction which takes as input some
 --   <a>UTxO</a> present in the L2 ledger state and makes it available on
 --   L1.
-decrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> MultiSignature (Snapshot Tx) -> Tx
+decrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> MultiSignature (Snapshot Tx) -> Tx
 data DecrementObservation
 DecrementObservation :: HeadId -> SnapshotVersion -> UTxO -> DecrementObservation
 [$sel:headId:DecrementObservation] :: DecrementObservation -> HeadId
@@ -808,67 +805,6 @@ instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Decrement.DecrementObservation
 instance GHC.Generics.Generic Hydra.Tx.Decrement.DecrementObservation
 instance GHC.Classes.Eq Hydra.Tx.Decrement.DecrementObservation
 instance GHC.Show.Show Hydra.Tx.Decrement.DecrementObservation
-
-module Hydra.Tx.Commit
-
--- | Craft a commit transaction which includes the "committed" utxo as a
---   datum.
-commitTx :: NetworkId -> ScriptRegistry -> HeadId -> Party -> CommitBlueprintTx Tx -> (TxIn, TxOut CtxUTxO, Hash PaymentKey) -> Tx
-mkCommitDatum :: Party -> UTxO -> CurrencySymbol -> Datum
-
--- | Full observation of a commit transaction.
-data CommitObservation
-CommitObservation :: Party -> UTxO -> HeadId -> CommitObservation
-
--- | Hydra participant who committed the UTxO.
-[$sel:party:CommitObservation] :: CommitObservation -> Party
-[$sel:committed:CommitObservation] :: CommitObservation -> UTxO
-[$sel:headId:CommitObservation] :: CommitObservation -> HeadId
-
--- | Identify a commit tx by:
---   
---   <ul>
---   <li>Check that its spending from the init validator,</li>
---   <li>Find the outputs which pays to the commit validator,</li>
---   <li>Using the datum of that output, deserialize the committed
---   output,</li>
---   <li>Reconstruct the committed UTxO from both values (tx input and
---   output).</li>
---   </ul>
-observeCommitTx :: NetworkId -> UTxO -> Tx -> Maybe CommitObservation
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Commit.CommitObservation
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Commit.CommitObservation
-instance GHC.Generics.Generic Hydra.Tx.Commit.CommitObservation
-instance GHC.Show.Show Hydra.Tx.Commit.CommitObservation
-instance GHC.Classes.Eq Hydra.Tx.Commit.CommitObservation
-
-module Hydra.Tx.CollectCom
-
--- | Create a transaction collecting all "committed" utxo and opening a
---   Head, i.e. driving the Head script state.
-collectComTx :: NetworkId -> ScriptRegistry -> VerificationKey PaymentKey -> HeadId -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Map TxIn (TxOut CtxUTxO) -> UTxO -> Tx
-newtype UTxOHash
-UTxOHash :: ByteString -> UTxOHash
-data CollectComObservation
-CollectComObservation :: HeadId -> UTxOHash -> CollectComObservation
-[$sel:headId:CollectComObservation] :: CollectComObservation -> HeadId
-[$sel:utxoHash:CollectComObservation] :: CollectComObservation -> UTxOHash
-
--- | Identify a collectCom tx by lookup up the input spending the Head
---   output and decoding its redeemer.
-observeCollectComTx :: UTxO -> Tx -> Maybe CollectComObservation
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.CollectCom.UTxOHash
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.CollectCom.UTxOHash
-instance GHC.Generics.Generic Hydra.Tx.CollectCom.UTxOHash
-instance GHC.Show.Show Hydra.Tx.CollectCom.UTxOHash
-instance GHC.Classes.Eq Hydra.Tx.CollectCom.UTxOHash
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.CollectCom.CollectComObservation
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.CollectCom.CollectComObservation
-instance GHC.Generics.Generic Hydra.Tx.CollectCom.CollectComObservation
-instance GHC.Classes.Eq Hydra.Tx.CollectCom.CollectComObservation
-instance GHC.Show.Show Hydra.Tx.CollectCom.CollectComObservation
-instance Cardano.Api.HasTypeProxy.HasTypeProxy Hydra.Tx.CollectCom.UTxOHash
-instance Cardano.Api.Serialise.Raw.SerialiseAsRawBytes Hydra.Tx.CollectCom.UTxOHash
 
 module Hydra.Tx.Close
 type PointInTime = (SlotNo, UTCTime)
@@ -928,28 +864,6 @@ instance GHC.Generics.Generic Hydra.Tx.Contest.ContestObservation
 instance GHC.Classes.Eq Hydra.Tx.Contest.ContestObservation
 instance GHC.Show.Show Hydra.Tx.Contest.ContestObservation
 
-module Hydra.Tx.Abort
-data AbortTxError
-OverlappingInputs :: AbortTxError
-CannotFindHeadOutputToAbort :: AbortTxError
-
--- | Create transaction which aborts a head by spending the Head output and
---   all other "initial" outputs.
-abortTx :: UTxO -> ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, TxOut CtxUTxO) -> PlutusScript -> Map TxIn (TxOut CtxUTxO) -> Map TxIn (TxOut CtxUTxO) -> Either AbortTxError Tx
-newtype AbortObservation
-AbortObservation :: HeadId -> AbortObservation
-[$sel:headId:AbortObservation] :: AbortObservation -> HeadId
-
--- | Identify an abort tx by looking up the input spending the Head output
---   and decoding its redeemer.
-observeAbortTx :: UTxO -> Tx -> Maybe AbortObservation
-instance GHC.Show.Show Hydra.Tx.Abort.AbortTxError
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Abort.AbortObservation
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Abort.AbortObservation
-instance GHC.Generics.Generic Hydra.Tx.Abort.AbortObservation
-instance GHC.Show.Show Hydra.Tx.Abort.AbortObservation
-instance GHC.Classes.Eq Hydra.Tx.Abort.AbortObservation
-
 
 -- | Observe hydra transactions
 module Hydra.Tx.Observe
@@ -958,9 +872,6 @@ module Hydra.Tx.Observe
 data HeadObservation
 NoHeadTx :: HeadObservation
 Init :: InitObservation -> HeadObservation
-Abort :: AbortObservation -> HeadObservation
-Commit :: CommitObservation -> HeadObservation
-CollectCom :: CollectComObservation -> HeadObservation
 Deposit :: DepositObservation -> HeadObservation
 Recover :: RecoverObservation -> HeadObservation
 Increment :: IncrementObservation -> HeadObservation
@@ -985,46 +896,11 @@ NotAHeadDatum :: NotAnInitReason
 InvalidPartyInDatum :: NotAnInitReason
 NoSTFound :: NotAnInitReason
 NotAHeadPolicy :: NotAnInitReason
+NoTokensMinted :: NotAnInitReason
 
 -- | Identify a init tx by checking the output value for holding tokens
 --   that are valid head tokens (checked by seed + policy).
 observeInitTx :: Tx -> Either NotAnInitReason InitObservation
-newtype AbortObservation
-AbortObservation :: HeadId -> AbortObservation
-[$sel:headId:AbortObservation] :: AbortObservation -> HeadId
-
--- | Identify an abort tx by looking up the input spending the Head output
---   and decoding its redeemer.
-observeAbortTx :: UTxO -> Tx -> Maybe AbortObservation
-
--- | Full observation of a commit transaction.
-data CommitObservation
-CommitObservation :: Party -> UTxO -> HeadId -> CommitObservation
-
--- | Hydra participant who committed the UTxO.
-[$sel:party:CommitObservation] :: CommitObservation -> Party
-[$sel:committed:CommitObservation] :: CommitObservation -> UTxO
-[$sel:headId:CommitObservation] :: CommitObservation -> HeadId
-
--- | Identify a commit tx by:
---   
---   <ul>
---   <li>Check that its spending from the init validator,</li>
---   <li>Find the outputs which pays to the commit validator,</li>
---   <li>Using the datum of that output, deserialize the committed
---   output,</li>
---   <li>Reconstruct the committed UTxO from both values (tx input and
---   output).</li>
---   </ul>
-observeCommitTx :: NetworkId -> UTxO -> Tx -> Maybe CommitObservation
-data CollectComObservation
-CollectComObservation :: HeadId -> UTxOHash -> CollectComObservation
-[$sel:headId:CollectComObservation] :: CollectComObservation -> HeadId
-[$sel:utxoHash:CollectComObservation] :: CollectComObservation -> UTxOHash
-
--- | Identify a collectCom tx by lookup up the input spending the Head
---   output and decoding its redeemer.
-observeCollectComTx :: UTxO -> Tx -> Maybe CollectComObservation
 data DecrementObservation
 DecrementObservation :: HeadId -> SnapshotVersion -> UTxO -> DecrementObservation
 [$sel:headId:DecrementObservation] :: DecrementObservation -> HeadId
@@ -1048,11 +924,12 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 --   upper validity bound has been set (used as creation slot).
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
-IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> IncrementObservation
+IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> IncrementObservation
 [$sel:headId:IncrementObservation] :: IncrementObservation -> HeadId
 [$sel:newVersion:IncrementObservation] :: IncrementObservation -> SnapshotVersion
 [$sel:depositTxId:IncrementObservation] :: IncrementObservation -> TxId
-observeIncrementTx :: UTxO -> Tx -> Maybe IncrementObservation
+[$sel:deposited:IncrementObservation] :: IncrementObservation -> UTxO
+observeIncrementTx :: NetworkId -> UTxO -> Tx -> Maybe IncrementObservation
 data RecoverObservation
 RecoverObservation :: HeadId -> TxId -> UTxO -> RecoverObservation
 [$sel:headId:RecoverObservation] :: RecoverObservation -> HeadId
