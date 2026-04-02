@@ -538,8 +538,8 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} mQueryP
   connectedOnce <- newIORef False
   (retries, delay) <-
     Prelude.getHydraNetwork >>= \case
-      Prelude.Blockfrost -> pure (300, 1)
-      _ -> pure (200, 0.1)
+      Prelude.LocalDevnet -> pure (200, 0.1)
+      _ -> pure (300, 1)
   tryConnect connectedOnce (retries :: Int) delay
  where
   tryConnect connectedOnce n delay
