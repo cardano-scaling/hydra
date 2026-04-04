@@ -15,7 +15,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Tx.Crypto (sign)
+import Hydra.Tx.Crypto (getSignableRepresentation, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
 import Hydra.Tx.Party (Party, deriveParty)
@@ -98,7 +98,7 @@ spec = do
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
             sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
-            st = coordinatedHeadState{seenSnapshot = SeenSnapshot sn1 mempty}
+            st = coordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot = sn1, signatories = mempty, signableBytes = getSignableRepresentation sn1}}
             s0 = inOpenState' [alice, bob] st
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
