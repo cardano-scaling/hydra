@@ -92,8 +92,10 @@ import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
   aggregateInOrder,
+  getSignableRepresentation,
   sign,
   verifyMultiSignature,
+  verifyMultiSignatureBytes,
  )
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
@@ -519,7 +521,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
-    waitOnSeenSnapshot $ \snapshot sigs -> do
+    waitOnSeenSnapshot $ \snapshot sigs snapshotBytes -> do
       -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
         -- Spec: ̂Σ[j] ← σⱼ
@@ -533,7 +535,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
             --       𝑈𝜔 ← outputs(tx𝜔 )
             --       ηω ← combine(𝑈𝜔)
             --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
-            requireVerifiedMultisignature multisig snapshot $
+            requireVerifiedMultisignature multisig snapshotBytes $
               do
                 -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
@@ -562,8 +564,8 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       -- instances of hydra-node using the same keys.
       LastSeenSnapshot{lastSeen}
         | sn <= lastSeen -> noop
-      SeenSnapshot snapshot sigs
-        | seenSn == sn -> continue snapshot sigs
+      SeenSnapshot{snapshot, signatories = sigs, signableBytes}
+        | seenSn == sn -> continue snapshot sigs signableBytes
       _ -> wait WaitOnSeenSnapshot
 
   requireNotSignedYet sigs continue =
@@ -584,7 +586,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
                 }
 
   requireVerifiedMultisignature multisig msg cont =
-    case verifyMultiSignature vkeys multisig msg of
+    case verifyMultiSignatureBytes vkeys multisig msg of
       Verified -> cont
       FailedKeys failures ->
         Error $
@@ -1903,7 +1905,12 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { seenSnapshot = SeenSnapshot snapshot mempty
+                  { seenSnapshot =
+                      SeenSnapshot
+                        { snapshot
+                        , signatories = mempty
+                        , signableBytes = getSignableRepresentation snapshot
+                        }
                   , localTxs = newLocalTxs
                   , localUTxO = newLocalUTxO
                   , allTxs = foldr Map.delete allTxs requestedTxIds

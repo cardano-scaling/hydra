@@ -49,7 +49,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUn
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod qualified as CP
-import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
+import Hydra.Tx.Crypto (aggregate, generateSigningKey, getSignableRepresentation, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
@@ -277,7 +277,7 @@ spec =
             s0 =
               ( inOpenState' singleParty $
                   coordinatedHeadState
-                    { seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = Map.empty}
+                    { seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = Map.empty, signableBytes = getSignableRepresentation snapshot1}
                     , localTxs = [tx2]
                     , currentDepositTxId = Nothing
                     }
@@ -599,7 +599,7 @@ spec =
                     { localUTxO
                     , version = 3
                     , confirmedSnapshot = confirmedSn
-                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty, signableBytes = getSignableRepresentation snapshot1}
                     , decommitTx = Just decommitTx
                     }
 
@@ -615,7 +615,7 @@ spec =
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
               chs.decommitTx `shouldBe` Nothing
-              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty, signableBytes = getSignableRepresentation snapshot1}
             _ -> fail "expected Open state"
 
         it "DecommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
@@ -633,7 +633,7 @@ spec =
                     { localUTxO
                     , version = 3
                     , confirmedSnapshot = confirmedSn
-                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty, signableBytes = getSignableRepresentation snapshot1}
                     , decommitTx = Just decommitTx
                     }
 
@@ -650,7 +650,7 @@ spec =
           let s1 = aggregateState s0 outcome
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
-              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty, signableBytes = getSignableRepresentation snapshot1}
             _ -> fail "expected Open state"
 
         it "CommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
@@ -668,7 +668,7 @@ spec =
                     { localUTxO
                     , version = 3
                     , confirmedSnapshot = confirmedSn
-                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty, signableBytes = getSignableRepresentation snapshot1}
                     , currentDepositTxId = Just depositTxId
                     }
 
@@ -685,7 +685,7 @@ spec =
           let s1 = aggregateState s0 outcome
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
-              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty, signableBytes = getSignableRepresentation snapshot1}
             _ -> fail "expected Open state"
 
         it "CommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
@@ -960,7 +960,7 @@ spec =
               inOpenState' threeParties $
                 coordinatedHeadState
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
-                  , seenSnapshot = SeenSnapshot (testSnapshot 3 0 [] mempty) mempty
+                  , seenSnapshot = let sn = testSnapshot 3 0 [] mempty in SeenSnapshot{snapshot = sn, signatories = mempty, signableBytes = getSignableRepresentation sn}
                   }
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)

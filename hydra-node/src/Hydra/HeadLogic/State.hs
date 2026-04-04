@@ -6,6 +6,7 @@ module Hydra.HeadLogic.State where
 
 import Hydra.Prelude
 
+import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map qualified as Map
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Tx (
@@ -15,7 +16,7 @@ import Hydra.Tx (
   IsTx (..),
   Party,
  )
-import Hydra.Tx.Crypto (Signature)
+import Hydra.Tx.Crypto (Signature, getSignableRepresentation)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
@@ -151,14 +152,52 @@ data SeenSnapshot tx
     SeenSnapshot
       { snapshot :: Snapshot tx
       , signatories :: Map Party (Signature (Snapshot tx))
-      -- ^ Collected signatures and so far.
+      -- ^ Collected signatures so far.
+      , signableBytes :: ByteString
+      -- ^ Pre-computed result of 'getSignableRepresentation snapshot', cached
+      -- to avoid recomputing the expensive UTxO hash on every AckSn verification.
       }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (SeenSnapshot tx)
 deriving stock instance IsTx tx => Show (SeenSnapshot tx)
-deriving anyclass instance IsTx tx => ToJSON (SeenSnapshot tx)
-deriving anyclass instance IsTx tx => FromJSON (SeenSnapshot tx)
+
+-- Manual instances that exclude 'signableBytes' from JSON (it is derived from
+-- 'snapshot' and recomputed on deserialisation).
+instance IsTx tx => ToJSON (SeenSnapshot tx) where
+  toJSON = \case
+    NoSeenSnapshot ->
+      object ["tag" .= ("NoSeenSnapshot" :: Text)]
+    LastSeenSnapshot{lastSeen} ->
+      object ["tag" .= ("LastSeenSnapshot" :: Text), "lastSeen" .= lastSeen]
+    RequestedSnapshot{lastSeen, requested} ->
+      object
+        [ "tag" .= ("RequestedSnapshot" :: Text)
+        , "lastSeen" .= lastSeen
+        , "requested" .= requested
+        ]
+    SeenSnapshot{snapshot, signatories} ->
+      object
+        [ "tag" .= ("SeenSnapshot" :: Text)
+        , "snapshot" .= snapshot
+        , "signatories" .= signatories
+        ]
+
+instance IsTx tx => FromJSON (SeenSnapshot tx) where
+  parseJSON = withObject "SeenSnapshot" $ \obj -> do
+    tag :: Text <- obj .: "tag"
+    case tag of
+      "NoSeenSnapshot" -> pure NoSeenSnapshot
+      "LastSeenSnapshot" -> LastSeenSnapshot <$> obj .: "lastSeen"
+      "RequestedSnapshot" ->
+        RequestedSnapshot
+          <$> obj .: "lastSeen"
+          <*> obj .: "requested"
+      "SeenSnapshot" -> do
+        snapshot <- obj .: "snapshot"
+        signatories <- obj .: "signatories"
+        pure SeenSnapshot{snapshot, signatories, signableBytes = getSignableRepresentation snapshot}
+      other -> fail $ "unknown SeenSnapshot tag: " <> toString other
 
 -- | Get the last seen snapshot number given a 'SeenSnapshot'.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber

@@ -22,6 +22,9 @@ module Hydra.Tx.Crypto (
   SigningKey (HydraSigningKey),
   VerificationKey (HydraVerificationKey),
   module Hydra.Tx.Crypto,
+
+  -- * Re-exports
+  getSignableRepresentation,
 ) where
 
 import Hydra.Prelude hiding (Key, show)
@@ -50,7 +53,7 @@ import Cardano.Crypto.Hash (Blake2b_256, SHA256, castHash, hashFromBytes, hashTo
 import Cardano.Crypto.Hash qualified as Crypto
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Cardano.Crypto.Seed (getSeedBytes, mkSeedFromBytes)
-import Cardano.Crypto.Util (SignableRepresentation)
+import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BSC
@@ -325,6 +328,30 @@ verifyMultiSignature ::
 verifyMultiSignature vks HydraMultiSignature{multiSignature} a
   | length vks == length multiSignature =
       let verifications = zipWith (\vk s -> (vk, verify vk s a)) vks multiSignature
+          failures = fst <$> filter (not . snd) verifications
+       in if null failures
+            then Verified
+            else FailedKeys failures
+  | otherwise = KeyNumberMismatch
+
+-- | Like 'verifyMultiSignature' but operates on pre-computed signable bytes,
+-- avoiding repeated calls to 'getSignableRepresentation'. Use this when the
+-- same value would be verified multiple times (e.g. per-party in a round).
+verifyMultiSignatureBytes ::
+  [VerificationKey HydraKey] ->
+  MultiSignature a ->
+  ByteString ->
+  Verified
+verifyMultiSignatureBytes vks HydraMultiSignature{multiSignature} bs
+  | length vks == length multiSignature =
+      let ctx = () :: ContextDSIGN Ed25519DSIGN
+          verifications =
+            zipWith
+              ( \(HydraVerificationKey vk) (HydraSignature sig) ->
+                  (HydraVerificationKey vk, case verifyDSIGN ctx vk bs sig of Right () -> True; Left _ -> False)
+              )
+              vks
+              multiSignature
           failures = fst <$> filter (not . snd) verifications
        in if null failures
             then Verified
