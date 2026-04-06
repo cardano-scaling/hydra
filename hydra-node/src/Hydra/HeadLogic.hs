@@ -67,6 +67,7 @@ import Hydra.HeadLogic.State (
   SeenSnapshot (..),
   getChainState,
   isCollectingAcks,
+  mkSeenSnapshot,
   seenSnapshotNumber,
   setChainState,
   snapshotInFlight,
@@ -92,7 +93,6 @@ import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
   aggregateInOrder,
-  getSignableRepresentation,
   sign,
   verifyMultiSignature,
   verifyMultiSignatureBytes,
@@ -1905,12 +1905,7 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { seenSnapshot =
-                      SeenSnapshot
-                        { snapshot
-                        , signatories = mempty
-                        , signableBytes = getSignableRepresentation snapshot
-                        }
+                  { seenSnapshot = mkSeenSnapshot snapshot mempty
                   , localTxs = newLocalTxs
                   , localUTxO = newLocalUTxO
                   , allTxs = foldr Map.delete allTxs requestedTxIds

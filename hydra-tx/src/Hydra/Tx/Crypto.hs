@@ -325,14 +325,8 @@ verifyMultiSignature ::
   MultiSignature a ->
   a ->
   Verified
-verifyMultiSignature vks HydraMultiSignature{multiSignature} a
-  | length vks == length multiSignature =
-      let verifications = zipWith (\vk s -> (vk, verify vk s a)) vks multiSignature
-          failures = fst <$> filter (not . snd) verifications
-       in if null failures
-            then Verified
-            else FailedKeys failures
-  | otherwise = KeyNumberMismatch
+verifyMultiSignature vks multisig a =
+  verifyMultiSignatureBytes vks multisig (getSignableRepresentation a)
 
 -- | Like 'verifyMultiSignature' but operates on pre-computed signable bytes,
 -- avoiding repeated calls to 'getSignableRepresentation'. Use this when the

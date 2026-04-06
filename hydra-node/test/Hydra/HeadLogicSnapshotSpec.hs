@@ -8,14 +8,14 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, mkSeenSnapshot, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), aValidTx, simpleLedger, utxoRef)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
-import Hydra.Tx.Crypto (getSignableRepresentation, sign)
+import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (txId)
 import Hydra.Tx.Party (Party, deriveParty)
@@ -98,7 +98,7 @@ spec = do
       it "does NOT send ReqSn when we are the leader but snapshot in flight" $ do
         let tx = aValidTx 1
             sn1 = Snapshot testHeadId 1 1 [] u0 Nothing Nothing :: Snapshot SimpleTx
-            st = coordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot = sn1, signatories = mempty, signableBytes = getSignableRepresentation sn1}}
+            st = coordinatedHeadState{seenSnapshot = mkSeenSnapshot sn1 mempty}
             s0 = inOpenState' [alice, bob] st
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx

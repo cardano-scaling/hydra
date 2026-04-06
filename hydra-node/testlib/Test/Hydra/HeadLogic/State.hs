@@ -14,8 +14,8 @@ import Hydra.HeadLogic.State (
   IdleState (..),
   OpenState (..),
   SeenSnapshot (..),
+  mkSeenSnapshot,
  )
-import Hydra.Tx.Crypto (getSignableRepresentation)
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 
@@ -43,10 +43,7 @@ instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
       [ pure NoSeenSnapshot
       , LastSeenSnapshot <$> arbitrary
       , RequestedSnapshot <$> arbitrary <*> arbitrary
-      , do
-          snapshot <- arbitrary
-          signatories <- arbitrary
-          pure SeenSnapshot{snapshot, signatories, signableBytes = getSignableRepresentation snapshot}
+      , mkSeenSnapshot <$> arbitrary <*> arbitrary
       ]
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where

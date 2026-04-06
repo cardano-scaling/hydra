@@ -196,8 +196,18 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
       "SeenSnapshot" -> do
         snapshot <- obj .: "snapshot"
         signatories <- obj .: "signatories"
-        pure SeenSnapshot{snapshot, signatories, signableBytes = getSignableRepresentation snapshot}
+        pure $ mkSeenSnapshot snapshot signatories
       other -> fail $ "unknown SeenSnapshot tag: " <> toString other
+
+-- | Smart constructor for 'SeenSnapshot' that computes and caches
+-- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
+mkSeenSnapshot ::
+  IsTx tx =>
+  Snapshot tx ->
+  Map Party (Signature (Snapshot tx)) ->
+  SeenSnapshot tx
+mkSeenSnapshot snapshot signatories =
+  SeenSnapshot{snapshot, signatories, signableBytes = getSignableRepresentation snapshot}
 
 -- | Get the last seen snapshot number given a 'SeenSnapshot'.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
