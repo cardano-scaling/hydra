@@ -16,6 +16,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
+import Control.Monad.Trans.Reader (ReaderT (..), runReaderT)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockInMode (..),
@@ -81,74 +82,100 @@ import Ouroboros.Network.Protocol.LocalTxSubmission.Client (
  )
 import Text.Printf (printf)
 
-newtype DirectBackend = DirectBackend {options :: DirectOptions} deriving (Eq, Show)
+newtype DirectBackend a = DirectBackend (ReaderT DirectOptions IO a)
+  deriving newtype
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadThrow
+    , MonadCatch
+    , MonadMask
+    )
+
+runDirectBackend :: DirectOptions -> DirectBackend a -> IO a
+runDirectBackend opts (DirectBackend m) = runReaderT m opts
 
 instance ChainBackend DirectBackend where
-  queryGenesisParameters (DirectBackend DirectOptions{networkId, nodeSocket}) =
+  queryGenesisParameters = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryGenesisParameters CardanoClient.QueryTip
 
   queryScriptRegistry = ScriptRegistry.queryScriptRegistry
 
-  queryNetworkId (DirectBackend DirectOptions{networkId}) = pure networkId
+  queryNetworkId = DirectBackend $ do
+    DirectOptions{networkId} <- ask
+    pure networkId
 
-  queryTip (DirectBackend DirectOptions{networkId, nodeSocket}) =
+  queryTip = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $ runNodeIO networkId nodeSocket CardanoClient.queryTip
 
-  queryUTxO (DirectBackend DirectOptions{networkId, nodeSocket}) addresses =
+  queryUTxO addresses = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryUTxO CardanoClient.QueryTip addresses
 
-  queryUTxOByTxIn (DirectBackend DirectOptions{networkId, nodeSocket}) txins =
+  queryUTxOByTxIn txins = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryUTxOByTxIn CardanoClient.QueryTip txins
 
-  queryEraHistory (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+  queryEraHistory queryPoint = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryEraHistory queryPoint
 
-  querySystemStart (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+  querySystemStart queryPoint = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.querySystemStart queryPoint
 
-  queryProtocolParameters (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+  queryProtocolParameters queryPoint = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryProtocolParameters queryPoint
 
-  queryStakePools (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint =
+  queryStakePools queryPoint = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryStakePools queryPoint
 
-  queryUTxOFor (DirectBackend DirectOptions{networkId, nodeSocket}) queryPoint vk =
+  queryUTxOFor queryPoint vk = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.queryUTxOFor queryPoint vk
 
-  submitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx =
+  submitTransaction tx = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.submitTransaction tx
 
-  awaitTransaction (DirectBackend DirectOptions{networkId, nodeSocket}) tx _ =
+  awaitTransaction tx _ = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     liftIO $
       runNodeIO networkId nodeSocket $
         CardanoClient.awaitTransaction tx
 
-  getOptions (DirectBackend directOptions) = Direct directOptions
-
-  getBlockTime (DirectBackend DirectOptions{networkId, nodeSocket}) = do
+  getBlockTime = DirectBackend $ do
+    DirectOptions{networkId, nodeSocket} <- ask
     GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
       liftIO $
         CardanoClient.runNodeIOWithCurrentEra networkId nodeSocket $ \_sbe ->
           CardanoClient.queryGenesisParameters CardanoClient.QueryTip
     pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
+
+  getQueryDelay = pure 0
 
 -- | Run a 'CardanoNode' action against the given network/socket using the
 -- Conway era witness.
@@ -157,7 +184,7 @@ runNodeIO networkId nodeSocket =
   CardanoClient.runCardanoNode (CardanoClient.localNodeConnectInfo networkId nodeSocket) shelleyBasedEra
 
 withDirectChain ::
-  DirectBackend ->
+  DirectOptions ->
   Tracer IO CardanoChainLog ->
   CardanoChainConfig ->
   ChainContext ->
@@ -165,7 +192,7 @@ withDirectChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withDirectChain backend tracer config ctx wallet chainStateHistory callback action = do
+withDirectChain opts tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
   let persistedPoints = prefixOf chainStateHistory
 
@@ -182,12 +209,12 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
   (prefix, startingDecision') <-
     case head startFromPrefix of
       ChainPointAtGenesis -> do
-        tip <- queryTip backend
+        tip <- runDirectBackend opts queryTip
         pure (tip :| [], FromTip tip)
       _ -> pure (startFromPrefix, startingDecision)
 
   traceWith tracer $ StartingChainDecision startingDecision'
-  let getTimeHandle = queryTimeHandle backend
+  let getTimeHandle = runDirectBackend opts queryTimeHandle
   localChainState <- newLocalChainState chainStateHistory
   queue <- newLabelledTQueueIO "direct-chain-queue"
   let chainHandle =
@@ -213,7 +240,7 @@ withDirectChain backend tracer config ctx wallet chainStateHistory callback acti
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
-  DirectBackend{options = DirectOptions{networkId, nodeSocket}} = backend
+  DirectOptions{networkId, nodeSocket} = opts
   CardanoChainConfig{startChainFrom} = config
 
   connectInfo networkId' nodeSocket' =

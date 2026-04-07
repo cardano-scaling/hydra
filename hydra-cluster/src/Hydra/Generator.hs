@@ -9,7 +9,7 @@ import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, 
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Chain.Backend (buildTransaction)
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (availableInitialFunds)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
@@ -194,7 +194,7 @@ generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
               TxOutDatumNone
               ReferenceScriptNone
 
-    buildTransaction (DirectBackend $ Options.DirectOptions{Options.networkId = network, Options.nodeSocket}) faucetAddress faucetUTxO [] recipientOutputs >>= \case
+    runDirectBackend Options.DirectOptions{Options.networkId = network, Options.nodeSocket} (buildTransaction faucetAddress faucetUTxO [] recipientOutputs) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ signTx faucetSk tx
   generate $ do

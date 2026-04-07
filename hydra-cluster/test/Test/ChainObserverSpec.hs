@@ -17,12 +17,11 @@ import Data.Aeson.Lens (key, _String)
 import Data.ByteString (hGetLine)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
-import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming)
 import Hydra.Logging (showLogsOnFailure)
-import Hydra.Options (DirectOptions (..))
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import HydraNode (input, output, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
@@ -35,16 +34,16 @@ spec = do
       showLogsOnFailure "ChainObserverSpec" $ \tracer -> do
         withTempDir "hydra-cluster" $ \tmpDir -> do
           -- Start a cardano devnet
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime directOpts -> do
             -- Prepare a hydra-node
             let hydraTracer = contramap FromHydraNode tracer
-            hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+            hydraScriptsTxId <- publishHydraScriptsAs (Direct directOpts) Faucet
             (aliceCardanoVk, _) <- keysFor Alice
             let timing = mkTestTiming blockTime
-            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
+            aliceChainConfig <- chainConfigFor Alice tmpDir (Direct directOpts) hydraScriptsTxId [] timing
             withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
-              withChainObserver backend $ \observer -> do
-                seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              withChainObserver directOpts $ \observer -> do
+                seedFromFaucet_ (Direct directOpts) aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 send hydraNode $ input "Init" []
                 headId <- waitMatch 5 hydraNode $ \v -> do
@@ -100,8 +99,8 @@ data ChainObserverLog
   deriving anyclass (ToJSON)
 
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
-withChainObserver :: DirectBackend -> (ChainObserverHandle -> IO ()) -> IO ()
-withChainObserver backend action =
+withChainObserver :: DirectOptions -> (ChainObserverHandle -> IO ()) -> IO ()
+withChainObserver directOpts action =
   withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
     action
       ChainObserverHandle
@@ -132,4 +131,4 @@ withChainObserver backend action =
           Mainnet -> ["--mainnet"]
           Testnet (NetworkMagic magic) -> ["--testnet-magic", show magic]
 
-  DirectBackend DirectOptions{nodeSocket, networkId} = backend
+  DirectOptions{nodeSocket, networkId} = directOpts

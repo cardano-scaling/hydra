@@ -25,7 +25,7 @@ import CardanoClient (
   SubmitTransactionException,
   waitForUTxO,
  )
-import CardanoNode (EndToEndLog (..))
+import CardanoNode (EndToEndLog (..), runBackend)
 import Control.Concurrent.Async (concurrently, mapConcurrently_)
 import Control.Lens ((.~), (?~), (^.), (^..), (^?))
 import Data.Aeson (Value, (.=))
@@ -100,8 +100,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
-import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
-import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -164,29 +163,29 @@ import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen (genDatum, genKeyPair, genTxOutWithReferenceScript)
 import Test.QuickCheck (Positive, elements, generate)
 
-oneOfThreeNodesStopsForAWhile :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
+oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+oneOfThreeNodesStopsForAWhile tracer workDir opts hydraScriptsTxId = do
   let clients = [Alice, Bob, Carol]
   [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _), (carolCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  networkId <- Backend.queryNetworkId backend
-  blockTime <- Backend.getBlockTime backend
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
 
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob, Carol] timing
       <&> setNetworkId networkId
 
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] timing <&> setNetworkId networkId
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice, Carol] timing <&> setNetworkId networkId
 
   carolChainConfig <-
-    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] timing
+    chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
       <&> setNetworkId networkId
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+    aliceUTxO <- seedFromFaucet opts aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
     withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
       withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
         -- Init & open head
@@ -195,7 +194,7 @@ oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
 
         -- Alice deposits something
         depositTx <- requestCommitTx n1 aliceUTxO
-        Backend.submitTransaction backend depositTx
+        runBackend opts $ submitTransaction depositTx
         waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
           output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
@@ -233,22 +232,22 @@ oneOfThreeNodesStopsForAWhile tracer workDir backend hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
-restartedNodeCanObserveCommitTx :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
+restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+restartedNodeCanObserveCommitTx tracer workDir opts hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _), (bobCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-  networkId <- Backend.queryNetworkId backend
-  blockTime <- Backend.getBlockTime backend
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
       <&> setNetworkId networkId
 
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
@@ -259,9 +258,9 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
       waitForAllMatch 10 [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
 
     -- n1 does a deposit while n2 is down
-    depositUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+    depositUTxO <- seedFromFaucet opts bobCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
     depositTx <- requestCommitTx n1 depositUTxO
-    Backend.submitTransaction backend depositTx
+    runBackend opts $ submitTransaction depositTx
     waitMatch 10 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "CommitRecorded"
       guard $ v ^? key "headId" == Just (toJSON headId)
@@ -274,13 +273,13 @@ restartedNodeCanObserveCommitTx tracer workDir backend hydraScriptsTxId = do
         guard $ v ^? key "headId" == Just (toJSON headId)
         guard $ v ^? key "utxoToCommit" == Just (toJSON depositUTxO)
 
-resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
-  networkId <- Backend.queryNetworkId backend
-  blockTime <- Backend.getBlockTime backend
+resumeFromLatestKnownPoint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+resumeFromLatestKnownPoint tracer workDir opts hydraScriptsTxId = do
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
       <&> setNetworkId networkId
 
   chainSlot :: ChainSlot <-
@@ -307,13 +306,13 @@ resumeFromLatestKnownPoint tracer workDir backend hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
-restartedNodeCanClose :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-restartedNodeCanClose tracer workDir backend hydraScriptsTxId = do
-  refuelIfNeeded tracer backend Alice 100_000_000
-  blockTime <- Backend.getBlockTime backend
+restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
+  refuelIfNeeded tracer opts Alice 100_000_000
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
       -- we delibelately do not start from a chain point here to highlight the
       -- need for persistence
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
@@ -339,27 +338,27 @@ restartedNodeCanClose tracer workDir backend hydraScriptsTxId = do
       guard $ v ^? key "me" == Just (toJSON alice)
       guard $ isJust (v ^? key "hydraNodeVersion")
 
-nodeReObservesOnChainTxs :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
-  refuelIfNeeded tracer backend Alice 100_000_000
-  refuelIfNeeded tracer backend Bob 100_000_000
-  networkId <- Backend.queryNetworkId backend
+nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
+  refuelIfNeeded tracer opts Alice 100_000_000
+  refuelIfNeeded tracer opts Bob 100_000_000
+  networkId <- runBackend opts queryNetworkId
   -- Start hydra-node on chain tip
-  tip <- Backend.queryTip backend
-  blockTime <- Backend.getBlockTime backend
+  tip <- runBackend opts queryTip
+  blockTime <- runBackend opts getBlockTime
 
   -- NOTE: Adapt periods to block times
   let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 50 * blockTime}
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
 
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
 
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-  commitUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+  commitUTxO <- seedFromFaucet opts aliceCardanoVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
   let hydraTracer = contramap FromHydraNode tracer
 
@@ -378,7 +377,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       let depositTransaction = getResponseBody resp :: Tx
       let tx = signTx aliceCardanoSk depositTransaction
 
-      Backend.submitTransaction backend tx
+      runBackend opts $ submitTransaction tx
 
       waitFor hydraTracer (depositTimeout timing) [n1, n2] $
         output "CommitApproved" ["headId" .= headId, "utxoToCommit" .= commitUTxO]
@@ -410,7 +409,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       waitFor hydraTracer 10 [n1, n2] $
         output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
 
-      failAfter 10 $ waitForUTxO backend decommitUTxO
+      failAfter 10 $ waitForUTxO opts decommitUTxO
 
       distributedUTxO <- waitForAllMatch 10 [n1, n2] $ \v -> do
         guard $ v ^? key "tag" == Just "DecommitFinalized"
@@ -422,7 +421,7 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
       pure (headId, decommitUTxO)
 
     bobChainConfigFromTip <-
-      chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+      chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
 
     withTempDir "blank-state" $ \tmpDir -> do
@@ -458,24 +457,23 @@ nodeReObservesOnChainTxs tracer workDir backend hydraScriptsTxId = do
 -- participant. This scenario is also used by the smoke test run via the
 -- `hydra-cluster` executable.
 singlePartyHeadFullLifeCycle ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 55_000_000
+singlePartyHeadFullLifeCycle tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 55_000_000
     -- Start hydra-node on chain tip
-    tip <- Backend.queryTip backend
-    blockTime <- Backend.getBlockTime backend
-    networkId <- Backend.queryNetworkId backend
+    tip <- runBackend opts queryTip
+    blockTime <- runBackend opts getBlockTime
+    networkId <- runBackend opts queryNetworkId
     let timing = mkTestTiming blockTime
     let Timing{depositPeriod = timingDepositPeriod} = timing
     contestationPeriod <- CP.fromNominalDiffTime $ 20 * blockTime
     aliceChainConfig <-
-      chainConfigFor' Alice workDir backend hydraScriptsTxId [] contestationPeriod timingDepositPeriod
+      chainConfigFor' Alice workDir opts hydraScriptsTxId [] contestationPeriod timingDepositPeriod
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
           . setNetworkId networkId
 
@@ -485,7 +483,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
     -- Prepare deposit payload
     (walletVk, walletSk) <- generate genKeyPair
     let depositAmount = 10_000_000
-    depositUTxO <- seedFromFaucet backend walletVk (lovelaceToValue depositAmount) (contramap FromFaucet tracer)
+    depositUTxO <- seedFromFaucet opts walletVk (lovelaceToValue depositAmount) (contramap FromFaucet tracer)
     let changeAddress = mkVkAddress @Era networkId walletVk
     let (i, o) = List.head $ UTxO.toList depositUTxO
     let witness = BuildTxWith $ KeyWitness KeyWitnessForSpending
@@ -511,7 +509,7 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
           req POST (http "127.0.0.1" /: "commit") (ReqBodyJson clientPayload) (Proxy :: Proxy (JsonResponse Tx)) (port $ 4000 + 1)
 
       let tx = signTx walletSk $ responseBody res
-      Backend.submitTransaction backend tx
+      runBackend opts $ submitTransaction tx
 
       waitMatch (depositTimeout timing) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "CommitFinalized"
@@ -562,30 +560,29 @@ singlePartyHeadFullLifeCycle tracer workDir backend hydraScriptsTxId =
 
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    utxo <- Backend.queryUTxOFor backend QueryTip actorVk
+    utxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 -- | Open a Hydra Head with only a single participant but some arbitrary UTxO
 -- committed.
 singlePartyOpenAHead ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   Maybe (Positive Natural) ->
   -- | Continuation called when the head is open
   (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
   IO a
-singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAfter callback =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 25_000_000
+singlePartyOpenAHead tracer workDir opts hydraScriptsTxId persistenceRotateAfter callback =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 25_000_000
     -- Start hydra-node on chain tip
-    tip <- Backend.queryTip backend
-    blockTime <- Backend.getBlockTime backend
+    tip <- runBackend opts queryTip
+    blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> modifyConfig (\config -> config{startChainFrom = Just tip})
 
     (walletVk, walletSk) <- generate genKeyPair
@@ -593,7 +590,7 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
     _ <- writeFileTextEnvelope (File keyPath) Nothing walletSk
     traceWith tracer CreatedKey{keyPath}
 
-    utxoToDeposit <- seedFromFaucet backend walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
+    utxoToDeposit <- seedFromFaucet opts walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer)
 
     let hydraTracer = contramap FromHydraNode tracer
     options <- prepareHydraNode aliceChainConfig workDir 1 aliceSk [] [] id
@@ -605,7 +602,7 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
       -- Deposit funds into head
       depositTx <- requestCommitTx n1 utxoToDeposit <&> signTx walletSk
-      Backend.submitTransaction backend depositTx
+      runBackend opts $ submitTransaction depositTx
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
@@ -613,23 +610,22 @@ singlePartyOpenAHead tracer workDir backend hydraScriptsTxId persistenceRotateAf
 
 -- | Single hydra-node where the deposit is done using some wallet UTxO.
 canDeposit ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-canDeposit tracer workDir backend hydraScriptsTxId =
+canDeposit tracer workDir opts hydraScriptsTxId =
   ( `finally`
       do
-        returnFundsToFaucet tracer backend Alice
-        returnFundsToFaucet tracer backend AliceFunds
+        returnFundsToFaucet tracer opts Alice
+        returnFundsToFaucet tracer opts AliceFunds
   )
     $ do
-      refuelIfNeeded tracer backend Alice 25_000_000
-      blockTime <- Backend.getBlockTime backend
+      refuelIfNeeded tracer opts Alice 25_000_000
+      blockTime <- runBackend opts getBlockTime
       let timing = mkTestTiming blockTime
-      aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -637,7 +633,7 @@ canDeposit tracer workDir backend hydraScriptsTxId =
         headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
         (walletVk, walletSk) <- keysFor AliceFunds
-        utxoToDeposit <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+        utxoToDeposit <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
         res <-
           runReq defaultHttpConfig $
@@ -650,30 +646,29 @@ canDeposit tracer workDir backend hydraScriptsTxId =
 
         let DraftCommitTxResponse{commitTx} = responseBody res
         let depositTx = signTx walletSk commitTx
-        Backend.submitTransaction backend depositTx
+        runBackend opts $ submitTransaction depositTx
 
         waitFor hydraTracer (depositTimeout timing) [n1] $
           output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
         getSnapshotUTxO n1 `shouldReturn` utxoToDeposit
 
 singlePartyUsesScriptOnL2 ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
+singlePartyUsesScriptOnL2 tracer workDir opts hydraScriptsTxId =
   ( `finally`
       do
-        returnFundsToFaucet tracer backend Alice
-        returnFundsToFaucet tracer backend AliceFunds
+        returnFundsToFaucet tracer opts Alice
+        returnFundsToFaucet tracer opts AliceFunds
   )
     $ do
-      refuelIfNeeded tracer backend Alice 250_000_000
-      blockTime <- Backend.getBlockTime backend
+      refuelIfNeeded tracer opts Alice 250_000_000
+      blockTime <- runBackend opts getBlockTime
       let timing = mkTestTiming blockTime
-      aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
       let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
       withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -684,18 +679,18 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
 
         -- Create money on L1
         let commitAmount = 100_000_000
-        utxoToDeposit <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+        utxoToDeposit <- seedFromFaucet opts walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
         -- Deposit it into L2
         depositTx <- requestCommitTx n1 utxoToDeposit <&> signTx walletSk
-        Backend.submitTransaction backend depositTx
+        runBackend opts $ submitTransaction depositTx
 
         -- Check UTxO is present in L2
         waitFor hydraTracer (depositTimeout timing) [n1] $
           output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
         pparams <- getProtocolParameters n1
-        networkId <- Backend.queryNetworkId backend
+        networkId <- runBackend opts queryNetworkId
 
         -- Send the UTxO to a script; in preparation for running the script
         let serializedScript = dummyValidatorScript
@@ -708,9 +703,9 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
                 (mkTxOutDatumHash ())
                 ReferenceScriptNone
 
-        systemStart <- Backend.querySystemStart backend QueryTip
-        eraHistory <- Backend.queryEraHistory backend QueryTip
-        stakePools <- Backend.queryStakePools backend QueryTip
+        systemStart <- runBackend opts $ querySystemStart QueryTip
+        eraHistory <- runBackend opts $ queryEraHistory QueryTip
+        stakePools <- runBackend opts $ queryStakePools QueryTip
         case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId walletVk) utxoToDeposit [] [scriptOutput] Nothing of
           Left e -> error $ show e
           Right tx -> do
@@ -777,41 +772,41 @@ singlePartyUsesScriptOnL2 tracer workDir backend hydraScriptsTxId =
               guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
             -- Assert final wallet balance
-            (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+            (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
               `shouldReturn` lovelaceToValue commitAmount
 
 -- | Open a head and run a script using 'Rewarding' script purpose and a zero
 -- lovelace withdrawal.
-singlePartyUsesWithdrawZeroTrick :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-singlePartyUsesWithdrawZeroTrick tracer workDir backend hydraScriptsTxId =
+singlePartyUsesWithdrawZeroTrick :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
   -- Seed/return fuel
-  bracket_ (refuelIfNeeded tracer backend Alice 250_000_000) (returnFundsToFaucet tracer backend Alice) $ do
+  bracket_ (refuelIfNeeded tracer opts Alice 250_000_000) (returnFundsToFaucet tracer opts Alice) $ do
     -- Seed/return funds
     (walletVk, walletSk) <- keysFor AliceFunds
     bracket
-      (seedFromFaucet backend walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer))
-      (\_ -> returnFundsToFaucet tracer backend AliceFunds)
+      (seedFromFaucet opts walletVk (lovelaceToValue 100_000_000) (contramap FromFaucet tracer))
+      (\_ -> returnFundsToFaucet tracer opts AliceFunds)
       $ \utxoToDeposit -> do
         -- Start hydra-node and open a head
-        blockTime <- Backend.getBlockTime backend
+        blockTime <- runBackend opts getBlockTime
         let timing = mkTestTiming blockTime
-        aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+        aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         let hydraNodeId = 1
         let hydraTracer = contramap FromHydraNode tracer
-        networkId <- Backend.queryNetworkId backend
+        networkId <- runBackend opts queryNetworkId
         withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
           -- Deposit funds into head
           depositTx <- requestCommitTx n1 utxoToDeposit <&> signTx walletSk
-          Backend.submitTransaction backend depositTx
+          runBackend opts $ submitTransaction depositTx
           waitFor hydraTracer (depositTimeout timing) [n1] $
             output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
           -- Prepare a tx that re-spends everything owned by walletVk
           pparams <- getProtocolParameters n1
           let change = mkVkAddress networkId walletVk
-          Right tx <- buildTransactionWithPParams pparams backend change utxoToDeposit [] [] Nothing
+          Right tx <- runBackend opts (buildTransactionWithPParams pparams change utxoToDeposit [] [] Nothing)
 
           -- Modify the tx to run a script via the withdraw 0 trick
           let redeemer = toLedgerData $ toScriptData ()
@@ -855,19 +850,18 @@ recomputeIntegrityHash pp languages tx = do
       (tx ^. witsTxL . datsTxWitsL)
 
 canDepositScriptBlueprint ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 20_000_000
-    blockTime <- Backend.getBlockTime backend
+canDepositScriptBlueprint tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 20_000_000
+    blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -879,7 +873,7 @@ canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
         fmap responseBody $
           runReq defaultHttpConfig $
             req POST (http "127.0.0.1" /: "commit") (ReqBodyJson clientPayload) (Proxy :: Proxy (JsonResponse Tx)) (port $ 4000 + hydraNodeId)
-      Backend.submitTransaction backend commitTx
+      runBackend opts $ submitTransaction commitTx
 
       -- The deposited UTxO in the head is keyed by the blueprint tx's outputs.
       let expectedDeposit = constructDepositUTxO (getTxId (getTxBody blueprint)) (txOuts' blueprint)
@@ -888,11 +882,11 @@ canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
       getSnapshotUTxO n1 `shouldReturn` expectedDeposit
  where
   prepareScriptPayload lovelaceAmt = do
-    networkId <- Backend.queryNetworkId backend
+    networkId <- runBackend opts queryNetworkId
     let scriptAddress = mkScriptAddress networkId dummyValidatorScript
     let datumHash :: TxOutDatum ctx
         datumHash = mkTxOutDatumHash ()
-    (scriptIn, scriptOut) <- createOutputAtAddress networkId backend scriptAddress datumHash (lovelaceToValue lovelaceAmt)
+    (scriptIn, scriptOut) <- createOutputAtAddress networkId opts scriptAddress datumHash (lovelaceToValue lovelaceAmt)
     let scriptUTxO = UTxO.singleton scriptIn scriptOut
     let scriptWitness =
           BuildTxWith $
@@ -909,18 +903,17 @@ canDepositScriptBlueprint tracer workDir backend hydraScriptsTxId =
       )
 
 persistenceCanLoadWithNothingCommitted ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-persistenceCanLoadWithNothingCommitted tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 20_000_000
-    blockTime <- Backend.getBlockTime backend
+persistenceCanLoadWithNothingCommitted tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 20_000_000
+    blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
-    aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+    aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
@@ -943,21 +936,20 @@ persistenceCanLoadWithNothingCommitted tracer workDir backend hydraScriptsTxId =
 -- period longer than the time horizon is possible. For this it is enough that
 -- we can close a head and not wait for the deadline.
 canCloseWithLongContestationPeriod ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-canCloseWithLongContestationPeriod tracer workDir backend hydraScriptsTxId = do
-  refuelIfNeeded tracer backend Alice 100_000_000
+canCloseWithLongContestationPeriod tracer workDir opts hydraScriptsTxId = do
+  refuelIfNeeded tracer opts Alice 100_000_000
   -- Start hydra-node on chain tip
-  tip <- Backend.queryTip backend
-  blockTime <- Backend.getBlockTime backend
+  tip <- runBackend opts queryTip
+  blockTime <- runBackend opts getBlockTime
   let oneWeek = 60 * 60 * 24 * 7
       Timing{depositPeriod = defaultDepositPeriod} = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor' Alice workDir backend hydraScriptsTxId [] oneWeek defaultDepositPeriod
+    chainConfigFor' Alice workDir opts hydraScriptsTxId [] oneWeek defaultDepositPeriod
       <&> modifyConfig (\config -> config{startChainFrom = Just tip})
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
@@ -973,31 +965,30 @@ canCloseWithLongContestationPeriod tracer workDir backend hydraScriptsTxId = do
  where
   traceRemainingFunds actor = do
     (actorVk, _) <- keysFor actor
-    utxo <- Backend.queryUTxOFor backend QueryTip actorVk
+    utxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
     traceWith tracer RemainingFunds{actor = actorName actor, utxo}
 
 canSubmitTransactionThroughAPI ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
   FilePath ->
-  backend ->
+  ChainBackendOptions ->
   [TxId] ->
   IO ()
-canSubmitTransactionThroughAPI tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 25_000_000
-    blockTime <- Backend.getBlockTime backend
+canSubmitTransactionThroughAPI tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 25_000_000
+    blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
-    aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+    aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
     let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] $ \_ -> do
       -- let's prepare a _user_ transaction from Bob to Carol
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
-      networkId <- Backend.queryNetworkId backend
+      networkId <- runBackend opts queryNetworkId
       -- create output for Bob to be sent to carol
-      bobUTxO <- seedFromFaucet backend cardanoBobVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+      bobUTxO <- seedFromFaucet opts cardanoBobVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
       let carolsAddress = mkVkAddress networkId cardanoCarolVk
           bobsAddress = mkVkAddress networkId cardanoBobVk
           carolsOutput =
@@ -1007,7 +998,7 @@ canSubmitTransactionThroughAPI tracer workDir backend hydraScriptsTxId =
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      buildTransaction backend bobsAddress bobUTxO (fst <$> UTxO.toList bobUTxO) [carolsOutput] >>= \case
+      runBackend opts (buildTransaction bobsAddress bobUTxO (fst <$> UTxO.toList bobUTxO) [carolsOutput]) >>= \case
         Left e -> failure $ show e
         Right tx -> do
           let unsignedTx = makeSignedTransaction [] $ getTxBody tx
@@ -1033,8 +1024,8 @@ canSubmitTransactionThroughAPI tracer workDir backend hydraScriptsTxId =
 -- | Three hydra nodes open a head and we assert that none of them sees errors.
 -- This was particularly misleading when everyone tries to post the collect
 -- transaction concurrently.
-threeNodesNoErrorsOnOpen :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
+threeNodesNoErrorsOnOpen :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+threeNodesNoErrorsOnOpen tracer tmpDir opts hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
   carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -1045,26 +1036,26 @@ threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
   let contestationPeriod = 2
   let hydraTracer = contramap FromHydraNode tracer
   let nodeSocket' =
-        case Backend.getOptions backend of
+        case opts of
           Direct DirectOptions{nodeSocket} -> nodeSocket
           Blockfrost _ -> error "Unexpected Blockfrost options"
-  blockTime <- Backend.getBlockTime backend
+  blockTime <- runBackend opts getBlockTime
   let timing = Timing{blockTime, contestationPeriod, depositPeriod = truncate $ 3 * blockTime}
   withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
     let leader = head clients
     waitForNodesConnected hydraTracer 20 clients
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-    seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-    seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
     send leader $ input "Init" []
     mapConcurrently_ shouldNotReceivePostTxError clients
  where
   --  Fail if a 'PostTxOnChainFailed' message is received.
   shouldNotReceivePostTxError client@HydraClient{hydraNodeId} = do
-    blockTime <- Backend.getBlockTime backend
+    blockTime <- runBackend opts getBlockTime
     err <- waitMatch (20 * blockTime) client $ \v -> do
       case v ^? key "tag" of
         Just "PostTxOnChainFailed" -> pure $ Left $ v ^? key "postTxError"
@@ -1081,19 +1072,19 @@ threeNodesNoErrorsOnOpen tracer tmpDir backend hydraScriptsTxId = do
 -- Hydra nodes BC run on BC cluster and connect to each other.
 -- Hydra nodes BC shut down.
 -- Hydra nodes BC run and connect ABC cluster again.
-nodeCanSupportMultipleEtcdClusters :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
-  networkId <- Backend.queryNetworkId backend
-  blockTime <- Backend.getBlockTime backend
+nodeCanSupportMultipleEtcdClusters :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+nodeCanSupportMultipleEtcdClusters tracer workDir opts hydraScriptsTxId = do
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob, Carol] timing
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] timing
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice, Carol] timing
       <&> setNetworkId networkId
   carolChainConfig <-
-    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] timing
+    chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
@@ -1104,10 +1095,10 @@ nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
     bobChainConfig' <-
-      chainConfigFor Bob workDir backend hydraScriptsTxId [Carol] timing
+      chainConfigFor Bob workDir opts hydraScriptsTxId [Carol] timing
         <&> setNetworkId networkId
     carolChainConfig' <-
-      chainConfigFor Carol workDir backend hydraScriptsTxId [Bob] timing
+      chainConfigFor Carol workDir opts hydraScriptsTxId [Bob] timing
         <&> setNetworkId networkId
 
     waitForNodesDisconnected hydraTracer 60 $ n1 :| []
@@ -1123,20 +1114,20 @@ nodeCanSupportMultipleEtcdClusters tracer workDir backend hydraScriptsTxId = do
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
 -- cardano keys instead of Bob's which will prevent him to be notified the
 -- `HeadIsInitializing` but he should still receive some notification.
-initWithWrongKeys :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> backend -> [TxId] -> IO ()
-initWithWrongKeys workDir tracer backend hydraScriptsTxId = do
+initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
+initWithWrongKeys workDir tracer opts hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
   (carolCardanoVk, _) <- keysFor Carol
 
-  blockTime <- Backend.getBlockTime backend
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
-  aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [Carol] timing
-  bobChainConfig <- chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+  aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [Carol] timing
+  bobChainConfig <- chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
     withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] $ \n2 -> do
-      seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
       send n1 $ input "Init" []
       headId <-
         waitForAllMatch 10 [n1] $
@@ -1155,20 +1146,20 @@ initWithWrongKeys workDir tracer backend hydraScriptsTxId = do
 
       participants `shouldMatchList` expectedParticipants
 
-startWithWrongPeers :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> backend -> [TxId] -> IO ()
-startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
+startWithWrongPeers :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
+startWithWrongPeers workDir tracer opts hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
 
-  blockTime <- Backend.getBlockTime backend
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
-  aliceChainConfig <- chainConfigFor Alice workDir backend hydraScriptsTxId [Carol] timing
-  bobChainConfig <- chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+  aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [Carol] timing
+  bobChainConfig <- chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
 
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
     -- NOTE: here we deliberately use the wrong peer list for Bob
     withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
-      seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
       (clusterPeers, configuredPeers) <- waitMatch (20 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just (Aeson.String "NetworkClusterIDMismatch")
@@ -1182,21 +1173,21 @@ startWithWrongPeers workDir tracer backend hydraScriptsTxId = do
       configuredPeers `shouldBe` "0.0.0.0:5004=http://0.0.0.0:5004"
 
 -- | Open a a two participant head, deposit funds to it and distribute them on fanout.
-canDepositConcurrently :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canDepositConcurrently tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $
-    (`finally` returnFundsToFaucet tracer backend Bob) $ do
-      refuelIfNeeded tracer backend Alice 30_000_000
-      refuelIfNeeded tracer backend Bob 30_000_000
-      blockTime <- Backend.getBlockTime backend
+canDepositConcurrently :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canDepositConcurrently tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $
+    (`finally` returnFundsToFaucet tracer opts Bob) $ do
+      refuelIfNeeded tracer opts Alice 30_000_000
+      refuelIfNeeded tracer opts Bob 30_000_000
+      blockTime <- runBackend opts getBlockTime
       -- 2 concurrent deposits = 2 sequential increments on-chain
       let timing = mkTestTiming' 2 blockTime
-      networkId <- Backend.queryNetworkId backend
+      networkId <- runBackend opts queryNetworkId
       aliceChainConfig <-
-        chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+        chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
           <&> setNetworkId networkId
       bobChainConfig <-
-        chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+        chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
           <&> setNetworkId networkId
       withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
@@ -1206,8 +1197,8 @@ canDepositConcurrently tracer workDir backend hydraScriptsTxId =
           (walletVk, walletSk) <- generate genKeyPair
           -- Seed both UTxOs before drafting deposits so L1 confirmations don't
           -- eat into the deposit deadline window.
-          commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-          commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+          commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
           -- Draft and submit both deposits concurrently.
           (tx, tx2) <-
@@ -1217,7 +1208,7 @@ canDepositConcurrently tracer workDir backend hydraScriptsTxId =
                     parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/commit")
                       <&> setRequestBodyJSON commitUTxO >>= httpJSON
                   let signed = signTx walletSk (getResponseBody resp :: Tx)
-                  Backend.submitTransaction backend signed
+                  runBackend opts $ submitTransaction signed
                   pure signed
               )
               ( do
@@ -1225,7 +1216,7 @@ canDepositConcurrently tracer workDir backend hydraScriptsTxId =
                     parseUrlThrow ("POST " <> hydraNodeBaseUrl n2 <> "/commit")
                       <&> setRequestBodyJSON commitUTxO2 >>= httpJSON
                   let signed = signTx walletSk (getResponseBody resp :: Tx)
-                  Backend.submitTransaction backend signed
+                  runBackend opts $ submitTransaction signed
                   pure signed
               )
 
@@ -1253,21 +1244,21 @@ canDepositConcurrently tracer workDir backend hydraScriptsTxId =
           waitMatch (10 * blockTime) n2 $ \v ->
             guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
-          (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+          (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
             `shouldReturn` balance (commitUTxO <> commitUTxO2)
  where
   hydraTracer = contramap FromHydraNode tracer
 
-rejectDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-rejectDeposit tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 30_000_000
+rejectDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+rejectDeposit tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 30_000_000
     -- NOTE: Adapt periods to block times
-    blockTime <- Backend.getBlockTime backend
+    blockTime <- runBackend opts getBlockTime
     let timing = Timing{blockTime, contestationPeriod = truncate $ 10 * blockTime, depositPeriod = truncate $ 100 * blockTime}
-    networkId <- Backend.queryNetworkId backend
+    networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
 
     let pparamsDecorator = atKey "utxoCostPerByte" ?~ toJSON (Aeson.Number 4310)
@@ -1278,7 +1269,7 @@ rejectDeposit tracer workDir backend hydraScriptsTxId =
       _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
       (walletVk, _) <- generate genKeyPair
-      commitUTxO' <- seedFromFaucet backend walletVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+      commitUTxO' <- seedFromFaucet opts walletVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
       TxOut _ _ _ refScript <- generate genTxOutWithReferenceScript
       datum <- generate genDatum
       let commitUTxO :: UTxO =
@@ -1301,15 +1292,15 @@ rejectDeposit tracer workDir backend hydraScriptsTxId =
 -- | Open a single participant head and deposit part of a UTxO, with the
 -- remainder returned to a change address. This exercises the 'changeAddress'
 -- balancing path in the deposit blueprint API.
-canDepositPartially :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canDepositPartially tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 30_000_000
-    blockTime <- Backend.getBlockTime backend
+canDepositPartially :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canDepositPartially tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 30_000_000
+    blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
-    networkId <- Backend.queryNetworkId backend
+    networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
@@ -1319,7 +1310,7 @@ canDepositPartially tracer workDir backend hydraScriptsTxId =
       (walletVk, walletSk) <- generate genKeyPair
       let seedAmount = 20_000_000
       let commitAmount = 10_000_000
-      commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue seedAmount) (contramap FromFaucet tracer)
 
       let changeAddress = mkVkAddress @Era networkId walletVk
       let (i, o') = List.head $ UTxO.toList commitUTxO
@@ -1344,32 +1335,32 @@ canDepositPartially tracer workDir backend hydraScriptsTxId =
           req POST (http "127.0.0.1" /: "commit") (ReqBodyJson clientPayload) (Proxy :: Proxy (JsonResponse Tx)) (port $ 4000 + 1)
 
       let tx = signTx walletSk $ responseBody res
-      Backend.submitTransaction backend tx
+      runBackend opts $ submitTransaction tx
 
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= getTxId (getTxBody tx)]
 
       getSnapshotUTxO n1 `shouldReturn` depositedUTxO
-      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+      (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
         `shouldReturn` lovelaceToValue (seedAmount - commitAmount)
 
 -- | Open a a single participant head, deposit and then recover it.
-canRecoverDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canRecoverDeposit tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $
-    (`finally` returnFundsToFaucet tracer backend Bob) $ do
-      refuelIfNeeded tracer backend Alice 30_000_000
-      refuelIfNeeded tracer backend Bob 30_000_000
+canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canRecoverDeposit tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $
+    (`finally` returnFundsToFaucet tracer opts Bob) $ do
+      refuelIfNeeded tracer opts Alice 30_000_000
+      refuelIfNeeded tracer opts Bob 30_000_000
       -- NOTE: Directly expire deposits
-      blockTime <- Backend.getBlockTime backend
+      blockTime <- runBackend opts getBlockTime
       -- Use short periods so deposits expire quickly
       let timing = Timing{blockTime, contestationPeriod = 1, depositPeriod = 1}
-      networkId <- Backend.queryNetworkId backend
+      networkId <- runBackend opts queryNetworkId
       aliceChainConfig <-
-        chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+        chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
           <&> setNetworkId networkId
       bobChainConfig <-
-        chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+        chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
           <&> setNetworkId networkId
       withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         headId <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
@@ -1380,9 +1371,9 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
         -- Get some L1 funds
         (walletVk, walletSk) <- generate genKeyPair
         let commitAmount = 5_000_000
-        commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+        commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
-        (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
           `shouldReturn` lovelaceToValue commitAmount
 
         depositTransaction <-
@@ -1392,13 +1383,13 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
             <&> getResponseBody
 
         let tx = signTx walletSk depositTransaction
-        Backend.submitTransaction backend tx
+        runBackend opts $ submitTransaction tx
 
         deadline <- waitForAllMatch 10 [n1] $ \v -> do
           guard $ v ^? key "tag" == Just "CommitRecorded"
           v ^? key "deadline" >>= parseMaybe parseJSON
 
-        (selectLovelace . balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        (selectLovelace . balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
           `shouldReturn` 0
 
         -- NOTE: we need to wait for the deadline to pass before we can recover the deposit
@@ -1414,7 +1405,7 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
           guard $ v ^? key "tag" == Just "CommitRecovered"
           guard $ v ^? key "recoveredUTxO" == Just (toJSON commitUTxO)
 
-        (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
           `shouldReturn` lovelaceToValue commitAmount
         send n1 $ input "Close" []
 
@@ -1430,7 +1421,7 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
           guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
         -- Assert final wallet balance
-        (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+        (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
           `shouldReturn` balance commitUTxO
  where
   hydraTracer = contramap FromHydraNode tracer
@@ -1439,17 +1430,17 @@ canRecoverDeposit tracer workDir backend hydraScriptsTxId =
 -- 1. Close the head and recover deposit #1
 -- 2. Fanout the head and recover deposit #2
 -- 3. Open a new head and recover deposit #3
-canRecoverDepositInAnyState :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 30_000_000
+canRecoverDepositInAnyState :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canRecoverDepositInAnyState tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 30_000_000
     -- NOTE: Directly expire deposits
-    blockTime <- Backend.getBlockTime backend
+    blockTime <- runBackend opts getBlockTime
     -- Use short periods so deposits expire quickly
     let timing = Timing{blockTime, contestationPeriod = 2, depositPeriod = 1}
-    networkId <- Backend.queryNetworkId backend
+    networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
     withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Init the head
@@ -1459,9 +1450,9 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
       -- Get some L1 funds
       (walletVk, walletSk) <- generate genKeyPair
       let commitAmount = 5_000_000
-      commitUTxO1 <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
-      commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
-      commitUTxO3 <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+      commitUTxO1 <- seedFromFaucet opts walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+      commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+      commitUTxO3 <- seedFromFaucet opts walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
       queryWalletBalance walletVk `shouldReturn` lovelaceToValue (commitAmount * 3)
 
@@ -1511,7 +1502,7 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
   hydraTracer = contramap FromHydraNode tracer
 
   queryWalletBalance walletVk =
-    balance <$> Backend.queryUTxOFor backend QueryTip walletVk
+    balance <$> runBackend opts (queryUTxOFor QueryTip walletVk)
 
   increment :: HydraClient -> SigningKey PaymentKey -> UTxO -> IO (TxId, UTCTime)
   increment n walletSk commitUTxO = do
@@ -1522,8 +1513,8 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
         <&> getResponseBody
 
     let tx = signTx walletSk depositTransaction
-    Backend.submitTransaction backend tx
-    blockTime <- Backend.getBlockTime backend
+    runBackend opts $ submitTransaction tx
+    blockTime <- runBackend opts getBlockTime
 
     deadline <- waitMatch (10 * blockTime) n $ \v -> do
       guard $ v ^? key "tag" == Just "CommitRecorded"
@@ -1541,7 +1532,7 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
       parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n <> "/commits/" <> show depositId)
         >>= httpJSON
         <&> getResponseBody @String
-    blockTime <- Backend.getBlockTime backend
+    blockTime <- runBackend opts getBlockTime
 
     waitMatch (20 * blockTime) n $ \v -> do
       guard $ v ^? key "tag" == Just "CommitRecovered"
@@ -1549,20 +1540,20 @@ canRecoverDepositInAnyState tracer workDir backend hydraScriptsTxId =
 
 -- | Open a two-participant head, stop one node so deposits stay pending, then
 -- verify that GET /commits lists them. Recovery is covered by canRecoverDeposit.
-canSeePendingDeposits :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canSeePendingDeposits tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $
-    (`finally` returnFundsToFaucet tracer backend Bob) $ do
-      refuelIfNeeded tracer backend Alice 30_000_000
-      refuelIfNeeded tracer backend Bob 30_000_000
-      blockTime <- Backend.getBlockTime backend
+canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canSeePendingDeposits tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $
+    (`finally` returnFundsToFaucet tracer opts Bob) $ do
+      refuelIfNeeded tracer opts Alice 30_000_000
+      refuelIfNeeded tracer opts Bob 30_000_000
+      blockTime <- runBackend opts getBlockTime
       let timing = mkTestTiming blockTime
-      networkId <- Backend.queryNetworkId backend
+      networkId <- runBackend opts queryNetworkId
       aliceChainConfig <-
-        chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+        chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
           <&> setNetworkId networkId
       bobChainConfig <-
-        chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+        chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
           <&> setNetworkId networkId
       withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
         _ <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
@@ -1572,8 +1563,8 @@ canSeePendingDeposits tracer workDir backend hydraScriptsTxId =
           pure ()
 
         (walletVk, walletSk) <- generate genKeyPair
-        commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-        commitUTxO2 <- seedFromFaucet backend walletVk (lovelaceToValue 4_000_000) (contramap FromFaucet tracer)
+        commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+        commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 4_000_000) (contramap FromFaucet tracer)
 
         -- Submit two deposits and check each appears in GET /commits immediately.
         forM_ [commitUTxO, commitUTxO2] $ \utxo -> do
@@ -1585,7 +1576,7 @@ canSeePendingDeposits tracer workDir backend hydraScriptsTxId =
 
           let tx = signTx walletSk depositTransaction
           let depositTxId = getTxId (getTxBody tx)
-          liftIO $ Backend.submitTransaction backend tx
+          liftIO $ runBackend opts $ submitTransaction tx
 
           liftIO $ waitForAllMatch 10 [n1] $ \v ->
             guard $ v ^? key "tag" == Just "CommitRecorded"
@@ -1600,15 +1591,15 @@ canSeePendingDeposits tracer workDir backend hydraScriptsTxId =
   hydraTracer = contramap FromHydraNode tracer
 
 -- | Open a a single participant head with some UTxO and incrementally decommit it.
-canDecommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canDecommit tracer workDir backend hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer backend Alice) $ do
-    refuelIfNeeded tracer backend Alice 30_000_000
-    blockTime <- Backend.getBlockTime backend
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canDecommit tracer workDir opts hydraScriptsTxId =
+  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+    refuelIfNeeded tracer opts Alice 30_000_000
+    blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
-    networkId <- Backend.queryNetworkId backend
+    networkId <- runBackend opts queryNetworkId
     aliceChainConfig <-
-      chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
     withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
       -- Initialize & open head
@@ -1618,11 +1609,11 @@ canDecommit tracer workDir backend hydraScriptsTxId =
       (walletVk, walletSk) <- generate genKeyPair
       let headAmount = 8_000_000
       let commitAmount = 5_000_000
-      headUTxO <- seedFromFaucet backend walletVk (lovelaceToValue headAmount) (contramap FromFaucet tracer)
-      commitUTxO <- seedFromFaucet backend walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
+      headUTxO <- seedFromFaucet opts walletVk (lovelaceToValue headAmount) (contramap FromFaucet tracer)
+      commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue commitAmount) (contramap FromFaucet tracer)
 
       deposit <- requestCommitTx n1 (headUTxO <> commitUTxO) <&> signTx walletSk
-      Backend.submitTransaction backend deposit
+      runBackend opts $ submitTransaction deposit
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId deposit]
 
@@ -1638,7 +1629,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
 
       -- After decommit Head UTxO should not contain decommitted outputs and wallet owns the funds on L1
       getSnapshotUTxO n1 `shouldReturn` headUTxO
-      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+      (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
         `shouldReturn` lovelaceToValue commitAmount
 
       -- Close and Fanout whatever is left in the Head back to L1
@@ -1654,7 +1645,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
         guard $ v ^? key "tag" == Just "HeadIsFinalized"
 
       -- Assert final wallet balance
-      (balance <$> Backend.queryUTxOFor backend QueryTip walletVk)
+      (balance <$> runBackend opts (queryUTxOFor QueryTip walletVk))
         `shouldReturn` lovelaceToValue (headAmount + commitAmount)
  where
   expectSuccessOnSignedDecommitTx n headId decommitTx = do
@@ -1670,7 +1661,7 @@ canDecommit tracer workDir backend hydraScriptsTxId =
       output "DecommitRequested" ["headId" .= headId, "decommitTx" .= decommitTx, "utxoToDecommit" .= decommitUTxO]
     waitFor hydraTracer 10 [n] $
       output "DecommitApproved" ["headId" .= headId, "decommitTxId" .= decommitTxId, "utxoToDecommit" .= decommitUTxO]
-    failAfter 10 $ waitForUTxO backend decommitUTxO
+    failAfter 10 $ waitForUTxO opts decommitUTxO
 
     distributedUTxO <- waitForAllMatch 10 [n] $ \v -> do
       guard $ v ^? key "tag" == Just "DecommitFinalized"
@@ -1701,27 +1692,27 @@ canDecommit tracer workDir backend hydraScriptsTxId =
 -- This exercises the real Cardano ledger and network to ensure the API inputs
 -- and outputs are wired up correctly. The consensus-resumption logic is covered
 -- by the BehaviorSpec unit tests.
-canSideLoadSnapshot :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
+canSideLoadSnapshot :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canSideLoadSnapshot tracer workDir opts hydraScriptsTxId = do
   (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  blockTime <- Backend.getBlockTime backend
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
 
-  networkId <- Backend.queryNetworkId backend
+  networkId <- runBackend opts queryNetworkId
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
-    aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+    aliceUTxO <- seedFromFaucet opts aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
 
     send n1 $ input "Init" []
     headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
     -- Deposit something and wait for it to be finalized on-chain
     depositTx <- requestCommitTx n1 aliceUTxO
-    Backend.submitTransaction backend depositTx
+    runBackend opts $ submitTransaction depositTx
     waitFor hydraTracer (depositTimeout timing) [n1] $
       output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
@@ -1742,21 +1733,21 @@ canSideLoadSnapshot tracer workDir backend hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
-canResumeOnMemberAlreadyBootstrapped :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = do
+canResumeOnMemberAlreadyBootstrapped :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canResumeOnMemberAlreadyBootstrapped tracer workDir opts hydraScriptsTxId = do
   let clients = [Alice, Bob]
   [(aliceCardanoVk, _aliceCardanoSk), (bobCardanoVk, _)] <- forM clients keysFor
-  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-  networkId <- Backend.queryNetworkId backend
-  blockTime <- Backend.getBlockTime backend
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
       <&> setNetworkId networkId
   withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
     waitMatch (20 * blockTime) n1 $ \v -> do
@@ -1783,25 +1774,25 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir backend hydraScriptsTxId = d
   hydraTracer = contramap FromHydraNode tracer
 
 -- XXX: restart scenarios require 3 party cluster in order to observe PeerDisconnected instead of NetworkDisconnected
-waitsForChainInSyncAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
+waitsForChainInSyncAndSecure :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
   let clients = [Alice, Bob, Carol]
   [(aliceCardanoVk, _), (bobCardanoVk, _), (carolCardanoVk, carolCardanoSk)] <- forM clients keysFor
-  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
-  blockTime <- Backend.getBlockTime backend
-  networkId <- Backend.queryNetworkId backend
+  blockTime <- runBackend opts getBlockTime
+  networkId <- runBackend opts queryNetworkId
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob, Carol] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob, Carol] timing
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice, Carol] timing
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice, Carol] timing
       <&> setNetworkId networkId
   carolChainConfig <-
-    chainConfigFor Carol workDir backend hydraScriptsTxId [Alice, Bob] timing
+    chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
       <&> setNetworkId networkId
 
   withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
@@ -1812,9 +1803,9 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
         -- Carol deposits something
-        carolUTxO <- seedFromFaucet backend carolCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+        carolUTxO <- seedFromFaucet opts carolCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
         depositTx <- requestCommitTx n3 carolUTxO
-        Backend.submitTransaction backend depositTx
+        runBackend opts $ submitTransaction depositTx
         waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
           output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
@@ -1874,21 +1865,21 @@ waitsForChainInSyncAndSecure tracer workDir backend hydraScriptsTxId = do
   hydraTracer = contramap FromHydraNode tracer
 
 -- | Three hydra nodes open a head and we assert that none of them sees errors if a party is duplicated.
-threeNodesWithMirrorParty :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
+threeNodesWithMirrorParty :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+threeNodesWithMirrorParty tracer workDir opts hydraScriptsTxId = do
   let parties = [Alice, Bob]
 
   [(aliceCardanoVk, aliceCardanoSk), (bobCardanoVk, _)] <- forM parties keysFor
-  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-  networkId <- Backend.queryNetworkId backend
-  blockTime <- Backend.getBlockTime backend
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   aliceChainConfig <-
-    chainConfigFor Alice workDir backend hydraScriptsTxId [Bob] timing
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
       <&> setNetworkId networkId
   bobChainConfig <-
-    chainConfigFor Bob workDir backend hydraScriptsTxId [Alice] timing
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
@@ -1903,21 +1894,21 @@ threeNodesWithMirrorParty tracer workDir backend hydraScriptsTxId = do
 
         -- N1 & N3 deposit the same thing at the same time
         -- XXX: one will fail but the head will still be usable
-        aliceUTxO <- seedFromFaucet backend aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+        aliceUTxO <- seedFromFaucet opts aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
         raceLabelled_
           ( "request-commit-tx-n1"
-          , (requestCommitTx n1 aliceUTxO >>= Backend.submitTransaction backend)
+          , (requestCommitTx n1 aliceUTxO >>= \tx -> runBackend opts $ submitTransaction tx)
               `catch` \(_ :: SubmitTransactionException) -> pure ()
           )
           ( "request-commit-tx-n3"
-          , (requestCommitTx n3 aliceUTxO >>= Backend.submitTransaction backend)
+          , (requestCommitTx n3 aliceUTxO >>= \tx -> runBackend opts $ submitTransaction tx)
               `catch` \(_ :: SubmitTransactionException) -> pure ()
           )
 
         -- N2 deposits something
-        bobUTxO <- seedFromFaucet backend bobCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
+        bobUTxO <- seedFromFaucet opts bobCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
         depositTx <- requestCommitTx n2 bobUTxO
-        Backend.submitTransaction backend depositTx
+        runBackend opts $ submitTransaction depositTx
 
         -- Wait for at least bob's deposit to be finalized
         waitFor hydraTracer (depositTimeout timing) clients $
@@ -1986,31 +1977,29 @@ respendNTimes client sk delay numTimes = do
 
 -- | Refuel given 'Actor' with given 'Lovelace' if current marked UTxO is below that amount.
 refuelIfNeeded ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
-  backend ->
+  ChainBackendOptions ->
   Actor ->
   Coin ->
   IO ()
-refuelIfNeeded tracer backend actor amount = do
-  Faucet.delayBF backend
+refuelIfNeeded tracer opts actor amount = do
+  Faucet.delayBF opts
   (actorVk, _) <- keysFor actor
-  existingUtxo <- Backend.queryUTxOFor backend QueryTip actorVk
+  existingUtxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
   traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
   let currentBalance = selectLovelace $ balance @Tx existingUtxo
   when (currentBalance < amount) $ do
-    utxo <- seedFromFaucet backend actorVk (lovelaceToValue amount) (contramap FromFaucet tracer)
+    utxo <- seedFromFaucet opts actorVk (lovelaceToValue amount) (contramap FromFaucet tracer)
     traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::
-  ChainBackend backend =>
   Tracer IO EndToEndLog ->
-  backend ->
+  ChainBackendOptions ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer backend actor = do
-  Faucet.returnFundsToFaucet (contramap FromFaucet tracer) backend actor
+returnFundsToFaucet tracer opts actor = do
+  Faucet.returnFundsToFaucet (contramap FromFaucet tracer) opts actor
 
 headIsOpenWith :: Set Party -> Value -> Maybe HeadId
 headIsOpenWith expectedParties v = do

@@ -30,7 +30,6 @@ import Graphics.Vty.Platform.Unix.Input (buildInput)
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
-import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -44,7 +43,7 @@ import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (Host (..))
 import Hydra.Node.DepositPeriod (DepositPeriod)
-import Hydra.Options (DirectOptions (..), RunOptions, persistenceRotateAfter)
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
 import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
@@ -179,15 +178,16 @@ setupRotatedStateTUI action = do
   showLogsOnFailure "TUISpec" $ \tracer ->
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
-        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor' Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
+        let backendOpts = Direct backend
+        hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
+        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         let nodeId = 1
         let externalKeyFilePath = tmpDir </> "external.sk"
         externalSKey <- createAndSaveSigningKey externalKeyFilePath
         let externalVKey = getVerificationKey externalSKey
-        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         (aliceCardanoVk, _) <- keysFor Alice
-        seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+        seedFromFaucet_ backendOpts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
         options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
         let options' = options{persistenceRotateAfter = Just (Positive 1)}
         withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId blockTime backend externalKeyFilePath options' action
@@ -247,7 +247,7 @@ withTUIRotatedTest ::
   FilePath ->
   Int ->
   NominalDiffTime ->
-  DirectBackend ->
+  DirectOptions ->
   FilePath ->
   RunOptions ->
   (TUIRotatedTest -> Expectation) ->
@@ -284,7 +284,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
               }
         )
  where
-  DirectBackend DirectOptions{nodeSocket, networkId} = backend
+  DirectOptions{nodeSocket, networkId} = backend
 
 setupNodeAndTUI' :: Text -> Coin -> (TUITest -> IO ()) -> IO ()
 setupNodeAndTUI' hostname lovelace action =
@@ -292,8 +292,9 @@ setupNodeAndTUI' hostname lovelace action =
     withTempDir "tui-end-to-end" $ \tmpDir -> do
       (aliceCardanoVk, _) <- keysFor Alice
       withCardanoNodeDevnet (contramap FromCardano tracer) tmpDir $ \blockTime backend -> do
-        hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
-        chainConfig <- chainConfigFor' Alice tmpDir backend hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
+        let backendOpts = Direct backend
+        hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
+        chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
         -- XXX(SN): API port id is inferred from nodeId, in this case 4001
         let nodeId = 1
 
@@ -303,10 +304,10 @@ setupNodeAndTUI' hostname lovelace action =
 
         let externalVKey = getVerificationKey externalSKey
         -- Some ADA to commit
-        seedFromFaucet_ backend externalVKey 42_000_000 (contramap FromFaucet tracer)
-        let DirectBackend DirectOptions{nodeSocket, networkId} = backend
+        seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
+        let DirectOptions{nodeSocket, networkId} = backend
         withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
-          seedFromFaucet_ backend aliceCardanoVk lovelace (contramap FromFaucet tracer)
+          seedFromFaucet_ backendOpts aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
             raceLabelled_

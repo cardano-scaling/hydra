@@ -6,12 +6,12 @@ import Test.Hydra.Prelude hiding (HydraTestnet (..))
 import CardanoNode (
   findRunningCardanoNode,
   getCardanoNodeVersion,
+  runBackend,
   withCardanoNodeDevnet,
   withCardanoNodeOnKnownNetwork,
  )
-
 import Hydra.Cardano.Api (NetworkId (Testnet), NetworkMagic (NetworkMagic), unFile)
-import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Fixture (KnownNetwork (..), toNetworkId)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
@@ -41,21 +41,18 @@ spec = do
 
   around (failAfter 5 . setupTracerAndTempDir) $ do
     it "withCardanoNodeDevnet does start a block-producing devnet within 5 seconds" $ \(tr, tmp) ->
-      withCardanoNodeDevnet tr tmp $ \blockTime backend -> do
-        let nodeSocket' =
-              case Backend.getOptions backend of
-                Direct DirectOptions{Hydra.Options.nodeSocket} -> nodeSocket
-                Blockfrost _ -> error "Unexpected Blockfrost options"
+      withCardanoNodeDevnet tr tmp $ \blockTime opts -> do
+        let DirectOptions{nodeSocket = nodeSocket'} = opts
         doesFileExist (unFile nodeSocket') `shouldReturn` True
-        networkId <- Backend.queryNetworkId backend
+        networkId <- runBackend (Direct opts) queryNetworkId
         -- NOTE: We hard-code the expected networkId and blockTime here to
         -- detect any change to the genesis-shelley.json
         networkId `shouldBe` Testnet (NetworkMagic 42)
         blockTime `shouldBe` 0.1
         -- Should produce blocks (tip advances)
-        slot1 <- chainPointToSlot <$> Backend.queryTip backend
+        slot1 <- chainPointToSlot <$> runBackend (Direct opts) queryTip
         threadDelay 1
-        slot2 <- chainPointToSlot <$> Backend.queryTip backend
+        slot2 <- chainPointToSlot <$> runBackend (Direct opts) queryTip
         slot2 `shouldSatisfy` (> slot1)
 
     describe "findRunningCardanoNode" $ do
@@ -64,21 +61,21 @@ spec = do
           findRunningCardanoNode tr tmp Preproduction `shouldReturn` Nothing
 
       it "returns Just running node on matching network" $ \(tr, tmp) -> do
-        withCardanoNodeOnKnownNetwork tr tmp Preview $ \blockTime backend -> do
-          findRunningCardanoNode tr tmp Preview `shouldReturn` Just (blockTime, backend)
+        withCardanoNodeOnKnownNetwork tr tmp Preview $ \blockTime opts -> do
+          findRunningCardanoNode tr tmp Preview `shouldReturn` Just (blockTime, opts)
 
   forSupportedKnownNetworks "withCardanoNodeOnKnownNetwork starts synchronizing within 10 seconds" $ \network -> do
     -- NOTE: This implies that withCardanoNodeOnKnownNetwork does not
     -- synchronize the whole chain before continuing.
     setupTracerAndTempDir $ \(tr, tmp) ->
-      withCardanoNodeOnKnownNetwork tr tmp network $ \blockTime backend -> do
-        networkId <- Backend.queryNetworkId backend
+      withCardanoNodeOnKnownNetwork tr tmp network $ \blockTime opts -> do
+        networkId <- runBackend (Direct opts) queryNetworkId
         networkId `shouldBe` toNetworkId network
         blockTime `shouldBe` 20
         -- Should synchronize blocks (tip advances)
-        slot1 <- chainPointToSlot <$> Backend.queryTip backend
+        slot1 <- chainPointToSlot <$> runBackend (Direct opts) queryTip
         threadDelay 10
-        slot2 <- chainPointToSlot <$> Backend.queryTip backend
+        slot2 <- chainPointToSlot <$> runBackend (Direct opts) queryTip
         slot2 `shouldSatisfy` (> slot1)
 
 setupTracerAndTempDir :: ToJSON msg => ((Tracer IO msg, FilePath) -> IO a) -> IO a

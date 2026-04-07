@@ -12,13 +12,22 @@ module CardanoClient (
 import Hydra.Prelude
 
 import Hydra.Cardano.Api hiding (Block)
+import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
-import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
+import Hydra.Chain.Direct (runDirectBackend)
+import Hydra.Options (ChainBackendOptions (..))
+
+-- | Run a 'ChainBackend' action given 'ChainBackendOptions'.
+runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) => m a) -> IO a
+runBackend opts action = case opts of
+  Direct directOpts -> runDirectBackend directOpts action
+  Blockfrost blockfrostOpts -> runBlockfrostBackend blockfrostOpts action
 
 -- TODO(SN): DRY with Hydra.Cardano.Api
 
@@ -44,16 +53,15 @@ sign signingKey body =
 -- Note that this function loops indefinitely; therefore, it's recommended to use
 -- it with a surrounding timeout mechanism.
 waitForPayments ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   Coin ->
   Address ShelleyAddr ->
   IO UTxO
-waitForPayments backend amount addr =
+waitForPayments opts amount addr =
   go
  where
   go = do
-    utxo <- Backend.queryUTxO backend [addr]
+    utxo <- runBackend opts $ Backend.queryUTxO [addr]
     let expectedPayments = selectPayments utxo
     if expectedPayments /= mempty
       then pure $ UTxO expectedPayments
@@ -65,11 +73,10 @@ waitForPayments backend amount addr =
 -- | Wait for transaction outputs with matching lovelace value and addresses of
 -- the whole given UTxO
 waitForUTxO ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   UTxO ->
   IO ()
-waitForUTxO backend utxo =
+waitForUTxO opts utxo =
   forM_ (snd <$> UTxO.toList utxo) forEachUTxO
  where
   forEachUTxO :: TxOut CtxUTxO -> IO ()
@@ -77,7 +84,7 @@ waitForUTxO backend utxo =
     TxOut (ShelleyAddressInEra addr@ShelleyAddress{}) value _ _ -> do
       void $
         waitForPayments
-          backend
+          opts
           (selectLovelace value)
           addr
     txOut ->
