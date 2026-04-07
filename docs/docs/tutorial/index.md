@@ -51,8 +51,8 @@ unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 
 cardano_node_version=10.6.2
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux-amd64.tar.gz
-tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./bin/cardano-node ./bin/cardano-cli
-tar xf cardano-node-${cardano_node_version}-linux.tar.gz ./share/preprod --strip-components=3
+tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./bin/cardano-node ./bin/cardano-cli
+tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./share/preprod --strip-components=3
 
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
