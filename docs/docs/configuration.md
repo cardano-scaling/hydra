@@ -270,7 +270,7 @@ hydra-node \
 To synchronize from the genesis block, use `--start-chain-from 0`.
 
 :::info
-If the `hydra-node` already tracks a head in its `state` and `--start-chain-from` is given, the **newer** point is used.
+If the `hydra-node` already tracks a head in its `hydra.db` and `--start-chain-from` is given, the **newer** point is used.
 :::
 
 ### Offline mode

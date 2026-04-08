@@ -72,6 +72,7 @@ library
     Hydra.Events
     Hydra.Events.FileBased
     Hydra.Events.Rotation
+    Hydra.Events.SQLiteBased
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
@@ -162,6 +163,7 @@ library
     , safe-money
     , serialise
     , sop-extras
+    , sqlite-simple
     , stm
     , template-haskell
     , text
@@ -369,6 +371,7 @@ test-suite tests
     Hydra.Events.FileBasedSpec
     Hydra.Events.RotationSpec
     Hydra.Events.S3Spec
+    Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec

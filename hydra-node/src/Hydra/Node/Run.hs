@@ -20,8 +20,8 @@ import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (EventSink)
-import Hydra.Events.FileBased (mkFileBasedEventStore)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Hydra.Events.SQLiteBased (migrateFromFileBased, mkSQLiteEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
@@ -53,7 +53,6 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Persistence (createPersistenceIncremental)
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
@@ -86,10 +85,11 @@ run opts = do
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
-        eventStore@EventStore{eventSource} <-
-          prepareEventStore
-            =<< mkFileBasedEventStore stateFile
-            =<< createPersistenceIncremental (contramap Persistence tracer) stateFile
+            dbFile = persistenceDir </> "hydra.db"
+        eventStore@EventStore{eventSource} <- do
+          (conn, store) <- mkSQLiteEventStore dbFile
+          migrateFromFileBased (contramap Persistence tracer) stateFile conn store
+          prepareEventStore store
         -- NOTE: Add any custom sinks here
         let eventSinks :: [EventSink (StateEvent Tx) IO] = []
         wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks

@@ -90,6 +90,10 @@
           {
             packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
           }
+          # Add sqlite as pkgconfig dependency for direct-sqlite (used by sqlite-simple)
+          {
+            packages.hydra-node.components.library.pkgconfig = [ [ pkgs.sqlite ] ];
+          }
         ];
       };
 

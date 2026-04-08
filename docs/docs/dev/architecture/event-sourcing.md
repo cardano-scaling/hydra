@@ -6,7 +6,9 @@ On application startup, the [`hydrate`](https://hydra.family/head-protocol/haddo
 
 ## Default event source and sinks
 
-The default event source and sink used by the `hydra-node` is `FileBased`, which uses an append-only plain JSON file to persist events in a file name `state`. This single file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option. 
+The default event source and sink used by the `hydra-node` is `SQLiteBased`, which persists events in a SQLite database file named `hydra.db`. This file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option.
+
+If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are automatically migrated into `hydra.db` and the original file is renamed to `state.migrated`.
 
 As explained in the consequences of [ADR29](https://hydra.family/head-protocol/adr/29), the API server of the `hydra-node` is also an event sink, which means that all events are sent to the API server and may be further submitted as [`ServerOutput`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) to clients of the API server. See [`mkTimedServerOutputFromStateEvent`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-Server.html#v:mkTimedServerOutputFromStateEvent) for which events are mapped to server outputs.
 
@@ -43,9 +45,8 @@ Long-living heads may produce a large number of persisted events, which can impa
 
 Event log rotation was introduced to improve recovery times by reducing the number of events that need to be replayed on startup. This is achieved by periodically replacing the current event log with a new one that starts from a checkpoint event, which captures the latest aggregated head state.
 
-Only rotated log files are saved with an incrementing `logId` suffix in their names, while the main `state` log file remains unchanged to preserve backward compatibility. This `logId` suffix corresponds to the ID of the last event included in that file.
-Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur.
-> For example, with `--persistence-rotate-after 100`, you’ll get rotated files named: state-100, state-200, state-300, and so on, each containing 101 events. This is because event IDs start at 0, so state-100 includes 101 state changed events (0–100) without a checkpoint. Subsequent rotated files include a checkpoint plus 100 new state changed events.
+Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur. When rotation triggers, all events older than the checkpoint are deleted from `hydra.db` and replaced with a single checkpoint event capturing the current aggregated state.
+> For example, with `--persistence-rotate-after 100`, a rotation occurs after every 100 new events. The checkpoint event captures the full node state at that point, so on the next restart the node only needs to replay events since the last checkpoint.
 
 Note that a checkpoint event id matches the last persisted event id from the previous rotated log file, preserving the sequential order of event ids across logs.
 This also makes it easier to identify which rotated log file was used to compute the checkpoint, as its event id matches the file name suffix.
