@@ -41,7 +41,7 @@ genStateChanged env =
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
-    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
     , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
@@ -50,7 +50,7 @@ genStateChanged env =
     , DepositRecovered <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , CommitApproved <$> arbitrary <*> arbitrary
     , CommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-    , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    , DecommitRecorded <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitApproved <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitInvalid <$> arbitrary <*> arbitrary <*> arbitrary
     , DecommitFinalized <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary

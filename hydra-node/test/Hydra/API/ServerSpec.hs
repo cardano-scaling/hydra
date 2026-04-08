@@ -111,7 +111,7 @@ spec =
                 let expectedMessage =
                       toJSON $
                         fromMaybe (error "failed to convert stateEvent") $
-                          mkTimedServerOutputFromStateEvent arbitraryEvent
+                          mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
                 putEvent arbitraryEvent
                 failAfter 1 $ atomically (replicateM 2 (readTQueue queue)) `shouldReturn` [expectedMessage, expectedMessage]
                 failAfter 1 $ atomically (tryReadTQueue queue) `shouldReturn` Nothing
@@ -122,7 +122,7 @@ spec =
         let expectedMessage =
               toJSON $
                 fromMaybe (error "failed to convert stateEvent") $
-                  mkTimedServerOutputFromStateEvent stateEvent
+                  mkTimedServerOutputFromStateEvent Nothing stateEvent
         let eventSource = mockSource [stateEvent]
 
         queue1 <- newLabelledTQueueIO "queue1"
@@ -147,7 +147,7 @@ spec =
 
     it "echoes history (past outputs) to client upon reconnection" $
       forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
-        let expectedMessages = map toJSON $ mapMaybe mkTimedServerOutputFromStateEvent events
+        let expectedMessages = map toJSON $ mapMaybe (mkTimedServerOutputFromStateEvent Nothing) events
         checkCoverage . monadicIO $ do
           monitor $ cover 0.1 (null events) "no message when reconnecting"
           monitor $ cover 0.1 (length events == 1) "only one message when reconnecting"
@@ -192,7 +192,7 @@ spec =
                   case traverse Aeson.eitherDecode received of
                     Left{} -> failure $ "Failed to decode messages:\n" <> show received
                     Right timedOutputs -> do
-                      timedOutputs `shouldBe` [fromMaybe (error "failed to convert stateEvent") $ mkTimedServerOutputFromStateEvent notHistoryMessage]
+                      timedOutputs `shouldBe` [fromMaybe (error "failed to convert stateEvent") $ mkTimedServerOutputFromStateEvent Nothing notHistoryMessage]
 
     it "removes UTXO from snapshot when clients request it" $
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
@@ -204,7 +204,7 @@ spec =
                 genStateEvent $
                   Outcome.SnapshotConfirmed
                     { headId = testHeadId
-                    , snapshot
+                    , snapshot = Just snapshot
                     , signatures = mempty
                     }
 
@@ -243,7 +243,7 @@ spec =
 
           withTestAPIServer port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
             let generateSnapshot =
-                  Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+                  Outcome.SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
 
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
@@ -257,7 +257,7 @@ spec =
                       )
               pure (headId, output)
 
-            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}}} <-
+            snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo, utxoToCommit}}} <-
               generate $ genStateEvent =<< generateSnapshot
 
             mapM_ putEvent [headIsOpenMsg, snapShotConfirmedMsg]
@@ -267,7 +267,7 @@ spec =
 
             snapShotConfirmedMsg'@StateEvent
               { stateChanged =
-                Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}
+                Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}
               } <-
               generate $ genStateEvent =<< generateSnapshot
             headClosedMsg <- generate $ do
@@ -286,8 +286,8 @@ spec =
         withFreePort $ \port -> do
           headIsOpenMsg <- generate $ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-          let generateSnapshot = generate $ Outcome.SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
-          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Snapshot{utxo, utxoToCommit}} <- generateSnapshot
+          let generateSnapshot = generate $ Outcome.SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
+          snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo, utxoToCommit}} <- generateSnapshot
 
           stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headIsOpenMsg, snapShotConfirmedMsg]
           let eventSource = mockSource stateEvents
@@ -465,4 +465,4 @@ shouldSatisfyAll = go
 
 genStateEventForApi :: Gen (StateEvent SimpleTx)
 genStateEventForApi =
-  arbitrary `suchThat` (isJust . mkTimedServerOutputFromStateEvent)
+  arbitrary `suchThat` (isJust . mkTimedServerOutputFromStateEvent Nothing)

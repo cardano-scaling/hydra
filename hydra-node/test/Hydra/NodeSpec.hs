@@ -526,7 +526,7 @@ recordServerOutputs node = do
   let apiSink =
         EventSink
           { putEvent = \event ->
-              case mkTimedServerOutputFromStateEvent event of
+              case mkTimedServerOutputFromStateEvent Nothing event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> record $ Left output
           }

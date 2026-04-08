@@ -8,6 +8,7 @@ import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSat
 import Control.Concurrent.Class.MonadSTM (
   modifyTVar,
   modifyTVar',
+  newTVarIO,
   readTQueue,
   readTVarIO,
   retry,
@@ -21,7 +22,7 @@ import Data.List ((!!))
 import Data.List qualified as List
 import Data.List.NonEmpty qualified as NE
 import Hydra.API.ClientInput
-import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (
@@ -36,6 +37,7 @@ import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainSta
 import Hydra.Events (EventSink (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..))
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
@@ -1416,10 +1418,13 @@ createHydraNode ::
   m (HydraNode tx m)
 createHydraNode tracer ledger chainState signingKey otherParties outputs messages outputHistory chain cp dp = do
   EventStore{eventSource, eventSink} <- createMockEventStore
+  seenSnapshotVar <- newTVarIO Nothing
   let apiSink =
         EventSink
-          { putEvent = \event ->
-              case mkTimedServerOutputFromStateEvent event of
+          { putEvent = \event@StateEvent{stateChanged} -> do
+              mSeenSnapshot <- readTVarIO seenSnapshotVar
+              atomically $ writeTVar seenSnapshotVar (updateSeenSnapshot mSeenSnapshot stateChanged)
+              case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> atomically $ do
                   writeTQueue outputs output

@@ -104,7 +104,7 @@ monitor transactionsMap metricsMap = \case
       PeerConnected{} -> gauge Gauge.inc "hydra_head_peers_connected"
       PeerDisconnected{} -> gauge Gauge.dec "hydra_head_peers_connected"
       NetworkDisconnected{} -> gaugeN "hydra_head_peers_connected" 0
-      SnapshotConfirmed{snapshot = Snapshot{confirmed}} -> do
+      SnapshotConfirmed{snapshot = Just Snapshot{confirmed}} -> do
         tickN "hydra_head_confirmed_tx" (length confirmed)
         forM_ confirmed $ \tx -> do
           t <- getMonotonicTime

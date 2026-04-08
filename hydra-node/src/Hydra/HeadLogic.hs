@@ -363,8 +363,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                   let (newLocalTxs, newLocalUTxO) = pruneTransactions u
                   newState
                     SnapshotRequested
-                      { snapshot = nextSnapshot
-                      , requestedTxIds
+                      { requestedSnapshot = nextSnapshot
                       , newLocalUTxO
                       , newLocalTxs
                       , newCurrentDepositTxId = mDepositTxId
@@ -525,7 +524,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
         -- Spec: ̂Σ[j] ← σⱼ
-        (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
+        (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
           --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
           ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
@@ -539,7 +538,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
               do
                 -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
-                newState SnapshotConfirmed{headId, snapshot, signatures = multisig}
+                newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
                 -- Spec: if η𝛼 ≠ ⊥
                 --         postTx (increment, v̂, ŝ, η, η𝛼, ηω)
                 & maybePostIncrementTx snapshot multisig
@@ -580,7 +579,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
           else
             newState
               PartySignedSnapshot
-                { snapshot
+                { snapshotNumber = snapshot.number
                 , party = otherParty
                 , signature = snapshotSignature
                 }
@@ -764,7 +763,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     let decommitUTxO = utxoFromTx decommitTx
         activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
     -- Spec: txω ← tx
-    newState DecommitRecorded{headId, decommitTx, newLocalUTxO = activeUTxO, utxoToDecommit = decommitUTxO}
+    newState DecommitRecorded{headId, decommitTx, newLocalUTxO = activeUTxO}
       -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
       --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
       <> maybeRequestSnapshot
@@ -1209,7 +1208,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
         requireVerifiedL1Snapshot $
           requireVerifiedMultisignature snapshot signatures $
             changes
-              [ SnapshotConfirmed{headId, snapshot, signatures}
+              [ SnapshotConfirmed{headId, snapshot = Just snapshot, signatures}
               , LocalStateCleared{headId, snapshotNumber = requestedSn}
               ]
  where
@@ -1898,7 +1897,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
       _otherState -> st
-  SnapshotRequested{snapshot, requestedTxIds, newLocalUTxO, newLocalTxs, newCurrentDepositTxId} ->
+  SnapshotRequested{requestedSnapshot = snapshot, newLocalUTxO, newLocalTxs, newCurrentDepositTxId} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
@@ -1908,7 +1907,7 @@ aggregate st = \case
                   { seenSnapshot = mkSeenSnapshot snapshot mempty
                   , localTxs = newLocalTxs
                   , localUTxO = newLocalUTxO
-                  , allTxs = foldr Map.delete allTxs requestedTxIds
+                  , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                   , currentDepositTxId = newCurrentDepositTxId
                   }
             }
@@ -1935,24 +1934,25 @@ aggregate st = \case
                     }
               }
       _otherState -> st
-  SnapshotConfirmed{snapshot, signatures} ->
+  SnapshotConfirmed{snapshot = mSnapshot, signatures} ->
     case st of
-      Open os@OpenState{coordinatedHeadState} ->
-        Open
-          os
-            { coordinatedHeadState =
-                coordinatedHeadState
-                  { confirmedSnapshot =
-                      ConfirmedSnapshot
-                        { snapshot
-                        , signatures
-                        }
-                  , seenSnapshot = LastSeenSnapshot number
-                  }
-            }
-       where
-        Snapshot{number} = snapshot
+      Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{seenSnapshot}} ->
+        case mSnapshot <|> snapshotFromSeen seenSnapshot of
+          Just snapshot ->
+            Open
+              os
+                { coordinatedHeadState =
+                    chs
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                      , seenSnapshot = LastSeenSnapshot snapshot.number
+                      }
+                }
+          Nothing -> st
       _otherState -> st
+   where
+    snapshotFromSeen :: SeenSnapshot tx -> Maybe (Snapshot tx)
+    snapshotFromSeen (SeenSnapshot sn _) = Just sn
+    snapshotFromSeen _ = Nothing
   LocalStateCleared{snapshotNumber} ->
     case st of
       Open os@OpenState{coordinatedHeadState = coordinatedHeadState@CoordinatedHeadState{confirmedSnapshot, version = currentVersion}} ->
