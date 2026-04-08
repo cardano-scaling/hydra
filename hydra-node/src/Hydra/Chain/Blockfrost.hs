@@ -5,7 +5,6 @@ import Hydra.Prelude
 import Blockfrost.Client qualified as BlockfrostAPI
 import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
-import Control.Monad.Trans.Reader (ReaderT (..), runReaderT)
 import Control.Retry (RetryPolicyM, constantDelay, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
@@ -35,7 +34,7 @@ import Hydra.Chain.Direct.State (ChainContext)
 import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..))
+import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..))
 
 newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostOptions IO a)
   deriving newtype
@@ -45,101 +44,73 @@ newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostOptions IO a)
     , MonadIO
     , MonadThrow
     , MonadCatch
-    , MonadMask
     )
 
 runBlockfrostBackend :: BlockfrostOptions -> BlockfrostBackend a -> IO a
 runBlockfrostBackend opts (BlockfrostBackend m) = runReaderT m opts
 
 instance ChainBackend BlockfrostBackend where
-  queryGenesisParameters = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryGenesisParameters = withProject $ \_ prj ->
     Blockfrost.toCardanoGenesisParameters <$> Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
 
-  queryScriptRegistry txIds = BlockfrostBackend $ do
-    opts@BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryScriptRegistry txIds = withProject $ \opts prj ->
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryScriptRegistry opts txIds
 
-  queryNetworkId = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryNetworkId = withProject $ \_ prj -> do
     -- TODO: This calls to queryGenesisParameters again, but we only need the network magic
     Blockfrost.Genesis{_genesisNetworkMagic} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ Blockfrost.toCardanoNetworkId _genesisNetworkMagic
 
-  queryTip = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryTip = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryTip
 
-  queryUTxO addresses = BlockfrostBackend $ do
-    opts@BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.Genesis
-      { _genesisNetworkMagic
-      , _genesisSystemStart
-      } <-
+  queryUTxO addresses = withProject $ \opts prj -> do
+    Blockfrost.Genesis{_genesisNetworkMagic} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxO opts networkId addresses
 
-  queryUTxOByTxIn txins = BlockfrostBackend $ do
-    opts@BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.Genesis
-      { _genesisNetworkMagic
-      , _genesisSystemStart
-      } <-
+  queryUTxOByTxIn txins = withProject $ \opts prj -> do
+    Blockfrost.Genesis{_genesisNetworkMagic} <-
       Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     let networkId = Blockfrost.toCardanoNetworkId _genesisNetworkMagic
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOByTxIn opts networkId txins
 
-  queryEraHistory _ = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryEraHistory _ = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryEraHistory
 
-  querySystemStart _ = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  querySystemStart _ = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.querySystemStart
 
-  queryProtocolParameters _ = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryProtocolParameters _ = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryProtocolParameters
 
-  queryStakePools _ = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryStakePools _ = withProject $ \_ prj ->
     Blockfrost.runBlockfrostM prj Blockfrost.queryStakePools
 
-  queryUTxOFor _ vk = BlockfrostBackend $ do
-    opts@BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  queryUTxOFor _ vk = withProject $ \opts prj ->
     Blockfrost.runBlockfrostM prj $ Blockfrost.queryUTxOFor opts vk
 
-  submitTransaction tx = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  submitTransaction tx = withProject $ \_ prj ->
     void $ Blockfrost.runBlockfrostM prj $ Blockfrost.submitTransaction tx
 
-  awaitTransaction tx vk = BlockfrostBackend $ do
-    opts@BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  awaitTransaction tx vk = withProject $ \opts prj ->
     Blockfrost.runBlockfrostM prj $ Blockfrost.awaitTransaction opts tx vk
 
-  getBlockTime = BlockfrostBackend $ do
-    BlockfrostOptions{projectPath} <- ask
-    prj <- liftIO $ Blockfrost.projectFromFile projectPath
-    Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <- Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
+  getBlockTime = withProject $ \_ prj -> do
+    Blockfrost.Genesis{_genesisActiveSlotsCoefficient, _genesisSlotLength} <-
+      Blockfrost.runBlockfrostM prj Blockfrost.queryGenesisParameters
     pure $ fromInteger _genesisSlotLength / realToFrac _genesisActiveSlotsCoefficient
 
   getQueryDelay = BlockfrostBackend $ do
     BlockfrostOptions{queryTimeout} <- ask
     pure $ fromIntegral queryTimeout
+
+withProject :: (BlockfrostOptions -> Blockfrost.Project -> IO a) -> BlockfrostBackend a
+withProject f = BlockfrostBackend $ do
+  opts@BlockfrostOptions{projectPath} <- ask
+  prj <- liftIO $ Blockfrost.projectFromFile projectPath
+  liftIO $ f opts prj
 
 withBlockfrostChain ::
   BlockfrostOptions ->

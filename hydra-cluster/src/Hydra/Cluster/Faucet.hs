@@ -83,7 +83,7 @@ seedFromFaucetWithMinting ::
 seedFromFaucetWithMinting opts receivingVerificationKey val tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- runBackend opts queryNetworkId
-  seedTx <- retryOnExceptions tracer $ submitSeedTx faucetVk faucetSk networkId
+  seedTx <- retryOnExceptions tracer opts $ submitSeedTx faucetVk faucetSk networkId
   producedUTxO <- runBackend opts $ awaitTransaction seedTx receivingVerificationKey
   pure $ UTxO.filter (== toCtxUTxOTxOut (theOutput networkId)) producedUTxO
  where
@@ -202,7 +202,7 @@ returnFundsToFaucet' tracer opts senderSk = do
   returnAmount <-
     if UTxO.null utxo
       then pure 0
-      else retryOnExceptions tracer $ do
+      else retryOnExceptions tracer opts $ do
         let utxoValue = balance @Tx utxo
         let allLovelace = selectLovelace utxoValue
         tx <- sign senderSk <$> buildTxBody utxo faucetAddress
@@ -245,21 +245,23 @@ createOutputAtAddress networkId opts atAddress datum val = do
         Just u -> pure u
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> m a -> m a
-retryOnExceptions tracer action =
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> ChainBackendOptions -> m a -> m a
+retryOnExceptions tracer opts action =
   action
     `catches` [ Handler $ \(ex :: SubmitTransactionException) -> do
                   traceWith tracer $
                     SubmitTxError $
                       show ex
-                  retryOnExceptions tracer action
+                  delayBF opts
+                  retryOnExceptions tracer opts action
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
                     throwIO ex
                   traceWith tracer $
                     TraceResourceExhaustedHandled $
                       "Expected exception raised from seedFromFaucet: " <> show ex
-                  retryOnExceptions tracer action
+                  delayBF opts
+                  retryOnExceptions tracer opts action
               ]
  where
   isResourceExhausted ex = case ioe_type ex of

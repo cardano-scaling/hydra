@@ -60,7 +60,7 @@ withCardanoChain tracer cfg party chainStateHistory callback action =
 -- | Build the 'ChainContext' from a 'ChainConfig' and additional information.
 loadChainContext ::
   forall m.
-  (ChainBackend m, MonadIO m, MonadThrow m) =>
+  (ChainBackend m, MonadIO m) =>
   CardanoChainConfig ->
   -- | Hydra party of our hydra node.
   Party ->

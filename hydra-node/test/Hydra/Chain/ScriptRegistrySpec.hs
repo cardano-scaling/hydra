@@ -58,7 +58,7 @@ spec = describe "publishHydraScripts" $ do
 
 -- | A test backend that will throw 'NoUTxOFound' on 'queryUTxOFor' call.
 newtype ATestBackend a = ATestBackend (ReaderT (VerificationKey PaymentKey) IO a)
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask)
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
 
 runATestBackend :: VerificationKey PaymentKey -> ATestBackend a -> IO a
 runATestBackend vk (ATestBackend m) = runReaderT m vk
@@ -88,7 +88,7 @@ instance ChainBackend ATestBackend where
 
 -- | A test backend that simulates a successful script publishing.
 newtype SuccessfulBackend a = SuccessfulBackend (ReaderT (VerificationKey PaymentKey, UTxO) IO a)
-  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch, MonadMask)
+  deriving newtype (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch)
 
 runSuccessfulBackend :: (VerificationKey PaymentKey, UTxO) -> SuccessfulBackend a -> IO a
 runSuccessfulBackend env (SuccessfulBackend m) = runReaderT m env

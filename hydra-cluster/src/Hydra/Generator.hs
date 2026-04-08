@@ -5,7 +5,7 @@ import Hydra.Prelude hiding (size)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, queryUTxOFor, runCardanoNode)
+import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, queryUTxOFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Chain.Backend (buildTransaction)
@@ -178,8 +178,7 @@ generateDemoUTxODataset ::
 generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
   -- Query available funds
   faucetUTxO <-
-    runCardanoNode (localNodeConnectInfo network nodeSocket) shelleyBasedEra $
-      queryUTxOFor QueryTip faucetVk
+    queryUTxOFor (localNodeConnectInfo network nodeSocket) QueryTip faucetVk
   let (Coin fundsAvailable) = UTxO.totalLovelace faucetUTxO
   -- Generate client datasets
   allPaymentKeys <- generate $ replicateM nClients genSigningKey

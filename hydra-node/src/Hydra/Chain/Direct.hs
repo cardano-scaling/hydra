@@ -16,7 +16,6 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Exception (IOException)
-import Control.Monad.Trans.Reader (ReaderT (..), runReaderT)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
   BlockInMode (..),
@@ -25,14 +24,11 @@ import Hydra.Cardano.Api (
   ChainTip,
   ConsensusModeParams (..),
   EpochSlots (..),
-  Era,
   GenesisParameters (..),
-  IsShelleyBasedEra (..),
   LocalChainSyncClient (..),
   LocalNodeClientProtocols (..),
   LocalNodeConnectInfo (..),
   NetworkId,
-  ShelleyBasedEra (..),
   SocketPath,
   Tx,
   TxInMode (..),
@@ -43,6 +39,7 @@ import Hydra.Cardano.Api (
   getBlockTxs,
   getTxBody,
   getTxId,
+  shelleyBasedEra,
  )
 import Hydra.Chain (
   ChainComponent,
@@ -67,7 +64,7 @@ import Hydra.Chain.Direct.TimeHandle (queryTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Chain.ScriptRegistry qualified as ScriptRegistry
 import Hydra.Logging (Tracer, traceWith)
-import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Options (CardanoChainConfig (..), DirectOptions (..))
 import Ouroboros.Network.Magic (NetworkMagic (..))
 import Ouroboros.Network.Protocol.ChainSync.Client (
   ChainSyncClient (..),
@@ -90,18 +87,14 @@ newtype DirectBackend a = DirectBackend (ReaderT DirectOptions IO a)
     , MonadIO
     , MonadThrow
     , MonadCatch
-    , MonadMask
     )
 
 runDirectBackend :: DirectOptions -> DirectBackend a -> IO a
 runDirectBackend opts (DirectBackend m) = runReaderT m opts
 
 instance ChainBackend DirectBackend where
-  queryGenesisParameters = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryGenesisParameters CardanoClient.QueryTip
+  queryGenesisParameters = withNodeConn $ \ci ->
+    CardanoClient.queryGenesisParameters ci CardanoClient.QueryTip
 
   queryScriptRegistry = ScriptRegistry.queryScriptRegistry
 
@@ -109,79 +102,46 @@ instance ChainBackend DirectBackend where
     DirectOptions{networkId} <- ask
     pure networkId
 
-  queryTip = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $ runNodeIO networkId nodeSocket CardanoClient.queryTip
+  queryTip = withNodeConn CardanoClient.queryTip
 
-  queryUTxO addresses = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryUTxO CardanoClient.QueryTip addresses
+  queryUTxO addresses = withNodeConn $ \ci ->
+    CardanoClient.queryUTxO ci CardanoClient.QueryTip addresses
 
-  queryUTxOByTxIn txins = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryUTxOByTxIn CardanoClient.QueryTip txins
+  queryUTxOByTxIn txins = withNodeConn $ \ci ->
+    CardanoClient.queryUTxOByTxIn ci CardanoClient.QueryTip txins
 
-  queryEraHistory queryPoint = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryEraHistory queryPoint
+  queryEraHistory queryPoint = withNodeConn $ \ci ->
+    CardanoClient.queryEraHistory ci queryPoint
 
-  querySystemStart queryPoint = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.querySystemStart queryPoint
+  querySystemStart queryPoint = withNodeConn $ \ci ->
+    CardanoClient.querySystemStart ci queryPoint
 
-  queryProtocolParameters queryPoint = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryProtocolParameters queryPoint
+  queryProtocolParameters queryPoint = withNodeConn $ \ci ->
+    CardanoClient.queryProtocolParameters ci queryPoint
 
-  queryStakePools queryPoint = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryStakePools queryPoint
+  queryStakePools queryPoint = withNodeConn $ \ci ->
+    CardanoClient.queryStakePools ci queryPoint
 
-  queryUTxOFor queryPoint vk = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.queryUTxOFor queryPoint vk
+  queryUTxOFor queryPoint vk = withNodeConn $ \ci ->
+    CardanoClient.queryUTxOFor ci queryPoint vk
 
-  submitTransaction tx = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.submitTransaction tx
+  submitTransaction tx = withNodeConn $ \ci ->
+    CardanoClient.submitTransaction ci tx
 
-  awaitTransaction tx _ = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
-    liftIO $
-      runNodeIO networkId nodeSocket $
-        CardanoClient.awaitTransaction tx
+  awaitTransaction tx _ = withNodeConn $ \ci ->
+    CardanoClient.awaitTransaction ci tx
 
-  getBlockTime = DirectBackend $ do
-    DirectOptions{networkId, nodeSocket} <- ask
+  getBlockTime = withNodeConn $ \ci -> do
     GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
-      liftIO $
-        CardanoClient.runNodeIOWithCurrentEra networkId nodeSocket $ \_sbe ->
-          CardanoClient.queryGenesisParameters CardanoClient.QueryTip
+      CardanoClient.queryGenesisParameters ci CardanoClient.QueryTip
     pure (protocolParamSlotLength / realToFrac protocolParamActiveSlotsCoefficient)
 
   getQueryDelay = pure 0
 
--- | Run a 'CardanoNode' action against the given network/socket using the
--- Conway era witness.
-runNodeIO :: NetworkId -> SocketPath -> CardanoClient.CardanoNode ShelleyBasedEra Era a -> IO a
-runNodeIO networkId nodeSocket =
-  CardanoClient.runCardanoNode (CardanoClient.localNodeConnectInfo networkId nodeSocket) shelleyBasedEra
+withNodeConn :: (LocalNodeConnectInfo -> IO a) -> DirectBackend a
+withNodeConn f = DirectBackend $ do
+  DirectOptions{networkId, nodeSocket} <- ask
+  liftIO $ f (CardanoClient.localNodeConnectInfo networkId nodeSocket)
 
 withDirectChain ::
   DirectOptions ->

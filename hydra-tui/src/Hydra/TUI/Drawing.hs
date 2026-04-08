@@ -35,13 +35,13 @@ import Lens.Micro ((^.), (^?), _head)
 import Paths_hydra_tui (version)
 
 -- | Main draw function
-draw :: CardanoClient Era -> Client Tx IO -> RootState -> [Widget Name]
+draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
 draw cardanoClient hydraClient s =
   case s ^. logStateL . logVerbosityL of
     Full -> drawScreenFullLog s
     Short -> drawScreenShortLog cardanoClient hydraClient s
 
-drawScreenShortLog :: CardanoClient Era -> Client Tx IO -> RootState -> [Widget Name]
+drawScreenShortLog :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
 drawScreenShortLog CardanoClient{networkId} Client{sk} s =
   pure $
     withBorderStyle ascii $

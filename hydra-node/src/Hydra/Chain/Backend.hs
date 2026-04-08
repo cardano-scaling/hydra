@@ -7,7 +7,6 @@ import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Contract.Dummy (dummyMintingScript)
-import Hydra.Options (ChainBackendOptions)
 import Hydra.Tx (ScriptRegistry)
 
 blockfrostProjectPath :: FilePath
