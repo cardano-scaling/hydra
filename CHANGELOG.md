@@ -10,7 +10,14 @@ changes.
 
 ## [UNRELEASED]
 
+- **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`):
+  - `SnapshotRequested`: `snapshot` renamed to `requestedSnapshot`; `requestedTxIds` field removed (tx ids are now carried inside `requestedSnapshot`).
+  - `PartySignedSnapshot`: `snapshot :: Snapshot tx` replaced by `snapshotNumber :: SnapshotNumber` (only the number is stored, not the full snapshot).
+  - `SnapshotConfirmed`: `snapshot :: Snapshot tx` changed to `snapshot :: Maybe (Snapshot tx)` (is `Nothing` when a preceding `SnapshotRequested` already carries the snapshot).
+  - `DecommitRecorded`: `utxoToDecommit :: UTxOType tx` field removed.
+
   - Reduce snapshot confirmation latency by ~7% (avg) by caching the pre-computed signable bytes of a snapshot in `SeenSnapshot`, avoiding repeated UTxO serialization and hashing on every `AckSn` verification during a signing round.
+
 
 ## [2.0.0] - 2026.04.05
 
