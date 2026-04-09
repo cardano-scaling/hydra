@@ -15,7 +15,6 @@ import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)
-import Hydra.PersistenceLog (PersistenceLog)
 
 data HydraLog tx
   = DirectChain {directChain :: CardanoChainLog}
@@ -23,7 +22,6 @@ data HydraLog tx
   | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
-  | Persistence {persistenceLog :: PersistenceLog}
   | EnteringMainloop
   | NodeHydrated
   | ChainBackendStarted

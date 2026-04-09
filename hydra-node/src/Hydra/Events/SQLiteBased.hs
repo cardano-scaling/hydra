@@ -6,15 +6,13 @@ module Hydra.Events.SQLiteBased where
 
 import Hydra.Prelude
 
-import Conduit (ConduitT, ResourceT, runResourceT, sourceToList, yieldMany)
+import Conduit (ConduitT, ResourceT, yieldMany)
 import Control.Concurrent.Class.MonadSTM (writeTVar)
 import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS
 import Database.SQLite.Simple (Connection, Only (..), execute, execute_, open, query_, withTransaction)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.Logging (Tracer)
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
-import Hydra.PersistenceLog (PersistenceLog)
 import System.Directory (doesFileExist, renameFile)
 
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
@@ -90,17 +88,18 @@ mkSQLiteEventStore dbFile = do
 --
 -- All inserts are batched in a single transaction for performance.
 migrateFromFileBased ::
+  forall e.
   (FromJSON e, HasEventId e) =>
-  Tracer IO PersistenceLog ->
   FilePath ->
   Connection ->
   EventStore e IO ->
   IO ()
-migrateFromFileBased tracer legacyFile conn EventStore{eventSink = EventSink{putEvent}} = do
+migrateFromFileBased legacyFile conn EventStore{eventSink = EventSink{putEvent}} = do
   exists <- doesFileExist legacyFile
   when exists $ do
-    PersistenceIncremental{source} <- createPersistenceIncremental tracer legacyFile
-    events <- runResourceT $ sourceToList source
+    contents <- BS.readFile legacyFile
+    let events :: [e]
+        events = mapMaybe Aeson.decodeStrict' (BS.split 10 contents)
     withTransaction conn $ forM_ events putEvent
     renameFile legacyFile (legacyFile <> ".migrated")
 

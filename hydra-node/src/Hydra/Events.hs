@@ -6,8 +6,8 @@
 -- A single 'EventSource' and zero or more 'EventSink' handles are used by the
 -- main 'HydraNode' handle to load and send out events.
 --
--- See 'Hydra.Events.FileBased' for an example implementation and
--- 'Hydra.Events.FileBasedSpec' for the corresponding test suite.
+-- See 'Hydra.Events.SQLiteBased' for the default implementation and
+-- 'Hydra.Events.SQLiteBasedSpec' for the corresponding test suite.
 --
 -- Custom implementations should be located under Hydra.Events to avoid
 -- conflicts.

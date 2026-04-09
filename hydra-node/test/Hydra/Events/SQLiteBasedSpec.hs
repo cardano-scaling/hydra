@@ -4,14 +4,14 @@ module Hydra.Events.SQLiteBasedSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Data.Aeson qualified as Aeson
+import Data.ByteString qualified as BS
 import Data.List (zipWith3)
 import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Events.SQLiteBased (migrateFromFileBased, mkSQLiteEventStore)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging (Verbosity (Verbose), withTracer)
-import Hydra.Persistence (PersistenceIncremental (..), createPersistenceIncremental)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.StateEvent ()
 import Test.Hydra.Ledger.Simple ()
@@ -65,19 +65,18 @@ spec = do
       forAllShrink genContinuousEvents shrink $ \events ->
         ioProperty $ do
           withTempDir "hydra-sqlite-persistence" $ \tmpDir -> do
-            withTracer (Verbose "hydra-sqlite-persistence") $ \tracer -> do
-              let legacyFile = tmpDir <> "/state"
-              let dbFile = tmpDir <> "/hydra.db"
-              -- Write events to the legacy file
-              PersistenceIncremental{append} <- createPersistenceIncremental tracer legacyFile
-              forM_ events append
-              -- Migrate into SQLite
-              (conn, store) <- mkSQLiteEventStore dbFile
-              migrateFromFileBased tracer legacyFile conn store
-              -- Verify all events are present
-              loadedEvents <- getEvents (eventSource store)
-              pure $
-                loadedEvents === events
+            let legacyFile = tmpDir <> "/state"
+            let dbFile = tmpDir <> "/hydra.db"
+            -- Write events to the legacy file
+            forM_ events $ \e ->
+              BS.appendFile legacyFile (toStrict (Aeson.encode e) <> "\n")
+            -- Migrate into SQLite
+            (conn, store) <- mkSQLiteEventStore dbFile
+            migrateFromFileBased legacyFile conn store
+            -- Verify all events are present
+            loadedEvents <- getEvents (eventSource store)
+            pure $
+              loadedEvents === events
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =
