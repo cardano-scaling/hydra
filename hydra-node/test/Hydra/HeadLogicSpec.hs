@@ -33,7 +33,7 @@ import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, noop, update)
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters)
+import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -277,7 +277,7 @@ spec =
             s0 =
               ( inOpenState' singleParty $
                   coordinatedHeadState
-                    { seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = Map.empty}
+                    { seenSnapshot = mkSeenSnapshot snapshot1 Map.empty
                     , localTxs = [tx2]
                     , currentDepositTxId = Nothing
                     }
@@ -599,7 +599,7 @@ spec =
                     { localUTxO
                     , version = 3
                     , confirmedSnapshot = confirmedSn
-                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 mempty
                     , decommitTx = Just decommitTx
                     }
 
@@ -615,7 +615,7 @@ spec =
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
               chs.decommitTx `shouldBe` Nothing
-              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+              chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
             _ -> fail "expected Open state"
 
         it "DecommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
@@ -633,7 +633,7 @@ spec =
                     { localUTxO
                     , version = 3
                     , confirmedSnapshot = confirmedSn
-                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 mempty
                     , decommitTx = Just decommitTx
                     }
 
@@ -650,7 +650,7 @@ spec =
           let s1 = aggregateState s0 outcome
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
-              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+              chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
             _ -> fail "expected Open state"
 
         it "CommitFinalized with SeenSnapshot does not re-request snapshot already in-flight" $ do
@@ -668,7 +668,7 @@ spec =
                     { localUTxO
                     , version = 3
                     , confirmedSnapshot = confirmedSn
-                    , seenSnapshot = SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+                    , seenSnapshot = mkSeenSnapshot snapshot1 mempty
                     , currentDepositTxId = Just depositTxId
                     }
 
@@ -685,7 +685,7 @@ spec =
           let s1 = aggregateState s0 outcome
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
-              chs.seenSnapshot `shouldBe` SeenSnapshot{snapshot = snapshot1, signatories = mempty}
+              chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
             _ -> fail "expected Open state"
 
         it "CommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
@@ -960,7 +960,7 @@ spec =
               inOpenState' threeParties $
                 coordinatedHeadState
                   { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
-                  , seenSnapshot = SeenSnapshot (testSnapshot 3 0 [] mempty) mempty
+                  , seenSnapshot = mkSeenSnapshot (testSnapshot 3 0 [] mempty) mempty
                   }
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)

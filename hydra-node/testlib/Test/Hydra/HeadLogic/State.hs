@@ -14,8 +14,10 @@ import Hydra.HeadLogic.State (
   IdleState (..),
   OpenState (..),
   SeenSnapshot (..),
+  mkSeenSnapshot,
  )
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
+import Test.QuickCheck (oneof)
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
@@ -36,7 +38,13 @@ instance ArbitraryIsTx tx => Arbitrary (CoordinatedHeadState tx) where
   arbitrary = genericArbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
-  arbitrary = genericArbitrary
+  arbitrary =
+    oneof
+      [ pure NoSeenSnapshot
+      , LastSeenSnapshot <$> arbitrary
+      , RequestedSnapshot <$> arbitrary <*> arbitrary
+      , mkSeenSnapshot <$> arbitrary <*> arbitrary
+      ]
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
   arbitrary =
