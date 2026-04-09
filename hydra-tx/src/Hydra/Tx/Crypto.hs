@@ -339,14 +339,14 @@ verifyMultiSignatureBytes ::
 verifyMultiSignatureBytes vks HydraMultiSignature{multiSignature} bs
   | length vks == length multiSignature =
       let ctx = () :: ContextDSIGN Ed25519DSIGN
-          verifications =
-            zipWith
-              ( \(HydraVerificationKey vk) (HydraSignature sig) ->
-                  (HydraVerificationKey vk, case verifyDSIGN ctx vk bs sig of Right () -> True; Left _ -> False)
+          failures =
+            mapMaybe
+              ( \(vk@(HydraVerificationKey rawVk), HydraSignature sig) ->
+                  case verifyDSIGN ctx rawVk bs sig of
+                    Right () -> Nothing
+                    Left _ -> Just vk
               )
-              vks
-              multiSignature
-          failures = fst <$> filter (not . snd) verifications
+              (zip vks multiSignature)
        in if null failures
             then Verified
             else FailedKeys failures
