@@ -662,11 +662,21 @@ RequestedSnapshot :: SnapshotNumber -> SnapshotNumber -> SeenSnapshot tx
 [$sel:requested:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
 
 -- | ReqSn for given snapshot was received.
-SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
+SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString -> SeenSnapshot tx
 [$sel:snapshot:NoSeenSnapshot] :: SeenSnapshot tx -> Snapshot tx
 
--- | Collected signatures and so far.
+-- | Collected signatures so far.
 [$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
+
+-- | Pre-computed result of 'getSignableRepresentation snapshot', cached to
+--   avoid recomputing the expensive UTxO hash on every AckSn verification.
+[$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ByteString
+
+-- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
+--   <a>$sel:signableBytes:NoSeenSnapshot</a> from
+--   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
+--   stay in sync.
+mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -720,12 +730,12 @@ instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogi
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.CoordinatedHeadState tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.State.SeenSnapshot tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
-instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.ClosedState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.ClosedState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 
 module Hydra.Ledger
 
@@ -3170,11 +3180,15 @@ RequestedSnapshot :: SnapshotNumber -> SnapshotNumber -> SeenSnapshot tx
 [$sel:requested:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
 
 -- | ReqSn for given snapshot was received.
-SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
+SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString -> SeenSnapshot tx
 [$sel:snapshot:NoSeenSnapshot] :: SeenSnapshot tx -> Snapshot tx
 
--- | Collected signatures and so far.
+-- | Collected signatures so far.
 [$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
+
+-- | Pre-computed result of 'getSignableRepresentation snapshot', cached to
+--   avoid recomputing the expensive UTxO hash on every AckSn verification.
+[$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ByteString
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
@@ -3224,6 +3238,12 @@ getChainState :: HeadState tx -> ChainStateType tx
 --   a snapshot sent but not yet echoed is stale once the version bumps and
 --   should not block a fresh request with the new version.
 isCollectingAcks :: SeenSnapshot tx -> Bool
+
+-- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
+--   <a>$sel:signableBytes:NoSeenSnapshot</a> from
+--   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
+--   stay in sync.
+mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber

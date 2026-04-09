@@ -237,6 +237,13 @@ aggregateInOrder :: Ord k => Map k (Signature a) -> [k] -> MultiSignature a
 --   Note that order of keys is relevant and that length of signature and
 --   multisignature list needs to be the same.
 verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -> MultiSignature a -> a -> Verified
+
+-- | Like <a>verifyMultiSignature</a> but operates on pre-computed signable
+--   bytes, avoiding repeated calls to <a>getSignableRepresentation</a>.
+--   Use this when the same value would be verified multiple times (e.g.
+--   per-party in a round).
+verifyMultiSignatureBytes :: [VerificationKey HydraKey] -> MultiSignature a -> ByteString -> Verified
+getSignableRepresentation :: SignableRepresentation a => a -> ByteString
 instance GHC.Show.Show (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
 instance GHC.Classes.Eq (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
 instance GHC.Classes.Ord (Cardano.Api.Hash.Hash Hydra.Tx.Crypto.HydraKey)
