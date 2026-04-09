@@ -2,12 +2,12 @@
     "samples": [
         {
             "party": {
-                "vkey": "43672c4cbd485b4c49791f96d1388afd6f6e361a9abdb1d75b6856b4e6701177"
+                "vkey": "a794fdccbdfaa6d96cf0d88b83c5dc150ccdf30212a82785c7fa5403409bc541"
             },
-            "signature": "93ccf23947af949af75057b04327c6214c1e729d4d29a1215f65774cf07d7b93d962ef626e5a0e2c3e7f8bbf1b3ffcb679389857b2876352be68d97f5f188a05",
+            "signature": "cbb628bed8ae432ce93ca272c0f449a0a6c3b26a830b924ff60968deeb009e095b0fe3ab6d49e714308dff67c84e099eb36fded78e80c638c7017ea84e0bc606",
             "snapshotNumber": 1,
             "tag": "PartySignedSnapshot"
         }
     ],
-    "seed": 1197505237
+    "seed": -477397097
 }

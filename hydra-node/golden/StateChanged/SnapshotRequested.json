@@ -1,0 +1,154 @@
+{
+    "samples": [
+        {
+            "newCurrentDepositTxId": "0000000100010001010101000100010101000001010100010001000000010000",
+            "newLocalTxs": [],
+            "newLocalUTxO": {
+                "0100000100010100000001000001010000010000000100000101000001010000#10": {
+                    "address": "addr_test1yzm0e4rsjn6pspnfm2tz60gtxavnl8896jmtf9e0wtyv5m0uvxv374qkxdxgtgvtyvjhs64favvr2rgnc9vyurehgvzq3j6fx2",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "a2642331714821062bc2719942d8d9204e9f5dccfdb239f870db0c4c": {
+                            "36": 7451050861824232369
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "requestedSnapshot": {
+                "confirmed": [
+                    {
+                        "cborHex": "84b000d90102818258203bb2aaa1e4a1da85c95cb7d4cacdacff28334ba8ac570ce23ede5863c98d4d9d010dd90102818258204795f4ef8ce1ac3f5b1621c0085b124e7faeed7c9f226f668db52f327ac5b9160012d9010281825820878e3c10459390b5143d0612d2ded4fa0d5c17dbd83f29a7b8ddb07bc1d3681a010181a400583911077cb3966a694238e488a0d54477637b6f2b5ee49bcca2de8fcea5f0cc149459dd2357221c50d7c4c68ac0130d6e1066e0f20d89092c65be01821b04123fb8e6cd0681a1581c407a7d77263426efef870d98bc9919364c9d33e394eb42ec2ec91c33a1413801028201d8185865a3d87a9fd87c9f2104ff0024a34043c849e504411403411aff009fd87e8001a424402141c1418c0142290c42a35cd87c9f432e2443415f02ffa2402202442eddc248ffa2d87e9f431a83a9ffa344c8ff0982024209c7012123d87b8004229f444b6bfa53ff03d818582582008202818200581c2736712d5cde3b28b3506f10942edf1d1fed9586f5864406a1b0a14f10a4005839000380616dc40987ff83d6c30394fd617b0c9b9c311f0cbd96675a10a6c8a76220f04157179c3d3dd622f8918413ea5e71ed556aaaa0120e1a018200a1581cb0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165a1527f78e71a169fb71a8df067e497fb9b41a16b1b24b997a3ac32f3e80282005820f7d934793639857e7c759be7794609d04f466e45da5f15ce2fdc4ff1783cb4a203d8184582008204011119dc09021a00060a660302080109a1581c467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22a1581dcd3a80aa11270b35c090ad624054dfdf851ea4c4f6c57674953167d05f3b40d5e86d0b29a6460b58204ee4a116ae64689f637f5a052be03c9980fcc9b4d4478ea57ff2d6b6e0f308f50758204838c09fe7445442c3ec53dde30cf0e48d2024dca5ba51409a1a6ce82e791a650f0113a18200581c5871a6a5b638b180737b92cc8aa5f35fd060b1a54b54db4041a725e5a1825820a2c90c5a544e65fe6858d906b394dc38d6d35cd85e13e7cdc1e61b593aa19b3b01820282782e68747470733a2f2f734253646751677535666a6c3367357158714751476c5047574f4157515a397a7a6a2e636f6d5820e4924aa86d17760d14ec356f24a8bdfcc4944ceb99082ed73059be8a59103fb7151a0003590b161a000166d8a104d9010281d87b80f5d90103a10281484701000022200101",
+                        "description": "",
+                        "txId": "419de56390ac3641e44c13658dd4493e136e0cb8950f99919591207e3a4c0688",
+                        "type": "Tx ConwayEra"
+                    }
+                ],
+                "headId": "00000001010000000001010001000100",
+                "number": 0,
+                "utxo": {
+                    "0100010000000001010000000101010100010101000101000100010001000001#82": {
+                        "address": "addr_test1xpnhprmqz50ludj2aync77kga49fe7ulaz3glf4nr3we25fvvk8aje0yw40v6lk09jds5m77pqwk6v3ugwp23rnkujjq54y7g2",
+                        "datum": null,
+                        "inlineDatum": {
+                            "constructor": 3,
+                            "fields": [
+                                {
+                                    "list": [
+                                        {
+                                            "int": 4
+                                        },
+                                        {
+                                            "constructor": 3,
+                                            "fields": [
+                                                {
+                                                    "bytes": "980744"
+                                                },
+                                                {
+                                                    "bytes": "df"
+                                                },
+                                                {
+                                                    "bytes": "a8"
+                                                },
+                                                {
+                                                    "int": -5
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "map": []
+                                },
+                                {
+                                    "int": 1
+                                },
+                                {
+                                    "list": [
+                                        {
+                                            "constructor": 3,
+                                            "fields": [
+                                                {
+                                                    "bytes": ""
+                                                }
+                                            ]
+                                        },
+                                        {
+                                            "int": 2
+                                        },
+                                        {
+                                            "map": [
+                                                {
+                                                    "k": {
+                                                        "int": 5
+                                                    },
+                                                    "v": {
+                                                        "bytes": "bb8b82"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "72433559"
+                                                    },
+                                                    "v": {
+                                                        "bytes": ""
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "bytes": "395b"
+                                                    },
+                                                    "v": {
+                                                        "bytes": "fca3e6c4"
+                                                    }
+                                                },
+                                                {
+                                                    "k": {
+                                                        "int": 2
+                                                    },
+                                                    "v": {
+                                                        "int": -4
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        "inlineDatumRaw": "d87c9f9f04d87c9f4398074441df41a824ffffa0019fd87c9f40ff02a40543bb8b8244724335594042395b44fca3e6c40223ffff",
+                        "inlineDatumhash": "5498148ec9f826695a3293c3810193a53eaa3ac5dac31c0ec48fc0340c026d73",
+                        "referenceScript": null,
+                        "value": {
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                },
+                "utxoToCommit": {
+                    "0101010101010100000001000101010101000101010000000000010100010100#54": {
+                        "address": "addr_test1yq6c737edhqgazyu8vg7s8v79a3m4tgpv9erlzy54t97ygd0svsydt58trud6xyv8z6a0vc8ru5k72lyr2jdt5pg0atq0vah6y",
+                        "datum": null,
+                        "datumhash": null,
+                        "inlineDatum": null,
+                        "inlineDatumRaw": null,
+                        "referenceScript": null,
+                        "value": {
+                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                "8d84c999dbcf3e7419895ff088fb14d4e2a45bd229e0f2d73d7b22333d": 1
+                            },
+                            "lovelace": 45000000000000000
+                        }
+                    }
+                },
+                "utxoToDecommit": null,
+                "version": 1
+            },
+            "tag": "SnapshotRequested"
+        }
+    ],
+    "seed": 1792970240
+}
