@@ -90,9 +90,11 @@
           {
             packages.hydra-node.components.library.build-tools = [ pkgs.etcd_3_5 ];
           }
-          # Add sqlite as pkgconfig dependency for direct-sqlite (used by sqlite-simple)
+          # Add static sqlite as pkgconfig dependency for direct-sqlite (used by sqlite-simple).
+          # Using the static variant ensures libsqlite3 is linked into the binary so that
+          # Docker images do not need to ship the shared library at runtime.
           {
-            packages.hydra-node.components.library.pkgconfig = [ [ pkgs.sqlite ] ];
+            packages.hydra-node.components.library.pkgconfig = [ [ pkgs.static-sqlite ] ];
           }
         ];
       };
