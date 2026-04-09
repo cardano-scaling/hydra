@@ -13,7 +13,8 @@ import Data.ByteString qualified as BS
 import Database.SQLite.Simple (Connection, Only (..), execute, execute_, open, query_, withTransaction)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
-import System.Directory (doesFileExist, renameFile)
+import System.Directory (createDirectoryIfMissing, doesFileExist, renameFile)
+import System.FilePath (takeDirectory)
 
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
 -- The database and schema are created on first use if they do not exist.
@@ -24,6 +25,7 @@ mkSQLiteEventStore ::
   FilePath ->
   IO (Connection, EventStore e IO)
 mkSQLiteEventStore dbFile = do
+  createDirectoryIfMissing True (takeDirectory dbFile)
   conn <- open dbFile
   initSchema conn
   eventIdV <- newLabelledTVarIO "sqlite-event-store-event-id" Nothing
