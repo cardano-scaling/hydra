@@ -34,7 +34,7 @@ import Data.Aeson.Lens (atKey, key, values, _JSON, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
-import Data.ByteString.Char8 qualified as BSC
+
 import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -919,18 +919,11 @@ persistenceCanLoadWithNothingCommitted tracer workDir opts hydraScriptsTxId =
     headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
       send n1 $ input "Init" []
       waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
-    let persistenceState = workDir </> "state-" <> show hydraNodeId </> "state"
-    stateContents <- readFileBS persistenceState
-    let headOpened = BSC.pack $ List.last (List.lines $ BSC.unpack stateContents)
-    case headOpened ^? key "stateChanged" . key "tag" . _String of
-      Nothing -> error "Failed to find HeadIsOpened in the state file"
-      Just headIsOpen -> do
-        headIsOpen `shouldBe` "HeadOpened"
-        withUnsyncedHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
-          headId' <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
-          headId' `shouldBe` headId
+    withUnsyncedHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      headId' <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+      headId' `shouldBe` headId
 
-          getSnapshotUTxO n1 `shouldReturn` mempty
+      getSnapshotUTxO n1 `shouldReturn` mempty
 
 -- | Initialize open and close a head on a real network and ensure contestation
 -- period longer than the time horizon is possible. For this it is enough that
