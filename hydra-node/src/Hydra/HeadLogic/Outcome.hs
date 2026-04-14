@@ -79,14 +79,19 @@ data StateChanged tx
     -- NOTE: We deliberately already include an updated local ledger state to
     -- not need a ledger to interpret this event.
     SnapshotRequested
-      { snapshot :: Snapshot tx
-      , requestedTxIds :: [TxIdType tx]
+      { requestedSnapshot :: Snapshot tx
       , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: [tx]
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
-  | PartySignedSnapshot {snapshot :: Snapshot tx, party :: Party, signature :: Signature (Snapshot tx)}
-  | SnapshotConfirmed {headId :: HeadId, snapshot :: Snapshot tx, signatures :: MultiSignature (Snapshot tx)}
+  | PartySignedSnapshot {snapshotNumber :: SnapshotNumber, party :: Party, signature :: Signature (Snapshot tx)}
+  | SnapshotConfirmed
+      { headId :: HeadId
+      , snapshot :: Maybe (Snapshot tx)
+      -- ^ 'Nothing' on the normal signing path (snapshot already in 'seenSnapshot');
+      -- 'Just' only for the side-load path where no preceding 'SnapshotRequested' exists.
+      , signatures :: MultiSignature (Snapshot tx)
+      }
   | DepositRecorded
       { chainState :: ChainStateType tx
       , headId :: HeadId
@@ -112,7 +117,7 @@ data StateChanged tx
       , newVersion :: SnapshotVersion
       , depositTxId :: TxIdType tx
       }
-  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx, utxoToDecommit :: UTxOType tx}
+  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitFinalized

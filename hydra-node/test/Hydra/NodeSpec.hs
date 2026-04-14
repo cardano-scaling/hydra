@@ -6,9 +6,9 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (modifyTVar, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO, writeTVar)
 import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent)
+import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
@@ -523,10 +523,13 @@ recordNetwork node = do
 recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
 recordServerOutputs node = do
   (record, query) <- messageRecorder
+  mSeenSnapshotVar <- newTVarIO Nothing
   let apiSink =
         EventSink
-          { putEvent = \event ->
-              case mkTimedServerOutputFromStateEvent event of
+          { putEvent = \event -> do
+              mSeenSnapshot <- readTVarIO mSeenSnapshotVar
+              atomically $ writeTVar mSeenSnapshotVar (updateSeenSnapshot mSeenSnapshot (stateChanged event))
+              case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> record $ Left output
           }

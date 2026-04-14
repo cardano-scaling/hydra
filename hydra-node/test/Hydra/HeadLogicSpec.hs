@@ -361,7 +361,7 @@ spec =
               st = inOpenState threeParties
           now <- nowFromSlot st.chainPointTime.currentSlot
           update aliceEnv ledger now st input `hasStateChangedSatisfying` \case
-            DecommitRecorded{headId, utxoToDecommit} -> headId == testHeadId && utxoToDecommit == outputs
+            DecommitRecorded{headId, decommitTx} -> headId == testHeadId && utxoFromTx decommitTx == outputs
             _ -> False
 
         it "ignores ReqDec when not in Open state" $ do

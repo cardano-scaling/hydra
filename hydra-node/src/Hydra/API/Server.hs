@@ -10,8 +10,7 @@ import Conduit (mapM_C, runConduitRes, (.|))
 import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
-import Data.Conduit.Combinators (map)
-import Data.Conduit.List (catMaybes)
+import Data.Conduit.List (catMaybes, mapAccum)
 import Data.Map qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
@@ -34,8 +33,10 @@ import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Events (EventSink (..), EventSource (..))
 import Hydra.HeadLogic (
+  CoordinatedHeadState (..),
   HeadState (..),
   OpenState (..),
+  SeenSnapshot (..),
   aggregateNodeState,
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
@@ -45,7 +46,7 @@ import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
-import Hydra.Tx (IsTx (..), Party, txId)
+import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -105,7 +106,12 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
     pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
     networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False mempty) projectNetworkInfo
-    let historyTimedOutputs = sourceEvents .| map mkTimedServerOutputFromStateEvent .| catMaybes
+    -- Track seen snapshots across the event stream history so that SnapshotConfirmed
+    -- events (which may omit the snapshot) can be reconstructed for clients.
+    let historyTimedOutputs =
+          sourceEvents
+            .| void (mapAccum (\ev mSn -> (updateSeenSnapshot mSn (stateChanged ev), mkTimedServerOutputFromStateEvent mSn ev)) Nothing)
+            .| catMaybes
     _ <-
       runConduitRes $
         sourceEvents
@@ -154,6 +160,8 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
           action
             ( EventSink
                 { putEvent = \event@StateEvent{stateChanged} -> do
+                    -- Read the currently-seen snapshot BEFORE updating projections
+                    mSeenSnapshot <- atomically $ seenSnapshotOf <$> getLatest nodeStateP
                     -- Update our read models
                     atomically $ do
                       update nodeStateP stateChanged
@@ -161,7 +169,7 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
                       update pendingDepositsP stateChanged
                       update networkInfoP stateChanged
                     -- Send to the client if it maps to a server output
-                    case mkTimedServerOutputFromStateEvent event of
+                    case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
                       Nothing -> pure ()
                       Just timedOutput -> do
                         atomically $ writeTChan responseChannel (Left timedOutput)
@@ -216,8 +224,11 @@ setupServerNotification = do
   pure (putMVar mv (), takeMVar mv)
 
 -- | Defines the subset of 'StateEvent' that should be sent as 'TimedServerOutput' to clients.
-mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (TimedServerOutput tx)
-mkTimedServerOutputFromStateEvent event =
+-- The 'Maybe (Snapshot tx)' argument carries the snapshot currently being confirmed
+-- (from the preceding 'SnapshotRequested' event), needed to reconstruct
+-- 'SnapshotConfirmed' outputs when 'snapshot' is absent from the event.
+mkTimedServerOutputFromStateEvent :: IsChainState tx => Maybe (Snapshot tx) -> StateEvent tx -> Maybe (TimedServerOutput tx)
+mkTimedServerOutputFromStateEvent mSeenSnapshot event =
   case mapStateChangedToServerOutput stateChanged of
     Nothing -> Nothing
     Just output ->
@@ -233,9 +244,13 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.HeadFannedOut{..} -> Just HeadIsFinalized{..}
     StateChanged.TransactionAppliedToLocalUTxO{..} -> Just TxValid{headId, transactionId = txId tx}
     StateChanged.TxInvalid{..} -> Just $ TxInvalid{..}
-    StateChanged.SnapshotConfirmed{..} -> Just SnapshotConfirmed{..}
+    StateChanged.SnapshotConfirmed{headId, snapshot = mSnapshot, signatures} ->
+      case mSnapshot <|> mSeenSnapshot of
+        Just snapshot -> Just SnapshotConfirmed{headId, snapshot, signatures}
+        Nothing -> Nothing
     StateChanged.IgnoredHeadInitializing{..} -> Just IgnoredHeadInitializing{..}
-    StateChanged.DecommitRecorded{..} -> Just DecommitRequested{..}
+    StateChanged.DecommitRecorded{headId, decommitTx} ->
+      Just DecommitRequested{headId, decommitTx, utxoToDecommit = utxoFromTx decommitTx}
     StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
     StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
@@ -261,6 +276,18 @@ mkTimedServerOutputFromStateEvent event =
     StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
     StateChanged.NodeUnsynced{..} -> Just NodeUnsynced{..}
     StateChanged.NodeSynced{..} -> Just NodeSynced{..}
+
+-- | Advance the seen-snapshot state as events are processed sequentially.
+updateSeenSnapshot :: Maybe (Snapshot tx) -> StateChanged.StateChanged tx -> Maybe (Snapshot tx)
+updateSeenSnapshot _ (StateChanged.SnapshotRequested{requestedSnapshot}) = Just requestedSnapshot
+updateSeenSnapshot _ StateChanged.SnapshotConfirmed{} = Nothing
+updateSeenSnapshot mSn _ = mSn
+
+-- | Extract the snapshot currently in 'SeenSnapshot' from a 'NodeState', if any.
+seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
+seenSnapshotOf ns = case headState ns of
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot sn _ _}} -> Just sn
+  _ -> Nothing
 
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged.StateChanged tx -> [TxIdType tx]
