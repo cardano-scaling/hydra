@@ -45,8 +45,7 @@ import Hydra.Prelude
 
 import Conduit (ConduitT, ResourceT, bracketP, runConduitRes, sourceFile, yield, (.|))
 import Control.Concurrent.Class.MonadSTM (flushTBQueue, newEmptyTMVarIO, newTBQueueIO, putTMVar, readTBQueue, takeTMVar, writeTBQueue, writeTVar)
-import Control.Exception (BlockedIndefinitelyOnSTM (..), SomeAsyncException (..))
-import Control.Monad.Class.MonadAsync (async, link)
+import Control.Monad.Class.MonadAsync (async)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Conduit.Combinators (linesUnboundedAscii)
@@ -101,8 +100,13 @@ mkSQLiteEventStore dbFile = do
     _ -> pure ()
 
   writeQueue <- newTBQueueIO 1000
-  writerThread <- async $ writerLoop conn writeQueue
-  link writerThread
+  -- NOTE: We intentionally do not 'link' the writer thread. In tests the
+  -- TBQueue becomes unreachable when the test scope exits, causing io-classes
+  -- to throw a BlockedIndefinitely async exception that cannot be reliably
+  -- caught due to MonadCatch/io-classes semantics. Without 'link' the writer
+  -- thread exits silently on cleanup. In production the writer never dies; if
+  -- it did, 'flushWriteQueue' would block indefinitely, stalling the node.
+  _writerThread <- async $ writerLoop conn writeQueue
   let
     getLastSeenEventId = readTVar eventIdV
 
@@ -188,27 +192,17 @@ mkSQLiteEventStore dbFile = do
 -- | Background writer that drains the queue and batch-inserts into SQLite.
 -- Each iteration blocks for at least one item, then flushes everything
 -- available. Event rows are batch-inserted in a single transaction, then any
--- flush markers in the batch are signalled. Exits gracefully when the queue
--- becomes unreachable (blocked indefinitely on STM).
+-- flush markers in the batch are signalled.
 writerLoop :: Connection -> TBQueue IO WriteItem -> IO ()
-writerLoop conn queue =
-  -- NOTE: In tests the TBQueue becomes unreachable when the test scope exits,
-  -- causing a blocked-indefinitely exception. We catch both base's
-  -- 'BlockedIndefinitelyOnSTM' and io-classes' wrapped async variant (not
-  -- exported, so caught as 'SomeAsyncException') to let the writer thread
-  -- exit gracefully without propagating via 'link'.
-  (loop `catch` \BlockedIndefinitelyOnSTM{} -> pure ())
-    `catch` \(_ :: SomeAsyncException) -> pure ()
- where
-  loop = forever $ do
-    first' <- atomically $ readTBQueue queue
-    rest <- atomically $ flushTBQueue queue
-    let allItems = first' : rest
-        (flushSignals, eventRows) = partitionEithers allItems
-    unless (null eventRows) $
-      withTransaction conn $
-        executeMany conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" eventRows
-    forM_ flushSignals $ \mv -> atomically $ putTMVar mv ()
+writerLoop conn queue = forever $ do
+  first' <- atomically $ readTBQueue queue
+  rest <- atomically $ flushTBQueue queue
+  let allItems = first' : rest
+      (flushSignals, eventRows) = partitionEithers allItems
+  unless (null eventRows) $
+    withTransaction conn $
+      executeMany conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" eventRows
+  forM_ flushSignals $ \mv -> atomically $ putTMVar mv ()
 
 -- | Block until all items currently in the write queue have been flushed to
 -- SQLite. Sends a flush marker through the queue and waits for the writer thread
