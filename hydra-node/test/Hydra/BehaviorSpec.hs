@@ -34,7 +34,7 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.Events (EventSink (..))
+import Hydra.Events (mkEventSink)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
@@ -1420,16 +1420,14 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
   EventStore{eventSource, eventSink} <- createMockEventStore
   seenSnapshotVar <- newTVarIO Nothing
   let apiSink =
-        EventSink
-          { putEvent = \event@StateEvent{stateChanged} -> do
-              mSeenSnapshot <- readTVarIO seenSnapshotVar
-              atomically $ writeTVar seenSnapshotVar (updateSeenSnapshot mSeenSnapshot stateChanged)
-              case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
+        mkEventSink
+          ( \event ->
+              case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> atomically $ do
                   writeTQueue outputs output
                   modifyTVar' outputHistory (output :)
-          }
+          )
   -- NOTE: Not using 'hydrate' as we don't want to run the event source conduit.
   let nodeState = initNodeState chainState
   let chainStateHistory = initHistory chainState

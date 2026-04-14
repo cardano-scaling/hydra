@@ -5,7 +5,7 @@ import Hydra.Prelude
 
 import Control.Monad.Trans.Resource (MonadResource, allocate)
 import Data.Aeson (encode)
-import Hydra.Events (EventSink (..))
+import Hydra.Events (EventSink (..), mkEventSink)
 import Network.Socket (HostName, ServiceName)
 import Network.UDP (UDPSocket, clientSocket, close, send)
 
@@ -27,7 +27,7 @@ withUDPEventSink ::
 withUDPEventSink host port action =
   -- Make sure to free resources (file descriptor)
   bracket (clientSocket host port False) close $ \socket ->
-    action $ EventSink{putEvent = sendData socket}
+    action $ mkEventSink (sendData socket)
 
 -- | Create a new event sink that sends events as JSON.
 --
@@ -44,7 +44,7 @@ newUDPEventSink ::
 newUDPEventSink host port = do
   -- Make sure to free resources (file descriptor)
   (_, socket) <- allocate (clientSocket host port False) close
-  pure EventSink{putEvent = sendData socket}
+  pure $ mkEventSink (sendData socket)
 
 sendData :: ToJSON e => UDPSocket -> e -> IO ()
 sendData socket e =

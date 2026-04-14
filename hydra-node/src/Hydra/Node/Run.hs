@@ -87,8 +87,8 @@ run opts = do
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
         eventStore@EventStore{eventSource} <- do
-          (conn, store) <- mkSQLiteEventStore dbFile
-          migrateFromFileBased (contramap SQLite tracer') stateFile conn store
+          (conn, store, _flush, reinitLastSeen) <- mkSQLiteEventStore dbFile
+          migrateFromFileBased (Proxy @(StateEvent Tx)) (contramap SQLite tracer') stateFile conn reinitLastSeen
           prepareEventStore store
         -- NOTE: Add any custom sinks here
         let eventSinks :: [EventSink (StateEvent Tx) IO] = []

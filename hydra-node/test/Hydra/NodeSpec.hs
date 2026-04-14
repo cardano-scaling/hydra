@@ -13,7 +13,7 @@ import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServe
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Events (EventSink (..), EventSource (..), getEventId)
+import Hydra.Events (EventSink (..), EventSource (..), getEventId, mkEventSink)
 import Hydra.Events.Rotation (EventStore (..), LogId)
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
@@ -106,9 +106,7 @@ spec = parallel $ do
                 genSinks = elements [mockSink, failingSink]
                 failingSink :: EventSink (StateEvent SimpleTx) IO
                 failingSink =
-                  EventSink
-                    { putEvent = \_ -> failure "failing putEvent sink called"
-                    }
+                  mkEventSink (\_ -> failure "failing putEvent sink called")
             forAllBlind (listOf genSinks) $ \sinks ->
               testHydrate (mockEventStore someEvents) (sinks <> [failingSink])
                 `shouldThrow` \(_ :: HUnitFailure) -> True
@@ -394,7 +392,7 @@ mockChain =
     }
 
 mockSink :: Monad m => EventSink a m
-mockSink = EventSink{putEvent = const $ pure ()}
+mockSink = mkEventSink (const $ pure ())
 
 mockEventStore :: forall a m. Monad m => [a] -> EventStore a m
 mockEventStore events =
@@ -417,7 +415,7 @@ mockSource events =
 createRecordingSink :: IO (EventSink a IO, IO [a])
 createRecordingSink = do
   (putEvent, getAll) <- messageRecorder
-  pure (EventSink{putEvent}, getAll)
+  pure (mkEventSink putEvent, getAll)
 
 createMockEventStore :: MonadLabelledSTM m => m (EventStore a m)
 createMockEventStore = do
@@ -429,10 +427,10 @@ createMockEventStore = do
               yieldMany es
           }
       sink =
-        EventSink
-          { putEvent = \x ->
+        mkEventSink
+          ( \x ->
               atomically $ modifyTVar tvar (<> [x])
-          }
+          )
       rotate _ checkpoint = atomically $ writeTVar tvar [checkpoint]
   pure (EventStore source sink rotate)
 
@@ -525,14 +523,12 @@ recordServerOutputs node = do
   (record, query) <- messageRecorder
   mSeenSnapshotVar <- newTVarIO Nothing
   let apiSink =
-        EventSink
-          { putEvent = \event -> do
-              mSeenSnapshot <- readTVarIO mSeenSnapshotVar
-              atomically $ writeTVar mSeenSnapshotVar (updateSeenSnapshot mSeenSnapshot (stateChanged event))
-              case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
+        mkEventSink
+          ( \event ->
+              case mkTimedServerOutputFromStateEvent event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> record $ Left output
-          }
+          )
   pure
     ( node{eventSinks = apiSink : eventSinks node, server = Server{sendMessage = record . Right}}
     , query

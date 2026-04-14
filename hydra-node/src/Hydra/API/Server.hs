@@ -31,7 +31,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
-import Hydra.Events (EventSink (..), EventSource (..))
+import Hydra.Events (EventSink (..), EventSource (..), mkEventSink)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   HeadState (..),
@@ -158,10 +158,8 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
       , do
           waitForServerRunning
           action
-            ( EventSink
-                { putEvent = \event@StateEvent{stateChanged} -> do
-                    -- Read the currently-seen snapshot BEFORE updating projections
-                    mSeenSnapshot <- atomically $ seenSnapshotOf <$> getLatest nodeStateP
+            ( mkEventSink
+                ( \event@StateEvent{stateChanged} -> do
                     -- Update our read models
                     atomically $ do
                       update nodeStateP stateChanged
@@ -173,7 +171,7 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
                       Nothing -> pure ()
                       Just timedOutput -> do
                         atomically $ writeTChan responseChannel (Left timedOutput)
-                }
+                )
             , Server{sendMessage = atomically . writeTChan responseChannel . Right}
             )
       )
