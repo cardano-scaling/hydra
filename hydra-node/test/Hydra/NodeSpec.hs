@@ -524,8 +524,10 @@ recordServerOutputs node = do
   mSeenSnapshotVar <- newTVarIO Nothing
   let apiSink =
         mkEventSink
-          ( \event ->
-              case mkTimedServerOutputFromStateEvent event of
+          ( \event -> do
+              mSeenSnapshot <- readTVarIO mSeenSnapshotVar
+              atomically $ writeTVar mSeenSnapshotVar (updateSeenSnapshot mSeenSnapshot (stateChanged event))
+              case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> record $ Left output
           )

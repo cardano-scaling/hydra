@@ -1421,8 +1421,10 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
   seenSnapshotVar <- newTVarIO Nothing
   let apiSink =
         mkEventSink
-          ( \event ->
-              case mkTimedServerOutputFromStateEvent event of
+          ( \event@StateEvent{stateChanged} -> do
+              mSeenSnapshot <- readTVarIO seenSnapshotVar
+              atomically $ writeTVar seenSnapshotVar (updateSeenSnapshot mSeenSnapshot stateChanged)
+              case mkTimedServerOutputFromStateEvent mSeenSnapshot event of
                 Nothing -> pure ()
                 Just TimedServerOutput{output} -> atomically $ do
                   writeTQueue outputs output

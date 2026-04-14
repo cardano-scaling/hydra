@@ -524,7 +524,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
         -- Spec: ̂Σ[j] ← σⱼ
-        (newState PartySignedSnapshot{snapshot, party = otherParty, signature = snapshotSignature} <>) $
+        (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
           --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
           ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
@@ -579,7 +579,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
           else
             newState
               PartySignedSnapshot
-                { snapshot
+                { snapshotNumber = snapshot.number
                 , party = otherParty
                 , signature = snapshotSignature
                 }

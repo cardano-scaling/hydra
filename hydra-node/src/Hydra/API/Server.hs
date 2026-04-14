@@ -160,6 +160,8 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
           action
             ( mkEventSink
                 ( \event@StateEvent{stateChanged} -> do
+                    -- Read the currently-seen snapshot BEFORE updating projections
+                    mSeenSnapshot <- atomically $ seenSnapshotOf <$> getLatest nodeStateP
                     -- Update our read models
                     atomically $ do
                       update nodeStateP stateChanged
