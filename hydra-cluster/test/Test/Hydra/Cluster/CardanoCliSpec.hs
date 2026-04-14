@@ -10,7 +10,6 @@ import Data.Aeson.Lens (key, _String)
 import Data.Aeson.Types (parseEither)
 import Hydra.API.HTTPServer (DraftCommitTxResponse (DraftCommitTxResponse))
 import Hydra.Cardano.Api (LedgerEra, PParams, Tx)
-import Hydra.Chain.Direct (DirectBackend (..))
 import Hydra.JSONSchema (validateJSON, withJsonSpecifications)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (
@@ -43,8 +42,8 @@ spec =
     around (showLogsOnFailure "CardanoCliSpec") $ do
       it "query protocol-parameters is compatible with our FromJSON instance" $ \tracer ->
         withTempDir "hydra-cluster" $ \tmpDir -> do
-          withCardanoNodeDevnet tracer tmpDir $ \_ backend -> do
-            let DirectBackend DirectOptions{nodeSocket, networkId} = backend
+          withCardanoNodeDevnet tracer tmpDir $ \_ directOpts -> do
+            let DirectOptions{nodeSocket, networkId} = directOpts
             protocolParameters <- cliQueryProtocolParameters nodeSocket networkId
             case parseEither (parseJSON @(PParams LedgerEra)) protocolParameters of
               Left e -> failure $ "Failed to decode JSON: " <> e <> "\n" <> show protocolParameters
@@ -52,8 +51,8 @@ spec =
 
       it "query protocol-parameters matches our schema" $ \tracer ->
         withJsonSpecifications $ \tmpDir ->
-          withCardanoNodeDevnet tracer tmpDir $ \_ backend -> do
-            let DirectBackend DirectOptions{nodeSocket, networkId} = backend
+          withCardanoNodeDevnet tracer tmpDir $ \_ directOpts -> do
+            let DirectOptions{nodeSocket, networkId} = directOpts
             pparamsValue <- cliQueryProtocolParameters nodeSocket networkId
             validateJSON
               (tmpDir </> "api.json")

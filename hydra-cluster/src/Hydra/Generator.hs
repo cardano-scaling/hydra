@@ -5,11 +5,11 @@ import Hydra.Prelude hiding (size)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, queryUTxOFor, runCardanoNode)
+import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, queryUTxOFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Chain.Backend (buildTransaction)
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Cluster.Faucet (FaucetException (..))
 import Hydra.Cluster.Fixture (availableInitialFunds)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
@@ -178,8 +178,7 @@ generateDemoUTxODataset ::
 generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
   -- Query available funds
   faucetUTxO <-
-    runCardanoNode (localNodeConnectInfo network nodeSocket) shelleyBasedEra $
-      queryUTxOFor QueryTip faucetVk
+    queryUTxOFor (localNodeConnectInfo network nodeSocket) QueryTip faucetVk
   let (Coin fundsAvailable) = UTxO.totalLovelace faucetUTxO
   -- Generate client datasets
   allPaymentKeys <- generate $ replicateM nClients genSigningKey
@@ -194,7 +193,7 @@ generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
               TxOutDatumNone
               ReferenceScriptNone
 
-    buildTransaction (DirectBackend $ Options.DirectOptions{Options.networkId = network, Options.nodeSocket}) faucetAddress faucetUTxO [] recipientOutputs >>= \case
+    runDirectBackend Options.DirectOptions{Options.networkId = network, Options.nodeSocket} (buildTransaction faucetAddress faucetUTxO [] recipientOutputs) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ signTx faucetSk tx
   generate $ do

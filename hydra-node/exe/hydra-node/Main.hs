@@ -9,8 +9,8 @@ import Control.Exception (AsyncException (UserInterrupt), throwTo)
 import Data.ByteString (intercalate)
 import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Blockfrost (runBlockfrostBackend)
+import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
@@ -37,9 +37,9 @@ main = do
     (_, sk) <- readKeyPair publishSigningKey
     txIds <- case chainBackendOptions of
       Direct directOptions ->
-        publishHydraScripts (DirectBackend directOptions) sk
+        runDirectBackend directOptions $ publishHydraScripts sk
       Blockfrost blockfrostOptions ->
-        publishHydraScripts (BlockfrostBackend blockfrostOptions) sk
+        runBlockfrostBackend blockfrostOptions $ publishHydraScripts sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Handle SIGTERM like SIGINT

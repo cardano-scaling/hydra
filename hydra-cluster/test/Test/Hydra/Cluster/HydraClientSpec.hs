@@ -7,20 +7,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import CardanoNode (
-  EndToEndLog (..),
-  HydraNodeLog,
-  withCardanoNodeDevnet,
- )
+import CardanoNode (EndToEndLog (..), HydraNodeLog, runBackend, withCardanoNodeDevnet)
 import Control.Lens ((^?))
 import Data.Aeson ((.=))
 import Data.Aeson.Lens (key)
 import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
-import Hydra.Chain.Backend (ChainBackend)
-import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -42,7 +36,7 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (Timing (..), depositTimeout, mkTestTiming')
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
-import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
+import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), nodeSocket)
 import Hydra.Tx (HeadId, IsTx (..))
 import HydraNode (
   HydraClient (..),
@@ -246,13 +240,11 @@ runScenario hydraTracer hnode addr action = do
 scenarioSetup ::
   Tracer IO EndToEndLog ->
   FilePath ->
-  (NominalDiffTime -> DirectBackend -> NonEmpty HydraClient -> Tracer IO HydraNodeLog -> IO a) ->
+  (NominalDiffTime -> ChainBackendOptions -> NonEmpty HydraClient -> Tracer IO HydraNodeLog -> IO a) ->
   IO a
 scenarioSetup tracer tmpDir action = do
-  withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime backend -> do
-    let nodeSocket' = case Backend.getOptions backend of
-          Direct DirectOptions{nodeSocket} -> nodeSocket
-          _ -> error "Unexpected Blockfrost backend"
+  withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime directOpts -> do
+    let nodeSocket' = nodeSocket directOpts
     aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
     bobKeys@(bobCardanoVk, _) <- generate genKeyPair
     carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -260,8 +252,9 @@ scenarioSetup tracer tmpDir action = do
     let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
         hydraKeys = [aliceSk, bobSk, carolSk]
 
+    let opts = Direct directOpts
     let firstNodeId = 1
-    hydraScriptsTxId <- publishHydraScriptsAs backend Faucet
+    hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
     let contestationPeriod = 2
     let hydraTracer = contramap FromHydraNode tracer
 
@@ -272,21 +265,20 @@ scenarioSetup tracer tmpDir action = do
       waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
       -- Funds to be used as fuel by Hydra protocol transactions
-      seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
-      action blockTime backend nodes hydraTracer
+      seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+      action blockTime opts nodes hydraTracer
 
 prepareScenario ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   NonEmpty HydraClient ->
   Tracer IO EndToEndLog ->
   IO (Int, TxId, HeadId, (VerificationKey PaymentKey, SigningKey PaymentKey), (VerificationKey PaymentKey, SigningKey PaymentKey))
-prepareScenario backend nodes tracer = do
+prepareScenario opts nodes tracer = do
   let [n1, n2, n3] = toList nodes
   let hydraTracer = contramap FromHydraNode tracer
-  blockTime <- Backend.getBlockTime backend
+  blockTime <- runBackend opts getBlockTime
   let timing = (mkTestTiming' 2 blockTime){contestationPeriod = 2}
 
   send n1 $ input "Init" []
@@ -296,12 +288,12 @@ prepareScenario backend nodes tracer = do
 
   -- Deposit UTxOs into the open head for Alice and Bob.
   aliceKeys@(aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-  committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
-  requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= Backend.submitTransaction backend
+  committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+  requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk >>= \tx -> runBackend opts $ submitTransaction tx
 
   bobKeys@(bobExternalVk, bobExternalSk) <- generate genKeyPair
-  committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
-  requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= Backend.submitTransaction backend
+  committedUTxOByBob <- seedFromFaucet opts bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
+  requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk >>= \tx -> runBackend opts $ submitTransaction tx
 
   -- Wait for both deposits to be finalized on-chain.
   replicateM_ 2 $

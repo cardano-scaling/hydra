@@ -28,16 +28,17 @@ import Hydra.Cardano.Api (
   getProgress,
  )
 import Hydra.Cardano.Api qualified as Api
-import Hydra.Chain.Backend (ChainBackend)
+import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.Backend qualified as Backend
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
-import Hydra.Chain.Direct (DirectBackend (..))
-import Hydra.Cluster.Faucet (FaucetLog, delayBF, publishOrReuseHydraScripts)
+import Hydra.Chain.Blockfrost (runBlockfrostBackend)
+import Hydra.Chain.Direct (runDirectBackend)
+import Hydra.Cluster.Faucet (FaucetLog, publishOrReuseHydraScripts)
 import Hydra.Cluster.Fixture qualified as Fixture
 import Hydra.Cluster.Mithril (MithrilLog, downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (readConfigFile)
-import Hydra.Options (BlockfrostOptions (..), DirectOptions (..), defaultBlockfrostOptions)
+import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), DirectOptions (..), defaultBlockfrostOptions)
+import Hydra.Options qualified as Options
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
 import System.Directory (
   createDirectoryIfMissing,
@@ -59,7 +60,8 @@ import System.Process (
   readProcess,
   withCreateProcess,
  )
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude hiding (Blockfrost)
+import Test.Hydra.Prelude qualified as TestPrelude
 
 data HydraNodeLog
   = HydraNodeCommandSpec {cmd :: Text}
@@ -171,7 +173,7 @@ getCardanoNodeVersion =
 -- | Tries to find an communicate with an existing cardano-node running in given
 -- work directory. NOTE: This is using the default node socket name as defined
 -- by 'defaultCardanoNodeArgs'.
-findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> Fixture.KnownNetwork -> IO (Maybe (NominalDiffTime, DirectBackend))
+findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> Fixture.KnownNetwork -> IO (Maybe (NominalDiffTime, DirectOptions))
 findRunningCardanoNode tracer workDir knownNetwork = do
   findRunningCardanoNode' tracer knownNetworkId socketPath
  where
@@ -183,14 +185,20 @@ findRunningCardanoNode tracer workDir knownNetwork = do
 
 -- | Tries to find an communicate with an existing cardano-node running in given
 -- network id and socket path.
-findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe (NominalDiffTime, DirectBackend))
+findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe (NominalDiffTime, DirectOptions))
 findRunningCardanoNode' tracer networkId nodeSocket = do
-  let backend = DirectBackend $ DirectOptions{networkId, nodeSocket}
-  try (Backend.getBlockTime backend) >>= \case
+  let opts = DirectOptions{networkId, nodeSocket}
+  try (runDirectBackend opts getBlockTime) >>= \case
     Left (e :: SomeException) ->
       traceWith tracer MsgQueryGenesisParametersFailed{err = show e} $> Nothing
     Right blockTime ->
-      pure $ Just (blockTime, backend)
+      pure $ Just (blockTime, opts)
+
+-- | Run a backend action using the given 'ChainBackendOptions'.
+runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) => m a) -> IO a
+runBackend opts action = case opts of
+  Options.Direct directOpts -> runDirectBackend directOpts action
+  Options.Blockfrost blockfrostOpts -> runBlockfrostBackend blockfrostOpts action
 
 -- | Start a single cardano-node devnet using the config from config/ and
 -- credentials from config/credentials/. Only the 'Faucet' actor will receive
@@ -199,7 +207,7 @@ withCardanoNodeDevnet ::
   Tracer IO NodeLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
-  (NominalDiffTime -> DirectBackend -> IO a) ->
+  (NominalDiffTime -> DirectOptions -> IO a) ->
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
@@ -209,20 +217,21 @@ withBlockfrostBackend ::
   Tracer IO EndToEndLog ->
   -- | State directory in which credentials, db & logs are persisted.
   FilePath ->
-  (NominalDiffTime -> BlockfrostBackend -> IO a) ->
+  (NominalDiffTime -> ChainBackendOptions -> IO a) ->
   IO a
 withBlockfrostBackend _tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
   shelleyGenesis <- readFileBS >=> unsafeDecodeJson $ stateDirectory </> nodeShelleyGenesisFile args
   bfProjectPath <- findFileStartingAtDirectory 3 Backend.blockfrostProjectPath
-  let backend = BlockfrostBackend $ defaultBlockfrostOptions{projectPath = bfProjectPath}
+  let opts = Options.Blockfrost defaultBlockfrostOptions{projectPath = bfProjectPath}
   -- We need to make sure somehow that, before we start our blockfrost tests,
   -- doing queries will give us updated information on some UTxO. There is no
   -- way to definitely know if this information is correct since it might be
   -- outdated. We just try to wait for sufficient amount of time before
   -- starting another BF related test.
-  delayBF backend
-  action (getShelleyGenesisBlockTime shelleyGenesis) backend
+  delay <- runBackend opts getQueryDelay
+  threadDelay $ realToFrac delay
+  action (getShelleyGenesisBlockTime shelleyGenesis) opts
 
 -- | Find the given file in the current directory or its parents.
 --
@@ -252,25 +261,25 @@ withBackend ::
   forall a.
   Tracer IO EndToEndLog ->
   FilePath ->
-  (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) ->
+  (NominalDiffTime -> ChainBackendOptions -> IO a) ->
   IO a
 withBackend tracer stateDirectory action = do
   getHydraNetwork >>= \case
-    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory action
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \bt opts -> action bt (Direct opts)
     Preview -> withNode Fixture.Preview action
     Preproduction -> withNode Fixture.Preproduction action
     Mainnet -> withNode Fixture.Mainnet action
-    Blockfrost -> withBlockfrostBackend tracer stateDirectory action
+    TestPrelude.Blockfrost -> withBlockfrostBackend tracer stateDirectory action
  where
   withNode network action' = do
     nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
     createDirectoryIfMissing True nodeDir
-    let syncAndRun blockTime backend = do
-          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
-          action' blockTime backend
+    let syncAndRun blockTime opts = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) (Direct opts)
+          action' blockTime (Direct opts)
     findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
-      Just (blockTime, backend) ->
-        syncAndRun blockTime backend
+      Just (blockTime, opts) ->
+        syncAndRun blockTime opts
       Nothing -> do
         let dbDir = nodeDir </> "db"
         dbExists <- doesDirectoryExist dbDir
@@ -286,30 +295,30 @@ withHydraScriptsAndBackendRunning ::
   forall a.
   Tracer IO EndToEndLog ->
   FilePath ->
-  (forall backend. ChainBackend backend => backend -> [TxId] -> IO a) ->
+  (ChainBackendOptions -> [TxId] -> IO a) ->
   IO a
 withHydraScriptsAndBackendRunning tracer stateDirectory action = do
   getHydraNetwork >>= \case
-    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \_ backend -> do
-      txIds <- publishOrReuseHydraScripts backend Fixture.Faucet stateDirectory
-      action backend txIds
+    LocalDevnet -> withCardanoNodeDevnet (contramap FromCardanoNode tracer) stateDirectory $ \_ opts -> do
+      txIds <- publishOrReuseHydraScripts (Direct opts) Fixture.Faucet stateDirectory
+      action (Direct opts) txIds
     Preview -> withPublicTestnetNode Fixture.Preview
     Preproduction -> withPublicTestnetNode Fixture.Preproduction
     Mainnet -> withPublicTestnetNode Fixture.Mainnet
-    Blockfrost -> withBlockfrostBackend tracer stateDirectory $ \_ backend -> do
-      txIds <- publishOrReuseHydraScripts backend Fixture.Faucet stateDirectory
-      action backend txIds
+    TestPrelude.Blockfrost -> withBlockfrostBackend tracer stateDirectory $ \_ opts -> do
+      txIds <- publishOrReuseHydraScripts opts Fixture.Faucet stateDirectory
+      action opts txIds
  where
   withPublicTestnetNode network = do
     nodeDir <- fromMaybe stateDirectory <$> lookupEnv "HYDRA_WORK_DIR"
     createDirectoryIfMissing True nodeDir
-    let syncPublishAndRun _ backend = do
-          waitForFullySynchronized (contramap FromCardanoNode tracer) backend
-          txIds <- publishOrReuseHydraScripts backend Fixture.Faucet nodeDir
-          action backend txIds
+    let syncPublishAndRun _ opts = do
+          waitForFullySynchronized (contramap FromCardanoNode tracer) (Direct opts)
+          txIds <- publishOrReuseHydraScripts (Direct opts) Fixture.Faucet nodeDir
+          action (Direct opts) txIds
     findRunningCardanoNode (contramap FromCardanoNode tracer) nodeDir network >>= \case
-      Just (blockTime, backend) ->
-        syncPublishAndRun blockTime backend
+      Just (blockTime, opts) ->
+        syncPublishAndRun blockTime opts
       Nothing -> do
         let dbDir = nodeDir </> "db"
         dbExists <- doesDirectoryExist dbDir
@@ -324,7 +333,7 @@ withCardanoNodeOnKnownNetwork ::
   FilePath ->
   -- | A well-known Cardano network to connect to.
   Fixture.KnownNetwork ->
-  (NominalDiffTime -> DirectBackend -> IO a) ->
+  (NominalDiffTime -> DirectOptions -> IO a) ->
   IO a
 withCardanoNodeOnKnownNetwork tracer stateDirectory knownNetwork action = do
   copyKnownNetworkFiles
@@ -482,7 +491,7 @@ withCardanoNode ::
   Tracer IO NodeLog ->
   FilePath ->
   CardanoNodeArgs ->
-  (NominalDiffTime -> DirectBackend -> IO a) ->
+  (NominalDiffTime -> DirectOptions -> IO a) ->
   IO a
 withCardanoNode tr stateDirectory args action = do
   traceWith tr $ MsgNodeCmdSpec (show $ cmdspec process)
@@ -510,7 +519,7 @@ withCardanoNode tr stateDirectory args action = do
     waitForSocket nodeSocketPath
     traceWith tr $ MsgSocketIsReady nodeSocketPath
     shelleyGenesis <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile args
-    action (getShelleyGenesisBlockTime shelleyGenesis) (DirectBackend $ DirectOptions{networkId = getShelleyGenesisNetworkId shelleyGenesis, nodeSocket = File (stateDirectory </> nodeSocket)})
+    action (getShelleyGenesisBlockTime shelleyGenesis) DirectOptions{networkId = getShelleyGenesisNetworkId shelleyGenesis, nodeSocket = File (stateDirectory </> nodeSocket)}
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
@@ -543,22 +552,21 @@ computeBlockTime slotLength activeSlotsCoeff =
 -- | Wait until the node is fully caught up with the network. This can take a
 -- while!
 waitForFullySynchronized ::
-  ChainBackend backend =>
   Tracer IO NodeLog ->
-  backend ->
+  ChainBackendOptions ->
   IO ()
-waitForFullySynchronized tracer backend = do
-  systemStart <- Backend.querySystemStart backend QueryTip
+waitForFullySynchronized tracer opts = do
+  systemStart <- runBackend opts $ querySystemStart QueryTip
   check systemStart
  where
   check systemStart = do
     targetTime <- toRelativeTime systemStart <$> getCurrentTime
-    eraHistory <- Backend.queryEraHistory backend QueryTip
-    tipSlotNo <- fromMaybe 0 . Api.chainPointToSlotNo <$> Backend.queryTip backend
+    eraHistory <- runBackend opts $ queryEraHistory QueryTip
+    tipSlotNo <- fromMaybe 0 . Api.chainPointToSlotNo <$> runBackend opts queryTip
     (tipTime, _slotLength) <- either throwIO pure $ getProgress tipSlotNo eraHistory
     let timeDifference = diffRelativeTime targetTime tipTime
     let percentDone = realToFrac (100.0 * getRelativeTime tipTime / getRelativeTime targetTime)
-    blockTime <- Backend.getBlockTime backend
+    blockTime <- runBackend opts getBlockTime
     traceWith tracer $ MsgSynchronizing{percentDone, blockTime, tipTime = getRelativeTime tipTime, targetTime = getRelativeTime targetTime, timeDifference}
     if timeDifference < 20 * blockTime
       then pure ()

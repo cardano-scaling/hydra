@@ -12,11 +12,11 @@ import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (EraHistory (EraHistory), GenesisParameters (..), LedgerEra, PParams, ProtocolParametersConversionError, ShelleyEra, SystemStart (..), Tx, toShelleyNetwork)
 import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
 import Hydra.Chain.Backend (ChainBackend (queryEraHistory, queryGenesisParameters))
-import Hydra.Chain.Blockfrost (BlockfrostBackend (..))
+import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.Chain.Direct (DirectBackend (..))
+import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (EventSink)
@@ -183,13 +183,13 @@ getGlobalsForChain = \case
     -- Online mode: query era history from the chain for correct
     -- slot-to-time conversions in Plutus script evaluation.
     case chainBackendOptions of
-      Direct directOptions -> globalsFromBackend (DirectBackend directOptions)
-      Blockfrost blockfrostOptions -> globalsFromBackend (BlockfrostBackend blockfrostOptions)
+      Direct directOptions -> runDirectBackend directOptions globalsFromBackend
+      Blockfrost blockfrostOptions -> runBlockfrostBackend blockfrostOptions globalsFromBackend
  where
-  globalsFromBackend :: ChainBackend b => b -> IO Globals
-  globalsFromBackend b = do
-    genesis <- queryGenesisParameters b
-    eraHistory <- queryEraHistory b QueryTip
+  globalsFromBackend :: (ChainBackend m, MonadThrow m) => m Globals
+  globalsFromBackend = do
+    genesis <- queryGenesisParameters
+    eraHistory <- queryEraHistory QueryTip
     newGlobalsWithEraHistory genesis eraHistory
 
 data GlobalsTranslationException = GlobalsTranslationException

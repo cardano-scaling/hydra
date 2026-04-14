@@ -11,6 +11,7 @@ import CardanoClient (
   QueryPoint (QueryTip),
   SubmitTransactionException,
   buildAddress,
+  runBackend,
   sign,
  )
 import Control.Exception (IOException)
@@ -20,16 +21,15 @@ import Data.Aeson qualified as Aeson
 import Data.Set qualified as Set
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.IO.Exception (IOErrorType (ResourceExhausted), IOException (ioe_type))
-import Hydra.Chain.Backend (ChainBackend, buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
-import Hydra.Chain.Backend qualified as Backend
+import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithMintingScript, buildTransactionWithPParams')
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
-  queryScriptRegistry,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
+import Hydra.Options (ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Options qualified as Options
 import Hydra.Tx (balance, txId)
 import System.Directory (doesFileExist)
@@ -50,31 +50,29 @@ data FaucetLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
-delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
-delayBF backend = do
-  let delay = case Backend.getOptions backend of
-        Options.Blockfrost _ -> Options.defaultBFQueryTimeout
+delayBF :: MonadDelay m => ChainBackendOptions -> m ()
+delayBF opts = do
+  let delay = case opts of
+        Options.Blockfrost{} -> defaultBFQueryTimeout
         _ -> 1
   threadDelay $ fromIntegral delay
 
 seedFromFaucet ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Value to get from faucet
   Value ->
   Tracer IO FaucetLog ->
   IO UTxO
-seedFromFaucet backend receivingVerificationKey val tracer = do
-  delayBF backend
-  seedFromFaucetWithMinting backend receivingVerificationKey val tracer Nothing
+seedFromFaucet opts receivingVerificationKey val tracer = do
+  delayBF opts
+  seedFromFaucetWithMinting opts receivingVerificationKey val tracer Nothing
 
 -- | Create a specially marked "seed" UTXO containing requested 'Value' by
 -- redeeming funds available to the well-known faucet.
 seedFromFaucetWithMinting ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Value to get from faucet
@@ -82,22 +80,22 @@ seedFromFaucetWithMinting ::
   Tracer IO FaucetLog ->
   Maybe PlutusScript ->
   IO UTxO
-seedFromFaucetWithMinting backend receivingVerificationKey val tracer mintingScript = do
+seedFromFaucetWithMinting opts receivingVerificationKey val tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  networkId <- Backend.queryNetworkId backend
-  seedTx <- retryOnExceptions tracer backend $ submitSeedTx faucetVk faucetSk networkId
-  producedUTxO <- Backend.awaitTransaction backend seedTx receivingVerificationKey
+  networkId <- runBackend opts queryNetworkId
+  seedTx <- retryOnExceptions tracer opts $ submitSeedTx faucetVk faucetSk networkId
+  producedUTxO <- runBackend opts $ awaitTransaction seedTx receivingVerificationKey
   pure $ UTxO.filter (== toCtxUTxOTxOut (theOutput networkId)) producedUTxO
  where
   submitSeedTx faucetVk faucetSk networkId = do
-    faucetUTxO <- findFaucetUTxO networkId backend (selectLovelace val)
+    faucetUTxO <- findFaucetUTxO networkId opts (selectLovelace val)
     let changeAddress = mkVkAddress networkId faucetVk
 
-    buildTransactionWithMintingScript backend changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] mintingScript >>= \case
+    runBackend opts (buildTransactionWithMintingScript changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) [theOutput networkId] mintingScript) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
         let signedTx = sign faucetSk $ getTxBody tx
-        Backend.submitTransaction backend signedTx
+        runBackend opts $ submitTransaction signedTx
         pure signedTx
 
   receivingAddress = buildAddress receivingVerificationKey
@@ -109,11 +107,11 @@ seedFromFaucetWithMinting backend receivingVerificationKey val tracer mintingScr
       TxOutDatumNone
       ReferenceScriptNone
 
-findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
-findFaucetUTxO networkId backend lovelace = do
+findFaucetUTxO :: NetworkId -> ChainBackendOptions -> Coin -> IO UTxO
+findFaucetUTxO networkId opts lovelace = do
   (faucetVk, _) <- keysFor Faucet
   let address = buildAddress faucetVk networkId
-  faucetUTxO <- Backend.queryUTxO backend [address]
+  faucetUTxO <- runBackend opts $ queryUTxO [address]
   findUTxO faucetUTxO lovelace
 
 seedFromFaucetBlockfrost ::
@@ -169,50 +167,47 @@ findUTxO utxo lovelace' = do
 
 -- | Like 'seedFromFaucet', but without returning the seeded 'UTxO'.
 seedFromFaucet_ ::
-  ChainBackend backend =>
-  backend ->
+  ChainBackendOptions ->
   -- | Recipient of the funds
   VerificationKey PaymentKey ->
   -- | Amount to get from faucet
   Coin ->
   Tracer IO FaucetLog ->
   IO ()
-seedFromFaucet_ backend vk ll tracer =
-  void $ seedFromFaucet backend vk (lovelaceToValue ll) tracer
+seedFromFaucet_ opts vk ll tracer =
+  void $ seedFromFaucet opts vk (lovelaceToValue ll) tracer
 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet ::
-  ChainBackend backend =>
   Tracer IO FaucetLog ->
-  backend ->
+  ChainBackendOptions ->
   Actor ->
   IO ()
-returnFundsToFaucet tracer backend sender = do
-  delayBF backend
+returnFundsToFaucet tracer opts sender = do
+  delayBF opts
   senderKeys <- keysFor sender
-  void $ returnFundsToFaucet' tracer backend (snd senderKeys)
+  void $ returnFundsToFaucet' tracer opts (snd senderKeys)
 
 returnFundsToFaucet' ::
-  ChainBackend backend =>
   Tracer IO FaucetLog ->
-  backend ->
+  ChainBackendOptions ->
   SigningKey PaymentKey ->
   IO Coin
-returnFundsToFaucet' tracer backend senderSk = do
+returnFundsToFaucet' tracer opts senderSk = do
   (faucetVk, _) <- keysFor Faucet
-  networkId <- Backend.queryNetworkId backend
+  networkId <- runBackend opts queryNetworkId
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
-  utxo <- Backend.queryUTxOFor backend QueryTip senderVk
+  utxo <- runBackend opts $ queryUTxOFor QueryTip senderVk
   returnAmount <-
     if UTxO.null utxo
       then pure 0
-      else retryOnExceptions tracer backend $ do
+      else retryOnExceptions tracer opts $ do
         let utxoValue = balance @Tx utxo
         let allLovelace = selectLovelace utxoValue
         tx <- sign senderSk <$> buildTxBody utxo faucetAddress
-        Backend.submitTransaction backend tx
-        void $ Backend.awaitTransaction backend tx faucetVk
+        runBackend opts $ submitTransaction tx
+        void $ runBackend opts $ awaitTransaction tx faucetVk
         pure allLovelace
   traceWith tracer $ ReturnedFunds{returnAmount}
   pure returnAmount
@@ -220,54 +215,53 @@ returnFundsToFaucet' tracer backend senderSk = do
   buildTxBody utxo faucetAddress =
     -- Here we specify no outputs in the transaction so that a change output with the
     -- entire value is created and paid to the faucet address.
-    buildTransaction backend faucetAddress utxo [] [] >>= \case
+    runBackend opts (buildTransaction faucetAddress utxo [] []) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ getTxBody tx
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
-  ChainBackend backend =>
   NetworkId ->
-  backend ->
+  ChainBackendOptions ->
   AddressInEra ->
   TxOutDatum CtxTx ->
   Value ->
   IO (TxIn, TxOut CtxUTxO)
-createOutputAtAddress networkId backend atAddress datum val = do
+createOutputAtAddress networkId opts atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
-  utxo <- findFaucetUTxO networkId backend (selectLovelace val)
+  utxo <- findFaucetUTxO networkId opts (selectLovelace val)
   let collateralTxIns = mempty
   let output = TxOut atAddress val datum ReferenceScriptNone
-  buildTransaction backend (mkVkAddress networkId faucetVk) utxo collateralTxIns [output] >>= \case
+  runBackend opts (buildTransaction (mkVkAddress networkId faucetVk) utxo collateralTxIns [output]) >>= \case
     Left e ->
       throwErrorAsException e
     Right x -> do
       let body = getTxBody x
       let tx = makeSignedTransaction [makeShelleyKeyWitness body (WitnessPaymentKey faucetSk)] body
-      Backend.submitTransaction backend tx
-      newUtxo <- Backend.awaitTransaction backend tx faucetVk
+      runBackend opts $ submitTransaction tx
+      newUtxo <- runBackend opts $ awaitTransaction tx faucetVk
       case UTxO.find (\out -> txOutAddress out == atAddress) newUtxo of
         Nothing -> failure $ "Could not find script output: " <> decodeUtf8 (encodePretty newUtxo)
         Just u -> pure u
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m, ChainBackend backend) => Tracer m FaucetLog -> backend -> m a -> m a
-retryOnExceptions tracer backend action =
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> ChainBackendOptions -> m a -> m a
+retryOnExceptions tracer opts action =
   action
     `catches` [ Handler $ \(ex :: SubmitTransactionException) -> do
-                  delayBF backend
                   traceWith tracer $
                     SubmitTxError $
                       show ex
-                  retryOnExceptions tracer backend action
+                  delayBF opts
+                  retryOnExceptions tracer opts action
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
                     throwIO ex
                   traceWith tracer $
                     TraceResourceExhaustedHandled $
                       "Expected exception raised from seedFromFaucet: " <> show ex
-                  delayBF backend
-                  retryOnExceptions tracer backend action
+                  delayBF opts
+                  retryOnExceptions tracer opts action
               ]
  where
   isResourceExhausted ex = case ioe_type ex of
@@ -278,11 +272,11 @@ retryOnExceptions tracer backend action =
 --
 -- The key of the given Actor is used to pay for fees in required transactions,
 -- it is expected to have sufficient funds.
-publishHydraScriptsAs :: ChainBackend backend => backend -> Actor -> IO [TxId]
-publishHydraScriptsAs backend actor = do
+publishHydraScriptsAs :: ChainBackendOptions -> Actor -> IO [TxId]
+publishHydraScriptsAs opts actor = do
   (_, sk) <- keysFor actor
-  txids <- publishHydraScripts backend sk
-  delayBF backend
+  txids <- runBackend opts $ publishHydraScripts sk
+  delayBF opts
   pure txids
 
 -- | Like 'publishHydraScriptsAs', but caches the resulting 'TxId's to a file
@@ -290,12 +284,12 @@ publishHydraScriptsAs backend actor = do
 -- against the chain (using 'queryScriptRegistry') and reused if still valid.
 -- This avoids re-publishing identical scripts on every test run, saving funds
 -- and time especially on public testnets.
-publishOrReuseHydraScripts :: ChainBackend backend => backend -> Actor -> FilePath -> IO [TxId]
-publishOrReuseHydraScripts backend actor cacheDir = do
+publishOrReuseHydraScripts :: ChainBackendOptions -> Actor -> FilePath -> IO [TxId]
+publishOrReuseHydraScripts opts actor cacheDir = do
   let cacheFile = cacheDir </> ".hydra-scripts-tx-ids"
   readCachedTxIds cacheFile >>= \case
     Just txIds -> do
-      result <- try $ queryScriptRegistry backend txIds
+      result <- try $ runBackend opts $ queryScriptRegistry txIds
       case result of
         Right _registry -> pure txIds
         Left (_ :: SomeException) -> publishAndCache cacheFile
@@ -310,6 +304,6 @@ publishOrReuseHydraScripts backend actor cacheDir = do
 
   publishAndCache :: FilePath -> IO [TxId]
   publishAndCache path = do
-    txIds <- publishHydraScriptsAs backend actor
+    txIds <- publishHydraScriptsAs opts actor
     Aeson.encodeFile path txIds
     pure txIds

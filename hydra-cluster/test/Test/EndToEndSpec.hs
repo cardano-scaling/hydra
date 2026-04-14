@@ -10,12 +10,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (
   waitForUTxO,
  )
-import CardanoNode (
-  EndToEndLog (..),
-  withBackend,
-  withCardanoNodeDevnet,
-  withHydraScriptsAndBackendRunning,
- )
+import CardanoNode (EndToEndLog (..), runBackend, withBackend, withCardanoNodeDevnet, withHydraScriptsAndBackendRunning)
 import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
@@ -28,7 +23,6 @@ import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)
 import Hydra.Cardano.Api hiding (Value, cardanoEra, queryGenesisParameters, txId)
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.Direct.State ()
 import Hydra.Cluster.Faucet (
   publishHydraScriptsAs,
@@ -328,11 +322,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
             let clusterIx = 0
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-              blockTime <- Backend.getBlockTime backend
-              let nodeSocket' = case Backend.getOptions backend of
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId -> do
+              blockTime <- runBackend opts getBlockTime
+              let nodeSocket' = case opts of
                     Direct DirectOptions{nodeSocket} -> nodeSocket
-                    _ -> error "Unexpected Blockfrost backend"
+                    _ -> error "Unexpected Blockfrost opts"
               aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
               bobKeys@(bobCardanoVk, _) <- generate genKeyPair
               carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -350,9 +344,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                 let [n1, n2, n3] = toList nodes
 
                 -- Funds to be used as fuel by Hydra protocol transactions
-                seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                 -- Init head
                 send n1 $ input "Init" []
@@ -361,14 +355,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
                 -- Deposit UTxOs into the head
                 (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-                committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+                committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
                 depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
-                Backend.submitTransaction backend depositTxAlice
+                runBackend opts $ submitTransaction depositTxAlice
 
                 (bobExternalVk, bobExternalSk) <- generate genKeyPair
-                committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
+                committedUTxOByBob <- seedFromFaucet opts bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
                 depositTxBob <- requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk
-                Backend.submitTransaction backend depositTxBob
+                runBackend opts $ submitTransaction depositTxBob
 
                 let u0 = committedUTxOByAlice <> committedUTxOByBob
                 waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
@@ -394,11 +388,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- failAfter 60 $
         withClusterTempDir $ \tmpDir -> do
           let clusterIx = 0
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
-            let nodeSocket' = case Backend.getOptions backend of
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId -> do
+            blockTime <- runBackend opts getBlockTime
+            let nodeSocket' = case opts of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
-                  _ -> error "Unexpected Blockfrost backend"
+                  _ -> error "Unexpected Blockfrost opts"
             aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
             bobKeys@(bobCardanoVk, _) <- generate genKeyPair
             carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -414,9 +408,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               let [n1, n2, n3] = toList nodes
 
               -- Funds to be used as fuel by Hydra protocol transactions
-              seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-              seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-              seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
               send n1 $ input "Init" []
               headId <-
@@ -424,14 +418,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
               -- Deposit UTxOs into the head
               (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-              committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+              committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
               depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
-              Backend.submitTransaction backend depositTxAlice
+              runBackend opts $ submitTransaction depositTxAlice
 
               (bobExternalVk, bobExternalSk) <- generate genKeyPair
-              committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
+              committedUTxOByBob <- seedFromFaucet opts bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
               depositTxBob <- requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk
-              Backend.submitTransaction backend depositTxBob
+              runBackend opts $ submitTransaction depositTxBob
 
               waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
                 output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
@@ -504,14 +498,14 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         it "reaches the fan out limit" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
-              withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-                reachFanoutLimit ledgerSizeLimit tmpDir tracer hydraScriptsTxId backend
+              withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
+                reachFanoutLimit ledgerSizeLimit tmpDir tracer hydraScriptsTxId opts
 
         it "doesn't reach the fan out limit by one" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
-              withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
-                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer hydraScriptsTxId backend
+              withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
+                reachFanoutLimit (ledgerSizeLimit - 1) tmpDir tracer hydraScriptsTxId opts
                   `shouldThrow` \(e :: SomeException) -> "HeadIsFinalized" `isInfixOf` show e
 
     describe "restarting nodes" $ do
@@ -532,16 +526,16 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can start chain from the past and replay on-chain events" $ \tracer ->
         withClusterTempDir $ \tmp ->
-          withHydraScriptsAndBackendRunning tracer tmp $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
+          withHydraScriptsAndBackendRunning tracer tmp $ \opts hydraScriptsTxId -> do
+            blockTime <- runBackend opts getBlockTime
             (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
             let timing = mkTestTiming blockTime
-            aliceChainConfig <- chainConfigFor Alice tmp backend hydraScriptsTxId [] timing
+            aliceChainConfig <- chainConfigFor Alice tmp opts hydraScriptsTxId [] timing
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
             (tip, aliceHeadId) <- withHydraNode hydraTracer blockTime aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
-              seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-              tip <- Backend.queryTip backend
+              seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+              tip <- runBackend opts queryTip
               send n1 $ input "Init" []
               headId <- waitForAllMatch 10 [n1] $ headIsOpenWith (Set.fromList [alice])
               return (tip, headId)
@@ -565,24 +559,24 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can resume when member has already been bootstrapped" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir backend
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ directOpts ->
+            publishHydraScriptsAs (Direct directOpts) Faucet
+              >>= canResumeOnMemberAlreadyBootstrapped tracer tmpDir (Direct directOpts)
 
-      it "prevents network interactions until chain backend is in sync and secure." $ \tracer -> do
+      it "prevents network interactions until chain opts is in sync and secure." $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
-          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ backend ->
-            publishHydraScriptsAs backend Faucet
-              >>= waitsForChainInSyncAndSecure tracer tmpDir backend
+          withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \_ directOpts ->
+            publishHydraScriptsAs (Direct directOpts) Faucet
+              >>= waitsForChainInSyncAndSecure tracer tmpDir (Direct directOpts)
 
     describe "two hydra heads scenario" $ do
       it "two heads on the same network do not conflict" $ \tracer ->
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId ->
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
               concurrentlyLabelled_
-                ("init-and-close-0", initAndClose tmpDir tracer 0 backend hydraScriptsTxId)
-                ("init-and-close-1", initAndClose tmpDir tracer 1 backend hydraScriptsTxId)
+                ("init-and-close-0", initAndClose tmpDir tracer 0 opts hydraScriptsTxId)
+                ("init-and-close-1", initAndClose tmpDir tracer 1 opts hydraScriptsTxId)
 
       it "alice inits a Head with incorrect keys preventing bob from observing InitTx" $ \tracer ->
         failAfter 60 $
@@ -599,19 +593,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "bob cannot close alice's head" $ \tracer -> do
         failAfter 60 $
           withClusterTempDir $ \tmpDir -> do
-            withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-              blockTime <- Backend.getBlockTime backend
+            withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId -> do
+              blockTime <- runBackend opts getBlockTime
               (aliceCardanoVk, _aliceCardanoSk) <- keysFor Alice
               (bobCardanoVk, _bobCardanoSk) <- keysFor Bob
               let timing = mkTestTiming blockTime
-              aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
-              bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice] timing
+              aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [] timing
+              bobChainConfig <- chainConfigFor Bob tmpDir opts hydraScriptsTxId [Alice] timing
               let hydraTracer = contramap FromHydraNode tracer
               withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
                 withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
-                  seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-                  seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
                   send n1 $ input "Init" []
                   headIdAliceOnly <- waitMatch 10 n1 $ headIsOpenWith (Set.fromList [alice])
@@ -636,19 +630,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       it "Node exposes Prometheus metrics on port 6001" $ \tracer -> do
         withClusterTempDir $ \tmpDir -> do
           (aliceCardanoVk, _) <- keysFor Alice
-          withHydraScriptsAndBackendRunning tracer tmpDir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
+          withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId -> do
+            blockTime <- runBackend opts getBlockTime
             let hydraTracer = contramap FromHydraNode tracer
             let timing = mkTestTiming blockTime
-            aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [Bob, Carol] timing
-            bobChainConfig <- chainConfigFor Bob tmpDir backend hydraScriptsTxId [Alice, Carol] timing
-            carolChainConfig <- chainConfigFor Carol tmpDir backend hydraScriptsTxId [Alice, Bob] timing
+            aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [Bob, Carol] timing
+            bobChainConfig <- chainConfigFor Bob tmpDir opts hydraScriptsTxId [Alice, Carol] timing
+            carolChainConfig <- chainConfigFor Carol tmpDir opts hydraScriptsTxId [Alice, Bob] timing
             failAfter 20 $
               withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
                 withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
                   withHydraNode hydraTracer blockTime carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
-                    seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+                    seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
                     send n1 $ input "Init" []
                     void $ waitForAllMatch 3 [n1] $ headIsOpenWith (Set.fromList [alice, bob, carol])
@@ -659,10 +653,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
     describe "withHydraNode" $ do
       it "detects crashes" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withBackend tracer dir $ \blockTime backend -> do
-            let nodeSocket' = case Backend.getOptions backend of
+          withBackend tracer dir $ \blockTime opts -> do
+            let nodeSocket' = case opts of
                   Direct DirectOptions{nodeSocket} -> nodeSocket
-                  _ -> error "Unexpected Blockfrost backend"
+                  _ -> error "Unexpected Blockfrost opts"
             -- NOTE: Deliberately broken configuration so we expect the node to not start.
             let chainConfig =
                   Cardano
@@ -682,11 +676,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "stops gracefully" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
+          withHydraScriptsAndBackendRunning tracer dir $ \opts hydraScriptsTxId -> do
+            blockTime <- runBackend opts getBlockTime
             let hydraTracer = contramap FromHydraNode tracer
             let timing = mkTestTiming blockTime
-            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] timing
+            aliceChainConfig <- chainConfigFor Alice dir opts hydraScriptsTxId [] timing
 
             -- XXX: Need to do something in 'action' otherwise always green?
             withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
@@ -694,11 +688,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "can be restarted" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
+          withHydraScriptsAndBackendRunning tracer dir $ \opts hydraScriptsTxId -> do
+            blockTime <- runBackend opts getBlockTime
             let hydraTracer = contramap FromHydraNode tracer
             let timing = mkTestTiming blockTime
-            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] timing
+            aliceChainConfig <- chainConfigFor Alice dir opts hydraScriptsTxId [] timing
 
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
@@ -710,12 +704,12 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
       it "logs to a logfile" $ \tracer -> do
         withClusterTempDir $ \dir -> do
-          withHydraScriptsAndBackendRunning tracer dir $ \backend hydraScriptsTxId -> do
-            blockTime <- Backend.getBlockTime backend
+          withHydraScriptsAndBackendRunning tracer dir $ \opts hydraScriptsTxId -> do
+            blockTime <- runBackend opts getBlockTime
             let hydraTracer = contramap FromHydraNode tracer
-            refuelIfNeeded tracer backend Alice 100_000_000
+            refuelIfNeeded tracer opts Alice 100_000_000
             let timing = mkTestTiming blockTime
-            aliceChainConfig <- chainConfigFor Alice dir backend hydraScriptsTxId [] timing
+            aliceChainConfig <- chainConfigFor Alice dir opts hydraScriptsTxId [] timing
             withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
               send n1 $ input "Init" []
 
@@ -724,18 +718,18 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             BS.length logfile `shouldSatisfy` (> 0)
             logfile `shouldSatisfy` BS.isInfixOf "NodeOptions"
 
-timedTx :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> backend -> [TxId] -> IO ()
-timedTx tmpDir tracer backend hydraScriptsTxId = do
+timedTx :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
+timedTx tmpDir tracer opts hydraScriptsTxId = do
   (aliceCardanoVk, _) <- keysFor Alice
-  blockTime <- Backend.getBlockTime backend
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
-  aliceChainConfig <- chainConfigFor Alice tmpDir backend hydraScriptsTxId [] timing
+  aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [] timing
   let hydraTracer = contramap FromHydraNode tracer
   withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
     let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ backend aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
+    seedFromFaucet_ opts aliceCardanoVk lovelaceBalanceValue (contramap FromFaucet tracer)
     send n1 $ input "Init" []
     headId <-
       waitForAllMatch 10 [n1] $
@@ -743,14 +737,14 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
 
     -- Deposit some UTxO into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    utxoToDeposit <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+    utxoToDeposit <- seedFromFaucet opts aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
     txDeposit <- requestCommitTx n1 utxoToDeposit <&> signTx aliceExternalSk
-    Backend.submitTransaction backend txDeposit
+    runBackend opts $ submitTransaction txDeposit
     waitFor hydraTracer 5 [n1] $ output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId txDeposit]
 
     -- Acquire a current point in time
-    slotLengthSec <- protocolParamSlotLength <$> Backend.queryGenesisParameters backend
-    currentSlot <- chainPointToSlot <$> Backend.queryTip backend
+    slotLengthSec <- protocolParamSlotLength <$> runBackend opts queryGenesisParameters
+    currentSlot <- chainPointToSlot <$> runBackend opts queryTip
 
     -- Create a transaction which is only valid in 5 seconds
     let secondsToAwait = 5
@@ -784,8 +778,8 @@ timedTx tmpDir tracer backend hydraScriptsTxId = do
       v ^? key "snapshot" . key "confirmed"
     confirmedTransactions ^.. values `shouldBe` [toJSON tx]
 
-initAndClose :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> Int -> backend -> [TxId] -> IO ()
-initAndClose tmpDir tracer clusterIx backend hydraScriptsTxId = do
+initAndClose :: FilePath -> Tracer IO EndToEndLog -> Int -> ChainBackendOptions -> [TxId] -> IO ()
+initAndClose tmpDir tracer clusterIx opts hydraScriptsTxId = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
   bobKeys@(bobCardanoVk, _) <- generate genKeyPair
   carolKeys@(carolCardanoVk, _) <- generate genKeyPair
@@ -795,19 +789,19 @@ initAndClose tmpDir tracer clusterIx backend hydraScriptsTxId = do
 
   let firstNodeId = clusterIx * 3
   let hydraTracer = contramap FromHydraNode tracer
-  let nodeSocket' = case Backend.getOptions backend of
+  let nodeSocket' = case opts of
         Direct DirectOptions{nodeSocket} -> nodeSocket
-        _ -> error "Unexpected Blockfrost backend"
-  blockTime <- Backend.getBlockTime backend
+        _ -> error "Unexpected Blockfrost opts"
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   withHydraCluster hydraTracer timing tmpDir nodeSocket' firstNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \nodes -> do
     let [n1, n2, n3] = toList nodes
     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-    seedFromFaucet_ backend bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
-    seedFromFaucet_ backend carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
     send n1 $ input "Init" []
     headId <-
@@ -816,14 +810,14 @@ initAndClose tmpDir tracer clusterIx backend hydraScriptsTxId = do
 
     -- Deposit UTxOs into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue aliceCommittedToHead) (contramap FromFaucet tracer)
     depositTxAlice <- requestCommitTx n1 committedUTxOByAlice <&> signTx aliceExternalSk
-    Backend.submitTransaction backend depositTxAlice
+    runBackend opts $ submitTransaction depositTxAlice
 
     (bobExternalVk, bobExternalSk) <- generate genKeyPair
-    committedUTxOByBob <- seedFromFaucet backend bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
+    committedUTxOByBob <- seedFromFaucet opts bobExternalVk (lovelaceToValue bobCommittedToHead) (contramap FromFaucet tracer)
     depositTxBob <- requestCommitTx n2 committedUTxOByBob <&> signTx bobExternalSk
-    Backend.submitTransaction backend depositTxBob
+    runBackend opts $ submitTransaction depositTxBob
 
     waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
       output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
@@ -908,24 +902,24 @@ initAndClose tmpDir tracer clusterIx backend hydraScriptsTxId = do
         failure $ "newUTxO isn't valid JSON?: " <> err
       Data.Aeson.Success u -> do
         waitForAllMatch 3 [n1] $ headIsFinalizedWith headId u
-        failAfter 5 $ waitForUTxO backend u
+        failAfter 5 $ waitForUTxO opts u
 
-reachFanoutLimit :: Integer -> ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> [TxId] -> backend -> IO ()
-reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
+reachFanoutLimit :: Integer -> FilePath -> Tracer IO EndToEndLog -> [TxId] -> ChainBackendOptions -> IO ()
+reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId opts = do
   aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
 
   let hydraTracer = contramap FromHydraNode tracer
-  let nodeSocket' = case Backend.getOptions backend of
+  let nodeSocket' = case opts of
         Direct DirectOptions{nodeSocket} -> nodeSocket
-        _ -> error "Unexpected Blockfrost backend"
-  blockTime <- Backend.getBlockTime backend
+        _ -> error "Unexpected Blockfrost opts"
+  blockTime <- runBackend opts getBlockTime
   let timing = mkTestTiming blockTime
   withHydraCluster hydraTracer timing tmpDir nodeSocket' 1 [aliceKeys] [aliceSk] hydraScriptsTxId $ \nodes -> do
     let [node] = toList nodes
     waitForNodesConnected hydraTracer 20 $ node :| []
 
     -- Funds to be used as fuel by Hydra protocol transactions
-    seedFromFaucet_ backend aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+    seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
     send node $ input "Init" []
     headId <-
@@ -934,9 +928,9 @@ reachFanoutLimit ledgerSize tmpDir tracer hydraScriptsTxId backend = do
 
     -- Deposit UTxOs into the head
     (aliceExternalVk, aliceExternalSk) <- generate genKeyPair
-    committedUTxOByAlice <- seedFromFaucet backend aliceExternalVk (lovelaceToValue (fromInteger $ ledgerSize * 1_000_000)) (contramap FromFaucet tracer)
+    committedUTxOByAlice <- seedFromFaucet opts aliceExternalVk (lovelaceToValue (fromInteger $ ledgerSize * 1_000_000)) (contramap FromFaucet tracer)
     depositTxAlice <- requestCommitTx node committedUTxOByAlice <&> signTx aliceExternalSk
-    Backend.submitTransaction backend depositTxAlice
+    runBackend opts $ submitTransaction depositTxAlice
     waitFor hydraTracer (depositTimeout timing) [node] $
       output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
 

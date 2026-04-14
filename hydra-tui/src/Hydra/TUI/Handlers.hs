@@ -42,7 +42,7 @@ import Hydra.Tx (IsTx (..), Snapshot (..))
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
-  CardanoClient Era ->
+  CardanoClient ->
   Client Tx IO ->
   BrickEvent Name (HydraEvent Tx) ->
   EventM Name RootState ()
@@ -306,7 +306,7 @@ handleHydraEventsInfo = \case
 
 -- * VtyEvent handlers
 
-handleVtyEventsHeadState :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
+handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
 handleVtyEventsHeadState cardanoClient hydraClient e = do
   h <- use id
   case h of
@@ -316,13 +316,13 @@ handleVtyEventsHeadState cardanoClient hydraClient e = do
     _ -> pure ()
   zoom activeLinkL $ handleVtyEventsActiveLink cardanoClient hydraClient e
 
-handleVtyEventsActiveLink :: CardanoClient Era -> Client Tx IO -> Vty.Event -> EventM Name ActiveLink ()
+handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name ActiveLink ()
 handleVtyEventsActiveLink cardanoClient hydraClient e = do
   utxo <- use utxoL
   pendingIncrements <- use pendingIncrementsL
   zoom activeHeadStateL $ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e
 
-handleVtyEventsActiveHeadState :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
+handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
 handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e = do
   zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e
   s <- use id
@@ -331,7 +331,7 @@ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements 
     Final -> handleVtyEventsFinal hydraClient e
     _ -> pure ()
 
-handleVtyEventsOpen :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
+handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
 handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
   get >>= \case
     OpenHome -> do
@@ -509,7 +509,7 @@ myAvailableUTxO networkId vk (UTxO u) =
   let myAddress = mkVkAddress networkId vk
    in Map.filter (\TxOut{txOutAddress = addr} -> addr == myAddress) u
 
-mkMyAddress :: CardanoClient Era -> Client Tx IO -> Address ShelleyAddr
+mkMyAddress :: CardanoClient -> Client Tx IO -> Address ShelleyAddr
 mkMyAddress cardanoClient hydraClient =
   makeShelleyAddress
     (networkId cardanoClient)
