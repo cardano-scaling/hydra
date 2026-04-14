@@ -54,11 +54,12 @@ healthyPartialFanoutTx =
   headInput = generateWith arbitrary 42
 
   headOutput' :: TxOut CtxUTxO
-  headOutput' = mkHeadOutput 
-    testNetworkId
-    testPolicyId
-    (verificationKeyToOnChainId <$> healthyParticipants)
-    (mkTxOutDatumInline healthyPartialFanoutState)
+  headOutput' =
+    mkHeadOutput
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline healthyPartialFanoutState)
 
   headOutput = modifyTxOutValue (<> participationTokens) headOutput'
 
