@@ -178,13 +178,27 @@ spec :: Spec
 
 -- | A test backend that will throw <a>NoUTxOFound</a> on
 --   <a>queryUTxOFor</a> call.
-newtype ATestBackend
-ATestBackend :: VerificationKey PaymentKey -> ATestBackend
+newtype ATestBackend a
+ATestBackend :: ReaderT (VerificationKey PaymentKey) IO a -> ATestBackend a
+runATestBackend :: VerificationKey PaymentKey -> ATestBackend a -> IO a
 
 -- | A test backend that simulates a successful script publishing.
-data SuccessfulBackend
-SuccessfulBackend :: VerificationKey PaymentKey -> UTxO -> SuccessfulBackend
+newtype SuccessfulBackend a
+SuccessfulBackend :: ReaderT (VerificationKey PaymentKey, UTxO) IO a -> SuccessfulBackend a
+runSuccessfulBackend :: (VerificationKey PaymentKey, UTxO) -> SuccessfulBackend a -> IO a
 toAddress :: VerificationKey PaymentKey -> Address ShelleyAddr
+instance Control.Monad.Class.MonadThrow.MonadCatch Hydra.Chain.ScriptRegistrySpec.ATestBackend
+instance Control.Monad.Class.MonadThrow.MonadThrow Hydra.Chain.ScriptRegistrySpec.ATestBackend
+instance Control.Monad.IO.Class.MonadIO Hydra.Chain.ScriptRegistrySpec.ATestBackend
+instance GHC.Base.Monad Hydra.Chain.ScriptRegistrySpec.ATestBackend
+instance GHC.Base.Applicative Hydra.Chain.ScriptRegistrySpec.ATestBackend
+instance GHC.Base.Functor Hydra.Chain.ScriptRegistrySpec.ATestBackend
+instance Control.Monad.Class.MonadThrow.MonadCatch Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
+instance Control.Monad.Class.MonadThrow.MonadThrow Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
+instance Control.Monad.IO.Class.MonadIO Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
+instance GHC.Base.Monad Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
+instance GHC.Base.Applicative Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
+instance GHC.Base.Functor Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
 instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.SuccessfulBackend
 instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.ATestBackend
 
