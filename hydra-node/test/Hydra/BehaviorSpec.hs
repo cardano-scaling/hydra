@@ -942,6 +942,13 @@ spec = parallel $ do
           withHydraNode aliceSk [bob] chain $ \n1 ->
             withHydraNode bobSk [alice] chain $ \n2 -> do
               openHead2 n1 n2
+              -- Create UTxO [1, 2] in the head so the partial fanout test is meaningful.
+              -- aValidTx has empty inputs, so it's valid even against empty initial UTxO.
+              send n1 (NewTx (aValidTx 1))
+              send n1 (NewTx (aValidTx 2))
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxo}} -> guard $ utxo == utxoRefs [1, 2]
+                _ -> Nothing
               send n1 Close
               forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
