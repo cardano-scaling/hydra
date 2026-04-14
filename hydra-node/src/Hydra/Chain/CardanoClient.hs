@@ -9,9 +9,7 @@ import Hydra.Prelude
 import Hydra.Cardano.Api hiding (Block, queryCurrentEra)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Aeson (eitherDecode', encode)
 import Data.Set qualified as Set
-import Data.Text qualified as Text
 import Text.Printf (printf)
 
 -- XXX: This should be re-exported by cardano-api
@@ -156,27 +154,10 @@ queryProtocolParameters ::
   QueryPoint ->
   IO (PParams LedgerEra)
 queryProtocolParameters connectInfo queryPoint =
-  runQueryExpr connectInfo queryPoint $ do
-    queryForCurrentEraInShelleyBasedEraExpr $ \sbe -> do
-      eraPParams <- queryInShelleyBasedEraExpr sbe QueryProtocolParameters
-      liftIO $ coercePParamsToLedgerEra (convert sbe) eraPParams
- where
-  encodeToEra :: ToJSON a => CardanoEra era -> a -> IO (PParams LedgerEra)
-  encodeToEra eraToEncode pparams =
-    case eitherDecode' (encode pparams) of
-      Left e -> throwIO $ QueryProtocolParamsEncodingFailureOnEra (anyCardanoEra eraToEncode) (Text.pack e)
-      Right (ok :: PParams LedgerEra) -> pure ok
-
-  coercePParamsToLedgerEra :: CardanoEra era -> PParams (ShelleyLedgerEra era) -> IO (PParams LedgerEra)
-  coercePParamsToLedgerEra era pparams =
-    case era of
-      ByronEra -> throwIO $ QueryProtocolParamsEraNotSupported (anyCardanoEra ByronEra)
-      ShelleyEra -> encodeToEra ShelleyEra pparams
-      AllegraEra -> encodeToEra AllegraEra pparams
-      MaryEra -> encodeToEra MaryEra pparams
-      AlonzoEra -> encodeToEra AlonzoEra pparams
-      BabbageEra -> encodeToEra BabbageEra pparams
-      ConwayEra -> pure pparams
+  runQueryExpr connectInfo queryPoint $
+    queryForCurrentEraInConwayEraOnwardsExpr $ \(ceo :: ConwayEraOnwards era) -> case ceo of
+      ConwayEraOnwardsConway ->
+        queryInShelleyBasedEraExpr (convert ceo) QueryProtocolParameters
 
 -- | Query 'GenesisParameters' at a given point.
 --
