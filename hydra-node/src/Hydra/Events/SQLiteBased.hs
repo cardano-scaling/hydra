@@ -29,6 +29,11 @@
 --
 -- == Tradeoffs
 --
+-- * __Writer thread crash surfacing__: The background writer is 'link'ed to
+--   the calling thread. If it dies (e.g. SQLite I/O error), the exception
+--   propagates immediately rather than leaving the node silently stalled.
+--   Use 'withSQLiteEventStore' which handles cleanup (flush + cancel) on exit.
+--
 -- * __Data loss on hard crash__: Events in the queue that have not yet been
 --   flushed to SQLite are lost on SIGKILL, OOM, or power loss. This is
 --   acceptable because the L1 chain is the source of truth — the node replays
@@ -45,7 +50,7 @@ import Hydra.Prelude
 
 import Conduit (ConduitT, ResourceT, bracketP, runConduitRes, sourceFile, yield, (.|))
 import Control.Concurrent.Class.MonadSTM (flushTBQueue, newEmptyTMVarIO, newTBQueueIO, putTMVar, readTBQueue, takeTMVar, writeTBQueue, writeTVar)
-import Control.Monad.Class.MonadAsync (async)
+import Control.Monad.Class.MonadAsync (async, cancel, link)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Conduit.Combinators (linesUnboundedAscii)
@@ -77,17 +82,38 @@ data SQLiteLog
 -- marker that the writer thread signals after processing all preceding items.
 type WriteItem = Either (TMVar IO ()) (Word64, ByteString)
 
+-- | Bracket-style wrapper around 'mkSQLiteEventStore'. Creates the database,
+-- schema, and writer thread, runs the callback, then flushes queued writes and
+-- cancels the writer thread on exit. The writer thread is 'link'ed so that
+-- crashes surface immediately in the calling thread.
+--
+-- The callback receives @(conn, store, flush, reinitLastSeen)@:
+--
+-- * @conn@ — raw 'Connection' for 'migrateFromFileBased'
+-- * @store@ — the 'EventStore'
+-- * @flush@ — block until all queued writes hit SQLite (useful in tests)
+-- * @reinitLastSeen@ — re-read last event id from DB (after migration)
+withSQLiteEventStore ::
+  forall e a.
+  (ToJSON e, FromJSON e, HasEventId e) =>
+  FilePath ->
+  ((Connection, EventStore e IO, IO (), IO ()) -> IO a) ->
+  IO a
+withSQLiteEventStore dbFile callback = do
+  (conn, store, flush, reinitLastSeen, cancelWriter) <- mkSQLiteEventStore dbFile
+  callback (conn, store, flush, reinitLastSeen)
+    `finally` (flush >> cancelWriter)
+
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
 -- The database and schema are created on first use if they do not exist.
--- Returns the underlying 'Connection' (for 'migrateFromFileBased'), a flush
--- action that blocks until all queued writes have been persisted to SQLite,
--- and a @reinitLastSeen@ action that re-reads the last event id from the
--- database into the in-memory TVar (used after migration).
+-- Returns @(conn, store, flush, reinitLastSeen, cancelWriter)@.
+--
+-- Prefer 'withSQLiteEventStore' which handles cleanup automatically.
 mkSQLiteEventStore ::
   forall e.
   (ToJSON e, FromJSON e, HasEventId e) =>
   FilePath ->
-  IO (Connection, EventStore e IO, IO (), IO ())
+  IO (Connection, EventStore e IO, IO (), IO (), IO ())
 mkSQLiteEventStore dbFile = do
   createDirectoryIfMissing True (takeDirectory dbFile)
   conn <- open dbFile
@@ -100,13 +126,8 @@ mkSQLiteEventStore dbFile = do
     _ -> pure ()
 
   writeQueue <- newTBQueueIO 1000
-  -- NOTE: We intentionally do not 'link' the writer thread. In tests the
-  -- TBQueue becomes unreachable when the test scope exits, causing io-classes
-  -- to throw a BlockedIndefinitely async exception that cannot be reliably
-  -- caught due to MonadCatch/io-classes semantics. Without 'link' the writer
-  -- thread exits silently on cleanup. In production the writer never dies; if
-  -- it did, 'flushWriteQueue' would block indefinitely, stalling the node.
-  _writerThread <- async $ writerLoop conn writeQueue
+  writerThread <- async $ writerLoop conn writeQueue
+  link writerThread
   let
     getLastSeenEventId = readTVar eventIdV
 
@@ -187,6 +208,7 @@ mkSQLiteEventStore dbFile = do
         }
     , flushWriteQueue writeQueue
     , reinitLastSeen
+    , cancel writerThread
     )
 
 -- | Background writer that drains the queue and batch-inserts into SQLite.

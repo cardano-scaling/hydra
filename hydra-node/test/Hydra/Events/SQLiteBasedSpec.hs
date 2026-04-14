@@ -10,7 +10,7 @@ import Data.List (zipWith3)
 import Database.SQLite.Simple (execute)
 import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
 import Hydra.Events.Rotation (EventStore (..))
-import Hydra.Events.SQLiteBased (EventDecodingException, SQLiteLog (..), migrateFromFileBased, mkSQLiteEventStore)
+import Hydra.Events.SQLiteBased (EventDecodingException, SQLiteLog (..), migrateFromFileBased, withSQLiteEventStore)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging (Envelope (..), nullTracer)
@@ -72,20 +72,20 @@ spec = do
     it "throws EventDecodingException on invalid data in database" $ do
       withTempDir "hydra-sqlite-persistence" $ \tmpDir -> do
         let dbFile = tmpDir <> "/hydra.db"
-        (conn, store, _flush, _reinit) <- mkSQLiteEventStore @(StateEvent SimpleTx) dbFile
-        -- Insert a row with invalid JSON directly into the database
-        execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" (1 :: Word64, "not valid json" :: ByteString)
-        getEvents (eventSource store)
-          `shouldThrow` \(_ :: EventDecodingException) -> True
+        withSQLiteEventStore @(StateEvent SimpleTx) dbFile $ \(conn, store, _flush, _reinit) -> do
+          -- Insert a row with invalid JSON directly into the database
+          execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" (1 :: Word64, "not valid json" :: ByteString)
+          getEvents (eventSource store)
+            `shouldThrow` \(_ :: EventDecodingException) -> True
 
     it "throws EventDecodingException on invalid lines during migration" $ do
       withTempDir "hydra-sqlite-persistence" $ \tmpDir -> do
         let legacyFile = tmpDir <> "/state"
         let dbFile = tmpDir <> "/hydra.db"
         writeFileBS legacyFile "{invalid json\n"
-        (conn, _store, _flush, reinitLastSeen) <- mkSQLiteEventStore @(StateEvent SimpleTx) dbFile
-        migrateFromFileBased (Proxy @(StateEvent SimpleTx)) nullTracer legacyFile conn reinitLastSeen
-          `shouldThrow` \(_ :: EventDecodingException) -> True
+        withSQLiteEventStore @(StateEvent SimpleTx) dbFile $ \(conn, _store, _flush, reinitLastSeen) -> do
+          migrateFromFileBased (Proxy @(StateEvent SimpleTx)) nullTracer legacyFile conn reinitLastSeen
+            `shouldThrow` \(_ :: EventDecodingException) -> True
 
     prop "can migrate from file-based store" $
       forAllShrink genContinuousEvents shrink $ \events ->
@@ -98,17 +98,17 @@ spec = do
               BS.appendFile legacyFile (toStrict (Aeson.encode e) <> "\n")
             -- Migrate into SQLite
             (tracer, getTraces) <- captureTracer "sqlite"
-            (conn, store, _flush, reinitLastSeen) <- mkSQLiteEventStore dbFile
-            migrateFromFileBased (Proxy @(StateEvent SimpleTx)) tracer legacyFile conn reinitLastSeen
-            -- Verify all events are present
-            loadedEvents <- getEvents (eventSource store)
-            -- Verify migration was logged
-            traces <- getTraces
-            let msgs = fmap message traces
-            unless (null events) $
-              msgs `shouldSatisfy` elem MigrationComplete{legacyFile}
-            pure $
-              loadedEvents === events
+            withSQLiteEventStore dbFile $ \(conn, store, _flush, reinitLastSeen) -> do
+              migrateFromFileBased (Proxy @(StateEvent SimpleTx)) tracer legacyFile conn reinitLastSeen
+              -- Verify all events are present
+              loadedEvents <- getEvents (eventSource store)
+              -- Verify migration was logged
+              traces <- getTraces
+              let msgs = fmap message traces
+              unless (null events) $
+                msgs `shouldSatisfy` elem MigrationComplete{legacyFile}
+              pure $
+                loadedEvents === events
 
 genContinuousEvents :: Gen [StateEvent SimpleTx]
 genContinuousEvents =
@@ -118,5 +118,5 @@ withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (St
 withEventSourceAndSink action =
   withTempDir "hydra-sqlite-persistence" $ \tmpDir -> do
     let dbFile = tmpDir <> "/hydra.db"
-    (_, EventStore{eventSource, eventSink}, flush, _reinit) <- mkSQLiteEventStore dbFile
-    action eventSource eventSink flush
+    withSQLiteEventStore dbFile $ \(_, EventStore{eventSource, eventSink}, flush, _reinit) ->
+      action eventSource eventSink flush

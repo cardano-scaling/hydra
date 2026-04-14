@@ -21,7 +21,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (EventSink)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Hydra.Events.SQLiteBased (migrateFromFileBased, mkSQLiteEventStore)
+import Hydra.Events.SQLiteBased (migrateFromFileBased, withSQLiteEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
@@ -86,45 +86,44 @@ run opts = do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
-        eventStore@EventStore{eventSource} <- do
-          (conn, store, _flush, reinitLastSeen) <- mkSQLiteEventStore dbFile
+        withSQLiteEventStore dbFile $ \(conn, store, _flush, reinitLastSeen) -> do
           migrateFromFileBased (Proxy @(StateEvent Tx)) (contramap SQLite tracer') stateFile conn reinitLastSeen
-          prepareEventStore store
-        -- NOTE: Add any custom sinks here
-        let eventSinks :: [EventSink (StateEvent Tx) IO] = []
-        wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
-        traceWith tracer' NodeHydrated
-        -- Chain
-        withChain <- prepareChainComponent tracer env chainConfig
-        withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
-          traceWith tracer' ChainBackendStarted
-          -- API
-          let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
-          withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
-            -- Network
-            let networkConfiguration =
-                  NetworkConfiguration
-                    { persistenceDir
-                    , signingKey
-                    , otherParties
-                    , listen
-                    , advertise = fromMaybe listen advertise
-                    , peers
-                    , nodeId
-                    , whichEtcd
-                    }
-            withNetwork
-              (contramap Network tracer)
-              networkConfiguration
-              (wireNetworkInput wetHydraNode)
-              $ \network -> do
-                traceWith tracer' NetworkStarted
-                -- Main loop
-                node <-
-                  connect chain network server wetHydraNode
-                    <&> addEventSink apiSink
-                traceWith tracer' EnteringMainloop
-                runHydraNode node
+          eventStore@EventStore{eventSource} <- prepareEventStore store
+          -- NOTE: Add any custom sinks here
+          let eventSinks :: [EventSink (StateEvent Tx) IO] = []
+          wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
+          traceWith tracer' NodeHydrated
+          -- Chain
+          withChain <- prepareChainComponent tracer env chainConfig
+          withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+            traceWith tracer' ChainBackendStarted
+            -- API
+            let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout}
+            withAPIServer apiServerConfig env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+              -- Network
+              let networkConfiguration =
+                    NetworkConfiguration
+                      { persistenceDir
+                      , signingKey
+                      , otherParties
+                      , listen
+                      , advertise = fromMaybe listen advertise
+                      , peers
+                      , nodeId
+                      , whichEtcd
+                      }
+              withNetwork
+                (contramap Network tracer)
+                networkConfiguration
+                (wireNetworkInput wetHydraNode)
+                $ \network -> do
+                  traceWith tracer' NetworkStarted
+                  -- Main loop
+                  node <-
+                    connect chain network server wetHydraNode
+                      <&> addEventSink apiSink
+                  traceWith tracer' EnteringMainloop
+                  runHydraNode node
  where
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
