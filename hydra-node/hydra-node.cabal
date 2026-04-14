@@ -457,6 +457,7 @@ test-suite tests
     , resourcet
     , silently
     , sop-extras
+    , sqlite-simple
     , stm
     , temporary
     , text

@@ -13,7 +13,6 @@ import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.Chain ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
-import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
 
 instance
   ( ArbitraryIsTx tx
@@ -24,14 +23,6 @@ instance
   Arbitrary (StateChanged tx)
   where
   arbitrary = arbitrary >>= genStateChanged
-
-instance
-  ( ArbitraryIsTx tx
-  , Arbitrary (ChainPointType tx)
-  , Arbitrary (ChainStateType tx)
-  , IsChainState tx
-  ) =>
-  ToADTArbitrary (StateChanged tx)
 
 -- REVIEW: why are we missing Checkpoint and other events ?
 genStateChanged :: (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Environment -> Gen (StateChanged tx)

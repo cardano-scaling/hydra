@@ -12,6 +12,7 @@ import Hydra.Prelude
 
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
+import Hydra.Events.SQLiteBased (SQLiteLog)
 import Hydra.Node (HydraNodeLog)
 import Hydra.Node.Network (NetworkLog)
 import Hydra.Options (RunOptions)
@@ -22,6 +23,7 @@ data HydraLog tx
   | Network {network :: NetworkLog}
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
+  | SQLite {sqlite :: SQLiteLog}
   | EnteringMainloop
   | NodeHydrated
   | ChainBackendStarted
