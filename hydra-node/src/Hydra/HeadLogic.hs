@@ -1947,11 +1947,11 @@ aggregate st = \case
                       , seenSnapshot = LastSeenSnapshot snapshot.number
                       }
                 }
-          Nothing -> st
+          Nothing -> Hydra.Prelude.error "aggregate: SnapshotConfirmed but no snapshot in event or seenSnapshot"
       _otherState -> st
    where
     snapshotFromSeen :: SeenSnapshot tx -> Maybe (Snapshot tx)
-    snapshotFromSeen (SeenSnapshot sn _) = Just sn
+    snapshotFromSeen (SeenSnapshot sn _ _) = Just sn
     snapshotFromSeen _ = Nothing
   LocalStateCleared{snapshotNumber} ->
     case st of

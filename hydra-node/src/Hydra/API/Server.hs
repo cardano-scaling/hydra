@@ -106,6 +106,8 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
     commitInfoP <- mkProjection "commitInfoP" CannotCommit projectCommitInfo
     pendingDepositsP <- mkProjection "pendingDepositsP" [] projectPendingDeposits
     networkInfoP <- mkProjection "networkInfoP" (NetworkInfo False mempty) projectNetworkInfo
+    -- Track seen snapshots across the event stream history so that SnapshotConfirmed
+    -- events (which may omit the snapshot) can be reconstructed for clients.
     let historyTimedOutputs =
           sourceEvents
             .| void (mapAccum (\ev mSn -> (updateSeenSnapshot mSn (stateChanged ev), mkTimedServerOutputFromStateEvent mSn ev)) Nothing)
@@ -284,7 +286,7 @@ updateSeenSnapshot mSn _ = mSn
 -- | Extract the snapshot currently in 'SeenSnapshot' from a 'NodeState', if any.
 seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
 seenSnapshotOf ns = case headState ns of
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot sn _}} -> Just sn
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot sn _ _}} -> Just sn
   _ -> Nothing
 
 -- | Projection to obtain the list of pending deposits.

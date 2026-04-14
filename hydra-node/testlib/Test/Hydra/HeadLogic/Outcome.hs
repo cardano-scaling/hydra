@@ -43,7 +43,7 @@ genStateChanged env =
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary
-    , SnapshotConfirmed <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
     , DepositRecorded <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , DepositActivated <$> arbitrary <*> arbitrary <*> arbitrary
     , DepositExpired <$> arbitrary <*> arbitrary <*> arbitrary
