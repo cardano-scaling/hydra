@@ -50,26 +50,26 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-39"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679635965"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679635965"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679635966"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679635966"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><span id="line-39"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679636107"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636107"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636108"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679636108"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 </span><span class="hs-identifier hs-var">genKeyPair</span></span><span>
-</span><span id="line-40"></span><span>    </span><span id="local-6989586621679635967"><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679635967"><span class="hs-identifier hs-var">txIn</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; IO TxIn
+</span><span id="line-40"></span><span>    </span><span id="local-6989586621679636109"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679636109"><span class="hs-identifier hs-var">txIn</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen TxIn -&gt; IO TxIn
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">Gen TxIn
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
-</span><span id="line-41"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679635969"><span class="annot"><span class="annottext">utxo :: UTxO Era
-</span><a href="#local-6989586621679635969"><span class="hs-identifier hs-var hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679636111"><span class="annot"><span class="annottext">utxo :: UTxO Era
+</span><a href="#local-6989586621679636111"><span class="hs-identifier hs-var hs-var">utxo</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-42"></span><span>          </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; UTxO Era
 forall era. TxIn -&gt; TxOut CtxUTxO era -&gt; UTxO era
 </span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span>
 </span><span id="line-43"></span><span>            </span><span class="annot"><span class="annottext">TxIn
-</span><a href="#local-6989586621679635967"><span class="hs-identifier hs-var">txIn</span></a></span><span>
+</span><a href="#local-6989586621679636109"><span class="hs-identifier hs-var">txIn</span></a></span><span>
 </span><span id="line-44"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">AddressInEra
 -&gt; Value
 -&gt; TxOutDatum CtxUTxO
@@ -85,7 +85,7 @@ IsShelleyBasedEra era =&gt;
 NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Mainnet</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679635965"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679636107"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-46"></span><span>                </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
 </span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Lovelace
 </span><span class="hs-number">100_000_000</span></span><span class="hs-special">)</span><span>
@@ -95,15 +95,15 @@ forall ctx. TxOutDatum ctx
 </span><span id="line-48"></span><span>                </span><span class="annot"><span class="annottext">ReferenceScript
 </span><span class="hs-identifier hs-var">ReferenceScriptNone</span></span><span>
 </span><span id="line-49"></span><span>            </span><span class="hs-special">)</span><span>
-</span><span id="line-50"></span><span>    </span><span id="local-6989586621679635972"><span class="annot"><span class="annottext">[TxId]
-</span><a href="#local-6989586621679635972"><span class="hs-identifier hs-var">txIds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, UTxO Era)
+</span><span id="line-50"></span><span>    </span><span id="local-6989586621679636114"><span class="annot"><span class="annottext">[TxId]
+</span><a href="#local-6989586621679636114"><span class="hs-identifier hs-var">txIds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, UTxO Era)
 -&gt; SuccessfulBackend [TxId] -&gt; IO [TxId]
 forall a.
 (VerificationKey PaymentKey, UTxO Era)
 -&gt; SuccessfulBackend a -&gt; IO a
 </span><a href="Hydra.Chain.ScriptRegistrySpec.html#runSuccessfulBackend"><span class="hs-identifier hs-var">runSuccessfulBackend</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679635965"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679635969"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(SuccessfulBackend [TxId] -&gt; IO [TxId])
+</span><a href="#local-6989586621679636107"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679636111"><span class="hs-identifier hs-var">utxo</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(SuccessfulBackend [TxId] -&gt; IO [TxId])
 -&gt; SuccessfulBackend [TxId] -&gt; IO [TxId]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; SuccessfulBackend [TxId]
@@ -111,12 +111,12 @@ forall (m :: * -&gt; *).
 (ChainBackend m, MonadIO m, MonadCatch m) =&gt;
 SigningKey PaymentKey -&gt; m [TxId]
 </span><span class="hs-identifier hs-var">publishHydraScripts</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679635966"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><a href="#local-6989586621679636108"><span class="hs-identifier hs-var">sk</span></a></span><span>
 </span><span id="line-51"></span><span>    </span><span class="annot"><span class="annottext">[TxId] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[TxId]
-</span><a href="#local-6989586621679635972"><span class="hs-identifier hs-var">txIds</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IO ()
+</span><a href="#local-6989586621679636114"><span class="hs-identifier hs-var">txIds</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span>
@@ -130,9 +130,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-54"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679635976"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679635976"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679635977"><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679635977"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
+</span><span id="line-54"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679636118"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636118"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636119"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679636119"><span class="hs-identifier hs-var">sk</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
 -&gt; IO (VerificationKey PaymentKey, SigningKey PaymentKey)
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">Gen (VerificationKey PaymentKey, SigningKey PaymentKey)
@@ -140,12 +140,12 @@ forall a. Gen a -&gt; IO a
 </span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; ATestBackend [TxId] -&gt; IO [TxId]
 forall a. VerificationKey PaymentKey -&gt; ATestBackend a -&gt; IO a
 </span><a href="Hydra.Chain.ScriptRegistrySpec.html#runATestBackend"><span class="hs-identifier hs-var">runATestBackend</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679635976"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; ATestBackend [TxId]
+</span><a href="#local-6989586621679636118"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; ATestBackend [TxId]
 forall (m :: * -&gt; *).
 (ChainBackend m, MonadIO m, MonadCatch m) =&gt;
 SigningKey PaymentKey -&gt; m [TxId]
 </span><span class="hs-identifier hs-var">publishHydraScripts</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679635977"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO [TxId] -&gt; Selector PublishScriptException -&gt; IO ()
+</span><a href="#local-6989586621679636119"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO [TxId] -&gt; Selector PublishScriptException -&gt; IO ()
 forall e a.
 (HasCallStack, Exception e) =&gt;
 IO a -&gt; Selector e -&gt; IO ()
@@ -157,8 +157,8 @@ IO a -&gt; Selector e -&gt; IO ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
 </span><span id="line-58"></span><span>
 </span><span id="line-59"></span><span class="annot"><span class="hs-comment">-- | A test backend that will throw 'NoUTxOFound' on 'queryUTxOFor' call.</span></span><span>
-</span><span id="line-60"></span><span class="hs-keyword">newtype</span><span> </span><span id="ATestBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-var">ATestBackend</span></a></span></span><span> </span><span id="local-6989586621679635803"><span class="annot"><a href="#local-6989586621679635803"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ATestBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-var">ATestBackend</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Reader.html#ReaderT"><span class="hs-identifier hs-type">ReaderT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635803"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-61"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679635985"><span id="local-6989586621679635991"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; ATestBackend a -&gt; ATestBackend b)
+</span><span id="line-60"></span><span class="hs-keyword">newtype</span><span> </span><span id="ATestBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-var">ATestBackend</span></a></span></span><span> </span><span id="local-6989586621679635945"><span class="annot"><a href="#local-6989586621679635945"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ATestBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-var">ATestBackend</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Reader.html#ReaderT"><span class="hs-identifier hs-type">ReaderT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635945"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679636127"><span id="local-6989586621679636133"><span class="annot"><span class="annottext">(forall a b. (a -&gt; b) -&gt; ATestBackend a -&gt; ATestBackend b)
 -&gt; (forall a b. a -&gt; ATestBackend b -&gt; ATestBackend a)
 -&gt; Functor ATestBackend
 forall a b. a -&gt; ATestBackend b -&gt; ATestBackend a
@@ -170,7 +170,7 @@ $cfmap :: forall a b. (a -&gt; b) -&gt; ATestBackend a -&gt; ATestBackend b
 fmap :: forall a b. (a -&gt; b) -&gt; ATestBackend a -&gt; ATestBackend b
 $c&lt;$ :: forall a b. a -&gt; ATestBackend b -&gt; ATestBackend a
 &lt;$ :: forall a b. a -&gt; ATestBackend b -&gt; ATestBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636001"><span id="local-6989586621679636007"><span id="local-6989586621679636012"><span id="local-6989586621679636017"><span id="local-6989586621679636022"><span class="annot"><span class="annottext">Functor ATestBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636143"><span id="local-6989586621679636149"><span id="local-6989586621679636154"><span id="local-6989586621679636159"><span id="local-6989586621679636164"><span class="annot"><span class="annottext">Functor ATestBackend
 Functor ATestBackend =&gt;
 (forall a. a -&gt; ATestBackend a)
 -&gt; (forall a b.
@@ -210,7 +210,7 @@ $c*&gt; :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend b
 *&gt; :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend b
 $c&lt;* :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend a
 &lt;* :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></a></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636032"><span id="local-6989586621679636037"><span id="local-6989586621679636041"><span class="annot"><span class="annottext">Applicative ATestBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></a></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636174"><span id="local-6989586621679636179"><span id="local-6989586621679636183"><span class="annot"><span class="annottext">Applicative ATestBackend
 Applicative ATestBackend =&gt;
 (forall a b.
  ATestBackend a -&gt; (a -&gt; ATestBackend b) -&gt; ATestBackend b)
@@ -235,7 +235,7 @@ $c&gt;&gt; :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend
 &gt;&gt; :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend b
 $creturn :: forall a. a -&gt; ATestBackend a
 return :: forall a. a -&gt; ATestBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636049"><span class="annot"><span class="annottext">Monad ATestBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636191"><span class="annot"><span class="annottext">Monad ATestBackend
 Monad ATestBackend =&gt;
 (forall a. IO a -&gt; ATestBackend a) -&gt; MonadIO ATestBackend
 forall a. IO a -&gt; ATestBackend a
@@ -244,7 +244,7 @@ Monad m =&gt;
 (forall a. IO a -&gt; m a) -&gt; MonadIO m
 $cliftIO :: forall a. IO a -&gt; ATestBackend a
 liftIO :: forall a. IO a -&gt; ATestBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636061"><span id="local-6989586621679636069"><span id="local-6989586621679636074"><span id="local-6989586621679636079"><span class="annot"><span class="annottext">Monad ATestBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636203"><span id="local-6989586621679636211"><span id="local-6989586621679636216"><span id="local-6989586621679636221"><span class="annot"><span class="annottext">Monad ATestBackend
 Monad ATestBackend =&gt;
 (forall e a. Exception e =&gt; e -&gt; ATestBackend a)
 -&gt; (forall a b c.
@@ -288,7 +288,7 @@ ATestBackend a
 -&gt; ATestBackend b -&gt; ATestBackend c -&gt; ATestBackend c
 $cfinally :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend a
 finally :: forall a b. ATestBackend a -&gt; ATestBackend b -&gt; ATestBackend a
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636091"><span id="local-6989586621679636101"><span id="local-6989586621679636110"><span id="local-6989586621679636119"><span id="local-6989586621679636128"><span id="local-6989586621679636137"><span id="local-6989586621679636144"><span id="local-6989586621679636149"><span id="local-6989586621679636154"><span class="annot"><span class="annottext">MonadThrow ATestBackend
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636233"><span id="local-6989586621679636243"><span id="local-6989586621679636252"><span id="local-6989586621679636261"><span id="local-6989586621679636270"><span id="local-6989586621679636279"><span id="local-6989586621679636286"><span id="local-6989586621679636291"><span id="local-6989586621679636296"><span class="annot"><span class="annottext">MonadThrow ATestBackend
 MonadThrow ATestBackend =&gt;
 (forall e a.
  Exception e =&gt;
@@ -430,22 +430,22 @@ ATestBackend a
 -&gt; ATestBackend (b, c)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadCatch</span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-62"></span><span>
-</span><span id="line-63"></span><span id="local-6989586621679635639"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#runATestBackend"><span class="hs-identifier hs-type">runATestBackend</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-type">ATestBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635639"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635639"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-63"></span><span id="local-6989586621679635781"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#runATestBackend"><span class="hs-identifier hs-type">runATestBackend</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-type">ATestBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635781"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635781"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-64"></span><span id="runATestBackend"><span class="annot"><span class="annottext">runATestBackend :: forall a. VerificationKey PaymentKey -&gt; ATestBackend a -&gt; IO a
-</span><a href="Hydra.Chain.ScriptRegistrySpec.html#runATestBackend"><span class="hs-identifier hs-var hs-var">runATestBackend</span></a></span></span><span> </span><span id="local-6989586621679636160"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636160"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-type">ATestBackend</span></a></span><span> </span><span id="local-6989586621679636161"><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO a
-</span><a href="#local-6989586621679636161"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO a
+</span><a href="Hydra.Chain.ScriptRegistrySpec.html#runATestBackend"><span class="hs-identifier hs-var hs-var">runATestBackend</span></a></span></span><span> </span><span id="local-6989586621679636302"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636302"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-type">ATestBackend</span></a></span><span> </span><span id="local-6989586621679636303"><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO a
+</span><a href="#local-6989586621679636303"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO a
 -&gt; VerificationKey PaymentKey -&gt; IO a
 forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Reader.html#runReaderT"><span class="hs-identifier hs-var">runReaderT</span></a></span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO a
-</span><a href="#local-6989586621679636161"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636160"><span class="hs-identifier hs-var">vk</span></a></span><span>
+</span><a href="#local-6989586621679636303"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636302"><span class="hs-identifier hs-var">vk</span></a></span><span>
 </span><span id="line-65"></span><span>
 </span><span id="line-66"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainBackend</span></span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#ATestBackend"><span class="hs-identifier hs-type">ATestBackend</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-67"></span><span>  </span><span id="local-6989586621679636199"><span class="annot"><span class="annottext">queryUTxOFor :: QueryPoint -&gt; VerificationKey PaymentKey -&gt; ATestBackend (UTxO Era)
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621679636341"><span class="annot"><span class="annottext">queryUTxOFor :: QueryPoint -&gt; VerificationKey PaymentKey -&gt; ATestBackend (UTxO Era)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxOFor</span></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679636200"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636200"><span class="hs-identifier hs-var">vk'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO (UTxO Era)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679636342"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636342"><span class="hs-identifier hs-var">vk'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey) IO (UTxO Era)
 -&gt; ATestBackend (UTxO Era)
 forall a.
 ReaderT (VerificationKey PaymentKey) IO a -&gt; ATestBackend a
@@ -455,16 +455,16 @@ ReaderT (VerificationKey PaymentKey) IO a -&gt; ATestBackend a
 -&gt; ATestBackend (UTxO Era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-68"></span><span>    </span><span id="local-6989586621679636201"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636201"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ReaderT
+</span><span id="line-68"></span><span>    </span><span id="local-6989586621679636343"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636343"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ReaderT
   (VerificationKey PaymentKey) IO (VerificationKey PaymentKey)
 forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.Reader.Class.html#ask"><span class="hs-identifier hs-var">ask</span></a></span><span>
 </span><span id="line-69"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636201"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; VerificationKey PaymentKey -&gt; Bool
+</span><a href="#local-6989586621679636343"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; VerificationKey PaymentKey -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636200"><span class="hs-identifier hs-var">vk'</span></a></span><span>
+</span><a href="#local-6989586621679636342"><span class="hs-identifier hs-var">vk'</span></a></span><span>
 </span><span id="line-70"></span><span>      </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">APIBlockfrostError
 -&gt; ReaderT (VerificationKey PaymentKey) IO (UTxO Era)
 forall e a.
@@ -480,7 +480,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">BlockfrostError</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Address ShelleyAddr -&gt; BlockfrostException
 </span><span class="hs-identifier hs-var">NoUTxOFound</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; Address ShelleyAddr
 </span><a href="Hydra.Chain.ScriptRegistrySpec.html#toAddress"><span class="hs-identifier hs-var">toAddress</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636201"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679636343"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-71"></span><span>      </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">String -&gt; ReaderT (VerificationKey PaymentKey) IO (UTxO Era)
 forall (m :: * -&gt; *) a.
 (HasCallStack, MonadThrow m) =&gt;
@@ -494,77 +494,77 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636200"><span class="hs-identifier hs-var">vk'</span></a></span><span>
+</span><a href="#local-6989586621679636342"><span class="hs-identifier hs-var">vk'</span></a></span><span>
 </span><span id="line-72"></span><span>
 </span><span id="line-73"></span><span>  </span><span class="hs-comment">-- Other methods are not needed for this test.</span><span>
-</span><span id="line-74"></span><span>  </span><span id="local-6989586621679636214"><span class="annot"><span class="annottext">queryGenesisParameters :: ATestBackend (GenesisParameters ShelleyEra)
-</span><a href="#local-6989586621679636214"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryGenesisParameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend (GenesisParameters ShelleyEra)
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679636356"><span class="annot"><span class="annottext">queryGenesisParameters :: ATestBackend (GenesisParameters ShelleyEra)
+</span><a href="#local-6989586621679636356"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryGenesisParameters</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend (GenesisParameters ShelleyEra)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryGenesisParameters&quot;</span></span><span>
-</span><span id="line-75"></span><span>  </span><span id="local-6989586621679636223"><span class="annot"><span class="annottext">queryScriptRegistry :: [TxId] -&gt; ATestBackend ScriptRegistry
-</span><a href="#local-6989586621679636223"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryScriptRegistry</span></a></span></span><span> </span><span class="annot"><span class="annottext">[TxId]
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621679636365"><span class="annot"><span class="annottext">queryScriptRegistry :: [TxId] -&gt; ATestBackend ScriptRegistry
+</span><a href="#local-6989586621679636365"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryScriptRegistry</span></a></span></span><span> </span><span class="annot"><span class="annottext">[TxId]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend ScriptRegistry
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryScriptRegistry&quot;</span></span><span>
-</span><span id="line-76"></span><span>  </span><span id="local-6989586621679636231"><span class="annot"><span class="annottext">queryUTxO :: [Address ShelleyAddr] -&gt; ATestBackend (UTxO Era)
-</span><a href="#local-6989586621679636231"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxO</span></a></span></span><span> </span><span class="annot"><span class="annottext">[Address ShelleyAddr]
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621679636373"><span class="annot"><span class="annottext">queryUTxO :: [Address ShelleyAddr] -&gt; ATestBackend (UTxO Era)
+</span><a href="#local-6989586621679636373"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxO</span></a></span></span><span> </span><span class="annot"><span class="annottext">[Address ShelleyAddr]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend (UTxO Era)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryUTxO&quot;</span></span><span>
-</span><span id="line-77"></span><span>  </span><span id="local-6989586621679636239"><span class="annot"><span class="annottext">queryUTxOByTxIn :: [TxIn] -&gt; ATestBackend (UTxO Era)
-</span><a href="#local-6989586621679636239"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxOByTxIn</span></a></span></span><span> </span><span class="annot"><span class="annottext">[TxIn]
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679636381"><span class="annot"><span class="annottext">queryUTxOByTxIn :: [TxIn] -&gt; ATestBackend (UTxO Era)
+</span><a href="#local-6989586621679636381"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxOByTxIn</span></a></span></span><span> </span><span class="annot"><span class="annottext">[TxIn]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend (UTxO Era)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryUTxOByTxIn&quot;</span></span><span>
-</span><span id="line-78"></span><span>  </span><span id="local-6989586621679636247"><span class="annot"><span class="annottext">queryTip :: ATestBackend ChainPoint
-</span><a href="#local-6989586621679636247"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryTip</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend ChainPoint
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679636389"><span class="annot"><span class="annottext">queryTip :: ATestBackend ChainPoint
+</span><a href="#local-6989586621679636389"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryTip</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend ChainPoint
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryTip&quot;</span></span><span>
-</span><span id="line-79"></span><span>  </span><span id="local-6989586621679636255"><span class="annot"><span class="annottext">submitTransaction :: Tx -&gt; ATestBackend ()
-</span><a href="#local-6989586621679636255"><span class="hs-identifier hs-var hs-var hs-var hs-var">submitTransaction</span></a></span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679636397"><span class="annot"><span class="annottext">submitTransaction :: Tx -&gt; ATestBackend ()
+</span><a href="#local-6989586621679636397"><span class="hs-identifier hs-var hs-var hs-var hs-var">submitTransaction</span></a></span></span><span> </span><span class="annot"><span class="annottext">Tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend ()
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;submitTransaction&quot;</span></span><span>
-</span><span id="line-80"></span><span>  </span><span id="local-6989586621679636263"><span class="annot"><span class="annottext">awaitTransaction :: Tx -&gt; VerificationKey PaymentKey -&gt; ATestBackend (UTxO Era)
-</span><a href="#local-6989586621679636263"><span class="hs-identifier hs-var hs-var hs-var hs-var">awaitTransaction</span></a></span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><span id="line-80"></span><span>  </span><span id="local-6989586621679636405"><span class="annot"><span class="annottext">awaitTransaction :: Tx -&gt; VerificationKey PaymentKey -&gt; ATestBackend (UTxO Era)
+</span><a href="#local-6989586621679636405"><span class="hs-identifier hs-var hs-var hs-var hs-var">awaitTransaction</span></a></span></span><span> </span><span class="annot"><span class="annottext">Tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend (UTxO Era)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;awaitTransaction&quot;</span></span><span>
-</span><span id="line-81"></span><span>  </span><span id="local-6989586621679636271"><span class="annot"><span class="annottext">getBlockTime :: ATestBackend NominalDiffTime
-</span><a href="#local-6989586621679636271"><span class="hs-identifier hs-var hs-var hs-var hs-var">getBlockTime</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend NominalDiffTime
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679636413"><span class="annot"><span class="annottext">getBlockTime :: ATestBackend NominalDiffTime
+</span><a href="#local-6989586621679636413"><span class="hs-identifier hs-var hs-var hs-var hs-var">getBlockTime</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ATestBackend NominalDiffTime
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;getBlockTime&quot;</span></span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621679636276"><span class="annot"><span class="annottext">getQueryDelay :: ATestBackend NominalDiffTime
-</span><a href="#local-6989586621679636276"><span class="hs-identifier hs-var hs-var hs-var hs-var">getQueryDelay</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ATestBackend NominalDiffTime
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679636418"><span class="annot"><span class="annottext">getQueryDelay :: ATestBackend NominalDiffTime
+</span><a href="#local-6989586621679636418"><span class="hs-identifier hs-var hs-var hs-var hs-var">getQueryDelay</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; ATestBackend NominalDiffTime
 forall a. a -&gt; ATestBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">0</span></span><span>
-</span><span id="line-83"></span><span>  </span><span id="local-6989586621679636279"><span class="annot"><span class="annottext">queryNetworkId :: ATestBackend NetworkId
-</span><a href="#local-6989586621679636279"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryNetworkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; ATestBackend NetworkId
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621679636421"><span class="annot"><span class="annottext">queryNetworkId :: ATestBackend NetworkId
+</span><a href="#local-6989586621679636421"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryNetworkId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; ATestBackend NetworkId
 forall a. a -&gt; ATestBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Mainnet</span></span><span>
-</span><span id="line-84"></span><span>  </span><span id="local-6989586621679636284"><span class="annot"><span class="annottext">queryProtocolParameters :: QueryPoint -&gt; ATestBackend (PParams LedgerEra)
-</span><a href="#local-6989586621679636284"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryProtocolParameters</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679636426"><span class="annot"><span class="annottext">queryProtocolParameters :: QueryPoint -&gt; ATestBackend (PParams LedgerEra)
+</span><a href="#local-6989586621679636426"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryProtocolParameters</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; ATestBackend (PParams ConwayEra)
 forall a. a -&gt; ATestBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
 forall era. EraPParams era =&gt; PParams era
 </span><span class="hs-identifier hs-var">emptyPParams</span></span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621679636290"><span class="annot"><span class="annottext">querySystemStart :: QueryPoint -&gt; ATestBackend SystemStart
-</span><a href="#local-6989586621679636290"><span class="hs-identifier hs-var hs-var hs-var hs-var">querySystemStart</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679636432"><span class="annot"><span class="annottext">querySystemStart :: QueryPoint -&gt; ATestBackend SystemStart
+</span><a href="#local-6989586621679636432"><span class="hs-identifier hs-var hs-var hs-var hs-var">querySystemStart</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
 </span><span class="hs-identifier hs-var">SystemStart</span></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; SystemStart)
 -&gt; ATestBackend UTCTime -&gt; ATestBackend SystemStart
@@ -575,15 +575,15 @@ forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-86"></span><span>  </span><span id="local-6989586621679636297"><span class="annot"><span class="annottext">queryEraHistory :: QueryPoint -&gt; ATestBackend EraHistory
-</span><a href="#local-6989586621679636297"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryEraHistory</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679636439"><span class="annot"><span class="annottext">queryEraHistory :: QueryPoint -&gt; ATestBackend EraHistory
+</span><a href="#local-6989586621679636439"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryEraHistory</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EraHistory -&gt; ATestBackend EraHistory
 forall a. a -&gt; ATestBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
 </span><span class="hs-identifier hs-var">eraHistoryWithoutHorizon</span></span><span>
-</span><span id="line-87"></span><span>  </span><span id="local-6989586621679636304"><span class="annot"><span class="annottext">queryStakePools :: QueryPoint -&gt; ATestBackend (Set PoolId)
-</span><a href="#local-6989586621679636304"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryStakePools</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
+</span><span id="line-87"></span><span>  </span><span id="local-6989586621679636446"><span class="annot"><span class="annottext">queryStakePools :: QueryPoint -&gt; ATestBackend (Set PoolId)
+</span><a href="#local-6989586621679636446"><span class="hs-identifier hs-var hs-var hs-var hs-var">queryStakePools</span></a></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set PoolId -&gt; ATestBackend (Set PoolId)
 forall a. a -&gt; ATestBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -592,8 +592,8 @@ forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
 </span><span id="line-88"></span><span>
 </span><span id="line-89"></span><span class="annot"><span class="hs-comment">-- | A test backend that simulates a successful script publishing.</span></span><span>
-</span><span id="line-90"></span><span class="hs-keyword">newtype</span><span> </span><span id="SuccessfulBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-var">SuccessfulBackend</span></a></span></span><span> </span><span id="local-6989586621679635889"><span class="annot"><a href="#local-6989586621679635889"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SuccessfulBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-var">SuccessfulBackend</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Reader.html#ReaderT"><span class="hs-identifier hs-type">ReaderT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635889"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-91"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679636308"><span id="local-6989586621679636313"><span class="annot"><span class="annottext">(forall a b.
+</span><span id="line-90"></span><span class="hs-keyword">newtype</span><span> </span><span id="SuccessfulBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-var">SuccessfulBackend</span></a></span></span><span> </span><span id="local-6989586621679636031"><span class="annot"><a href="#local-6989586621679636031"><span class="hs-identifier hs-type">a</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="SuccessfulBackend"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-var">SuccessfulBackend</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Reader.html#ReaderT"><span class="hs-identifier hs-type">ReaderT</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679636031"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679636450"><span id="local-6989586621679636455"><span class="annot"><span class="annottext">(forall a b.
  (a -&gt; b) -&gt; SuccessfulBackend a -&gt; SuccessfulBackend b)
 -&gt; (forall a b. a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a)
 -&gt; Functor SuccessfulBackend
@@ -606,7 +606,7 @@ $cfmap :: forall a b. (a -&gt; b) -&gt; SuccessfulBackend a -&gt; SuccessfulBack
 fmap :: forall a b. (a -&gt; b) -&gt; SuccessfulBackend a -&gt; SuccessfulBackend b
 $c&lt;$ :: forall a b. a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a
 &lt;$ :: forall a b. a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636321"><span id="local-6989586621679636326"><span id="local-6989586621679636331"><span id="local-6989586621679636336"><span id="local-6989586621679636341"><span class="annot"><span class="annottext">Functor SuccessfulBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Functor"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Functor</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636463"><span id="local-6989586621679636468"><span id="local-6989586621679636473"><span id="local-6989586621679636478"><span id="local-6989586621679636483"><span class="annot"><span class="annottext">Functor SuccessfulBackend
 Functor SuccessfulBackend =&gt;
 (forall a. a -&gt; SuccessfulBackend a)
 -&gt; (forall a b.
@@ -669,7 +669,7 @@ $c&lt;* :: forall a b.
 SuccessfulBackend a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a
 &lt;* :: forall a b.
 SuccessfulBackend a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></a></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636349"><span id="local-6989586621679636353"><span id="local-6989586621679636357"><span class="annot"><span class="annottext">Applicative SuccessfulBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Applicative</span></a></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636491"><span id="local-6989586621679636495"><span id="local-6989586621679636499"><span class="annot"><span class="annottext">Applicative SuccessfulBackend
 Applicative SuccessfulBackend =&gt;
 (forall a b.
  SuccessfulBackend a
@@ -702,7 +702,7 @@ SuccessfulBackend a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend b
 SuccessfulBackend a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend b
 $creturn :: forall a. a -&gt; SuccessfulBackend a
 return :: forall a. a -&gt; SuccessfulBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636364"><span class="annot"><span class="annottext">Monad SuccessfulBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Monad</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636506"><span class="annot"><span class="annottext">Monad SuccessfulBackend
 Monad SuccessfulBackend =&gt;
 (forall a. IO a -&gt; SuccessfulBackend a)
 -&gt; MonadIO SuccessfulBackend
@@ -712,7 +712,7 @@ Monad m =&gt;
 (forall a. IO a -&gt; m a) -&gt; MonadIO m
 $cliftIO :: forall a. IO a -&gt; SuccessfulBackend a
 liftIO :: forall a. IO a -&gt; SuccessfulBackend a
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636373"><span id="local-6989586621679636380"><span id="local-6989586621679636385"><span id="local-6989586621679636390"><span class="annot"><span class="annottext">Monad SuccessfulBackend
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#MonadIO"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var">MonadIO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636515"><span id="local-6989586621679636522"><span id="local-6989586621679636527"><span id="local-6989586621679636532"><span class="annot"><span class="annottext">Monad SuccessfulBackend
 Monad SuccessfulBackend =&gt;
 (forall e a. Exception e =&gt; e -&gt; SuccessfulBackend a)
 -&gt; (forall a b c.
@@ -774,7 +774,7 @@ $cfinally :: forall a b.
 SuccessfulBackend a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a
 finally :: forall a b.
 SuccessfulBackend a -&gt; SuccessfulBackend b -&gt; SuccessfulBackend a
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636400"><span id="local-6989586621679636409"><span id="local-6989586621679636418"><span id="local-6989586621679636427"><span id="local-6989586621679636436"><span id="local-6989586621679636445"><span id="local-6989586621679636452"><span id="local-6989586621679636457"><span id="local-6989586621679636462"><span class="annot"><span class="annottext">MonadThrow SuccessfulBackend
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadThrow</span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636542"><span id="local-6989586621679636551"><span id="local-6989586621679636560"><span id="local-6989586621679636569"><span id="local-6989586621679636578"><span id="local-6989586621679636587"><span id="local-6989586621679636594"><span id="local-6989586621679636599"><span id="local-6989586621679636604"><span class="annot"><span class="annottext">MonadThrow SuccessfulBackend
 MonadThrow SuccessfulBackend =&gt;
 (forall e a.
  Exception e =&gt;
@@ -954,25 +954,25 @@ SuccessfulBackend a
 -&gt; SuccessfulBackend (b, c)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">MonadCatch</span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-92"></span><span>
-</span><span id="line-93"></span><span id="local-6989586621679635634"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#runSuccessfulBackend"><span class="hs-identifier hs-type">runSuccessfulBackend</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-type">SuccessfulBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635634"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635634"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-93"></span><span id="local-6989586621679635776"><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#runSuccessfulBackend"><span class="hs-identifier hs-type">runSuccessfulBackend</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-type">SuccessfulBackend</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635776"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679635776"><span class="hs-identifier hs-type">a</span></a></span></span><span>
 </span><span id="line-94"></span><span id="runSuccessfulBackend"><span class="annot"><span class="annottext">runSuccessfulBackend :: forall a.
 (VerificationKey PaymentKey, UTxO Era)
 -&gt; SuccessfulBackend a -&gt; IO a
-</span><a href="Hydra.Chain.ScriptRegistrySpec.html#runSuccessfulBackend"><span class="hs-identifier hs-var hs-var">runSuccessfulBackend</span></a></span></span><span> </span><span id="local-6989586621679636466"><span class="annot"><span class="annottext">(VerificationKey PaymentKey, UTxO Era)
-</span><a href="#local-6989586621679636466"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-type">SuccessfulBackend</span></a></span><span> </span><span id="local-6989586621679636467"><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
-</span><a href="#local-6989586621679636467"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
+</span><a href="Hydra.Chain.ScriptRegistrySpec.html#runSuccessfulBackend"><span class="hs-identifier hs-var hs-var">runSuccessfulBackend</span></a></span></span><span> </span><span id="local-6989586621679636608"><span class="annot"><span class="annottext">(VerificationKey PaymentKey, UTxO Era)
+</span><a href="#local-6989586621679636608"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-type">SuccessfulBackend</span></a></span><span> </span><span id="local-6989586621679636609"><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
+</span><a href="#local-6989586621679636609"><span class="hs-identifier hs-var">m</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
 -&gt; (VerificationKey PaymentKey, UTxO Era) -&gt; IO a
 forall r (m :: * -&gt; *) a. ReaderT r m a -&gt; r -&gt; m a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.Reader.html#runReaderT"><span class="hs-identifier hs-var">runReaderT</span></a></span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
-</span><a href="#local-6989586621679636467"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, UTxO Era)
-</span><a href="#local-6989586621679636466"><span class="hs-identifier hs-var">env</span></a></span><span>
+</span><a href="#local-6989586621679636609"><span class="hs-identifier hs-var">m</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationKey PaymentKey, UTxO Era)
+</span><a href="#local-6989586621679636608"><span class="hs-identifier hs-var">env</span></a></span><span>
 </span><span id="line-95"></span><span>
 </span><span id="line-96"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainBackend</span></span><span> </span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#SuccessfulBackend"><span class="hs-identifier hs-type">SuccessfulBackend</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-97"></span><span>  </span><span id="local-6989586621679636497"><span class="annot"><span class="annottext">queryUTxOFor :: QueryPoint
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621679636639"><span class="annot"><span class="annottext">queryUTxOFor :: QueryPoint
 -&gt; VerificationKey PaymentKey -&gt; SuccessfulBackend (UTxO Era)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxOFor</span></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679636498"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636498"><span class="hs-identifier hs-var">vk'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO (UTxO Era)
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679636640"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636640"><span class="hs-identifier hs-var">vk'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ReaderT (VerificationKey PaymentKey, UTxO Era) IO (UTxO Era)
 -&gt; SuccessfulBackend (UTxO Era)
 forall a.
 ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
@@ -983,25 +983,25 @@ ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
 -&gt; SuccessfulBackend (UTxO Era)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-98"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679636499"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636499"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636500"><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679636500"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ReaderT
+</span><span id="line-98"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679636641"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636641"><span class="hs-identifier hs-var">vk</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679636642"><span class="annot"><span class="annottext">UTxO Era
+</span><a href="#local-6989586621679636642"><span class="hs-identifier hs-var">u</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ReaderT
   (VerificationKey PaymentKey, UTxO Era)
   IO
   (VerificationKey PaymentKey, UTxO Era)
 forall r (m :: * -&gt; *). MonadReader r m =&gt; m r
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.Reader.Class.html#ask"><span class="hs-identifier hs-var">ask</span></a></span><span>
 </span><span id="line-99"></span><span>    </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636499"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; VerificationKey PaymentKey -&gt; Bool
+</span><a href="#local-6989586621679636641"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; VerificationKey PaymentKey -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636498"><span class="hs-identifier hs-var">vk'</span></a></span><span>
+</span><a href="#local-6989586621679636640"><span class="hs-identifier hs-var">vk'</span></a></span><span>
 </span><span id="line-100"></span><span>      </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">UTxO Era
 -&gt; ReaderT (VerificationKey PaymentKey, UTxO Era) IO (UTxO Era)
 forall a. a -&gt; ReaderT (VerificationKey PaymentKey, UTxO Era) IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO Era
-</span><a href="#local-6989586621679636500"><span class="hs-identifier hs-var">u</span></a></span><span>
+</span><a href="#local-6989586621679636642"><span class="hs-identifier hs-var">u</span></a></span><span>
 </span><span id="line-101"></span><span>      </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; ReaderT (VerificationKey PaymentKey, UTxO Era) IO (UTxO Era)
 forall (m :: * -&gt; *) a.
@@ -1018,16 +1018,16 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636498"><span class="hs-identifier hs-var">vk'</span></a></span><span>
+</span><a href="#local-6989586621679636640"><span class="hs-identifier hs-var">vk'</span></a></span><span>
 </span><span id="line-102"></span><span>
-</span><span id="line-103"></span><span>  </span><span id="local-6989586621679636502"><span class="annot"><span class="annottext">submitTransaction :: Tx -&gt; SuccessfulBackend ()
+</span><span id="line-103"></span><span>  </span><span id="local-6989586621679636644"><span class="annot"><span class="annottext">submitTransaction :: Tx -&gt; SuccessfulBackend ()
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">submitTransaction</span></span></span><span> </span><span class="annot"><span class="annottext">Tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; SuccessfulBackend ()
 forall a. a -&gt; SuccessfulBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-104"></span><span>
-</span><span id="line-105"></span><span>  </span><span id="local-6989586621679636506"><span class="annot"><span class="annottext">awaitTransaction :: Tx -&gt; VerificationKey PaymentKey -&gt; SuccessfulBackend (UTxO Era)
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621679636648"><span class="annot"><span class="annottext">awaitTransaction :: Tx -&gt; VerificationKey PaymentKey -&gt; SuccessfulBackend (UTxO Era)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">awaitTransaction</span></span></span><span> </span><span class="annot"><span class="annottext">Tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO Era -&gt; SuccessfulBackend (UTxO Era)
@@ -1037,13 +1037,13 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
 </span><span id="line-106"></span><span>
-</span><span id="line-107"></span><span>  </span><span id="local-6989586621679636508"><span class="annot"><span class="annottext">queryNetworkId :: SuccessfulBackend NetworkId
+</span><span id="line-107"></span><span>  </span><span id="local-6989586621679636650"><span class="annot"><span class="annottext">queryNetworkId :: SuccessfulBackend NetworkId
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryNetworkId</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; SuccessfulBackend NetworkId
 forall a. a -&gt; SuccessfulBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Mainnet</span></span><span>
-</span><span id="line-108"></span><span>  </span><span id="local-6989586621679636511"><span class="annot"><span class="annottext">queryProtocolParameters :: QueryPoint -&gt; SuccessfulBackend (PParams LedgerEra)
+</span><span id="line-108"></span><span>  </span><span id="local-6989586621679636653"><span class="annot"><span class="annottext">queryProtocolParameters :: QueryPoint -&gt; SuccessfulBackend (PParams LedgerEra)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryProtocolParameters</span></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra -&gt; SuccessfulBackend (PParams ConwayEra)
 forall a. a -&gt; SuccessfulBackend a
@@ -1051,7 +1051,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">PParams ConwayEra
 forall era. EraPParams era =&gt; PParams era
 </span><span class="hs-identifier hs-var">emptyPParams</span></span><span>
-</span><span id="line-109"></span><span>  </span><span id="local-6989586621679636515"><span class="annot"><span class="annottext">querySystemStart :: QueryPoint -&gt; SuccessfulBackend SystemStart
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679636657"><span class="annot"><span class="annottext">querySystemStart :: QueryPoint -&gt; SuccessfulBackend SystemStart
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">querySystemStart</span></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; SystemStart
 </span><span class="hs-identifier hs-var">SystemStart</span></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; SystemStart)
@@ -1063,14 +1063,14 @@ forall (m :: * -&gt; *) a. MonadIO m =&gt; IO a -&gt; m a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.IO.Class.html#liftIO"><span class="hs-identifier hs-var">liftIO</span></a></span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-110"></span><span>  </span><span id="local-6989586621679636517"><span class="annot"><span class="annottext">queryEraHistory :: QueryPoint -&gt; SuccessfulBackend EraHistory
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679636659"><span class="annot"><span class="annottext">queryEraHistory :: QueryPoint -&gt; SuccessfulBackend EraHistory
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryEraHistory</span></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EraHistory -&gt; SuccessfulBackend EraHistory
 forall a. a -&gt; SuccessfulBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">EraHistory
 </span><span class="hs-identifier hs-var">eraHistoryWithoutHorizon</span></span><span>
-</span><span id="line-111"></span><span>  </span><span id="local-6989586621679636521"><span class="annot"><span class="annottext">queryStakePools :: QueryPoint -&gt; SuccessfulBackend (Set PoolId)
+</span><span id="line-111"></span><span>  </span><span id="local-6989586621679636663"><span class="annot"><span class="annottext">queryStakePools :: QueryPoint -&gt; SuccessfulBackend (Set PoolId)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryStakePools</span></span></span><span> </span><span class="annot"><span class="annottext">QueryPoint
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Set PoolId -&gt; SuccessfulBackend (Set PoolId)
 forall a. a -&gt; SuccessfulBackend a
@@ -1078,7 +1078,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Set PoolId
 forall a. Monoid a =&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
-</span><span id="line-112"></span><span>  </span><span id="local-6989586621679636524"><span class="annot"><span class="annottext">getQueryDelay :: SuccessfulBackend NominalDiffTime
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621679636666"><span class="annot"><span class="annottext">getQueryDelay :: SuccessfulBackend NominalDiffTime
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">getQueryDelay</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; SuccessfulBackend NominalDiffTime
 forall a. a -&gt; SuccessfulBackend a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -1086,35 +1086,35 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span class="hs-number">0</span></span><span>
 </span><span id="line-113"></span><span>
 </span><span id="line-114"></span><span>  </span><span class="hs-comment">-- Other methods are not needed for this test.</span><span>
-</span><span id="line-115"></span><span>  </span><span id="local-6989586621679636531"><span class="annot"><span class="annottext">queryGenesisParameters :: SuccessfulBackend (GenesisParameters ShelleyEra)
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621679636673"><span class="annot"><span class="annottext">queryGenesisParameters :: SuccessfulBackend (GenesisParameters ShelleyEra)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryGenesisParameters</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; SuccessfulBackend (GenesisParameters ShelleyEra)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryGenesisParameters&quot;</span></span><span>
-</span><span id="line-116"></span><span>  </span><span id="local-6989586621679636538"><span class="annot"><span class="annottext">queryScriptRegistry :: [TxId] -&gt; SuccessfulBackend ScriptRegistry
+</span><span id="line-116"></span><span>  </span><span id="local-6989586621679636680"><span class="annot"><span class="annottext">queryScriptRegistry :: [TxId] -&gt; SuccessfulBackend ScriptRegistry
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryScriptRegistry</span></span></span><span> </span><span class="annot"><span class="annottext">[TxId]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; SuccessfulBackend ScriptRegistry
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryScriptRegistry&quot;</span></span><span>
-</span><span id="line-117"></span><span>  </span><span id="local-6989586621679636545"><span class="annot"><span class="annottext">queryUTxO :: [Address ShelleyAddr] -&gt; SuccessfulBackend (UTxO Era)
+</span><span id="line-117"></span><span>  </span><span id="local-6989586621679636687"><span class="annot"><span class="annottext">queryUTxO :: [Address ShelleyAddr] -&gt; SuccessfulBackend (UTxO Era)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxO</span></span></span><span> </span><span class="annot"><span class="annottext">[Address ShelleyAddr]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; SuccessfulBackend (UTxO Era)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryUTxO&quot;</span></span><span>
-</span><span id="line-118"></span><span>  </span><span id="local-6989586621679636552"><span class="annot"><span class="annottext">queryUTxOByTxIn :: [TxIn] -&gt; SuccessfulBackend (UTxO Era)
+</span><span id="line-118"></span><span>  </span><span id="local-6989586621679636694"><span class="annot"><span class="annottext">queryUTxOByTxIn :: [TxIn] -&gt; SuccessfulBackend (UTxO Era)
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryUTxOByTxIn</span></span></span><span> </span><span class="annot"><span class="annottext">[TxIn]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; SuccessfulBackend (UTxO Era)
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryUTxOByTxIn&quot;</span></span><span>
-</span><span id="line-119"></span><span>  </span><span id="local-6989586621679636559"><span class="annot"><span class="annottext">queryTip :: SuccessfulBackend ChainPoint
+</span><span id="line-119"></span><span>  </span><span id="local-6989586621679636701"><span class="annot"><span class="annottext">queryTip :: SuccessfulBackend ChainPoint
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">queryTip</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; SuccessfulBackend ChainPoint
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;queryTip&quot;</span></span><span>
-</span><span id="line-120"></span><span>  </span><span id="local-6989586621679636566"><span class="annot"><span class="annottext">getBlockTime :: SuccessfulBackend NominalDiffTime
+</span><span id="line-120"></span><span>  </span><span id="local-6989586621679636708"><span class="annot"><span class="annottext">getBlockTime :: SuccessfulBackend NominalDiffTime
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var">getBlockTime</span></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; SuccessfulBackend NominalDiffTime
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
@@ -1122,18 +1122,18 @@ forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span id="line-121"></span><span>
 </span><span id="line-122"></span><span class="annot"><a href="Hydra.Chain.ScriptRegistrySpec.html#toAddress"><span class="hs-identifier hs-type">toAddress</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Address</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddr</span></span><span>
 </span><span id="line-123"></span><span id="toAddress"><span class="annot"><span class="annottext">toAddress :: VerificationKey PaymentKey -&gt; Address ShelleyAddr
-</span><a href="Hydra.Chain.ScriptRegistrySpec.html#toAddress"><span class="hs-identifier hs-var hs-var">toAddress</span></a></span></span><span> </span><span id="local-6989586621679636567"><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636567"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Chain.ScriptRegistrySpec.html#toAddress"><span class="hs-identifier hs-var hs-var">toAddress</span></a></span></span><span> </span><span id="local-6989586621679636709"><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679636709"><span class="hs-identifier hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-124"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra
 forall era.
 IsShelleyBasedEra era =&gt;
 NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
 </span><span class="hs-identifier hs-var">Mainnet</span></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679636567"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-125"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddressInEra</span></span><span> </span><span id="local-6989586621679636568"><span class="annot"><span class="annottext">Address ShelleyAddr
-</span><a href="#local-6989586621679636568"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Address ShelleyAddr
-</span><a href="#local-6989586621679636568"><span class="hs-identifier hs-var">addr</span></a></span><span>
+</span><a href="#local-6989586621679636709"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-125"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ShelleyAddressInEra</span></span><span> </span><span id="local-6989586621679636710"><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621679636710"><span class="hs-identifier hs-var">addr</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Address ShelleyAddr
+</span><a href="#local-6989586621679636710"><span class="hs-identifier hs-var">addr</span></a></span><span>
 </span><span id="line-126"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ByronAddressInEra</span></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Address ShelleyAddr
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text

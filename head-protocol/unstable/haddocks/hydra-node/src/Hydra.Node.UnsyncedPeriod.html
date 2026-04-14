@@ -10,7 +10,7 @@
 </span><span id="line-10"></span><span class="hs-comment">-- Beyond this period the node will refuse to process new transactions and signing snapshots.</span><span>
 </span><span id="line-11"></span><span class="hs-keyword">newtype</span><span> </span><span id="UnsyncedPeriod"><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-var">UnsyncedPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnsyncedPeriod"><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-var">UnsyncedPeriod</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AunsyncedPeriodToNominalDiffTime%3AUnsyncedPeriod"><span class="annot"><span class="annottext">UnsyncedPeriod -&gt; NominalDiffTime
 </span><a href="Hydra.Node.UnsyncedPeriod.html#%24sel%3AunsyncedPeriodToNominalDiffTime%3AUnsyncedPeriod"><span class="hs-identifier hs-var hs-var">unsyncedPeriodToNominalDiffTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier hs-type">NominalDiffTime</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680418979"><span id="local-6989586621680418983"><span class="annot"><span class="annottext">UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool
+</span><span id="line-12"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680418427"><span id="local-6989586621680418431"><span class="annot"><span class="annottext">UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool
 (UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool)
 -&gt; (UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool) -&gt; Eq UnsyncedPeriod
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -18,7 +18,7 @@ $c== :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool
 == :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool
 $c/= :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool
 /= :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418990"><span id="local-6989586621680418994"><span id="local-6989586621680418997"><span id="local-6989586621680419001"><span id="local-6989586621680419004"><span id="local-6989586621680419007"><span id="local-6989586621680419010"><span class="annot"><span class="annottext">Eq UnsyncedPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418438"><span id="local-6989586621680418442"><span id="local-6989586621680418445"><span id="local-6989586621680418449"><span id="local-6989586621680418452"><span id="local-6989586621680418455"><span id="local-6989586621680418458"><span class="annot"><span class="annottext">Eq UnsyncedPeriod
 Eq UnsyncedPeriod =&gt;
 (UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Ordering)
 -&gt; (UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; Bool)
@@ -56,7 +56,7 @@ max :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod
 $cmin :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod
 min :: UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680419014"><span id="local-6989586621680419019"><span id="local-6989586621680419023"><span class="annot"><span class="annottext">Int -&gt; UnsyncedPeriod -&gt; ShowS
+</span><span id="line-13"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680418462"><span id="local-6989586621680418467"><span id="local-6989586621680418471"><span class="annot"><span class="annottext">Int -&gt; UnsyncedPeriod -&gt; ShowS
 [UnsyncedPeriod] -&gt; ShowS
 UnsyncedPeriod -&gt; String
 (Int -&gt; UnsyncedPeriod -&gt; ShowS)
@@ -71,7 +71,7 @@ $cshow :: UnsyncedPeriod -&gt; String
 show :: UnsyncedPeriod -&gt; String
 $cshowList :: [UnsyncedPeriod] -&gt; ShowS
 showList :: [UnsyncedPeriod] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419029"><span id="local-6989586621680419034"><span id="local-6989586621680419038"><span id="local-6989586621680419042"><span class="annot"><span class="annottext">ReadPrec [UnsyncedPeriod]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418477"><span id="local-6989586621680418482"><span id="local-6989586621680418486"><span id="local-6989586621680418490"><span class="annot"><span class="annottext">ReadPrec [UnsyncedPeriod]
 ReadPrec UnsyncedPeriod
 Int -&gt; ReadS UnsyncedPeriod
 ReadS [UnsyncedPeriod]
@@ -91,7 +91,7 @@ $creadPrec :: ReadPrec UnsyncedPeriod
 readPrec :: ReadPrec UnsyncedPeriod
 $creadListPrec :: ReadPrec [UnsyncedPeriod]
 readListPrec :: ReadPrec [UnsyncedPeriod]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419048"><span id="local-6989586621680419052"><span id="local-6989586621680419056"><span id="local-6989586621680419060"><span id="local-6989586621680419064"><span id="local-6989586621680419068"><span id="local-6989586621680419072"><span class="annot"><span class="annottext">Integer -&gt; UnsyncedPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418496"><span id="local-6989586621680418500"><span id="local-6989586621680418504"><span id="local-6989586621680418508"><span id="local-6989586621680418512"><span id="local-6989586621680418516"><span id="local-6989586621680418520"><span class="annot"><span class="annottext">Integer -&gt; UnsyncedPeriod
 UnsyncedPeriod -&gt; UnsyncedPeriod
 UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod
 (UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod)
@@ -125,7 +125,7 @@ $csignum :: UnsyncedPeriod -&gt; UnsyncedPeriod
 signum :: UnsyncedPeriod -&gt; UnsyncedPeriod
 $cfromInteger :: Integer -&gt; UnsyncedPeriod
 fromInteger :: Integer -&gt; UnsyncedPeriod
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419078"><span id="local-6989586621680419083"><span id="local-6989586621680419087"><span id="local-6989586621680419091"><span id="local-6989586621680419095"><span id="local-6989586621680419099"><span id="local-6989586621680419103"><span id="local-6989586621680419107"><span class="annot"><span class="annottext">Int -&gt; UnsyncedPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418526"><span id="local-6989586621680418531"><span id="local-6989586621680418535"><span id="local-6989586621680418539"><span id="local-6989586621680418543"><span id="local-6989586621680418547"><span id="local-6989586621680418551"><span id="local-6989586621680418555"><span class="annot"><span class="annottext">Int -&gt; UnsyncedPeriod
 UnsyncedPeriod -&gt; Int
 UnsyncedPeriod -&gt; [UnsyncedPeriod]
 UnsyncedPeriod -&gt; UnsyncedPeriod
@@ -170,7 +170,7 @@ $cenumFromThenTo :: UnsyncedPeriod
 -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; [UnsyncedPeriod]
 enumFromThenTo :: UnsyncedPeriod
 -&gt; UnsyncedPeriod -&gt; UnsyncedPeriod -&gt; [UnsyncedPeriod]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419117"><span class="annot"><span class="annottext">Num UnsyncedPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418565"><span class="annot"><span class="annottext">Num UnsyncedPeriod
 Ord UnsyncedPeriod
 (Num UnsyncedPeriod, Ord UnsyncedPeriod) =&gt;
 (UnsyncedPeriod -&gt; Rational) -&gt; Real UnsyncedPeriod
@@ -178,7 +178,7 @@ UnsyncedPeriod -&gt; Rational
 forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
 $ctoRational :: UnsyncedPeriod -&gt; Rational
 toRational :: UnsyncedPeriod -&gt; Rational
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419124"><span id="local-6989586621680419129"><span id="local-6989586621680419133"><span id="local-6989586621680419137"><span id="local-6989586621680419141"><span class="annot"><span class="annottext">[UnsyncedPeriod] -&gt; Value
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418572"><span id="local-6989586621680418577"><span id="local-6989586621680418581"><span id="local-6989586621680418585"><span id="local-6989586621680418589"><span class="annot"><span class="annottext">[UnsyncedPeriod] -&gt; Value
 [UnsyncedPeriod] -&gt; Encoding
 UnsyncedPeriod -&gt; Bool
 UnsyncedPeriod -&gt; Value
@@ -206,7 +206,7 @@ $ctoEncodingList :: [UnsyncedPeriod] -&gt; Encoding
 toEncodingList :: [UnsyncedPeriod] -&gt; Encoding
 $comitField :: UnsyncedPeriod -&gt; Bool
 omitField :: UnsyncedPeriod -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419147"><span id="local-6989586621680419152"><span id="local-6989586621680419156"><span class="annot"><span class="annottext">Maybe UnsyncedPeriod
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418595"><span id="local-6989586621680418600"><span id="local-6989586621680418604"><span class="annot"><span class="annottext">Maybe UnsyncedPeriod
 Value -&gt; Parser [UnsyncedPeriod]
 Value -&gt; Parser UnsyncedPeriod
 (Value -&gt; Parser UnsyncedPeriod)
@@ -225,53 +225,53 @@ omittedField :: Maybe UnsyncedPeriod
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-14"></span><span>
 </span><span id="line-15"></span><span class="annot"><span class="hs-comment">-- | Truncates to whole seconds.</span></span><span>
-</span><span id="line-16"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680419166"><span id="local-6989586621680419170"><span id="local-6989586621680419173"><span id="local-6989586621680419176"><span id="local-6989586621680419180"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-type">Integral</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-17"></span><span>  </span><span id="local-6989586621680419190"><span class="annot"><span class="annottext">quotRem :: UnsyncedPeriod
+</span><span id="line-16"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680418614"><span id="local-6989586621680418618"><span id="local-6989586621680418621"><span id="local-6989586621680418624"><span id="local-6989586621680418628"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-type">Integral</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-17"></span><span>  </span><span id="local-6989586621680418638"><span class="annot"><span class="annottext">quotRem :: UnsyncedPeriod
 -&gt; UnsyncedPeriod -&gt; (UnsyncedPeriod, UnsyncedPeriod)
-</span><a href="#local-6989586621680419190"><span class="hs-identifier hs-var hs-var hs-var hs-var">quotRem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span> </span><span id="local-6989586621680419192"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419192"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span> </span><span id="local-6989586621680419193"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419193"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UnsyncedPeriod
+</span><a href="#local-6989586621680418638"><span class="hs-identifier hs-var hs-var hs-var hs-var">quotRem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span> </span><span id="local-6989586621680418640"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680418640"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span> </span><span id="local-6989586621680418641"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680418641"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UnsyncedPeriod
 </span><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-var">UnsyncedPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; UnsyncedPeriod)
 -&gt; NominalDiffTime -&gt; UnsyncedPeriod
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; NominalDiffTime
 forall a. Num a =&gt; Integer -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680419194"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UnsyncedPeriod
+</span><a href="#local-6989586621680418642"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UnsyncedPeriod
 </span><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-var">UnsyncedPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419195"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680418643"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-18"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-19"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680419194"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680419194"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680419195"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419195"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; (Integer, NominalDiffTime)
+</span><span id="line-19"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680418642"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621680418642"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680418643"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680418643"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; (Integer, NominalDiffTime)
 forall b. Integral b =&gt; NominalDiffTime -&gt; (b, NominalDiffTime)
 forall a b. (RealFrac a, Integral b) =&gt; a -&gt; (b, a)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#properFraction"><span class="hs-identifier hs-var">properFraction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419192"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621680418640"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Fractional a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%2F"><span class="hs-operator hs-var">/</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419193"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680418641"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-20"></span><span>
-</span><span id="line-21"></span><span>  </span><span id="local-6989586621680419200"><span class="annot"><span class="annottext">toInteger :: UnsyncedPeriod -&gt; Integer
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">toInteger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span> </span><span id="local-6989586621680419201"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419201"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Integer
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621680418648"><span class="annot"><span class="annottext">toInteger :: UnsyncedPeriod -&gt; Integer
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">toInteger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span> </span><span id="local-6989586621680418649"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680418649"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Integer
 forall b. Integral b =&gt; NominalDiffTime -&gt; b
 forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#round"><span class="hs-identifier hs-var">round</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680419201"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><a href="#local-6989586621680418649"><span class="hs-identifier hs-var">a</span></a></span><span>
 </span><span id="line-22"></span><span>
 </span><span id="line-23"></span><span class="hs-comment">-- | Compute a default 'UnsyncedPeriod' based on the 'ContestationPeriod'.</span><span>
 </span><span id="line-24"></span><span class="hs-comment">-- This is the legacy behavior: half of the contestation period.</span><span>
 </span><span id="line-25"></span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#defaultUnsyncedPeriodFor"><span class="hs-identifier hs-type">defaultUnsyncedPeriodFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span>
 </span><span id="line-26"></span><span id="defaultUnsyncedPeriodFor"><span class="annot"><span class="annottext">defaultUnsyncedPeriodFor :: ContestationPeriod -&gt; UnsyncedPeriod
-</span><a href="Hydra.Node.UnsyncedPeriod.html#defaultUnsyncedPeriodFor"><span class="hs-identifier hs-var hs-var">defaultUnsyncedPeriodFor</span></a></span></span><span> </span><span id="local-6989586621680419204"><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621680419204"><span class="hs-identifier hs-var">cp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UnsyncedPeriod
+</span><a href="Hydra.Node.UnsyncedPeriod.html#defaultUnsyncedPeriodFor"><span class="hs-identifier hs-var hs-var">defaultUnsyncedPeriodFor</span></a></span></span><span> </span><span id="local-6989586621680418652"><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="#local-6989586621680418652"><span class="hs-identifier hs-var">cp</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UnsyncedPeriod
 </span><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-var">UnsyncedPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; UnsyncedPeriod)
 -&gt; NominalDiffTime -&gt; UnsyncedPeriod
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod -&gt; NominalDiffTime
 </span><span class="hs-identifier hs-var">toNominalDiffTime</span></span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
-</span><a href="#local-6989586621680419204"><span class="hs-identifier hs-var">cp</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621680418652"><span class="hs-identifier hs-var">cp</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">0.5</span></span><span>

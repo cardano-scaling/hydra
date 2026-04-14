@@ -2474,19 +2474,22 @@ SnapshotRequestDecided :: SnapshotNumber -> StateChanged tx
 -- | A snapshot was requested by some party. NOTE: We deliberately already
 --   include an updated local ledger state to not need a ledger to
 --   interpret this event.
-SnapshotRequested :: Snapshot tx -> [TxIdType tx] -> UTxOType tx -> [tx] -> Maybe (TxIdType tx) -> StateChanged tx
-[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
-[$sel:requestedTxIds:NetworkConnected] :: StateChanged tx -> [TxIdType tx]
+SnapshotRequested :: Snapshot tx -> UTxOType tx -> [tx] -> Maybe (TxIdType tx) -> StateChanged tx
+[$sel:requestedSnapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
 [$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> [tx]
 [$sel:newCurrentDepositTxId:NetworkConnected] :: StateChanged tx -> Maybe (TxIdType tx)
-PartySignedSnapshot :: Snapshot tx -> Party -> Signature (Snapshot tx) -> StateChanged tx
-[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
+PartySignedSnapshot :: SnapshotNumber -> Party -> Signature (Snapshot tx) -> StateChanged tx
+[$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 [$sel:party:NetworkConnected] :: StateChanged tx -> Party
 [$sel:signature:NetworkConnected] :: StateChanged tx -> Signature (Snapshot tx)
-SnapshotConfirmed :: HeadId -> Snapshot tx -> MultiSignature (Snapshot tx) -> StateChanged tx
+SnapshotConfirmed :: HeadId -> Maybe (Snapshot tx) -> MultiSignature (Snapshot tx) -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
+
+-- | <a>Nothing</a> on the normal signing path (snapshot already in
+--   <tt>seenSnapshot</tt>); <a>Just</a> only for the side-load path where
+--   no preceding <a>SnapshotRequested</a> exists.
+[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Maybe (Snapshot tx)
 [$sel:signatures:NetworkConnected] :: StateChanged tx -> MultiSignature (Snapshot tx)
 DepositRecorded :: ChainStateType tx -> HeadId -> TxIdType tx -> UTxOType tx -> UTCTime -> UTCTime -> StateChanged tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -2516,11 +2519,10 @@ CommitFinalized :: ChainStateType tx -> HeadId -> SnapshotVersion -> TxIdType tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:newVersion:NetworkConnected] :: StateChanged tx -> SnapshotVersion
 [$sel:depositTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
-DecommitRecorded :: HeadId -> tx -> UTxOType tx -> UTxOType tx -> StateChanged tx
+DecommitRecorded :: HeadId -> tx -> UTxOType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTx:NetworkConnected] :: StateChanged tx -> tx
 [$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:utxoToDecommit:NetworkConnected] :: StateChanged tx -> UTxOType tx
 DecommitApproved :: HeadId -> TxIdType tx -> UTxOType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
@@ -3138,80 +3140,6 @@ RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 
--- | The main state of the Hydra protocol state machine. It holds both, the
---   overall protocol state, but also the off-chain
---   <a>CoordinatedHeadState</a>.
---   
---   Each of the sub-types (OpenState, etc.) contain a black-box
---   <a>IdleState</a> corresponding to the <tt>ChainEvent</tt> that has
---   been observed leading to the state.
---   
---   Note that rollbacks are currently not fully handled in the head logic
---   and only this internal chain state gets replaced with the "rolled back
---   to" version.
---   
---   TODO: chainState would actually not be needed in the HeadState anymore
---   as we do not persist the <a>HeadState</a> and not access it in the
---   HeadLogic either.
-data HeadState tx
-Idle :: IdleState tx -> HeadState tx
-Open :: OpenState tx -> HeadState tx
-Closed :: ClosedState tx -> HeadState tx
-
--- | An <a>Open</a> head with a <a>CoordinatedHeadState</a> tracking
---   off-chain transactions.
-data OpenState tx
-OpenState :: HeadParameters -> CoordinatedHeadState tx -> ChainStateType tx -> HeadId -> HeadSeed -> OpenState tx
-[$sel:parameters:OpenState] :: OpenState tx -> HeadParameters
-[$sel:coordinatedHeadState:OpenState] :: OpenState tx -> CoordinatedHeadState tx
-[$sel:chainState:OpenState] :: OpenState tx -> ChainStateType tx
-[$sel:headId:OpenState] :: OpenState tx -> HeadId
-[$sel:headSeed:OpenState] :: OpenState tx -> HeadSeed
-
--- | An <a>Closed</a> head with an current candidate
---   <a>ConfirmedSnapshot</a>, which may be contested before the
---   <a>$sel:contestationDeadline:ClosedState</a>.
-data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
-[$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
-[$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
-[$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
-
--- | Tracks whether we have informed clients already about being
---   <tt>ReadyToFanout</tt>.
-[$sel:readyToFanoutSent:ClosedState] :: ClosedState tx -> Bool
-[$sel:chainState:ClosedState] :: ClosedState tx -> ChainStateType tx
-[$sel:headId:ClosedState] :: ClosedState tx -> HeadId
-[$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
-[$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
-
--- | Data structure to help in tracking whether we have seen or requested a
---   ReqSn already and if seen, the signatures we collected already.
-data SeenSnapshot tx
-
--- | Never saw a ReqSn.
-NoSeenSnapshot :: SeenSnapshot tx
-
--- | No snapshot in flight with last seen snapshot number as given.
-LastSeenSnapshot :: SnapshotNumber -> SeenSnapshot tx
-[$sel:lastSeen:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
-
--- | ReqSn was sent out and it should be considered already in flight.
-RequestedSnapshot :: SnapshotNumber -> SnapshotNumber -> SeenSnapshot tx
-[$sel:lastSeen:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
-[$sel:requested:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
-
--- | ReqSn for given snapshot was received.
-SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString -> SeenSnapshot tx
-[$sel:snapshot:NoSeenSnapshot] :: SeenSnapshot tx -> Snapshot tx
-
--- | Collected signatures so far.
-[$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
-
--- | Pre-computed result of 'getSignableRepresentation snapshot', cached to
---   avoid recomputing the expensive UTxO hash on every AckSn verification.
-[$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ByteString
-
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
 CoordinatedHeadState :: UTxOType tx -> [tx] -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
@@ -3245,6 +3173,80 @@ CoordinatedHeadState :: UTxOType tx -> [tx] -> !Map (TxIdType tx) tx -> Confirme
 
 -- | Last open state version as observed on chain. Spec: ̂v
 [$sel:version:CoordinatedHeadState] :: CoordinatedHeadState tx -> SnapshotVersion
+
+-- | The main state of the Hydra protocol state machine. It holds both, the
+--   overall protocol state, but also the off-chain
+--   <a>CoordinatedHeadState</a>.
+--   
+--   Each of the sub-types (OpenState, etc.) contain a black-box
+--   <a>IdleState</a> corresponding to the <tt>ChainEvent</tt> that has
+--   been observed leading to the state.
+--   
+--   Note that rollbacks are currently not fully handled in the head logic
+--   and only this internal chain state gets replaced with the "rolled back
+--   to" version.
+--   
+--   TODO: chainState would actually not be needed in the HeadState anymore
+--   as we do not persist the <a>HeadState</a> and not access it in the
+--   HeadLogic either.
+data HeadState tx
+Idle :: IdleState tx -> HeadState tx
+Open :: OpenState tx -> HeadState tx
+Closed :: ClosedState tx -> HeadState tx
+
+-- | An <a>Open</a> head with a <a>CoordinatedHeadState</a> tracking
+--   off-chain transactions.
+data OpenState tx
+OpenState :: HeadParameters -> CoordinatedHeadState tx -> ChainStateType tx -> HeadId -> HeadSeed -> OpenState tx
+[$sel:parameters:OpenState] :: OpenState tx -> HeadParameters
+[$sel:coordinatedHeadState:OpenState] :: OpenState tx -> CoordinatedHeadState tx
+[$sel:chainState:OpenState] :: OpenState tx -> ChainStateType tx
+[$sel:headId:OpenState] :: OpenState tx -> HeadId
+[$sel:headSeed:OpenState] :: OpenState tx -> HeadSeed
+
+-- | Data structure to help in tracking whether we have seen or requested a
+--   ReqSn already and if seen, the signatures we collected already.
+data SeenSnapshot tx
+
+-- | Never saw a ReqSn.
+NoSeenSnapshot :: SeenSnapshot tx
+
+-- | No snapshot in flight with last seen snapshot number as given.
+LastSeenSnapshot :: SnapshotNumber -> SeenSnapshot tx
+[$sel:lastSeen:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
+
+-- | ReqSn was sent out and it should be considered already in flight.
+RequestedSnapshot :: SnapshotNumber -> SnapshotNumber -> SeenSnapshot tx
+[$sel:lastSeen:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
+[$sel:requested:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
+
+-- | ReqSn for given snapshot was received.
+SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString -> SeenSnapshot tx
+[$sel:snapshot:NoSeenSnapshot] :: SeenSnapshot tx -> Snapshot tx
+
+-- | Collected signatures so far.
+[$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
+
+-- | Pre-computed result of 'getSignableRepresentation snapshot', cached to
+--   avoid recomputing the expensive UTxO hash on every AckSn verification.
+[$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ByteString
+
+-- | An <a>Closed</a> head with an current candidate
+--   <a>ConfirmedSnapshot</a>, which may be contested before the
+--   <a>$sel:contestationDeadline:ClosedState</a>.
+data ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+[$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
+[$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
+[$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
+
+-- | Tracks whether we have informed clients already about being
+--   <tt>ReadyToFanout</tt>.
+[$sel:readyToFanoutSent:ClosedState] :: ClosedState tx -> Bool
+[$sel:chainState:ClosedState] :: ClosedState tx -> ChainStateType tx
+[$sel:headId:ClosedState] :: ClosedState tx -> HeadId
+[$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
+[$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
 
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
@@ -3345,19 +3347,22 @@ SnapshotRequestDecided :: SnapshotNumber -> StateChanged tx
 -- | A snapshot was requested by some party. NOTE: We deliberately already
 --   include an updated local ledger state to not need a ledger to
 --   interpret this event.
-SnapshotRequested :: Snapshot tx -> [TxIdType tx] -> UTxOType tx -> [tx] -> Maybe (TxIdType tx) -> StateChanged tx
-[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
-[$sel:requestedTxIds:NetworkConnected] :: StateChanged tx -> [TxIdType tx]
+SnapshotRequested :: Snapshot tx -> UTxOType tx -> [tx] -> Maybe (TxIdType tx) -> StateChanged tx
+[$sel:requestedSnapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
 [$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> [tx]
 [$sel:newCurrentDepositTxId:NetworkConnected] :: StateChanged tx -> Maybe (TxIdType tx)
-PartySignedSnapshot :: Snapshot tx -> Party -> Signature (Snapshot tx) -> StateChanged tx
-[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
+PartySignedSnapshot :: SnapshotNumber -> Party -> Signature (Snapshot tx) -> StateChanged tx
+[$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 [$sel:party:NetworkConnected] :: StateChanged tx -> Party
 [$sel:signature:NetworkConnected] :: StateChanged tx -> Signature (Snapshot tx)
-SnapshotConfirmed :: HeadId -> Snapshot tx -> MultiSignature (Snapshot tx) -> StateChanged tx
+SnapshotConfirmed :: HeadId -> Maybe (Snapshot tx) -> MultiSignature (Snapshot tx) -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
+
+-- | <a>Nothing</a> on the normal signing path (snapshot already in
+--   <tt>seenSnapshot</tt>); <a>Just</a> only for the side-load path where
+--   no preceding <a>SnapshotRequested</a> exists.
+[$sel:snapshot:NetworkConnected] :: StateChanged tx -> Maybe (Snapshot tx)
 [$sel:signatures:NetworkConnected] :: StateChanged tx -> MultiSignature (Snapshot tx)
 DepositRecorded :: ChainStateType tx -> HeadId -> TxIdType tx -> UTxOType tx -> UTCTime -> UTCTime -> StateChanged tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -3387,11 +3392,10 @@ CommitFinalized :: ChainStateType tx -> HeadId -> SnapshotVersion -> TxIdType tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:newVersion:NetworkConnected] :: StateChanged tx -> SnapshotVersion
 [$sel:depositTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
-DecommitRecorded :: HeadId -> tx -> UTxOType tx -> UTxOType tx -> StateChanged tx
+DecommitRecorded :: HeadId -> tx -> UTxOType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTx:NetworkConnected] :: StateChanged tx -> tx
 [$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:utxoToDecommit:NetworkConnected] :: StateChanged tx -> UTxOType tx
 DecommitApproved :: HeadId -> TxIdType tx -> UTxOType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
@@ -4285,8 +4289,19 @@ type WaitForServer = IO ()
 setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
 
 -- | Defines the subset of <a>StateEvent</a> that should be sent as
---   <a>TimedServerOutput</a> to clients.
-mkTimedServerOutputFromStateEvent :: IsChainState tx => StateEvent tx -> Maybe (TimedServerOutput tx)
+--   <a>TimedServerOutput</a> to clients. The 'Maybe (Snapshot tx)'
+--   argument carries the snapshot currently being confirmed (from the
+--   preceding <tt>SnapshotRequested</tt> event), needed to reconstruct
+--   <a>SnapshotConfirmed</a> outputs when <a>ServerOutput</a> is absent
+--   from the event.
+mkTimedServerOutputFromStateEvent :: IsChainState tx => Maybe (Snapshot tx) -> StateEvent tx -> Maybe (TimedServerOutput tx)
+
+-- | Advance the seen-snapshot state as events are processed sequentially.
+updateSeenSnapshot :: Maybe (Snapshot tx) -> StateChanged tx -> Maybe (Snapshot tx)
+
+-- | Extract the snapshot currently in <a>SeenSnapshot</a> from a
+--   <a>NodeState</a>, if any.
+seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
 
 -- | Projection to obtain the list of pending deposits.
 projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged tx -> [TxIdType tx]
