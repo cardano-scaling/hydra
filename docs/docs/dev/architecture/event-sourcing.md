@@ -6,9 +6,54 @@ On application startup, the [`hydrate`](https://hydra.family/head-protocol/haddo
 
 ## Default event source and sinks
 
-The default event source and sink used by the `hydra-node` is `FileBased`, which uses an append-only plain JSON file to persist events in a file name `state`. This single file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option. 
+The default event source and sink used by the `hydra-node` is `SQLiteBased`, which persists events in a SQLite database file named `hydra.db`. This file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option.
+
+If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are automatically migrated into `hydra.db` and the original file is renamed to `state.migrated`.
 
 As explained in the consequences of [ADR29](https://hydra.family/head-protocol/adr/29), the API server of the `hydra-node` is also an event sink, which means that all events are sent to the API server and may be further submitted as [`ServerOutput`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) to clients of the API server. See [`mkTimedServerOutputFromStateEvent`](https://hydra.family/head-protocol/haddock/hydra-node/Hydra-API-Server.html#v:mkTimedServerOutputFromStateEvent) for which events are mapped to server outputs.
+
+### SQLite database
+
+#### Schema
+
+The database contains a single `events` table:
+
+| Column       | Type    | Description                              |
+|-------------|---------|------------------------------------------|
+| `event_id`  | INTEGER | Primary key, matches the in-memory event id |
+| `event_data` | BLOB   | JSON-encoded event payload               |
+
+The following connection pragmas are set on every open:
+
+- `journal_mode=WAL` — write-ahead logging for concurrent reads during writes
+- `synchronous=NORMAL` — skips per-write fsyncs (safe because the L1 chain is the source of truth)
+- `busy_timeout=5000` — wait up to 5 s for locks instead of failing immediately
+- `cache_size=-65536` — 64 MB page cache
+- `temp_store=MEMORY` — temporary tables and indexes in memory
+
+#### Async write-behind
+
+To keep persistence off the hot path, writes use an async write-behind strategy. `putEvent` encodes events eagerly to strict `ByteString` and enqueues them into a bounded `TBQueue`. A background writer thread drains the queue and batch-inserts rows using a single transaction, amortising WAL frame writes across multiple events.
+
+The last-seen event id is updated atomically at enqueue time (not write time), so de-duplication tracking remains correct even though the physical write is deferred. Reads via `sourceEvents` auto-flush the write queue before reading, so callers always see all enqueued events without manual synchronisation.
+
+#### Schema versioning
+
+The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step is defined as a case in `migrateStep`:
+
+```haskell
+migrateStep conn = \case
+  0 -> -- create the events table
+  1 -> -- (future) e.g. add an index or new column
+```
+
+A fresh database starts at version 0 (SQLite default). After all migrations run, `user_version` is set to `nextVersion`. If the database has a version higher than `nextVersion` (e.g. from a newer release), the node refuses to start to prevent silent data corruption on downgrade.
+
+To add a new migration:
+
+1. Bump `nextVersion` in `Hydra.Events.SQLiteBased`
+2. Add a new case to `migrateStep` for the previous version number
+3. Add tests in `SQLiteBasedSpec` to verify the migration
 
 ## Examples
 
@@ -43,9 +88,8 @@ Long-living heads may produce a large number of persisted events, which can impa
 
 Event log rotation was introduced to improve recovery times by reducing the number of events that need to be replayed on startup. This is achieved by periodically replacing the current event log with a new one that starts from a checkpoint event, which captures the latest aggregated head state.
 
-Only rotated log files are saved with an incrementing `logId` suffix in their names, while the main `state` log file remains unchanged to preserve backward compatibility. This `logId` suffix corresponds to the ID of the last event included in that file.
-Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur.
-> For example, with `--persistence-rotate-after 100`, you’ll get rotated files named: state-100, state-200, state-300, and so on, each containing 101 events. This is because event IDs start at 0, so state-100 includes 101 state changed events (0–100) without a checkpoint. Subsequent rotated files include a checkpoint plus 100 new state changed events.
+Rotation can be enabled via the optional `--persistence-rotate-after` command-line argument, which specifies the number of events after which rotation should occur. When rotation triggers, all events older than the checkpoint are deleted from `hydra.db` and replaced with a single checkpoint event capturing the current aggregated state.
+> For example, with `--persistence-rotate-after 100`, a rotation occurs after every 100 new events. The checkpoint event captures the full node state at that point, so on the next restart the node only needs to replay events since the last checkpoint.
 
 Note that a checkpoint event id matches the last persisted event id from the previous rotated log file, preserving the sequential order of event ids across logs.
 This also makes it easier to identify which rotated log file was used to compute the checkpoint, as its event id matches the file name suffix.

@@ -48,6 +48,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
       , eventSink =
           EventSink
             { putEvent = rotatedPutEvent numberOfEventsV aggregateStateV
+            , putEvents = rotatedPutEvents numberOfEventsV aggregateStateV
             }
       , -- NOTE: Don't allow rotation on-demand
         rotate = const . const $ pure ()
@@ -76,6 +77,17 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
       let eventId = getEventId event
       rotateEventLog numberOfEventsV aggregateStateV eventId
 
+  rotatedPutEvents numberOfEventsV aggregateStateV evts = do
+    putEvents evts
+    atomically $ do
+      forM_ evts $ \evt -> do
+        modifyTVar' aggregateStateV (`aggregator` evt)
+        modifyTVar' numberOfEventsV (+ 1)
+    whenM (shouldRotate numberOfEventsV) $ do
+      case nonEmpty evts of
+        Just ne -> rotateEventLog numberOfEventsV aggregateStateV (getEventId $ last ne)
+        Nothing -> pure ()
+
   rotateEventLog numberOfEventsV aggregateStateV lastEventId = do
     -- build the checkpoint event
     now <- getCurrentTime
@@ -91,4 +103,4 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     atomically $ do
       writeTVar numberOfEventsV 1
 
-  EventStore{eventSource, eventSink = EventSink{putEvent}, rotate} = eventStore
+  EventStore{eventSource, eventSink = EventSink{putEvent, putEvents}, rotate} = eventStore

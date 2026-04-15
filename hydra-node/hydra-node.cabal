@@ -70,8 +70,8 @@ library
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
     Hydra.Events
-    Hydra.Events.FileBased
     Hydra.Events.Rotation
+    Hydra.Events.SQLiteBased
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
@@ -103,8 +103,6 @@ library
     Hydra.Node.UnsyncedPeriod
     Hydra.Node.Util
     Hydra.Options
-    Hydra.Persistence
-    Hydra.PersistenceLog
     Hydra.Utils
 
   other-modules:      Paths_hydra_node
@@ -157,11 +155,11 @@ library
     , process
     , prometheus
     , QuickCheck
-    , resourcet
     , retry
     , safe-money
     , serialise
     , sop-extras
+    , sqlite-simple
     , stm
     , template-haskell
     , text
@@ -169,7 +167,6 @@ library
     , transformers
     , typed-process
     , unix
-    , unliftio
     , wai
     , wai-cors
     , wai-websockets
@@ -366,9 +363,9 @@ test-suite tests
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.ScriptRegistrySpec
     Hydra.CryptoSpec
-    Hydra.Events.FileBasedSpec
     Hydra.Events.RotationSpec
     Hydra.Events.S3Spec
+    Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
@@ -391,7 +388,6 @@ test-suite tests
     Hydra.NodeSpec
     Hydra.OptionsSpec
     Hydra.PartySpec
-    Hydra.PersistenceSpec
     Hydra.PersistentQueueSpec
     Hydra.UtilsSpec
     Paths_hydra_node
@@ -461,6 +457,7 @@ test-suite tests
     , resourcet
     , silently
     , sop-extras
+    , sqlite-simple
     , stm
     , temporary
     , text

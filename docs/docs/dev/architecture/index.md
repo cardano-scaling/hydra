@@ -53,7 +53,7 @@ The `hydra-node` component exposes an [asynchronous API](https://hydra.family/he
 
 ### Persistence
 
-The `hydra-node` state is preserved on disk. The persistence layer is responsible for loading historical messages and Hydra state from disk, as well as storing them in so-called event log files. Depending on the rotation configuration used at startup, these event log files will be rotated to improve restart times. So far, there hasn’t been a need to increase the complexity of this layer or to use a database.
+The `hydra-node` state is persisted in a SQLite database file named `hydra.db`, located in the persistence directory specified by `--persistence-dir`. The persistence layer is responsible for loading historical messages and Hydra state from this database, as well as storing new events as they occur. Depending on the rotation configuration used at startup, old events may be compacted to improve restart times. The database schema is versioned using SQLite's `PRAGMA user_version` and migrations are applied automatically on startup. See [Event sourcing](./event-sourcing.md#sqlite-database) for details.
 
 ### Logging
 

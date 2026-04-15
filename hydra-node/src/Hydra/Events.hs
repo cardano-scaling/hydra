@@ -6,8 +6,8 @@
 -- A single 'EventSource' and zero or more 'EventSink' handles are used by the
 -- main 'HydraNode' handle to load and send out events.
 --
--- See 'Hydra.Events.FileBased' for an example implementation and
--- 'Hydra.Events.FileBasedSpec' for the corresponding test suite.
+-- See 'Hydra.Events.SQLiteBased' for the default implementation and
+-- 'Hydra.Events.SQLiteBasedSpec' for the corresponding test suite.
 --
 -- Custom implementations should be located under Hydra.Events to avoid
 -- conflicts.
@@ -34,14 +34,24 @@ newtype EventSource e m = EventSource
 getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
 getEvents EventSource{sourceEvents} = runResourceT $ sourceToList sourceEvents
 
-newtype EventSink e m = EventSink
+data EventSink e m = EventSink
   { putEvent :: HasEventId e => e -> m ()
   -- ^ Send a single event to the event sink.
+  , putEvents :: HasEventId e => [e] -> m ()
+  -- ^ Send a batch of events to the event sink.
   }
 
--- | Put a list of events to a list of event sinks in a round-robin fashion.
+-- | Create an 'EventSink' from a single-event function, with a default
+-- sequential batch implementation.
+mkEventSink :: Monad m => (HasEventId e => e -> m ()) -> EventSink e m
+mkEventSink putOne =
+  EventSink
+    { putEvent = putOne
+    , putEvents = mapM_ putOne
+    }
+
+-- | Put a list of events to a list of event sinks, batching per sink.
 putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
 putEventsToSinks sinks events =
-  forM_ events $ \event ->
-    forM_ sinks $ \sink ->
-      putEvent sink event
+  forM_ sinks $ \sink ->
+    putEvents sink events

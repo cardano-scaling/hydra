@@ -10,7 +10,7 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, mapM_C, runConduitRes, (.|))
+import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, runConduitRes, sinkList, (.|))
 import Control.Concurrent.Class.MonadSTM (
   stateTVar,
   writeTVar,
@@ -200,8 +200,8 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   checkHeadState tracer env (headState nodeState)
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   traceWith tracer ReplayingState
-  runConduitRes $
-    sourceEvents eventSource .| mapM_C (\e -> lift $ putEventsToSinks eventSinks [e])
+  replayedEvents <- runConduitRes $ sourceEvents eventSource .| sinkList
+  putEventsToSinks eventSinks replayedEvents
 
   nodeStateHandler <- createNodeStateHandler (getLast lastEventId) nodeState
   inputQueue <- createInputQueue
