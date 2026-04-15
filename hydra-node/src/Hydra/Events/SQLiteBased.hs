@@ -1,7 +1,8 @@
 -- | A SQLite-backed event source and sink.
 --
 -- This is the recommended persistence backend for new deployments.
--- See 'migrateFromFileBased' for upgrading from the legacy file-based store.
+-- See 'withSQLiteEventStore' which handles migration from the legacy
+-- file-based store automatically.
 --
 -- == Architecture
 --
@@ -23,9 +24,10 @@
 -- even though the physical write is deferred.
 --
 -- All SQLite writes go through the single writer thread, preventing concurrent
--- access races. Operations that need data flushed (rotation, reads in tests)
--- use a flush marker: a 'TMVar' is enqueued and the caller blocks until the
--- writer thread has processed all preceding items and signalled it.
+-- access races. Operations that need data flushed (rotation, reads) use a flush
+-- marker: a 'TMVar' is enqueued and the caller blocks until the writer thread
+-- has processed all preceding items and signalled it. 'sourceEvents'
+-- auto-flushes before reading, so callers always see all enqueued events.
 --
 -- == Tradeoffs
 --
@@ -87,28 +89,32 @@ type WriteItem = Either (TMVar IO ()) (Word64, ByteString)
 -- cancels the writer thread on exit. The writer thread is 'link'ed so that
 -- crashes surface immediately in the calling thread.
 --
--- The callback receives @(conn, store, flush, reinitLastSeen)@:
+-- If a legacy state file exists at @legacyStateFile@, events are migrated into
+-- SQLite automatically before the callback runs.
 --
--- * @conn@ — raw 'Connection' for 'migrateFromFileBased'
--- * @store@ — the 'EventStore'
--- * @flush@ — block until all queued writes hit SQLite (useful in tests)
--- * @reinitLastSeen@ — re-read last event id from DB (after migration)
+-- Flushing of the async write queue and reinitialisation of the last-seen
+-- event id are handled internally: 'sourceEvents' auto-flushes before
+-- reading, 'rotate' flushes before deleting, migration reinitialises the
+-- event id TVar, and this bracket flushes on exit.
 withSQLiteEventStore ::
   forall e a.
-  (ToJSON e, FromJSON e, HasEventId e) =>
+  (FromJSON e, ToJSON e, HasEventId e) =>
+  Tracer IO SQLiteLog ->
   FilePath ->
-  ((Connection, EventStore e IO, IO (), IO ()) -> IO a) ->
+  FilePath ->
+  (EventStore e IO -> IO a) ->
   IO a
-withSQLiteEventStore dbFile callback = do
+withSQLiteEventStore tracer dbFile legacyStateFile callback = do
   (conn, store, flush, reinitLastSeen, cancelWriter) <- mkSQLiteEventStore dbFile
-  callback (conn, store, flush, reinitLastSeen)
+  migrateFromFileBased (Proxy @e) tracer legacyStateFile conn reinitLastSeen
+  callback store
     `finally` (flush >> cancelWriter)
 
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
 -- The database and schema are created on first use if they do not exist.
--- Returns @(conn, store, flush, reinitLastSeen, cancelWriter)@.
---
--- Prefer 'withSQLiteEventStore' which handles cleanup automatically.
+-- Returns @(conn, store, flush, reinitLastSeen, cancelWriter)@. Internal —
+-- prefer 'withSQLiteEventStore' which handles cleanup, migration, and flushing
+-- automatically.
 mkSQLiteEventStore ::
   forall e.
   (ToJSON e, FromJSON e, HasEventId e) =>
@@ -120,7 +126,7 @@ mkSQLiteEventStore dbFile = do
   initSchema conn
   eventIdV <- newLabelledTVarIO "sqlite-event-store-event-id" Nothing
   -- Initialise last-seen event id from existing rows.
-  rows <- query_ conn "SELECT event_id FROM events ORDER BY event_id DESC LIMIT 1" :: IO [Only Word64]
+  rows <- selectLastEventId conn
   case rows of
     [Only lastId] -> atomically $ writeTVar eventIdV (Just lastId)
     _ -> pure ()
@@ -143,11 +149,13 @@ mkSQLiteEventStore dbFile = do
         Left err -> throwIO EventDecodingException{eventId = eid, decodeError = err}
 
     sourceEvents :: ConduitT () e (ResourceT IO) ()
-    sourceEvents =
+    sourceEvents = do
+      -- Flush queued writes so reads see all enqueued events.
+      liftIO $ flushWriteQueue writeQueue
       bracketP openStmt closeStatement yieldRows
      where
       openStmt :: IO Statement
-      openStmt = openStatement conn "SELECT event_id, event_data FROM events ORDER BY event_id ASC"
+      openStmt = getEventsASC conn
 
       yieldRows :: Statement -> ConduitT () e (ResourceT IO) ()
       yieldRows stmt = do
@@ -189,12 +197,12 @@ mkSQLiteEventStore dbFile = do
       flushWriteQueue writeQueue
       let evData = toStrict $ Aeson.encode checkpointEvent
       withTransaction conn $ do
-        execute_ conn "DELETE FROM events"
-        execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" (getEventId checkpointEvent, evData :: ByteString)
+        deleteAllEvents conn
+        insertEvent conn (getEventId checkpointEvent, evData)
       atomically $ setLastSeenEventId checkpointEvent
 
   let reinitLastSeen = do
-        latestRows <- query_ conn "SELECT event_id FROM events ORDER BY event_id DESC LIMIT 1" :: IO [Only Word64]
+        latestRows <- selectLastEventId conn
         case latestRows of
           [Only lastId] -> atomically $ writeTVar eventIdV (Just lastId)
           _ -> pure ()
@@ -223,7 +231,7 @@ writerLoop conn queue = forever $ do
       (flushSignals, eventRows) = partitionEithers allItems
   unless (null eventRows) $
     withTransaction conn $
-      executeMany conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" eventRows
+      insertEvents conn eventRows
   forM_ flushSignals $ \mv -> atomically $ putTMVar mv ()
 
 -- | Block until all items currently in the write queue have been flushed to
@@ -274,7 +282,7 @@ migrateFromFileBased _proxy tracer legacyFile conn reinitLastSeen = do
           Left err -> throwIO EventDecodingException{eventId = fromIntegral lineNo, decodeError = err}
       unless (null rowParams) $
         withTransaction conn $
-          executeMany conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" rowParams
+          insertEvents conn rowParams
       -- Re-read the last event id from the database so the in-memory
       -- de-duplication TVar is consistent with the migrated rows.
       reinitLastSeen
@@ -283,16 +291,89 @@ migrateFromFileBased _proxy tracer legacyFile conn reinitLastSeen = do
 
 -- Internal
 
+-- | Current schema version. Bump this and add a migration step to
+-- 'applyMigrations' whenever the schema changes.
+nextVersion :: Int
+nextVersion = 1
+
+-- | Initialise connection pragmas, then create or migrate the schema to
+-- 'nextVersion' using SQLite's built-in @user_version@ pragma.
 initSchema :: Connection -> IO ()
 initSchema conn = do
-  execute_ conn "PRAGMA journal_mode=WAL"
-  execute_ conn "PRAGMA busy_timeout=5000"
-  -- With WAL, NORMAL skips per-write fsyncs and only syncs during
-  -- checkpoints — safe because the chain is the source of truth.
-  execute_ conn "PRAGMA synchronous=NORMAL"
-  execute_ conn "PRAGMA cache_size=-65536" -- 64 MB page cache
-  execute_ conn "PRAGMA temp_store=MEMORY"
+  configurePragmas conn
+  v <- getSchemaVersion conn
+  applyMigrations conn v
+
+configurePragmas :: Connection -> IO ()
+configurePragmas conn =
+  mapM_
+    (execute_ conn)
+    [ "PRAGMA journal_mode=WAL"
+    , "PRAGMA busy_timeout=5000"
+    , -- With WAL, NORMAL skips per-write fsyncs and only syncs during
+      -- checkpoints — safe because the chain is the source of truth.
+      "PRAGMA synchronous=NORMAL"
+    , "PRAGMA cache_size=-65536" -- 64 MB page cache
+    , "PRAGMA temp_store=MEMORY"
+    ]
+
+-- | Read the schema version from @PRAGMA user_version@ (0 for a fresh DB).
+getSchemaVersion :: Connection -> IO Int
+getSchemaVersion conn = do
+  [[v]] <- query_ conn "PRAGMA user_version"
+  pure v
+
+setSchemaVersion :: Connection -> Int -> IO ()
+setSchemaVersion conn v =
+  -- PRAGMA doesn't support parameter binding, so we use show directly.
+  -- The value is an Int we control, not user input.
+  execute_ conn $ fromString $ "PRAGMA user_version = " <> show v
+
+-- | Apply all pending migrations from version @v@ up to 'nextVersion'.
+-- Each step runs in its own transaction so that a crash mid-migration leaves
+-- the database at a well-defined version.
+applyMigrations :: Connection -> Int -> IO ()
+applyMigrations conn v
+  | v > nextVersion =
+      error $ "Database schema version " <> show v <> " is newer than supported " <> show nextVersion <> ", cannot downgrade"
+  | v == nextVersion = pure ()
+  | otherwise = do
+      migrateStep conn v
+      setSchemaVersion conn (v + 1)
+      applyMigrations conn (v + 1)
+
+-- | Individual migration steps. Pattern-match on the /source/ version.
+migrateStep :: Connection -> Int -> IO ()
+migrateStep conn = \case
+  0 -> createEventsTable conn
+  unknown ->
+    error $ "Unknown schema version " <> show unknown <> ", cannot migrate"
+
+-- SQL queries
+
+createEventsTable :: Connection -> IO ()
+createEventsTable conn =
   execute_
     conn
     "CREATE TABLE IF NOT EXISTS events \
     \(event_id INTEGER NOT NULL PRIMARY KEY, event_data BLOB NOT NULL)"
+
+selectLastEventId :: Connection -> IO [Only Word64]
+selectLastEventId conn =
+  query_ conn "SELECT event_id FROM events ORDER BY event_id DESC LIMIT 1"
+
+getEventsASC :: Connection -> IO Statement
+getEventsASC conn =
+  openStatement conn "SELECT event_id, event_data FROM events ORDER BY event_id ASC"
+
+insertEvent :: Connection -> (Word64, ByteString) -> IO ()
+insertEvent conn =
+  execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)"
+
+insertEvents :: Connection -> [(Word64, ByteString)] -> IO ()
+insertEvents conn =
+  executeMany conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)"
+
+deleteAllEvents :: Connection -> IO ()
+deleteAllEvents conn =
+  execute_ conn "DELETE FROM events"

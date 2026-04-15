@@ -21,7 +21,7 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Events (EventSink)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Hydra.Events.SQLiteBased (migrateFromFileBased, withSQLiteEventStore)
+import Hydra.Events.SQLiteBased (withSQLiteEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
@@ -86,8 +86,7 @@ run opts = do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
-        withSQLiteEventStore dbFile $ \(conn, store, _flush, reinitLastSeen) -> do
-          migrateFromFileBased (Proxy @(StateEvent Tx)) (contramap SQLite tracer') stateFile conn reinitLastSeen
+        withSQLiteEventStore (contramap SQLite tracer') dbFile stateFile $ \store -> do
           eventStore@EventStore{eventSource} <- prepareEventStore store
           -- NOTE: Add any custom sinks here
           let eventSinks :: [EventSink (StateEvent Tx) IO] = []
