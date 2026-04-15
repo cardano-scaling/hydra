@@ -511,5 +511,6 @@ data CardanoChainLog
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
   | StartingChainDecision StartingDecision
+  | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

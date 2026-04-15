@@ -227,7 +227,11 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
 
   stateTVar <- newLabelledTVarIO "blockfrost-chain-state" blockHash
 
-  void $ catchUpToLatest blockHash stateTVar
+  -- Catch-up with retry protection
+  void $
+    retryOnBlockfrostError tracer maxRetries $ do
+      currentHash <- readTVarIO stateTVar
+      catchUpToLatest currentHash stateTVar
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
@@ -390,6 +394,32 @@ toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =
   headerHash :: Hash BlockHeader
   headerHash = fromString . toString $ Blockfrost.unBlockHash _blockHash
 
+-- * Retry logic
+
+-- | Maximum number of retries for transient Blockfrost errors.
+maxRetries :: Int
+maxRetries = 10
+
+-- | Retry an action on transient 'APIBlockfrostError' exceptions with
+-- exponential backoff (1s, 2s, 4s, ... capped at 60s). Gives up after
+-- the specified number of retries and re-throws the last exception.
+retryOnBlockfrostError ::
+  (MonadIO m, MonadCatch m, MonadDelay m) =>
+  Tracer m CardanoChainLog ->
+  Int ->
+  m a ->
+  m a
+retryOnBlockfrostError tracer maxRetryCount action = go 0 1
+ where
+  go !attempt !delaySec = do
+    action `catch` \(ex :: APIBlockfrostError) -> do
+      if attempt + 1 >= maxRetryCount
+        then throwIO ex
+        else do
+          traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = delaySec}
+          threadDelay (fromIntegral delaySec)
+          go (attempt + 1) (min 60 (delaySec * 2))
+
 -- * Helpers
 
 data APIBlockfrostError
@@ -403,7 +433,7 @@ data APIBlockfrostError
 
 isRetryable :: APIBlockfrostError -> Bool
 isRetryable (BlockfrostError _) = True
-isRetryable (DecodeError _) = False
+isRetryable (DecodeError _) = True
 isRetryable (NotEnoughBlockConfirmations _) = True
 isRetryable (MissingBlockNo _) = True
 isRetryable (MissingBlockSlot _) = True
