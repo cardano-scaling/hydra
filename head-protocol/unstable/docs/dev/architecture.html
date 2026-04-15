@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.d959eb6e.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.98fd8bae.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.4b66a601.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.d42fd4bf.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -44,7 +44,7 @@ Diagram</a> notation.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="api">API<a href="#api" class="hash-link" aria-label="Direct link to API" title="Direct link to API">​</a></h3>
 <p>The <code>hydra-node</code> component exposes an <a href="https://hydra.family/head-protocol/unstable/api-reference" target="_blank" rel="noopener noreferrer">asynchronous API</a> through a WebSocket server. This API is available to the <em>Hydra client</em> for sending commands and observing changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from the persistence layer and serves them to clients interested in observing them.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="persistence">Persistence<a href="#persistence" class="hash-link" aria-label="Direct link to Persistence" title="Direct link to Persistence">​</a></h3>
-<p>The <code>hydra-node</code> state is preserved on disk. The persistence layer is responsible for loading historical messages and Hydra state from disk, as well as storing them in so-called event log files. Depending on the rotation configuration used at startup, these event log files will be rotated to improve restart times. So far, there hasn’t been a need to increase the complexity of this layer or to use a database.</p>
+<p>The <code>hydra-node</code> state is persisted in a SQLite database file named <code>hydra.db</code>, located in the persistence directory specified by <code>--persistence-dir</code>. The persistence layer is responsible for loading historical messages and Hydra state from this database, as well as storing new events as they occur. Depending on the rotation configuration used at startup, old events may be compacted to improve restart times. The database schema is versioned using SQLite&#x27;s <code>PRAGMA user_version</code> and migrations are applied automatically on startup. See <a href="/head-protocol/unstable/docs/dev/architecture/event-sourcing#sqlite-database">Event sourcing</a> for details.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="logging">Logging<a href="#logging" class="hash-link" aria-label="Direct link to Logging" title="Direct link to Logging">​</a></h3>
 <p>The Hydra node logs all internal side effects as JSON-formatted messages to its <em>standard output</em> stream.</p>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="monitoring">Monitoring<a href="#monitoring" class="hash-link" aria-label="Direct link to Monitoring" title="Direct link to Monitoring">​</a></h3>

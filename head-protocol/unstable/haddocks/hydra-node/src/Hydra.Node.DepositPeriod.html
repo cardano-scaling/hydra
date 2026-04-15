@@ -5,7 +5,7 @@
 </span><span id="line-5"></span><span class="annot"><span class="hs-comment">-- | A new type wrapped period of time to be used in deposit validity.</span></span><span>
 </span><span id="line-6"></span><span class="hs-keyword">newtype</span><span> </span><span id="DepositPeriod"><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-var">DepositPeriod</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="DepositPeriod"><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-var">DepositPeriod</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AtoNominalDiffTime%3ADepositPeriod"><span class="annot"><span class="annottext">DepositPeriod -&gt; NominalDiffTime
 </span><a href="Hydra.Node.DepositPeriod.html#%24sel%3AtoNominalDiffTime%3ADepositPeriod"><span class="hs-identifier hs-var hs-var">toNominalDiffTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.NominalDiffTime.html#NominalDiffTime"><span class="hs-identifier hs-type">NominalDiffTime</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-7"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680412003"><span id="local-6989586621680412007"><span class="annot"><span class="annottext">DepositPeriod -&gt; DepositPeriod -&gt; Bool
+</span><span id="line-7"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680416601"><span id="local-6989586621680416605"><span class="annot"><span class="annottext">DepositPeriod -&gt; DepositPeriod -&gt; Bool
 (DepositPeriod -&gt; DepositPeriod -&gt; Bool)
 -&gt; (DepositPeriod -&gt; DepositPeriod -&gt; Bool) -&gt; Eq DepositPeriod
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -13,7 +13,7 @@ $c== :: DepositPeriod -&gt; DepositPeriod -&gt; Bool
 == :: DepositPeriod -&gt; DepositPeriod -&gt; Bool
 $c/= :: DepositPeriod -&gt; DepositPeriod -&gt; Bool
 /= :: DepositPeriod -&gt; DepositPeriod -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412014"><span id="local-6989586621680412018"><span id="local-6989586621680412021"><span id="local-6989586621680412025"><span id="local-6989586621680412028"><span id="local-6989586621680412031"><span id="local-6989586621680412034"><span class="annot"><span class="annottext">Eq DepositPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416612"><span id="local-6989586621680416616"><span id="local-6989586621680416619"><span id="local-6989586621680416623"><span id="local-6989586621680416626"><span id="local-6989586621680416629"><span id="local-6989586621680416632"><span class="annot"><span class="annottext">Eq DepositPeriod
 Eq DepositPeriod =&gt;
 (DepositPeriod -&gt; DepositPeriod -&gt; Ordering)
 -&gt; (DepositPeriod -&gt; DepositPeriod -&gt; Bool)
@@ -51,7 +51,7 @@ max :: DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod
 $cmin :: DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod
 min :: DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Ord</span></a></span></span></span></span></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-8"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680412038"><span id="local-6989586621680412043"><span id="local-6989586621680412047"><span class="annot"><span class="annottext">Int -&gt; DepositPeriod -&gt; ShowS
+</span><span id="line-8"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">newtype</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621680416636"><span id="local-6989586621680416641"><span id="local-6989586621680416645"><span class="annot"><span class="annottext">Int -&gt; DepositPeriod -&gt; ShowS
 [DepositPeriod] -&gt; ShowS
 DepositPeriod -&gt; String
 (Int -&gt; DepositPeriod -&gt; ShowS)
@@ -66,7 +66,7 @@ $cshow :: DepositPeriod -&gt; String
 show :: DepositPeriod -&gt; String
 $cshowList :: [DepositPeriod] -&gt; ShowS
 showList :: [DepositPeriod] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412053"><span id="local-6989586621680412058"><span id="local-6989586621680412062"><span id="local-6989586621680412066"><span class="annot"><span class="annottext">ReadPrec [DepositPeriod]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416651"><span id="local-6989586621680416656"><span id="local-6989586621680416660"><span id="local-6989586621680416664"><span class="annot"><span class="annottext">ReadPrec [DepositPeriod]
 ReadPrec DepositPeriod
 Int -&gt; ReadS DepositPeriod
 ReadS [DepositPeriod]
@@ -86,7 +86,7 @@ $creadPrec :: ReadPrec DepositPeriod
 readPrec :: ReadPrec DepositPeriod
 $creadListPrec :: ReadPrec [DepositPeriod]
 readListPrec :: ReadPrec [DepositPeriod]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412072"><span id="local-6989586621680412077"><span id="local-6989586621680412081"><span id="local-6989586621680412085"><span id="local-6989586621680412089"><span id="local-6989586621680412093"><span id="local-6989586621680412097"><span class="annot"><span class="annottext">Integer -&gt; DepositPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Read.html#Read"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Read</span></a></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416670"><span id="local-6989586621680416675"><span id="local-6989586621680416679"><span id="local-6989586621680416683"><span id="local-6989586621680416687"><span id="local-6989586621680416691"><span id="local-6989586621680416695"><span class="annot"><span class="annottext">Integer -&gt; DepositPeriod
 DepositPeriod -&gt; DepositPeriod
 DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod
 (DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod)
@@ -120,7 +120,7 @@ $csignum :: DepositPeriod -&gt; DepositPeriod
 signum :: DepositPeriod -&gt; DepositPeriod
 $cfromInteger :: Integer -&gt; DepositPeriod
 fromInteger :: Integer -&gt; DepositPeriod
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412103"><span id="local-6989586621680412108"><span id="local-6989586621680412112"><span id="local-6989586621680412116"><span id="local-6989586621680412120"><span id="local-6989586621680412124"><span id="local-6989586621680412128"><span id="local-6989586621680412132"><span class="annot"><span class="annottext">Int -&gt; DepositPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#Num"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Num</span></a></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416701"><span id="local-6989586621680416706"><span id="local-6989586621680416710"><span id="local-6989586621680416714"><span id="local-6989586621680416718"><span id="local-6989586621680416722"><span id="local-6989586621680416726"><span id="local-6989586621680416730"><span class="annot"><span class="annottext">Int -&gt; DepositPeriod
 DepositPeriod -&gt; Int
 DepositPeriod -&gt; [DepositPeriod]
 DepositPeriod -&gt; DepositPeriod
@@ -162,7 +162,7 @@ $cenumFromTo :: DepositPeriod -&gt; DepositPeriod -&gt; [DepositPeriod]
 enumFromTo :: DepositPeriod -&gt; DepositPeriod -&gt; [DepositPeriod]
 $cenumFromThenTo :: DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod -&gt; [DepositPeriod]
 enumFromThenTo :: DepositPeriod -&gt; DepositPeriod -&gt; DepositPeriod -&gt; [DepositPeriod]
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412142"><span class="annot"><span class="annottext">Num DepositPeriod
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Enum</span></a></span></span></span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416740"><span class="annot"><span class="annottext">Num DepositPeriod
 Ord DepositPeriod
 (Num DepositPeriod, Ord DepositPeriod) =&gt;
 (DepositPeriod -&gt; Rational) -&gt; Real DepositPeriod
@@ -170,7 +170,7 @@ DepositPeriod -&gt; Rational
 forall a. (Num a, Ord a) =&gt; (a -&gt; Rational) -&gt; Real a
 $ctoRational :: DepositPeriod -&gt; Rational
 toRational :: DepositPeriod -&gt; Rational
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412149"><span id="local-6989586621680412154"><span id="local-6989586621680412158"><span id="local-6989586621680412162"><span id="local-6989586621680412166"><span class="annot"><span class="annottext">[DepositPeriod] -&gt; Value
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Real"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Real</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416747"><span id="local-6989586621680416752"><span id="local-6989586621680416756"><span id="local-6989586621680416760"><span id="local-6989586621680416764"><span class="annot"><span class="annottext">[DepositPeriod] -&gt; Value
 [DepositPeriod] -&gt; Encoding
 DepositPeriod -&gt; Bool
 DepositPeriod -&gt; Value
@@ -198,7 +198,7 @@ $ctoEncodingList :: [DepositPeriod] -&gt; Encoding
 toEncodingList :: [DepositPeriod] -&gt; Encoding
 $comitField :: DepositPeriod -&gt; Bool
 omitField :: DepositPeriod -&gt; Bool
-</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412172"><span id="local-6989586621680412177"><span id="local-6989586621680412181"><span class="annot"><span class="annottext">Maybe DepositPeriod
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416770"><span id="local-6989586621680416775"><span id="local-6989586621680416779"><span class="annot"><span class="annottext">Maybe DepositPeriod
 Value -&gt; Parser [DepositPeriod]
 Value -&gt; Parser DepositPeriod
 (Value -&gt; Parser DepositPeriod)
@@ -217,37 +217,37 @@ omittedField :: Maybe DepositPeriod
 </span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">FromJSON</span></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-9"></span><span>
 </span><span id="line-10"></span><span class="annot"><span class="hs-comment">-- | Truncates to whole seconds.</span></span><span>
-</span><span id="line-11"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680412191"><span id="local-6989586621680412195"><span id="local-6989586621680412198"><span id="local-6989586621680412201"><span id="local-6989586621680412205"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-type">Integral</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-12"></span><span>  </span><span id="local-6989586621680412216"><span class="annot"><span class="annottext">quotRem :: DepositPeriod -&gt; DepositPeriod -&gt; (DepositPeriod, DepositPeriod)
-</span><a href="#local-6989586621680412216"><span class="hs-identifier hs-var hs-var hs-var hs-var">quotRem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span><span> </span><span id="local-6989586621680412218"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412218"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span><span> </span><span id="local-6989586621680412219"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412219"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DepositPeriod
+</span><span id="line-11"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621680416789"><span id="local-6989586621680416793"><span id="local-6989586621680416796"><span id="local-6989586621680416799"><span id="local-6989586621680416803"><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#Integral"><span class="hs-identifier hs-type">Integral</span></a></span><span> </span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-12"></span><span>  </span><span id="local-6989586621680416814"><span class="annot"><span class="annottext">quotRem :: DepositPeriod -&gt; DepositPeriod -&gt; (DepositPeriod, DepositPeriod)
+</span><a href="#local-6989586621680416814"><span class="hs-identifier hs-var hs-var hs-var hs-var">quotRem</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span><span> </span><span id="local-6989586621680416816"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680416816"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span><span> </span><span id="local-6989586621680416817"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680416817"><span class="hs-identifier hs-var">b</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DepositPeriod
 </span><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-var">DepositPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; DepositPeriod)
 -&gt; NominalDiffTime -&gt; DepositPeriod
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; NominalDiffTime
 forall a. Num a =&gt; Integer -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-var">fromInteger</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680412220"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DepositPeriod
+</span><a href="#local-6989586621680416818"><span class="hs-identifier hs-var">q</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; DepositPeriod
 </span><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-var">DepositPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412221"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680416819"><span class="hs-identifier hs-var">r</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-13"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-14"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680412220"><span class="annot"><span class="annottext">Integer
-</span><a href="#local-6989586621680412220"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680412221"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412221"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; (Integer, NominalDiffTime)
+</span><span id="line-14"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621680416818"><span class="annot"><span class="annottext">Integer
+</span><a href="#local-6989586621680416818"><span class="hs-identifier hs-var">q</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621680416819"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680416819"><span class="hs-identifier hs-var">r</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; (Integer, NominalDiffTime)
 forall b. Integral b =&gt; NominalDiffTime -&gt; (b, NominalDiffTime)
 forall a b. (RealFrac a, Integral b) =&gt; a -&gt; (b, a)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#properFraction"><span class="hs-identifier hs-var">properFraction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412218"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621680416816"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Fractional a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#%2F"><span class="hs-operator hs-var">/</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412219"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621680416817"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-15"></span><span>
-</span><span id="line-16"></span><span>  </span><span id="local-6989586621680412226"><span class="annot"><span class="annottext">toInteger :: DepositPeriod -&gt; Integer
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">toInteger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span><span> </span><span id="local-6989586621680412227"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412227"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Integer
+</span><span id="line-16"></span><span>  </span><span id="local-6989586621680416824"><span class="annot"><span class="annottext">toInteger :: DepositPeriod -&gt; Integer
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-var hs-var hs-var hs-var">toInteger</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.DepositPeriod.html#DepositPeriod"><span class="hs-identifier hs-type">DepositPeriod</span></a></span><span> </span><span id="local-6989586621680416825"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621680416825"><span class="hs-identifier hs-var">a</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; Integer
 forall b. Integral b =&gt; NominalDiffTime -&gt; b
 forall a b. (RealFrac a, Integral b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#round"><span class="hs-identifier hs-var">round</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621680412227"><span class="hs-identifier hs-var">a</span></a></span><span>
+</span><a href="#local-6989586621680416825"><span class="hs-identifier hs-var">a</span></a></span><span>
 </span><span id="line-17"></span></pre></body></html>

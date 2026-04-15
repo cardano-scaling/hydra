@@ -536,8 +536,8 @@ queryTimeHandle :: (ChainBackend m, Monad m) => m TimeHandle
 --   are used by the main <tt>HydraNode</tt> handle to load and send out
 --   events.
 --   
---   See <a>FileBased</a> for an example implementation and
---   <a>FileBasedSpec</a> for the corresponding test suite.
+--   See <a>SQLiteBased</a> for the default implementation and
+--   <a>SQLiteBasedSpec</a> for the corresponding test suite.
 --   
 --   Custom implementations should be located under Hydra.Events to avoid
 --   conflicts.
@@ -553,14 +553,20 @@ EventSource :: (HasEventId e => ConduitT () e (ResourceT m) ()) -> EventSource e
 
 -- | Retrieve all events from the event source as a list.
 getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
-newtype EventSink e m
-EventSink :: (HasEventId e => e -> m ()) -> EventSink e m
+data EventSink e m
+EventSink :: (HasEventId e => e -> m ()) -> (HasEventId e => [e] -> m ()) -> EventSink e m
 
 -- | Send a single event to the event sink.
 [$sel:putEvent:EventSink] :: EventSink e m -> HasEventId e => e -> m ()
 
--- | Put a list of events to a list of event sinks in a round-robin
---   fashion.
+-- | Send a batch of events to the event sink.
+[$sel:putEvents:EventSink] :: EventSink e m -> HasEventId e => [e] -> m ()
+
+-- | Create an <a>EventSink</a> from a single-event function, with a
+--   default sequential batch implementation.
+mkEventSink :: Monad m => (HasEventId e => e -> m ()) -> EventSink e m
+
+-- | Put a list of events to a list of event sinks, batching per sink.
 putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
 instance Hydra.Events.HasEventId GHC.Word.Word64
 
@@ -1180,6 +1186,169 @@ instance GHC.Show.Show a => GHC.Show.Show (Hydra.Logging.Envelope a)
 instance GHC.Classes.Eq a => GHC.Classes.Eq (Hydra.Logging.Envelope a)
 instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Logging.Envelope a)
 instance Data.Aeson.Types.FromJSON.FromJSON a => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Logging.Envelope a)
+
+
+-- | A SQLite-backed event source and sink.
+--   
+--   This is the recommended persistence backend for new deployments. See
+--   <a>withSQLiteEventStore</a> which handles migration from the legacy
+--   file-based store automatically.
+--   
+--   <h2>Architecture</h2>
+--   
+--   Events are stored in a single <tt>events</tt> table with an integer
+--   primary key (<tt>event_id</tt>) and a BLOB column
+--   (<tt>event_data</tt>) containing JSON-encoded event data. The database
+--   uses WAL journal mode with <tt>synchronous=NORMAL</tt> to avoid
+--   per-write fsyncs while still syncing at WAL checkpoints.
+--   
+--   <h2>Async write-behind</h2>
+--   
+--   To keep persistence off the hot path, writes use an async write-behind
+--   strategy. <a>$sel:putEvent:EventSink</a> and
+--   <a>$sel:putEvents:EventSink</a> encode events eagerly to strict
+--   <a>ByteString</a> and enqueue them into a bounded <a>TBQueue</a>. A
+--   background writer thread drains the queue and batch-inserts rows using
+--   <a>executeMany</a> inside a single transaction, amortising WAL frame
+--   writes across multiple events.
+--   
+--   The last-seen event id <a>TVar</a> is updated atomically at enqueue
+--   time (not write time), so de-duplication and source-of-truth tracking
+--   remain correct even though the physical write is deferred.
+--   
+--   All SQLite writes go through the single writer thread, preventing
+--   concurrent access races. Operations that need data flushed (rotation,
+--   reads) use a flush marker: a <a>TMVar</a> is enqueued and the caller
+--   blocks until the writer thread has processed all preceding items and
+--   signalled it. <a>$sel:sourceEvents:EventSource</a> auto-flushes before
+--   reading, so callers always see all enqueued events.
+--   
+--   <h2>Tradeoffs</h2>
+--   
+--   <ul>
+--   <li><b>Writer thread crash surfacing</b>: The background writer is
+--   <a>link</a>ed to the calling thread. If it dies (e.g. SQLite I/O
+--   error), the exception propagates immediately rather than leaving the
+--   node silently stalled. Use <a>withSQLiteEventStore</a> which handles
+--   cleanup (flush + cancel) on exit.</li>
+--   </ul>
+--   
+--   <ul>
+--   <li><b>Data loss on hard crash</b>: Events in the queue that have not
+--   yet been flushed to SQLite are lost on SIGKILL, OOM, or power loss.
+--   This is acceptable because the L1 chain is the source of truth — the
+--   node replays missed events from chain on restart.</li>
+--   <li><b>Rotation ordering</b>: <a>$sel:rotate:EventStore</a> flushes
+--   the write queue synchronously before performing DELETE + INSERT. This
+--   is safe because rotation is only called from the single-threaded event
+--   processing loop (<tt>processStateChanges</tt>), so no concurrent
+--   enqueues can occur between the flush and the rotation write.</li>
+--   </ul>
+module Hydra.Events.SQLiteBased
+
+-- | Exception thrown when a persisted event cannot be decoded.
+data EventDecodingException
+EventDecodingException :: Word64 -> String -> EventDecodingException
+[$sel:eventId:EventDecodingException] :: EventDecodingException -> Word64
+[$sel:decodeError:EventDecodingException] :: EventDecodingException -> String
+data SQLiteLog
+MigratingFromFileBased :: FilePath -> SQLiteLog
+[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
+MigrationSkipped :: FilePath -> SQLiteLog
+[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
+MigrationComplete :: FilePath -> SQLiteLog
+[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
+
+-- | Items in the write-behind queue: either an event row to insert or a
+--   flush marker that the writer thread signals after processing all
+--   preceding items.
+type WriteItem = Either (TMVar IO ()) (Word64, ByteString)
+
+-- | Bracket-style wrapper around <a>mkSQLiteEventStore</a>. Creates the
+--   database, schema, and writer thread, runs the callback, then flushes
+--   queued writes and cancels the writer thread on exit. The writer thread
+--   is <a>link</a>ed so that crashes surface immediately in the calling
+--   thread.
+--   
+--   If a legacy state file exists at <tt>legacyStateFile</tt>, events are
+--   migrated into SQLite automatically before the callback runs.
+--   
+--   Flushing of the async write queue and reinitialisation of the
+--   last-seen event id are handled internally:
+--   <a>$sel:sourceEvents:EventSource</a> auto-flushes before reading,
+--   <a>$sel:rotate:EventStore</a> flushes before deleting, migration
+--   reinitialises the event id TVar, and this bracket flushes on exit.
+withSQLiteEventStore :: forall e a. (FromJSON e, ToJSON e, HasEventId e) => Tracer IO SQLiteLog -> FilePath -> FilePath -> (EventStore e IO -> IO a) -> IO a
+
+-- | Create an <a>EventStore</a> backed by a SQLite database at the given
+--   file path. The database and schema are created on first use if they do
+--   not exist. Returns <tt>(conn, store, flush, reinitLastSeen,
+--   cancelWriter)</tt>. Internal — prefer <a>withSQLiteEventStore</a>
+--   which handles cleanup, migration, and flushing automatically.
+mkSQLiteEventStore :: forall e. (ToJSON e, FromJSON e, HasEventId e) => FilePath -> IO (Connection, EventStore e IO, IO (), IO (), IO ())
+
+-- | Background writer that drains the queue and batch-inserts into SQLite.
+--   Each iteration blocks for at least one item, then flushes everything
+--   available. Event rows are batch-inserted in a single transaction, then
+--   any flush markers in the batch are signalled.
+writerLoop :: Connection -> TBQueue IO WriteItem -> IO ()
+
+-- | Block until all items currently in the write queue have been flushed
+--   to SQLite. Sends a flush marker through the queue and waits for the
+--   writer thread to signal completion.
+flushWriteQueue :: TBQueue IO WriteItem -> IO ()
+
+-- | Migrate events from a legacy newline-delimited JSON file into SQLite.
+--   Writes directly to the database, bypassing the async write queue
+--   (migration runs at startup before the node processes inputs). After
+--   inserting, calls <tt>reinitLastSeen</tt> to sync the in-memory event
+--   id TVar with the database.
+--   
+--   Safe to call when the legacy file does not exist (no-op). Not safe to
+--   re-run: duplicate event ids will cause a primary key constraint
+--   violation.
+--   
+--   On success the legacy file is renamed to <tt><a>path</a>.migrated</tt>
+--   so that subsequent node restarts skip the migration step
+--   automatically.
+migrateFromFileBased :: forall e. (FromJSON e, HasEventId e) => Proxy e -> Tracer IO SQLiteLog -> FilePath -> Connection -> IO () -> IO ()
+
+-- | Current schema version. Bump this and add a migration step to
+--   <a>applyMigrations</a> whenever the schema changes.
+nextVersion :: Int
+
+-- | Initialise connection pragmas, then create or migrate the schema to
+--   <a>nextVersion</a> using SQLite's built-in <tt>user_version</tt>
+--   pragma.
+initSchema :: Connection -> IO ()
+configurePragmas :: Connection -> IO ()
+
+-- | Read the schema version from <tt>PRAGMA user_version</tt> (0 for a
+--   fresh DB).
+getSchemaVersion :: Connection -> IO Int
+setSchemaVersion :: Connection -> Int -> IO ()
+
+-- | Apply all pending migrations from version <tt>v</tt> up to
+--   <a>nextVersion</a>. Each step runs in its own transaction so that a
+--   crash mid-migration leaves the database at a well-defined version.
+applyMigrations :: Connection -> Int -> IO ()
+
+-- | Individual migration steps. Pattern-match on the <i>source</i>
+--   version.
+migrateStep :: Connection -> Int -> IO ()
+createEventsTable :: Connection -> IO ()
+selectLastEventId :: Connection -> IO [Only Word64]
+getEventsASC :: Connection -> IO Statement
+insertEvent :: Connection -> (Word64, ByteString) -> IO ()
+insertEvents :: Connection -> [(Word64, ByteString)] -> IO ()
+deleteAllEvents :: Connection -> IO ()
+instance GHC.Show.Show Hydra.Events.SQLiteBased.EventDecodingException
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Events.SQLiteBased.SQLiteLog
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Events.SQLiteBased.SQLiteLog
+instance GHC.Generics.Generic Hydra.Events.SQLiteBased.SQLiteLog
+instance GHC.Show.Show Hydra.Events.SQLiteBased.SQLiteLog
+instance GHC.Classes.Eq Hydra.Events.SQLiteBased.SQLiteLog
+instance GHC.Exception.Type.Exception Hydra.Events.SQLiteBased.EventDecodingException
 
 
 -- | Companion tiny-wallet for the direct chain component. This module
@@ -3616,71 +3785,6 @@ instance GHC.Generics.Generic Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.CardanoChainLog
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.CardanoChainLog
 
-module Hydra.PersistenceLog
-data PersistenceLog
-FailedToDecodeJson :: String -> FilePath -> String -> PersistenceLog
-[$sel:reason:FailedToDecodeJson] :: PersistenceLog -> String
-[$sel:filepath:FailedToDecodeJson] :: PersistenceLog -> FilePath
-[$sel:contents:FailedToDecodeJson] :: PersistenceLog -> String
-instance GHC.Generics.Generic Hydra.PersistenceLog.PersistenceLog
-instance GHC.Show.Show Hydra.PersistenceLog.PersistenceLog
-instance GHC.Classes.Eq Hydra.PersistenceLog.PersistenceLog
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.PersistenceLog.PersistenceLog
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.PersistenceLog.PersistenceLog
-
-
--- | Handles to save/load files across the hydra-node. We use a simple JSON
---   encoding and two modes of operation to store things: Full and
---   Incremental.
-module Hydra.Persistence
-newtype PersistenceException
-PersistenceException :: String -> PersistenceException
-
--- | Handle to save and load files to/from disk using JSON encoding.
-data Persistence a m
-Persistence :: (ToJSON a => a -> m ()) -> (FromJSON a => m (Maybe a)) -> Persistence a m
-[$sel:save:Persistence] :: Persistence a m -> ToJSON a => a -> m ()
-[$sel:load:Persistence] :: Persistence a m -> FromJSON a => m (Maybe a)
-
--- | Initialize persistence handle for given type <tt>a</tt> at given file
---   path.
-createPersistence :: (MonadIO m, MonadThrow m) => FilePath -> m (Persistence a m)
-
--- | Handle to save incrementally and load files to/from disk using JSON
---   encoding.
-data PersistenceIncremental a m
-PersistenceIncremental :: (ToJSON a => a -> m ()) -> (FromJSON a => ConduitT () a (ResourceT m) ()) -> PersistenceIncremental a m
-[$sel:append:PersistenceIncremental] :: PersistenceIncremental a m -> ToJSON a => a -> m ()
-
--- | Stream all elements from the file.
-[$sel:source:PersistenceIncremental] :: PersistenceIncremental a m -> FromJSON a => ConduitT () a (ResourceT m) ()
-
--- | Load all elements from persistence into a list. XXX: Deprecate this to
---   avoid large memory usage.
-loadAll :: (FromJSON a, MonadUnliftIO m) => PersistenceIncremental a m -> m [a]
-
--- | Initialize persistence handle for given type <tt>a</tt> at given file
---   path.
---   
---   This instance of <a>PersistenceIncremental</a> is "thread-safe" in the
---   sense that it prevents appending while a source is still running
---   (while ResourceT is still not fully unwrapped.
-createPersistenceIncremental :: forall a m. (MonadUnliftIO m, MonadThrow m, FromJSON a) => Tracer IO PersistenceLog -> FilePath -> m (PersistenceIncremental a m)
-instance GHC.Show.Show Hydra.Persistence.PersistenceException
-instance GHC.Classes.Eq Hydra.Persistence.PersistenceException
-instance GHC.Exception.Type.Exception Hydra.Persistence.PersistenceException
-
-
--- | A file-based event source and sink using JSON encoding.
---   
---   This is currently used as the main event source and sink in the
---   hydra-node.
-module Hydra.Events.FileBased
-
--- | A basic file based event source and sink defined using a rotated
---   <a>PersistenceIncremental</a> handle.
-mkFileBasedEventStore :: (ToJSON e, FromJSON e, HasEventId e) => FilePath -> PersistenceIncremental e IO -> IO (EventStore e IO)
-
 module Hydra.NetworkVersions
 hydraNodeVersion :: Version
 networkVersions :: ByteString
@@ -4460,8 +4564,8 @@ Node :: HydraNodeLog tx -> HydraLog tx
 [$sel:node:DirectChain] :: HydraLog tx -> HydraNodeLog tx
 NodeOptions :: RunOptions -> HydraLog tx
 [$sel:runOptions:DirectChain] :: HydraLog tx -> RunOptions
-Persistence :: PersistenceLog -> HydraLog tx
-[$sel:persistenceLog:DirectChain] :: HydraLog tx -> PersistenceLog
+SQLite :: SQLiteLog -> HydraLog tx
+[$sel:sqlite:DirectChain] :: HydraLog tx -> SQLiteLog
 EnteringMainloop :: HydraLog tx
 NodeHydrated :: HydraLog tx
 ChainBackendStarted :: HydraLog tx

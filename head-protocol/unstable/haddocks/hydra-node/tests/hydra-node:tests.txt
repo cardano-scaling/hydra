@@ -203,14 +203,6 @@ instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.Success
 instance Hydra.Chain.Backend.ChainBackend Hydra.Chain.ScriptRegistrySpec.ATestBackend
 
 
--- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
---   in <a>FileBased</a>.
-module Hydra.Events.FileBasedSpec
-spec :: Spec
-genContinuousEvents :: Gen [StateEvent SimpleTx]
-withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
-
-
 -- | Tests for the AWS S3 example event source and sink.
 module Hydra.Events.S3Spec
 spec :: Spec
@@ -461,12 +453,6 @@ waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b)
 --   of the dependency on Hydra.Logging.
 captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
 
-module Hydra.PersistenceSpec
-spec :: Spec
-genPersistenceItem :: Gen Value
-genSomeText :: Gen Text
-containsNewLine :: [Value] -> Bool
-
 module Hydra.NodeSpec
 spec :: Spec
 
@@ -601,6 +587,14 @@ propGeneratesGoodTxOut :: TxOut CtxUTxO -> Property
 --   This causes slot-to-time conversions to differ from a simple
 --   fixedEpochInfo because Byron slots are 20x longer than Shelley slots.
 multiEraHistory :: EraHistory
+
+
+-- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
+--   in <a>SQLiteBased</a>.
+module Hydra.Events.SQLiteBasedSpec
+spec :: Spec
+genContinuousEvents :: Gen [StateEvent SimpleTx]
+withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 
 module Hydra.CryptoSpec
 spec :: Spec
