@@ -25,7 +25,7 @@ spec = do
     it "retries on transient APIBlockfrostError and eventually succeeds" $ do
       attemptsRef <- newIORef (0 :: Int)
       result <-
-        retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 $ do
+        retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 $ const $ do
           attempts <- readIORef attemptsRef
           writeIORef attemptsRef (attempts + 1)
           if attempts < 2
@@ -40,9 +40,9 @@ spec = do
       let action = do
             modifyIORef attemptsRef (+ 1)
             throwIO $ BlockfrostError "persistent error"
-      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 action
+      retryOnBlockfrostError (nullTracer :: Tracer IO CardanoChainLog) 3 (const action)
         `shouldThrow` \case
           BlockfrostError{} -> True
           _ -> False
       finalAttempts <- readIORef attemptsRef
-      finalAttempts `shouldBe` 3
+      finalAttempts `shouldBe` 4

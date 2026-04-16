@@ -5,7 +5,9 @@ import Hydra.Prelude
 import Blockfrost.Client qualified as BlockfrostAPI
 import Control.Concurrent.Class.MonadSTM (putTMVar, readTQueue, readTVarIO, takeTMVar, writeTQueue, writeTVar)
 import Control.Exception (IOException)
-import Control.Retry (RetryPolicyM, constantDelay, retrying)
+import Control.Monad.Catch (Handler (Handler))
+import Control.Monad.Catch qualified as Catch
+import Control.Retry (RetryPolicyM, RetryStatus (..), constantDelay, fullJitterBackoff, limitRetries, recovering, retrying)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
@@ -192,7 +194,7 @@ newtype BlockfrostConnectException = BlockfrostConnectException
 instance Exception BlockfrostConnectException
 
 blockfrostChain ::
-  (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m, Catch.MonadMask m) =>
   Tracer m CardanoChainLog ->
   TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) ->
   Blockfrost.Project ->
@@ -208,7 +210,7 @@ blockfrostChain tracer queue prj prefix handler wallet = do
 
 blockfrostChainFollow ::
   forall m.
-  (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m, Catch.MonadMask m) =>
   Tracer m CardanoChainLog ->
   Blockfrost.Project ->
   NonEmpty ChainPoint ->
@@ -229,9 +231,13 @@ blockfrostChainFollow tracer prj prefix handler wallet = do
 
   -- Catch-up with retry protection
   void $
-    retryOnBlockfrostError tracer maxRetries $ do
-      currentHash <- readTVarIO stateTVar
-      catchUpToLatest currentHash stateTVar
+    retryOnBlockfrostError
+      tracer
+      maxRetries
+      ( \_ -> do
+          currentHash <- readTVarIO stateTVar
+          catchUpToLatest currentHash stateTVar
+      )
 
   void $
     retrying (retryPolicy blockTime) shouldRetry $ \_ -> do
@@ -404,21 +410,18 @@ maxRetries = 10
 -- exponential backoff (1s, 2s, 4s, ... capped at 60s). Gives up after
 -- the specified number of retries and re-throws the last exception.
 retryOnBlockfrostError ::
-  (MonadIO m, MonadCatch m, MonadDelay m) =>
+  (MonadIO m, Catch.MonadMask m) =>
   Tracer m CardanoChainLog ->
   Int ->
-  m a ->
+  (RetryStatus -> m a) ->
   m a
-retryOnBlockfrostError tracer maxRetryCount action = go 0 1
- where
-  go !attempt !delaySec = do
-    action `catch` \(ex :: APIBlockfrostError) -> do
-      if attempt + 1 >= maxRetryCount
-        then throwIO ex
-        else do
-          traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = delaySec}
-          threadDelay (fromIntegral delaySec)
-          go (attempt + 1) (min 60 (delaySec * 2))
+retryOnBlockfrostError tracer maxRetryCount =
+  recovering
+    (fullJitterBackoff 2_000 <> limitRetries maxRetryCount)
+    [ \RetryStatus{rsCumulativeDelay} -> Handler $ \(ex :: APIBlockfrostError) -> do
+        traceWith tracer $ BlockfrostTransientError{reason = show ex, retryDelay = rsCumulativeDelay}
+        pure True
+    ]
 
 -- * Helpers
 

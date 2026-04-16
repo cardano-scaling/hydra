@@ -132,6 +132,7 @@ library
     , crypton
     , data-default
     , directory
+    , exceptions
     , file-embed
     , filepath
     , grapesy
