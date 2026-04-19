@@ -1,0 +1,25 @@
+node-id: "1"
+listen: "127.0.0.1:5001"
+api-port: 4001
+monitoring-port: 6001
+hydra-signing-key: "demo/alice.sk"
+hydra-verification-keys:
+  - "demo/bob.vk"
+  - "demo/carol.vk"
+peers:
+  - "127.0.0.1:5002"
+  - "127.0.0.1:5003"
+ledger-protocol-parameters: "devnet/protocol-parameters.json"
+persistence-dir: "devnet/persistence/alice"
+chain:
+  mode: cardano
+  cardano-signing-key: "hydra-cluster/config/credentials/alice.sk"
+  cardano-verification-keys:
+    - "hydra-cluster/config/credentials/bob.vk"
+    - "hydra-cluster/config/credentials/carol.vk"
+  contestation-period: 3
+  deposit-period: 10
+  backend:
+    mode: direct
+    testnet-magic: 42
+    node-socket: "devnet/node.socket"

@@ -12,17 +12,27 @@ import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
+import Hydra.Config (loadConfig)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
+import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand, parseHydraCommandFromArgsWith)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
 main :: IO ()
 main = do
   installSigTermHandler
-  command <- parseHydraCommand
+  args <- getArgs
+  command <- case findConfigFlag args of
+    Nothing ->
+      parseHydraCommand
+    Just configFile -> do
+      baseOpts <- loadConfig configFile
+      cliOpts <- parseHydraCommandFromArgsWith (stripConfigFlag args)
+      pure $ case cliOpts of
+        Run opts -> Run (baseOpts <> opts)
+        other -> other
   case command of
     Run options ->
       run (identifyNode options)
@@ -63,3 +73,22 @@ installSigTermHandler = do
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}
 identifyNode opt = opt
+
+-- | Scan CLI args for @--config FILE@ outside of any subcommand.
+-- Returns the config file path if found.
+findConfigFlag :: [String] -> Maybe FilePath
+findConfigFlag args
+  | any (`elem` subcommands) args = Nothing
+  | otherwise = go args
+ where
+  subcommands = ["publish-scripts", "gen-hydra-key"]
+  go :: [String] -> Maybe FilePath
+  go [] = Nothing
+  go ("--config" : fp : _) = Just fp
+  go (_ : rest) = go rest
+
+-- | Remove @--config FILE@ from a list of arguments.
+stripConfigFlag :: [String] -> [String]
+stripConfigFlag [] = []
+stripConfigFlag ("--config" : _ : rest) = stripConfigFlag rest
+stripConfigFlag (x : rest) = x : stripConfigFlag rest

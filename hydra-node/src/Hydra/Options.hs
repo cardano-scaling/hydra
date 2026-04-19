@@ -251,6 +251,95 @@ defaultRunOptions =
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
 
+-- | Merge two 'RunOptions': for each field, @cli@ wins if it differs from
+-- 'defaultRunOptions'; otherwise @base@ (e.g. loaded from a config file) wins.
+-- Nested chain and ledger configs are merged recursively.
+instance Semigroup RunOptions where
+  base <> cli =
+    RunOptions
+      { verbosity = o defaultRunOptions.verbosity base.verbosity cli.verbosity
+      , nodeId = o defaultRunOptions.nodeId base.nodeId cli.nodeId
+      , listen = o defaultRunOptions.listen base.listen cli.listen
+      , advertise = o defaultRunOptions.advertise base.advertise cli.advertise
+      , peers = o defaultRunOptions.peers base.peers cli.peers
+      , apiHost = o defaultRunOptions.apiHost base.apiHost cli.apiHost
+      , apiPort = o defaultRunOptions.apiPort base.apiPort cli.apiPort
+      , tlsCertPath = o defaultRunOptions.tlsCertPath base.tlsCertPath cli.tlsCertPath
+      , tlsKeyPath = o defaultRunOptions.tlsKeyPath base.tlsKeyPath cli.tlsKeyPath
+      , monitoringPort = o defaultRunOptions.monitoringPort base.monitoringPort cli.monitoringPort
+      , hydraSigningKey = o defaultRunOptions.hydraSigningKey base.hydraSigningKey cli.hydraSigningKey
+      , hydraVerificationKeys = o defaultRunOptions.hydraVerificationKeys base.hydraVerificationKeys cli.hydraVerificationKeys
+      , persistenceDir = o defaultRunOptions.persistenceDir base.persistenceDir cli.persistenceDir
+      , persistenceRotateAfter = o defaultRunOptions.persistenceRotateAfter base.persistenceRotateAfter cli.persistenceRotateAfter
+      , chainConfig = base.chainConfig <> cli.chainConfig
+      , ledgerConfig = base.ledgerConfig <> cli.ledgerConfig
+      , whichEtcd = o defaultRunOptions.whichEtcd base.whichEtcd cli.whichEtcd
+      , apiTransactionTimeout = o defaultRunOptions.apiTransactionTimeout base.apiTransactionTimeout cli.apiTransactionTimeout
+      }
+   where
+    o :: Eq a => a -> a -> a -> a
+    o = overrideField
+
+instance Semigroup ChainConfig where
+  Cardano a <> Cardano b = Cardano (a <> b)
+  _ <> rhs = rhs
+
+instance Semigroup CardanoChainConfig where
+  base <> cli =
+    CardanoChainConfig
+      { hydraScriptsTxId = o defaultCardanoChainConfig.hydraScriptsTxId base.hydraScriptsTxId cli.hydraScriptsTxId
+      , cardanoSigningKey = o defaultCardanoChainConfig.cardanoSigningKey base.cardanoSigningKey cli.cardanoSigningKey
+      , cardanoVerificationKeys = o defaultCardanoChainConfig.cardanoVerificationKeys base.cardanoVerificationKeys cli.cardanoVerificationKeys
+      , startChainFrom = o defaultCardanoChainConfig.startChainFrom base.startChainFrom cli.startChainFrom
+      , contestationPeriod = o defaultCardanoChainConfig.contestationPeriod base.contestationPeriod cli.contestationPeriod
+      , depositPeriod = o defaultCardanoChainConfig.depositPeriod base.depositPeriod cli.depositPeriod
+      , unsyncedPeriod = o defaultCardanoChainConfig.unsyncedPeriod base.unsyncedPeriod cli.unsyncedPeriod
+      , chainBackendOptions = base.chainBackendOptions <> cli.chainBackendOptions
+      }
+   where
+    o :: Eq a => a -> a -> a -> a
+    o = overrideField
+
+instance Semigroup ChainBackendOptions where
+  Direct a <> Direct b = Direct (a <> b)
+  Blockfrost a <> Blockfrost b = Blockfrost (a <> b)
+  _ <> rhs = rhs
+
+instance Semigroup DirectOptions where
+  base <> cli =
+    DirectOptions
+      { networkId = o defaultDirectOptions.networkId base.networkId cli.networkId
+      , nodeSocket = o defaultDirectOptions.nodeSocket base.nodeSocket cli.nodeSocket
+      }
+   where
+    o :: Eq a => a -> a -> a -> a
+    o = overrideField
+
+instance Semigroup BlockfrostOptions where
+  base <> cli =
+    BlockfrostOptions
+      { projectPath = o defaultBlockfrostOptions.projectPath base.projectPath cli.projectPath
+      , queryTimeout = o defaultBlockfrostOptions.queryTimeout base.queryTimeout cli.queryTimeout
+      , retryTimeout = o defaultBlockfrostOptions.retryTimeout base.retryTimeout cli.retryTimeout
+      }
+   where
+    o :: Eq a => a -> a -> a -> a
+    o = overrideField
+
+instance Semigroup LedgerConfig where
+  CardanoLedgerConfig base <> CardanoLedgerConfig cli =
+    CardanoLedgerConfig $
+      overrideField
+        defaultLedgerConfig.cardanoLedgerProtocolParametersFile
+        base
+        cli
+
+-- | Use @cli@ if it differs from @def@, otherwise keep @base@.
+overrideField :: Eq a => a -> a -> a -> a
+overrideField def base cli
+  | cli /= def = cli
+  | otherwise = base
+
 -- | Parser for running the cardano-node with all its 'RunOptions'.
 runOptionsParser :: Parser RunOptions
 runOptionsParser =
@@ -950,6 +1039,10 @@ parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
 -- | Pure parsing of `Option` from a list of arguments.
 parseHydraCommandFromArgs :: [String] -> ParserResult Command
 parseHydraCommandFromArgs = execParserPure defaultPrefs hydraNodeCommand
+
+-- | Parse the given list of arguments, exiting on failure.
+parseHydraCommandFromArgsWith :: [String] -> IO Command
+parseHydraCommandFromArgsWith = handleParseResult . parseHydraCommandFromArgs
 
 -- | Convert an 'Options' instance into the corresponding list of command-line arguments.
 --
