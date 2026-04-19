@@ -66,7 +66,7 @@
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-bob = {
@@ -83,7 +83,7 @@
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-carol = {
@@ -100,7 +100,7 @@
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-node-alice-mirror = {
@@ -117,7 +117,7 @@
                 '';
               };
               working_dir = ".";
-              ready_log_line = "NodeIsLeader";
+              ready_log_line = "NodeSynced";
               depends_on."seed-devnet".condition = "process_completed";
             };
             hydra-tui-alice = {
@@ -134,7 +134,7 @@
                 '';
               };
               is_foreground = true;
-              depends_on."hydra-node-alice".condition = "process_started";
+              depends_on."hydra-node-alice".condition = "process_log_ready";
             };
             hydra-tui-bob = {
               working_dir = "./demo";

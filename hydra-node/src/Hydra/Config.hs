@@ -98,8 +98,9 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   mAdvertiseStr <- o .:? "advertise" :: Parser (Maybe String)
   advertise <- mapM (parseHost "advertise") mAdvertiseStr
   peerEntries <- o .:? "peers" .!= ([] :: [Value]) >>= mapM parsePeerEntry
-  let peers = map fst peerEntries
-      peerCardanoVKs = mapMaybe snd peerEntries
+  let peers = map (.peerHost) peerEntries
+      peerCardanoVKs = mapMaybe (.peerCardanoVK) peerEntries
+      hydraVerificationKeys = mapMaybe (.peerHydraVK) peerEntries
   apiHostStr <- o .:? "api-host" .!= ("127.0.0.1" :: String)
   apiHost <- parseIP "api-host" apiHostStr
   apiPort <- o .:? "api-port" .!= (4001 :: PortNumber)
@@ -107,7 +108,6 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   tlsKeyPath <- o .:? "tls-key"
   monitoringPort <- o .:? "monitoring-port"
   hydraSigningKey <- o .:? "hydra-signing-key" .!= "hydra.sk"
-  hydraVerificationKeys <- o .:? "hydra-verification-keys" .!= []
   persistenceDir <- o .:? "persistence-dir" .!= "./"
   persistenceRotateAfter <- fmap Positive <$> (o .:? "persistence-rotate-after" :: Parser (Maybe Natural))
   mChain <- o .:? "chain"
@@ -236,17 +236,29 @@ parseBlockfrostOptions o = do
 -- ---------------------------------------------------------------------------
 -- Helpers
 
+data PeerEntry = PeerEntry
+  { peerHost :: Host
+  , peerCardanoVK :: Maybe FilePath
+  , peerHydraVK :: Maybe FilePath
+  }
+
 -- | Parse a peer entry which may be a plain "HOST:PORT" string or an object
--- with @address@ and optional @cardano-verification-key@ fields.
-parsePeerEntry :: Value -> Parser (Host, Maybe FilePath)
+-- with @address@ and optional @cardano-verification-key@ / @hydra-verification-key@ fields.
+parsePeerEntry :: Value -> Parser PeerEntry
 parsePeerEntry (String s) = do
   h <- parseHost "peers" (toString s)
-  pure (h, Nothing)
-parsePeerEntry v = withObject "peer" (\o -> do
-  addrStr <- o .: "address"
-  h <- parseHost "peers.address" addrStr
-  vk <- o .:? "cardano-verification-key"
-  pure (h, vk)) v
+  pure PeerEntry{peerHost = h, peerCardanoVK = Nothing, peerHydraVK = Nothing}
+parsePeerEntry v =
+  withObject
+    "peer"
+    ( \o -> do
+        addrStr <- o .: "address"
+        h <- parseHost "peers.address" addrStr
+        cardanoVK <- o .:? "cardano-verification-key"
+        hydraVK <- o .:? "hydra-verification-key"
+        pure PeerEntry{peerHost = h, peerCardanoVK = cardanoVK, peerHydraVK = hydraVK}
+    )
+    v
 
 -- | Inject peer-sourced cardano VKs into an existing 'ChainConfig'.
 applyPeerCardanoVKs :: [FilePath] -> ChainConfig -> ChainConfig
