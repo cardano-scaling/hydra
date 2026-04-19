@@ -12,7 +12,8 @@
 -- node-id: hydra-node-1
 -- listen: "0.0.0.0:5001"
 -- peers:
---   - "peer1:5001"
+--   - address: "peer1:5001"
+--     cardano-verification-key: peer1.cardano.vk
 -- api-host: "127.0.0.1"
 -- api-port: 4001
 -- hydra-signing-key: hydra.sk
@@ -35,7 +36,7 @@ module Hydra.Config (loadConfig) where
 
 import Hydra.Prelude
 
-import Data.Aeson (Value, withObject, (.:?))
+import Data.Aeson (Value (..), withObject, (.:), (.:?))
 import Data.Aeson.Types (Object, Parser, parseEither, (.!=))
 import Data.IP (IP)
 import Data.Text qualified as T
@@ -96,8 +97,9 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   listen <- parseHost "listen" listenStr
   mAdvertiseStr <- o .:? "advertise" :: Parser (Maybe String)
   advertise <- mapM (parseHost "advertise") mAdvertiseStr
-  peerStrs <- o .:? "peers" .!= ([] :: [String])
-  peers <- mapM (parseHost "peers") peerStrs
+  peerEntries <- o .:? "peers" .!= ([] :: [Value]) >>= mapM parsePeerEntry
+  let peers = map fst peerEntries
+      peerCardanoVKs = mapMaybe snd peerEntries
   apiHostStr <- o .:? "api-host" .!= ("127.0.0.1" :: String)
   apiHost <- parseIP "api-host" apiHostStr
   apiPort <- o .:? "api-port" .!= (4001 :: PortNumber)
@@ -108,7 +110,10 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   hydraVerificationKeys <- o .:? "hydra-verification-keys" .!= []
   persistenceDir <- o .:? "persistence-dir" .!= "./"
   persistenceRotateAfter <- fmap Positive <$> (o .:? "persistence-rotate-after" :: Parser (Maybe Natural))
-  chainConfig <- maybe (pure defaultRunOptions.chainConfig) parseChainConfig =<< (o .:? "chain")
+  mChain <- o .:? "chain"
+  chainConfig <- case mChain of
+    Just v -> parseChainConfig peerCardanoVKs v
+    Nothing -> pure $ applyPeerCardanoVKs peerCardanoVKs defaultRunOptions.chainConfig
   ledgerProtocolParams <- o .:? "ledger-protocol-parameters" .!= "protocol-parameters.json"
   let ledgerConfig = CardanoLedgerConfig ledgerProtocolParams
   useSystemEtcd <- o .:? "use-system-etcd" .!= False
@@ -139,19 +144,20 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
 -- ---------------------------------------------------------------------------
 -- Chain config
 
-parseChainConfig :: Value -> Parser ChainConfig
-parseChainConfig = withObject "chain" $ \o -> do
+parseChainConfig :: [FilePath] -> Value -> Parser ChainConfig
+parseChainConfig peerCardanoVKs = withObject "chain" $ \o -> do
   mode <- o .:? "mode" .!= ("cardano" :: Text)
   case mode of
-    "cardano" -> Cardano <$> parseCardanoChainConfig o
+    "cardano" -> Cardano <$> parseCardanoChainConfig peerCardanoVKs o
     "offline" -> Offline <$> parseOfflineChainConfig o
     other -> fail $ "Unknown chain mode '" <> toString other <> "'. Expected 'cardano' or 'offline'."
 
-parseCardanoChainConfig :: Object -> Parser CardanoChainConfig
-parseCardanoChainConfig o = do
+parseCardanoChainConfig :: [FilePath] -> Object -> Parser CardanoChainConfig
+parseCardanoChainConfig peerCardanoVKs o = do
   hydraScriptsTxId <- parseHydraScripts o
   cardanoSigningKey <- o .:? "cardano-signing-key" .!= defaultCardanoChainConfig.cardanoSigningKey
-  cardanoVerificationKeys <- o .:? "cardano-verification-keys" .!= []
+  chainVKs <- o .:? "cardano-verification-keys" .!= []
+  let cardanoVerificationKeys = peerCardanoVKs <> chainVKs
   mStartChainFrom <- o .:? "start-chain-from" :: Parser (Maybe Text)
   startChainFrom <- mapM parseChainPointText mStartChainFrom
   contestationPeriod <- o .:? "contestation-period" .!= defaultContestationPeriod
@@ -229,6 +235,24 @@ parseBlockfrostOptions o = do
 
 -- ---------------------------------------------------------------------------
 -- Helpers
+
+-- | Parse a peer entry which may be a plain "HOST:PORT" string or an object
+-- with @address@ and optional @cardano-verification-key@ fields.
+parsePeerEntry :: Value -> Parser (Host, Maybe FilePath)
+parsePeerEntry (String s) = do
+  h <- parseHost "peers" (toString s)
+  pure (h, Nothing)
+parsePeerEntry v = withObject "peer" (\o -> do
+  addrStr <- o .: "address"
+  h <- parseHost "peers.address" addrStr
+  vk <- o .:? "cardano-verification-key"
+  pure (h, vk)) v
+
+-- | Inject peer-sourced cardano VKs into an existing 'ChainConfig'.
+applyPeerCardanoVKs :: [FilePath] -> ChainConfig -> ChainConfig
+applyPeerCardanoVKs [] cfg = cfg
+applyPeerCardanoVKs vks (Cardano cfg) = Cardano cfg{cardanoVerificationKeys = vks <> cfg.cardanoVerificationKeys}
+applyPeerCardanoVKs _ cfg = cfg
 
 parseHost :: MonadFail m => String -> String -> m Host
 parseHost fieldName str =
