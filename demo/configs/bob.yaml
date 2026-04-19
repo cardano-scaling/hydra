@@ -1,0 +1,25 @@
+node-id: "2"
+listen: "127.0.0.1:5002"
+api-port: 4002
+monitoring-port: 6002
+hydra-signing-key: "demo/bob.sk"
+hydra-verification-keys:
+  - "demo/alice.vk"
+  - "demo/carol.vk"
+peers:
+  - "127.0.0.1:5001"
+  - "127.0.0.1:5003"
+ledger-protocol-parameters: "devnet/protocol-parameters.json"
+persistence-dir: "devnet/persistence/bob"
+chain:
+  mode: cardano
+  cardano-signing-key: "hydra-cluster/config/credentials/bob.sk"
+  cardano-verification-keys:
+    - "hydra-cluster/config/credentials/alice.vk"
+    - "hydra-cluster/config/credentials/carol.vk"
+  contestation-period: 3
+  deposit-period: 10
+  backend:
+    mode: direct
+    testnet-magic: 42
+    node-socket: "devnet/node.socket"
