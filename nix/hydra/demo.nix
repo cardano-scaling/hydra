@@ -57,29 +57,12 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-alice";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
+                runtimeInputs = [ pkgs.gettext ];
                 text = ''
-                  # (Re-)Export all variables from .env
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
-                    --node-id 1 \
-                    --listen 127.0.0.1:5001 \
-                    --api-port 4001 \
-                    --monitoring-port 6001 \
-                    --hydra-signing-key "${config.hydra.demo.fixtures.parties.alice.hydra.sk}" \
-                    --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.sk}" \
-                    --peer 127.0.0.1:5002 \
-                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
-                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
-                    --peer 127.0.0.1:5003 \
-                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
-                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
-                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                    --ledger-protocol-parameters devnet/protocol-parameters.json \
-                    --testnet-magic 42 \
-                    --node-socket devnet/node.socket \
-                    --persistence-dir devnet/persistence/alice \
-                    --contestation-period 3s \
-                    --deposit-period 10s
+                    --config demo/configs/alice.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
                 '';
               };
               working_dir = ".";
@@ -91,29 +74,12 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-bob";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
+                runtimeInputs = [ pkgs.gettext ];
                 text = ''
-                  # (Re-)Export all variables from .env
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
-                  --node-id 2 \
-                  --listen 127.0.0.1:5002 \
-                  --api-port 4002 \
-                  --monitoring-port 6002 \
-                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.bob.hydra.sk}" \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.sk}" \
-                  --peer 127.0.0.1:5001 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
-                  --peer 127.0.0.1:5003 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
-                  --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --ledger-protocol-parameters devnet/protocol-parameters.json \
-                  --testnet-magic 42 \
-                  --node-socket devnet/node.socket \
-                  --persistence-dir devnet/persistence/bob \
-                  --contestation-period 3s \
-                  --deposit-period 10s
+                    --config demo/configs/bob.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
                 '';
               };
               working_dir = ".";
@@ -125,29 +91,12 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-carol";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
+                runtimeInputs = [ pkgs.gettext ];
                 text = ''
-                  # (Re-)Export all variables from .env
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
-                  --node-id 3 \
-                  --listen 127.0.0.1:5003 \
-                  --api-port 4003 \
-                  --monitoring-port 6003 \
-                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.carol.hydra.sk}" \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.sk}" \
-                  --peer 127.0.0.1:5001 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
-                  --peer 127.0.0.1:5002 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
-                  --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --ledger-protocol-parameters devnet/protocol-parameters.json \
-                  --testnet-magic 42 \
-                  --node-socket devnet/node.socket \
-                  --persistence-dir devnet/persistence/carol \
-                  --contestation-period 3s \
-                  --deposit-period 10s
+                    --config demo/configs/carol.yaml \
+                    --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID
                 '';
               };
               working_dir = ".";

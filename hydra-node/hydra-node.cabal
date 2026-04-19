@@ -69,6 +69,7 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
+    Hydra.Config
     Hydra.Events
     Hydra.Events.Rotation
     Hydra.Events.SQLiteBased
@@ -173,6 +174,7 @@ library
     , warp
     , warp-tls
     , websockets
+    , yaml
 
   default-extensions: StrictData
   ghc-options:        -haddock
@@ -362,6 +364,7 @@ test-suite tests
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
     Hydra.Chain.ScriptRegistrySpec
+    Hydra.ConfigSpec
     Hydra.CryptoSpec
     Hydra.Events.RotationSpec
     Hydra.Events.S3Spec
