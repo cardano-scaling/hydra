@@ -41,10 +41,37 @@ spec = do
         opts <- loadConfig path
         listen opts `shouldBe` Host "127.0.0.1" 9001
 
-    it "parses peers list" $ do
+    it "parses peers list (plain string format)" $ do
       withYaml "peers:\n  - \"peer1:5001\"\n  - \"peer2:5002\"\n" $ \path -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+
+    it "parses peers list with cardano-verification-key" $ do
+      let yaml =
+            "peers:\n\
+            \  - address: \"peer1:5001\"\n\
+            \    cardano-verification-key: peer1.vk\n\
+            \  - address: \"peer2:5002\"\n\
+            \    cardano-verification-key: peer2.vk\n"
+      withYaml yaml $ \path -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+        case chainConfig opts of
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.vk", "peer2.vk"]
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
+
+    it "parses peers with mixed formats" $ do
+      let yaml =
+            "peers:\n\
+            \  - \"peer1:5001\"\n\
+            \  - address: \"peer2:5002\"\n\
+            \    cardano-verification-key: peer2.vk\n"
+      withYaml yaml $ \path -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+        case chainConfig opts of
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer2.vk"]
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "parses api-host and api-port" $ do
       withYaml "api-host: \"0.0.0.0\"\napi-port: 9000\n" $ \path -> do
