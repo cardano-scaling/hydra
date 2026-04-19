@@ -46,32 +46,36 @@ spec = do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
 
-    it "parses peers list with cardano-verification-key" $ do
+    it "parses peers with hydra and cardano verification keys" $ do
       let yaml =
             "peers:\n\
             \  - address: \"peer1:5001\"\n\
-            \    cardano-verification-key: peer1.vk\n\
+            \    hydra-verification-key: peer1.hydra.vk\n\
+            \    cardano-verification-key: peer1.cardano.vk\n\
             \  - address: \"peer2:5002\"\n\
-            \    cardano-verification-key: peer2.vk\n"
+            \    hydra-verification-key: peer2.hydra.vk\n\
+            \    cardano-verification-key: peer2.cardano.vk\n"
       withYaml yaml $ \path -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+        hydraVerificationKeys opts `shouldBe` ["peer1.hydra.vk", "peer2.hydra.vk"]
         case chainConfig opts of
-          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.vk", "peer2.vk"]
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.cardano.vk", "peer2.cardano.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
-    it "parses peers with explicit null cardano-verification-key (mirror node)" $ do
+    it "parses mirror peers with null keys" $ do
       let yaml =
             "peers:\n\
             \  - address: \"peer1:5001\"\n\
-            \    cardano-verification-key: peer1.vk\n\
-            \  - address: \"peer2:5002\"\n\
-            \    cardano-verification-key:\n"
+            \    hydra-verification-key: peer1.hydra.vk\n\
+            \    cardano-verification-key: peer1.cardano.vk\n\
+            \  - address: \"mirror:5002\"\n"
       withYaml yaml $ \path -> do
         opts <- loadConfig path
-        peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+        peers opts `shouldBe` [Host "peer1" 5001, Host "mirror" 5002]
+        hydraVerificationKeys opts `shouldBe` ["peer1.hydra.vk"]
         case chainConfig opts of
-          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.vk"]
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.cardano.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "parses peers with mixed formats" $ do
@@ -79,12 +83,14 @@ spec = do
             "peers:\n\
             \  - \"peer1:5001\"\n\
             \  - address: \"peer2:5002\"\n\
-            \    cardano-verification-key: peer2.vk\n"
+            \    hydra-verification-key: peer2.hydra.vk\n\
+            \    cardano-verification-key: peer2.cardano.vk\n"
       withYaml yaml $ \path -> do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+        hydraVerificationKeys opts `shouldBe` ["peer2.hydra.vk"]
         case chainConfig opts of
-          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer2.vk"]
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer2.cardano.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
     it "parses api-host and api-port" $ do
