@@ -12,6 +12,7 @@ peers:
     cardano-verification-key: "hydra-cluster/config/credentials/alice.vk"
   - address: "127.0.0.1:5002"
     cardano-verification-key: "hydra-cluster/config/credentials/bob.vk"
+  - address: "127.0.0.1:5004"
 ledger-protocol-parameters: "devnet/protocol-parameters.json"
 persistence-dir: "devnet/persistence/carol"
 chain:

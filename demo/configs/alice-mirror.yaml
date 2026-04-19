@@ -1,23 +1,23 @@
-node-id: "2"
-listen: "127.0.0.1:5002"
-advertise: "127.0.0.1:5002"
-api-port: 4002
-monitoring-port: 6002
-hydra-signing-key: "demo/bob.sk"
+node-id: "1-mirror"
+listen: "127.0.0.1:5004"
+advertise: "127.0.0.1:5004"
+api-port: 4004
+monitoring-port: 6004
+hydra-signing-key: "demo/alice.sk"
 hydra-verification-keys:
-  - "demo/alice.vk"
+  - "demo/bob.vk"
   - "demo/carol.vk"
 peers:
   - address: "127.0.0.1:5001"
-    cardano-verification-key: "hydra-cluster/config/credentials/alice.vk"
+  - address: "127.0.0.1:5002"
+    cardano-verification-key: "hydra-cluster/config/credentials/bob.vk"
   - address: "127.0.0.1:5003"
     cardano-verification-key: "hydra-cluster/config/credentials/carol.vk"
-  - address: "127.0.0.1:5004"
 ledger-protocol-parameters: "devnet/protocol-parameters.json"
-persistence-dir: "devnet/persistence/bob"
+persistence-dir: "devnet/persistence/alice-mirror"
 chain:
   mode: cardano
-  cardano-signing-key: "hydra-cluster/config/credentials/bob.sk"
+  cardano-signing-key: "hydra-cluster/config/credentials/alice.sk"
   contestation-period: 3
   deposit-period: 10
   backend:
