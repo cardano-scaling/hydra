@@ -60,6 +60,20 @@ spec = do
           Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.vk", "peer2.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
+    it "parses peers with explicit null cardano-verification-key (mirror node)" $ do
+      let yaml =
+            "peers:\n\
+            \  - address: \"peer1:5001\"\n\
+            \    cardano-verification-key: peer1.vk\n\
+            \  - address: \"peer2:5002\"\n\
+            \    cardano-verification-key:\n"
+      withYaml yaml $ \path -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer1" 5001, Host "peer2" 5002]
+        case chainConfig opts of
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer1.vk"]
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
+
     it "parses peers with mixed formats" $ do
       let yaml =
             "peers:\n\
