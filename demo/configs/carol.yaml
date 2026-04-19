@@ -4,13 +4,12 @@ advertise: "127.0.0.1:5003"
 api-port: 4003
 monitoring-port: 6003
 hydra-signing-key: "demo/carol.sk"
-hydra-verification-keys:
-  - "demo/alice.vk"
-  - "demo/bob.vk"
 peers:
   - address: "127.0.0.1:5001"
+    hydra-verification-key: "demo/alice.vk"
     cardano-verification-key: "hydra-cluster/config/credentials/alice.vk"
   - address: "127.0.0.1:5002"
+    hydra-verification-key: "demo/bob.vk"
     cardano-verification-key: "hydra-cluster/config/credentials/bob.vk"
   - address: "127.0.0.1:5004"
 ledger-protocol-parameters: "devnet/protocol-parameters.json"
