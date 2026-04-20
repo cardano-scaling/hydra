@@ -8,8 +8,9 @@ import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (LowerBoundBeforeContestationDeadline, PartialFanoutMembershipFailed))
+import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
@@ -25,7 +26,7 @@ import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
@@ -61,7 +62,8 @@ healthyPartialFanoutTx =
       (verificationKeyToOnChainId <$> healthyParticipants)
       (mkTxOutDatumInline healthyPartialFanoutState)
 
-  headOutput = modifyTxOutValue (<> participationTokens) headOutput'
+  -- The closed head output holds the full locked UTxO value plus participation tokens.
+  headOutput = modifyTxOutValue (<> participationTokens <> UTxO.totalValue healthyFullUTxO) headOutput'
 
   participationTokens =
     fromList $
@@ -151,6 +153,8 @@ data PartialFanoutMutation
   | -- | Partial fanout must NOT burn tokens (unlike full fanout)
     MutatePartialFanoutBurnTokens
   | MutatePartialFanoutOutputValue
+  | -- | Steal Ada by reducing the continuing head output and adding a personal output
+    MutatePartialFanoutStealAda
   deriving stock (Generic, Show, Enum, Bounded)
 
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -165,8 +169,10 @@ genPartialFanoutMutation (tx, _utxo) =
       SomeMutation (pure "U01") MutatePartialFanoutBurnTokens <$> do
         let headTokenScript = mkHeadTokenScript testSeedInput
         changeMintedTokens tx (fromList [(AssetId (scriptPolicyId (PlutusScript headTokenScript)) (UnsafeAssetName ""), -1)])
-    , -- Mutating a distributed output value should fail accumulator membership verification
-      SomeMutation (pure $ toErrorCode PartialFanoutMembershipFailed) MutatePartialFanoutOutputValue <$> do
+    , -- Mutating a distributed output value violates either value conservation (if the
+      -- head output is not compensated) or membership verification. Both are valid
+      -- rejections; which fires first depends on whether conservation is also broken.
+      SomeMutation [toErrorCode PartialFanoutMembershipFailed, toErrorCode HeadValueIsNotPreserved] MutatePartialFanoutOutputValue <$> do
         -- The distributed outputs start at index 1 (index 0 is the continuing head output)
         let outs = txOuts' tx
         let numDistributed = UTxO.size healthyDistributeUTxO
@@ -174,6 +180,25 @@ genPartialFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [1 .. numDistributed] (drop 1 outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , -- An adversary must not be able to steal Ada by reducing the continuing head
+      -- output value and routing the difference into a personal output.
+      SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutatePartialFanoutStealAda <$> do
+        let headOut = fromJust $ txOuts' tx !!? 0
+        stolenValue <- extractAdaFromValue (txOutValue headOut)
+        someAddress <- genAddressInEra testNetworkId
+        let stolenOutput = TxOut someAddress stolenValue TxOutDatumNone ReferenceScriptNone
+        pure $
+          Changes
+            [ ChangeOutput 0 (modifyTxOutValue (<> negateValue stolenValue) headOut)
+            , AppendOutput stolenOutput
+            ]
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
+
+  -- \| Extract a small amount of Ada from a value for mutation purposes.
+  extractAdaFromValue :: Value -> Gen Value
+  extractAdaFromValue val = do
+    let Coin lovelace = selectLovelace val
+    q <- choose (1, min 1_000_000 lovelace)
+    pure $ lovelaceToValue (Coin q)
