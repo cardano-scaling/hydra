@@ -148,9 +148,15 @@ partialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadline
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
-  -- Continuing head output with updated ClosedDatum
+  -- Continuing head output with updated ClosedDatum and reduced value.
+  -- The head output value is reduced by the sum of distributed output values,
+  -- satisfying the on-chain mustConserveValue check:
+  --   headInValue == headOutValue <> foldMap txOutValue distributedOutputs
   headOutputAfter =
-    modifyTxOutDatum (const headDatumAfter) headOutput
+    modifyTxOutDatum (const headDatumAfter) $
+      modifyTxOutValue (<> negateValue distributedValue) headOutput
+
+  distributedValue = UTxO.totalValue utxoToDistribute
 
   headDatumAfter =
     mkTxOutDatumInline $

@@ -587,6 +587,7 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
     && mustPreserveClosedState
     && mustClearHashes
+    && mustConserveValue
     && checkCRSAndMembership
  where
   ClosedDatum
@@ -617,6 +618,10 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
 
   TxInfo{txInfoOutputs} = txInfo
 
+  -- The distributed UTxO outputs are at indices [1..numberOfPartialOutputs].
+  -- Index 0 is the continuing head output.
+  distributedOutputs = L.take numberOfPartialOutputs (L.drop 1 txInfoOutputs)
+
   afterContestationDeadline =
     case ivFrom (txInfoValidRange txInfo) of
       LowerBound (Finite time) _ ->
@@ -639,13 +644,21 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
         && alphaUTxOHash' == emptyHash
         && omegaUTxOHash' == emptyHash
 
+  -- The head input value must equal the continuing head output value plus the
+  -- sum of all distributed outputs. This prevents stealing Ada by adding extra
+  -- outputs that are not counted by the membership proof.
+  mustConserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue == headOutValue <> F.foldMap txOutValue distributedOutputs
+   where
+    headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+    headOutValue = txOutValue $ L.head txInfoOutputs
+
   -- Accumulator scalars for the distributed outputs (skip first output)
   subsetScalars :: [Scalar]
   subsetScalars =
     let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-     in fmap
-          (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash)
-          (L.take numberOfPartialOutputs (L.drop 1 txInfoOutputs))
+     in fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) distributedOutputs
 
   -- CRS reference lookup and membership check.
   -- The newAccumulatorCommitment from the continuing output datum serves as
