@@ -37,7 +37,7 @@ import Hydra.HeadLogic (
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
@@ -320,17 +320,23 @@ stepHydraNode now node = do
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
       processEffects node tracer queuedId effects
-    Wait{stateChanges} -> do
+    Wait{reason, stateChanges} -> do
       processStateChanges node stateChanges
-      maybeReenqueue i
+      maybeReenqueue reason i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}
  where
-  maybeReenqueue q@Queued{queuedId, queuedItem} =
+  maybeReenqueue reason q@Queued{queuedId, queuedItem} =
     case queuedItem of
       NetworkInput ttl msg
-        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
+        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl' reason ttl) msg}
       _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
+
+  -- Don't decrement TTL while node is catching up — the message can't be
+  -- processed yet and burning retries during sync causes premature drops.
+  ttl' :: WaitReason tx -> TTL -> TTL
+  ttl' WaitOnNodeInSync{} ttl = ttl
+  ttl' _ ttl = ttl - 1
 
   Environment{party} = env
 
