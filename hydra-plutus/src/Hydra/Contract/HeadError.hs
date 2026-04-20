@@ -65,7 +65,6 @@ data HeadError
   | PartialFanoutMembershipFailed
   | PartialFanoutChangedParameters
   | PartialFanoutHashesNotCleared
-  | PartialFanoutWrongProof
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -136,4 +135,3 @@ instance ToErrorCode HeadError where
     PartialFanoutMembershipFailed -> "H57"
     PartialFanoutChangedParameters -> "H58"
     PartialFanoutHashesNotCleared -> "H59"
-    PartialFanoutWrongProof -> "H60"
