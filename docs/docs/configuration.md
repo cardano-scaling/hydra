@@ -8,6 +8,111 @@ hydra-node --help
 
 Below, we document selected aspects of the configuration. For a comprehensive guide, refer to the [tutorial](./tutorial) or specific _how to_ articles.
 
+### YAML configuration file
+
+Instead of passing every option as a CLI flag, you can write a YAML file and point `hydra-node` at it with `--config`:
+
+```shell
+hydra-node --config alice.yaml
+```
+
+Key names are the same as their CLI counterparts (kebab-case). Any CLI flag you also provide on the command line **overrides** the value from the file, so you can keep a shared base config and tweak individual options per-run.
+
+#### Peer list with co-located keys
+
+The YAML format lets you list each peer's addresses and verification keys together in one block. You can include your own node in the list — the node will silently drop any entry whose address matches its own `listen`/`advertise` address, so a single peer block can be shared across all participants.
+
+**`alice.yaml`**
+```yaml
+node-id: "1"
+listen: "127.0.0.1:5001"
+advertise: "127.0.0.1:5001"
+api-port: 4001
+monitoring-port: 6001
+hydra-signing-key: "alice.sk"
+peers:
+  - address: "127.0.0.1:5001"          # self — filtered out automatically
+    hydra-verification-key: "alice.vk"
+    cardano-verification-key: "alice.cardano.vk"
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "bob.vk"
+    cardano-verification-key: "bob.cardano.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "carol.vk"
+    cardano-verification-key: "carol.cardano.vk"
+ledger-protocol-parameters: "protocol-parameters.json"
+persistence-dir: "persistence/alice"
+chain:
+  mode: cardano
+  network: preview
+  cardano-signing-key: "alice.cardano.sk"
+  contestation-period: 43200
+  deposit-period: 3600
+  backend:
+    mode: direct
+    node-socket: "node.socket"
+```
+
+`bob.yaml` and `carol.yaml` follow the same structure — change `node-id`, `listen`/`advertise`, `api-port`, `monitoring-port`, `hydra-signing-key`, `persistence-dir`, and `cardano-signing-key`.
+
+#### Mirror nodes
+
+A **mirror node** observes the head without holding signing keys. To set one up, add the mirror's address to every participant's peer list **without** any verification keys:
+
+```yaml
+# in alice.yaml, bob.yaml, carol.yaml
+peers:
+  - address: "127.0.0.1:5001"
+    hydra-verification-key: "alice.vk"
+    cardano-verification-key: "alice.cardano.vk"
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "bob.vk"
+    cardano-verification-key: "bob.cardano.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "carol.vk"
+    cardano-verification-key: "carol.cardano.vk"
+  - address: "127.0.0.1:5004"   # mirror — address only, no keys
+```
+
+The mirror node itself lists all signing peers and includes its own address with full keys (so it knows which entries to filter out):
+
+**`alice-mirror.yaml`**
+```yaml
+node-id: "1-mirror"
+listen: "127.0.0.1:5004"
+advertise: "127.0.0.1:5004"
+api-port: 4004
+monitoring-port: 6004
+hydra-signing-key: "alice.sk"          # same Hydra key as the primary alice node
+peers:
+  - address: "127.0.0.1:5001"          # alice primary — address only, no keys needed
+  - address: "127.0.0.1:5002"
+    hydra-verification-key: "bob.vk"
+    cardano-verification-key: "bob.cardano.vk"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "carol.vk"
+    cardano-verification-key: "carol.cardano.vk"
+  - address: "127.0.0.1:5004"          # self — filtered out automatically
+    hydra-verification-key: "alice.vk"
+    cardano-verification-key: "alice.cardano.vk"
+persistence-dir: "persistence/alice-mirror"
+chain:
+  mode: cardano
+  cardano-signing-key: "alice.cardano.sk"
+  contestation-period: 43200
+  deposit-period: 3600
+  backend:
+    mode: direct
+    node-socket: "node.socket"
+```
+
+Run both nodes side by side:
+
+```shell
+hydra-node --config alice.yaml
+hydra-node --config alice-mirror.yaml
+```
+
 ### Cardano keys
 
 In a Hydra head, each participant is authenticated using two sets of keys. The first set identifies a participant on the Cardano layer 1 and is used to hold ada for paying fees. Each `hydra-node` requires a `--cardano-signing-key`, and you must provide the `--cardano-verification-key` for each participant.
