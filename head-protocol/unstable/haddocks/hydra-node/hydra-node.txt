@@ -3771,6 +3771,9 @@ RolledBackward :: ChainPoint -> CardanoChainLog
 [$sel:point:ToPost] :: CardanoChainLog -> ChainPoint
 Wallet :: TinyWalletLog -> CardanoChainLog
 StartingChainDecision :: StartingDecision -> CardanoChainLog
+BlockfrostTransientError :: Text -> Int -> CardanoChainLog
+[$sel:reason:ToPost] :: CardanoChainLog -> Text
+[$sel:retryDelay:ToPost] :: CardanoChainLog -> Int
 instance GHC.Exception.Type.Exception Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.TimeConversionException
@@ -4324,11 +4327,19 @@ withBlockfrostChain :: BlockfrostOptions -> Tracer IO CardanoChainLog -> Cardano
 newtype BlockfrostConnectException
 BlockfrostConnectException :: IOException -> BlockfrostConnectException
 [$sel:ioException:BlockfrostConnectException] :: BlockfrostConnectException -> IOException
-blockfrostChain :: (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m) => Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
-blockfrostChainFollow :: forall m. (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m) => Tracer m CardanoChainLog -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
+blockfrostChain :: (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m, MonadMask m) => Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
+blockfrostChainFollow :: forall m. (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m, MonadMask m) => Tracer m CardanoChainLog -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
 rollForward :: (MonadIO m, MonadThrow m) => Tracer m CardanoChainLog -> Project -> ChainSyncHandler m -> TinyWallet m -> Integer -> BlockHash -> m BlockHash
 blockfrostSubmissionClient :: forall m. (MonadIO m, MonadDelay m, MonadSTM m) => Project -> Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> m ()
 toChainPoint :: Block -> ChainPoint
+
+-- | Maximum number of retries for transient Blockfrost errors.
+maxRetries :: Int
+
+-- | Retry an action on transient <a>APIBlockfrostError</a> exceptions with
+--   exponential backoff (1s, 2s, 4s, ... capped at 60s). Gives up after
+--   the specified number of retries and re-throws the last exception.
+retryOnBlockfrostError :: (MonadIO m, MonadMask m) => Tracer m CardanoChainLog -> Int -> (RetryStatus -> m a) -> m a
 data APIBlockfrostError
 BlockfrostError :: Text -> APIBlockfrostError
 DecodeError :: Text -> APIBlockfrostError

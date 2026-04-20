@@ -38,6 +38,9 @@ genStateEventForApi :: Gen (StateEvent SimpleTx)
 module Hydra.AccumulatorSpec
 spec :: Spec
 
+module Hydra.Chain.BlockfrostSpec
+spec :: Spec
+
 module Hydra.Chain.Direct.HandlersSpec
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)

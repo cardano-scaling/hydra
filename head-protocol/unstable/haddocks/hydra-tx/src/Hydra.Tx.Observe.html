@@ -45,7 +45,7 @@
 </span><span id="line-45"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Close"><span class="annot"><a href="Hydra.Tx.Observe.html#Close"><span class="hs-identifier hs-var">Close</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Close.html#CloseObservation"><span class="hs-identifier hs-type">CloseObservation</span></a></span><span>
 </span><span id="line-46"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Contest"><span class="annot"><a href="Hydra.Tx.Observe.html#Contest"><span class="hs-identifier hs-var">Contest</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Contest.html#ContestObservation"><span class="hs-identifier hs-type">ContestObservation</span></a></span><span>
 </span><span id="line-47"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Fanout"><span class="annot"><a href="Hydra.Tx.Observe.html#Fanout"><span class="hs-identifier hs-var">Fanout</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Tx.Fanout.html#FanoutObservation"><span class="hs-identifier hs-type">FanoutObservation</span></a></span><span>
-</span><span id="line-48"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679426430"><span id="local-6989586621679426448"><span class="annot"><span class="annottext">HeadObservation -&gt; HeadObservation -&gt; Bool
+</span><span id="line-48"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679426494"><span id="local-6989586621679426512"><span class="annot"><span class="annottext">HeadObservation -&gt; HeadObservation -&gt; Bool
 (HeadObservation -&gt; HeadObservation -&gt; Bool)
 -&gt; (HeadObservation -&gt; HeadObservation -&gt; Bool)
 -&gt; Eq HeadObservation
@@ -54,7 +54,7 @@ $c== :: HeadObservation -&gt; HeadObservation -&gt; Bool
 == :: HeadObservation -&gt; HeadObservation -&gt; Bool
 $c/= :: HeadObservation -&gt; HeadObservation -&gt; Bool
 /= :: HeadObservation -&gt; HeadObservation -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426453"><span id="local-6989586621679426480"><span id="local-6989586621679426484"><span class="annot"><span class="annottext">Int -&gt; HeadObservation -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426517"><span id="local-6989586621679426544"><span id="local-6989586621679426548"><span class="annot"><span class="annottext">Int -&gt; HeadObservation -&gt; ShowS
 [HeadObservation] -&gt; ShowS
 HeadObservation -&gt; String
 (Int -&gt; HeadObservation -&gt; ShowS)
@@ -69,7 +69,7 @@ $cshow :: HeadObservation -&gt; String
 show :: HeadObservation -&gt; String
 $cshowList :: [HeadObservation] -&gt; ShowS
 showList :: [HeadObservation] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426488"><span id="local-6989586621679426490"><span class="annot"><span class="annottext">(forall x. HeadObservation -&gt; Rep HeadObservation x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679426552"><span id="local-6989586621679426554"><span class="annot"><span class="annottext">(forall x. HeadObservation -&gt; Rep HeadObservation x)
 -&gt; (forall x. Rep HeadObservation x -&gt; HeadObservation)
 -&gt; Generic HeadObservation
 forall x. Rep HeadObservation x -&gt; HeadObservation
@@ -87,10 +87,10 @@ to :: forall x. Rep HeadObservation x -&gt; HeadObservation
 </span><span id="line-52"></span><span class="hs-comment">-- we want it flat so it resembles what we (used to) have for 'OnChainTx'</span><span>
 </span><span id="line-53"></span><span class="hs-comment">-- without removing the sub-types.</span><span>
 </span><span id="line-54"></span><span>
-</span><span id="line-55"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679426495"><span id="local-6989586621679426499"><span id="local-6989586621679426502"><span id="local-6989586621679426505"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Observe.html#HeadObservation"><span class="hs-identifier hs-type">HeadObservation</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-56"></span><span>  </span><span id="local-6989586621679426822"><span class="annot"><span class="annottext">toJSON :: HeadObservation -&gt; Value
-</span><a href="#local-6989586621679426822"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value
-</span><a href="#local-6989586621679426824"><span class="hs-identifier hs-var">mergeContents</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Value)
+</span><span id="line-55"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679426559"><span id="local-6989586621679426563"><span id="local-6989586621679426566"><span id="local-6989586621679426569"><span class="annot"><span class="hs-identifier hs-type">ToJSON</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Observe.html#HeadObservation"><span class="hs-identifier hs-type">HeadObservation</span></a></span></span></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-56"></span><span>  </span><span id="local-6989586621679426886"><span class="annot"><span class="annottext">toJSON :: HeadObservation -&gt; Value
+</span><a href="#local-6989586621679426886"><span class="hs-identifier hs-var hs-var hs-var hs-var">toJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value
+</span><a href="#local-6989586621679426888"><span class="hs-identifier hs-var">mergeContents</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Value)
 -&gt; (HeadObservation -&gt; Value) -&gt; HeadObservation -&gt; Value
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Options -&gt; HeadObservation -&gt; Value
@@ -100,13 +100,13 @@ Options -&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">genericToJSON</span></span><span> </span><span class="annot"><span class="annottext">Options
 </span><span class="hs-identifier hs-var">defaultOptions</span></span><span>
 </span><span id="line-57"></span><span>   </span><span class="hs-keyword">where</span><span>
-</span><span id="line-58"></span><span>    </span><span class="annot"><a href="#local-6989586621679426824"><span class="hs-identifier hs-type">mergeContents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span>
-</span><span id="line-59"></span><span>    </span><span id="local-6989586621679426824"><span class="annot"><span class="annottext">mergeContents :: Value -&gt; Value
-</span><a href="#local-6989586621679426824"><span class="hs-identifier hs-var hs-var">mergeContents</span></a></span></span><span> </span><span id="local-6989586621679426826"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679426826"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-60"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679426827"><span class="annot"><span class="annottext">tag :: Text
-</span><a href="#local-6989586621679426827"><span class="hs-identifier hs-var hs-var">tag</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679426826"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting Text Value Text -&gt; Text
+</span><span id="line-58"></span><span>    </span><span class="annot"><a href="#local-6989586621679426888"><span class="hs-identifier hs-type">mergeContents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Value</span></span><span>
+</span><span id="line-59"></span><span>    </span><span id="local-6989586621679426888"><span class="annot"><span class="annottext">mergeContents :: Value -&gt; Value
+</span><a href="#local-6989586621679426888"><span class="hs-identifier hs-var hs-var">mergeContents</span></a></span></span><span> </span><span id="local-6989586621679426890"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679426890"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-60"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679426891"><span class="annot"><span class="annottext">tag :: Text
+</span><a href="#local-6989586621679426891"><span class="hs-identifier hs-var hs-var">tag</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679426890"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting Text Value Text -&gt; Text
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -118,9 +118,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall t. AsValue t =&gt; Prism' t Text
 Prism' Value Text
 </span><span class="hs-identifier hs-var">_String</span></span><span>
-</span><span id="line-61"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679426828"><span class="annot"><span class="annottext">km :: Object
-</span><a href="#local-6989586621679426828"><span class="hs-identifier hs-var hs-var">km</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679426826"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting Object Value Object -&gt; Object
+</span><span id="line-61"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679426892"><span class="annot"><span class="annottext">km :: Object
+</span><a href="#local-6989586621679426892"><span class="hs-identifier hs-var hs-var">km</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679426890"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting Object Value Object -&gt; Object
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -140,14 +140,14 @@ forall v. Key -&gt; v -&gt; KeyMap v
 </span><span class="hs-identifier hs-var">KeyMap.singleton</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;tag&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Value
 </span><span class="hs-identifier hs-var">String</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679426827"><span class="hs-identifier hs-var">tag</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Object -&gt; Object -&gt; Object
+</span><a href="#local-6989586621679426891"><span class="hs-identifier hs-var">tag</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Object -&gt; Object -&gt; Object
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426828"><span class="hs-identifier hs-var">km</span></a></span><span>
+</span><a href="#local-6989586621679426892"><span class="hs-identifier hs-var">km</span></a></span><span>
 </span><span id="line-63"></span><span>
-</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679426832"><span id="local-6989586621679426836"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Observe.html#HeadObservation"><span class="hs-identifier hs-type">HeadObservation</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-65"></span><span>  </span><span id="local-6989586621679426901"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser HeadObservation
-</span><a href="#local-6989586621679426901"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><span id="line-64"></span><span class="hs-keyword">instance</span><span> </span><span id="local-6989586621679426896"><span id="local-6989586621679426900"><span class="annot"><span class="hs-identifier hs-type">FromJSON</span></span><span> </span><span class="annot"><a href="Hydra.Tx.Observe.html#HeadObservation"><span class="hs-identifier hs-type">HeadObservation</span></a></span></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679426965"><span class="annot"><span class="annottext">parseJSON :: Value -&gt; Parser HeadObservation
+</span><a href="#local-6989586621679426965"><span class="hs-identifier hs-var hs-var hs-var hs-var">parseJSON</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
 -&gt; (Object -&gt; Parser HeadObservation)
 -&gt; Value
 -&gt; Parser HeadObservation
@@ -159,16 +159,16 @@ forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
 -&gt; Value
 -&gt; Parser HeadObservation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679426903"><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-66"></span><span>    </span><span id="local-6989586621679426904"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679426904"><span class="hs-identifier hs-var">tag</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679426967"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-66"></span><span>    </span><span id="local-6989586621679426968"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679426968"><span class="hs-identifier hs-var">tag</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser Text
 forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
 </span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
 </span><span class="hs-string">&quot;tag&quot;</span></span><span>
 </span><span id="line-67"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679426904"><span class="hs-identifier hs-var">tag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679426968"><span class="hs-identifier hs-var">tag</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/text-2.0.2/src/Data.Text.Internal.html#Text"><span class="hs-identifier hs-type">Text</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-68"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;NoHeadTx&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">HeadObservation -&gt; Parser HeadObservation
 forall a. a -&gt; Parser a
@@ -184,7 +184,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-70"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Deposit&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DepositObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Deposit"><span class="hs-identifier hs-var">Deposit</span></a></span><span> </span><span class="annot"><span class="annottext">(DepositObservation -&gt; HeadObservation)
@@ -194,7 +194,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-71"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Recover&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RecoverObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Recover"><span class="hs-identifier hs-var">Recover</span></a></span><span> </span><span class="annot"><span class="annottext">(RecoverObservation -&gt; HeadObservation)
@@ -204,7 +204,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-72"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Increment&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">IncrementObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Increment"><span class="hs-identifier hs-var">Increment</span></a></span><span> </span><span class="annot"><span class="annottext">(IncrementObservation -&gt; HeadObservation)
@@ -214,7 +214,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-73"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Decrement&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DecrementObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Decrement"><span class="hs-identifier hs-var">Decrement</span></a></span><span> </span><span class="annot"><span class="annottext">(DecrementObservation -&gt; HeadObservation)
@@ -224,7 +224,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-74"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Close&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">CloseObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Close"><span class="hs-identifier hs-var">Close</span></a></span><span> </span><span class="annot"><span class="annottext">(CloseObservation -&gt; HeadObservation)
@@ -234,7 +234,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-75"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Contest&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ContestObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Contest"><span class="hs-identifier hs-var">Contest</span></a></span><span> </span><span class="annot"><span class="annottext">(ContestObservation -&gt; HeadObservation)
@@ -244,7 +244,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-76"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Fanout&quot;</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FanoutObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Fanout"><span class="hs-identifier hs-var">Fanout</span></a></span><span> </span><span class="annot"><span class="annottext">(FanoutObservation -&gt; HeadObservation)
@@ -254,7 +254,7 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span class="hs-identifier hs-var">parseJSON</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object -&gt; Value
 </span><span class="hs-identifier hs-var">Object</span></span><span> </span><span class="annot"><span class="annottext">Object
-</span><a href="#local-6989586621679426903"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426967"><span class="hs-identifier hs-var">o</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>      </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Parser HeadObservation
 forall a. String -&gt; Parser a
@@ -268,15 +268,15 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679426904"><span class="hs-identifier hs-var">tag</span></a></span><span>
+</span><a href="#local-6989586621679426968"><span class="hs-identifier hs-var">tag</span></a></span><span>
 </span><span id="line-78"></span><span>
 </span><span id="line-79"></span><span class="annot"><span class="hs-comment">-- | Observe any Hydra head transaction.</span></span><span>
 </span><span id="line-80"></span><span class="annot"><a href="Hydra.Tx.Observe.html#observeHeadTx"><span class="hs-identifier hs-type">observeHeadTx</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">NetworkId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.Observe.html#HeadObservation"><span class="hs-identifier hs-type">HeadObservation</span></a></span><span>
 </span><span id="line-81"></span><span id="observeHeadTx"><span class="annot"><span class="annottext">observeHeadTx :: NetworkId -&gt; UTxO -&gt; Tx -&gt; HeadObservation
-</span><a href="Hydra.Tx.Observe.html#observeHeadTx"><span class="hs-identifier hs-var hs-var">observeHeadTx</span></a></span></span><span> </span><span id="local-6989586621679426908"><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679426908"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679426909"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679426910"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Tx.Observe.html#observeHeadTx"><span class="hs-identifier hs-var hs-var">observeHeadTx</span></a></span></span><span> </span><span id="local-6989586621679426972"><span class="annot"><span class="annottext">NetworkId
+</span><a href="#local-6989586621679426972"><span class="hs-identifier hs-var">networkId</span></a></span></span><span> </span><span id="local-6989586621679426973"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621679426974"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-82"></span><span>  </span><span class="hs-comment">-- XXX: This is throwing away valuable information! We should be collecting</span><span>
 </span><span id="line-83"></span><span>  </span><span class="hs-comment">-- all &quot;not an XX&quot; reasons here in case we fall through and want that</span><span>
 </span><span id="line-84"></span><span>  </span><span class="hs-comment">-- diagnostic information in the call site of this function. Collecting errors</span><span>
@@ -292,7 +292,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-88"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679426912"><span class="hs-identifier hs-var">txIsValid</span></a></span><span>
+</span><a href="#local-6989586621679426976"><span class="hs-identifier hs-var">txIsValid</span></a></span><span>
 </span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">(NotAnInitReason -&gt; Maybe HeadObservation)
 -&gt; (InitObservation -&gt; Maybe HeadObservation)
 -&gt; Either NotAnInitReason InitObservation
@@ -312,7 +312,7 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">InitObservation -&gt; HeadObservation
 </span><a href="Hydra.Tx.Observe.html#Init"><span class="hs-identifier hs-var">Init</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; Either NotAnInitReason InitObservation
 </span><a href="Hydra.Tx.Init.html#observeInitTx"><span class="hs-identifier hs-var">observeInitTx</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-90"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -323,8 +323,8 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; Tx -&gt; Maybe DepositObservation
 </span><a href="Hydra.Tx.Deposit.html#observeDepositTx"><span class="hs-identifier hs-var">observeDepositTx</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679426908"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426972"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-91"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -335,9 +335,9 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; UTxO -&gt; Tx -&gt; Maybe RecoverObservation
 </span><a href="Hydra.Tx.Recover.html#observeRecoverTx"><span class="hs-identifier hs-var">observeRecoverTx</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679426908"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426972"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-92"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -348,9 +348,9 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId -&gt; UTxO -&gt; Tx -&gt; Maybe IncrementObservation
 </span><a href="Hydra.Tx.Increment.html#observeIncrementTx"><span class="hs-identifier hs-var">observeIncrementTx</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679426908"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426972"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-93"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -361,8 +361,8 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; Maybe DecrementObservation
 </span><a href="Hydra.Tx.Decrement.html#observeDecrementTx"><span class="hs-identifier hs-var">observeDecrementTx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-94"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -373,8 +373,8 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; Maybe CloseObservation
 </span><a href="Hydra.Tx.Close.html#observeCloseTx"><span class="hs-identifier hs-var">observeCloseTx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-95"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -385,8 +385,8 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; Maybe ContestObservation
 </span><a href="Hydra.Tx.Contest.html#observeContestTx"><span class="hs-identifier hs-var">observeContestTx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-96"></span><span>      </span><span class="annot"><span class="annottext">Maybe HeadObservation
 -&gt; Maybe HeadObservation -&gt; Maybe HeadObservation
 forall a. Maybe a -&gt; Maybe a -&gt; Maybe a
@@ -397,14 +397,14 @@ forall (f :: * -&gt; *) a. Alternative f =&gt; f a -&gt; f a -&gt; f a
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Tx -&gt; Maybe FanoutObservation
 </span><a href="Hydra.Tx.Fanout.html#observeFanoutTx"><span class="hs-identifier hs-var">observeFanoutTx</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679426909"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679426973"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-97"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-98"></span><span>  </span><span id="local-6989586621679426912"><span class="annot"><span class="annottext">txIsValid :: Bool
-</span><a href="#local-6989586621679426912"><span class="hs-identifier hs-var hs-var">txIsValid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; Tx (ShelleyLedgerEra Era)
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679426976"><span class="annot"><span class="annottext">txIsValid :: Bool
+</span><a href="#local-6989586621679426976"><span class="hs-identifier hs-var hs-var">txIsValid</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; Tx (ShelleyLedgerEra Era)
 forall era. Tx era -&gt; Tx (ShelleyLedgerEra era)
 </span><span class="hs-identifier hs-var">toLedgerTx</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679426910"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
+</span><a href="#local-6989586621679426974"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">AlonzoTx ConwayEra
 -&gt; Getting IsValid (AlonzoTx ConwayEra) IsValid -&gt; IsValid
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">(IsValid -&gt; Const IsValid IsValid)
