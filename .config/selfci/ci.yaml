@@ -5,7 +5,11 @@ job:
   # Use $SELFCI_JOB_NAME env var to determine which job is running
   command: |
     set -eou pipefail
-    nix-fast-build
+
+    nix-fast-build \
+      --flake ".#checks.$(nix eval --impure --raw --expr builtins.currentSystem)" \
+      --no-link \
+      --skip-cached
 
   # Command prefix for executing the command
   # Can be used to change the shell, or disable shell interpretation
