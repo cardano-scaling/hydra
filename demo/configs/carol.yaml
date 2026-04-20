@@ -11,7 +11,10 @@ peers:
   - address: "127.0.0.1:5002"
     hydra-verification-key: "demo/bob.vk"
     cardano-verification-key: "hydra-cluster/config/credentials/bob.vk"
-  - address: "127.0.0.1:5004"
+  - address: "127.0.0.1:5003"
+    hydra-verification-key: "demo/carol.vk"
+    cardano-verification-key: "hydra-cluster/config/credentials/carol.vk"
+  - address: "127.0.0.1:5004" # Mirror of alice
 ledger-protocol-parameters: "devnet/protocol-parameters.json"
 persistence-dir: "devnet/persistence/carol"
 chain:

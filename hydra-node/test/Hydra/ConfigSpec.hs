@@ -93,6 +93,35 @@ spec = do
           Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer2.cardano.vk"]
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
+    it "filters self from peers when address matches advertise" $ do
+      let yaml =
+            "listen: \"0.0.0.0:5001\"\n\
+            \advertise: \"127.0.0.1:5001\"\n\
+            \peers:\n\
+            \  - address: \"127.0.0.1:5001\"\n\
+            \    hydra-verification-key: self.hydra.vk\n\
+            \    cardano-verification-key: self.cardano.vk\n\
+            \  - address: \"peer2:5002\"\n\
+            \    hydra-verification-key: peer2.hydra.vk\n\
+            \    cardano-verification-key: peer2.cardano.vk\n"
+      withYaml yaml $ \path -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer2" 5002]
+        hydraVerificationKeys opts `shouldBe` ["peer2.hydra.vk"]
+        case chainConfig opts of
+          Cardano cfg -> cardanoVerificationKeys cfg `shouldBe` ["peer2.cardano.vk"]
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
+
+    it "filters self from peers when address matches listen (no advertise)" $ do
+      let yaml =
+            "listen: \"0.0.0.0:5001\"\n\
+            \peers:\n\
+            \  - address: \"0.0.0.0:5001\"\n\
+            \  - \"peer2:5002\"\n"
+      withYaml yaml $ \path -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer2" 5002]
+
     it "parses api-host and api-port" $ do
       withYaml "api-host: \"0.0.0.0\"\napi-port: 9000\n" $ \path -> do
         opts <- loadConfig path
@@ -104,11 +133,10 @@ spec = do
         opts <- loadConfig path
         verbosity opts `shouldBe` Quiet
 
-    it "parses hydra-signing-key and hydra-verification-keys" $ do
-      withYaml "hydra-signing-key: my.sk\nhydra-verification-keys:\n  - peer.vk\n" $ \path -> do
+    it "parses hydra-signing-key" $ do
+      withYaml "hydra-signing-key: my.sk\n" $ \path -> do
         opts <- loadConfig path
         hydraSigningKey opts `shouldBe` "my.sk"
-        hydraVerificationKeys opts `shouldBe` ["peer.vk"]
 
     it "parses persistence-dir" $ do
       withYaml "persistence-dir: /some/path\n" $ \path -> do
