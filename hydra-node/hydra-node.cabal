@@ -110,7 +110,7 @@ library
     , aeson
     , base
     , base16-bytestring
-    , blockfrost-client            >=0.11.0.0
+    , blockfrost-client            >=0.13.0.0
     , bytestring
     , cardano-api
     , cardano-binary
@@ -132,6 +132,7 @@ library
     , crypton
     , data-default
     , directory
+    , exceptions
     , file-embed
     , filepath
     , grapesy
@@ -354,6 +355,7 @@ test-suite tests
     Hydra.API.ServerOutputSpec
     Hydra.API.ServerSpec
     Hydra.BehaviorSpec
+    Hydra.Chain.BlockfrostSpec
     Hydra.Chain.Direct.HandlersSpec
     Hydra.Chain.Direct.ScriptRegistrySpec
     Hydra.Chain.Direct.StateSpec
