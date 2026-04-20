@@ -37,8 +37,7 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import Plutus.Crypto.Accumulator (checkMembership)
-import Plutus.Crypto.BlsUtils (Scalar, mkScalar)
+import Plutus.Crypto.BlsUtils (Scalar, getFinalPoly, getG2Commitment, mkScalar)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V3 (
@@ -64,6 +63,7 @@ import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
+import PlutusTx.Builtins (bls12_381_finalVerify, bls12_381_millerLoop)
 import PlutusTx.Builtins qualified as Builtins
 import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
@@ -493,7 +493,7 @@ headIsFinalizedWith ::
   -- | Number of delta outputs to fanout
   Integer ->
   -- | Membership proof for the fanout outputs
-  BuiltinBLS12_381_G2_Element ->
+  BuiltinBLS12_381_G1_Element ->
   -- | Reference input containing crs
   TxOutRef ->
   Bool
@@ -563,7 +563,12 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
         let crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
               Just d -> d
               _ -> traceError $(errorCode MissingCRSDatum)
-         in checkMembership crsData accumulatorCommitment subsetScalars proof
+         in case crsData of
+              [] -> traceError $(errorCode MissingCRSDatum)
+              (g2 : _) ->
+                bls12_381_finalVerify
+                  (bls12_381_millerLoop accumulatorCommitment g2)
+                  (bls12_381_millerLoop proof (getG2Commitment crsData (getFinalPoly subsetScalars)))
 {-# INLINEABLE headIsFinalizedWith #-}
 
 -- | Verify a partial fanout transaction. This is a self-loop on the Closed
@@ -672,7 +677,12 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
           let crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
                 Just d -> d
                 _ -> traceError $(errorCode MissingCRSDatum)
-           in checkMembership crsData accumulatorCommitment subsetScalars newAccumulatorCommitment
+           in case crsData of
+                [] -> traceError $(errorCode MissingCRSDatum)
+                (g2 : _) ->
+                  bls12_381_finalVerify
+                    (bls12_381_millerLoop accumulatorCommitment g2)
+                    (bls12_381_millerLoop newAccumulatorCommitment (getG2Commitment crsData (getFinalPoly subsetScalars)))
 {-# INLINEABLE checkPartialFanout #-}
 
 --------------------------------------------------------------------------------

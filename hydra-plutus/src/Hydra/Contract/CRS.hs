@@ -15,9 +15,9 @@ import PlutusLedgerApi.V3 (
   serialiseCompiledCode,
  )
 import PlutusTx (CompiledCode, compile)
-import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element)
+import PlutusTx.Builtins (BuiltinBLS12_381_G2_Element)
 
-type CRSDatum = [BuiltinBLS12_381_G1_Element]
+type CRSDatum = [BuiltinBLS12_381_G2_Element]
 
 {-# INLINEABLE crsValidator #-}
 crsValidator ::

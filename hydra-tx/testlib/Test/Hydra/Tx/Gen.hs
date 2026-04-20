@@ -31,7 +31,7 @@ import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
-import Hydra.Tx.Accumulator (createCRSG1Datum, defaultItems)
+import Hydra.Tx.Accumulator (createCRSG2Datum, defaultItems)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
@@ -311,7 +311,7 @@ genScriptRegistryWithCRSSize crsSize = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG1Datum crsSize}
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG2Datum crsSize}
           )
       }
 

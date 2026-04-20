@@ -63,6 +63,7 @@ library
     Hydra.Tx.Increment
     Hydra.Tx.Init
     Hydra.Tx.IsTx
+    Hydra.Tx.KZGTrustedSetup
     Hydra.Tx.Observe
     Hydra.Tx.OnChainId
     Hydra.Tx.Party
@@ -185,6 +186,7 @@ test-suite tests
     Hydra.Tx.Contract.Recover
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
+    Hydra.Tx.KZGTrustedSetupSpec
     Spec
 
   type:               exitcode-stdio-1.0

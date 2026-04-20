@@ -61,7 +61,7 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: C
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
-  , accumulatorCommitment :: BuiltinBLS12_381_G2_Element
+  , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
   }
   deriving stock (Generic, Show)
 
@@ -203,7 +203,7 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
-      , proof :: BuiltinBLS12_381_G2_Element
+      , proof :: BuiltinBLS12_381_G1_Element
       , crsRef :: TxOutRef
       }
   | PartialFanout
