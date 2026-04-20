@@ -17,8 +17,6 @@
 -- api-host: "127.0.0.1"
 -- api-port: 4001
 -- hydra-signing-key: hydra.sk
--- hydra-verification-keys:
---   - peer1.vk
 -- persistence-dir: "./"
 -- ledger-protocol-parameters: protocol-parameters.json
 -- chain:
@@ -98,9 +96,11 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   mAdvertiseStr <- o .:? "advertise" :: Parser (Maybe String)
   advertise <- mapM (parseHost "advertise") mAdvertiseStr
   peerEntries <- o .:? "peers" .!= ([] :: [Value]) >>= mapM parsePeerEntry
-  let peers = map (.peerHost) peerEntries
-      peerCardanoVKs = mapMaybe (.peerCardanoVK) peerEntries
-      hydraVerificationKeys = mapMaybe (.peerHydraVK) peerEntries
+  let selfAddr = fromMaybe listen advertise
+      filteredEntries = filter ((/= selfAddr) . (.peerHost)) peerEntries
+      peers = map (.peerHost) filteredEntries
+      peerCardanoVKs = mapMaybe (.peerCardanoVK) filteredEntries
+      hydraVerificationKeys = mapMaybe (.peerHydraVK) filteredEntries
   apiHostStr <- o .:? "api-host" .!= ("127.0.0.1" :: String)
   apiHost <- parseIP "api-host" apiHostStr
   apiPort <- o .:? "api-port" .!= (4001 :: PortNumber)
