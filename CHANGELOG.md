@@ -10,6 +10,11 @@ changes.
 
 ## [UNRELEASED]
 
+- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
+verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
+Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
+automatically converted, removing the need to manually convert them before use.
+
 - Fix Blockfrost client datum decoding. [#2751](https://github.com/cardano-scaling/hydra/issues/2751)
 
 - Snapshot processing no longer re-evaluates Plutus scripts for transactions it
