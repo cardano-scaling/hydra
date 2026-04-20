@@ -42,7 +42,7 @@ import Hydra.Ledger (Ledger, nextChainSlot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), aValidTx, simpleLedger, utxoRef, utxoRefs)
 import Hydra.Logging (Tracer)
 import Hydra.Network (Network (..))
-import Hydra.Network.Message (Message)
+import Hydra.Network.Message (Message (..))
 import Hydra.Node (
   DraftHydraNode (..),
   HydraNode (..),
@@ -76,6 +76,8 @@ import Test.Hydra.Tx.Fixture (
   aliceSk,
   bob,
   bobSk,
+  carol,
+  carolSk,
   deriveOnChainId,
   testHeadId,
   testHeadSeed,
@@ -1050,6 +1052,89 @@ spec = parallel $ do
             send n1 (NewTx (aValidTx 42))
             waitUntil [n1] $ TxValid testHeadId 42
 
+  -- Regression test reproducing the demo bug: alice goes offline, alice-mirror
+  -- signs on her behalf (snapshot 2 confirms), then alice-mirror also goes
+  -- offline. Alice restarts with only her stale state (snapshot 1) and cannot
+  -- sign the pending ReqSn(3) because seenSn=1 ≠ sn-1=2.
+  --
+  -- Leader rotation with bob sending Init (parties = [bob, alice, carol]):
+  --   sn=1 → bob, sn=2 → alice (alice-mirror acts as alice), sn=3 → carol
+  describe "node restart and snapshot recovery" $ do
+    it "emits SnapshotConfirmed to bob when alice reconnects and signs the pending snapshot" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain -> do
+          chainHistoryRef <- newTVarIO []
+          confirmedSnap1Ref <- newTVarIO (Nothing :: Maybe (ConfirmedSnapshot SimpleTx))
+
+          withHydraNode carolSk [alice, bob] chain $ \nCarol ->
+            withHydraNode bobSk [alice, carol] chain $ \nBob -> do
+              -- alice-mirror: second node with aliceSk, acts as alice when alice is offline
+              withHydraNode aliceSk [bob, carol] chain $ \nAliceMirror -> do
+                withHydraNode aliceSk [bob, carol] chain $ \nAlice -> do
+                  -- Bob sends Init → parties = [bob, alice, carol]
+                  send nBob Init
+                  waitUntil [nAlice, nAliceMirror, nBob, nCarol] $
+                    HeadIsOpen{headId = testHeadId, parties = fromList [bob, alice, carol]}
+
+                  -- Snapshot 1: bob is leader (sn=1, (0) mod 3 = 0 = bob's index)
+                  let tx1 = aValidTx 42
+                  send nBob (NewTx tx1)
+                  waitUntilMatch [nAlice, nAliceMirror, nBob, nCarol] $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 1)
+                    _ -> Nothing
+
+                  -- Capture chain history and alice's confirmed state before going offline
+                  hist <- getChainHistory chain
+                  atomically $ writeTVar chainHistoryRef hist
+                  snap1 <- getConfirmedSnapshotFromNode nAlice
+                  atomically $ writeTVar confirmedSnap1Ref (Just snap1)
+                -- Alice exits here — she is now "offline"; alice-mirror still running
+
+                -- Snapshot 2: alice is leader (sn=2, (1) mod 3 = 1 = alice's index).
+                -- alice-mirror acts as alice and signs on her behalf.
+                let tx2 = aValidTx 43
+                send nBob (NewTx tx2)
+                waitUntilMatch [nAliceMirror, nBob, nCarol] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 2)
+                  _ -> Nothing
+              -- Alice-mirror exits here — both alice instances are now offline
+
+              -- Snapshot 3: carol is leader (sn=3, (2) mod 3 = 2 = carol's index).
+              -- Only bob + carol can sign; snapshot is stuck without alice.
+              let tx3 = aValidTx 44
+              send nBob (NewTx tx3)
+
+              -- Alice restarts: she only has her own stale state (snapshot 1).
+              -- She missed snapshot 2 which alice-mirror confirmed.
+              chainHistory <- readTVarIO chainHistoryRef
+              Just confirmedSnap1 <- readTVarIO confirmedSnap1Ref
+
+              withHydraNode aliceSk [bob, carol] chain $ \nAliceNew -> do
+                -- Replay chain events to bring new alice from Idle → Open
+                mapM_ (injectChainEvent nAliceNew) chainHistory
+                waitUntil [nAliceNew] $
+                  HeadIsOpen{headId = testHeadId, parties = fromList [bob, alice, carol]}
+
+                -- Side-load alice's last known snapshot (snapshot 1 — stale!).
+                -- She doesn't know about snapshot 2, which alice-mirror confirmed.
+                send nAliceNew (SideLoadSnapshot confirmedSnap1)
+                waitUntilMatch [nAliceNew] $ \case
+                  SnapshotSideLoaded{snapshotNumber} -> guard (snapshotNumber == 1)
+                  _ -> Nothing
+
+                -- Inject the pending ReqSn from carol (leader for sn=3).
+                -- Alice has seenSn=1, but sn=3 requires seenSn=2 → ReqSnNumberInvalid.
+                -- She cannot sign → snapshot 3 stays pending → bob never sees
+                -- SnapshotConfirmed(3).
+                injectNetworkInput nAliceNew carol (ReqTx tx3)
+                injectNetworkInput nAliceNew carol (ReqSn 0 3 [44] Nothing Nothing)
+
+                -- BUG: bob should see SnapshotConfirmed for snapshot 3 but never does,
+                -- because alice can't sign a snapshot that skips over snapshot 2.
+                waitUntilMatch [nBob] $ \case
+                  SnapshotConfirmed{snapshot = Snapshot{number}} -> guard (number == 3)
+                  _ -> Nothing
+
 -- | Wait for some output at some node(s) to be produced /eventually/. See
 -- 'waitUntilMatch' for how long it waits.
 waitUntil ::
@@ -1113,6 +1198,7 @@ data TestHydraClient tx m = TestHydraClient
   , waitForNext :: m (ServerOutput tx)
   , waitForNextMessage :: m (ClientMessage tx)
   , injectChainEvent :: ChainEvent tx -> m ()
+  , injectNetworkInput :: Party -> Message tx -> m ()
   , serverOutputs :: m [ServerOutput tx]
   , queryState :: m (NodeState tx)
   }
@@ -1127,6 +1213,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
   , simulatePartialFanout :: HeadId -> UTxOType tx -> m ()
   , closeWithInitialSnapshot :: Party -> m ()
+  , getChainHistory :: m [ChainEvent tx]
   }
 
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
@@ -1138,6 +1225,7 @@ dummySimulatedChainNetwork =
     , simulateDeposit = error "simulateDeposit"
     , simulatePartialFanout = error "simulatePartialFanout"
     , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
+    , getChainHistory = error "getChainHistory"
     }
 
 -- | With-pattern wrapper around 'simulatedChainAndNetwork' which does 'cancel'
@@ -1217,6 +1305,7 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
       , simulatePartialFanout = \headId distributedOutputs ->
           createAndYieldEvent nodes history localChainState $ OnPartialFanoutTx{headId, distributedOutputs}
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
+      , getChainHistory = reverse <$> readTVarIO history
       }
  where
   -- seconds
@@ -1427,6 +1516,7 @@ createTestHydraClient outputs messages outputHistory HydraNode{inputQueue, nodeS
     , waitForNext = atomically (readTQueue outputs)
     , waitForNextMessage = atomically (readTQueue messages)
     , injectChainEvent = enqueue inputQueue . ChainInput
+    , injectNetworkInput = \sender msg -> enqueue inputQueue (mkNetworkInput sender msg)
     , serverOutputs = reverse <$> readTVarIO outputHistory
     , queryState = atomically (queryNodeState nodeStateHandler)
     }
