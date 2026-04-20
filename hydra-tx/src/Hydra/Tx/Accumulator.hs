@@ -10,23 +10,23 @@ module Hydra.Tx.Accumulator (
 
   -- * CRS (Common Reference String)
   generateCRS,
-  generateCRSG1,
+  generateCRSG2,
   requiredCRSSize,
   defaultItems,
 
   -- * Membership proofs for partial fanout
   createMembershipProof,
   createMembershipProofFromUTxO,
-  createCRSG1Datum,
+  createCRSG2Datum,
 ) where
 
 import Hydra.Prelude
 
 import Accumulator (Accumulator, Element)
 import Accumulator qualified
-import Bindings (getPolyCommitOverG2)
+import Bindings (getPolyCommitOverG1)
 import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
-import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsMult)
+import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress)
 import Cardano.Crypto.Hash (Blake2b_256)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Codec.Serialise (deserialiseOrFail, serialise)
@@ -35,21 +35,17 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as BSL
 import Data.List (nub)
 import Data.Map.Strict qualified as Map
-import Field qualified as F
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
 import Hydra.Tx.IsTx (IsTx (..))
-import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar, unScalar)
+import Hydra.Tx.KZGTrustedSetup qualified as KZG
+import Plutus.Crypto.BlsUtils (getFinalPoly, getG1Commitment, mkScalar)
 import PlutusTx.Builtins (
-  BuiltinBLS12_381_G2_Element,
-  bls12_381_G1_uncompress,
-  bls12_381_G2_compressed_generator,
-  bls12_381_G2_scalarMul,
+  BuiltinBLS12_381_G1_Element,
   bls12_381_G2_uncompress,
   byteStringToInteger,
   toBuiltin,
  )
-import PlutusTx.Prelude (scale)
 
 -- * HydraAccumulator
 
@@ -147,65 +143,32 @@ getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash (HydraAccumulator acc) =
   digest (Proxy @Blake2b_256) . BSL.toStrict . serialise $ acc
 
-getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G2_Element
+getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 getAccumulatorCommitment (HydraAccumulator acc) =
-  let g2 = bls12_381_G2_uncompress bls12_381_G2_compressed_generator
-      tau = mkScalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
-      k = 1024
-      crsG2 = map (\x -> bls12_381_G2_scalarMul (unScalar (scale x tau)) g2) [0 .. k + 10]
-   in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
-        Map.elems
-          acc
+  let n = Map.size acc
+   in if n > KZG.maxAccumulatorSize
+        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the EIP-4844 limit of " <> show KZG.maxAccumulatorSize
+        else
+          let crsG1 = take (n + 1) KZG.g1BuiltinPoints
+           in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
+                Map.elems acc
 
 -- * CRS (Common Reference String)
 
--- | Generate a CRS using the "powers of tau" approach.
---
--- Based on the approach from haskell-accumulator's test suite:
--- https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/test/Main.hs
---
--- We only need Point2 for proof generation (getPolyCommitOverG2).
--- The CRS consists of: [g2 * tau^0, g2 * tau^1, ..., g2 * tau^(n-1)]
---
--- For testing, we use a fixed tau value. For production, this should be replaced
--- with a secure CRS from a trusted setup ceremony along with the powers of tau.
-generateCRS :: Int -> [Point2]
-generateCRS setSize =
-  let
-    -- Define a tau (a large secret value for testing)
-    -- In production, this should come from a trusted setup ceremony
-    tau = F.Scalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
+-- | Returns the first @n@ G1 powers of tau from the Ethereum EIP-4844 KZG trusted setup.
+-- Used as the off-chain CRS for building accumulators and membership proofs.
+-- The CRS consists of: [g1 * tau^0, g1 * tau^1, ..., g1 * tau^(n-1)]
+-- where tau is the secret from the EIP-4844 multi-party ceremony.
+-- Limited to a maximum of 'KZG.maxAccumulatorSize' + 1 points.
+generateCRS :: Int -> [Point1]
+generateCRS n = take n KZG.g1Points
 
-    -- Define powers of tau (tau^0, tau^1, ..., tau^(setSize-1) over the field)
-    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral (setSize - 1)]
-    powerOfTauInt = map F.unScalar powerOfTauField
-
-    -- Define the generator of G2
-    g2 = blsGenerator :: Point2
-
-    -- Map the power of tau over G2
-    crsG2 = map (blsMult g2) powerOfTauInt :: [Point2]
-   in
-    crsG2
-
-generateCRSG1 :: Int -> [Point1]
-generateCRSG1 setSize =
-  let
-    -- Define a tau (a large secret value for testing)
-    -- In production, this should come from a trusted setup ceremony
-    tau = F.Scalar 22_435_875_175_126_190_499_447_740_508_185_965_837_690_552_500_527_637_822_603_658_699_938_581_184_511
-
-    -- Define powers of tau (tau^0, tau^1, ..., tau^(setSize-1) over the field)
-    powerOfTauField = map (F.powModScalar tau) [0 .. fromIntegral (setSize - 1)]
-    powerOfTauInt = map F.unScalar powerOfTauField
-
-    -- Define the generator of G1
-    g1 = blsGenerator :: Point1
-
-    -- Map the power of tau over G1
-    crsG1 = map (blsMult g1) powerOfTauInt :: [Point1]
-   in
-    crsG1
+-- | Returns the first @n@ G2 powers of tau from the Ethereum EIP-4844 KZG trusted setup.
+-- Used as the on-chain CRS for verifying membership proofs.
+-- Shares the same secret tau as 'generateCRS'.
+-- Limited to a maximum of 'KZG.maxFanoutBatchSize' + 1 points (65 from EIP-4844).
+generateCRSG2 :: Int -> [Point2]
+generateCRSG2 n = take n KZG.g2Points
 
 defaultItems :: Int
 defaultItems = 30
@@ -241,12 +204,11 @@ createMembershipProof ::
   -- | The full accumulator from the confirmed snapshot
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
-  [Point2] ->
-  -- | Returns a string: "Success: 0x..." or "Error: ..."
+  [Point1] ->
+  -- | Returns the compressed proof point
   ByteString
 createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
-  -- Use getPolyCommitOverG2 to generate the proof
-  case getPolyCommitOverG2 subsetElements fullAcc crs of
+  case getPolyCommitOverG1 subsetElements fullAcc crs of
     Left err -> error (toText err) -- FIXME: return Either?
     Right proof ->
       blsCompress proof
@@ -259,7 +221,7 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
 --
 -- **How it works:**
 -- 1. Each TxOut in the subset is serialized: `Builtins.serialiseData . toBuiltinData`
--- 2. These elements are passed to `getPolyCommitOverG2` which removes them from the accumulator
+-- 2. These elements are passed to `getPolyCommitOverG1` which removes them from the accumulator
 -- 3. A polynomial commitment proof is generated for the remaining elements
 -- 4. The proof is returned as a hex-encoded string
 --
@@ -281,7 +243,7 @@ createMembershipProofFromUTxO ::
   -- | The full accumulator from the confirmed snapshot (built with buildFromUTxO)
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
-  [Point2] ->
+  [Point1] ->
   -- | Returns a proof
   ByteString
 createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
@@ -296,8 +258,8 @@ createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
   -- Use the element-based proof function
   createMembershipProof subsetElements fullAcc crs
 
-createCRSG1Datum :: Int -> HApi.TxOutDatum ctx
-createCRSG1Datum n =
+createCRSG2Datum :: Int -> HApi.TxOutDatum ctx
+createCRSG2Datum n =
   TxOutDatumInline BabbageEraOnwardsConway $
     HApi.toScriptData
-      (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> generateCRSG1 n)
+      (bls12_381_G2_uncompress . toBuiltin . blsCompress <$> generateCRSG2 n)
