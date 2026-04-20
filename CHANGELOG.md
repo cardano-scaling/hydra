@@ -10,6 +10,11 @@ changes.
 
 ## [UNRELEASED]
 
+- Retry transient chain-following errors in the Blockfrost backend
+(DecodeError, MissingNextBlockHash, etc.) with exponential backoff instead of
+crashing the node. HTTP-level Blockfrost API errors are left to the upstream
+client library to handle.
+
 - Replace file-based persistence with a SQLite-backed event store. Events are
 now persisted in a database file (`hydra.db`) in the `--persistence-dir`
 directory instead of a plain append-only JSON file (`state`). On first startup
