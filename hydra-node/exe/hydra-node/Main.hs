@@ -16,7 +16,7 @@ import Hydra.Config (loadConfig)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
 import Hydra.Node.Util (readKeyPair)
-import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand, parseHydraCommandFromArgsWith)
+import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommandFromArgsWith)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
 
@@ -24,12 +24,16 @@ main :: IO ()
 main = do
   installSigTermHandler
   args <- getArgs
+  -- Strip --config FILE before optparse sees the args so that it is always
+  -- accepted (even when used alongside subcommands) and appears correctly in
+  -- --help via the configFileParser added to runOptionsParser.
+  let strippedArgs = stripConfigFlag args
   command <- case findConfigFlag args of
     Nothing ->
-      parseHydraCommand
+      parseHydraCommandFromArgsWith strippedArgs
     Just configFile -> do
       baseOpts <- loadConfig configFile
-      cliOpts <- parseHydraCommandFromArgsWith (stripConfigFlag args)
+      cliOpts <- parseHydraCommandFromArgsWith strippedArgs
       pure $ case cliOpts of
         Run opts -> Run (baseOpts <> opts)
         other -> other

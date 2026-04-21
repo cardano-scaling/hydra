@@ -282,6 +282,16 @@ instance Semigroup RunOptions where
 
 instance Semigroup ChainConfig where
   Cardano a <> Cardano b = Cardano (a <> b)
+  -- If the config file says offline but CLI has the default Cardano config (no
+  -- chain flags were supplied), keep the offline config from the file.
+  Offline b <> Cardano c
+    | c == defaultCardanoChainConfig = Offline b
+    | otherwise =
+        error
+          "Cannot mix chain modes: config file specifies offline mode but \
+          \CLI specifies cardano chain options. Use consistent configuration."
+  -- In all other mixed-mode cases let the CLI value win (e.g. user explicitly
+  -- passes --offline-head-seed to override a cardano config file).
   _ <> rhs = rhs
 
 instance Semigroup CardanoChainConfig where
@@ -335,6 +345,12 @@ instance Semigroup LedgerConfig where
         cli
 
 -- | Use @cli@ if it differs from @def@, otherwise keep @base@.
+--
+-- Note: if the user explicitly passes a CLI flag whose value happens to equal
+-- the default (e.g. @--api-port 4001@ when 4001 is the default), the config
+-- file value wins. This is a known limitation of inferring intent from equality
+-- with the default; a proper fix would require tracking which flags were
+-- explicitly set (e.g. via @Maybe@-wrapped parser results).
 overrideField :: Eq a => a -> a -> a -> a
 overrideField def base cli
   | cli /= def = cli
@@ -362,6 +378,20 @@ runOptionsParser =
     <*> ledgerConfigParser
     <*> whichEtcdParser
     <*> apiTransactionTimeoutParser
+    -- Consume --config FILE so it appears in --help and is accepted by the
+    -- parser.  The value is stripped from argv before this parser runs (see
+    -- Main.hs), so this is purely for documentation purposes.
+    <* optional configFileParser
+
+configFileParser :: Parser FilePath
+configFileParser =
+  strOption
+    ( long "config"
+        <> metavar "FILE"
+        <> help
+          "Path to a YAML configuration file. \
+          \CLI flags take precedence over values in the file."
+    )
 
 whichEtcdParser :: Parser WhichEtcd
 whichEtcdParser =

@@ -57,7 +57,6 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-alice";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
-                runtimeInputs = [ pkgs.gettext ];
                 text = ''
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
@@ -74,7 +73,6 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-bob";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
-                runtimeInputs = [ pkgs.gettext ];
                 text = ''
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
@@ -91,7 +89,6 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-carol";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
-                runtimeInputs = [ pkgs.gettext ];
                 text = ''
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
@@ -108,7 +105,6 @@
               command = pkgs.writeShellApplication {
                 name = "hydra-node-alice-mirror";
                 checkPhase = ""; # not shellcheck and choke on sourcing .env
-                runtimeInputs = [ pkgs.gettext ];
                 text = ''
                   set -a; [ -f .env ] && source .env; set +a
                   ${self'.packages.hydra-node}/bin/hydra-node \
