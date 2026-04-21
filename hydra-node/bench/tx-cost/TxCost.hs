@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
   ExecutionUnits (..),
   Tx,
   UTxO,
+  modifyTxOutValue,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
@@ -231,7 +232,9 @@ computePartialFanOutNominalCost = do
     let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-        spendableUTxO = getKnownUTxO stClosed <> getKnownUTxO cctx
+        spendableUTxO =
+          UTxO.map (modifyTxOutValue (<> UTxO.totalValue utxo)) (getKnownUTxO stClosed)
+            <> getKnownUTxO cctx
         allPairs = UTxO.toList utxo
         (toDistributePairs, remainingPairs) = splitAt numToDistribute allPairs
         utxoToDistribute = UTxO.fromList toDistributePairs
