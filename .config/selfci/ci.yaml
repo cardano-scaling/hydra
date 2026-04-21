@@ -6,10 +6,8 @@ job:
   command: |
     set -eou pipefail
 
-    nix-fast-build \
-      --flake ".#checks.$(nix eval --impure --raw --expr builtins.currentSystem)" \
-      --no-link \
-      --skip-cached
+    just check
+    just test
 
   # Command prefix for executing the command
   # Can be used to change the shell, or disable shell interpretation
