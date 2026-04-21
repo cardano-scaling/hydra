@@ -57,7 +57,7 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Conduit.Combinators (linesUnboundedAscii)
 import Data.Conduit.Combinators qualified as C
-import Database.SQLite.Simple (Connection, Only (..), Statement, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query_, withTransaction)
+import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query_, withTransaction)
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Logging (Tracer, traceWith)
@@ -108,7 +108,7 @@ withSQLiteEventStore tracer dbFile legacyStateFile callback = do
   (conn, store, flush, reinitLastSeen, cancelWriter) <- mkSQLiteEventStore dbFile
   migrateFromFileBased (Proxy @e) tracer legacyStateFile conn reinitLastSeen
   callback store
-    `finally` (flush >> cancelWriter)
+    `finally` (flush >> cancelWriter >> close conn)
 
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
 -- The database and schema are created on first use if they do not exist.
