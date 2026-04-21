@@ -31,11 +31,13 @@
 --     testnet-magic: 2
 --     node-socket: node.socket
 -- @
-module Hydra.Config (loadConfig) where
+module Hydra.Config (loadConfig, resolvePaths) where
 
 import Hydra.Prelude
 
 import Data.Aeson (Value (..), withObject, (.:), (.:?))
+import Data.Aeson.Key qualified as Key
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (Object, Parser, parseEither, (.!=))
 import Data.IP (IP)
 import Data.Text qualified as T
@@ -71,24 +73,102 @@ import Hydra.Options (
   defaultRunOptions,
  )
 import Hydra.Tx.HeadId (HeadSeed)
+import System.FilePath (isRelative, takeDirectory, (</>))
 import Test.QuickCheck (Positive (..))
 
 -- | Load 'RunOptions' from a YAML configuration file.
 --
 -- Keys use kebab-case matching the CLI flag names, e.g. @node-id@, @api-host@.
 -- Missing keys fall back to the same defaults as the CLI.
+--
+-- Relative file paths in the config are resolved relative to the directory
+-- containing the config file, not the current working directory.
 loadConfig :: FilePath -> IO RunOptions
 loadConfig path = do
   value <- Yaml.decodeFileThrow path
   case parseEither parseRunOptions value of
     Left err -> die $ "Failed to parse config file " <> path <> ":\n  " <> err
-    Right opts -> pure opts
+    Right opts -> pure (resolvePaths (takeDirectory path) opts)
+
+-- | Make all relative 'FilePath' fields in 'RunOptions' absolute by resolving
+-- them against @dir@ (the directory containing the config file).  Absolute
+-- paths are left unchanged.
+resolvePaths :: FilePath -> RunOptions -> RunOptions
+resolvePaths dir opts =
+  opts
+    { hydraSigningKey = resolve opts.hydraSigningKey
+    , hydraVerificationKeys = map resolve opts.hydraVerificationKeys
+    , persistenceDir = resolve opts.persistenceDir
+    , ledgerConfig = resolveLedgerConfig opts.ledgerConfig
+    , chainConfig = resolveChainConfig opts.chainConfig
+    }
+ where
+  resolve p
+    | isRelative p = dir </> p
+    | otherwise = p
+
+  resolveLedgerConfig (CardanoLedgerConfig f) =
+    CardanoLedgerConfig (resolve f)
+
+  resolveChainConfig (Cardano cfg) = Cardano (resolveCardanoChainConfig cfg)
+  resolveChainConfig (Offline cfg) = Offline (resolveOfflineChainConfig cfg)
+
+  resolveCardanoChainConfig cfg =
+    cfg
+      { cardanoSigningKey = resolve cfg.cardanoSigningKey
+      , cardanoVerificationKeys = map resolve cfg.cardanoVerificationKeys
+      , chainBackendOptions = resolveChainBackend cfg.chainBackendOptions
+      }
+
+  resolveChainBackend (Direct o) =
+    Direct o{nodeSocket = case o.nodeSocket of File p -> File (resolve p)}
+  resolveChainBackend (Blockfrost o) =
+    Blockfrost o{projectPath = resolve o.projectPath}
+
+  resolveOfflineChainConfig cfg =
+    cfg
+      { initialUTxOFile = resolve cfg.initialUTxOFile
+      , ledgerGenesisFile = fmap resolve cfg.ledgerGenesisFile
+      }
+
+-- | Fail the 'Parser' if @obj@ contains any key not in @knownKeys@.
+-- This catches typos and stale keys from older config files early.
+checkUnknownKeys :: [Text] -> Object -> Parser ()
+checkUnknownKeys knownKeys obj =
+  case filter (`notElem` knownKeys) (map Key.toText (KeyMap.keys obj)) of
+    [] -> pure ()
+    unknown ->
+      fail . toString $
+        "Unknown configuration key(s): "
+          <> T.intercalate ", " unknown
+          <> "\nValid keys are: "
+          <> T.intercalate ", " knownKeys
 
 -- ---------------------------------------------------------------------------
 -- Top-level parser
 
 parseRunOptions :: Value -> Parser RunOptions
 parseRunOptions = withObject "RunOptions" $ \o -> do
+  checkUnknownKeys
+    [ "quiet"
+    , "node-id"
+    , "listen"
+    , "advertise"
+    , "peers"
+    , "api-host"
+    , "api-port"
+    , "tls-cert"
+    , "tls-key"
+    , "monitoring-port"
+    , "hydra-signing-key"
+    , "persistence-dir"
+    , "persistence-rotate-after"
+    , "chain"
+    , "ledger-protocol-parameters"
+    , "use-system-etcd"
+    , "api-transaction-timeout"
+    ]
+    o
   quiet <- o .:? "quiet" .!= False
   let verbosity = if quiet then Quiet else Verbose "HydraNode"
   nodeId <- NodeId <$> (o .:? "node-id" .!= "hydra-node-1")
@@ -155,6 +235,19 @@ parseChainConfig peerCardanoVKs = withObject "chain" $ \o -> do
 
 parseCardanoChainConfig :: [FilePath] -> Object -> Parser CardanoChainConfig
 parseCardanoChainConfig peerCardanoVKs o = do
+  checkUnknownKeys
+    [ "mode"
+    , "network"
+    , "hydra-scripts-tx-id"
+    , "cardano-signing-key"
+    , "cardano-verification-keys"
+    , "start-chain-from"
+    , "contestation-period"
+    , "deposit-period"
+    , "unsynced-period"
+    , "backend"
+    ]
+    o
   hydraScriptsTxId <- parseHydraScripts o
   cardanoSigningKey <- o .:? "cardano-signing-key" .!= defaultCardanoChainConfig.cardanoSigningKey
   chainVKs <- o .:? "cardano-verification-keys" .!= []
@@ -199,6 +292,7 @@ parseHydraScripts o = do
 
 parseOfflineChainConfig :: Object -> Parser OfflineChainConfig
 parseOfflineChainConfig o = do
+  checkUnknownKeys ["mode", "offline-head-seed", "initial-utxo", "ledger-genesis"] o
   mSeedText <- o .:? "offline-head-seed" :: Parser (Maybe Text)
   offlineHeadSeed <- maybe (fail "offline mode requires 'offline-head-seed'") parseHeadSeed mSeedText
   initialUTxOFile <- o .:? "initial-utxo" .!= "utxo.json"
@@ -218,6 +312,7 @@ parseChainBackend = withObject "backend" $ \o -> do
 
 parseDirectOptions :: Object -> Parser DirectOptions
 parseDirectOptions o = do
+  checkUnknownKeys ["mode", "mainnet", "testnet-magic", "node-socket"] o
   mainnet <- o .:? "mainnet" .!= False
   networkId <-
     if mainnet
@@ -229,6 +324,7 @@ parseDirectOptions o = do
 
 parseBlockfrostOptions :: Object -> Parser BlockfrostOptions
 parseBlockfrostOptions o = do
+  checkUnknownKeys ["mode", "project-path", "query-timeout", "retry-timeout"] o
   projectPath <- o .:? "project-path" .!= defaultBlockfrostOptions.projectPath
   queryTimeout <- o .:? "query-timeout" .!= defaultBlockfrostOptions.queryTimeout
   retryTimeout <- o .:? "retry-timeout" .!= defaultBlockfrostOptions.retryTimeout
@@ -253,6 +349,7 @@ parsePeerEntry v =
   withObject
     "peer"
     ( \o -> do
+        checkUnknownKeys ["address", "cardano-verification-key", "hydra-verification-key"] o
         addrStr <- o .: "address"
         h <- parseHost "peers.address" addrStr
         cardanoVK <- o .:? "cardano-verification-key"

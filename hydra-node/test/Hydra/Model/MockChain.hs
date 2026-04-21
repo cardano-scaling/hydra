@@ -116,6 +116,7 @@ mockChainAndNetwork tr seedKeys = do
       , rollbackAndForward = rollbackAndForward nodes chain
       , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
+      , getChainHistory = pure []
       }
  where
   initialUTxO = seedUTxO <> registryUTxO scriptRegistry
