@@ -1997,6 +1997,7 @@
                         "tag": "ConfirmedSnapshot"
                     },
                     "contestationDeadline": "1864-05-12T02:52:57.87961675796Z",
+                    "distributedFanoutUTxO": {},
                     "headId": "00080707060802050306080402030301",
                     "headSeed": "01080806040005050406060804040407",
                     "parameters": {

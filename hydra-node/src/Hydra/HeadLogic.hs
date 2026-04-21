@@ -1426,15 +1426,13 @@ onClosedChainFanoutTx ::
   UTxOType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState fanoutUTxO =
-  -- When partial fanout was in progress, the final fanout tx only contains the
-  -- remaining UTxOs. We report the full UTxO set to clients so they see all
-  -- fanned-out outputs, not just the last batch.
-  let allUTxO = case remainingFanoutUTxO of
-        Just remaining | sizeUTxO remaining > 0 -> computeFullFanoutUTxO closedState
-        _ -> fanoutUTxO
+  -- When partial fanouts preceded this final fanout, combine the UTxOs
+  -- distributed by each partial fanout (with their real L1 TxIns) with the
+  -- final batch so clients receive the complete set with correct references.
+  let allUTxO = distributedFanoutUTxO <> fanoutUTxO
    in newState HeadFannedOut{headId, utxo = allUTxO, chainState = newChainState}
  where
-  ClosedState{headId, remainingFanoutUTxO} = closedState
+  ClosedState{headId, distributedFanoutUTxO} = closedState
 
 -- | Observe a partial fanout transaction on chain. This stays in 'ClosedState'
 -- with updated remaining UTxOs and automatically triggers the next fanout.
@@ -2222,11 +2220,12 @@ aggregate st = \case
               , headSeed
               , version
               , remainingFanoutUTxO = Nothing
+              , distributedFanoutUTxO = mempty
               }
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, remainingFanoutUTxO} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, remainingFanoutUTxO, distributedFanoutUTxO} ->
         Closed
           ClosedState
             { parameters
@@ -2238,6 +2237,7 @@ aggregate st = \case
             , headSeed
             , version
             , remainingFanoutUTxO
+            , distributedFanoutUTxO
             }
       _otherState -> st
   HeadFannedOut{chainState} ->
@@ -2248,10 +2248,15 @@ aggregate st = \case
             { chainState
             }
       _otherState -> st
-  HeadPartialFannedOut{remainingUTxO, chainState} ->
+  HeadPartialFannedOut{distributedUTxO, remainingUTxO, chainState} ->
     case st of
       Closed cst ->
-        Closed cst{chainState, remainingFanoutUTxO = Just remainingUTxO}
+        Closed
+          cst
+            { chainState
+            , remainingFanoutUTxO = Just remainingUTxO
+            , distributedFanoutUTxO = distributedFanoutUTxO cst <> distributedUTxO
+            }
       _otherState -> st
   HeadIsReadyToFanout{} ->
     case st of
