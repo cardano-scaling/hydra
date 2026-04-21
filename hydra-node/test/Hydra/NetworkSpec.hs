@@ -68,7 +68,7 @@ spec = do
       -- important to keep around. Successfully completion of this test looks
       -- like either a "mvcc database size exceeded" error; or no error at
       -- all. Failures looks like complete blocking
-      around_ onlyNightly $ it "broadcasts 100KiB messages 1M times @nightly" $ \tracer ->
+      around_ onlyLocal $ it "broadcasts 100KiB messages 1M times" $ \tracer ->
         withTempDir "test-etcd" $ \tmp -> do
           putStrLn $ "Folder " ++ show tmp
           PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
