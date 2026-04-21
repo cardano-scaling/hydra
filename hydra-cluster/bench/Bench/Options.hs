@@ -192,7 +192,7 @@ pumbaCommandParser =
         <> help
           "Shell command to run as a network fault injector (e.g. pumba) once the \
           \Head is open and deposits are finalized. The process is started just before \
-          \transaction submission begins and is terminated when the Head closes."
+          \transaction submission begins and is terminated before the Head is closed."
     )
 
 hydraClientsParser :: Parser Host

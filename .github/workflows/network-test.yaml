@@ -104,7 +104,7 @@ jobs:
           --hydra-client=localhost:4001 \
           --hydra-client=localhost:4002 \
           --hydra-client=localhost:4003 \
-          --pumba-command="pumba -l info --random --interval 20s netem --duration 15s loss --percent ${percent} re2:hydra-node"
+          --pumba-command="pumba -l info --random --interval 20s netem --duration 5s loss --percent ${percent} re2:hydra-node"
 
     - name: Acquire logs
       if: always()
