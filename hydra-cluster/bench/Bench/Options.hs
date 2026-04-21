@@ -53,6 +53,7 @@ data Options
       , networkId :: NetworkId
       , nodeSocket :: SocketPath
       , hydraClients :: [Host]
+      , pumbaCommand :: Maybe String
       }
 
 benchOptionsParser :: ParserInfo Options
@@ -181,6 +182,18 @@ demoOptionsParser =
     <*> networkIdParser
     <*> nodeSocketParser
     <*> many hydraClientsParser
+    <*> optional pumbaCommandParser
+
+pumbaCommandParser :: Parser String
+pumbaCommandParser =
+  strOption
+    ( long "pumba-command"
+        <> metavar "CMD"
+        <> help
+          "Shell command to run as a network fault injector (e.g. pumba) once the \
+          \Head is open and deposits are finalized. The process is started just before \
+          \transaction submission begins and is terminated before the Head is closed."
+    )
 
 hydraClientsParser :: Parser Host
 hydraClientsParser =

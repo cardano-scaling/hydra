@@ -39,6 +39,7 @@
             inherit (inputs.cardano-node.packages.${system}) cardano-cli;
             inherit (inputs.cardano-node.packages.${system}) cardano-node;
             inherit (inputs.mithril.packages.${system}) mithril-client-cli;
+            pumba = inputs.pumba.packages.${system}.default;
           })
         ];
       };
