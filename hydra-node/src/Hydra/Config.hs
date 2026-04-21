@@ -14,6 +14,7 @@
 -- peers:
 --   - address: "peer1:5001"
 --     cardano-verification-key: peer1.cardano.vk
+--     hydra-verification-key: peer1-hydra.vk
 -- api-host: "127.0.0.1"
 -- api-port: 4001
 -- hydra-signing-key: hydra.sk
