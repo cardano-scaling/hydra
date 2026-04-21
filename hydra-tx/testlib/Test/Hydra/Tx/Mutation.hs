@@ -155,6 +155,7 @@ import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
+import PlutusTx.Builtins qualified as PlutusTx
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
@@ -861,6 +862,25 @@ replaceContestationPeriod contestationPeriod = \case
         , contesters
         , version
         , accumulatorCommitment
+        }
+  otherState -> otherState
+
+replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G2_Element -> Head.State -> Head.State
+replaceAccumulatorCommitment newCommitment = \case
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+    Head.Closed
+      Head.ClosedDatum
+        { Head.parties = parties
+        , Head.snapshotNumber = snapshotNumber
+        , Head.utxoHash = utxoHash
+        , Head.alphaUTxOHash = alphaUTxOHash
+        , Head.omegaUTxOHash = omegaUTxOHash
+        , Head.contestationDeadline = contestationDeadline
+        , Head.contestationPeriod = contestationPeriod
+        , Head.headId = headId
+        , Head.contesters = contesters
+        , Head.version = version
+        , Head.accumulatorCommitment = newCommitment
         }
   otherState -> otherState
 
