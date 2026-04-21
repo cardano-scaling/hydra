@@ -134,6 +134,7 @@
           run-tmux
           pkgs.cardano-node
           pkgs.cardano-cli
+          pkgs.pumba
         ];
       };
 

@@ -59,6 +59,7 @@ import HydraNode (
   withHydraCluster,
  )
 import System.FilePath ((</>))
+import System.Process.Typed (shell, withProcessTerm)
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 
@@ -86,7 +87,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           putStrLn $ "Timing: " <> show timing
           withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
-            scenario hydraTracer timing opts workDir dataset clients
+            scenario hydraTracer timing opts workDir dataset clients Nothing
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -95,10 +96,11 @@ benchDemo ::
   SocketPath ->
   NominalDiffTime ->
   [Host] ->
+  Maybe String ->
   FilePath ->
   Dataset ->
   IO (Summary, SystemStats)
-benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Dataset{clientDatasets} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -120,7 +122,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients workDir dataset@Datas
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers)
+                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand
  where
   withHydraClientConnections ::
     Tracer IO HydraNodeLog ->
@@ -151,8 +153,9 @@ scenario ::
   FilePath ->
   Dataset ->
   NonEmpty HydraClient ->
+  Maybe String ->
   IO Summary
-scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients = do
+scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand = do
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients
       clients = toList nonEmptyClients
@@ -179,12 +182,16 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
   Set.fromList deposits `shouldBe` Set.fromList (txId <$> depositTxs)
 
   putTextLn "HeadIsOpen with deposits finalized"
-  processedTransactions <- processTransactions clients clientDatasets
+
+  -- Note: We only run Pumba during normal transaction processing; this is
+  -- acceptable because otherwise we do not retry the particular actions that
+  -- may or may not be dropped.
+  processedTransactions <- withPumba pumbaCommand $ processTransactions clients clientDatasets
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
 
-  deadline <- waitMatch (5 * blockTime) leader $ \v -> do
+  deadline <- waitMatch (20 * blockTime) leader $ \v -> do
     guard $ v ^? key "tag" == Just "HeadIsClosed"
     guard $ v ^? key "headId" == Just (toJSON headId)
     v ^? key "contestationDeadline" . _JSON
@@ -240,6 +247,12 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       }
  where
   Timing{blockTime} = timing
+
+  withPumba :: Maybe String -> IO a -> IO a
+  withPumba Nothing action = action
+  withPumba (Just cmd) action = do
+    putTextLn $ "Starting pumba: " <> toText cmd
+    withProcessTerm (shell cmd) $ const action
 
 defaultDescription :: Text
 defaultDescription = ""

@@ -32,13 +32,13 @@ main = do
           threadDelay 10
           runSingle dataset dir action
       summarizeResults outputDirectory results
-    DemoOptions{outputDirectory, numberOfTxs, timeoutSeconds, networkId, nodeSocket, hydraClients} -> do
+    DemoOptions{outputDirectory, numberOfTxs, timeoutSeconds, networkId, nodeSocket, hydraClients, pumbaCommand} -> do
       (_, faucetSk) <- keysFor Faucet
       dataset <- generateDemoUTxODataset networkId nodeSocket faucetSk (length hydraClients) numberOfTxs
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
         runSingle dataset workDir $
-          benchDemo networkId nodeSocket timeoutSeconds hydraClients
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
     DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId} -> do

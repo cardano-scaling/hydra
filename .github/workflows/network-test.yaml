@@ -74,7 +74,6 @@ jobs:
     - name: Build required nix and docker derivations
       run: |
         nix build .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e
-        nix build github:noonio/pumba/noon/add-flake
 
     # Use tmate to get a shell onto the runner to do some temporary hacking
     #
@@ -88,22 +87,12 @@ jobs:
 
     - name: Run pumba and the benchmarks
       run: |
-        # Extract inputs with defaults for non-workflow_dispatch events
-        # TODO: which defaults?
         percent="${{ matrix.netem_loss }}"
         scaling_factor="${{ matrix.scaling_factor }}"
 
-        # Package loss on random nodes every 20s for 5s. This should make the
-        # benchmark progress reasonably, but under stress
-        nix run github:noonio/pumba/noon/add-flake -- -l info \
-          --random \
-          --interval 20s \
-          netem \
-          --duration 5s \
-          loss --percent ${percent} \
-          "re2:hydra-node" &
-
-        # Run benchmark on demo
+        # Pumba is launched by the benchmark itself after the Head is open and
+        # deposits are finalized, so that network faults only apply during the
+        # transaction-submission phase and cannot cause deposit expiry.
         mkdir -p benchmarks
         nix run .#legacyPackages.x86_64-linux.hydra-cluster.components.benchmarks.bench-e2e -- \
           demo \
@@ -114,7 +103,8 @@ jobs:
           --node-socket=demo/devnet/node.socket \
           --hydra-client=localhost:4001 \
           --hydra-client=localhost:4002 \
-          --hydra-client=localhost:4003
+          --hydra-client=localhost:4003 \
+          --pumba-command="pumba -l info --random --interval 20s netem --duration 15s loss --percent ${percent} re2:hydra-node"
 
     - name: Acquire logs
       if: always()
