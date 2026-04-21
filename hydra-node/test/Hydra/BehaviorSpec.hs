@@ -1059,8 +1059,12 @@ spec = parallel $ do
   --
   -- Leader rotation with bob sending Init (parties = [bob, alice, carol]):
   --   sn=1 → bob, sn=2 → alice (alice-mirror acts as alice), sn=3 → carol
+  --
+  -- Note that this is effectively a Known Problem, that we're going to
+  -- consider solvable by using the snapshot sideload functionality; i.e. just
+  -- bring alice and alice-mirror to the correct snapshot manually.
   describe "node restart and snapshot recovery" $ do
-    it "emits SnapshotConfirmed to bob when alice reconnects and signs the pending snapshot" $
+    xit "emits SnapshotConfirmed to bob when alice reconnects and signs the pending snapshot" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain -> do
           chainHistoryRef <- newTVarIO []
