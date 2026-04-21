@@ -1331,68 +1331,39 @@ onClosedClientFanout ::
   ClosedState tx ->
   Outcome tx
 onClosedClientFanout closedState =
-  let allUTxO = case remainingFanoutUTxO of
-        Just remaining -> remaining
-        Nothing -> computeFullFanoutUTxO closedState
-      totalOutputs = sizeUTxO allUTxO
-   in if totalOutputs > fanoutOutputThreshold
-        then
-          -- Too many outputs for a single fanout, do a partial fanout
-          let (toDistribute, remaining) = splitUTxOAt fanoutChunkSize allUTxO
-           in cause
+  case remainingFanoutUTxO of
+    Just remaining ->
+      emitNextFanoutStep remaining closedState
+    Nothing ->
+      let allUTxO = computeFullFanoutUTxO closedState
+       in if sizeUTxO allUTxO > fanoutOutputThreshold
+            then emitNextFanoutStep allUTxO closedState
+            else
+              -- No partial fanout needed: everything fits in a single tx.
+              cause
                 OnChainEffect
                   { postChainTx =
-                      PartialFanoutTx
-                        { utxoToDistribute = toDistribute
-                        , remainingUTxO = remaining
+                      FanoutTx
+                        { utxo
+                        , -- Include utxoToCommit only if the increment has been
+                          -- applied on chain (version bumped). Otherwise it was
+                          -- never used and must not be distributed.
+                          utxoToCommit =
+                            if snapshotVersion == version
+                              then Nothing
+                              else utxoToCommit
+                        , -- Include utxoToDecommit only if the decrement has NOT
+                          -- been applied on chain yet. If it was applied the
+                          -- UTxO is gone and must not be re-distributed.
+                          utxoToDecommit =
+                            if snapshotVersion == version
+                              then utxoToDecommit
+                              else Nothing
+                        , snapshotAccumulator = accumulator
                         , headSeed
                         , contestationDeadline
                         }
                   }
-        else case remainingFanoutUTxO of
-          -- After partial fanouts, the remaining fits in a single fanout.
-          -- The accumulatorCommitment on-chain is for the remaining UTxOs only,
-          -- so we rebuild the accumulator from the remaining UTxOs.
-          Just remaining ->
-            cause
-              OnChainEffect
-                { postChainTx =
-                    FanoutTx
-                      { utxo = allUTxO
-                      , utxoToCommit = Nothing
-                      , utxoToDecommit = Nothing
-                      , snapshotAccumulator = Accumulator.buildFromUTxO remaining
-                      , headSeed
-                      , contestationDeadline
-                      }
-                }
-          -- First fanout, use the original snapshot UTxOs.
-          Nothing ->
-            cause
-              OnChainEffect
-                { postChainTx =
-                    FanoutTx
-                      { utxo
-                      , -- XXX: Perhaps move this check down so it can be more readily
-                        -- tested.
-                        -- Commit:
-                        -- Here we check that to include in the fanout; if the versions
-                        -- are the same, the utxoToCommit has not been used on chain yet
-                        -- so we disregard, so we must not fan it out.
-                        utxoToCommit =
-                          if snapshotVersion == version
-                            then Nothing
-                            else utxoToCommit
-                      , -- For decommit, if it hasn't happened, we _must_ fan it out.
-                        utxoToDecommit =
-                          if snapshotVersion == version
-                            then utxoToDecommit
-                            else Nothing
-                      , snapshotAccumulator = accumulator
-                      , headSeed
-                      , contestationDeadline
-                      }
-                }
  where
   Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion, accumulator} = getSnapshot confirmedSnapshot
 
@@ -1451,12 +1422,9 @@ onClosedChainPartialFanoutTx closedState newChainState distributedUTxO =
   -- NOTE: We use splitUTxOAt (drop first N) rather than withoutUTxO (set
   -- difference by TxIn) because the observed distributedUTxO has fresh TxIns
   -- from the partial fanout transaction, not the original snapshot TxIns.
-  let fullUTxO = case remainingFanoutUTxO of
-        Just r -> r
-        Nothing -> computeFullFanoutUTxO closedState
+  let fullUTxO = resolveRemainingUTxO closedState
       distributedCount = sizeUTxO distributedUTxO
       (_, remaining) = splitUTxOAt distributedCount fullUTxO
-      remainingCount = sizeUTxO remaining
       stateChange =
         newState
           HeadPartialFannedOut
@@ -1465,35 +1433,9 @@ onClosedChainPartialFanoutTx closedState newChainState distributedUTxO =
             , remainingUTxO = remaining
             , chainState = newChainState
             }
-      nextEffect
-        | remainingCount > fanoutOutputThreshold =
-            let (toDistribute, rest) = splitUTxOAt fanoutChunkSize remaining
-             in cause
-                  OnChainEffect
-                    { postChainTx =
-                        PartialFanoutTx
-                          { utxoToDistribute = toDistribute
-                          , remainingUTxO = rest
-                          , headSeed
-                          , contestationDeadline
-                          }
-                    }
-        | otherwise =
-            cause
-              OnChainEffect
-                { postChainTx =
-                    FanoutTx
-                      { utxo = remaining
-                      , utxoToCommit = Nothing
-                      , utxoToDecommit = Nothing
-                      , snapshotAccumulator = Accumulator.buildFromUTxO remaining
-                      , headSeed
-                      , contestationDeadline
-                      }
-                }
-   in stateChange <> nextEffect
+   in stateChange <> emitNextFanoutStep remaining closedState
  where
-  ClosedState{headId, headSeed, contestationDeadline, remainingFanoutUTxO} = closedState
+  ClosedState{headId} = closedState
 
 -- | Compute the full UTxO set to be fanned out, combining snapshot utxo
 -- with utxoToCommit/utxoToDecommit based on version.
@@ -1515,6 +1457,52 @@ computeFullFanoutUTxO ClosedState{confirmedSnapshot, version} =
     if snapshotVersion == version
       then utxoToDecommit
       else Nothing
+
+-- | Resolve the UTxO set to fan out: the already-narrowed remaining set if a
+-- partial fanout is in progress, or the full snapshot UTxO otherwise.
+resolveRemainingUTxO ::
+  IsTx tx =>
+  ClosedState tx ->
+  UTxOType tx
+resolveRemainingUTxO closedState@ClosedState{remainingFanoutUTxO} =
+  case remainingFanoutUTxO of
+    Just remaining -> remaining
+    Nothing -> computeFullFanoutUTxO closedState
+
+-- | Decide and emit the next on-chain effect for a given remaining UTxO set:
+-- another 'PartialFanoutTx' if the count exceeds 'fanoutOutputThreshold',
+-- or a final 'FanoutTx' (rebuilding the accumulator from the remaining set).
+emitNextFanoutStep ::
+  IsTx tx =>
+  UTxOType tx ->
+  ClosedState tx ->
+  Outcome tx
+emitNextFanoutStep remaining ClosedState{headSeed, contestationDeadline}
+  | sizeUTxO remaining > fanoutOutputThreshold =
+      let (toDistribute, rest) = splitUTxOAt fanoutChunkSize remaining
+       in cause
+            OnChainEffect
+              { postChainTx =
+                  PartialFanoutTx
+                    { utxoToDistribute = toDistribute
+                    , remainingUTxO = rest
+                    , headSeed
+                    , contestationDeadline
+                    }
+              }
+  | otherwise =
+      cause
+        OnChainEffect
+          { postChainTx =
+              FanoutTx
+                { utxo = remaining
+                , utxoToCommit = Nothing
+                , utxoToDecommit = Nothing
+                , snapshotAccumulator = Accumulator.buildFromUTxO remaining
+                , headSeed
+                , contestationDeadline
+                }
+          }
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.
