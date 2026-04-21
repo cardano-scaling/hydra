@@ -17,6 +17,7 @@ import Data.Aeson.Lens (atKey)
 
 import Data.ByteString.Char8 qualified as BSC
 import Data.IP (IP (IPv4), toIPv4)
+import Data.List (nub)
 import Data.Text (unpack)
 import Data.Text qualified as T
 import Data.Version (showVersion)
@@ -261,14 +262,18 @@ instance Semigroup RunOptions where
       , nodeId = o defaultRunOptions.nodeId base.nodeId cli.nodeId
       , listen = o defaultRunOptions.listen base.listen cli.listen
       , advertise = o defaultRunOptions.advertise base.advertise cli.advertise
-      , peers = o defaultRunOptions.peers base.peers cli.peers
+      , -- Lists are unioned so that YAML entries and CLI flags are both
+        -- included.  Duplicates are removed.  There is no way to "clear" the
+        -- YAML list from the CLI; if you need full CLI control, simply omit
+        -- these fields from the config file.
+        peers = nub (base.peers <> cli.peers)
       , apiHost = o defaultRunOptions.apiHost base.apiHost cli.apiHost
       , apiPort = o defaultRunOptions.apiPort base.apiPort cli.apiPort
       , tlsCertPath = o defaultRunOptions.tlsCertPath base.tlsCertPath cli.tlsCertPath
       , tlsKeyPath = o defaultRunOptions.tlsKeyPath base.tlsKeyPath cli.tlsKeyPath
       , monitoringPort = o defaultRunOptions.monitoringPort base.monitoringPort cli.monitoringPort
       , hydraSigningKey = o defaultRunOptions.hydraSigningKey base.hydraSigningKey cli.hydraSigningKey
-      , hydraVerificationKeys = o defaultRunOptions.hydraVerificationKeys base.hydraVerificationKeys cli.hydraVerificationKeys
+      , hydraVerificationKeys = nub (base.hydraVerificationKeys <> cli.hydraVerificationKeys)
       , persistenceDir = o defaultRunOptions.persistenceDir base.persistenceDir cli.persistenceDir
       , persistenceRotateAfter = o defaultRunOptions.persistenceRotateAfter base.persistenceRotateAfter cli.persistenceRotateAfter
       , chainConfig = base.chainConfig <> cli.chainConfig
@@ -288,8 +293,12 @@ instance Semigroup ChainConfig where
     | c == defaultCardanoChainConfig = Offline b
     | otherwise =
         error
-          "Cannot mix chain modes: config file specifies offline mode but \
-          \CLI specifies cardano chain options. Use consistent configuration."
+          "Conflicting chain configuration: the config file specifies \
+          \offline mode but Cardano-specific flags were also passed on the \
+          \command line (e.g. --node-socket, --cardano-signing-key, \
+          \--contestation-period, --hydra-scripts-tx-id). \
+          \Either remove those CLI flags or change the config file to use \
+          \cardano mode."
   -- In all other mixed-mode cases let the CLI value win (e.g. user explicitly
   -- passes --offline-head-seed to override a cardano config file).
   _ <> rhs = rhs
@@ -299,16 +308,32 @@ instance Semigroup CardanoChainConfig where
     CardanoChainConfig
       { hydraScriptsTxId = o defaultCardanoChainConfig.hydraScriptsTxId base.hydraScriptsTxId cli.hydraScriptsTxId
       , cardanoSigningKey = o defaultCardanoChainConfig.cardanoSigningKey base.cardanoSigningKey cli.cardanoSigningKey
-      , cardanoVerificationKeys = o defaultCardanoChainConfig.cardanoVerificationKeys base.cardanoVerificationKeys cli.cardanoVerificationKeys
+      , -- Lists are unioned so that YAML peer entries and CLI --cardano-verification-key
+        -- flags are both included rather than one silently replacing the other.
+        -- Duplicates are removed.
+        cardanoVerificationKeys = nub (base.cardanoVerificationKeys <> cli.cardanoVerificationKeys)
       , startChainFrom = o defaultCardanoChainConfig.startChainFrom base.startChainFrom cli.startChainFrom
-      , contestationPeriod = o defaultCardanoChainConfig.contestationPeriod base.contestationPeriod cli.contestationPeriod
+      , contestationPeriod = mergedContestationPeriod
       , depositPeriod = o defaultCardanoChainConfig.depositPeriod base.depositPeriod cli.depositPeriod
-      , unsyncedPeriod = o defaultCardanoChainConfig.unsyncedPeriod base.unsyncedPeriod cli.unsyncedPeriod
+      , unsyncedPeriod = mergedUnsyncedPeriod
       , chainBackendOptions = base.chainBackendOptions <> cli.chainBackendOptions
       }
    where
     o :: Eq a => a -> a -> a -> a
     o = overrideField
+    mergedContestationPeriod =
+      o defaultCardanoChainConfig.contestationPeriod base.contestationPeriod cli.contestationPeriod
+    -- unsyncedPeriod is automatically derived from contestationPeriod when not
+    -- set explicitly. Detect "explicitly set" by checking whether the value
+    -- differs from what would have been auto-derived for that side's own
+    -- contestationPeriod, then re-derive from the merged contestationPeriod if
+    -- neither side set it on purpose.
+    yamlSetUnsynced = base.unsyncedPeriod /= defaultUnsyncedPeriodFor base.contestationPeriod
+    cliSetUnsynced = cli.unsyncedPeriod /= defaultUnsyncedPeriodFor cli.contestationPeriod
+    mergedUnsyncedPeriod
+      | cliSetUnsynced = cli.unsyncedPeriod
+      | yamlSetUnsynced = base.unsyncedPeriod
+      | otherwise = defaultUnsyncedPeriodFor mergedContestationPeriod
 
 instance Semigroup ChainBackendOptions where
   Direct a <> Direct b = Direct (a <> b)
@@ -378,10 +403,10 @@ runOptionsParser =
     <*> ledgerConfigParser
     <*> whichEtcdParser
     <*> apiTransactionTimeoutParser
-    -- Consume --config FILE so it appears in --help and is accepted by the
-    -- parser.  The value is stripped from argv before this parser runs (see
-    -- Main.hs), so this is purely for documentation purposes.
-    <* optional configFileParser
+      -- Consume --config FILE so it appears in --help and is accepted by the
+      -- parser.  The value is stripped from argv before this parser runs (see
+      -- Main.hs), so this is purely for documentation purposes.
+      <* optional configFileParser
 
 configFileParser :: Parser FilePath
 configFileParser =
@@ -1061,10 +1086,6 @@ validateRunOptions RunOptions{hydraVerificationKeys, chainConfig} =
       | length cardanoVerificationKeys /= length hydraVerificationKeys ->
           Left CardanoAndHydraKeysMismatch
       | otherwise -> Right ()
-
--- | Parse command-line arguments into a `Option` or exit with failure and error message.
-parseHydraCommand :: IO Command
-parseHydraCommand = getArgs <&> parseHydraCommandFromArgs >>= handleParseResult
 
 -- | Pure parsing of `Option` from a list of arguments.
 parseHydraCommandFromArgs :: [String] -> ParserResult Command

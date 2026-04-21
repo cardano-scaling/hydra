@@ -3,26 +3,26 @@ listen: "127.0.0.1:5002"
 advertise: "127.0.0.1:5002"
 api-port: 4002
 monitoring-port: 6002
-hydra-signing-key: "demo/bob.sk"
+hydra-signing-key: "../bob.sk"
 peers:
   - address: "127.0.0.1:5001"
-    hydra-verification-key: "demo/alice.vk"
-    cardano-verification-key: "hydra-cluster/config/credentials/alice.vk"
+    hydra-verification-key: "../alice.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
   - address: "127.0.0.1:5002"
-    hydra-verification-key: "demo/bob.vk"
-    cardano-verification-key: "hydra-cluster/config/credentials/bob.vk"
+    hydra-verification-key: "../bob.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
   - address: "127.0.0.1:5003"
-    hydra-verification-key: "demo/carol.vk"
-    cardano-verification-key: "hydra-cluster/config/credentials/carol.vk"
+    hydra-verification-key: "../carol.vk"
+    cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
   - address: "127.0.0.1:5004" # Mirror of alice
-ledger-protocol-parameters: "devnet/protocol-parameters.json"
-persistence-dir: "devnet/persistence/bob"
+ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
+persistence-dir: "../../devnet/persistence/bob"
 chain:
   mode: cardano
-  cardano-signing-key: "hydra-cluster/config/credentials/bob.sk"
+  cardano-signing-key: "../../hydra-cluster/config/credentials/bob.sk"
   contestation-period: 3
   deposit-period: 10
   backend:
     mode: direct
     testnet-magic: 42
-    node-socket: "devnet/node.socket"
+    node-socket: "../../devnet/node.socket"
