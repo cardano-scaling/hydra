@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Tx.Contract.PartialFanout where
@@ -10,7 +11,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutMembershipFailed))
+import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutHashesNotCleared, PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
@@ -27,7 +28,7 @@ import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceSnapshotNumber, replaceUTxOHash)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -155,6 +156,12 @@ data PartialFanoutMutation
   | MutatePartialFanoutOutputValue
   | -- | Steal Ada by reducing the continuing head output and adding a personal output
     MutatePartialFanoutStealAda
+  | -- | Continuing datum must preserve snapshotNumber, version, contesters, contestationDeadline
+    MutatePartialFanoutChangedParameters
+  | -- | Continuing datum must clear utxoHash, alphaUTxOHash, omegaUTxOHash to emptyHash
+    MutatePartialFanoutHashesNotCleared
+  | -- | Continuing datum must carry the correct remaining accumulator commitment
+    MutatePartialFanoutWrongAccumulator
   deriving stock (Generic, Show, Enum, Bounded)
 
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -192,6 +199,24 @@ genPartialFanoutMutation (tx, _utxo) =
             [ ChangeOutput 0 (modifyTxOutValue (<> negateValue stolenValue) headOut)
             , AppendOutput stolenOutput
             ]
+    , -- The continuing datum must not change snapshotNumber, version, contesters or
+      -- contestationDeadline relative to the input datum.
+      SomeMutation (pure $ toErrorCode PartialFanoutChangedParameters) MutatePartialFanoutChangedParameters <$> do
+        let headOut = fromJust $ txOuts' tx !!? 0
+            mutatedSnapshotNumber = healthyClosedDatum.snapshotNumber + 1
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headOut
+    , -- All three hash fields (utxoHash, alphaUTxOHash, omegaUTxOHash) must be
+      -- cleared to emptyHash in the continuing datum after a partial fanout.
+      SomeMutation (pure $ toErrorCode PartialFanoutHashesNotCleared) MutatePartialFanoutHashesNotCleared <$> do
+        let headOut = fromJust $ txOuts' tx !!? 0
+            nonEmptyHash = toBuiltin $ hashUTxO @Tx healthyFullUTxO
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceUTxOHash nonEmptyHash) headOut
+    , -- An adversary must not be able to claim a different remaining accumulator
+      -- commitment in the continuing datum, which would break subsequent fanout steps.
+      SomeMutation (pure $ toErrorCode PartialFanoutMembershipFailed) MutatePartialFanoutWrongAccumulator <$> do
+        let headOut = fromJust $ txOuts' tx !!? 0
+            wrongCommitment = Accumulator.getAccumulatorCommitment fullAccumulator
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment) headOut
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
