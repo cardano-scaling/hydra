@@ -15,6 +15,7 @@ module Test.Hydra.Prelude (
   checkProcessHasNotDied,
   exceptionContaining,
   withClearedPATH,
+  onlyLocal,
   onlyNightly,
   Gen,
   Arbitrary (..),
@@ -237,6 +238,14 @@ onlyNightly action = do
   lookupEnv "CI_NIGHTLY" >>= \case
     Nothing -> pendingWith "Only runs nightly"
     Just _ -> action
+
+-- | Only run this test locally, i.e. when no CI environment variable is set.
+-- Useful for long-running stress tests that would kill CI runners.
+onlyLocal :: IO () -> IO ()
+onlyLocal action = do
+  lookupEnv "CI" >>= \case
+    Nothing -> action
+    Just _ -> pendingWith "Only runs locally (skipped on CI)"
 
 data HydraTestnet
   = LocalDevnet
