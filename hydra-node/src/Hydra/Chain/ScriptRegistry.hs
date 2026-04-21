@@ -7,15 +7,13 @@ import Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.List ((!!))
 import Hydra.Cardano.Api (
+  CardanoSigningKey,
   Era,
   EraHistory,
-  Key (..),
   LedgerEra,
   NetworkId,
   PParams,
-  PaymentKey,
   PoolId,
-  SigningKey,
   SystemStart,
   Tx,
   TxBodyErrorAutoBalance,
@@ -25,17 +23,18 @@ import Hydra.Cardano.Api (
   UTxO,
   WitCtx (..),
   examplePlutusScriptAlwaysFails,
+  getCardanoPaymentVerificationKey,
   mkScriptAddress,
   mkScriptRef,
   mkTxIn,
   mkTxOutAutoBalance,
   mkVkAddress,
   serialiseAddress,
+  signTxWith,
   toCtxUTxOTxOut,
   txOuts',
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
 import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
 import Hydra.Chain.CardanoClient (
@@ -67,7 +66,7 @@ queryScriptRegistry txIds = do
 publishHydraScripts ::
   (ChainBackend m, MonadIO m, MonadCatch m) =>
   -- | Keys assumed to hold funds to pay for the publishing transaction.
-  SigningKey PaymentKey ->
+  CardanoSigningKey ->
   m [TxId]
 publishHydraScripts sk = do
   networkId <- queryNetworkId
@@ -85,7 +84,7 @@ publishHydraScripts sk = do
     void $ awaitTransaction tx vk
     pure $ txId tx
  where
-  vk = getVerificationKey sk
+  vk = getCardanoPaymentVerificationKey sk
 
 handleError :: MonadThrow m => SomeException -> m a
 handleError e =
@@ -122,7 +121,7 @@ buildScriptPublishingTxs ::
   -- | Outputs that can be spent by signing key.
   UTxO ->
   -- | Key owning funds to pay deposit and fees.
-  SigningKey PaymentKey ->
+  CardanoSigningKey ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
   go availableUTxO scriptOutputs
@@ -137,13 +136,13 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
   go utxo (out : rest) = do
     tx <- case buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxo [] [out] Nothing of
       Left err -> throwIO $ FailedToBuildPublishingTx err
-      Right tx -> pure $ signTx sk tx
+      Right tx -> pure $ signTxWith sk tx
 
     let changeOutput = txOuts' tx !! 1
         utxo' = UTxO.singleton (mkTxIn tx 1) (toCtxUTxOTxOut changeOutput)
     (tx :) <$> go utxo' rest
 
-  changeAddress = mkVkAddress networkId (getVerificationKey sk)
+  changeAddress = mkVkAddress networkId (getCardanoPaymentVerificationKey sk)
 
   mkScriptTxOut =
     mkTxOutAutoBalance

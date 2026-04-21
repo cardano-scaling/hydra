@@ -7,6 +7,7 @@ import Hydra.Chain.ScriptRegistry (PublishScriptException (..), publishHydraScri
 
 import Hydra.Cardano.Api (
   Address,
+  CardanoSigningKey (..),
   NetworkId (..),
   PaymentKey,
   ShelleyAddr,
@@ -47,12 +48,12 @@ spec = describe "publishHydraScripts" $ do
                 TxOutDatumNone
                 ReferenceScriptNone
             )
-    txIds <- runSuccessfulBackend (vk, utxo) $ publishHydraScripts sk
+    txIds <- runSuccessfulBackend (vk, utxo) $ publishHydraScripts (CardanoSigningKey sk)
     length txIds `shouldBe` 1
 
   it "throws PublishingFundsMissing error if no UTxO is found for the given address" $ do
     (vk, sk) <- generate genKeyPair
-    runATestBackend vk (publishHydraScripts sk) `shouldThrow` \case
+    runATestBackend vk (publishHydraScripts (CardanoSigningKey sk)) `shouldThrow` \case
       PublishingFundsMissing{} -> True
       _ -> False
 

@@ -3,7 +3,7 @@
 
 module Hydra.Model.MockChain where
 
-import Hydra.Cardano.Api hiding (Network)
+import Hydra.Cardano.Api hiding (CardanoSigningKey (..), Network)
 import Hydra.Prelude hiding (Any, label)
 import Test.Hydra.Prelude
 

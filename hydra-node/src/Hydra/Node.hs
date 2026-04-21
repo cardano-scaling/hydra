@@ -20,7 +20,7 @@ import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
-  getVerificationKey,
+  getCardanoPaymentVerificationKey,
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
 import Hydra.Chain.ChainState (IsChainState (..))
@@ -87,7 +87,7 @@ initEnvironment options = do
           } -> do
           ownSigningKey <- readSigningKey cardanoSigningKey
           otherVerificationKeys <- mapM readVerificationKey cardanoVerificationKeys
-          pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+          pure $ verificationKeyToOnChainId <$> (getCardanoPaymentVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod

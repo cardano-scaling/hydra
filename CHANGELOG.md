@@ -13,7 +13,7 @@ changes.
 - Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
 verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
 Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
-automatically converted, removing the need to manually convert them before use.
+natively supported, removing the need to manually convert them before use.
 
 ## [2.1.0] - 2026.05.13
 

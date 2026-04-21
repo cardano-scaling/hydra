@@ -5,48 +5,44 @@ module Hydra.Node.Util where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO (totalValue)
-import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
-  AsType (..),
   AssetId (..),
+  CardanoSigningKey (..),
   File (..),
   HasTextEnvelope,
   PaymentExtendedKey,
   PaymentKey,
-  SerialiseAsRawBytes (..),
   SigningKey,
   UTxO,
   Value,
   VerificationKey,
   castVerificationKey,
   filterValue,
-  getVerificationKey,
+  getCardanoPaymentVerificationKey,
   readFileTextEnvelope,
  )
 
-readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+-- | Read a cardano signing key pair from a text envelope file, accepting both
+-- normal ('PaymentKey') and extended ('PaymentExtendedKey') key formats.
+-- Returns the verification key (always as 'VerificationKey PaymentKey') and
+-- the signing key wrapped in 'CardanoSigningKey'.
+readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, CardanoSigningKey)
 readKeyPair keyPath = do
   sk <- readSigningKey keyPath
-  pure (getVerificationKey sk, sk)
+  pure (getCardanoPaymentVerificationKey sk, sk)
 
--- | Read a 'SigningKey PaymentKey' from a text envelope file, accepting both
+-- | Read a 'CardanoSigningKey' from a text envelope file, accepting both
 -- normal ('PaymentKey') and extended ('PaymentExtendedKey') key formats.
--- Extended keys are converted to normal keys by extracting the first 32 bytes
--- of the 64-byte BIP32-Ed25519 extended signing key.
-readSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+-- Extended keys are kept native (not converted) to preserve correct signing.
+readSigningKey :: FilePath -> IO CardanoSigningKey
 readSigningKey path = do
   result <- readFileTextEnvelope (File path)
   case result of
-    Right sk -> pure sk
+    Right sk -> pure (CardanoSigningKey sk)
     Left _normalError -> do
       extResult <- readFileTextEnvelope @(SigningKey PaymentExtendedKey) (File path)
       case extResult of
-        Right extSk -> do
-          let extRawBytes = serialiseToRawBytes extSk
-              normalRawBytes = BS.take 32 extRawBytes
-          case deserialiseFromRawBytes (AsSigningKey AsPaymentKey) normalRawBytes of
-            Right sk -> pure sk
-            Left err -> fail $ "Failed to convert extended signing key: " <> show err
+        Right extSk -> pure (CardanoExtendedSigningKey extSk)
         Left extError -> fail $ show extError
 
 -- | Read a 'VerificationKey PaymentKey' from a text envelope file, accepting

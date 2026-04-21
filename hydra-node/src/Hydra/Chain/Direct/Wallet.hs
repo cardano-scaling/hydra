@@ -71,13 +71,13 @@ import Data.Set qualified as Set
 import Data.Text qualified as Text
 import Hydra.Cardano.Api (
   BlockHeader,
+  CardanoSigningKey,
   ChainPoint,
   LedgerEra,
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
   ShelleyAddr,
-  SigningKey,
   StakeAddressReference (NoStakeAddress),
   VerificationKey,
   fromLedgerTx,
@@ -85,6 +85,7 @@ import Hydra.Cardano.Api (
   getChainPoint,
   makeShelleyAddress,
   shelleyAddressInEra,
+  signTxWith,
   toLedgerAddr,
   toLedgerTx,
   verificationKeyHash,
@@ -141,7 +142,7 @@ newTinyWallet ::
   -- | Network identifier to generate our address.
   NetworkId ->
   -- | Credentials of the wallet.
-  (VerificationKey PaymentKey, SigningKey PaymentKey) ->
+  (VerificationKey PaymentKey, CardanoSigningKey) ->
   -- | A function to query UTxO, pparams, system start and epoch info from the
   -- node. Initially and on demand later.
   ChainQuery IO ->
@@ -156,7 +157,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
     TinyWallet
       { getUTxO
       , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
-      , sign = Api.signTx sk
+      , sign = signTxWith sk
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO
           WalletInfoOnChain{walletUTxO, systemStart} <- readTVarIO walletInfoVar
