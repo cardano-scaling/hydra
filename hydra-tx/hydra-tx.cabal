@@ -150,6 +150,7 @@ library testlib
     , ouroboros-consensus
     , ouroboros-consensus:cardano
     , plutus-ledger-api
+    , plutus-tx
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
