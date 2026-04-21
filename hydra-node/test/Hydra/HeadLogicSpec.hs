@@ -899,12 +899,12 @@ spec =
       -- That way we could cover variations of snapshot numbers and state of
       -- snapshot collection.
 
-      it "rejects if we receive a too far future snapshot" $ do
+      it "waits and requests gossip if we receive a too far future snapshot" $ do
         let input :: Input tx
             input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
+        update bobEnv ledger now st input `assertWait` WaitOnSnapshotNumber 1
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let reqSn1 :: Input tx
@@ -965,13 +965,13 @@ spec =
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 3)
 
-      it "rejects too-new snapshots from the leader" $ do
+      it "waits and requests gossip for too-new snapshots from the leader" $ do
         let input :: Input tx
             input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
             theLeader = carol
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
+        update bobEnv ledger now st input `assertWait` WaitOnSnapshotNumber 2
 
       it "rejects invalid snapshots version" $ do
         let validSnNumber = 0
@@ -1902,7 +1902,7 @@ spec =
       let input = receiveMessage $ ReqDec{transaction = tx'}
       now <- nowFromSlot st.chainPointTime.currentSlot
       update bobEnv ledger now st input `shouldSatisfy` \case
-        Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ -> True
+        Wait WaitOnNotApplicableDecommitTx{notApplicableReason = DecommitTxInvalid{}} _ _ -> True
         _ -> False
 
 -- * Properties

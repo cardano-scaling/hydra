@@ -372,6 +372,14 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   requireReqSn continue
     | sv /= version =
         Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
+    | sn <= confSn =
+        Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+    | sn > seenSn + 1 =
+        Wait
+          { reason = WaitOnSnapshotNumber (sn - 1)
+          , stateChanges = []
+          , effects = [NetworkEffect RequestConfirmedSnapshot{lastKnownSn = confSn}]
+          }
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -827,6 +835,58 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     , parameters
     , coordinatedHeadState
     } = openState
+
+-- | Handle a request from a peer that needs a confirmed snapshot we have.
+-- Respond by gossiping our confirmed snapshot if it's ahead of what they know.
+onOpenNetworkRequestConfirmedSnapshot ::
+  IsTx tx =>
+  OpenState tx ->
+  SnapshotNumber ->
+  Outcome tx
+onOpenNetworkRequestConfirmedSnapshot openState lastKnownSn =
+  if mySn > lastKnownSn
+    then cause (NetworkEffect GossipConfirmedSnapshot{confirmedSnapshot})
+    else noop
+ where
+  mySn = case confirmedSnapshot of
+    InitialSnapshot{} -> 0
+    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+
+  OpenState{coordinatedHeadState} = openState
+
+-- | Handle a gossiped confirmed snapshot from a peer, auto-side-loading it
+-- when it's ahead of our confirmed snapshot and has a valid multisignature.
+-- Unlike the client SideLoadSnapshot path, this does NOT clear allTxs, so
+-- any transactions received after this node's last snapshot are preserved.
+onOpenNetworkGossipConfirmedSnapshot ::
+  IsTx tx =>
+  OpenState tx ->
+  ConfirmedSnapshot tx ->
+  Outcome tx
+onOpenNetworkGossipConfirmedSnapshot openState receivedSnapshot =
+  case receivedSnapshot of
+    ConfirmedSnapshot{snapshot = snap@Snapshot{number = receivedSn, utxo}, signatures}
+      | receivedSn > myConfSn ->
+          case verifyMultiSignature vkeys signatures snap of
+            Verified ->
+              changes
+                [ SnapshotConfirmed{headId, snapshot = Just snap, signatures}
+                , LocalUTxOUpdated{utxo}
+                ]
+            _ -> noop
+    _ -> noop
+ where
+  myConfSn = case confirmedSnapshot of
+    InitialSnapshot{} -> 0
+    ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
+
+  vkeys = vkey <$> parties
+
+  CoordinatedHeadState{confirmedSnapshot} = coordinatedHeadState
+
+  OpenState{headId, coordinatedHeadState, parameters = HeadParameters{parties}} = openState
 
 determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 determineNextDepositStatus env pendingDeposits chainTime =
@@ -1659,6 +1719,10 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
     onOpenNetworkAckSn env (depositsForHead ourHeadId pendingDeposits) openState sender snapshotSignature sn
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
+  (Open openState, NetworkInput _ (ReceivedMessage{msg = RequestConfirmedSnapshot{lastKnownSn}})) ->
+    onOpenNetworkRequestConfirmedSnapshot openState lastKnownSn
+  (Open openState, NetworkInput _ (ReceivedMessage{msg = GossipConfirmedSnapshot{confirmedSnapshot}})) ->
+    onOpenNetworkGossipConfirmedSnapshot openState confirmedSnapshot
   _ ->
     Error $ UnhandledInput ev st
 
@@ -1936,17 +2000,28 @@ aggregate st = \case
       _otherState -> st
   SnapshotConfirmed{snapshot = mSnapshot, signatures} ->
     case st of
-      Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{seenSnapshot}} ->
+      Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{seenSnapshot, allTxs}} ->
         case mSnapshot <|> snapshotFromSeen seenSnapshot of
           Just snapshot ->
-            Open
-              os
-                { coordinatedHeadState =
-                    chs
-                      { confirmedSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                      , seenSnapshot = LastSeenSnapshot snapshot.number
-                      }
-                }
+            let -- When a gossip snapshot (mSnapshot = Just) replaces our in-flight
+                -- seenSnapshot, txs that we had staged in the seenSnapshot but are
+                -- NOT confirmed in the gossip snapshot must be restored to allTxs
+                -- so they can be included in a future snapshot.
+                restoredTxs = case (mSnapshot, seenSnapshot) of
+                  (Just _, SeenSnapshot pendingSnap _ _) ->
+                    let gossipConfirmedIds = Set.fromList (txId <$> snapshot.confirmed)
+                        orphanedTxs = filter (\tx -> txId tx `Set.notMember` gossipConfirmedIds) pendingSnap.confirmed
+                     in Map.fromList [(txId tx, tx) | tx <- orphanedTxs]
+                  _ -> mempty
+             in Open
+                  os
+                    { coordinatedHeadState =
+                        chs
+                          { confirmedSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                          , seenSnapshot = LastSeenSnapshot snapshot.number
+                          , allTxs = allTxs <> restoredTxs
+                          }
+                    }
           Nothing -> Hydra.Prelude.error "aggregate: SnapshotConfirmed but no snapshot in event or seenSnapshot"
       _otherState -> st
    where
@@ -1985,6 +2060,11 @@ aggregate st = \case
                       , currentDepositTxId = Nothing
                       }
             }
+      _otherState -> st
+  LocalUTxOUpdated{utxo} ->
+    case st of
+      Open os@OpenState{coordinatedHeadState} ->
+        Open os{coordinatedHeadState = coordinatedHeadState{localUTxO = utxo}}
       _otherState -> st
   DepositRecorded{} -> st
   DepositActivated{depositTxId, deposit} -> case st of
@@ -2149,6 +2229,7 @@ aggregateChainStateHistory history = \case
   IgnoredHeadInitializing{} -> history
   TxInvalid{} -> history
   LocalStateCleared{} -> history
+  LocalUTxOUpdated{} -> history
   -- FIXME: This makes chain sync starting after rollbacks past the chain state impossible
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
   NodeUnsynced{} -> history

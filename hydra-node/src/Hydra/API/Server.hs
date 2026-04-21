@@ -273,6 +273,7 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.ChainRolledBack{} -> Nothing
     StateChanged.TickObserved{} -> Nothing
     StateChanged.LocalStateCleared{..} -> Just SnapshotSideLoaded{..}
+    StateChanged.LocalUTxOUpdated{} -> Nothing
     StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
     StateChanged.NodeUnsynced{..} -> Just NodeUnsynced{..}
     StateChanged.NodeSynced{..} -> Just NodeSynced{..}

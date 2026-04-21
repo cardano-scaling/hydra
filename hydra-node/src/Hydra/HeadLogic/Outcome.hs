@@ -140,6 +140,7 @@ data StateChanged tx
       }
   | TxInvalid {headId :: HeadId, utxo :: UTxOType tx, transaction :: tx, validationError :: ValidationError}
   | LocalStateCleared {headId :: HeadId, snapshotNumber :: SnapshotNumber}
+  | LocalUTxOUpdated {utxo :: UTxOType tx}
   | Checkpoint {state :: NodeState tx}
   | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
   | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
@@ -153,8 +154,8 @@ deriving anyclass instance (IsChainState tx, IsTx tx, FromJSON (NodeState tx), F
 data Outcome tx
   = -- | Continue with the given state updates and side effects.
     Continue {stateChanges :: [StateChanged tx], effects :: [Effect tx]}
-  | -- | Wait for some condition to be met with optional state updates.
-    Wait {reason :: WaitReason tx, stateChanges :: [StateChanged tx]}
+  | -- | Wait for some condition to be met with optional state updates and side effects.
+    Wait {reason :: WaitReason tx, stateChanges :: [StateChanged tx], effects :: [Effect tx]}
   | -- | Processing resulted in an error.
     Error {error :: LogicError tx}
   deriving stock (Generic)
@@ -162,8 +163,9 @@ data Outcome tx
 instance Semigroup (Outcome tx) where
   e@Error{} <> _ = e
   _ <> e@Error{} = e
-  Continue scA _ <> Wait r scB = Wait r (scA <> scB)
-  Wait r scA <> _ = Wait r scA
+  Continue scA efA <> Wait r scB efB = Wait r (scA <> scB) (efA <> efB)
+  Wait r scA efA <> Continue scB efB = Wait r (scA <> scB) (efA <> efB)
+  Wait r scA efA <> Wait _ scB efB = Wait r (scA <> scB) (efA <> efB)
   Continue scA efA <> Continue scB efB = Continue (scA <> scB) (efA <> efB)
 
 deriving stock instance IsChainState tx => Eq (Outcome tx)
@@ -175,7 +177,7 @@ noop :: Outcome tx
 noop = Continue [] []
 
 wait :: WaitReason tx -> Outcome tx
-wait reason = Wait reason []
+wait reason = Wait reason [] []
 
 newState :: StateChanged tx -> Outcome tx
 newState change = Continue [change] []

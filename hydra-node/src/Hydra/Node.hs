@@ -317,8 +317,9 @@ stepHydraNode now node = do
     Continue{stateChanges, effects} -> do
       processStateChanges node stateChanges
       processEffects node tracer queuedId effects
-    Wait{reason, stateChanges} -> do
+    Wait{reason, stateChanges, effects} -> do
       processStateChanges node stateChanges
+      processEffects node tracer queuedId effects
       maybeReenqueue reason i
     Error{} -> pure ()
   traceWith tracer EndInput{by = party, inputId = queuedId}

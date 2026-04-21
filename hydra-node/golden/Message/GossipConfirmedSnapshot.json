@@ -1,0 +1,83 @@
+{
+    "samples": [
+        {
+            "confirmedSnapshot": {
+                "signatures": {
+                    "multiSignature": [
+                        "e3fa3a49aa5d66b7af2deaff841075ff7dd69d2606e61180176cb464e5f9e1f3e06de96034d23bf905f658aec4bb6c1a7e362ba333a27ed2e8520b4706c30b0b",
+                        "a08dd1dfb17c40bdde85ff14328a8ac8dbd07adefd431235a9be076ad8b3eece823830983ff47374a06663d2b49eccad220b51100a97c1d8d5b17624a0e7600b",
+                        "02b9f49d7e7350bff8231527560f8a61819e0fb2d64876b2f7d0e21036365cfa29da54ba18913c3cab7bc48bf45b413bcd48cf2926555ab8f3693d11452cb401",
+                        "5d15c1a7da7437726615057b683cf6507fd5046322d65a72aa0c62be91712bf108e566dec0b008381b488f85380828bd3a4de46d73dd5dde364b006b196d4903",
+                        "2faa69489d975febf16decd1ba901b0aeb6a0e5b411592bc7e17c6122bdca7bff27483ceab50b6046d445e6f214593e14c15ca148e9045e88baf6720821b9701",
+                        "8d2543a38be8af8c33128d6f2467188a4a04d8123ae953172d25e26818a2a4474d639b5bd692671f213037fad1783c6379a6ae847ff2f8ed3cf51a12f857660b",
+                        "2a2ffe337cda74459729f4fa6bfc2c7b34162b84dd0178d96a0ca8620d0d7006812171f552e9731fa8ffbbd31fb193829d19435f496be203a14fa2f86c690209",
+                        "1d6c7a937e1bb470c12063f0dcd4035f48b2249b58bd68e362ee92a065a6f8b9a82949f8de83a6754d0f4a0c3c711ae8c80c0565c1cac92bdb71def198832609",
+                        "e7fe7df84ee95c2e102bd62cc3d9feda8cf90aaf4321a1dee6bf2c3c62bdd039ef0a608c50f867d051f75698d97101179a6bc550edca7341c0254c8e076e2502",
+                        "f317feff48de15519ba63f19ff0068f18c233bb50e88f4665c14e56d386994ec03fb7b429141901677af0c5cbd456e94dc05401945f0f609a14847a8cd05b108",
+                        "7ac5e1f4a4026bb34f1226b0bf1caca1ca5d3f5d1583005a7b812c65d9e74daef7f161232538e62b6773c85786165ad3f40e95a287cd898de864efd29253b30e",
+                        "426034624849972c1552188a2610fe0241d16866860a887fb6f346ec2ee4d10f3983f5e6f3ffd45ac9b168565db905d1c7edfca468ad2e3388b55159ac4e960a",
+                        "5d739ce401cf4fe595134a89389d9bde988b49ae4301daa674bf7cbfa20d8d3771aa94e36a36fabc8f227121a87ee553efab85188625a7e0150a31afc20cf30c",
+                        "ae1348ad9001a7b01b07ebb250bb014372314383a8d80258cd522e2aa1d0a675adc07f1275067f30c4188fc1106c2ea2ef8a7708d1f167aa4c58f8708de64d04",
+                        "c28ee877e3e64fbb7a185e445de4c435473a88abd0775c540612685f710f62c00d6524e79874445683f9176f85939bc3cbc67628047207b8f0e80612938b9a08",
+                        "4b1164f1aa86b53726765bb41909c8769bc901bec8849b8a5b7630d7ec341f84ec5bcea993e963d4fb401d4fff59c0fe795e3f7c176bb87e808001564d76ef02",
+                        "522f8113e161a71fc116b76d9b1dcb50b186e3cd918a30dca68a12691b6553f14282b857f3eec50e382a091c66e1025be0d2c4bdb5c447f3c792453495a30009",
+                        "f5370027aad71a09e3e6e7dbd5348e4ab5bea871dda7284faade1910beeaf777cd8b79fa10c284bb25c7c291f4e679902bc8ad40b4bffa7264db2b703f60a407",
+                        "e5eec8b9bb1912ebc2dc5b190689f95d4df60de45ebef53d466eaa53b0e76586b292f407ce46179822c03c8435c73ab3e1ba66b630cbc0fb8e546c0ae6855c00",
+                        "da1415dad27b172a3b34a07231697a195fbcbf5eac3fd0ba2062f69bdf680af93c724c44f65acb6754afcf2400a56da7adee949b6ea055898682ec2efc8e3502",
+                        "43af42ed1964ebb3d4c2de115f5703a52f9777cb38ea8bddbcdfd3364280fc0046a72628b015cb76659caad20fbc73f9dcd9678567980d157cb8607c0ffe900a",
+                        "13fab40e6df0f49e3e009bf817d8eff30ab4e52a13c2d03a33c4f097df7a04e6860b58eb240456f7dc286457124203bfde64f6477eae8bcc9c03cbb48167bb0f",
+                        "2e34d85bd51a7a5144eaa527b1e8c59fbe5c907f7c11e808773dd85186503b00ce4ff11d59ae8d788374251d9f2f70fbb301a5ec80d59dbb97722e9e71fc6509",
+                        "dc1ed12f5ffaf42afb57f598260413f85d195b1e30a4856433bff78d16cd46a0b25e022e89efb7acad9f1a646efba7fce9f874d98423f64a00b60acc9a2df901"
+                    ]
+                },
+                "snapshot": {
+                    "confirmed": [],
+                    "headId": "8e4774a9994c4b4db4fba47ca6026038",
+                    "number": 26,
+                    "utxo": [
+                        -13,
+                        -2,
+                        9,
+                        10,
+                        14,
+                        24
+                    ],
+                    "utxoToCommit": [
+                        -30,
+                        -26,
+                        -22,
+                        -21,
+                        -20,
+                        -15,
+                        -14,
+                        -13,
+                        -12,
+                        -9,
+                        -3,
+                        1,
+                        2,
+                        3,
+                        7,
+                        9,
+                        16,
+                        17,
+                        18,
+                        20,
+                        28
+                    ],
+                    "utxoToDecommit": [
+                        -20,
+                        0,
+                        5,
+                        6,
+                        15
+                    ],
+                    "version": 0
+                },
+                "tag": "ConfirmedSnapshot"
+            },
+            "tag": "GossipConfirmedSnapshot"
+        }
+    ],
+    "seed": -266076467
+}
