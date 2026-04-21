@@ -25,6 +25,26 @@ import Hydra.Cardano.Api.TxIn (mkTxIn, toLedgerTxIn)
 
 -- * Extras
 
+-- | A signing key that can be either a normal 'PaymentKey' or an extended
+-- 'PaymentExtendedKey' (BIP32-Ed25519, as produced by HD wallets like Daedalus
+-- or hardware wallets).
+data CardanoSigningKey
+  = CardanoSigningKey (SigningKey PaymentKey)
+  | CardanoExtendedSigningKey (SigningKey PaymentExtendedKey)
+
+-- | Convert a 'CardanoSigningKey' to a 'ShelleyWitnessSigningKey' for use with
+-- 'makeShelleyKeyWitness'.
+toWitness :: CardanoSigningKey -> ShelleyWitnessSigningKey
+toWitness (CardanoSigningKey sk) = WitnessPaymentKey sk
+toWitness (CardanoExtendedSigningKey sk) = WitnessPaymentExtendedKey sk
+
+-- | Derive the 'VerificationKey PaymentKey' from a 'CardanoSigningKey'.
+-- For extended keys, this derives the extended verification key and then casts
+-- it to a normal verification key (which preserves the key hash).
+getCardanoPaymentVerificationKey :: CardanoSigningKey -> VerificationKey PaymentKey
+getCardanoPaymentVerificationKey (CardanoSigningKey sk) = getVerificationKey sk
+getCardanoPaymentVerificationKey (CardanoExtendedSigningKey sk) = castVerificationKey $ getVerificationKey sk
+
 -- | Sign transaction using the provided secret key
 -- It only works for tx not containing scripts.
 -- You can't sign a script utxo with this.
@@ -37,6 +57,18 @@ signTx signingKey (Tx body wits) =
   makeSignedTransaction (witness : wits) body
  where
   witness = makeShelleyKeyWitness shelleyBasedEra body (WitnessPaymentKey signingKey)
+
+-- | Like 'signTx' but accepts a 'CardanoSigningKey', supporting both normal
+-- and extended (HD wallet) payment keys.
+signTxWith ::
+  IsShelleyBasedEra era =>
+  CardanoSigningKey ->
+  Tx era ->
+  Tx era
+signTxWith csk (Tx body wits) =
+  makeSignedTransaction (witness : wits) body
+ where
+  witness = makeShelleyKeyWitness shelleyBasedEra body (toWitness csk)
 
 -- | Create a transaction spending all given `UTxO`.
 txSpendingUTxO :: UTxO Era -> Tx Era

@@ -73,7 +73,7 @@
 -- @@
 module Hydra.ModelSpec where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (CardanoSigningKey (..))
 import Hydra.Prelude
 import Test.Hydra.Prelude hiding (after)
 
