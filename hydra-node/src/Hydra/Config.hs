@@ -413,7 +413,7 @@ renderConfig opts =
     [ "node-id" .= opts.nodeId
     , "quiet" .= (opts.verbosity == Quiet)
     , "listen" .= showHost opts.listen
-    , "api-host" .= show opts.apiHost
+    , "api-host" .= (show opts.apiHost :: Text)
     , "api-port" .= opts.apiPort
     , "hydra-signing-key" .= opts.hydraSigningKey
     , "hydra-verification-keys" .= opts.hydraVerificationKeys
@@ -424,13 +424,13 @@ renderConfig opts =
     , "api-transaction-timeout" .= opts.apiTransactionTimeout
     , "chain" .= renderChainConfig opts.chainConfig
     ]
-    <> catMaybes
-      [ ("advertise" .=) . showHost <$> opts.advertise
-      , ("monitoring-port" .=) <$> opts.monitoringPort
-      , ("tls-cert" .=) <$> opts.tlsCertPath
-      , ("tls-key" .=) <$> opts.tlsKeyPath
-      , ("persistence-rotate-after" .=) <$> opts.persistenceRotateAfter
-      ]
+      <> catMaybes
+        [ ("advertise" .=) . showHost <$> opts.advertise
+        , ("monitoring-port" .=) <$> opts.monitoringPort
+        , ("tls-cert" .=) <$> opts.tlsCertPath
+        , ("tls-key" .=) <$> opts.tlsKeyPath
+        , ("persistence-rotate-after" .=) <$> opts.persistenceRotateAfter
+        ]
  where
   ledgerParamsFile (CardanoLedgerConfig f) = f
 
@@ -444,26 +444,26 @@ renderConfig opts =
       , "unsynced-period" .= cfg.unsyncedPeriod
       , "backend" .= renderBackend cfg.chainBackendOptions
       ]
-      <> catMaybes
-        [ ("start-chain-from" .=) . renderChainPoint <$> cfg.startChainFrom
-        ]
-      <> ["hydra-scripts-tx-id" .= map serialiseToRawBytesHexText cfg.hydraScriptsTxId | not (null cfg.hydraScriptsTxId)]
+        <> catMaybes
+          [ ("start-chain-from" .=) . renderChainPoint <$> cfg.startChainFrom
+          ]
+        <> ["hydra-scripts-tx-id" .= map serialiseToRawBytesHexText cfg.hydraScriptsTxId | not (null cfg.hydraScriptsTxId)]
   renderChainConfig (Offline cfg) =
     object $
       [ "mode" .= ("offline" :: Text)
       , "offline-head-seed" .= serialiseToRawBytesHexText cfg.offlineHeadSeed
       , "initial-utxo" .= cfg.initialUTxOFile
       ]
-      <> catMaybes [("ledger-genesis" .=) <$> cfg.ledgerGenesisFile]
+        <> catMaybes [("ledger-genesis" .=) <$> cfg.ledgerGenesisFile]
 
   renderBackend (Direct o) =
     object $
       [ "mode" .= ("direct" :: Text)
       , "node-socket" .= (case o.nodeSocket of File p -> p)
       ]
-      <> case o.networkId of
-        Mainnet -> ["mainnet" .= True]
-        Testnet (NetworkMagic n) -> ["testnet-magic" .= n]
+        <> case o.networkId of
+          Mainnet -> ["mainnet" .= True]
+          Testnet (NetworkMagic n) -> ["testnet-magic" .= n]
   renderBackend (Blockfrost o) =
     object
       [ "mode" .= ("blockfrost" :: Text)

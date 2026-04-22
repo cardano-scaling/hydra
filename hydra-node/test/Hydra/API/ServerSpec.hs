@@ -25,7 +25,6 @@ import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, withAPIServer)
-import Hydra.Options (defaultRunOptions)
 import Hydra.API.ServerOutput (InvalidInput (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
 import Hydra.Chain (
@@ -42,6 +41,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Network (PortNumber)
 import Hydra.NetworkVersions qualified as NetworkVersions
+import Hydra.Options (defaultRunOptions)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, utxo, utxoToCommit))
 import Network.Simple.WSS qualified as WSS

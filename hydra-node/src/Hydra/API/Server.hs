@@ -15,7 +15,6 @@ import Data.Map qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)
-import Hydra.Config (renderConfig)
 import Hydra.API.Projection (Projection (..), mkProjection)
 import Hydra.API.ServerOutput (
   ClientMessage,
@@ -32,6 +31,7 @@ import Hydra.Cardano.Api (LedgerEra)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
+import Hydra.Config (renderConfig)
 import Hydra.Events (EventSink (..), EventSource (..), mkEventSink)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -45,9 +45,9 @@ import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
-import Hydra.Options (RunOptions)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
+import Hydra.Options (RunOptions)
 import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)

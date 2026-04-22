@@ -421,6 +421,49 @@ The API is not authenticated, and if exposed, an open head can be easily closed 
 
 The API server also supports `TLS` connections (`https://` and `wss://`) when a certificate and key are configured with `--tls-cert` and `--tls-key` respectively.
 
+#### Inspecting the effective configuration
+
+The node exposes a `GET /config` endpoint that returns the effective configuration as a JSON document — the result of merging the YAML config file with any CLI overrides, after resolving all relative paths to absolute ones.
+
+```mdx-code-block
+<TerminalWindow>
+{`curl http://localhost:4001/config`}
+</TerminalWindow>
+```
+
+The response mirrors the YAML config file format (kebab-case keys, same hierarchy):
+
+```json
+{
+  "node-id": "1",
+  "listen": "127.0.0.1:5001",
+  "api-host": "127.0.0.1",
+  "api-port": 4001,
+  "quiet": false,
+  "hydra-signing-key": "/abs/path/to/alice.sk",
+  "hydra-verification-keys": ["/abs/path/to/bob.vk"],
+  "peers": ["127.0.0.1:5002"],
+  "persistence-dir": "/abs/path/to/persistence/alice",
+  "ledger-protocol-parameters": "/abs/path/to/protocol-parameters.json",
+  "use-system-etcd": false,
+  "api-transaction-timeout": 300.0,
+  "chain": {
+    "mode": "cardano",
+    "cardano-signing-key": "/abs/path/to/alice.cardano.sk",
+    "cardano-verification-keys": [],
+    "contestation-period": 43200,
+    "deposit-period": 3600.0,
+    "unsynced-period": 21600.0,
+    "backend": {
+      "mode": "direct",
+      "node-socket": "/abs/path/to/node.socket",
+      "testnet-magic": 2
+    }
+  }
+}
+```
+
+This is useful for verifying that all paths were resolved correctly, that CLI flags took effect, and for debugging configuration issues. The full schema is described in the [API reference](pathname:///api-reference/#operation-subscribe-/config).
 
 ### Auto compaction of networking buffers
 
