@@ -58,6 +58,28 @@ actorName = \case
   CarolFunds -> "carol-funds"
   Faucet -> "faucet"
 
+-- | Get the standard node ID for an actor.
+actorNodeId :: Actor -> Int
+actorNodeId = \case
+  Alice -> 1
+  AliceFunds -> 1
+  Bob -> 2
+  BobFunds -> 2
+  Carol -> 3
+  CarolFunds -> 3
+  Faucet -> 0
+
+-- | Get the Hydra signing key for an actor.
+actorSigningKey :: Actor -> SigningKey HydraKey
+actorSigningKey = \case
+  Alice -> aliceSk
+  AliceFunds -> aliceSk
+  Bob -> bobSk
+  BobFunds -> bobSk
+  Carol -> carolSk
+  CarolFunds -> carolSk
+  Faucet -> error "Faucet has no Hydra signing key"
+
 fundsOf :: Actor -> Actor
 fundsOf = \case
   Alice -> AliceFunds

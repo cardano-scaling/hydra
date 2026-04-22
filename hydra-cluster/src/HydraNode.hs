@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module HydraNode (
   module HydraNode,
@@ -24,6 +25,7 @@ import Data.List qualified as List
 import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
+import Hydra.Cluster.Fixture (Actor (..), actorNodeId, actorSigningKey, aliceVk, bobVk, carolVk)
 import Hydra.Cluster.Util (Timing (..), readConfigFile)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
@@ -62,6 +64,80 @@ data HydraClient = HydraClient
   , connection :: Connection
   , tracer :: Tracer IO HydraNodeLog
   }
+
+-- | Configuration for running a hydra-node.
+data HydraNodeConfig = HydraNodeConfig
+  { tracer :: Tracer IO HydraNodeLog
+  , blockTime :: NominalDiffTime
+  , chainConfig :: ChainConfig
+  , workDir :: FilePath
+  , hydraNodeId :: Int
+  , hydraSigningKey :: SigningKey HydraKey
+  , hydraVerificationKeys :: [VerificationKey HydraKey]
+  , allNodeIds :: [Int]
+  }
+
+-- | Smart constructor for 'HydraNodeConfig' using an 'Actor'.
+-- Automatically sets the node ID and signing key based on the actor.
+mkHydraNodeConfig ::
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  Actor ->
+  ChainConfig ->
+  [VerificationKey HydraKey] ->
+  [Int] ->
+  HydraNodeConfig
+mkHydraNodeConfig tracer blockTime workDir actor chainConfig otherVKeys allIds =
+  HydraNodeConfig
+    { tracer
+    , blockTime
+    , chainConfig
+    , workDir
+    , hydraNodeId = actorNodeId actor
+    , hydraSigningKey = actorSigningKey actor
+    , hydraVerificationKeys = otherVKeys
+    , allNodeIds = allIds
+    }
+
+-- | Create a config for a solo (single-party) Hydra node.
+mkSoloConfig ::
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  Actor ->
+  ChainConfig ->
+  HydraNodeConfig
+mkSoloConfig tracer blockTime workDir actor chainConfig =
+  mkHydraNodeConfig tracer blockTime workDir actor chainConfig [] [actorNodeId actor]
+
+-- | Create configs for a two-party Hydra head (Alice and Bob).
+mkTwoPartyConfigs ::
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  ChainConfig -> -- Alice's chain config
+  ChainConfig -> -- Bob's chain config
+  (HydraNodeConfig, HydraNodeConfig)
+mkTwoPartyConfigs tracer blockTime workDir aliceChainConfig bobChainConfig =
+  ( mkHydraNodeConfig tracer blockTime workDir Alice aliceChainConfig [bobVk] [1, 2]
+  , mkHydraNodeConfig tracer blockTime workDir Bob bobChainConfig [aliceVk] [1, 2]
+  )
+
+-- | Create configs for a three-party Hydra head (Alice, Bob, and Carol).
+mkThreePartyConfigs ::
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  ChainConfig -> -- Alice's chain config
+  ChainConfig -> -- Bob's chain config
+  ChainConfig -> -- Carol's chain config
+  (HydraNodeConfig, HydraNodeConfig, HydraNodeConfig)
+mkThreePartyConfigs tracer blockTime workDir aliceChainConfig bobChainConfig carolChainConfig =
+  ( mkHydraNodeConfig tracer blockTime workDir Alice aliceChainConfig [bobVk, carolVk] [1, 2, 3]
+  , mkHydraNodeConfig tracer blockTime workDir Bob bobChainConfig [aliceVk, carolVk] [1, 2, 3]
+  , mkHydraNodeConfig tracer blockTime workDir Carol carolChainConfig [aliceVk, bobVk] [1, 2, 3]
+  )
 
 -- | Create an input as expected by 'send'.
 input :: Text -> [Pair] -> Aeson.Value
@@ -158,7 +234,7 @@ waitForAllMatch delay nodes match = do
 -- to be waited for and received in /any order/.
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Aeson.Value] -> IO ()
 waitForAll tracer d nodes expected = do
-  traceWith tracer (StartWaiting (map hydraNodeId nodes) expected)
+  traceWith tracer (StartWaiting (map (\HydraClient{hydraNodeId} -> hydraNodeId) nodes) expected)
   delay <- setupBFDelay d
   forConcurrently_ nodes $ \client@HydraClient{hydraNodeId} -> do
     msgs <- newIORef []
@@ -321,16 +397,8 @@ withHydraCluster tracer timing workDir nodeSocket firstNodeId allKeys hydraKeys 
                         { nodeSocket = nodeSocket
                         }
                 }
-      withHydraNode
-        tracer
-        blockTime
-        chainConfig
-        workDir
-        nodeId
-        hydraSigningKey
-        hydraVerificationKeys
-        allNodeIds
-        (\c -> startNodes (c : clients) rest)
+      let config = HydraNodeConfig{tracer, blockTime, chainConfig, workDir, hydraNodeId = nodeId, hydraSigningKey, hydraVerificationKeys, allNodeIds}
+      withHydraNode config (\c -> startNodes (c : clients) rest)
 
   Timing{blockTime, contestationPeriod, depositPeriod} = timing
 
@@ -473,18 +541,11 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
 -- i.e. unobservable by subsequent `waitFor`s.
 withHydraNode ::
   HasCallStack =>
-  Tracer IO HydraNodeLog ->
-  NominalDiffTime ->
-  ChainConfig ->
-  FilePath ->
-  Int ->
-  SigningKey HydraKey ->
-  [VerificationKey HydraKey] ->
-  [Int] ->
+  HydraNodeConfig ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+withHydraNode HydraNodeConfig{..} action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSigningKey hydraVerificationKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action'
  where
   waitTime = blockTime * 5
@@ -492,38 +553,26 @@ withHydraNode tracer blockTime chainConfig workDir hydraNodeId hydraSKey hydraVK
     waitForNodesSynced waitTime [client]
     action client
 
--- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- | Run a hydra-node with given 'HydraNodeConfig' and using the config from
 -- config/, but, importantly, do NOT wait for the sync status to be reported.
 withUnsyncedHydraNode ::
   HasCallStack =>
-  Tracer IO HydraNodeLog ->
-  ChainConfig ->
-  FilePath ->
-  Int ->
-  SigningKey HydraKey ->
-  [VerificationKey HydraKey] ->
-  [Int] ->
+  HydraNodeConfig ->
   (HydraClient -> IO a) ->
   IO a
-withUnsyncedHydraNode tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+withUnsyncedHydraNode HydraNodeConfig{..} action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSigningKey hydraVerificationKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
--- | Run a hydra-node with given 'ChainConfig' and using the config from
+-- | Run a hydra-node with given 'HydraNodeConfig' and using the config from
 -- config and catching up with chain backend/.
 withHydraNodeCatchingUp ::
   HasCallStack =>
-  Tracer IO HydraNodeLog ->
-  ChainConfig ->
-  FilePath ->
-  Int ->
-  SigningKey HydraKey ->
-  [VerificationKey HydraKey] ->
-  [Int] ->
+  HydraNodeConfig ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNodeCatchingUp tracer chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds action = do
-  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds id
+withHydraNodeCatchingUp HydraNodeConfig{..} action = do
+  opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSigningKey hydraVerificationKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a

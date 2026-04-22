@@ -122,10 +122,13 @@ import Hydra.Tx.Deposit (constructDepositUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
+  HydraNodeConfig (..),
   getProtocolParameters,
   getSnapshotConfirmed,
   getSnapshotUTxO,
   input,
+  mkSoloConfig,
+  mkThreePartyConfigs,
   output,
   postDecommit,
   prepareHydraNode,
@@ -188,10 +191,12 @@ oneOfThreeNodesStopsForAWhile tracer workDir opts hydraScriptsTxId = do
   carolChainConfig <-
     chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
       <&> setNetworkId networkId
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
+  let (aliceHydraConfig, bobHydraConfig, carolHydraConfig) =
+        mkThreePartyConfigs hydraTracer blockTime workDir aliceChainConfig bobChainConfig carolChainConfig
+  withHydraNode aliceHydraConfig $ \n1 -> do
     aliceUTxO <- seedFromFaucet opts aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+    withHydraNode bobHydraConfig $ \n2 -> do
+      withHydraNode carolHydraConfig $ \n3 -> do
         -- Init & open head
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
@@ -222,7 +227,7 @@ oneOfThreeNodesStopsForAWhile tracer workDir opts hydraScriptsTxId = do
       send n1 $ input "NewTx" ["transaction" .= tx]
 
       -- Carol reconnects, and then the snapshot can be confirmed
-      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+      withHydraNode carolHydraConfig $ \n3 -> do
         -- Note: We can't use `waitForAlMatch` here as it expects them to
         -- emit the exact same datatype; but Carol will be behind in sequence
         -- numbers as she was offline.
@@ -255,8 +260,8 @@ restartedNodeCanObserveCommitTx tracer workDir opts hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime bobChainConfig workDir 1 bobSk [aliceVk] [1, 2] $ \n1 -> do
-    headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
+  withHydraNode HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir, hydraNodeId = 1, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1, 2]} $ \n1 -> do
+    headId <- withHydraNode HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir, hydraNodeId = 2, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [1, 2]} $ \n2 -> do
       send n1 $ input "Init" []
       -- XXX: might need to tweak the wait time
       waitForAllMatch 10 [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
@@ -271,7 +276,7 @@ restartedNodeCanObserveCommitTx tracer workDir opts hydraScriptsTxId = do
       guard $ v ^? key "utxoToCommit" == Just (toJSON depositUTxO)
 
     -- n2 is back and does observe the deposit
-    withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 2 aliceSk [bobVk] [1, 2] $ \n2 -> do
+    withUnsyncedHydraNode HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir, hydraNodeId = 2, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [1, 2]} $ \n2 -> do
       waitMatch (10 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "CommitRecorded"
         guard $ v ^? key "headId" == Just (toJSON headId)
@@ -287,7 +292,7 @@ resumeFromLatestKnownPoint tracer workDir opts hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   chainSlot :: ChainSlot <-
-    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = aliceChainConfig, workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [1]}) $ \n1 -> do
       chainSlot <- waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
@@ -299,7 +304,7 @@ resumeFromLatestKnownPoint tracer workDir opts hydraScriptsTxId = do
       pure chainSlot
 
   chainSlot' <-
-    withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [1]}) $ \n1 -> do
       waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
@@ -322,11 +327,12 @@ restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
       <&> modifyConfig (\config -> config{startChainFrom = Nothing})
 
   let hydraTracer = contramap FromHydraNode tracer
-  headId1 <- withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+  headId1 <- withHydraNode aliceConfig $ \n1 -> do
     send n1 $ input "Init" []
     waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
-  withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withUnsyncedHydraNode aliceConfig $ \n1 -> do
     -- Also expect to see past server outputs replayed
     headId2 <- waitMatch (20 * blockTime * 10) n1 $ headIsOpenWith (Set.fromList [alice])
     headId1 `shouldBe` headId2
@@ -335,7 +341,7 @@ restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
     waitMatch 20 n1 $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsClosed"
       guard $ v ^? key "headId" == Just (toJSON headId2)
-  withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withUnsyncedHydraNode aliceConfig $ \n1 -> do
     waitMatch (20 * blockTime * 10) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just "Closed"
@@ -366,8 +372,8 @@ nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
 
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-    (headId', decrementOuts) <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+  withHydraNode HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [2]} $ \n1 -> do
+    (headId', decrementOuts) <- withHydraNode HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1]} $ \n2 -> do
       send n1 $ input "Init" []
 
       headId <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice, bob])
@@ -432,7 +438,7 @@ nodeReObservesOnChainTxs tracer workDir opts hydraScriptsTxId = do
       callProcess "cp" ["-r", workDir </> "state-2", tmpDir]
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "state*"]
       callProcess "rm" ["-rf", tmpDir </> "state-2" </> "last-known-revision"]
-      withUnsyncedHydraNode hydraTracer bobChainConfigFromTip tmpDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withUnsyncedHydraNode HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfigFromTip, workDir = tmpDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1]} $ \n2 -> do
         -- Also expect to see past server outputs replayed
         headId2 <- waitMatch (10 * blockTime * 10) n2 $ headIsOpenWith (Set.fromList [alice, bob])
         headId2 `shouldBe` headId'
@@ -503,7 +509,8 @@ singlePartyHeadFullLifeCycle tracer workDir opts hydraScriptsTxId =
             , "changeAddress" .= changeAddress
             ]
 
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+    withHydraNode aliceConfig $ \n1 -> do
       -- Open head
       send n1 $ input "Init" []
       headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
@@ -630,9 +637,9 @@ canDeposit tracer workDir opts hydraScriptsTxId =
       blockTime <- runBackend opts getBlockTime
       let timing = mkTestTiming blockTime
       aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-      let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+      withHydraNode aliceConfig $ \n1 -> do
         send n1 $ input "Init" []
         headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
@@ -646,7 +653,7 @@ canDeposit tracer workDir opts hydraScriptsTxId =
               (http "127.0.0.1" /: "commit")
               (ReqBodyJson utxoToDeposit)
               (Proxy :: Proxy (JsonResponse (DraftCommitTxResponse Tx)))
-              (port $ 4000 + hydraNodeId)
+              (port $ 4000 + 1)
 
         let DraftCommitTxResponse{commitTx} = responseBody res
         let depositTx = signTx walletSk commitTx
@@ -673,9 +680,9 @@ singlePartyUsesScriptOnL2 tracer workDir opts hydraScriptsTxId =
       blockTime <- runBackend opts getBlockTime
       let timing = mkTestTiming blockTime
       aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-      let hydraNodeId = 1
       let hydraTracer = contramap FromHydraNode tracer
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+      let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+      withHydraNode aliceConfig $ \n1 -> do
         send n1 $ input "Init" []
         headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
@@ -795,10 +802,10 @@ singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
         blockTime <- runBackend opts getBlockTime
         let timing = mkTestTiming blockTime
         aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-        let hydraNodeId = 1
         let hydraTracer = contramap FromHydraNode tracer
         networkId <- runBackend opts queryNetworkId
-        withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+        let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+        withHydraNode aliceConfig $ \n1 -> do
           send n1 $ input "Init" []
           headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
           -- Deposit funds into head
@@ -868,9 +875,10 @@ canDepositScriptBlueprint tracer workDir opts hydraScriptsTxId =
     let timing = mkTestTiming blockTime
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-    let hydraNodeId = 1
+    let hydraNodeId = 1 :: Int
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+    withHydraNode aliceConfig $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
       (clientPayload, blueprint) <- prepareScriptPayload 7_000_000
@@ -920,12 +928,11 @@ persistenceCanLoadWithNothingCommitted tracer workDir opts hydraScriptsTxId =
     blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
     aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-    let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
-    headId <- withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    headId <- withHydraNode (mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig) $ \n1 -> do
       send n1 $ input "Init" []
       waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
-    withUnsyncedHydraNode hydraTracer aliceChainConfig workDir hydraNodeId aliceSk [] [1] $ \n1 -> do
+    withUnsyncedHydraNode (mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig) $ \n1 -> do
       headId' <- waitMatch (20 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
       headId' `shouldBe` headId
 
@@ -951,7 +958,8 @@ canCloseWithLongContestationPeriod tracer workDir opts hydraScriptsTxId = do
     chainConfigFor' Alice workDir opts hydraScriptsTxId [] oneWeek defaultDepositPeriod
       <&> modifyConfig (\config -> config{startChainFrom = Just tip})
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
+  withHydraNode aliceConfig $ \n1 -> do
     -- Initialize & open head
     send n1 $ input "Init" []
     _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
@@ -979,9 +987,9 @@ canSubmitTransactionThroughAPI tracer workDir opts hydraScriptsTxId =
     blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
     aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-    let hydraNodeId = 1
+    let hydraNodeId = 1 :: Int
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir hydraNodeId aliceSk [] [hydraNodeId] $ \_ -> do
+    withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = hydraNodeId, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [hydraNodeId]}) $ \_ -> do
       -- let's prepare a _user_ transaction from Bob to Carol
       (cardanoBobVk, cardanoBobSk) <- keysFor Bob
       (cardanoCarolVk, _) <- keysFor Carol
@@ -1088,9 +1096,11 @@ nodeCanSupportMultipleEtcdClusters tracer workDir opts hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
 
-  withUnsyncedHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    withUnsyncedHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withUnsyncedHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+  let (aliceHydraConfig, bobHydraConfig, carolHydraConfig) =
+        mkThreePartyConfigs hydraTracer blockTime workDir aliceChainConfig bobChainConfig carolChainConfig
+  withUnsyncedHydraNode aliceHydraConfig $ \n1 -> do
+    withUnsyncedHydraNode bobHydraConfig $ \n2 -> do
+      withUnsyncedHydraNode carolHydraConfig $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
     bobChainConfig' <-
@@ -1102,12 +1112,12 @@ nodeCanSupportMultipleEtcdClusters tracer workDir opts hydraScriptsTxId = do
 
     waitForNodesDisconnected hydraTracer 60 $ n1 :| []
 
-    withUnsyncedHydraNode hydraTracer bobChainConfig' workDir 2 bobSk [carolVk] [2, 3] $ \n2 -> do
-      withUnsyncedHydraNode hydraTracer carolChainConfig' workDir 3 carolSk [bobVk] [2, 3] $ \n3 -> do
+    withUnsyncedHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig', workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [carolVk], allNodeIds = [2, 3]}) $ \n2 -> do
+      withUnsyncedHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = carolChainConfig', workDir = workDir, hydraNodeId = 3, hydraSigningKey = carolSk, hydraVerificationKeys = [bobVk], allNodeIds = [2, 3]}) $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n2 :| [n3]
 
-    withUnsyncedHydraNode hydraTracer bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
-      withUnsyncedHydraNode hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+    withUnsyncedHydraNode bobHydraConfig $ \n2 -> do
+      withUnsyncedHydraNode carolHydraConfig $ \n3 -> do
         waitForNodesConnected hydraTracer 30 $ n1 :| [n2, n3]
 
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
@@ -1124,8 +1134,8 @@ initWithWrongKeys workDir tracer opts hydraScriptsTxId = do
   bobChainConfig <- chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] [3, 4] $ \n2 -> do
+  withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 3, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [3, 4]}) $ \n1 -> do
+    withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 4, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [3, 4]}) $ \n2 -> do
       seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
       send n1 $ input "Init" []
       headId <-
@@ -1155,9 +1165,9 @@ startWithWrongPeers workDir tracer opts hydraScriptsTxId = do
   bobChainConfig <- chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] [3, 4] $ \n1 -> do
+  withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 3, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [3, 4]}) $ \n1 -> do
     -- NOTE: here we deliberately use the wrong peer list for Bob
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 4 bobSk [aliceVk] [4] $ \_ -> do
+    withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 4, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [4]}) $ \_ -> do
       seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 
       (clusterPeers, configuredPeers) <- waitMatch (20 * blockTime) n1 $ \v -> do
@@ -1188,8 +1198,8 @@ canDepositConcurrently tracer workDir opts hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
           <&> setNetworkId networkId
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [2]}) $ \n1 -> do
+        withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1]}) $ \n2 -> do
           send n1 $ input "Init" []
           headId <- waitForAllMatch (10 * blockTime) [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
 
@@ -1302,7 +1312,7 @@ canDepositPartially tracer workDir opts hydraScriptsTxId =
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode (mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig) $ \n1 -> do
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
@@ -1361,8 +1371,8 @@ canRecoverDeposit tracer workDir opts hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
           <&> setNetworkId networkId
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        headId <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [2]}) $ \n1 -> do
+        headId <- withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1]}) $ \n2 -> do
           send n1 $ input "Init" []
           waitForAllMatch (10 * blockTime) [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
         -- stop the second node here
@@ -1441,7 +1451,7 @@ canRecoverDepositInAnyState tracer workDir opts hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode (mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig) $ \n1 -> do
       -- Init the head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
@@ -1554,8 +1564,8 @@ canSeePendingDeposits tracer workDir opts hydraScriptsTxId =
       bobChainConfig <-
         chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
           <&> setNetworkId networkId
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [2] $ \n1 -> do
-        _ <- withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1] $ \n2 -> do
+      withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [2]}) $ \n1 -> do
+        _ <- withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1]}) $ \n2 -> do
           send n1 $ input "Init" []
           _ <- waitForAllMatch (10 * blockTime) [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
           -- Stop Bob here so deposits stay pending (can't reach CommitFinalized without both nodes).
@@ -1600,7 +1610,7 @@ canDecommit tracer workDir opts hydraScriptsTxId =
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withHydraNode (mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig) $ \n1 -> do
       -- Initialize & open head
       send n1 $ input "Init" []
       headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
@@ -1703,7 +1713,7 @@ canSideLoadSnapshot tracer workDir opts hydraScriptsTxId = do
     chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
       <&> setNetworkId networkId
 
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+  withHydraNode (mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig) $ \n1 -> do
     aliceUTxO <- seedFromFaucet opts aliceCardanoVk (lovelaceToValue 2_000_000) (contramap FromFaucet tracer)
 
     send n1 $ input "Init" []
@@ -1748,11 +1758,11 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir opts hydraScriptsTxId = do
   bobChainConfig <-
     chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
       <&> setNetworkId networkId
-  withHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 -> do
+  withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds = [1, 2]}) $ \n1 -> do
     waitMatch (20 * blockTime) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
       guard $ v ^? key "headStatus" == Just (toJSON Idle)
-    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+    withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1, 2]}) $ \n2 -> do
       waitMatch (20 * blockTime) n2 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
         guard $ v ^? key "headStatus" == Just (toJSON Idle)
@@ -1761,13 +1771,13 @@ canResumeOnMemberAlreadyBootstrapped tracer workDir opts hydraScriptsTxId = do
     callProcess "rm" ["-rf", workDir </> "state-2"]
     threadDelay 1
 
-    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ threadDelay 1)
+    withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1, 2]}) (const $ threadDelay 1)
       `shouldThrow` \(e :: SomeException) ->
         "hydra-node" `isInfixOf` show e
           && "etcd" `isInfixOf` show e
 
     setEnv "ETCD_INITIAL_CLUSTER_STATE" "existing"
-    withHydraNodeCatchingUp hydraTracer bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] (const $ pure ())
+    withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = bobChainConfig, workDir = workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds = [1, 2]}) (const $ pure ())
     unsetEnv "ETCD_INITIAL_CLUSTER_STATE"
  where
   hydraTracer = contramap FromHydraNode tracer
@@ -1794,10 +1804,12 @@ waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
     chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
       <&> setNetworkId networkId
 
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 -> do
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 -> do
+  let (aliceHydraConfig, bobHydraConfig, carolHydraConfig) =
+        mkThreePartyConfigs hydraTracer blockTime workDir aliceChainConfig bobChainConfig carolChainConfig
+  withHydraNode aliceHydraConfig $ \n1 -> do
+    withHydraNode bobHydraConfig $ \n2 -> do
       -- Open a head while Carol online
-      headId <- withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+      headId <- withHydraNode carolHydraConfig $ \n3 -> do
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) [n1, n2, n3] $ headIsOpenWith (Set.fromList [alice, bob, carol])
 
@@ -1827,7 +1839,7 @@ waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
         guard $ v ^? key "headId" == Just (toJSON headId)
 
       -- Carol restarts
-      withHydraNodeCatchingUp hydraTracer carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+      withHydraNodeCatchingUp (HydraNodeConfig{tracer = hydraTracer, blockTime = 0, chainConfig = carolChainConfig, workDir = workDir, hydraNodeId = 3, hydraSigningKey = carolSk, hydraVerificationKeys = [aliceVk, bobVk], allNodeIds = [1, 2, 3]}) $ \n3 -> do
         -- The node reports that it is in the Open state when restarting.
         -- NOTE: chainSyncedStatus in Greetings reflects the persisted sync status
         -- (InSync from last session), not the current one. The node may not have
@@ -1883,10 +1895,10 @@ threeNodesWithMirrorParty tracer workDir opts hydraScriptsTxId = do
 
   let hydraTracer = contramap FromHydraNode tracer
   let allNodeIds = [1, 2, 3]
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] allNodeIds $ \n1 -> do
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+  withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir, hydraNodeId = 1, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds}) $ \n1 -> do
+    withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = bobChainConfig, workDir, hydraNodeId = 2, hydraSigningKey = bobSk, hydraVerificationKeys = [aliceVk], allNodeIds}) $ \n2 -> do
       -- One party will participate using same hydra credentials
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 3 aliceSk [bobVk] allNodeIds $ \n3 -> do
+      withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir, hydraNodeId = 3, hydraSigningKey = aliceSk, hydraVerificationKeys = [bobVk], allNodeIds}) $ \n3 -> do
         let clients = [n1, n2, n3]
         send n1 $ input "Init" []
         headId <- waitForAllMatch (10 * blockTime) clients $ headIsOpenWith (Set.fromList [alice, bob])
