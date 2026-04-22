@@ -3863,7 +3863,7 @@ components:
           description: Timeout in seconds for transaction submission via the API.
         persistence-rotate-after:
           type: integer
-          minimum: 0
+          minimum: 1
           description: Rotate the event log after this many events, if set.
         chain:
           $ref: "api.yaml#/components/schemas/ChainConfigDoc"
@@ -3900,7 +3900,7 @@ components:
           description: Paths to the Cardano verification key files of the other head participants.
         contestation-period:
           type: integer
-          minimum: 0
+          minimum: 1
           description: Contestation period in seconds.
         deposit-period:
           type: number
