@@ -1,5 +1,6 @@
 alias c := check
 alias t := test
+alias l := lint
 
 [private]
 default:
@@ -17,5 +18,18 @@ check:
     --skip-cached
 
 # run cabal tests, optionally with some test selection
-test ARG1="all" ARG2="/":
-  cabal test {{ARG1}} --test-options="--match {{ARG2}}"
+test PKG="all" PATTERN="/":
+  cabal test {{PKG}} --test-options="--match {{PATTERN}}"
+
+# build with -Werror and strict linting flags.
+lint PKG="all":
+  cabal build {{PKG}} \
+    --ghc-options="-Werror \
+      -Wall \
+      -Wcompat \
+      -Widentities \
+      -Wincomplete-record-updates \
+      -Wincomplete-uni-patterns \
+      -Wmissing-deriving-strategies \
+      -Wredundant-constraints \
+      -Wunused-packages"

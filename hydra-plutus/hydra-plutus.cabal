@@ -86,7 +86,6 @@ library testlib
   hs-source-dirs:  testlib
   exposed-modules: Hydra.Plutus.Gen
   build-depends:
-    , base
     , bytestring
     , hydra-plutus
     , hydra-prelude
@@ -104,10 +103,6 @@ test-suite tests
     Spec
 
   build-depends:
-    , aeson
-    , base
-    , bytestring
-    , filepath
     , hspec
     , hspec-golden
     , hydra-cardano-api
@@ -115,8 +110,6 @@ test-suite tests
     , hydra-plutus:testlib
     , hydra-prelude
     , hydra-test-utils
-    , lens
-    , lens-aeson
     , plutus-ledger-api
     , QuickCheck
     , typed-process
@@ -128,15 +121,7 @@ executable inspect-script
   hs-source-dirs: exe/inspect-script
   main-is:        Main.hs
   build-depends:
-    , aeson
-    , bytestring
-    , hydra-cardano-api
     , hydra-plutus
     , hydra-prelude
-    , plutus-ledger-api
-    , plutus-tx
-    , prettyprinter
-    , serialise
-    , text
 
   ghc-options:    -threaded -rtsopts
