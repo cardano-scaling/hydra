@@ -177,6 +177,8 @@ httpApp ::
   forall tx.
   IsChainState tx =>
   Tracer IO APIServerLog ->
+  -- | Pre-rendered effective configuration (served at GET /config).
+  Aeson.Value ->
   Chain tx IO ->
   Environment ->
   PParams LedgerEra ->
@@ -193,13 +195,15 @@ httpApp ::
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
+httpApp tracer configDoc directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
       , path = PathInfo $ rawPathInfo request
       }
   case (requestMethod request, pathInfo request) of
+    ("GET", ["config"]) ->
+      respond $ okJSON configDoc
     ("GET", ["head"]) ->
       getNodeState >>= (respond . okJSON) . headState
     ("GET", ["snapshot"]) -> do

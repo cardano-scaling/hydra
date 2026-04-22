@@ -358,6 +358,21 @@ channels:
           type: response
           method: GET
           bindingVersion: '0.1.0'
+
+  /config:
+    servers:
+      - localhost-http
+    subscribe:
+      description: Get the effective node configuration (merged from config file and CLI options).
+      operationId: getNodeConfig
+      message:
+        $ref: "api.yaml#/components/messages/NodeConfig"
+      bindings:
+        http:
+          type: response
+          method: GET
+          bindingVersion: '0.1.0'
+
   /cardano-transaction:
     servers:
       - localhost-http
@@ -833,6 +848,13 @@ components:
       title: ProtocolParameters
       payload:
         $ref: "api.yaml#/components/schemas/ProtocolParameters"
+
+    NodeConfig:
+      title: NodeConfig
+      description: |
+        Effective node configuration, reflecting the merged result of the config file and any CLI overrides.
+      payload:
+        $ref: "api.yaml#/components/schemas/NodeConfig"
 
     SideLoadSnapshotRequest:
       title: SideLoadSnapshotRequest
@@ -3757,3 +3779,216 @@ components:
             tag:
               type: string
               enum: ["Expired"]
+
+    NodeConfig:
+      title: NodeConfig
+      description: |
+        Effective node configuration produced by merging the YAML config file with any CLI overrides.
+        All file paths are absolute (resolved against the config file's directory at startup).
+      type: object
+      additionalProperties: false
+      required:
+        - node-id
+        - quiet
+        - listen
+        - api-host
+        - api-port
+        - hydra-signing-key
+        - hydra-verification-keys
+        - peers
+        - persistence-dir
+        - ledger-protocol-parameters
+        - use-system-etcd
+        - api-transaction-timeout
+        - chain
+      properties:
+        node-id:
+          type: string
+          description: Unique identifier for this node within a head.
+        quiet:
+          type: boolean
+          description: When true, log output is suppressed.
+        listen:
+          type: string
+          description: Address this node is listening on for peer connections, as "host:port".
+          example: "0.0.0.0:5001"
+        advertise:
+          type: string
+          description: Address advertised to peers (defaults to listen address), as "host:port".
+          example: "1.2.3.4:5001"
+        api-host:
+          type: string
+          description: IP address the HTTP/WebSocket API is bound to.
+          example: "127.0.0.1"
+        api-port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Port the HTTP/WebSocket API is listening on.
+        hydra-signing-key:
+          type: string
+          description: Path to the Hydra signing key file.
+        hydra-verification-keys:
+          type: array
+          items:
+            type: string
+          description: Paths to the Hydra verification key files of the other head participants.
+        peers:
+          type: array
+          items:
+            type: string
+          description: Addresses of peer nodes, each as "host:port".
+        persistence-dir:
+          type: string
+          description: Directory used for persisting node state.
+        ledger-protocol-parameters:
+          type: string
+          description: Path to the JSON file containing Cardano protocol parameters used for the L2 ledger.
+        monitoring-port:
+          type: integer
+          minimum: 0
+          maximum: 65535
+          description: Port for the Prometheus metrics endpoint, if enabled.
+        tls-cert:
+          type: string
+          description: Path to the TLS certificate file, if TLS is enabled.
+        tls-key:
+          type: string
+          description: Path to the TLS private key file, if TLS is enabled.
+        use-system-etcd:
+          type: boolean
+          description: When true, use the system-installed etcd binary instead of the embedded one.
+        api-transaction-timeout:
+          type: number
+          description: Timeout in seconds for transaction submission via the API.
+        persistence-rotate-after:
+          type: integer
+          minimum: 0
+          description: Rotate the event log after this many events, if set.
+        chain:
+          $ref: "api.yaml#/components/schemas/ChainConfigDoc"
+
+    ChainConfigDoc:
+      description: Chain backend configuration. Discriminated by the "mode" field.
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/CardanoChainConfigDoc"
+        - $ref: "api.yaml#/components/schemas/OfflineChainConfigDoc"
+
+    CardanoChainConfigDoc:
+      title: CardanoChainConfig
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - cardano-signing-key
+        - cardano-verification-keys
+        - contestation-period
+        - deposit-period
+        - unsynced-period
+        - backend
+      properties:
+        mode:
+          type: string
+          enum: ["cardano"]
+        cardano-signing-key:
+          type: string
+          description: Path to the Cardano signing key file used for on-chain transactions.
+        cardano-verification-keys:
+          type: array
+          items:
+            type: string
+          description: Paths to the Cardano verification key files of the other head participants.
+        contestation-period:
+          type: integer
+          minimum: 0
+          description: Contestation period in seconds.
+        deposit-period:
+          type: number
+          description: Deposit period in seconds (fractional).
+        unsynced-period:
+          type: number
+          description: How long (in seconds) to wait for the node to sync before considering it unsynced.
+        start-chain-from:
+          type: string
+          description: |
+            Chain point to start syncing from, as "slot.blockHeaderHash" or "0" for genesis.
+        hydra-scripts-tx-id:
+          type: array
+          items:
+            type: string
+          description: Transaction IDs (hex) of published Hydra scripts.
+        backend:
+          $ref: "api.yaml#/components/schemas/ChainBackendDoc"
+
+    OfflineChainConfigDoc:
+      title: OfflineChainConfig
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - offline-head-seed
+        - initial-utxo
+      properties:
+        mode:
+          type: string
+          enum: ["offline"]
+        offline-head-seed:
+          type: string
+          description: Hex-encoded seed used to derive the offline head ID.
+        initial-utxo:
+          type: string
+          description: Path to the JSON file containing the initial UTxO set for the offline head.
+        ledger-genesis:
+          type: string
+          description: Path to the Shelley genesis file. Required when using an offline chain.
+
+    ChainBackendDoc:
+      description: Chain backend implementation. Discriminated by the "mode" field.
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/DirectBackendDoc"
+        - $ref: "api.yaml#/components/schemas/BlockfrostBackendDoc"
+
+    DirectBackendDoc:
+      title: DirectBackend
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - node-socket
+      properties:
+        mode:
+          type: string
+          enum: ["direct"]
+        node-socket:
+          type: string
+          description: Path to the cardano-node socket file.
+        mainnet:
+          type: boolean
+          description: Set to true when connecting to mainnet.
+        testnet-magic:
+          type: integer
+          minimum: 0
+          description: Network magic number for testnets.
+
+    BlockfrostBackendDoc:
+      title: BlockfrostBackend
+      type: object
+      additionalProperties: false
+      required:
+        - mode
+        - project-path
+        - query-timeout
+        - retry-timeout
+      properties:
+        mode:
+          type: string
+          enum: ["blockfrost"]
+        project-path:
+          type: string
+          description: Path to the Blockfrost project ID file.
+        query-timeout:
+          type: number
+          description: Timeout in seconds for Blockfrost API queries.
+        retry-timeout:
+          type: number
+          description: Total timeout in seconds for retrying failed Blockfrost queries.
