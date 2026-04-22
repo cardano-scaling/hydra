@@ -111,19 +111,6 @@ mkSoloConfig ::
 mkSoloConfig tracer blockTime workDir actor chainConfig =
   mkHydraNodeConfig tracer blockTime workDir actor chainConfig [] [actorNodeId actor]
 
--- | Create configs for a two-party Hydra head (Alice and Bob).
-mkTwoPartyConfigs ::
-  Tracer IO HydraNodeLog ->
-  NominalDiffTime ->
-  FilePath ->
-  ChainConfig -> -- Alice's chain config
-  ChainConfig -> -- Bob's chain config
-  (HydraNodeConfig, HydraNodeConfig)
-mkTwoPartyConfigs tracer blockTime workDir aliceChainConfig bobChainConfig =
-  ( mkHydraNodeConfig tracer blockTime workDir Alice aliceChainConfig [bobVk] [1, 2]
-  , mkHydraNodeConfig tracer blockTime workDir Bob bobChainConfig [aliceVk] [1, 2]
-  )
-
 -- | Create configs for a three-party Hydra head (Alice, Bob, and Carol).
 mkThreePartyConfigs ::
   Tracer IO HydraNodeLog ->
