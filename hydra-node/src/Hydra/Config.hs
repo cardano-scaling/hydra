@@ -31,11 +31,11 @@
 --     testnet-magic: 2
 --     node-socket: node.socket
 -- @
-module Hydra.Config (loadConfig, resolvePaths) where
+module Hydra.Config (loadConfig, resolvePaths, renderConfig) where
 
 import Hydra.Prelude
 
-import Data.Aeson (Value (..), withObject, (.:), (.:?))
+import Data.Aeson (KeyValue ((.=)), Value (..), object, withObject, (.:), (.:?))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (Object, Parser, parseEither, (.!=))
@@ -51,9 +51,10 @@ import Hydra.Cardano.Api (
   SocketPath,
   TxId,
   deserialiseFromRawBytesHex,
+  serialiseToRawBytesHexText,
  )
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (..), PortNumber, WhichEtcd (..), readHost)
+import Hydra.Network (Host, NodeId (..), PortNumber, WhichEtcd (..), readHost, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
@@ -161,6 +162,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
     , "tls-key"
     , "monitoring-port"
     , "hydra-signing-key"
+    , "hydra-verification-keys"
     , "persistence-dir"
     , "persistence-rotate-after"
     , "chain"
@@ -177,11 +179,12 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   mAdvertiseStr <- o .:? "advertise" :: Parser (Maybe String)
   advertise <- mapM (parseHost "advertise") mAdvertiseStr
   peerEntries <- o .:? "peers" .!= ([] :: [Value]) >>= mapM parsePeerEntry
+  extraHydraVKs <- o .:? "hydra-verification-keys" .!= []
   let selfAddr = fromMaybe listen advertise
       filteredEntries = filter ((/= selfAddr) . (.peerHost)) peerEntries
       peers = map (.peerHost) filteredEntries
       peerCardanoVKs = mapMaybe (.peerCardanoVK) filteredEntries
-      hydraVerificationKeys = mapMaybe (.peerHydraVK) filteredEntries
+      hydraVerificationKeys = mapMaybe (.peerHydraVK) filteredEntries <> extraHydraVKs
   apiHostStr <- o .:? "api-host" .!= ("127.0.0.1" :: String)
   apiHost <- parseIP "api-host" apiHostStr
   apiPort <- o .:? "api-port" .!= (4001 :: PortNumber)
@@ -396,3 +399,79 @@ parseChainPointText t =
       pure $ ChainPoint slotNo headerHash
     _ ->
       fail $ "Invalid start-chain-from '" <> toString t <> "'. Expected format: SLOT.HEADER_HASH"
+
+-- ---------------------------------------------------------------------------
+-- Rendering
+
+-- | Render 'RunOptions' as a JSON document whose structure matches the YAML
+-- config file format (kebab-case keys, same hierarchy).  This is the inverse
+-- of 'loadConfig' and is served at the @GET /config@ HTTP endpoint so
+-- operators can inspect the effective configuration the node is running with.
+renderConfig :: RunOptions -> Value
+renderConfig opts =
+  object $
+    [ "node-id" .= opts.nodeId
+    , "quiet" .= (opts.verbosity == Quiet)
+    , "listen" .= showHost opts.listen
+    , "api-host" .= show opts.apiHost
+    , "api-port" .= opts.apiPort
+    , "hydra-signing-key" .= opts.hydraSigningKey
+    , "hydra-verification-keys" .= opts.hydraVerificationKeys
+    , "peers" .= map showHost opts.peers
+    , "persistence-dir" .= opts.persistenceDir
+    , "ledger-protocol-parameters" .= ledgerParamsFile opts.ledgerConfig
+    , "use-system-etcd" .= (opts.whichEtcd == SystemEtcd)
+    , "api-transaction-timeout" .= opts.apiTransactionTimeout
+    , "chain" .= renderChainConfig opts.chainConfig
+    ]
+    <> catMaybes
+      [ ("advertise" .=) . showHost <$> opts.advertise
+      , ("monitoring-port" .=) <$> opts.monitoringPort
+      , ("tls-cert" .=) <$> opts.tlsCertPath
+      , ("tls-key" .=) <$> opts.tlsKeyPath
+      , ("persistence-rotate-after" .=) <$> opts.persistenceRotateAfter
+      ]
+ where
+  ledgerParamsFile (CardanoLedgerConfig f) = f
+
+  renderChainConfig (Cardano cfg) =
+    object $
+      [ "mode" .= ("cardano" :: Text)
+      , "cardano-signing-key" .= cfg.cardanoSigningKey
+      , "cardano-verification-keys" .= cfg.cardanoVerificationKeys
+      , "contestation-period" .= cfg.contestationPeriod
+      , "deposit-period" .= cfg.depositPeriod
+      , "unsynced-period" .= cfg.unsyncedPeriod
+      , "backend" .= renderBackend cfg.chainBackendOptions
+      ]
+      <> catMaybes
+        [ ("start-chain-from" .=) . renderChainPoint <$> cfg.startChainFrom
+        ]
+      <> ["hydra-scripts-tx-id" .= map serialiseToRawBytesHexText cfg.hydraScriptsTxId | not (null cfg.hydraScriptsTxId)]
+  renderChainConfig (Offline cfg) =
+    object $
+      [ "mode" .= ("offline" :: Text)
+      , "offline-head-seed" .= serialiseToRawBytesHexText cfg.offlineHeadSeed
+      , "initial-utxo" .= cfg.initialUTxOFile
+      ]
+      <> catMaybes [("ledger-genesis" .=) <$> cfg.ledgerGenesisFile]
+
+  renderBackend (Direct o) =
+    object $
+      [ "mode" .= ("direct" :: Text)
+      , "node-socket" .= (case o.nodeSocket of File p -> p)
+      ]
+      <> case o.networkId of
+        Mainnet -> ["mainnet" .= True]
+        Testnet (NetworkMagic n) -> ["testnet-magic" .= n]
+  renderBackend (Blockfrost o) =
+    object
+      [ "mode" .= ("blockfrost" :: Text)
+      , "project-path" .= o.projectPath
+      , "query-timeout" .= o.queryTimeout
+      , "retry-timeout" .= o.retryTimeout
+      ]
+
+  renderChainPoint :: ChainPoint -> Text
+  renderChainPoint ChainPointAtGenesis = "0"
+  renderChainPoint (ChainPoint (SlotNo s) h) = T.pack (show s) <> "." <> serialiseToRawBytesHexText h
