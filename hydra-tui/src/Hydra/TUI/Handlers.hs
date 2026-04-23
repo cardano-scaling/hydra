@@ -123,6 +123,16 @@ handleEvent cardanoClient client chan = \case
         | not modalOpen -> do
             activeTabL .= EventHistoryTab
             eventHistoryListL %= BrickList.listMoveTo 0
+      EvKey (KChar 'c') [] | not modalOpen -> do
+        tab <- use activeTabL
+        zoom (connectedStateL . connectionL . headStateL) $
+          handleVtyEventsHeadState cardanoClient client chan e
+        newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+        case newOpenScreen of
+          Just (ConfirmingClose _) -> do
+            previousTabL .= tab
+            activeTabL .= ModalTab
+          _ -> pure ()
       EvKey (KChar 'd') [] | not modalOpen -> do
         tab <- use activeTabL
         case tab of
@@ -179,6 +189,12 @@ handleEvent cardanoClient client chan = \case
               EvKey KEsc [] -> closeModal
               EvKey (KChar 'c') [] -> closeModal
               _ -> do
+                -- Set pending action for close confirmation
+                openScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+                case (openScreen, e) of
+                  (Just (ConfirmingClose form), EvKey KEnter []) ->
+                    when (formState form) $ pendingActionL .= Just "Sending Close…"
+                  _ -> pure ()
                 zoom (connectedStateL . connectionL . headStateL) $
                   handleVtyEventsHeadState cardanoClient client chan e
                 -- Auto-close modal if action completed and we returned to OpenHome
@@ -496,7 +512,9 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
         EvKey KEnter [] -> do
           let selected = formState i
           if selected
-            then liftIO $ sendInput hydraClient Close
+            then do
+              liftIO $ sendInput hydraClient Close
+              put OpenHome
             else put OpenHome
         _ -> zoom confirmingCloseFormL $ handleFormEvent (VtyEvent e)
     SelectingUTxO i ->

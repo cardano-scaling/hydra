@@ -12,21 +12,20 @@ import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
 import Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import Data.ByteString qualified as BS
+import Control.Concurrent.STM (newTChanIO)
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
   Key (KChar, KEnter),
   Output (..),
   Vty (..),
-  defaultConfig,
   displayContext,
   initialAssumedState,
   outputPicture,
-  shutdownInput,
  )
 import Graphics.Vty.Config (userConfig)
 import Graphics.Vty.Image (DisplayRegion)
-import Graphics.Vty.Platform.Unix.Input (buildInput)
+import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
@@ -145,10 +144,10 @@ spec = do
           -- slots safety.
           let someTime = (100 + 1 + 3) * 0.1
           threadDelay (realToFrac $ toNominalDiffTime tuiContestationPeriod + someTime)
-          shouldRender "FanoutPossible"
+          shouldRender "Ready to Fanout"
           sendInputEvent $ EvKey (KChar 'f') []
           threadDelay 1
-          shouldRender "Final"
+          shouldRender "Finalized"
           sendInputEvent $ EvKey (KChar 'q') []
 
   context "text rendering tests" $ do
@@ -404,7 +403,14 @@ withTUITest region action = do
   findBytes bytes = BS.concat $ BS.drop 1 . BS.dropWhile (/= 109) <$> BS.split 27 bytes
 
   buildVty q frameBuffer = do
-    input <- buildInput defaultConfig =<< defaultSettings
+    chan <- newTChanIO
+    let input =
+          Input
+            { eventChannel = chan
+            , shutdownInput = pure ()
+            , restoreInputState = pure ()
+            , inputLogMsg = \_ -> pure ()
+            }
     -- NOTE(SN): This is used by outputPicture and we hack it such that it
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
