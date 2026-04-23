@@ -87,7 +87,7 @@ data OpenScreen
 data SelectAddressItem
   = ManualEntry
   | SelectAddress AddressInEra
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance Pretty SelectAddressItem where
   pretty = \case
@@ -103,7 +103,7 @@ data HeadState
 data PendingIncrementStatus
   = PendingDeposit
   | FinalizingDeposit
-  deriving (Show)
+  deriving stock (Show)
 
 data PendingIncrement
   = PendingIncrement

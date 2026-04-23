@@ -44,7 +44,7 @@ data AllPossibleAPIMessages tx
   | ApiClientMessage (ClientMessage tx)
   | ApiGreetings (Greetings tx)
   | ApiInvalidInput InvalidInput
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance IsChainState tx => FromJSON (AllPossibleAPIMessages tx) where
   parseJSON v =

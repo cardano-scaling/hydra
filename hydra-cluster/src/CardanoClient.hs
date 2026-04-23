@@ -142,4 +142,4 @@ data RunningNode = RunningNode
   , blockTime :: NominalDiffTime
   -- ^ Expected time between blocks (varies a lot on testnets)
   }
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)

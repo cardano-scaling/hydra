@@ -29,7 +29,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
-data UTxOSize = Constant | Growing deriving (Eq, Show, Read)
+data UTxOSize = Constant | Growing deriving stock (Eq, Show, Read)
 
 data Options
   = StandaloneOptions

@@ -23,12 +23,12 @@ import Hydra.Node (HydraNodeLog (..))
 import Options.Applicative hiding (Parser)
 import Options.Applicative qualified as Options
 
-data InfoLine = InfoLine {toplabel :: LogType, details :: Text} deriving (Eq, Show)
+data InfoLine = InfoLine {toplabel :: LogType, details :: Text} deriving stock (Eq, Show)
 
 data Decoded tx
   = DecodedHydraLog {t :: UTCTime, n :: Text, infoLine :: InfoLine}
   | DropLog
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 -- | This instance is needed to sort results by timestamp
 instance Ord (Decoded tx) where
@@ -48,7 +48,7 @@ data LogType
   | LogicLabel Text
   | LogicError Text
   | Other Text
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 labelLog :: LogType -> Text
 labelLog NodeOptionsLabel = "NODE OPTIONS"
@@ -82,7 +82,7 @@ colorLog = \case
 newtype Options = Options
   { paths :: [FilePath]
   }
-  deriving (Show)
+  deriving stock (Show)
 
 options :: Options.Parser Options
 options =
