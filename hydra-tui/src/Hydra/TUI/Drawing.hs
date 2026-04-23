@@ -13,7 +13,7 @@ import Hydra.Cardano.Api hiding (Active)
 import Brick.Forms (
   renderForm,
  )
-import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel, vBorder)
+import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Brick.Widgets.List qualified as BrickList
 import Cardano.Api.UTxO qualified as UTxO
@@ -86,6 +86,7 @@ modalTabLabel s = case s ^? connectedStateL . connectionL . headStateL . activeL
   Just EnteringAmount{} -> "New Tx"
   Just SelectingRecipient{} -> "New Tx"
   Just EnteringRecipientAddress{} -> "New Tx"
+  Just (ConfirmingClose _) -> "Close"
   _ -> "Action"
 
 drawTab :: ActiveTab -> Text -> ActiveTab -> Widget n
@@ -112,7 +113,7 @@ drawModalTab CardanoClient{networkId} Client{sk} s =
 
 drawMainTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawMainTab CardanoClient{networkId} Client{sk} s =
-  borderWithLabel (withAttr neutral $ txt panelTitle) $
+  borderWithLabel panelLabel $
     vBox
       [ -- Status strip: plain text, no border characters so junctions don't misalign
         padLeftRight 1 $
@@ -121,17 +122,15 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
             , drawNetworkState connState
             , drawChainSyncedState connState
             ]
-      , hBox
-          [ hLimit 30 $ hBorderWithLabel (withAttr neutral $ txt "Peers ")
-          , hBorderWithLabel (withAttr neutral $ txt " UTxO ")
-          ]
-      , -- Peers (fixed-width column) | UTxO (fills remaining width)
-        -- The single vBorder here is the only vertical rule, giving clean ┬/┴ junctions
-        hBox
-          [ hLimit 30 $ padLeftRight 1 drawPeersSection
-          , vBorder
-          , padLeftRight 1 drawUtxoSection
-          ]
+      , padLeftRight 1 $
+          hBox
+            [ hLimit 32 $
+                borderWithLabel (withAttr neutral $ txt " Peers ") $
+                  padLeftRight 1 drawPeersSection
+            , padLeft (Pad 1) $
+                borderWithLabel (withAttr neutral $ txt " Head state ") $
+                  padLeftRight 1 drawHeadStateSection
+            ]
       , hBorderWithLabel (withAttr neutral $ txt " Recent events ")
       , vLimitPercent 50 $
           viewport "recent-events" Vertical $
@@ -142,10 +141,11 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
   connState = s ^. connectedStateL
   ownAddress = mkVkAddress networkId (getVerificationKey sk)
 
-  panelTitle = case connState of
-    Disconnected -> " Status "
+  panelLabel :: Widget Name
+  panelLabel = case connState of
+    Disconnected -> withAttr neutral $ txt " Status "
     Connected (Connection{headState}) -> case headState of
-      Idle -> " Idle "
+      Idle -> withAttr neutral $ txt " Idle "
       Active (ActiveLink{headId, activeHeadState}) ->
         let stateStr = case activeHeadState of
               Open{} -> "Open"
@@ -153,29 +153,42 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
               FanoutPossible -> "Ready to Fanout"
               Final -> "Finalized"
             hid = serialiseToRawBytesHexText headId
-         in " " <> stateStr <> " · " <> hid <> " "
+         in withAttr neutral (txt " ")
+              <+> withAttr headStateA (txt stateStr)
+              <+> withAttr neutral (txt (" · " <> hid <> " "))
 
   drawPeersSection :: Widget Name
   drawPeersSection = case connState of
     Disconnected -> withAttr neutral $ txt "Peers"
     Connected c -> drawPeers connState (c ^. peersL)
 
-  drawUtxoSection :: Widget Name
-  drawUtxoSection = case connState of
-    Disconnected -> withAttr neutral $ txt "UTxO"
+  drawHeadStateSection :: Widget Name
+  drawHeadStateSection = case connState of
+    Disconnected -> withAttr neutral $ txt "Not connected."
     Connected c -> case c ^. headStateL of
-      Idle -> withAttr neutral $ txt "No UTxO present."
-      Active (ActiveLink{utxo, pendingIncrements, pendingUTxOToDecommit}) ->
-        vBox $
-          [ withAttr neutral $ txt "UTxO"
-          , drawUTxO (highlightOwnAddress ownAddress) utxo
-          ]
-            <> [ withAttr infoA $ txt $ "  ↑ " <> show (length pendingIncrements) <> " pending commit(s)"
-               | not (null pendingIncrements)
-               ]
-            <> [ withAttr infoA $ txt "  ↓ pending decommit"
-               | pendingUTxOToDecommit /= mempty
-               ]
+      Idle -> withAttr neutral $ txt "Head is idle."
+      Active (ActiveLink{utxo, pendingIncrements, pendingUTxOToDecommit, activeHeadState}) ->
+        case activeHeadState of
+          Open{} ->
+            vBox $
+              [ withAttr neutral $ txt "UTxO"
+              , drawUTxO (highlightOwnAddress ownAddress) utxo
+              ]
+                <> [ withAttr infoA $ txt $ "  ↑ " <> show (length pendingIncrements) <> " pending commit(s)"
+                   | not (null pendingIncrements)
+                   ]
+                <> [ withAttr infoA $ txt "  ↓ pending decommit"
+                   | pendingUTxOToDecommit /= mempty
+                   ]
+          Closed (ClosedState{contestationDeadline}) ->
+            drawRemainingContestationPeriod contestationDeadline (s ^. nowL)
+          FanoutPossible ->
+            withAttr positive $ txt "Contestation period passed — ready to fan out."
+          Final ->
+            vBox
+              [ withAttr positive $ txt "Head finalized."
+              , drawUTxO (highlightOwnAddress ownAddress) utxo
+              ]
 
 drawPeersTab :: RootState -> Widget Name
 drawPeersTab s =
@@ -295,6 +308,7 @@ drawActionBar s =
               EnteringAmount{} -> [("Enter", " confirm"), ("Esc/C", " cancel")]
               SelectingRecipient{} -> [("↑↓/Space", " choose"), ("Enter", " send"), ("Esc/C", " cancel")]
               EnteringRecipientAddress{} -> [("Enter", " send"), ("Esc/C", " cancel")]
+              ConfirmingClose _ -> [("↑↓/Space", " choose"), ("Enter", " confirm"), ("Esc/C", " cancel")]
               _ -> [("Esc/C", " cancel")]
             _ -> [("Esc/C", " close")]
           else case (s ^. activeTabL, activeHeadState) of

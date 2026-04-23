@@ -114,6 +114,7 @@ test-suite tests
     , optparse-applicative
     , QuickCheck
     , regex-tdfa
+    , stm
     , unix
     , vty
     , vty-unix

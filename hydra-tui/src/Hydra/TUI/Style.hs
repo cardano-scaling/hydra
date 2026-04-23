@@ -56,6 +56,9 @@ keyA = attrName "key"
 pendingA :: AttrName
 pendingA = attrName "pending"
 
+headStateA :: AttrName
+headStateA = attrName "headState"
+
 style :: s -> AttrMap
 style _ =
   attrMap
@@ -68,6 +71,7 @@ style _ =
     , (activeTabA, brightWhite `on` blue)
     , (keyA, withStyle (withStyle defAttr bold) italic)
     , (pendingA, fg magenta)
+    , (headStateA, withStyle (fg magenta) bold)
     , (listSelectedAttr, brightWhite `on` blue)
     , (borderAttr, fg brightBlack)
     , -- Brick forms
