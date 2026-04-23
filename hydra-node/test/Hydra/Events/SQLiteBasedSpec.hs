@@ -7,7 +7,7 @@ import Test.Hydra.Prelude
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.List (zipWith3)
-import Database.SQLite.Simple (execute, execute_, open)
+import Database.SQLite.Simple (close, execute, execute_, open)
 import Hydra.Events (EventSink (..), EventSource (..), getEvents, putEvent)
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Events.SQLiteBased (EventDecodingException, SQLiteLog (..), getSchemaVersion, nextVersion, withSQLiteEventStore)
@@ -70,8 +70,8 @@ spec = do
             stateFile = tmpDir <> "/state"
         withSQLiteEventStore @(StateEvent SimpleTx) nullTracer dbFile stateFile $ \store -> do
           -- Insert a row with invalid JSON directly via a separate connection
-          conn <- open dbFile
-          execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" (1 :: Word64, "not valid json" :: ByteString)
+          bracket (open dbFile) close $ \conn ->
+            execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" (1 :: Word64, "not valid json" :: ByteString)
           getEvents (eventSource store)
             `shouldThrow` \(_ :: EventDecodingException) -> True
 
@@ -88,8 +88,7 @@ spec = do
         let dbFile = tmpDir <> "/hydra.db"
             stateFile = tmpDir <> "/state"
         withSQLiteEventStore @(StateEvent SimpleTx) nullTracer dbFile stateFile $ \_ -> do
-          conn <- open dbFile
-          v <- getSchemaVersion conn
+          v <- bracket (open dbFile) close getSchemaVersion
           v `shouldBe` nextVersion
 
     it "opening the database twice does not fail" $ do
@@ -98,8 +97,7 @@ spec = do
             stateFile = tmpDir <> "/state"
         withSQLiteEventStore @(StateEvent SimpleTx) nullTracer dbFile stateFile $ \_ -> pure ()
         withSQLiteEventStore @(StateEvent SimpleTx) nullTracer dbFile stateFile $ \_ -> do
-          conn <- open dbFile
-          v <- getSchemaVersion conn
+          v <- bracket (open dbFile) close getSchemaVersion
           v `shouldBe` nextVersion
 
     it "rejects a database with a newer schema version" $ do
@@ -107,8 +105,8 @@ spec = do
         let dbFile = tmpDir <> "/hydra.db"
             stateFile = tmpDir <> "/state"
         -- Create a DB with a version beyond what we know
-        conn <- open dbFile
-        execute_ conn $ fromString $ "PRAGMA user_version = " <> show (nextVersion + 1)
+        bracket (open dbFile) close $ \conn ->
+          execute_ conn $ fromString $ "PRAGMA user_version = " <> show (nextVersion + 1)
         withSQLiteEventStore @(StateEvent SimpleTx) nullTracer dbFile stateFile (\_ -> pure ())
           `shouldThrow` anyErrorCall
 
