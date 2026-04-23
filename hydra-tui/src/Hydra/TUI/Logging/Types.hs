@@ -17,6 +17,7 @@ data LogMessage = LogMessage
   { severity :: Severity
   , message :: Text
   , time :: UTCTime
+  , rawJson :: Maybe Text
   }
   deriving stock (Eq, Show, Generic)
 

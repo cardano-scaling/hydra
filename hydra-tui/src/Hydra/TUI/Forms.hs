@@ -28,7 +28,6 @@ import Data.Text qualified as Text
 import Graphics.Vty (Event (..), Key (..))
 import Hydra.Chain.Direct.State ()
 import Lens.Micro (Lens', (^.))
-import Prelude qualified
 
 utxoRadioField ::
   forall s e n.
@@ -36,16 +35,19 @@ utxoRadioField ::
   , n ~ Text
   ) =>
   Map TxIn (TxOut CtxUTxO) ->
-  Form s e n
-utxoRadioField u =
-  newForm
-    [ radioField
-        id
-        [ (i, show i, renderUTxO i)
-        | i <- Map.toList u
+  Maybe (Form s e n)
+utxoRadioField u = case Map.toList u of
+  [] -> Nothing
+  (x : _) ->
+    Just $
+      newForm
+        [ radioField
+            id
+            [ (i, show i, renderUTxO i)
+            | i <- Map.toList u
+            ]
         ]
-    ]
-    (Prelude.head $ Map.toList u)
+        x
 
 depositIdRadioField ::
   forall s e n.
@@ -53,16 +55,19 @@ depositIdRadioField ::
   , n ~ Text
   ) =>
   [(TxId, UTxO)] ->
-  Form s e n
-depositIdRadioField txIdUTxO =
-  newForm
-    [ radioField
-        id
-        [ ((txid, i, o), show txid, renderUTxO (i, o))
-        | (txid, i, o) <- flattened txIdUTxO
+  Maybe (Form s e n)
+depositIdRadioField txIdUTxO = case flattened txIdUTxO of
+  [] -> Nothing
+  (x : _) ->
+    Just $
+      newForm
+        [ radioField
+            id
+            [ ((txid, i, o), show txid, renderUTxO (i, o))
+            | (txid, i, o) <- flattened txIdUTxO
+            ]
         ]
-    ]
-    (Prelude.head $ flattened txIdUTxO)
+        x
  where
   flattened :: [(TxId, UTxO)] -> [(TxId, TxIn, TxOut CtxUTxO)]
   flattened =
@@ -86,8 +91,6 @@ confirmRadioField =
     True
  where
   options = [("yes", True), ("no", False)]
-
-  radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
 
 type LeftBracketChar = Char
 type CheckmarkChar = Char

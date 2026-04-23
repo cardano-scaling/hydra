@@ -7,29 +7,47 @@ module Hydra.TUI.Model where
 
 import Hydra.Prelude hiding (Down, State)
 
+import Data.Time.LocalTime (TimeZone)
+
 import Hydra.Cardano.Api hiding (Active)
 
 import Brick.Forms (Form)
+import Brick.Widgets.List qualified as BrickList
 import Data.Map qualified as Map
+import Data.Vector qualified as Vec
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
 import Hydra.HeadLogic.State qualified as State
 import Hydra.Network (Host (..))
 import Hydra.Node.State (Deposit (..), NodeState (..))
-import Hydra.TUI.Logging.Types (LogState)
+import Hydra.TUI.Logging.Types (LogMessage, LogState)
 import Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.HeadParameters as HeadParameters
 import Hydra.Tx.Snapshot qualified as Snapshot
-import Lens.Micro ((^?))
+import Lens.Micro ((^.), (^?))
 import Lens.Micro.TH (makeLensesFor)
+
+-- | TUI-local event wrapper so we can inject async results alongside Hydra node events.
+data TUIEvent tx
+  = NodeEvent (HydraEvent tx)
+  | UTxOQueryResult (Map TxIn (TxOut CtxUTxO))
+  | L1UTxORefresh (Map TxIn (TxOut CtxUTxO))
+  | TxBuildError Text
 
 data RootState = RootState
   { nodeHost :: Host
   , now :: UTCTime
+  , timeZone :: TimeZone
   , connectedState :: ConnectedState
   , logState :: LogState
+  , activeTab :: ActiveTab
+  , eventDetailRaw :: Bool
+  , eventHistoryList :: BrickList.List Name LogMessage
+  , pendingAction :: Maybe Text
+  , l1UTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
+  , previousTab :: ActiveTab
   }
 
 -- | Connection to the hydra node.
@@ -67,19 +85,20 @@ type ConfirmingRadioFieldForm e n = Form Bool e n
 
 data OpenScreen
   = OpenHome
+  | LoadingUTxOForIncrement
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToIncrement {selectingUTxOToIncrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingDepositIdToRecover {selectingDepositIdToRecoverForm :: TxIdRadioFieldForm (HydraEvent Tx) Name}
-  | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Integer (HydraEvent Tx) Name}
+  | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Double (HydraEvent Tx) Name}
   | SelectingRecipient
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
-      , amountEntered :: Integer
+      , amountEntered :: Double
       , selectingRecipientForm :: Form SelectAddressItem (HydraEvent Tx) Name
       }
   | EnteringRecipientAddress
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
-      , amountEntered :: Integer
+      , amountEntered :: Double
       , enteringRecipientAddressForm :: Form AddressInEra (HydraEvent Tx) Name
       }
   | ConfirmingClose {confirmingCloseForm :: ConfirmingRadioFieldForm (HydraEvent Tx) Name}
@@ -130,6 +149,9 @@ data ActiveHeadState
 
 type Name = Text
 
+data ActiveTab = MainTab | FundsTab | EventHistoryTab | ModalTab
+  deriving (Eq)
+
 makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
   , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
@@ -153,7 +175,14 @@ makeLensesFor
   [ ("connectedState", "connectedStateL")
   , ("nodeHost", "nodeHostL")
   , ("now", "nowL")
+  , ("timeZone", "timeZoneL")
   , ("logState", "logStateL")
+  , ("activeTab", "activeTabL")
+  , ("eventDetailRaw", "eventDetailRawL")
+  , ("eventHistoryList", "eventHistoryListL")
+  , ("pendingAction", "pendingActionL")
+  , ("l1UTxO", "l1UTxOL")
+  , ("previousTab", "previousTabL")
   ]
   ''RootState
 
@@ -162,8 +191,7 @@ makeLensesFor
   ''ConnectedState
 
 makeLensesFor
-  [ ("transitionNote", "transitionNoteL")
-  , ("me", "meL")
+  [ ("me", "meL")
   , ("peers", "peersL")
   , ("networkState", "networkStateL")
   , ("chainSyncedStatus", "chainSyncedStatusL")
@@ -192,6 +220,12 @@ fullFeedbackViewportName = "full-feedback-view-port"
 shortFeedbackViewportName :: Name
 shortFeedbackViewportName = "short-feedback-view-port"
 
+eventHistoryListName :: Name
+eventHistoryListName = "event-history-list"
+
+emptyEventHistoryList :: BrickList.List Name LogMessage
+emptyEventHistoryList = BrickList.list eventHistoryListName Vec.empty 1
+
 emptyConnection :: Connection
 emptyConnection =
   Connection
@@ -215,16 +249,18 @@ newActiveLink parties headId =
 
 isModalOpen :: RootState -> Bool
 isModalOpen s =
-  case s
-    ^? connectedStateL
-      . connectionL
-      . headStateL
-      . activeLinkL
-      . activeHeadStateL
-      . openStateL of
-    Nothing -> False
-    Just OpenHome -> False
-    Just _ -> True
+  s ^. activeTabL == ModalTab
+    || case s
+      ^? connectedStateL
+        . connectionL
+        . headStateL
+        . activeLinkL
+        . activeHeadStateL
+        . openStateL of
+      Nothing -> False
+      Just OpenHome -> False
+      Just LoadingUTxOForIncrement -> False -- handled by ModalTab check above
+      Just _ -> True
 
 recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
 recoverHeadState now current nodeState =

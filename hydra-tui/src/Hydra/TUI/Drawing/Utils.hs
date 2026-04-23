@@ -9,7 +9,7 @@ drawHex :: SerialiseAsRawBytes a => a -> Widget n
 drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
 
 drawShow :: forall a n. Show a => a -> Widget n
-drawShow = txt . (" - " <>) . show
+drawShow = txt . show
 
 maybeWidget :: (a -> Widget n) -> Maybe a -> Widget n
 maybeWidget = maybe emptyWidget

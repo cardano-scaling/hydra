@@ -8,11 +8,17 @@ module Hydra.TUI.Handlers where
 import Hydra.Prelude hiding (Down)
 
 import Brick
+import Brick.BChan (BChan, writeBChan)
 import Brick.Forms (Form (formState), editField, editShowableFieldWithValidate, handleFormEvent, newForm)
+import Brick.Widgets.List qualified as BrickList
 import Cardano.Api.UTxO qualified as UTxO
+import Control.Concurrent (forkIO)
 import Data.List (nub)
 import Data.Map qualified as Map
 import Data.Text qualified as T
+import Data.Text.Lazy qualified as TL
+import Data.Text.Lazy.Encoding qualified as TLE
+import Data.Vector qualified as Vec
 import Graphics.Vty (
   Event (EvKey),
   Key (..),
@@ -35,26 +41,67 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Handlers (info, report, warn)
-import Hydra.TUI.Logging.Types (LogMessage, LogState, LogVerbosity (..), Severity (..), logMessagesL, logVerbosityL)
+import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Snapshot (..))
+import Lens.Micro ((^.), (^?))
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
   CardanoClient ->
   Client Tx IO ->
-  BrickEvent Name (HydraEvent Tx) ->
+  BChan (TUIEvent Tx) ->
+  BrickEvent Name (TUIEvent Tx) ->
   EventM Name RootState ()
-handleEvent cardanoClient client = \case
-  AppEvent e -> do
+handleEvent cardanoClient client chan = \case
+  AppEvent (NodeEvent e) -> do
     handleTick e
     now <- use nowL
     zoom connectedStateL $ do
       handleHydraEventsConnectedState e
       zoom connectionL $ handleHydraEventsConnection now e
+    beforeLen <- length <$> use (logStateL . logMessagesL)
     zoom (logStateL . logMessagesL) $
       handleHydraEventsInfo e
+    afterLen <- length <$> use (logStateL . logMessagesL)
+    when (afterLen > beforeLen) $ do
+      pendingActionL .= Nothing
+      case e of
+        Update (ApiTimedServerOutput tso) ->
+          logStateL . logMessagesL %= \case
+            (msg : rest) -> msg{rawJson = Just (TL.toStrict $ TLE.decodeUtf8 $ encodePretty (toJSON tso))} : rest
+            [] -> []
+        _ -> pure ()
+    syncEventHistoryList
+    case e of
+      Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitRecorded{}}) ->
+        triggerL1Query cardanoClient client chan
+      Update (ApiTimedServerOutput TimedServerOutput{output = API.DecommitFinalized{}}) ->
+        triggerL1Query cardanoClient client chan
+      _ -> pure ()
+  AppEvent (L1UTxORefresh utxo) -> l1UTxOL .= Just utxo
+  AppEvent (TxBuildError msg) -> pendingActionL .= Just msg
+  AppEvent (UTxOQueryResult utxo) -> do
+    pendingActionL .= Nothing
+    connState <- use connectedStateL
+    case connState of
+      Connected c ->
+        case c ^. headStateL of
+          Active (ActiveLink{activeHeadState = Open{openState = LoadingUTxOForIncrement}}) ->
+            case utxoRadioField utxo of
+              Just form ->
+                zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
+                  put $ SelectingUTxOToIncrement form
+              Nothing -> do
+                -- Empty or failed query — close modal, return to previous tab, show message
+                zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
+                  put OpenHome
+                prev <- use previousTabL
+                activeTabL .= prev
+                pendingActionL .= Just "No L1 funds available to increment."
+          _ -> pure ()
+      _ -> pure ()
   MouseDown{} -> pure ()
   MouseUp{} -> pure ()
   VtyEvent e -> do
@@ -66,12 +113,97 @@ handleEvent cardanoClient client = \case
         | not modalOpen -> halt
       EvKey (KChar 'Q') []
         | not modalOpen -> halt
+      EvKey (KChar '1') []
+        | not modalOpen -> activeTabL .= MainTab
+      EvKey (KChar '2') []
+        | not modalOpen -> do
+            activeTabL .= FundsTab
+            triggerL1IfNeeded cardanoClient client chan
+      EvKey (KChar '3') []
+        | not modalOpen -> do
+            activeTabL .= EventHistoryTab
+            eventHistoryListL %= BrickList.listMoveTo 0
+      EvKey (KChar 'd') [] | not modalOpen -> do
+        tab <- use activeTabL
+        case tab of
+          EventHistoryTab -> eventDetailRawL %= not
+          _ -> do
+            setPendingAction e
+            zoom (connectedStateL . connectionL . headStateL) $
+              handleVtyEventsHeadState cardanoClient client chan e
+            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            case newOpenScreen of
+              Just (SelectingUTxOToDecommit _) -> do
+                previousTabL .= tab
+                activeTabL .= ModalTab
+              Just OpenHome ->
+                pendingActionL .= Just "No L2 UTxO available to decommit."
+              _ -> pure ()
+      EvKey (KChar 'r') [] | not modalOpen -> do
+        tab <- use activeTabL
+        case tab of
+          FundsTab -> do
+            l1UTxOL .= Nothing
+            triggerL1Query cardanoClient client chan
+          _ -> do
+            zoom (connectedStateL . connectionL . headStateL) $
+              handleVtyEventsHeadState cardanoClient client chan e
+            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            case newOpenScreen of
+              Just (SelectingDepositIdToRecover _) -> do
+                previousTabL .= tab
+                activeTabL .= ModalTab
+              _ -> pure ()
+      EvKey KRight []
+        | not modalOpen -> do
+            activeTabL %= cycleTab
+            newTab <- use activeTabL
+            when (newTab == FundsTab) $ triggerL1IfNeeded cardanoClient client chan
+            when (newTab == EventHistoryTab) $ eventHistoryListL %= BrickList.listMoveTo 0
+      EvKey KLeft []
+        | not modalOpen -> do
+            activeTabL %= prevTab
+            newTab <- use activeTabL
+            when (newTab == FundsTab) $ triggerL1IfNeeded cardanoClient client chan
+            when (newTab == EventHistoryTab) $ eventHistoryListL %= BrickList.listMoveTo 0
       _ -> do
-        zoom (connectedStateL . connectionL . headStateL) $
-          handleVtyEventsHeadState cardanoClient client e
-
-        unless modalOpen $ do
-          zoom logStateL $ handleVtyEventsLogState e
+        tab <- use activeTabL
+        case tab of
+          ModalTab -> do
+            let closeModal = do
+                  prev <- use previousTabL
+                  activeTabL .= prev
+                  zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
+                    put OpenHome
+            case e of
+              EvKey KEsc [] -> closeModal
+              EvKey (KChar 'c') [] -> closeModal
+              _ -> do
+                zoom (connectedStateL . connectionL . headStateL) $
+                  handleVtyEventsHeadState cardanoClient client chan e
+                -- Auto-close modal if action completed and we returned to OpenHome
+                newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+                case newOpenScreen of
+                  Just OpenHome -> do
+                    prev <- use previousTabL
+                    activeTabL .= prev
+                  _ -> pure ()
+          _ -> do
+            unless modalOpen $ setPendingAction e
+            zoom (connectedStateL . connectionL . headStateL) $
+              handleVtyEventsHeadState cardanoClient client chan e
+            -- Switch to ModalTab when a modal flow starts
+            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            case newOpenScreen of
+              Just LoadingUTxOForIncrement -> do
+                previousTabL .= tab
+                activeTabL .= ModalTab
+              Just (SelectingUTxO _) -> do
+                previousTabL .= tab
+                activeTabL .= ModalTab
+              _ -> pure ()
+            unless modalOpen $
+              handleVtyEventsScrollable e
 
 -- * AppEvent handlers
 
@@ -136,9 +268,9 @@ handleHydraEventsConnection now = \case
   Update (ApiTimedServerOutput TimedServerOutput{output = API.NetworkDisconnected}) -> do
     networkStateL .= Just NetworkDisconnected
     peersL %= map (\(h, _) -> (h, PeerIsUnknown))
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{}}) -> do
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.NodeUnsynced{}}) -> do
     chainSyncedStatusL .= CatchingUp
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{}}) -> do
+  Update (ApiTimedServerOutput TimedServerOutput{output = API.NodeSynced{}}) -> do
     chainSyncedStatusL .= InSync
   e -> zoom headStateL $ handleHydraEventsHeadState now e
  where
@@ -220,8 +352,8 @@ handleHydraEventsInfo = \case
     info time $ "Peer disconnected: " <> show peer
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{parties, headId}}) ->
     info time "Head is now open!"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number}}}) ->
-    info time ("Snapshot #" <> show number <> " confirmed.")
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number, version}}}) ->
+    info time ("Snapshot #" <> show number <> "." <> show version <> " confirmed.")
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotSideLoaded{snapshotNumber}}) ->
     info time ("Snapshot #" <> show snapshotNumber <> " side loaded.")
   Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
@@ -306,50 +438,58 @@ handleHydraEventsInfo = \case
 
 -- * VtyEvent handlers
 
-handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name HeadState ()
-handleVtyEventsHeadState cardanoClient hydraClient e = do
+handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> Vty.Event -> EventM Name HeadState ()
+handleVtyEventsHeadState cardanoClient hydraClient chan e = do
   h <- use id
   case h of
     Idle -> case e of
       EvKey (KChar 'i') [] -> liftIO (sendInput hydraClient Init)
       _ -> pure ()
     _ -> pure ()
-  zoom activeLinkL $ handleVtyEventsActiveLink cardanoClient hydraClient e
+  zoom activeLinkL $ handleVtyEventsActiveLink cardanoClient hydraClient chan e
 
-handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> Vty.Event -> EventM Name ActiveLink ()
-handleVtyEventsActiveLink cardanoClient hydraClient e = do
+handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> Vty.Event -> EventM Name ActiveLink ()
+handleVtyEventsActiveLink cardanoClient hydraClient chan e = do
   utxo <- use utxoL
   pendingIncrements <- use pendingIncrementsL
-  zoom activeHeadStateL $ handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e
+  zoom activeHeadStateL $ handleVtyEventsActiveHeadState cardanoClient hydraClient chan utxo pendingIncrements e
 
-handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
-handleVtyEventsActiveHeadState cardanoClient hydraClient utxo pendingIncrements e = do
-  zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e
+handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name ActiveHeadState ()
+handleVtyEventsActiveHeadState cardanoClient hydraClient chan utxo pendingIncrements e = do
+  zoom openStateL $ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e
   s <- use id
   case s of
     FanoutPossible -> handleVtyEventsFanoutPossible hydraClient e
     Final -> handleVtyEventsFinal hydraClient e
     _ -> pure ()
 
-handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
-handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
+handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> [PendingIncrement] -> Vty.Event -> EventM Name OpenScreen ()
+handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
   get >>= \case
     OpenHome -> do
       case e of
         EvKey (KChar 'n') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
-          put $ SelectingUTxO (utxoRadioField utxo')
+          forM_ (utxoRadioField utxo') $ put . SelectingUTxO
         EvKey (KChar 'd') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
-          put $ SelectingUTxOToDecommit (utxoRadioField utxo')
+          forM_ (utxoRadioField utxo') $ put . SelectingUTxOToDecommit
         EvKey (KChar 'i') [] -> do
-          utxo' <- liftIO $ queryUTxOByAddress cardanoClient [mkMyAddress cardanoClient hydraClient]
-          put $ SelectingUTxOToIncrement (utxoRadioField $ UTxO.toMap utxo')
+          put LoadingUTxOForIncrement
+          let myAddr = mkMyAddress cardanoClient hydraClient
+          liftIO $ void $ forkIO $
+            handle (\(_ :: SomeException) -> writeBChan chan (UTxOQueryResult Map.empty)) $ do
+              utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+              writeBChan chan (UTxOQueryResult (UTxO.toMap utxo'))
         EvKey (KChar 'r') [] -> do
           let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
-          put $ SelectingDepositIdToRecover (depositIdRadioField pendingDepositIds)
+          forM_ (depositIdRadioField pendingDepositIds) $ put . SelectingDepositIdToRecover
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
+        _ -> pure ()
+    LoadingUTxOForIncrement ->
+      case e of
+        EvKey KEsc [] -> put OpenHome
         _ -> pure ()
     ConfirmingClose i ->
       case e of
@@ -365,10 +505,11 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
         EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let utxoSelected@(_, TxOut{txOutValue = v}) = formState i
-          let Coin limit = selectLovelace v
+          let Coin lovelaceLimit = selectLovelace v
+          let limitAda = fromIntegral lovelaceLimit / 1_000_000 :: Double
           let enteringAmountForm =
-                let field = editShowableFieldWithValidate id "amount" (\n -> n > 0 && n <= limit)
-                 in newForm [field] limit
+                let field = editShowableFieldWithValidate id "amount (ADA)" (\n -> n > 0 && n <= limitAda)
+                 in newForm [field] limitAda
           put EnteringAmount{utxoSelected, enteringAmountForm}
         _ -> zoom selectingUTxOFormL $ handleFormEvent (VtyEvent e)
     SelectingUTxOToDecommit i ->
@@ -378,10 +519,10 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
           let utxoSelected@(_, TxOut{txOutValue = v}) = formState i
           let recipient = mkVkAddress @Era (networkId cardanoClient) (getVerificationKey $ sk hydraClient)
           case mkSimpleTx utxoSelected (recipient, v) (sk hydraClient) of
-            Left _ -> pure ()
+            Left err -> liftIO $ writeBChan chan (TxBuildError $ "Could not build decommit transaction: " <> show err)
             Right tx -> do
               liftIO (sendInput hydraClient (Decommit tx))
-          put OpenHome
+              put OpenHome
         _ -> zoom selectingUTxOToDecommitFormL $ handleFormEvent (VtyEvent e)
     SelectingUTxOToIncrement i -> do
       case e of
@@ -430,8 +571,8 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
         EvKey KEnter [] -> do
           case formState i of
             SelectAddress recipient -> do
-              case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin amountEntered) (sk hydraClient) of
-                Left _ -> pure ()
+              case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin $ round (amountEntered * 1_000_000)) (sk hydraClient) of
+                Left err -> liftIO $ writeBChan chan (TxBuildError $ "Could not build transaction: " <> show err)
                 Right tx -> do
                   liftIO (sendInput hydraClient (NewTx tx))
                   put OpenHome
@@ -459,8 +600,8 @@ handleVtyEventsOpen cardanoClient hydraClient utxo pendingIncrements e =
         EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let recipient = formState i
-          case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin amountEntered) (sk hydraClient) of
-            Left _ -> pure ()
+          case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin $ round (amountEntered * 1_000_000)) (sk hydraClient) of
+            Left err -> liftIO $ writeBChan chan (TxBuildError $ "Could not build transaction: " <> show err)
             Right tx -> do
               liftIO (sendInput hydraClient (NewTx tx))
               put OpenHome
@@ -485,24 +626,30 @@ handleVtyEventsFinal hydraClient e = do
       liftIO (sendInput hydraClient Init)
     _ -> pure ()
 
-handleVtyEventsLogState :: Vty.Event -> EventM Name LogState ()
-handleVtyEventsLogState = \case
-  EvKey (KChar '<') [] -> scroll Up
-  EvKey (KChar '>') [] -> scroll Down
-  EvKey (KChar 'h') [] -> logVerbosityL .= Full
-  EvKey (KChar 's') [] -> logVerbosityL .= Short
-  _ -> pure ()
+handleVtyEventsScrollable :: Vty.Event -> EventM Name RootState ()
+handleVtyEventsScrollable e = do
+  tab <- use activeTabL
+  when (tab == EventHistoryTab) $ case e of
+    EvKey KPageUp [] -> vScrollBy (viewportScroll "event-detail") (-10)
+    EvKey KPageDown [] -> vScrollBy (viewportScroll "event-detail") 10
+    Vty.EvMouseDown _ _ Vty.BScrollUp _ ->
+      zoom eventHistoryListL $ BrickList.handleListEvent (EvKey KUp [])
+    Vty.EvMouseDown _ _ Vty.BScrollDown _ ->
+      zoom eventHistoryListL $ BrickList.handleListEvent (EvKey KDown [])
+    _ -> zoom eventHistoryListL $ BrickList.handleListEvent e
 
-scroll :: Direction -> EventM Name LogState ()
-scroll direction = do
-  x <- use logVerbosityL
-  case x of
-    Full -> do
-      let vp = viewportScroll fullFeedbackViewportName
-      vScrollPage vp direction
-    Short -> do
-      let vp = viewportScroll shortFeedbackViewportName
-      hScrollPage vp direction
+syncEventHistoryList :: EventM Name RootState ()
+syncEventHistoryList = do
+  msgs <- use (logStateL . logMessagesL)
+  eventHistoryListL %= \l ->
+    let oldLen = Vec.length (BrickList.listElements l)
+        newVec = Vec.fromList msgs
+        newLen = Vec.length newVec
+        added = newLen - oldLen
+        newList = BrickList.listReplace newVec (BrickList.listSelected l) l
+     in if added > 0
+          then BrickList.listMoveTo (maybe 0 (+ added) (BrickList.listSelected l)) newList
+          else newList
 
 myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
 myAvailableUTxO networkId vk (UTxO u) =
@@ -515,3 +662,62 @@ mkMyAddress cardanoClient hydraClient =
     (networkId cardanoClient)
     (PaymentCredentialByKey . verificationKeyHash $ getVerificationKey $ sk hydraClient)
     NoStakeAddress
+
+setPendingAction :: Vty.Event -> EventM Name RootState ()
+setPendingAction e = do
+  connState <- use connectedStateL
+  case connState of
+    Disconnected -> pure ()
+    Connected c -> case (c ^. headStateL, e) of
+      (Idle, EvKey (KChar 'i') []) ->
+        pendingActionL .= Just "Sending Init…"
+      (Active (ActiveLink{activeHeadState = Final}), EvKey (KChar 'i') []) ->
+        pendingActionL .= Just "Sending Init…"
+      (Active (ActiveLink{activeHeadState = FanoutPossible}), EvKey (KChar 'f') []) ->
+        pendingActionL .= Just "Sending Fanout…"
+      (Active (ActiveLink{activeHeadState = Open{openState = OpenHome}}), EvKey (KChar 'i') []) ->
+        pendingActionL .= Just "Querying Cardano node…"
+      (Active (ActiveLink{activeHeadState = Open{openState}}), EvKey KEnter []) ->
+        case openState of
+          SelectingUTxOToDecommit _ ->
+            pendingActionL .= Just "Sending decommit…"
+          SelectingUTxOToIncrement _ ->
+            pendingActionL .= Just "Sending increment…"
+          SelectingDepositIdToRecover _ ->
+            pendingActionL .= Just "Sending recovery…"
+          EnteringRecipientAddress{} ->
+            pendingActionL .= Just "Sending transaction…"
+          SelectingRecipient{selectingRecipientForm = form} ->
+            case formState form of
+              SelectAddress _ -> pendingActionL .= Just "Sending transaction…"
+              ManualEntry -> pure ()
+          ConfirmingClose{confirmingCloseForm = form} ->
+            when (formState form) $
+              pendingActionL .= Just "Sending Close…"
+          _ -> pure ()
+      _ -> pure ()
+
+triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
+triggerL1Query cardanoClient client chan = do
+  let myAddr = mkMyAddress cardanoClient client
+  liftIO $ void $ forkIO $
+    handle (\(_ :: SomeException) -> writeBChan chan (L1UTxORefresh Map.empty)) $ do
+      utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+      writeBChan chan (L1UTxORefresh (UTxO.toMap utxo'))
+
+triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
+triggerL1IfNeeded cardanoClient client chan = do
+  l1 <- use l1UTxOL
+  when (isNothing l1) $ triggerL1Query cardanoClient client chan
+
+cycleTab :: ActiveTab -> ActiveTab
+cycleTab MainTab = FundsTab
+cycleTab FundsTab = EventHistoryTab
+cycleTab EventHistoryTab = MainTab
+cycleTab ModalTab = MainTab
+
+prevTab :: ActiveTab -> ActiveTab
+prevTab MainTab = EventHistoryTab
+prevTab FundsTab = MainTab
+prevTab EventHistoryTab = FundsTab
+prevTab ModalTab = MainTab
