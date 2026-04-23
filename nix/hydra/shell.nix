@@ -44,6 +44,8 @@
         pkgs.yarn
         pkgs.yq
         pkgs.nix-fast-build
+        pkgs.selfci
+        pkgs.just
       ];
 
       libs = [

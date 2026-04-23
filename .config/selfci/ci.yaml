@@ -1,0 +1,60 @@
+# SelfCI Configuration
+
+job:
+  # This command will be executed for all jobs
+  # Use $SELFCI_JOB_NAME env var to determine which job is running
+  command: |
+    set -eou pipefail
+
+    just check
+    just test
+
+  # Command prefix for executing the command
+  # Can be used to change the shell, or disable shell interpretation
+  # of `command` altogether.
+  # command-prefix: ["bash", "-c"]
+
+  # Clone mode: "partial", "shallow", or "full" (default: partial)
+  # - partial: Fast, uses partial clone (--filter=blob:none) - all commits, blobs on-demand
+  # - shallow: Most compact, uses shallow clone (--depth=1) - single commit only
+  # - full: Complete clone with all history and objects
+  clone-mode: partial
+
+# Merge queue configuration (optional)
+# mq:
+#   # Default base branch for merge queue
+#   base-branch: main
+#
+#   # Merge mode: "rebase" or "merge" (default: rebase)
+#   # - rebase: Rebase candidate commits on top of base branch (no merge commit)
+#   # - merge: Create a merge commit
+#   merge-mode: rebase
+#
+#   # MQ hooks - run at different stages of the merge queue process
+#   # Each hook has: command (required), command-prefix (optional, default: ["bash", "-c"])
+#   # Hooks can also be defined in local.yaml (not checked into source control)
+#   # Local hooks override hooks defined here.
+#
+#   # Runs before daemonization with inherited stdio (allows interactive input)
+#   # pre-start:
+#   #   command: 'echo "Pre-start (interactive)"'
+#
+#   # Runs after daemonization with captured output (non-interactive)
+#   # post-start:
+#   #   command: 'echo "Post-start (captured)"'
+#
+#   # Runs before worktrees are created for each candidate
+#   # pre-clone:
+#   #   command: 'echo "Running pre-clone"'
+#
+#   # Runs after worktrees are created, before the job command
+#   # post-clone:
+#   #   command: 'echo "Running post-clone"'
+#
+#   # Runs after check passes, before merging
+#   # pre-merge:
+#   #   command: 'echo "Running pre-merge"'
+#
+#   # Runs after a successful merge
+#   # post-merge:
+#   #   command: 'echo "Merge completed"'

@@ -4,6 +4,7 @@
       url = "github:IntersectMBO/cardano-haskell-packages?ref=repo";
       flake = false;
     };
+    selfci.url = "git+https://radicle.dpc.pw/z2tDzYbAXxTQEKTGFVwiJPajkbeDU.git";
     aiken.url = "github:aiken-lang/aiken/v1.1.9";
     cardano-node.url = "github:intersectmbo/cardano-node/10.6.2";
     flake-parts.url = "github:hercules-ci/flake-parts";
