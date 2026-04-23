@@ -75,7 +75,7 @@ data Timing = Timing
   , contestationPeriod :: ContestationPeriod
   , depositPeriod :: DepositPeriod
   }
-  deriving (Show)
+  deriving stock (Show)
 
 -- | Set up reasonable timing parameters for testing given a 'BlockTime'.
 mkTestTiming :: BlockTime -> Timing

@@ -95,7 +95,7 @@ data ChainObserverLog
   = FromCardanoNode NodeLog
   | FromHydraNode HydraNodeLog
   | FromFaucet FaucetLog
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
 -- | Starts a 'hydra-chain-observer' on some Cardano network.
