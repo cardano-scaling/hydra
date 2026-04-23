@@ -13,147 +13,318 @@ import Hydra.Cardano.Api hiding (Active)
 import Brick.Forms (
   renderForm,
  )
-import Brick.Widgets.Border (hBorder, vBorder)
-import Brick.Widgets.Border.Style (ascii)
+import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel, vBorder)
+import Brick.Widgets.Border.Style (unicodeRounded)
+import Brick.Widgets.List qualified as BrickList
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
-import Data.Text (chunksOf)
-import Data.Time (defaultTimeLocale, formatTime)
+import Data.Text qualified as T
+import Data.Time (defaultTimeLocale, formatTime, utctDayTime)
 import Data.Time.Format (FormatTime)
+import Data.Time.LocalTime (TimeZone, utcToLocalTime)
 import Data.Version (Version, showVersion)
-import Hydra.Cardano.Api.Pretty (renderUTxO)
+import Graphics.Vty qualified as Vty
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.Network (Host)
-import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, maybeWidget)
-import Hydra.TUI.Logging.Types (LogMessage (..), LogVerbosity (..), logMessagesL, logVerbosityL)
+import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize)
+import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
-import Hydra.TUI.Style
+import Hydra.TUI.Style hiding (style)
 import Hydra.Tx (HeadId, IsTx (..), Party (..))
-import Lens.Micro ((^.), (^?), _head)
-import Paths_hydra_tui (version)
+import Lens.Micro ((^.), (^?))
 
 -- | Main draw function
 draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
 draw cardanoClient hydraClient s =
-  case s ^. logStateL . logVerbosityL of
-    Full -> drawScreenFullLog s
-    Short -> drawScreenShortLog cardanoClient hydraClient s
-
-drawScreenShortLog :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
-drawScreenShortLog CardanoClient{networkId} Client{sk} s =
   pure $
-    withBorderStyle ascii $
+    withBorderStyle unicodeRounded $
       joinBorders $
         vBox
-          [ hBox
-              [ padLeftRight 1 $
-                  hLimit 40 $
-                    vBox
-                      [ drawTUIVersion version
-                      , hBorder
-                      , drawMyAddress $ mkVkAddress networkId (getVerificationKey sk)
-                      , drawConnectedStatus s
-                      , drawNetworkState (s ^. connectedStateL)
-                      , drawChainSyncedState (s ^. connectedStateL)
-                      , hBorder
-                      , drawIfConnected (drawPeers (s ^. connectedStateL) . peers) (s ^. connectedStateL)
-                      , hBorder
-                      , drawIfConnected (drawMeIfIdentified . me) (s ^. connectedStateL)
-                      , drawIfConnected (\connection -> drawIfActive (drawHeadParticipants (me connection) . parties) (headState connection)) (s ^. connectedStateL)
-                      ]
-              , vBorder
-              , padLeftRight 1 $
-                  vBox
-                    [ drawHeadState (s ^. connectedStateL)
-                    , hBorder
-                    , case s ^. connectedStateL of
-                        Disconnected -> emptyWidget
-                        Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
-                    ]
-              , vBorder
-              , hLimit 20 $ joinBorders $ drawCommandPanel s
-              ]
-          , hBorder
+          [ drawTabBar (s ^. activeTabL) (modalTabLabel s) fundsLabel
+          , drawTabContent cardanoClient hydraClient s
           , vLimit 1 $
-              viewport shortFeedbackViewportName Horizontal $
-                maybeWidget drawUserFeedbackShort (s ^? logStateL . logMessagesL . _head)
+              padLeft (Pad 2) $
+                case s ^. pendingActionL of
+                  Nothing -> fill ' '
+                  Just msg -> withAttr pendingA (txt msg) <+> fill ' '
+          , padLeftRight 2 $ padTopBottom 1 $ drawActionBar s
           ]
-
-drawCommandPanel :: RootState -> Widget n
-drawCommandPanel s =
-  drawCommandList s
-    <=> maybeDrawLogCommandList
  where
-  maybeDrawLogCommandList
-    | not (isModalOpen s) =
-        vBox
-          [ hBorder
-          , drawLogCommandList (s ^. logStateL . logVerbosityL)
-          ]
-    | otherwise = emptyWidget
+  fundsLabel =
+    let hasPendingCommit = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL of
+          Just (_ : _) -> True
+          _ -> False
+        hasPendingDecommit = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingUTxOToDecommitL of
+          Just u | u /= mempty -> True
+          _ -> False
+        arrows = (if hasPendingCommit then "↑" else "") <> (if hasPendingDecommit then "↓" else "")
+     in if T.null arrows then "Funds" else "Funds " <> arrows
 
-drawScreenFullLog :: RootState -> [Widget Name]
-drawScreenFullLog s =
-  pure $
-    withBorderStyle ascii $
-      joinBorders $
+drawTabBar :: ActiveTab -> Text -> Text -> Widget n
+drawTabBar active modalTabName fundsLabel =
+  padLeft (Pad 1) $
+    hBox $
+      [ drawTab MainTab "Main" active
+      , txt "  "
+      , drawTab FundsTab fundsLabel active
+      , txt "  "
+      , drawTab EventHistoryTab "Event History" active
+      ]
+        ++ case active of
+          ModalTab -> [txt "  ", drawTab ModalTab modalTabName active]
+          _ -> []
+
+modalTabLabel :: RootState -> Text
+modalTabLabel s = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL of
+  Just LoadingUTxOForIncrement -> "Increment"
+  Just (SelectingUTxOToIncrement _) -> "Increment"
+  Just (SelectingUTxOToDecommit _) -> "Decommit"
+  Just (SelectingDepositIdToRecover _) -> "Recover"
+  Just (SelectingUTxO _) -> "New Tx"
+  Just EnteringAmount{} -> "New Tx"
+  Just SelectingRecipient{} -> "New Tx"
+  Just EnteringRecipientAddress{} -> "New Tx"
+  _ -> "Action"
+
+drawTab :: ActiveTab -> Text -> ActiveTab -> Widget n
+drawTab tab tabLabel current =
+  if tab == current
+    then withAttr activeTabA $ txt (" " <> tabLabel <> " ")
+    else withAttr neutral $ txt tabLabel
+
+drawTabContent :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+drawTabContent cardanoClient hydraClient s =
+  case s ^. activeTabL of
+    MainTab -> drawMainTab cardanoClient hydraClient s
+    FundsTab -> drawFundsTab cardanoClient hydraClient s
+    EventHistoryTab -> drawEventHistoryTab s
+    ModalTab -> drawModalTab cardanoClient hydraClient s
+
+drawModalTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+drawModalTab CardanoClient{networkId} Client{sk} s =
+  borderWithLabel (withAttr neutral $ txt (" " <> modalTabLabel s <> " ")) $
+    padLeftRight 1 $
+      case s ^. connectedStateL of
+        Disconnected -> emptyWidget
+        Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
+
+drawMainTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+drawMainTab CardanoClient{networkId} Client{sk} s =
+  borderWithLabel (withAttr neutral $ txt panelTitle) $
+    vBox
+      [ -- Status strip: plain text, no border characters so junctions don't misalign
+        padLeftRight 1 $
+          hBox . intersperse (txt "   ") $
+            [ drawConnectedStatus s
+            , drawNetworkState connState
+            , drawChainSyncedState connState
+            ]
+      , hBox
+          [ hLimit 30 $ hBorderWithLabel (withAttr neutral $ txt "Peers ")
+          , hBorderWithLabel (withAttr neutral $ txt " UTxO ")
+          ]
+      , -- Peers (fixed-width column) | UTxO (fills remaining width)
+        -- The single vBorder here is the only vertical rule, giving clean ┬/┴ junctions
         hBox
-          [ vBox
-              [ drawHeadState (s ^. connectedStateL)
-              , hBorder
-              , viewport fullFeedbackViewportName Vertical $ drawUserFeedbackFull (s ^. logStateL . logMessagesL)
-              ]
+          [ hLimit 30 $ padLeftRight 1 drawPeersSection
           , vBorder
-          , hLimit 20 $ joinBorders $ drawCommandPanel s
+          , padLeftRight 1 drawUtxoSection
           ]
+      , hBorderWithLabel (withAttr neutral $ txt " Recent events ")
+      , vLimitPercent 50 $
+          viewport "recent-events" Vertical $
+            vBox $
+              map (drawEventListItem (s ^. timeZoneL) False) (take 20 (s ^. logStateL . logMessagesL))
+      ]
+ where
+  connState = s ^. connectedStateL
+  ownAddress = mkVkAddress networkId (getVerificationKey sk)
 
-drawCommandList :: RootState -> Widget n
-drawCommandList s = vBox . fmap txt $ case s ^. connectedStateL of
-  Disconnected -> ["[Q]uit"]
-  Connected c -> case c ^. headStateL of
-    Idle -> ["[I]nit", "[Q]uit"]
-    Active (ActiveLink{activeHeadState}) -> case activeHeadState of
-      Open{} -> ["[N]ew Transaction", "[D]ecommit", "[I]ncrement", "[R]ecover", "[C]lose", "[Q]uit"]
-      Closed{} -> ["[Q]uit"]
-      FanoutPossible{} -> ["[F]anout", "[Q]uit"]
-      Final{} -> ["[I]nit", "[Q]uit"]
+  panelTitle = case connState of
+    Disconnected -> " Status "
+    Connected (Connection{headState}) -> case headState of
+      Idle -> " Idle "
+      Active (ActiveLink{headId, activeHeadState}) ->
+        let stateStr = case activeHeadState of
+              Open{} -> "Open"
+              Closed{} -> "Closed"
+              FanoutPossible -> "Ready to Fanout"
+              Final -> "Finalized"
+            hid = serialiseToRawBytesHexText headId
+         in " " <> stateStr <> " · " <> hid <> " "
 
-drawLogCommandList :: LogVerbosity -> Widget n
-drawLogCommandList s = vBox . fmap txt $ case s of
-  Short ->
-    [ "[<] Scroll Left"
-    , "[>] Scroll Right"
-    , "Full [H]istory Mode"
+  drawPeersSection :: Widget Name
+  drawPeersSection = case connState of
+    Disconnected -> withAttr neutral $ txt "Peers"
+    Connected c -> drawPeers connState (c ^. peersL)
+
+  drawUtxoSection :: Widget Name
+  drawUtxoSection = case connState of
+    Disconnected -> withAttr neutral $ txt "UTxO"
+    Connected c -> case c ^. headStateL of
+      Idle -> withAttr neutral $ txt "No UTxO present."
+      Active (ActiveLink{utxo, pendingIncrements, pendingUTxOToDecommit}) ->
+        vBox $
+          [ withAttr neutral $ txt "UTxO"
+          , drawUTxO (highlightOwnAddress ownAddress) utxo
+          ]
+            <> [ withAttr infoA $ txt $ "  ↑ " <> show (length pendingIncrements) <> " pending commit(s)"
+               | not (null pendingIncrements)
+               ]
+            <> [ withAttr infoA $ txt "  ↓ pending decommit"
+               | pendingUTxOToDecommit /= mempty
+               ]
+
+drawPeersTab :: RootState -> Widget Name
+drawPeersTab s =
+  borderWithLabel (withAttr neutral $ txt " Peers ") $
+    padLeftRight 1 $
+      vBox
+        [ drawIfConnected (drawMeIfIdentified . me) (s ^. connectedStateL)
+        , hBorder
+        , drawIfConnected (\conn -> drawIfActive (drawHeadParticipants (me conn) . parties) (headState conn)) (s ^. connectedStateL)
+        , hBorder
+        , drawIfConnected (drawPeers (s ^. connectedStateL) . peers) (s ^. connectedStateL)
+        ]
+
+drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+drawFundsTab CardanoClient{networkId} Client{sk} s =
+  borderWithLabel (withAttr neutral $ txt " Funds ") $
+    vBox
+      [ hBorderWithLabel (withAttr neutral $ txt " L2 State ")
+      , vLimitPercent 50 $ padLeftRight 1 drawL2
+      , hBorderWithLabel (withAttr neutral $ txt " L1 Wallet ")
+      , padLeftRight 1 $ drawL1WalletPanel (s ^. l1UTxOL) ownAddress (s ^. nowL)
+      ]
+ where
+  vk = getVerificationKey sk
+  ownAddress = mkVkAddress networkId vk
+  drawL2 = case s ^. connectedStateL of
+    Disconnected -> withAttr neutral $ txt "Not connected."
+    Connected k -> drawFocusPanel networkId vk (s ^. nowL) k
+
+drawL1WalletPanel :: Maybe (Map TxIn (TxOut CtxUTxO)) -> AddressInEra -> UTCTime -> Widget Name
+drawL1WalletPanel Nothing _ now =
+  withAttr neutral $ padAll 1 $ txt (spinnerFrame now <> " Refreshing…")
+drawL1WalletPanel (Just utxo) ownAddress _
+  | Map.null utxo = withAttr neutral $ padAll 1 $ txt "No UTxO found."
+  | otherwise =
+      vBox
+        [ withAttr neutral $ txt "Wallet UTxO"
+        , drawUTxO (highlightOwnAddress ownAddress) (UTxO.fromMap utxo)
+        ]
+
+spinnerFrame :: UTCTime -> Text
+spinnerFrame now =
+  let frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] :: [Text]
+      s = floor (realToFrac (utctDayTime now) :: Double) `mod` (10 :: Int)
+   in case drop s frames of
+        (f : _) -> f
+        [] -> "⠋"
+
+drawEventHistoryTab :: RootState -> Widget Name
+drawEventHistoryTab s =
+  borderWithLabel (withAttr neutral $ txt " Event History ") $
+    vBox
+      [ vLimitPercent 50 $ BrickList.renderList (drawEventListItem tz) True (s ^. eventHistoryListL)
+      , hBorderWithLabel (withAttr neutral $ txt detailLabel)
+      , viewport "event-detail" Vertical $
+          padLeftRight 1 $
+            drawEventDetail tz rawView (BrickList.listSelectedElement (s ^. eventHistoryListL))
+      ]
+ where
+  tz = s ^. timeZoneL
+  rawView = s ^. eventDetailRawL
+  detailLabel = if rawView then " Detail (raw)  d:summary " else " Detail  d:raw "
+
+drawEventListItem :: TimeZone -> Bool -> LogMessage -> Widget Name
+drawEventListItem tz selected (LogMessage{message, severity, time}) =
+  let ts = formatTime defaultTimeLocale "%b %d %H:%M:%S" (utcToLocalTime tz time)
+      line = str ts <+> txt "  " <+> txt severityIcon <+> txt "  " <+> txt message
+      styled = case severity of
+        Success | not selected -> withAttr infoA line
+        _ -> line
+   in if selected then withAttr BrickList.listSelectedAttr styled else styled
+ where
+  severityIcon = case severity of
+    Success -> "✓"
+    Info -> "·"
+    Error -> "✗"
+
+drawEventDetail :: TimeZone -> Bool -> Maybe (Int, LogMessage) -> Widget Name
+drawEventDetail _ _ Nothing = withAttr neutral $ txt "No event selected."
+drawEventDetail tz rawView (Just (_, LogMessage{message, severity, time, rawJson})) =
+  vBox
+    [ hBox
+        [ withAttr (severityToAttr severity) $ txt (severityLabel severity)
+        , txt "  "
+        , str $ formatTime defaultTimeLocale "%b %d %Y  %H:%M:%S" (utcToLocalTime tz time)
+        ]
+    , txt " "
+    , body
     ]
-  Full ->
-    [ "[<] Scroll Up"
-    , "[>] Scroll Down"
-    , "[S]hort History Mode"
-    ]
+ where
+  severityLabel = \case
+    Success -> "Success"
+    Info -> "Info"
+    Error -> "Error"
+  body
+    | rawView, Just json <- rawJson = txtWrap json
+    | rawView = withAttr neutral $ txt "No raw JSON available for this event."
+    | otherwise = txtWrap message
+
+drawActionBar :: RootState -> Widget n
+drawActionBar s =
+  hBox . intersperse (txt "  ") $ map drawAction actions
+ where
+  isModal = s ^. activeTabL == ModalTab
+  actions = case s ^. connectedStateL of
+    Disconnected -> [("Q", "uit")]
+    Connected c -> case c ^. headStateL of
+      Idle -> [("I", "nit"), ("Q", "uit")]
+      Active (ActiveLink{activeHeadState}) ->
+        if isModal
+          then case activeHeadState of
+            Open{openState} -> case openState of
+              SelectingUTxOToIncrement _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
+              SelectingUTxOToDecommit _ -> [("↑↓/Space", " choose"), ("Enter", " decommit"), ("Esc/C", " cancel")]
+              SelectingDepositIdToRecover _ -> [("↑↓/Space", " choose"), ("Enter", " recover"), ("Esc/C", " cancel")]
+              SelectingUTxO _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
+              EnteringAmount{} -> [("Enter", " confirm"), ("Esc/C", " cancel")]
+              SelectingRecipient{} -> [("↑↓/Space", " choose"), ("Enter", " send"), ("Esc/C", " cancel")]
+              EnteringRecipientAddress{} -> [("Enter", " send"), ("Esc/C", " cancel")]
+              _ -> [("Esc/C", " cancel")]
+            _ -> [("Esc/C", " close")]
+          else case (s ^. activeTabL, activeHeadState) of
+            (EventHistoryTab, _) -> [("d", " raw/summary"), ("Q", "uit")]
+            (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "efresh")]
+            (_, Open{}) -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement"), ("R", "ecover"), ("C", "lose"), ("Q", "uit")]
+            (_, Closed{}) -> [("Q", "uit")]
+            (_, FanoutPossible{}) -> [("F", "anout"), ("Q", "uit")]
+            (_, Final{}) -> [("I", "nit"), ("Q", "uit")]
+
+  drawAction :: (Text, Text) -> Widget n
+  drawAction (key, rest) = withAttr keyA (txt key) <+> modifyDefAttr (`Vty.withStyle` Vty.italic) (txt rest)
 
 drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
 drawRemainingDepositDeadline deadline now =
   let remaining = diffUTCTime deadline now
    in if remaining > 0
-        then padLeftRight 1 $ vBox [txt "Remaining time to deposit: ", str (renderTime remaining)]
-        else txt "Deposit deadline passed, ready to recover."
+        then txt "Remaining time to deposit: " <+> str (renderTime remaining)
+        else withAttr negative $ txt "Deposit deadline passed, ready to recover."
 
 drawPendingIncrement :: AddressInEra -> [PendingIncrement] -> UTCTime -> Widget Name
 drawPendingIncrement ownAddress pendingIncrements now =
-  padLeft (Pad 2) $
-    vBox $
-      foldl' pendingWidget [] pendingIncrements
+  vBox $ foldl' pendingWidget [] pendingIncrements
  where
   pendingWidget acc = \case
     PendingIncrement{utxoToCommit, deposit, depositDeadline, status} ->
       acc
-        <> [ txt $ "id: " <> show deposit
-           , txt $ "status: " <> show status
-           , txt "utxo: "
+        <> [ txt ("id: " <> show deposit)
+           , txt ("status: " <> show status)
            , drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
-           , txt "deadline: "
            , drawRemainingDepositDeadline depositDeadline now
            , hBorder
            ]
@@ -162,21 +333,17 @@ drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO ->
 drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now = \case
   OpenHome ->
     vBox
-      [ vBox
-          [ txt "Active UTxO: "
-          , drawUTxO (highlightOwnAddress ownAddress) utxo
-          ]
+      [ withAttr neutral (txt "Active UTxO")
+      , drawUTxO (highlightOwnAddress ownAddress) utxo
       , hBorder
-      , vBox
-          [ txt "Pending UTxO to decommit: "
-          , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
-          ]
+      , withAttr neutral (txt "Pending decommit")
+      , drawUTxO (highlightOwnAddress ownAddress) pendingUTxOToDecommit
       , hBorder
-      , vBox
-          [ txt "Pending UTxO to commit: "
-          , drawPendingIncrement ownAddress pendingIncrements now
-          ]
+      , withAttr neutral (txt "Pending commits")
+      , drawPendingIncrement ownAddress pendingIncrements now
       ]
+  LoadingUTxOForIncrement ->
+    padAll 1 $ withAttr neutral $ txt "Querying Cardano node for available UTxO…"
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
   SelectingUTxOToIncrement x -> renderForm x
@@ -184,7 +351,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   EnteringRecipientAddress _ _ x -> renderForm x
-  ConfirmingClose x -> vBox [txt "Confirm Close action:", renderForm x]
+  ConfirmingClose x -> vBox [txt "Confirm close:", renderForm x]
  where
   ownAddress = mkVkAddress networkId vk
 
@@ -193,11 +360,10 @@ drawFocusPanelClosed now (ClosedState{contestationDeadline}) = drawRemainingCont
 
 drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
 drawFocusPanelFinal networkId vk utxo =
-  padLeftRight 1 $
-    txt ("Distributed UTXO, total: " <> renderValue (balance @Tx utxo))
-      <=> padLeft
-        (Pad 2)
-        (drawUTxO (highlightOwnAddress ownAddress) utxo)
+  vBox
+    [ txt ("Distributed UTxO — total: " <> renderAda (balance @Tx utxo))
+    , padLeft (Pad 2) (drawUTxO (highlightOwnAddress ownAddress) utxo)
+    ]
  where
   ownAddress = mkVkAddress networkId vk
 
@@ -207,7 +373,7 @@ highlightOwnAddress ownAddress a =
 
 drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
 drawFocusPanel networkId vk now (Connection{headState}) = case headState of
-  Idle -> emptyWidget
+  Idle -> withAttr neutral $ txt "Head is idle."
   Active (ActiveLink{utxo, pendingUTxOToDecommit, pendingIncrements, activeHeadState}) -> case activeHeadState of
     Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now x
     Closed x -> drawFocusPanelClosed now x
@@ -218,32 +384,18 @@ drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget Name
 drawRemainingContestationPeriod deadline now =
   let remaining = diffUTCTime deadline now
    in if remaining > 0
-        then padLeftRight 1 $ vBox [txt "Remaining time to contest: ", str (renderTime remaining)]
-        else txt "Contestation period passed, ready to fan out soon."
+        then txt "Remaining time to contest: " <+> str (renderTime remaining)
+        else withAttr positive $ txt "Contestation period passed — ready to fan out."
 
 drawPartiesWithOwnHighlighted :: Party -> [Party] -> Widget n
 drawPartiesWithOwnHighlighted k = drawParties (\p -> drawParty (if k == p then own else mempty) p)
-
-drawUserFeedbackFull :: [LogMessage] -> Widget n
-drawUserFeedbackFull = vBox . fmap f
- where
-  f :: LogMessage -> Widget n
-  f (LogMessage{message, severity, time}) =
-    let feedbackText = show time <> " | " <> message
-        feedbackChunks = chunksOf 150 feedbackText
-        feedbackDecorator = withAttr (severityToAttr severity) . txtWrap
-     in vBox $ fmap feedbackDecorator feedbackChunks
-
-drawUserFeedbackShort :: LogMessage -> Widget n
-drawUserFeedbackShort (LogMessage{message, severity, time}) =
-  withAttr (severityToAttr severity) . str . toString $ (show time <> " | " <> message)
 
 drawParties :: (Party -> Widget n) -> [Party] -> Widget n
 drawParties f xs = vBox $ map f xs
 
 drawHeadParticipants :: IdentifiedState -> [Party] -> Widget n
 drawHeadParticipants k xs =
-  str "Head participants:"
+  withAttr neutral (txt "Participants")
     <=> ( case k of
             Unidentified -> drawParties (drawParty mempty) xs
             Identified p -> drawPartiesWithOwnHighlighted p xs
@@ -261,45 +413,39 @@ drawIfActive f = \case
 
 drawNetworkState :: ConnectedState -> Widget n
 drawNetworkState s =
-  hBox
-    [ txt "Network: "
-    , case s of
-        Disconnected{} -> withAttr negative $ txt "Unknown"
-        Connected{connection = Connection{networkState}} ->
-          case networkState of
-            Nothing -> withAttr negative $ txt "Unknown"
-            Just NetworkConnected -> withAttr positive $ txt "Connected"
-            Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
-    ]
+  txt "Network: " <+> case s of
+    Disconnected{} -> withAttr negative $ txt "Unknown"
+    Connected{connection = Connection{networkState}} ->
+      case networkState of
+        Nothing -> withAttr negative $ txt "Unknown"
+        Just NetworkConnected -> withAttr positive $ txt "Connected"
+        Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
 
 drawChainSyncedState :: ConnectedState -> Widget n
 drawChainSyncedState s =
-  hBox
-    [ txt "Chain: "
-    , case s of
-        Disconnected{} -> withAttr negative $ txt "Unknown"
-        Connected{connection = Connection{chainSyncedStatus}} ->
-          case chainSyncedStatus of
-            InSync -> withAttr positive $ txt "InSync"
-            CatchingUp -> withAttr negative $ txt "CatchingUp"
-    ]
+  txt "Chain: " <+> case s of
+    Disconnected{} -> withAttr negative $ txt "Unknown"
+    Connected{connection = Connection{chainSyncedStatus}} ->
+      case chainSyncedStatus of
+        InSync -> withAttr positive $ txt "In sync"
+        CatchingUp -> withAttr negative $ txt "Catching up"
 
 drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
-drawPeers s peers = vBox $ str "Alive peers:" : rest
+drawPeers s peers = vBox rest
  where
-  -- Note: We only show the list of alive peers if the network is connected;
-  -- otherwise, it is not reliable.
   rest = case s of
     Connected{connection = Connection{networkState = Just NetworkConnected}} ->
-      map drawPeer peers
-    _ -> [txt "Unknown"]
+      if null peers
+        then [withAttr neutral $ txt "none"]
+        else map drawPeer peers
+    _ -> [withAttr neutral $ txt "unknown"]
 
   drawPeer :: (Host, PeerStatus) -> Widget n
   drawPeer (host, status) =
-    withAttr (statusAttr status) (drawShow host)
+    withAttr (statusAttr status) (txt "●") <+> txt " " <+> drawShow host
 
   statusAttr = \case
-    PeerIsConnected -> positive
+    PeerIsConnected -> infoA
     PeerIsDisconnected -> negative
     PeerIsUnknown -> neutral
 
@@ -307,24 +453,20 @@ drawHeadId :: HeadId -> Widget n
 drawHeadId x = txt $ "Head id: " <> serialiseToRawBytesHexText x
 
 drawMyAddress :: AddressInEra -> Widget n
-drawMyAddress addr = str "Wallet: " <+> withAttr own (drawAddress addr)
+drawMyAddress addr = txt "Wallet: " <+> withAttr own (drawAddress addr)
 
 drawAddress :: AddressInEra -> Widget n
 drawAddress addr = txt (ellipsize 40 $ serialiseAddress addr)
 
 drawMeIfIdentified :: IdentifiedState -> Widget n
-drawMeIfIdentified (Identified Party{vkey}) = str "Party " <+> withAttr own (txt $ serialiseToRawBytesHexText vkey)
+drawMeIfIdentified (Identified Party{vkey}) = txt "Party: " <+> withAttr own (txt $ serialiseToRawBytesHexText vkey)
 drawMeIfIdentified Unidentified = emptyWidget
 
 drawConnectedStatus :: RootState -> Widget n
 drawConnectedStatus RootState{nodeHost, connectedState} =
-  hBox
-    [ txt "API:"
-    , padLeft (Pad 1) $
-        case connectedState of
-          Disconnected -> withAttr negative $ str $ "Connecting to " <> show nodeHost
-          Connected _ -> withAttr positive $ str $ "Connected to " <> show nodeHost
-    ]
+  txt "API: " <+> case connectedState of
+    Disconnected -> withAttr negative $ str $ "Connecting to " <> show nodeHost
+    Connected _ -> withAttr positive $ txt "Connected"
 
 drawParty :: AttrName -> Party -> Widget n
 drawParty x Party{vkey} = withAttr x $ drawHex vkey
@@ -337,24 +479,38 @@ renderTime r
   | r < 0 = "-" <> renderTime (negate r)
   | otherwise = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss" r
 
+-- | Full two-line head state (used on Peers tab and Funds tab).
 drawHeadState :: ConnectedState -> Widget n
 drawHeadState = \case
   Disconnected{} -> emptyWidget
   Connected (Connection{headState}) ->
-    vBox
-      [ txt "Head status: "
-          <+> withAttr infoA (str $ showHeadState headState)
-      , drawIfActive (drawHeadId . headId) headState
-      ]
+    txt "Head: "
+      <+> withAttr infoA (str $ showHeadState headState)
+      <=> drawIfActive (drawHeadId . headId) headState
 
 showHeadState :: HeadState -> String
 showHeadState = \case
   Idle -> "Idle"
   Active (ActiveLink{activeHeadState}) -> case activeHeadState of
     Open{} -> "Open"
-    FanoutPossible{} -> "FanoutPossible"
+    FanoutPossible{} -> "Ready to Fanout"
     Closed{} -> "Closed"
-    Final{} -> "Final"
+    Final{} -> "Finalized"
+
+-- | Render a lovelace value as ADA with the ₳ symbol.
+renderAda :: Value -> Text
+renderAda v =
+  let Coin l = selectLovelace v
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = replicate (6 - length fracStr) '0' <> fracStr
+      sign = if l < 0 then "-" else ""
+   in sign <> "₳ " <> show ada <> "." <> toText padded
+
+-- | Render a single UTxO entry showing the TxIn and its ADA value (with blue ADA amount).
+drawUTxOEntryAda :: (TxIn, TxOut CtxUTxO) -> Widget n
+drawUTxOEntryAda (txin, TxOut _ val _ _) =
+  txt (T.drop 54 (renderTxIn txin) <> "  ") <+> withAttr infoA (txt (renderAda val))
 
 drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
 drawUTxO f utxo =
@@ -364,10 +520,9 @@ drawUTxO f utxo =
           mempty
           $ UTxO.toMap utxo
    in vBox
-        [ padTop (Pad 1) $
-          vBox
-            [ f addr
-            , padLeft (Pad 2) $ vBox (str . toString . renderUTxO <$> u)
-            ]
+        [ vBox
+          [ f addr
+          , padLeft (Pad 2) $ vBox (drawUTxOEntryAda <$> u)
+          ]
         | (addr, u) <- Map.toList byAddress
         ]

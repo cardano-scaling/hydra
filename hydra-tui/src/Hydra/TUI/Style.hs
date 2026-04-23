@@ -6,14 +6,22 @@ import Brick (
   attrMap,
   attrName,
   fg,
+  on,
  )
 import Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
+import Brick.Widgets.Border (borderAttr)
+import Brick.Widgets.List (listSelectedAttr)
 import Graphics.Vty (
+  blue,
+  bold,
   brightBlack,
-  brightBlue,
+  brightWhite,
   defAttr,
   green,
+  italic,
+  magenta,
   red,
+  withStyle,
   yellow,
  )
 import Hydra.TUI.Logging.Types (Severity (..))
@@ -39,16 +47,30 @@ neutral = attrName "neutral"
 own :: AttrName
 own = attrName "own"
 
+activeTabA :: AttrName
+activeTabA = attrName "activeTab"
+
+keyA :: AttrName
+keyA = attrName "key"
+
+pendingA :: AttrName
+pendingA = attrName "pending"
+
 style :: s -> AttrMap
 style _ =
   attrMap
     defAttr
-    [ (infoA, fg brightBlue)
+    [ (infoA, fg blue)
     , (negative, fg red)
     , (positive, fg green)
     , (neutral, fg brightBlack)
     , (own, fg yellow)
+    , (activeTabA, brightWhite `on` blue)
+    , (keyA, withStyle (withStyle defAttr bold) italic)
+    , (pendingA, fg magenta)
+    , (listSelectedAttr, brightWhite `on` blue)
+    , (borderAttr, fg brightBlack)
     , -- Brick forms
-      (focusedFormInputAttr, fg brightBlue)
+      (focusedFormInputAttr, fg blue)
     , (invalidFormInputAttr, fg red)
     ]

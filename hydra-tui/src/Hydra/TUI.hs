@@ -9,6 +9,7 @@ import Brick
 import Hydra.Cardano.Api
 
 import Brick.BChan (BChan, newBChan, writeBChan)
+import Data.Time.LocalTime (getCurrentTimeZone)
 import Graphics.Vty (
   Vty,
   defaultConfig,
@@ -56,25 +57,33 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
   eventChan <- newBChan 10
   withAsyncLabelled ("run-vty-timer", timer eventChan) $ \_ ->
     -- REVIEW(SN): what happens if callback blocks?
-    withClient @Tx options (writeBChan eventChan) $ \hydraClient -> do
+    withClient @Tx options (writeBChan eventChan . NodeEvent) $ \hydraClient -> do
       initialVty <- buildVty
       now <- getCurrentTime
-      customMain initialVty buildVty (Just eventChan) (app hydraClient) (initialState now)
+      tz <- getCurrentTimeZone
+      customMain initialVty buildVty (Just eventChan) (app hydraClient eventChan) (initialState now tz)
  where
-  app hydraClient =
+  app hydraClient chan =
     App
       { appDraw = draw cardanoClient hydraClient
       , appChooseCursor = showFirstCursor
-      , appHandleEvent = handleEvent cardanoClient hydraClient
+      , appHandleEvent = handleEvent cardanoClient hydraClient chan
       , appStartEvent = pure ()
       , appAttrMap = Hydra.TUI.Style.style
       }
-  initialState now =
+  initialState now tz =
     RootState
       { nodeHost = hydraNodeHost
       , now
+      , timeZone = tz
       , connectedState = Disconnected
       , logState = LogState{logMessages = [], logVerbosity = Short}
+      , activeTab = MainTab
+      , eventDetailRaw = False
+      , eventHistoryList = emptyEventHistoryList
+      , pendingAction = Nothing
+      , l1UTxO = Nothing
+      , previousTab = MainTab
       }
 
   cardanoClient =
@@ -82,10 +91,10 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       Left bfProject -> mkBFClient cardanoNetworkId bfProject
       Right nodeSocket -> mkCardanoClient cardanoNetworkId nodeSocket
 
-  timer :: BChan (HydraEvent tx) -> IO ()
+  timer :: BChan (TUIEvent tx) -> IO ()
   timer chan = forever $ do
     now <- getCurrentTime
-    writeBChan chan $ Tick now
+    writeBChan chan $ NodeEvent $ Tick now
     threadDelay 1
 
 run :: Options -> IO RootState
