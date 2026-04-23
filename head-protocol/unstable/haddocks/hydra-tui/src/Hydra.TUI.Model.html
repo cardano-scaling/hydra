@@ -107,7 +107,7 @@
 </span><span id="line-87"></span><span class="hs-keyword">data</span><span> </span><span id="SelectAddressItem"><span class="annot"><a href="Hydra.TUI.Model.html#SelectAddressItem"><span class="hs-identifier hs-var">SelectAddressItem</span></a></span></span><span>
 </span><span id="line-88"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="ManualEntry"><span class="annot"><a href="Hydra.TUI.Model.html#ManualEntry"><span class="hs-identifier hs-var">ManualEntry</span></a></span></span><span>
 </span><span id="line-89"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="SelectAddress"><span class="annot"><a href="Hydra.TUI.Model.html#SelectAddress"><span class="hs-identifier hs-var">SelectAddress</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AddressInEra</span></span><span>
-</span><span id="line-90"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679463425"><span id="local-6989586621679463429"><span class="annot"><span class="annottext">SelectAddressItem -&gt; SelectAddressItem -&gt; Bool
+</span><span id="line-90"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679463425"><span id="local-6989586621679463429"><span class="annot"><span class="annottext">SelectAddressItem -&gt; SelectAddressItem -&gt; Bool
 (SelectAddressItem -&gt; SelectAddressItem -&gt; Bool)
 -&gt; (SelectAddressItem -&gt; SelectAddressItem -&gt; Bool)
 -&gt; Eq SelectAddressItem
@@ -161,7 +161,7 @@ forall addr. SerialiseAddress addr =&gt; addr -&gt; Name
 </span><span id="line-103"></span><span class="hs-keyword">data</span><span> </span><span id="PendingIncrementStatus"><span class="annot"><a href="Hydra.TUI.Model.html#PendingIncrementStatus"><span class="hs-identifier hs-var">PendingIncrementStatus</span></a></span></span><span>
 </span><span id="line-104"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="PendingDeposit"><span class="annot"><a href="Hydra.TUI.Model.html#PendingDeposit"><span class="hs-identifier hs-var">PendingDeposit</span></a></span></span><span>
 </span><span id="line-105"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FinalizingDeposit"><span class="annot"><a href="Hydra.TUI.Model.html#FinalizingDeposit"><span class="hs-identifier hs-var">FinalizingDeposit</span></a></span></span><span>
-</span><span id="line-106"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679463473"><span id="local-6989586621679463475"><span id="local-6989586621679463479"><span class="annot"><span class="annottext">Int -&gt; PendingIncrementStatus -&gt; ShowS
+</span><span id="line-106"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679463473"><span id="local-6989586621679463475"><span id="local-6989586621679463479"><span class="annot"><span class="annottext">Int -&gt; PendingIncrementStatus -&gt; ShowS
 [PendingIncrementStatus] -&gt; ShowS
 PendingIncrementStatus -&gt; String
 (Int -&gt; PendingIncrementStatus -&gt; ShowS)
