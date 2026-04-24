@@ -10,9 +10,9 @@ import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
 import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
+import Control.Concurrent.STM (newTChanIO)
 import Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import Data.ByteString qualified as BS
-import Control.Concurrent.STM (newTChanIO)
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),

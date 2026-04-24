@@ -92,7 +92,8 @@ handleEvent cardanoClient client chan = \case
             case utxoRadioField utxo of
               Just form ->
                 zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
-                  put $ SelectingUTxOToIncrement form
+                  put $
+                    SelectingUTxOToIncrement form
               Nothing -> do
                 -- Empty or failed query — close modal, return to previous tab, show message
                 zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
@@ -105,6 +106,7 @@ handleEvent cardanoClient client chan = \case
   MouseDown{} -> pure ()
   MouseUp{} -> pure ()
   VtyEvent e -> do
+    pendingActionL .= Nothing
     modalOpen <- gets isModalOpen
     case e of
       EvKey (KChar 'c') [MCtrl] -> halt
@@ -260,8 +262,7 @@ handleHydraEventsConnection now = \case
           let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
               peerAddrs = map (takeWhile (/= '=')) peerStrs
           case traverse readHost peerAddrs of
-            Left err -> do
-              liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
+            Left _ -> do
               peersL .= mempty
             Right parsedPeers -> do
               existing <- use peersL
@@ -327,11 +328,10 @@ handleHydraEventsActiveLink e = do
       pendingUTxOToDecommitL .= mempty
       utxoL .= utxo
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecorded{utxoToCommit, pendingDeposit, deadline}}) -> do
-      ActiveLink{utxo, pendingIncrements} <- get
+      ActiveLink{pendingIncrements} <- get
       pendingIncrementsL .= pendingIncrements <> [PendingIncrement utxoToCommit pendingDeposit deadline PendingDeposit]
-      utxoL .= utxo
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitApproved{utxoToCommit = approvedUtxoToCommit}}) -> do
-      ActiveLink{utxo, pendingIncrements} <- get
+      ActiveLink{pendingIncrements} <- get
       pendingIncrementsL
         .= fmap
           ( \inc@PendingIncrement{utxoToCommit = pendingUtxoToCommit, deposit, depositDeadline} ->
@@ -340,7 +340,6 @@ handleHydraEventsActiveLink e = do
                 else inc
           )
           pendingIncrements
-      utxoL .= utxo
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitFinalized{depositTxId}}) -> do
       ActiveLink{utxo, pendingIncrements} <- get
       let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= depositTxId) pendingIncrements
@@ -348,11 +347,10 @@ handleHydraEventsActiveLink e = do
       let activeUtxoToCommit = maybe mempty (\PendingIncrement{utxoToCommit} -> utxoToCommit) approvedIncrement
       pendingIncrementsL .= activePendingIncrements
       utxoL .= utxo <> activeUtxoToCommit
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecovered{recoveredUTxO, recoveredTxId}}) -> do
-      ActiveLink{utxo, pendingIncrements} <- get
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecovered{recoveredTxId}}) -> do
+      ActiveLink{pendingIncrements} <- get
       let activePendingIncrements = filter (\PendingIncrement{deposit} -> deposit /= recoveredTxId) pendingIncrements
       pendingIncrementsL .= activePendingIncrements
-      utxoL .= UTxO.difference utxo recoveredUTxO
     _ -> pure ()
 
 handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
@@ -415,11 +413,9 @@ handleHydraEventsInfo = \case
         <> show decommitInvalidReason
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecorded{utxoToCommit, pendingDeposit}}) ->
     report Success time $
-      "Commit deposit recorded with "
-        <> " deposit tx id "
+      "Commit recorded: deposit tx id "
         <> show pendingDeposit
-        <> "and pending for approval "
-        <> foldMap renderUTxO (UTxO.toList utxoToCommit)
+        <> " — pending approval"
   Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitApproved{utxoToCommit}}) ->
     report Success time $
       "Commit approved and submitted to Cardano "
@@ -485,20 +481,28 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
       case e of
         EvKey (KChar 'n') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
-          forM_ (utxoRadioField utxo') $ put . SelectingUTxO
+          case utxoRadioField utxo' of
+            Just form -> put (SelectingUTxO form)
+            Nothing -> liftIO $ writeBChan chan (TxBuildError "No UTxO available to send from.")
         EvKey (KChar 'd') [] -> do
           let utxo' = myAvailableUTxO (networkId cardanoClient) (getVerificationKey $ sk hydraClient) utxo
-          forM_ (utxoRadioField utxo') $ put . SelectingUTxOToDecommit
+          case utxoRadioField utxo' of
+            Just form -> put (SelectingUTxOToDecommit form)
+            Nothing -> liftIO $ writeBChan chan (TxBuildError "No L2 UTxO available to decommit.")
         EvKey (KChar 'i') [] -> do
           put LoadingUTxOForIncrement
           let myAddr = mkMyAddress cardanoClient hydraClient
-          liftIO $ void $ forkIO $
-            handle (\(_ :: SomeException) -> writeBChan chan (UTxOQueryResult Map.empty)) $ do
-              utxo' <- queryUTxOByAddress cardanoClient [myAddr]
-              writeBChan chan (UTxOQueryResult (UTxO.toMap utxo'))
+          liftIO $
+            void $
+              forkIO $
+                handle (\(_ :: SomeException) -> writeBChan chan (UTxOQueryResult Map.empty)) $ do
+                  utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+                  writeBChan chan (UTxOQueryResult (UTxO.toMap utxo'))
         EvKey (KChar 'r') [] -> do
           let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
-          forM_ (depositIdRadioField pendingDepositIds) $ put . SelectingDepositIdToRecover
+          case depositIdRadioField pendingDepositIds of
+            Just form -> put (SelectingDepositIdToRecover form)
+            Nothing -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()
@@ -717,10 +721,12 @@ setPendingAction e = do
 triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1Query cardanoClient client chan = do
   let myAddr = mkMyAddress cardanoClient client
-  liftIO $ void $ forkIO $
-    handle (\(_ :: SomeException) -> writeBChan chan (L1UTxORefresh Map.empty)) $ do
-      utxo' <- queryUTxOByAddress cardanoClient [myAddr]
-      writeBChan chan (L1UTxORefresh (UTxO.toMap utxo'))
+  liftIO $
+    void $
+      forkIO $
+        handle (\(_ :: SomeException) -> writeBChan chan (L1UTxORefresh Map.empty)) $ do
+          utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+          writeBChan chan (L1UTxORefresh (UTxO.toMap utxo'))
 
 triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1IfNeeded cardanoClient client chan = do

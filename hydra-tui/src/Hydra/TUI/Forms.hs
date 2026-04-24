@@ -8,7 +8,6 @@ module Hydra.TUI.Forms where
 import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Pretty (renderUTxO)
 
 import Brick (BrickEvent (..), vBox, withDefAttr)
 import Brick.Forms (
@@ -29,6 +28,16 @@ import Graphics.Vty (Event (..), Key (..))
 import Hydra.Chain.Direct.State ()
 import Lens.Micro (Lens', (^.))
 
+-- | Render a UTxO entry as "txin#ix ↦ ₳ X.XXXXXX" for form labels.
+renderUTxOAsAda :: (TxIn, TxOut CtxUTxO) -> Text
+renderUTxOAsAda (txin, TxOut _ val _ _) =
+  let Coin l = selectLovelace val
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
+      sign = if l < 0 then "-" else ""
+   in Text.drop 54 (renderTxIn txin) <> " ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
+
 utxoRadioField ::
   forall s e n.
   ( s ~ (TxIn, TxOut CtxUTxO)
@@ -43,7 +52,7 @@ utxoRadioField u = case Map.toList u of
       newForm
         [ radioField
             id
-            [ (i, show i, renderUTxO i)
+            [ (i, show i, renderUTxOAsAda i)
             | i <- Map.toList u
             ]
         ]
@@ -63,7 +72,7 @@ depositIdRadioField txIdUTxO = case flattened txIdUTxO of
       newForm
         [ radioField
             id
-            [ ((txid, i, o), show txid, renderUTxO (i, o))
+            [ ((txid, i, o), show txid, renderUTxOAsAda (i, o))
             | (txid, i, o) <- flattened txIdUTxO
             ]
         ]
