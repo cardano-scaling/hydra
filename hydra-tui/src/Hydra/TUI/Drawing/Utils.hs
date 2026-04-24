@@ -15,7 +15,7 @@ prettyTxId :: TxId -> Text
 prettyTxId = serialiseToRawBytesHexText
 
 drawHex :: SerialiseAsRawBytes a => a -> Widget n
-drawHex = txt . (" - " <>) . serialiseToRawBytesHexText
+drawHex = txt . ("⚬ " <>) . serialiseToRawBytesHexText
 
 drawShow :: forall a n. Show a => a -> Widget n
 drawShow = txt . show
