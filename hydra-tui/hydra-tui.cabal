@@ -42,6 +42,7 @@ library
   exposed-modules:
     Hydra.Client
     Hydra.TUI
+    Hydra.TUI.Config
     Hydra.TUI.Drawing
     Hydra.TUI.Drawing.EventHistoryTab
     Hydra.TUI.Drawing.FundsTab
@@ -63,6 +64,8 @@ library
     , brick                 >=1.10
     , cardano-api
     , containers
+    , directory
+    , filepath
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude

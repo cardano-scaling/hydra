@@ -35,6 +35,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State qualified as NodeState
+import Hydra.TUI.Config (TuiConfig (..), toggleTheme, writeConfig)
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Types (LogMessage, logMessagesL)
 import Hydra.TUI.Model
@@ -103,6 +104,10 @@ handleEvent cardanoClient client chan = \case
     case e of
       EvKey (KChar 'c') [MCtrl] -> halt
       EvKey (KChar 'd') [MCtrl] -> halt
+      EvKey (KFun 3) [] -> do
+        newTheme <- toggleTheme <$> use themeL
+        themeL .= newTheme
+        liftIO $ writeConfig TuiConfig{theme = newTheme}
       EvKey (KChar 'q') []
         | not modalOpen -> halt
       EvKey (KChar 'Q') []
@@ -260,7 +265,7 @@ handleHydraEventsConnection now = \case
         else do
           let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
               peerAddrs = map (takeWhile (/= '=')) peerStrs
-          case traverse readHost peerAddrs of
+          case (traverse readHost peerAddrs :: Either String [Host]) of
             Left _ -> do
               peersL .= mempty
             Right parsedPeers -> do

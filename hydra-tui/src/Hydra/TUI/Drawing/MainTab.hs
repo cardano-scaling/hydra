@@ -23,8 +23,8 @@ import Hydra.TUI.Drawing.Utils (
 import Hydra.TUI.Logging.Types (logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style hiding (style)
-import Hydra.Tx (IsTx (..), Party (..))
-import Lens.Micro ((^.), (^?))
+import Hydra.Tx (Party (..))
+import Lens.Micro ((^.))
 
 drawMainTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawMainTab CardanoClient{networkId} Client{sk} s =
