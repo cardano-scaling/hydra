@@ -12,15 +12,18 @@ import Brick.Forms (focusedFormInputAttr, invalidFormInputAttr)
 import Brick.Widgets.Border (borderAttr)
 import Brick.Widgets.List (listSelectedAttr)
 import Graphics.Vty (
+  black,
   blue,
   bold,
   brightBlack,
   brightWhite,
+  cyan,
   defAttr,
   green,
   italic,
   magenta,
   red,
+  withForeColor,
   withStyle,
   yellow,
  )
@@ -59,8 +62,12 @@ pendingA = attrName "pending"
 headStateA :: AttrName
 headStateA = attrName "headState"
 
-style :: s -> AttrMap
-style _ =
+actionDescA :: AttrName
+actionDescA = attrName "actionDesc"
+
+-- | Dark theme — optimised for dark terminal backgrounds.
+darkStyle :: s -> AttrMap
+darkStyle _ =
   attrMap
     defAttr
     [ (infoA, fg blue)
@@ -72,9 +79,34 @@ style _ =
     , (keyA, withStyle (withStyle defAttr bold) italic)
     , (pendingA, fg magenta)
     , (headStateA, withStyle (fg magenta) bold)
+    , (actionDescA, withStyle defAttr italic)
     , (listSelectedAttr, brightWhite `on` blue)
     , (borderAttr, fg brightBlack)
-    , -- Brick forms
-      (focusedFormInputAttr, fg blue)
+    , (focusedFormInputAttr, fg blue)
     , (invalidFormInputAttr, fg red)
     ]
+
+-- | Light theme — optimised for light terminal backgrounds.
+lightStyle :: s -> AttrMap
+lightStyle _ =
+  attrMap
+    (withForeColor defAttr black)
+    [ (infoA, fg blue)
+    , (negative, fg red)
+    , (positive, fg green)
+    , (neutral, fg black)
+    , (own, fg cyan)
+    , (activeTabA, brightWhite `on` blue)
+    , (keyA, withStyle (withStyle defAttr bold) italic)
+    , (pendingA, fg magenta)
+    , (headStateA, withStyle (fg blue) bold)
+    , (actionDescA, withStyle defAttr italic)
+    , (listSelectedAttr, brightWhite `on` blue)
+    , (borderAttr, fg black)
+    , (focusedFormInputAttr, fg blue)
+    , (invalidFormInputAttr, fg red)
+    ]
+
+-- | Backwards-compatible alias; defaults to the dark theme.
+style :: s -> AttrMap
+style = darkStyle

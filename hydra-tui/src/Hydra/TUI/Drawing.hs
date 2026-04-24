@@ -9,7 +9,6 @@ import Brick
 import Brick.Widgets.Border (borderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Data.Text qualified as T
-import Graphics.Vty qualified as Vty
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Client (Client (..))
@@ -18,6 +17,7 @@ import Hydra.TUI.Drawing.FundsTab (drawFocusPanel, drawFundsTab)
 import Hydra.TUI.Drawing.MainTab (drawMainTab)
 import Hydra.TUI.Model
 import Hydra.TUI.Style hiding (style)
+
 import Lens.Micro ((^.), (^?))
 
 -- | Root draw function wiring together the tab bar, active tab, status bar,
@@ -99,7 +99,7 @@ drawModalTab CardanoClient{networkId} Client{sk} s =
 
 drawActionBar :: RootState -> Widget n
 drawActionBar s =
-  hBox . intersperse (txt "  ") $ map drawAction actions
+  hBox . intersperse (txt "  ") $ map drawAction (actions <> [("F3", " theme")])
  where
   isModal = s ^. activeTabL == ModalTab
   actions = case s ^. connectedStateL of
@@ -129,4 +129,4 @@ drawActionBar s =
             (_, Final{}) -> [("I", "nit"), ("Q", "uit")]
 
   drawAction :: (Text, Text) -> Widget n
-  drawAction (key, rest) = withAttr keyA (txt key) <+> modifyDefAttr (`Vty.withStyle` Vty.italic) (txt rest)
+  drawAction (key, rest) = withAttr keyA (txt key) <+> withAttr actionDescA (txt rest)

@@ -21,6 +21,7 @@ import Hydra.HeadLogic.State (CoordinatedHeadState (CoordinatedHeadState))
 import Hydra.HeadLogic.State qualified as State
 import Hydra.Network (Host (..))
 import Hydra.Node.State (Deposit (..), NodeState (..))
+import Hydra.TUI.Config (Theme (..))
 import Hydra.TUI.Logging.Types (LogMessage, LogState)
 import Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
@@ -48,6 +49,7 @@ data RootState = RootState
   , pendingAction :: Maybe Text
   , l1UTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
   , previousTab :: ActiveTab
+  , theme :: Theme
   }
 
 -- | Connection to the hydra node.
@@ -183,6 +185,7 @@ makeLensesFor
   , ("pendingAction", "pendingActionL")
   , ("l1UTxO", "l1UTxOL")
   , ("previousTab", "previousTabL")
+  , ("theme", "themeL")
   ]
   ''RootState
 

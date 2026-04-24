@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.TUI where
@@ -20,12 +21,14 @@ import Hydra.Chain.CardanoClient as CC
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (HydraEvent (..), withClient)
 import Hydra.Options (BlockfrostOptions (..), defaultBFQueryTimeout, defaultBFRetryTimeout)
+import Hydra.TUI.Config (Theme (..), TuiConfig (..), readConfig)
 import Hydra.TUI.Drawing
 import Hydra.TUI.Handlers
 import Hydra.TUI.Logging.Types
 import Hydra.TUI.Model
 import Hydra.TUI.Options (Options (..))
-import Hydra.TUI.Style
+import Hydra.TUI.Style (darkStyle, lightStyle)
+import Lens.Micro ((^.))
 
 -- | Construct a 'CardanoClient' handle.
 mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
@@ -54,6 +57,7 @@ mkBFClient networkId bfProject =
 
 runWithVty :: IO Vty -> Options -> IO RootState
 runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConnection} = do
+  cfg <- readConfig
   eventChan <- newBChan 10
   withAsyncLabelled ("run-vty-timer", timer eventChan) $ \_ ->
     -- REVIEW(SN): what happens if callback blocks?
@@ -61,7 +65,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       initialVty <- buildVty
       now <- getCurrentTime
       tz <- getCurrentTimeZone
-      customMain initialVty buildVty (Just eventChan) (app hydraClient eventChan) (initialState now tz)
+      customMain initialVty buildVty (Just eventChan) (app hydraClient eventChan) (initialState now tz cfg)
  where
   app hydraClient chan =
     App
@@ -69,9 +73,11 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , appChooseCursor = showFirstCursor
       , appHandleEvent = handleEvent cardanoClient hydraClient chan
       , appStartEvent = pure ()
-      , appAttrMap = Hydra.TUI.Style.style
+      , appAttrMap = \s -> case s ^. themeL of
+          DarkTheme -> darkStyle s
+          LightTheme -> lightStyle s
       }
-  initialState now tz =
+  initialState now tz cfg =
     RootState
       { nodeHost = hydraNodeHost
       , now
@@ -84,6 +90,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , pendingAction = Nothing
       , l1UTxO = Nothing
       , previousTab = MainTab
+      , theme = cfg.theme
       }
 
   cardanoClient =
