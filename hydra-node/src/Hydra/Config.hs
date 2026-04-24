@@ -31,10 +31,12 @@
 --     testnet-magic: 2
 --     node-socket: node.socket
 -- @
-module Hydra.Config (loadConfig, resolvePaths, renderConfig) where
+module Hydra.Config (loadConfig, resolvePaths, renderConfig, isSelfAddress) where
 
 import Hydra.Prelude
 
+import Control.Exception (IOException)
+import Control.Exception qualified as E
 import Data.Aeson (KeyValue ((.=)), Value (..), object, withObject, (.:), (.:?))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -54,7 +56,7 @@ import Hydra.Cardano.Api (
   serialiseToRawBytesHexText,
  )
 import Hydra.Logging (Verbosity (..))
-import Hydra.Network (Host, NodeId (..), PortNumber, WhichEtcd (..), readHost, showHost)
+import Hydra.Network (Host (..), NodeId (..), PortNumber, WhichEtcd (..), readHost, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), defaultUnsyncedPeriodFor)
@@ -86,7 +88,17 @@ import Test.QuickCheck (Positive (..))
 -- containing the config file, not the current working directory.
 loadConfig :: FilePath -> IO RunOptions
 loadConfig path = do
-  value <- Yaml.decodeFileThrow path
+  ioOrValue <- E.try (Yaml.decodeFileEither path)
+  value <- case ioOrValue of
+    Left (ioErr :: IOException) ->
+      die $ "Failed to read config file " <> path <> ": " <> show ioErr
+    Right (Left pe) ->
+      die $
+        "Failed to parse config file "
+          <> path
+          <> " as YAML:\n  "
+          <> Yaml.prettyPrintParseException pe
+    Right (Right v) -> pure v
   case parseEither parseRunOptions value of
     Left err -> die $ "Failed to parse config file " <> path <> ":\n  " <> err
     Right opts -> pure (resolvePaths (takeDirectory path) opts)
@@ -180,8 +192,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   advertise <- mapM (parseHost "advertise") mAdvertiseStr
   peerEntries <- o .:? "peers" .!= ([] :: [Value]) >>= mapM parsePeerEntry
   extraHydraVKs <- o .:? "hydra-verification-keys" .!= []
-  let selfAddr = fromMaybe listen advertise
-      filteredEntries = filter ((/= selfAddr) . (.peerHost)) peerEntries
+  let filteredEntries = filter (not . isSelfAddress listen advertise . (.peerHost)) peerEntries
       peers = map (.peerHost) filteredEntries
       peerCardanoVKs = mapMaybe (.peerCardanoVK) filteredEntries
       hydraVerificationKeys = mapMaybe (.peerHydraVK) filteredEntries <> extraHydraVKs
@@ -280,7 +291,12 @@ parseHydraScripts o = do
   mNetwork <- o .:? "network" :: Parser (Maybe Text)
   mTxIds <- o .:? "hydra-scripts-tx-id" :: Parser (Maybe [Text])
   case (mNetwork, mTxIds) of
-    (Just network, _) ->
+    (Just _, Just _) ->
+      fail
+        "Both 'network' and 'hydra-scripts-tx-id' are set; they are mutually exclusive. \
+        \Use 'network' to auto-select known Hydra scripts for a network, \
+        \or 'hydra-scripts-tx-id' to pin specific transaction IDs — not both."
+    (Just network, Nothing) ->
       parseNetworkTxIds hydraNodeVersion (toString network)
     (Nothing, Just txIdTexts) ->
       mapM parseTxId txIdTexts
@@ -344,6 +360,12 @@ data PeerEntry = PeerEntry
 
 -- | Parse a peer entry which may be a plain "HOST:PORT" string or an object
 -- with @address@ and optional @cardano-verification-key@ / @hydra-verification-key@ fields.
+--
+-- For object-form entries, either both verification keys are present (a
+-- signing peer) or both are absent (a mirror/observer peer). Providing
+-- exactly one is rejected with a pointed error — it was almost certainly
+-- a mistake, and silently accepting it causes a later, confusing key-count
+-- mismatch during validation.
 parsePeerEntry :: Value -> Parser PeerEntry
 parsePeerEntry (String s) = do
   h <- parseHost "peers" (toString s)
@@ -357,9 +379,56 @@ parsePeerEntry v =
         h <- parseHost "peers.address" addrStr
         cardanoVK <- o .:? "cardano-verification-key"
         hydraVK <- o .:? "hydra-verification-key"
-        pure PeerEntry{peerHost = h, peerCardanoVK = cardanoVK, peerHydraVK = hydraVK}
+        case (cardanoVK, hydraVK) of
+          (Just _, Nothing) ->
+            fail $
+              "Peer entry for '"
+                <> showHost h
+                <> "' has 'cardano-verification-key' but no 'hydra-verification-key'. \
+                   \For a signing peer, provide both; for an observer/mirror peer, omit both."
+          (Nothing, Just _) ->
+            fail $
+              "Peer entry for '"
+                <> showHost h
+                <> "' has 'hydra-verification-key' but no 'cardano-verification-key'. \
+                   \For a signing peer, provide both; for an observer/mirror peer, omit both."
+          _ ->
+            pure PeerEntry{peerHost = h, peerCardanoVK = cardanoVK, peerHydraVK = hydraVK}
     )
     v
+
+-- | Does the given peer address refer to the same node as us, given our
+-- 'listen' and optional 'advertise' hosts?
+--
+-- The comparison normalizes wildcard/loopback variants:
+--
+-- * If 'advertise' is set, the peer must match it exactly (same host, same
+--   port) — we trust the operator's explicit choice.
+-- * Otherwise, same-port peers are self when:
+--     * the host string is identical to the listen host (even if it's
+--       @0.0.0.0@, matching the "self-entry with same address" convention);
+--     * the listen host is a wildcard (@0.0.0.0@, @::@, @*@) and the peer
+--       host is a loopback (@127.0.0.1@, @localhost@, @::1@); or
+--     * both are loopback in some combination.
+--
+-- We deliberately do *not* treat wildcard listen as matching arbitrary
+-- remote peers on the same port — those may be legitimate other-host
+-- participants.
+isSelfAddress :: Host -> Maybe Host -> Host -> Bool
+isSelfAddress listenHost mAdvertise peer =
+  case mAdvertise of
+    Just adv ->
+      adv.port == peer.port && adv.hostname == peer.hostname
+    Nothing ->
+      listenHost.port == peer.port
+        && ( listenHost.hostname == peer.hostname
+              || (isWildcard listenHost.hostname && isLoopback peer.hostname)
+              || (isLoopback listenHost.hostname && isLoopback peer.hostname)
+           )
+ where
+  isWildcard, isLoopback :: Text -> Bool
+  isWildcard h = h == "0.0.0.0" || h == "::" || h == "*"
+  isLoopback h = h == "127.0.0.1" || h == "localhost" || h == "::1"
 
 -- | Inject peer-sourced cardano VKs into an existing 'ChainConfig'.
 applyPeerCardanoVKs :: [FilePath] -> ChainConfig -> ChainConfig

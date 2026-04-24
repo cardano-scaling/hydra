@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
-import Hydra.Config (loadConfig, resolvePaths)
+import Hydra.Config (isSelfAddress, loadConfig, resolvePaths)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Network (Host (..))
 import Hydra.Options (
@@ -21,6 +21,7 @@ import Hydra.Options (
   defaultCardanoChainConfig,
   defaultRunOptions,
   parseHydraCommandFromArgsWith,
+  validateRunOptions,
  )
 import System.FilePath (takeDirectory, (</>))
 import System.IO (hClose, hPutStr)
@@ -130,6 +131,72 @@ spec = do
         opts <- loadConfig path
         peers opts `shouldBe` [Host "peer2" 5002]
 
+    it "filters self when listen is wildcard 0.0.0.0 and peer uses 127.0.0.1" $ do
+      -- Regression: string equality on "0.0.0.0" vs "127.0.0.1" would not
+      -- match. The normalized self-filter treats wildcard listen addresses
+      -- as matching any peer on the same port.
+      let yaml =
+            "listen: \"0.0.0.0:5001\"\n\
+            \peers:\n\
+            \  - address: \"127.0.0.1:5001\"\n\
+            \    hydra-verification-key: self.hydra.vk\n\
+            \    cardano-verification-key: self.cardano.vk\n\
+            \  - address: \"peer2:5002\"\n\
+            \    hydra-verification-key: peer2.hydra.vk\n\
+            \    cardano-verification-key: peer2.cardano.vk\n"
+      withYaml yaml $ \path dir -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer2" 5002]
+        hydraVerificationKeys opts `shouldBe` [dir </> "peer2.hydra.vk"]
+        case chainConfig opts of
+          Cardano cfg ->
+            cardanoVerificationKeys cfg `shouldBe` [dir </> "peer2.cardano.vk"]
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
+
+    it "filters self when listen uses 127.0.0.1 and peer uses localhost" $ do
+      -- Both sides are loopback; normalized filter treats them as equivalent.
+      let yaml =
+            "listen: \"127.0.0.1:5001\"\n\
+            \peers:\n\
+            \  - address: \"localhost:5001\"\n\
+            \  - \"peer2:5002\"\n"
+      withYaml yaml $ \path _dir -> do
+        opts <- loadConfig path
+        peers opts `shouldBe` [Host "peer2" 5002]
+
+    it "rejects peer entry with only hydra-verification-key" $ do
+      let yaml =
+            "peers:\n\
+            \  - address: \"peer1:5001\"\n\
+            \    hydra-verification-key: peer1.hydra.vk\n"
+      withYaml yaml $ \path _dir -> do
+        loadConfig path `shouldThrow` anyException
+
+    it "rejects peer entry with only cardano-verification-key" $ do
+      let yaml =
+            "peers:\n\
+            \  - address: \"peer1:5001\"\n\
+            \    cardano-verification-key: peer1.cardano.vk\n"
+      withYaml yaml $ \path _dir -> do
+        loadConfig path `shouldThrow` anyException
+
+    it "rejects chain config that sets both network and hydra-scripts-tx-id" $ do
+      let yaml =
+            "chain:\n\
+            \  mode: cardano\n\
+            \  network: preview\n\
+            \  hydra-scripts-tx-id:\n\
+            \    - \"0000000000000000000000000000000000000000000000000000000000000000\"\n"
+      withYaml yaml $ \path _dir -> do
+        loadConfig path `shouldThrow` anyException
+
+    it "reports a readable YAML decode error (wraps underlying parser output)" $ do
+      -- ':' without a key produces a YAML-level parse error; the custom
+      -- wrapper should include the file path and the YAML library's
+      -- pretty-printed message.
+      withYaml ":broken\n" $ \path _dir -> do
+        loadConfig path `shouldThrow` anyException
+
     it "parses api-host and api-port" $ do
       withYaml "api-host: \"0.0.0.0\"\napi-port: 9000\n" $ \path _dir -> do
         opts <- loadConfig path
@@ -222,6 +289,32 @@ spec = do
               other -> expectationFailure $ "Expected Direct backend, got: " <> show other
           other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
+  describe "isSelfAddress" $ do
+    let h = Host
+    it "matches exact host:port when no advertise is set" $
+      isSelfAddress (h "192.168.1.10" 5001) Nothing (h "192.168.1.10" 5001) `shouldBe` True
+    it "does not match different ports" $
+      isSelfAddress (h "192.168.1.10" 5001) Nothing (h "192.168.1.10" 5002) `shouldBe` False
+    it "treats wildcard 0.0.0.0 as matching loopback peers on the same port" $
+      isSelfAddress (h "0.0.0.0" 5001) Nothing (h "127.0.0.1" 5001) `shouldBe` True
+    it "does NOT treat wildcard listen as matching an arbitrary remote host on the same port" $
+      -- A peer at 172.16.0.5:5001 is a legitimate other-host participant, not self.
+      isSelfAddress (h "0.0.0.0" 5001) Nothing (h "172.16.0.5" 5001) `shouldBe` False
+    it "treats wildcard listen with identical wildcard peer as self (self-entry convention)" $
+      isSelfAddress (h "0.0.0.0" 5001) Nothing (h "0.0.0.0" 5001) `shouldBe` True
+    it "treats loopback forms as equivalent" $ do
+      isSelfAddress (h "127.0.0.1" 5001) Nothing (h "localhost" 5001) `shouldBe` True
+      isSelfAddress (h "localhost" 5001) Nothing (h "127.0.0.1" 5001) `shouldBe` True
+      isSelfAddress (h "127.0.0.1" 5001) Nothing (h "::1" 5001) `shouldBe` True
+    it "does not match a non-loopback host when listen is loopback" $
+      isSelfAddress (h "127.0.0.1" 5001) Nothing (h "example.com" 5001) `shouldBe` False
+    it "requires exact match against advertise when set" $ do
+      isSelfAddress (h "0.0.0.0" 5001) (Just (h "node.example.com" 5001)) (h "node.example.com" 5001)
+        `shouldBe` True
+      -- A peer on a loopback address is NOT self when advertise is explicit.
+      isSelfAddress (h "0.0.0.0" 5001) (Just (h "node.example.com" 5001)) (h "127.0.0.1" 5001)
+        `shouldBe` False
+
   describe "RunOptions Semigroup (config file <> CLI overrides)" $ do
     it "CLI flag overrides YAML value" $ do
       withYaml "node-id: from-yaml\n" $ \path _dir -> do
@@ -250,6 +343,24 @@ spec = do
             cardanoSigningKey cfg `shouldBe` dir </> "yaml.sk"
             hydraScriptsTxId cfg `shouldNotBe` []
           other -> expectationFailure $ "Expected Cardano, got: " <> show other
+
+  describe "demo configs (demo/configs/*.yaml)" $ do
+    -- Guard against the committed demo configs drifting away from the
+    -- validation rules enforced by loadConfig + validateRunOptions.
+    forM_ ["alice.yaml", "bob.yaml", "carol.yaml", "alice-mirror.yaml"] $ \name ->
+      it ("loads and validates " <> name) $ do
+        opts <- loadConfig ("../demo/configs/" <> name)
+        validateRunOptions opts `shouldBe` Right ()
+        -- Self entry (if any) is filtered out, leaving exactly 3 peers:
+        -- the two other signers plus (depending on which config) either
+        -- the mirror or the primary alice.
+        length (peers opts) `shouldBe` 3
+        -- 2 other signing peers → 2 hydra-verification-keys.
+        length (hydraVerificationKeys opts) `shouldBe` 2
+        case chainConfig opts of
+          Cardano cfg ->
+            length (cardanoVerificationKeys cfg) `shouldBe` 2
+          other -> expectationFailure $ "Expected Cardano chain, got: " <> show other
 
 -- | Parse args as 'RunOptions', or fail the test.
 parseRunOptions :: [String] -> IO RunOptions

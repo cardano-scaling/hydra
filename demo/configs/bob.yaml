@@ -1,3 +1,5 @@
+# Demo config for bob (signing peer 2 of 3). See alice.yaml for how the
+# shared "peers:" block works.
 node-id: "2"
 listen: "127.0.0.1:5002"
 advertise: "127.0.0.1:5002"
@@ -8,13 +10,13 @@ peers:
   - address: "127.0.0.1:5001"
     hydra-verification-key: "../alice.vk"
     cardano-verification-key: "../../hydra-cluster/config/credentials/alice.vk"
-  - address: "127.0.0.1:5002"
+  - address: "127.0.0.1:5002" # self — keys here are ignored (filtered out)
     hydra-verification-key: "../bob.vk"
     cardano-verification-key: "../../hydra-cluster/config/credentials/bob.vk"
   - address: "127.0.0.1:5003"
     hydra-verification-key: "../carol.vk"
     cardano-verification-key: "../../hydra-cluster/config/credentials/carol.vk"
-  - address: "127.0.0.1:5004" # Mirror of alice
+  - address: "127.0.0.1:5004" # alice-mirror: observer peer (no keys)
 ledger-protocol-parameters: "../../devnet/protocol-parameters.json"
 persistence-dir: "../../devnet/persistence/bob"
 chain:
