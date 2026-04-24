@@ -43,6 +43,9 @@ library
     Hydra.Client
     Hydra.TUI
     Hydra.TUI.Drawing
+    Hydra.TUI.Drawing.EventHistoryTab
+    Hydra.TUI.Drawing.FundsTab
+    Hydra.TUI.Drawing.MainTab
     Hydra.TUI.Drawing.Utils
     Hydra.TUI.Forms
     Hydra.TUI.Handlers

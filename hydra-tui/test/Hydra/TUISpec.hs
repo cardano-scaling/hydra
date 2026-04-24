@@ -44,7 +44,7 @@ import Hydra.Network (Host (..))
 import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
-import Hydra.TUI.Drawing (renderTime)
+import Hydra.TUI.Drawing.Utils (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
