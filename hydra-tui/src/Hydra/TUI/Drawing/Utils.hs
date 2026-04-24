@@ -2,9 +2,8 @@ module Hydra.TUI.Drawing.Utils where
 
 import Brick (Widget, emptyWidget, txt)
 import Data.Text qualified as Text
-import Hydra.Cardano.Api (SerialiseAsRawBytes, serialiseToRawBytesHexText)
+import Hydra.Cardano.Api (SerialiseAsRawBytes, TxId, serialiseToRawBytesHexText)
 import Hydra.Prelude
-import Hydra.Cardano.Api (TxId)
 import Hydra.Tx (HeadId)
 
 -- | Render a 'HeadId' as its hex-encoded bytes (matches the Main tab display).
