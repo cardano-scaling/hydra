@@ -2,8 +2,9 @@ module Hydra.TUI.Config where
 
 import Hydra.Prelude
 
+import Control.Exception (IOException)
 import Data.Text qualified as T
-import System.Directory (XdgDirectory (..), createDirectoryIfMissing, doesFileExist, getXdgDirectory)
+import System.Directory (XdgDirectory (..), createDirectoryIfMissing, getXdgDirectory)
 import System.FilePath (takeDirectory, (</>))
 
 data Theme = DarkTheme | LightTheme
@@ -12,6 +13,7 @@ data Theme = DarkTheme | LightTheme
 newtype TuiConfig = TuiConfig
   { theme :: Theme
   }
+  deriving stock (Eq, Show)
 
 defaultConfig :: TuiConfig
 defaultConfig = TuiConfig{theme = DarkTheme}
@@ -31,17 +33,22 @@ configFilePath = do
 readConfig :: IO TuiConfig
 readConfig = do
   path <- configFilePath
-  exists <- doesFileExist path
-  if exists
-    then parseConfig . decodeUtf8 <$> readFileBS path
-    else pure defaultConfig
+  result <- try (readFileBS path)
+  pure $ case result of
+    Left (_ :: IOException) -> defaultConfig
+    Right bytes -> parseConfig (decodeUtf8 bytes)
 
--- | Persist the config to disk, creating the directory if necessary.
+-- | Persist the config to disk, creating the directory if necessary. Silently
+-- swallows IO errors so an unwritable config path never crashes the TUI.
 writeConfig :: TuiConfig -> IO ()
 writeConfig cfg = do
   path <- configFilePath
-  createDirectoryIfMissing True (takeDirectory path)
-  writeFileText path (encodeConfig cfg)
+  result <- try $ do
+    createDirectoryIfMissing True (takeDirectory path)
+    writeFileText path (encodeConfig cfg)
+  case result of
+    Left (_ :: IOException) -> pure ()
+    Right () -> pure ()
 
 -- ---------------------------------------------------------------------------
 -- Internal YAML helpers (single-field file — no library needed)

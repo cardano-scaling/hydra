@@ -98,6 +98,7 @@ test-suite tests
   import:             project-config
   hs-source-dirs:     test
   other-modules:
+    Hydra.TUI.ConfigSpec
     Hydra.TUI.OptionsSpec
     Hydra.TUISpec
 
