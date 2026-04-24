@@ -87,6 +87,20 @@ data Command
   | GenHydraKey GenerateKeyPair
   deriving stock (Show, Eq)
 
+-- | Subcommand names recognized by 'commandParser'.
+--
+-- Derived from the same string literals used to register the subcommands
+-- below, so that 'Main.hs' can't drift out of sync with the parser when a
+-- new subcommand is added.
+subcommandNames :: [String]
+subcommandNames = [publishScriptsName, genHydraKeyName]
+
+publishScriptsName :: String
+publishScriptsName = "publish-scripts"
+
+genHydraKeyName :: String
+genHydraKeyName = "gen-hydra-key"
+
 commandParser :: Parser Command
 commandParser =
   subcommands
@@ -99,7 +113,7 @@ commandParser =
 
   publishScriptsCommand =
     command
-      "publish-scripts"
+      publishScriptsName
       ( info
           (Publish <$> publishOptionsParser)
           ( fullDesc
@@ -127,7 +141,7 @@ commandParser =
 
   genHydraKeyCommand =
     command
-      "gen-hydra-key"
+      genHydraKeyName
       ( info
           (GenHydraKey . GenerateKeyPair <$> outputFileParser)
           (progDesc "Generate a pair of Hydra signing/verification keys (off-chain keys).")
@@ -324,10 +338,18 @@ instance Semigroup CardanoChainConfig where
     mergedContestationPeriod =
       o defaultCardanoChainConfig.contestationPeriod base.contestationPeriod cli.contestationPeriod
     -- unsyncedPeriod is automatically derived from contestationPeriod when not
-    -- set explicitly. Detect "explicitly set" by checking whether the value
-    -- differs from what would have been auto-derived for that side's own
-    -- contestationPeriod, then re-derive from the merged contestationPeriod if
-    -- neither side set it on purpose.
+    -- set explicitly. We detect "explicitly set" by checking whether the
+    -- stored value differs from what would have been auto-derived for that
+    -- side's own contestationPeriod. If neither side looks to have set it on
+    -- purpose, we re-derive from the merged contestationPeriod so that
+    -- overriding contestation from the CLI also shifts the derived
+    -- unsynced-period.
+    --
+    -- Known limitation: if a user explicitly sets unsyncedPeriod to exactly
+    -- the auto-derived value (e.g. 30min unsynced with 1h contestation), the
+    -- heuristic cannot tell it apart from "unset" and will re-derive if the
+    -- merged contestationPeriod differs. Setting a non-default value or
+    -- using only one of YAML/CLI avoids this.
     yamlSetUnsynced = base.unsyncedPeriod /= defaultUnsyncedPeriodFor base.contestationPeriod
     cliSetUnsynced = cli.unsyncedPeriod /= defaultUnsyncedPeriodFor cli.contestationPeriod
     mergedUnsyncedPeriod
