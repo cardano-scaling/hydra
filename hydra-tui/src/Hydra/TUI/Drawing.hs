@@ -28,7 +28,7 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.Network (Host)
-import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize)
+import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, prettyHeadId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style hiding (style)
@@ -152,7 +152,7 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
               Closed{} -> "Closed"
               FanoutPossible -> "Ready to Fanout"
               Final -> "Finalized"
-            hid = serialiseToRawBytesHexText headId
+            hid = prettyHeadId headId
          in withAttr neutral (txt " ")
               <+> withAttr headStateA (txt stateStr)
               <+> withAttr neutral (txt (" · " <> hid <> " "))
@@ -463,7 +463,7 @@ drawPeers s peers = vBox rest
     PeerIsUnknown -> neutral
 
 drawHeadId :: HeadId -> Widget n
-drawHeadId x = txt $ "Head id: " <> serialiseToRawBytesHexText x
+drawHeadId x = txt $ "Head id: " <> prettyHeadId x
 
 drawMyAddress :: AddressInEra -> Widget n
 drawMyAddress addr = txt "Wallet: " <+> withAttr own (drawAddress addr)

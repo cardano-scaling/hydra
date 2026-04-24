@@ -20,11 +20,11 @@ import Hydra.API.ServerOutput (
   ServerOutput (..),
   TimedServerOutput (..),
  )
-import Hydra.Cardano.Api (Tx, UTxO)
-import Hydra.Cardano.Api.Pretty (renderUTxO)
-import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
+import Hydra.Cardano.Api hiding (Active, txId)
+import Hydra.Chain (PostTxError (..), failureReason, reason, redeemerPtr)
 import Hydra.Client (AllPossibleAPIMessages (..))
-import Hydra.Tx (IsTx (..), Snapshot (..))
+import Hydra.Tx (Snapshot (..), txId)
+import Hydra.TUI.Drawing.Utils (prettyHeadId, prettyTxId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
 
 data RenderedMessage = RenderedMessage
@@ -116,7 +116,7 @@ renderServerOutput time output raw = case output of
       Success
       time
       "Head is open"
-      [ fld "Head ID" (show headId)
+      [ fld "Head ID" (prettyHeadId headId)
       , fld "Parties" (show (length parties))
       ]
       raw
@@ -125,7 +125,7 @@ renderServerOutput time output raw = case output of
       Info
       time
       ("Head closed at snapshot " <> show snapshotNumber)
-      [ fld "Head ID" (show headId)
+      [ fld "Head ID" (prettyHeadId headId)
       , fld "Snapshot" (show snapshotNumber)
       , fld "Contestation deadline" (show contestationDeadline)
       , "Submit a contest transaction before the deadline to challenge."
@@ -136,7 +136,7 @@ renderServerOutput time output raw = case output of
       Info
       time
       ("Head contested at snapshot " <> show snapshotNumber)
-      [ fld "Head ID" (show headId)
+      [ fld "Head ID" (prettyHeadId headId)
       , fld "Snapshot" (show snapshotNumber)
       , fld "Contestation deadline" (show contestationDeadline)
       ]
@@ -146,7 +146,7 @@ renderServerOutput time output raw = case output of
       Success
       time
       "Ready to fan out"
-      [ fld "Head ID" (show headId)
+      [ fld "Head ID" (prettyHeadId headId)
       , "Contestation period has passed. You can now submit a fanout transaction."
       ]
       raw
@@ -155,17 +155,17 @@ renderServerOutput time output raw = case output of
       Success
       time
       "Head finalized"
-      [ fld "Head ID" (show headId)
-      , fld "Distributed UTxO" (utxoSummary utxo)
+      [ fld "Head ID" (prettyHeadId headId)
+      , utxoBlock "Distributed UTxO" utxo
       ]
       raw
   TxValid{headId, transactionId} ->
     mk
       Success
       time
-      ("Transaction " <> show transactionId <> " valid")
-      [ fld "Head ID" (show headId)
-      , fld "Transaction ID" (show transactionId)
+      ("Transaction " <> prettyTxId transactionId <> " valid")
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Transaction ID" (prettyTxId transactionId)
       , "Transaction accepted and will be included in the next snapshot."
       ]
       raw
@@ -173,28 +173,36 @@ renderServerOutput time output raw = case output of
     mk
       Error
       time
-      ("Transaction " <> show (txId transaction) <> " invalid")
-      [ fld "Head ID" (show headId)
-      , fld "Transaction ID" (show (txId transaction))
+      ("Transaction " <> prettyTxId (txId transaction) <> " invalid")
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Transaction ID" (prettyTxId (txId transaction))
       , fld "Validation error" (show validationError)
       ]
       raw
-  SnapshotConfirmed{headId, snapshot = Snapshot{number, version}} ->
-    mk
-      Info
-      time
-      ("Snapshot #" <> show number <> "." <> show version <> " confirmed")
-      [ fld "Head ID" (show headId)
-      , fld "Snapshot number" (show number)
-      , fld "Version" (show version)
-      ]
-      raw
+  SnapshotConfirmed{headId, snapshot = Snapshot{number, version, confirmed}} ->
+    let txCount = length confirmed
+        countLabel
+          | txCount == 0 = " (empty)"
+          | txCount == 1 = " (1 transaction)"
+          | otherwise = " (" <> show txCount <> " transactions)"
+     in mk
+          Info
+          time
+          ("Snapshot #" <> show number <> "." <> show version <> " confirmed" <> countLabel)
+          ( [ fld "Head ID" (prettyHeadId headId)
+            , fld "Snapshot number" (show number)
+            , fld "Version" (show version)
+            , fld "Transactions" (if txCount == 0 then "none" else show txCount)
+            ]
+              <> ((\tx -> "  " <> prettyTxId (txId tx)) <$> confirmed)
+          )
+          raw
   IgnoredHeadInitializing{headId, contestationPeriod, parties, participants} ->
     mk
       Info
       time
       "Ignored head initializing"
-      [ fld "Head ID" (show headId)
+      [ fld "Head ID" (prettyHeadId headId)
       , fld "Contestation period" (show contestationPeriod)
       , fld "Parties" (show (length parties))
       , fld "Participants" (show (length participants))
@@ -205,19 +213,19 @@ renderServerOutput time output raw = case output of
     mk
       Info
       time
-      ("Decommit requested: " <> show (txId decommitTx))
-      [ fld "Head ID" (show headId)
-      , fld "Decommit tx" (show (txId decommitTx))
-      , fld "UTxO to decommit" (utxoSummary utxoToDecommit)
+      ("Decommit requested: " <> prettyTxId (txId decommitTx))
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Decommit tx" (prettyTxId (txId decommitTx))
+      , utxoBlock "UTxO to decommit" utxoToDecommit
       ]
       raw
   DecommitInvalid{headId, decommitTx, decommitInvalidReason} ->
     mk
       Error
       time
-      ("Decommit invalid: " <> show (txId decommitTx))
-      [ fld "Head ID" (show headId)
-      , fld "Decommit tx" (show (txId decommitTx))
+      ("Decommit invalid: " <> prettyTxId (txId decommitTx))
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Decommit tx" (prettyTxId (txId decommitTx))
       , fld "Reason" (renderDecommitInvalidReason decommitInvalidReason)
       ]
       raw
@@ -225,10 +233,10 @@ renderServerOutput time output raw = case output of
     mk
       Success
       time
-      ("Decommit approved: " <> show decommitTxId)
-      [ fld "Head ID" (show headId)
-      , fld "Decommit tx" (show decommitTxId)
-      , fld "UTxO to decommit" (utxoSummary utxoToDecommit)
+      ("Decommit approved: " <> prettyTxId decommitTxId)
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Decommit tx" (prettyTxId decommitTxId)
+      , utxoBlock "UTxO to decommit" utxoToDecommit
       ]
       raw
   DecommitFinalized{headId, distributedUTxO} ->
@@ -236,19 +244,19 @@ renderServerOutput time output raw = case output of
       Success
       time
       "Decommit finalized"
-      [ fld "Head ID" (show headId)
-      , fld "Distributed UTxO" (utxoSummary distributedUTxO)
+      [ fld "Head ID" (prettyHeadId headId)
+      , utxoBlock "Distributed UTxO" distributedUTxO
       ]
       raw
   CommitRecorded{headId, utxoToCommit, pendingDeposit, deadline} ->
     mk
       Success
       time
-      ("Deposit recorded: " <> show pendingDeposit)
-      [ fld "Head ID" (show headId)
-      , fld "Deposit tx ID" (show pendingDeposit)
-      , fld "UTxO to commit" (utxoSummary utxoToCommit)
+      ("Deposit recorded: " <> prettyTxId pendingDeposit)
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Deposit tx ID" (prettyTxId pendingDeposit)
       , fld "Deadline" (show deadline)
+      , utxoBlock "UTxO to commit" utxoToCommit
       , "Waiting for approval before funds enter the head."
       ]
       raw
@@ -256,9 +264,9 @@ renderServerOutput time output raw = case output of
     mk
       Info
       time
-      ("Deposit activated: " <> show depositTxId)
-      [ fld "Head ID" (show headId)
-      , fld "Deposit tx ID" (show depositTxId)
+      ("Deposit activated: " <> prettyTxId depositTxId)
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Deposit tx ID" (prettyTxId depositTxId)
       , fld "Deadline" (show deadline)
       , fld "Chain time" (show chainTime)
       ]
@@ -267,9 +275,9 @@ renderServerOutput time output raw = case output of
     mk
       Error
       time
-      ("Deposit expired: " <> show depositTxId)
-      [ fld "Head ID" (show headId)
-      , fld "Deposit tx ID" (show depositTxId)
+      ("Deposit expired: " <> prettyTxId depositTxId)
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Deposit tx ID" (prettyTxId depositTxId)
       , fld "Deadline" (show deadline)
       , fld "Chain time" (show chainTime)
       , "The deposit was not approved in time and has expired."
@@ -280,17 +288,17 @@ renderServerOutput time output raw = case output of
       Success
       time
       "Commit approved"
-      [ fld "Head ID" (show headId)
-      , fld "UTxO committed" (T.intercalate ", " (renderUTxO <$> UTxO.toList utxoToCommit))
+      [ fld "Head ID" (prettyHeadId headId)
+      , utxoBlock "UTxO committed" utxoToCommit
       ]
       raw
   CommitFinalized{headId, depositTxId} ->
     mk
       Success
       time
-      ("Commit finalized: " <> show depositTxId)
-      [ fld "Head ID" (show headId)
-      , fld "Deposit tx ID" (show depositTxId)
+      ("Commit finalized: " <> prettyTxId depositTxId)
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Deposit tx ID" (prettyTxId depositTxId)
       , "Funds are now in the head."
       ]
       raw
@@ -298,10 +306,10 @@ renderServerOutput time output raw = case output of
     mk
       Info
       time
-      ("Commit recovered: " <> show recoveredTxId)
-      [ fld "Head ID" (show headId)
-      , fld "Recovered tx ID" (show recoveredTxId)
-      , fld "Recovered UTxO" (utxoSummary recoveredUTxO)
+      ("Commit recovered: " <> prettyTxId recoveredTxId)
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Recovered tx ID" (prettyTxId recoveredTxId)
+      , utxoBlock "Recovered UTxO" recoveredUTxO
       , "The pending deposit was recovered back to L1."
       ]
       raw
@@ -310,7 +318,7 @@ renderServerOutput time output raw = case output of
       Info
       time
       ("Snapshot #" <> show snapshotNumber <> " side-loaded")
-      [ fld "Head ID" (show headId)
+      [ fld "Head ID" (prettyHeadId headId)
       , fld "Snapshot number" (show snapshotNumber)
       , "Local state reset; pending transactions pruned."
       ]
@@ -407,7 +415,7 @@ renderGreetings now Greetings{me, headStatus, hydraHeadId, hydraNodeVersion, cha
       , fld "Head status" (show headStatus)
       , fld "Chain sync" (show chainSyncedStatus)
       ]
-        <> maybe [] (\hid -> [fld "Head ID" (show hid)]) hydraHeadId
+        <> maybe [] (\hid -> [fld "Head ID" (prettyHeadId hid)]) hydraHeadId
     )
     raw
 
@@ -430,10 +438,24 @@ renderInvalidInput now InvalidInput{reason, input} raw =
 -- Utilities
 -- ---------------------------------------------------------------------------
 
-utxoSummary :: UTxO -> Text
-utxoSummary u =
-  let n = UTxO.size u
-   in show n <> if n == 1 then " entry" else " entries"
+-- | Render a UTxO map as a labelled block: "Label:\n  txin ↦ ₳ X.XXXXXX\n  ...".
+-- Embeds newlines so it can be used as a single item in a detail-lines list.
+utxoBlock :: Text -> UTxO -> Text
+utxoBlock lbl u
+  | null entries = lbl <> ": (none)"
+  | otherwise = T.intercalate "\n" $ (lbl <> ":") : (("  " <>) . renderUTxOEntry <$> entries)
+ where
+  entries = UTxO.toList u
+
+-- | Render a UTxO entry as "txin ↦ ₳ X.XXXXXX" (full txin, ADA-denominated).
+renderUTxOEntry :: (TxIn, TxOut CtxUTxO) -> Text
+renderUTxOEntry (txin, TxOut _ val _ _) =
+  let Coin l = selectLovelace val
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = T.replicate (6 - length fracStr) "0" <> T.pack fracStr
+      sign = if l < 0 then "-" else ""
+   in renderTxIn txin <> " ↦ ₳ " <> sign <> T.pack (show ada) <> "." <> padded
 
 renderDecommitInvalidReason :: DecommitInvalidReason Tx -> Text
 renderDecommitInvalidReason = \case
@@ -449,6 +471,40 @@ renderPostTxError = \case
   InternalWalletError{reason} ->
     [ fld "Internal wallet error" reason
     ]
+  ScriptFailedInWallet{redeemerPtr, failureReason} ->
+    [ "Script execution failed in wallet."
+    , fld "Redeemer" redeemerPtr
+    , fld "Reason" failureReason
+    ]
+  FailedToPostTx{failureReason} ->
+    [ "Failed to submit transaction to the chain."
+    , fld "Reason" failureReason
+    ]
+  FailedToConstructDepositTx{failureReason} ->
+    [ "Failed to construct deposit transaction."
+    , fld "Reason" failureReason
+    ]
+  FailedToConstructRecoverTx{failureReason} ->
+    [ "Failed to construct recover transaction."
+    , fld "Reason" failureReason
+    ]
+  FailedToConstructIncrementTx{failureReason} ->
+    [ "Failed to construct increment transaction."
+    , fld "Reason" failureReason
+    ]
+  FailedToConstructDecrementTx{failureReason} ->
+    [ "Failed to construct decrement transaction."
+    , fld "Reason" failureReason
+    ]
+  FailedToConstructCloseTx ->
+    [ "Failed to construct close transaction."
+    ]
+  FailedToConstructContestTx ->
+    [ "Failed to construct contest transaction."
+    ]
+  FailedToConstructFanoutTx ->
+    [ "Failed to construct fanout transaction."
+    ]
   err ->
-    [ fld "Error" (show err)
+    [ fld "On-chain error" (show err)
     ]
