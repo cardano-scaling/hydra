@@ -28,7 +28,7 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.Network (Host)
-import Hydra.TUI.Drawing.Utils (drawHex, drawShow, ellipsize, prettyHeadId)
+import Hydra.TUI.Drawing.Utils (drawHex, drawShow, prettyHeadId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style hiding (style)
@@ -125,8 +125,12 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
       , padLeftRight 1 $
           hBox
             [ hLimit 32 $
-                borderWithLabel (withAttr neutral $ txt " Peers ") $
-                  padLeftRight 1 drawPeersSection
+                vBox
+                  [ borderWithLabel (withAttr neutral $ txt " Peers ") $
+                      padLeftRight 1 drawPeersSection
+                  , borderWithLabel (withAttr neutral $ txt " Head parties ") $
+                      padLeftRight 1 drawHeadPartiesSection
+                  ]
             , padLeft (Pad 1) $
                 borderWithLabel (withAttr neutral $ txt " Head state ") $
                   padLeftRight 1 drawHeadStateSection
@@ -161,6 +165,16 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
   drawPeersSection = case connState of
     Disconnected -> withAttr neutral $ txt "Peers"
     Connected c -> drawPeers connState (c ^. peersL)
+
+  drawHeadPartiesSection :: Widget Name
+  drawHeadPartiesSection = case connState of
+    Disconnected -> emptyWidget
+    Connected c -> case c ^. headStateL of
+      Idle -> withAttr neutral $ txt "none"
+      Active (ActiveLink{parties}) ->
+        case c ^. meL of
+          Unidentified -> vBox $ map (drawParty mempty) parties
+          Identified ownParty -> drawPartiesWithOwnHighlighted ownParty parties
 
   drawHeadStateSection :: Widget Name
   drawHeadStateSection = case connState of
@@ -469,7 +483,7 @@ drawMyAddress :: AddressInEra -> Widget n
 drawMyAddress addr = txt "Wallet: " <+> withAttr own (drawAddress addr)
 
 drawAddress :: AddressInEra -> Widget n
-drawAddress addr = txt (ellipsize 40 $ serialiseAddress addr)
+drawAddress addr = txt (serialiseAddress addr)
 
 drawMeIfIdentified :: IdentifiedState -> Widget n
 drawMeIfIdentified (Identified Party{vkey}) = txt "Party: " <+> withAttr own (txt $ serialiseToRawBytesHexText vkey)
