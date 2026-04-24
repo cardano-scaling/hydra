@@ -70,7 +70,9 @@ handleEvent cardanoClient client chan = \case
       Update (ApiTimedServerOutput TimedServerOutput{output = API.DecommitFinalized{}}) ->
         triggerL1Query cardanoClient client chan
       _ -> pure ()
-  AppEvent (L1UTxORefresh utxo) -> l1UTxOL .= Just utxo
+  AppEvent (L1UTxORefresh utxo) -> do
+    l1UTxOL .= Just utxo
+    pendingActionL .= Just "Update complete"
   AppEvent (TxBuildError msg) -> pendingActionL .= Just msg
   AppEvent (UTxOQueryResult utxo) -> do
     pendingActionL .= Nothing
@@ -141,21 +143,28 @@ handleEvent cardanoClient client chan = \case
               Just OpenHome ->
                 pendingActionL .= Just "No L2 UTxO available to decommit."
               _ -> pure ()
-      EvKey (KChar 'r') [] | not modalOpen -> do
+      EvKey (KChar 'u') [] | not modalOpen -> do
         tab <- use activeTabL
         case tab of
           FundsTab -> do
             l1UTxOL .= Nothing
+            pendingActionL .= Just "Updating L1 wallet…"
             triggerL1Query cardanoClient client chan
-          _ -> do
-            zoom (connectedStateL . connectionL . headStateL) $
-              handleVtyEventsHeadState cardanoClient client chan e
-            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
-            case newOpenScreen of
-              Just (SelectingDepositIdToRecover _) -> do
-                previousTabL .= tab
-                activeTabL .= ModalTab
-              _ -> pure ()
+          _ -> pure ()
+      EvKey (KChar 'f') [] | not modalOpen -> do
+        setPendingAction e
+        zoom (connectedStateL . connectionL . headStateL) $
+          handleVtyEventsHeadState cardanoClient client chan e
+      EvKey (KChar 'r') [] | not modalOpen -> do
+        tab <- use activeTabL
+        zoom (connectedStateL . connectionL . headStateL) $
+          handleVtyEventsHeadState cardanoClient client chan e
+        newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+        case newOpenScreen of
+          Just (SelectingDepositIdToRecover _) -> do
+            previousTabL .= tab
+            activeTabL .= ModalTab
+          _ -> pure ()
       EvKey KRight []
         | not modalOpen -> do
             activeTabL %= cycleTab

@@ -22,7 +22,6 @@ import Data.Text qualified as T
 import Data.Time (defaultTimeLocale, formatTime, utctDayTime)
 import Data.Time.Format (FormatTime)
 import Data.Time.LocalTime (TimeZone, utcToLocalTime)
-import Data.Version (Version, showVersion)
 import Graphics.Vty qualified as Vty
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
@@ -32,7 +31,7 @@ import Hydra.TUI.Drawing.Utils (drawHex, drawShow, prettyHeadId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style hiding (style)
-import Hydra.Tx (HeadId, IsTx (..), Party (..))
+import Hydra.Tx (IsTx (..), Party (..))
 import Lens.Micro ((^.), (^?))
 
 -- | Main draw function
@@ -204,18 +203,6 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
               , drawUTxO (highlightOwnAddress ownAddress) utxo
               ]
 
-drawPeersTab :: RootState -> Widget Name
-drawPeersTab s =
-  borderWithLabel (withAttr neutral $ txt " Peers ") $
-    padLeftRight 1 $
-      vBox
-        [ drawIfConnected (drawMeIfIdentified . me) (s ^. connectedStateL)
-        , hBorder
-        , drawIfConnected (\conn -> drawIfActive (drawHeadParticipants (me conn) . parties) (headState conn)) (s ^. connectedStateL)
-        , hBorder
-        , drawIfConnected (drawPeers (s ^. connectedStateL) . peers) (s ^. connectedStateL)
-        ]
-
 drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawFundsTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel (withAttr neutral $ txt " Funds ") $
@@ -326,7 +313,7 @@ drawActionBar s =
             _ -> [("Esc/C", " close")]
           else case (s ^. activeTabL, activeHeadState) of
             (EventHistoryTab, _) -> [("d", " raw/summary"), ("Q", "uit")]
-            (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "efresh")]
+            (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "ecover"), ("U", "pdate")]
             (_, Open{}) -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement"), ("R", "ecover"), ("C", "lose"), ("Q", "uit")]
             (_, Closed{}) -> [("Q", "uit")]
             (_, FanoutPossible{}) -> [("F", "anout"), ("Q", "uit")]
@@ -420,24 +407,6 @@ drawPartiesWithOwnHighlighted k = drawParties (\p -> drawParty (if k == p then o
 drawParties :: (Party -> Widget n) -> [Party] -> Widget n
 drawParties f xs = vBox $ map f xs
 
-drawHeadParticipants :: IdentifiedState -> [Party] -> Widget n
-drawHeadParticipants k xs =
-  withAttr neutral (txt "Participants")
-    <=> ( case k of
-            Unidentified -> drawParties (drawParty mempty) xs
-            Identified p -> drawPartiesWithOwnHighlighted p xs
-        )
-
-drawIfConnected :: (Connection -> Widget n) -> ConnectedState -> Widget n
-drawIfConnected f = \case
-  Disconnected{} -> emptyWidget
-  Connected c -> f c
-
-drawIfActive :: (ActiveLink -> Widget n) -> HeadState -> Widget n
-drawIfActive f = \case
-  Idle -> emptyWidget
-  Active x -> f x
-
 drawNetworkState :: ConnectedState -> Widget n
 drawNetworkState s =
   txt "Network: " <+> case s of
@@ -476,18 +445,8 @@ drawPeers s peers = vBox rest
     PeerIsDisconnected -> negative
     PeerIsUnknown -> neutral
 
-drawHeadId :: HeadId -> Widget n
-drawHeadId x = txt $ "Head id: " <> prettyHeadId x
-
-drawMyAddress :: AddressInEra -> Widget n
-drawMyAddress addr = txt "Wallet: " <+> withAttr own (drawAddress addr)
-
 drawAddress :: AddressInEra -> Widget n
 drawAddress addr = txt (serialiseAddress addr)
-
-drawMeIfIdentified :: IdentifiedState -> Widget n
-drawMeIfIdentified (Identified Party{vkey}) = txt "Party: " <+> withAttr own (txt $ serialiseToRawBytesHexText vkey)
-drawMeIfIdentified Unidentified = emptyWidget
 
 drawConnectedStatus :: RootState -> Widget n
 drawConnectedStatus RootState{nodeHost, connectedState} =
@@ -498,31 +457,10 @@ drawConnectedStatus RootState{nodeHost, connectedState} =
 drawParty :: AttrName -> Party -> Widget n
 drawParty x Party{vkey} = withAttr x $ drawHex vkey
 
-drawTUIVersion :: Version -> Widget n
-drawTUIVersion v = str "Hydra TUI " <+> str (showVersion v)
-
 renderTime :: (Ord t, Num t, FormatTime t) => t -> String
 renderTime r
   | r < 0 = "-" <> renderTime (negate r)
   | otherwise = formatTime defaultTimeLocale "%dd %Hh %Mm %Ss" r
-
--- | Full two-line head state (used on Peers tab and Funds tab).
-drawHeadState :: ConnectedState -> Widget n
-drawHeadState = \case
-  Disconnected{} -> emptyWidget
-  Connected (Connection{headState}) ->
-    txt "Head: "
-      <+> withAttr infoA (str $ showHeadState headState)
-      <=> drawIfActive (drawHeadId . headId) headState
-
-showHeadState :: HeadState -> String
-showHeadState = \case
-  Idle -> "Idle"
-  Active (ActiveLink{activeHeadState}) -> case activeHeadState of
-    Open{} -> "Open"
-    FanoutPossible{} -> "Ready to Fanout"
-    Closed{} -> "Closed"
-    Final{} -> "Finalized"
 
 -- | Render a lovelace value as ADA with the ₳ symbol.
 renderAda :: Value -> Text
