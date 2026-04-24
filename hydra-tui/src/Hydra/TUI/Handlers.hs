@@ -37,8 +37,8 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Forms
 import Hydra.TUI.Logging.Types (LogMessage, logMessagesL)
-import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Model
+import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Snapshot (..))
 import Lens.Micro ((^.), (^?))

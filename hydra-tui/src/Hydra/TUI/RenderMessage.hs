@@ -23,9 +23,9 @@ import Hydra.API.ServerOutput (
 import Hydra.Cardano.Api hiding (Active, txId)
 import Hydra.Chain (PostTxError (..), failureReason, reason, redeemerPtr)
 import Hydra.Client (AllPossibleAPIMessages (..))
-import Hydra.Tx (Snapshot (..), txId)
 import Hydra.TUI.Drawing.Utils (prettyHeadId, prettyTxId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
+import Hydra.Tx (Snapshot (..), txId)
 
 data RenderedMessage = RenderedMessage
   { rmSeverity :: Severity
@@ -405,7 +405,7 @@ renderClientMessage now msg raw = case msg of
 -- ---------------------------------------------------------------------------
 
 renderGreetings :: UTCTime -> Greetings Tx -> Text -> RenderedMessage
-renderGreetings now Greetings{me, headStatus, hydraHeadId, hydraNodeVersion, chainSyncedStatus} raw =
+renderGreetings now Greetings{me, headStatus, hydraHeadId, hydraNodeVersion, chainSyncedStatus} =
   mk
     Info
     now
@@ -417,14 +417,13 @@ renderGreetings now Greetings{me, headStatus, hydraHeadId, hydraNodeVersion, cha
       ]
         <> maybe [] (\hid -> [fld "Head ID" (prettyHeadId hid)]) hydraHeadId
     )
-    raw
 
 -- ---------------------------------------------------------------------------
 -- InvalidInput
 -- ---------------------------------------------------------------------------
 
 renderInvalidInput :: UTCTime -> InvalidInput -> Text -> RenderedMessage
-renderInvalidInput now InvalidInput{reason, input} raw =
+renderInvalidInput now InvalidInput{reason, input} =
   mk
     Error
     now
@@ -432,7 +431,6 @@ renderInvalidInput now InvalidInput{reason, input} raw =
     [ fld "Reason" (toText reason)
     , fld "Input" input
     ]
-    raw
 
 -- ---------------------------------------------------------------------------
 -- Utilities
