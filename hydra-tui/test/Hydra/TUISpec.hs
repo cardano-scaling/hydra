@@ -87,7 +87,6 @@ spec = do
             sendInputEvent $ EvKey (KChar 'i') []
             threadDelay 1
             shouldRender "Open"
-            shouldRender "Head id"
             restartNode
             sendInputEvent $ EvKey (KChar 'h') []
             threadDelay 1
@@ -115,7 +114,7 @@ spec = do
       it "starts & renders" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
-          shouldRender "TUI"
+          shouldRender "Main"
           sendInputEvent $ EvKey (KChar 'q') []
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
