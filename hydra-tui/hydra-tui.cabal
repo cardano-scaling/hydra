@@ -46,10 +46,10 @@ library
     Hydra.TUI.Drawing.Utils
     Hydra.TUI.Forms
     Hydra.TUI.Handlers
-    Hydra.TUI.Logging.Handlers
     Hydra.TUI.Logging.Types
     Hydra.TUI.Model
     Hydra.TUI.Options
+    Hydra.TUI.RenderMessage
     Hydra.TUI.Style
 
   other-modules:   Paths_hydra_tui
