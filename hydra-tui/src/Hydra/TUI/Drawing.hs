@@ -268,7 +268,7 @@ drawEventListItem tz selected (LogMessage{message, severity, time}) =
 
 drawEventDetail :: TimeZone -> Bool -> Maybe (Int, LogMessage) -> Widget Name
 drawEventDetail _ _ Nothing = withAttr neutral $ txt "No event selected."
-drawEventDetail tz rawView (Just (_, LogMessage{message, severity, time, rawJson})) =
+drawEventDetail tz rawView (Just (_, LogMessage{detail, severity, time, rawJson})) =
   vBox
     [ hBox
         [ withAttr (severityToAttr severity) $ txt (severityLabel severity)
@@ -284,9 +284,8 @@ drawEventDetail tz rawView (Just (_, LogMessage{message, severity, time, rawJson
     Info -> "Info"
     Error -> "Error"
   body
-    | rawView, Just json <- rawJson = txtWrap json
-    | rawView = withAttr neutral $ txt "No raw JSON available for this event."
-    | otherwise = txtWrap message
+    | rawView = txtWrap rawJson
+    | otherwise = txtWrap detail
 
 drawActionBar :: RootState -> Widget n
 drawActionBar s =

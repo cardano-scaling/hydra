@@ -16,8 +16,6 @@ import Control.Concurrent (forkIO)
 import Data.List (nub)
 import Data.Map qualified as Map
 import Data.Text qualified as T
-import Data.Text.Lazy qualified as TL
-import Data.Text.Lazy.Encoding qualified as TLE
 import Data.Vector qualified as Vec
 import Graphics.Vty (
   Event (EvKey),
@@ -30,8 +28,6 @@ import Hydra.API.ServerOutput (NetworkInfo (..), TimedServerOutput (..))
 import Hydra.API.ServerOutput qualified as API
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Cardano.Api.Prelude ()
-import Hydra.Cardano.Api.Pretty (renderUTxO)
-import Hydra.Chain (PostTxError (InternalWalletError, NotEnoughFuel), reason)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (AllPossibleAPIMessages (..), Client (..), HydraEvent (..))
@@ -40,8 +36,8 @@ import Hydra.Network (Host, readHost)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Forms
-import Hydra.TUI.Logging.Handlers (info, report, warn)
-import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..), logMessagesL)
+import Hydra.TUI.Logging.Types (LogMessage, logMessagesL)
+import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Model
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Snapshot (..))
@@ -63,16 +59,10 @@ handleEvent cardanoClient client chan = \case
       zoom connectionL $ handleHydraEventsConnection now e
     beforeLen <- length <$> use (logStateL . logMessagesL)
     zoom (logStateL . logMessagesL) $
-      handleHydraEventsInfo e
+      handleHydraEventsLog now e
     afterLen <- length <$> use (logStateL . logMessagesL)
-    when (afterLen > beforeLen) $ do
+    when (afterLen > beforeLen) $
       pendingActionL .= Nothing
-      case e of
-        Update (ApiTimedServerOutput tso) ->
-          logStateL . logMessagesL %= \case
-            (msg : rest) -> msg{rawJson = Just (TL.toStrict $ TLE.decodeUtf8 $ encodePretty (toJSON tso))} : rest
-            [] -> []
-        _ -> pure ()
     syncEventHistoryList
     case e of
       Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitRecorded{}}) ->
@@ -354,98 +344,9 @@ handleHydraEventsActiveLink e = do
       pendingIncrementsL .= activePendingIncrements
     _ -> pure ()
 
-handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
-handleHydraEventsInfo = \case
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NetworkConnected}) ->
-    report Success time "Network connected"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NetworkDisconnected}) ->
-    report Error time "Network disconnected"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.PeerConnected{peer}}) ->
-    info time $ "Peer connected: " <> show peer
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.PeerDisconnected{peer}}) ->
-    info time $ "Peer disconnected: " <> show peer
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsOpen{parties, headId}}) ->
-    info time "Head is now open!"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotConfirmed{snapshot = Snapshot{number, version}}}) ->
-    info time ("Snapshot #" <> show number <> "." <> show version <> " confirmed.")
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.SnapshotSideLoaded{snapshotNumber}}) ->
-    info time ("Snapshot #" <> show snapshotNumber <> " side loaded.")
-  Update (ApiClientMessage API.CommandFailed{clientInput}) -> do
-    time <- liftIO getCurrentTime
-    warn time $ "Invalid command: " <> show clientInput
-  Update (ApiClientMessage API.RejectedInputBecauseUnsynced{clientInput, drift}) -> do
-    time <- liftIO getCurrentTime
-    warn time $ "Rejected command: " <> show clientInput <> " Reason: " <> "Node is out of sync with chain, drift: " <> show drift
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeUnsynced{chainTime, drift}}) -> do
-    warn time $
-      "Node state is out of sync with chain backend. Chain time: "
-        <> show chainTime
-        <> ", Drift: "
-        <> show drift
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.NodeSynced{chainTime, drift}}) ->
-    warn time $
-      "Node state is back in sync with chain backend. Chain time: "
-        <> show chainTime
-        <> ", Drift: "
-        <> show drift
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsClosed{snapshotNumber}}) ->
-    info time $ "Head closed with snapshot number " <> show snapshotNumber
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsContested{snapshotNumber, contestationDeadline}}) ->
-    info time ("Head contested with snapshot number " <> show snapshotNumber <> " and deadline " <> show contestationDeadline)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.TxValid{transactionId}}) ->
-    report Success time ("Transaction " <> show transactionId <> " submitted successfully")
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.TxInvalid{transaction, validationError}}) ->
-    warn time ("Transaction " <> show (Hydra.Tx.txId transaction) <> " is not applicable: " <> show validationError)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitApproved{decommitTxId, utxoToDecommit}}) ->
-    report Success time $
-      "Decommit approved and submitted to Cardano "
-        <> show decommitTxId
-        <> " "
-        <> foldMap renderUTxO (UTxO.toList utxoToDecommit)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitFinalized{distributedUTxO}}) ->
-    report Success time $
-      "Decommit finalized "
-        <> show distributedUTxO
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitInvalid{decommitTx, decommitInvalidReason}}) ->
-    warn time $
-      "Decommit Transaction with id "
-        <> show (Hydra.Tx.txId decommitTx)
-        <> " is not applicable: "
-        <> show decommitInvalidReason
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecorded{utxoToCommit, pendingDeposit}}) ->
-    report Success time $
-      "Commit recorded: deposit tx id "
-        <> show pendingDeposit
-        <> " — pending approval"
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitApproved{utxoToCommit}}) ->
-    report Success time $
-      "Commit approved and submitted to Cardano "
-        <> foldMap renderUTxO (UTxO.toList utxoToCommit)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitRecovered{recoveredTxId, recoveredUTxO}}) ->
-    report Success time $
-      "Commit recovered "
-        <> show recoveredTxId
-        <> " "
-        <> foldMap renderUTxO (UTxO.toList recoveredUTxO)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.CommitFinalized{depositTxId}}) ->
-    report Success time $
-      "Commit finalized "
-        <> show depositTxId
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{utxo}}) -> do
-    info time "Head is finalized"
-  Update (ApiInvalidInput API.InvalidInput{reason}) -> do
-    time <- liftIO getCurrentTime
-    warn time ("Invalid input error: " <> toText reason)
-  Update (ApiClientMessage API.PostTxOnChainFailed{postTxError}) -> do
-    time <- liftIO getCurrentTime
-    case postTxError of
-      NotEnoughFuel _ ->
-        warn time "Not enough Fuel. Please provide more to the internal wallet and try again."
-      InternalWalletError{reason} ->
-        warn time reason
-      _ -> warn time ("An error happened while trying to post a transaction on-chain: " <> show postTxError)
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.EventLogRotated{}}) -> do
-    info time "Checkpoint triggered: head state event log rotated"
+handleHydraEventsLog :: UTCTime -> HydraEvent Tx -> EventM Name [LogMessage] ()
+handleHydraEventsLog now = \case
+  Update msg -> id %= (toLogMessage (renderMessage now msg) :)
   _ -> pure ()
 
 -- * VtyEvent handlers
