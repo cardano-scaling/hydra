@@ -1422,13 +1422,15 @@ onClosedChainPartialFanoutTx ::
   UTxOType tx ->
   Outcome tx
 onClosedChainPartialFanoutTx closedState newChainState distributedUTxO =
-  -- Compute the remaining UTxOs after removing the distributed ones.
-  -- NOTE: We use splitUTxOAt (drop first N) rather than withoutUTxO (set
-  -- difference by TxIn) because the observed distributedUTxO has fresh TxIns
-  -- from the partial fanout transaction, not the original snapshot TxIns.
-  let fullUTxO = resolveRemainingUTxO closedState
-      distributedCount = sizeUTxO distributedUTxO
-      (_, remaining) = splitUTxOAt distributedCount fullUTxO
+  -- Use the pending remaining UTxO stored when the PartialFanoutTx was posted
+  -- (via HeadPartialFanoutPrepared). This handles arbitrary user-selected
+  -- subsets correctly. Fall back to count-based split if not set (should not
+  -- happen in normal operation).
+  let remaining = case closedState.pendingRemainingFanoutUTxO of
+        Just r -> r
+        Nothing ->
+          let fullUTxO = resolveRemainingUTxO closedState
+           in snd (splitUTxOAt (sizeUTxO distributedUTxO) fullUTxO)
       stateChange =
         newState
           HeadPartialFannedOut
@@ -1481,19 +1483,20 @@ emitNextFanoutStep ::
   UTxOType tx ->
   ClosedState tx ->
   Outcome tx
-emitNextFanoutStep remaining ClosedState{headSeed, contestationDeadline}
+emitNextFanoutStep remaining ClosedState{headId, headSeed, contestationDeadline}
   | sizeUTxO remaining > fanoutOutputThreshold =
       let (toDistribute, rest) = splitUTxOAt fanoutChunkSize remaining
-       in cause
-            OnChainEffect
-              { postChainTx =
-                  PartialFanoutTx
-                    { utxoToDistribute = toDistribute
-                    , remainingUTxO = rest
-                    , headSeed
-                    , contestationDeadline
-                    }
-              }
+       in newState HeadPartialFanoutPrepared{headId, remaining = rest}
+            <> cause
+              OnChainEffect
+                { postChainTx =
+                    PartialFanoutTx
+                      { utxoToDistribute = toDistribute
+                      , remainingUTxO = rest
+                      , headSeed
+                      , contestationDeadline
+                      }
+                }
   | otherwise =
       cause
         OnChainEffect
@@ -2208,12 +2211,13 @@ aggregate st = \case
               , headSeed
               , version
               , remainingFanoutUTxO = Nothing
+              , pendingRemainingFanoutUTxO = Nothing
               , distributedFanoutUTxO = mempty
               }
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, remainingFanoutUTxO, distributedFanoutUTxO} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, remainingFanoutUTxO, pendingRemainingFanoutUTxO, distributedFanoutUTxO} ->
         Closed
           ClosedState
             { parameters
@@ -2225,6 +2229,7 @@ aggregate st = \case
             , headSeed
             , version
             , remainingFanoutUTxO
+            , pendingRemainingFanoutUTxO
             , distributedFanoutUTxO
             }
       _otherState -> st
@@ -2243,8 +2248,13 @@ aggregate st = \case
           cst
             { chainState
             , remainingFanoutUTxO = Just remainingUTxO
+            , pendingRemainingFanoutUTxO = Nothing
             , distributedFanoutUTxO = distributedFanoutUTxO cst <> distributedUTxO
             }
+      _otherState -> st
+  HeadPartialFanoutPrepared{remaining} ->
+    case st of
+      Closed cst -> Closed cst{pendingRemainingFanoutUTxO = Just remaining}
       _otherState -> st
   HeadIsReadyToFanout{} ->
     case st of
@@ -2303,6 +2313,7 @@ aggregateChainStateHistory history = \case
   HeadIsReadyToFanout{} -> history
   HeadFannedOut{chainState} -> pushNewState chainState history
   HeadPartialFannedOut{chainState} -> pushNewState chainState history
+  HeadPartialFanoutPrepared{} -> history
   ChainRolledBack{chainState} -> rollbackHistory (chainStateSlot chainState) history
   TickObserved{chainPoint} -> setLastKnown chainPoint history
   CommitApproved{} -> history

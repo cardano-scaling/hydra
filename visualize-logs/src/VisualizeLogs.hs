@@ -205,6 +205,7 @@ processLogs decoded =
                     details@HeadIsReadyToFanout{} -> logIt (LogicLabel "HeadIsReadyToFanout") details
                     details@HeadFannedOut{} -> logIt (LogicLabel "HeadFannedOut") details
                     details@HeadPartialFannedOut{} -> logIt (LogicLabel "HeadPartialFannedOut") details
+                    HeadPartialFanoutPrepared{} -> pure DropLog
                     details@IgnoredHeadInitializing{} -> logIt (LogicLabel "IgnoredHeadInitializing") details
                     details@TxInvalid{} -> logIt (LogicLabel "TxInvalid") details
                     NetworkConnected{} -> pure DropLog

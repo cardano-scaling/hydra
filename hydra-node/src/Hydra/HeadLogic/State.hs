@@ -252,6 +252,11 @@ data ClosedState tx = ClosedState
   , remainingFanoutUTxO :: Maybe (UTxOType tx)
   -- ^ Tracks remaining UTxOs to fan out after partial fanouts.
   -- Nothing means no partial fanout has occurred yet.
+  , pendingRemainingFanoutUTxO :: Maybe (UTxOType tx)
+  -- ^ Optimistically stores the remaining UTxO set for the in-flight partial
+  -- fanout step (set when posting, cleared on confirmation). Allows
+  -- 'onClosedChainPartialFanoutTx' to reconstruct remaining correctly for
+  -- arbitrary user-selected subsets, not just ordered prefix splits.
   , distributedFanoutUTxO :: UTxOType tx
   -- ^ Accumulates UTxOs distributed by partial fanout transactions, with their
   -- actual L1 TxIns. Used to reconstruct the full UTxO set in 'HeadFannedOut'.

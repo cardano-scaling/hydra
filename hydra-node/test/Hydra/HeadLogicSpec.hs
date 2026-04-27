@@ -2141,7 +2141,7 @@ prop_ignoresUnrelatedOnInitTx =
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutUTxO = Nothing, distributedFanoutUTxO = mempty})
+  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutUTxO = Nothing, pendingRemainingFanoutUTxO = Nothing, distributedFanoutUTxO = mempty})
 
 -- * Utilities
 
@@ -2247,6 +2247,7 @@ inClosedState' parties confirmedSnapshot =
         , headSeed = testHeadSeed
         , version = 0
         , remainingFanoutUTxO = Nothing
+        , pendingRemainingFanoutUTxO = Nothing
         , distributedFanoutUTxO = mempty
         }
  where
@@ -2268,6 +2269,7 @@ inClosedStateWithRemaining parties remaining =
         , headSeed = testHeadSeed
         , version = 0
         , remainingFanoutUTxO = remaining
+        , pendingRemainingFanoutUTxO = Nothing
         , distributedFanoutUTxO = mempty
         }
  where

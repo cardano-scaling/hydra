@@ -136,6 +136,10 @@ data StateChanged tx
       , remainingUTxO :: UTxOType tx
       , chainState :: ChainStateType tx
       }
+  | HeadPartialFanoutPrepared
+      { headId :: HeadId
+      , remaining :: UTxOType tx
+      }
   | ChainRolledBack {chainState :: ChainStateType tx}
   | TickObserved {chainPoint :: ChainPointType tx}
   | IgnoredHeadInitializing

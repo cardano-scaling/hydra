@@ -1,0 +1,22 @@
+{
+    "samples": [
+        {
+            "headId": "01010000000100010000010101000001",
+            "remaining": {
+                "0101010101000100010101000101010000000100010100000100010100000100#90": {
+                    "address": "addr_test1zp93wz4zyds6dh5j08z7pnedjr9hgsntcgnmgpdwrvsz426ucegr5zzzp7vwmced4409jpg89537cfhfur3lapftugkqvk3t69",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "lovelace": 969750
+                    }
+                }
+            },
+            "tag": "HeadPartialFanoutPrepared"
+        }
+    ],
+    "seed": -1366453080
+}

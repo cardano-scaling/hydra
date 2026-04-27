@@ -44,7 +44,6 @@
         pkgs.yarn
         pkgs.yq
         pkgs.nix-fast-build
-        pkgs.selfci
         pkgs.just
       ];
 
@@ -66,6 +65,7 @@
       ++
       pkgs.lib.optionals pkgs.stdenv.isLinux [
         pkgs.systemd
+        pkgs.selfci
       ];
 
       haskellNixShell = (hsPkgs.shellFor {
