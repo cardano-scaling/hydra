@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module HydraNode (
   module HydraNode,
@@ -531,7 +530,7 @@ withHydraNode ::
   HydraNodeConfig ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNode HydraNodeConfig{..} action = do
+withHydraNode HydraNodeConfig{tracer, blockTime, chainConfig, workDir, hydraNodeId, hydraSigningKey, hydraVerificationKeys, allNodeIds} action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSigningKey hydraVerificationKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action'
  where
@@ -547,7 +546,7 @@ withUnsyncedHydraNode ::
   HydraNodeConfig ->
   (HydraClient -> IO a) ->
   IO a
-withUnsyncedHydraNode HydraNodeConfig{..} action = do
+withUnsyncedHydraNode HydraNodeConfig{tracer, chainConfig, workDir, hydraNodeId, hydraSigningKey, hydraVerificationKeys, allNodeIds} action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSigningKey hydraVerificationKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
@@ -558,7 +557,7 @@ withHydraNodeCatchingUp ::
   HydraNodeConfig ->
   (HydraClient -> IO a) ->
   IO a
-withHydraNodeCatchingUp HydraNodeConfig{..} action = do
+withHydraNodeCatchingUp HydraNodeConfig{tracer, chainConfig, workDir, hydraNodeId, hydraSigningKey, hydraVerificationKeys, allNodeIds} action = do
   opts <- prepareHydraNode chainConfig workDir hydraNodeId hydraSigningKey hydraVerificationKeys allNodeIds id
   withPreparedHydraNode tracer workDir hydraNodeId opts action
 
