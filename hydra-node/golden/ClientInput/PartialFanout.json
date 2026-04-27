@@ -1,0 +1,24 @@
+{
+    "samples": [
+        {
+            "tag": "PartialFanout",
+            "utxosToFanout": {
+                "0000000101010101000000000000010100010000000001010001010000000101#40": {
+                    "address": "addr_test1yzxg3fymdv8yxn2pf4ep6nhlmqt8p7eeejnf046sawk90l6tf30s9hpwpf55p8cumkq02f0xexv8ljjqsfj28ry5jqgqylfzsk",
+                    "datum": null,
+                    "datumhash": "fdbb91b9fdecd158d5f8cb6ac0826aa12990f1a8f82a8b27e530515e780ceaba",
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "de82c5f9846fd758e01df00f0a23f8fe7c2d0bf42c1a1a0546a7ea6b": {
+                            "45b6b1bc5e93435e0f5c3a428cf4877b875871ebb6295918": 2
+                        },
+                        "lovelace": 1374890
+                    }
+                }
+            }
+        }
+    ],
+    "seed": 1602369715
+}

@@ -21,7 +21,7 @@ import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Fanout, PartialFanout, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -1668,6 +1668,57 @@ spec =
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == thresholdUTxO
           _ -> False
+
+      describe "PartialFanout client input" $ do
+        it "posts PartialFanoutTx for a valid subset selection" $ do
+          let remaining = Set.fromList [SimpleTxOut i | i <- [1 .. 5]]
+              toFanout = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+              st = inClosedStateWithRemaining threeParties (Just remaining)
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now st (ClientInput (PartialFanout toFanout))
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute, remainingUTxO}} ->
+              utxoToDistribute == toFanout && remainingUTxO == remaining `Set.difference` toFanout
+            _ -> False
+
+        it "emits HeadPartialFanoutPrepared with remaining after fanout" $ do
+          let remaining = Set.fromList [SimpleTxOut i | i <- [1 .. 5]]
+              toFanout = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+              st = inClosedStateWithRemaining threeParties (Just remaining)
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now st (ClientInput (PartialFanout toFanout))
+          outcome `hasStateChangedSatisfying` \case
+            HeadPartialFanoutPrepared{remaining = r} -> r == remaining `Set.difference` toFanout
+            _ -> False
+
+        it "fails with CommandFailed for empty selection" $ do
+          let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+              st = inClosedStateWithRemaining threeParties (Just remaining)
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now st (ClientInput (PartialFanout mempty))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect (CommandFailed{}) -> True
+            _ -> False
+
+        it "fails with CommandFailed when selection is not a subset of remaining" $ do
+          let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+              notSubset = Set.fromList [SimpleTxOut 3]
+              st = inClosedStateWithRemaining threeParties (Just remaining)
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now st (ClientInput (PartialFanout notSubset))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect (CommandFailed{}) -> True
+            _ -> False
+
+        it "fails with CommandFailed when selection exceeds fanoutOutputThreshold" $ do
+          let tooBig = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
+              remaining = tooBig <> Set.fromList [SimpleTxOut i | i <- [100 .. 110]]
+              st = inClosedStateWithRemaining threeParties (Just remaining)
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now st (ClientInput (PartialFanout tooBig))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect (CommandFailed{}) -> True
+            _ -> False
 
       it "aggregate HeadPartialFannedOut keeps state Closed with remaining UTxO" $ do
         let remaining = Set.fromList [SimpleTxOut 5, SimpleTxOut 6]

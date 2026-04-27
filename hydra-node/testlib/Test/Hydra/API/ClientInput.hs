@@ -27,6 +27,7 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     SafeClose -> []
     Contest -> []
     Fanout -> []
+    PartialFanout utxo -> PartialFanout <$> shrink utxo
     SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
 
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => ToADTArbitrary (ClientInput tx)

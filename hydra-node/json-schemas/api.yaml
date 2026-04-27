@@ -118,6 +118,7 @@ channels:
           - $ref: "api.yaml#/components/messages/Close"
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
+          - $ref: "api.yaml#/components/messages/PartialFanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
 
   /head:
@@ -534,6 +535,13 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/Fanout"
 
+    PartialFanout:
+      title: PartialFanout
+      description: |
+        Distribute a user-selected subset of the remaining UTxO set in the next partial fanout step. The selection must be non-empty, must be a subset of the current remaining UTxO, and must not exceed the fanout output threshold. Use this instead of Fanout when you want explicit control over which UTxOs are distributed in each step.
+      payload:
+        $ref: "api.yaml#/components/schemas/PartialFanout"
+
     SideLoadSnapshot:
       title: SideLoadSnapshot
       description: |
@@ -853,6 +861,7 @@ components:
         - $ref: "api.yaml#/components/schemas/SafeClose"
         - $ref: "api.yaml#/components/schemas/Contest"
         - $ref: "api.yaml#/components/schemas/Fanout"
+        - $ref: "api.yaml#/components/schemas/PartialFanout"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
 
     ServerOutput:
@@ -1023,6 +1032,19 @@ components:
         tag:
           type: string
           enum: ["Fanout"]
+
+    PartialFanout:
+      title: PartialFanout
+      type: object
+      required:
+        - tag
+        - utxosToFanout
+      properties:
+        tag:
+          type: string
+          enum: ["PartialFanout"]
+        utxosToFanout:
+          $ref: "api.yaml#/components/schemas/UTxO"
 
     SideLoadSnapshot:
       title: SideLoadSnapshot
@@ -1379,6 +1401,7 @@ components:
             - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         state:
           $ref: "api.yaml#/components/schemas/HeadState"
@@ -1403,6 +1426,7 @@ components:
             - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
@@ -1427,6 +1451,7 @@ components:
             - $ref: "api.yaml#/components/messages/SafeClose/payload"
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
+            - $ref: "api.yaml#/components/messages/PartialFanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
         requirementFailure:
           $ref: "api.yaml#/components/schemas/SideLoadRequirementFailure"
@@ -3506,6 +3531,10 @@ components:
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
         remainingFanoutUTxO:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/UTxO"
+        pendingRemainingFanoutUTxO:
           oneOf:
             - type: "null"
             - $ref: "api.yaml#/components/schemas/UTxO"

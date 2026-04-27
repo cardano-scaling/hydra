@@ -1373,6 +1373,41 @@ onClosedClientFanout closedState =
 
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
 
+-- | Handle a 'PartialFanout' client command: fan out a user-selected subset
+-- of the remaining UTxO set. Validates that the selection is non-empty, is a
+-- subset of the current remaining UTxO, and fits within 'fanoutOutputThreshold'.
+onClosedClientPartialFanout ::
+  IsTx tx =>
+  ClosedState tx ->
+  UTxOType tx ->
+  Outcome tx
+onClosedClientPartialFanout closedState utxosToFanout
+  | sizeUTxO utxosToFanout == 0 =
+      cause . ClientEffect $ ServerOutput.CommandFailed PartialFanout{utxosToFanout} (Closed closedState)
+  | sizeUTxO notInRemaining > 0 =
+      cause . ClientEffect $ ServerOutput.CommandFailed PartialFanout{utxosToFanout} (Closed closedState)
+  | sizeUTxO utxosToFanout > fanoutOutputThreshold =
+      cause . ClientEffect $ ServerOutput.CommandFailed PartialFanout{utxosToFanout} (Closed closedState)
+  | otherwise =
+      let rest = remaining `withoutUTxO` utxosToFanout
+       in newState HeadPartialFanoutPrepared{headId, remaining = rest}
+            <> cause
+              OnChainEffect
+                { postChainTx =
+                    PartialFanoutTx
+                      { utxoToDistribute = utxosToFanout
+                      , remainingUTxO = rest
+                      , headSeed
+                      , contestationDeadline
+                      }
+                }
+ where
+  notInRemaining = utxosToFanout `withoutUTxO` remaining
+
+  remaining = resolveRemainingUTxO closedState
+
+  ClosedState{headId, headSeed, contestationDeadline} = closedState
+
 -- | Maximum number of outputs in a fanout transaction before switching to
 -- partial fanout. Based on empirical testing, the fanout limit with BLS
 -- accumulators is around 20 ada-only outputs per transaction (see ModelSpec
@@ -1859,6 +1894,8 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
   -- Closed
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
+  (Closed closedState, ClientInput PartialFanout{utxosToFanout}) ->
+    onClosedClientPartialFanout closedState utxosToFanout
   -- Node-level
   (_, ClientInput Recover{recoverTxId}) -> do
     onClientRecover currentSlot pendingDeposits recoverTxId

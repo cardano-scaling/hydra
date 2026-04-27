@@ -13,6 +13,7 @@ data ClientInput tx
   | SafeClose
   | Contest
   | Fanout
+  | PartialFanout {utxosToFanout :: UTxOType tx}
   | SideLoadSnapshot {snapshot :: ConfirmedSnapshot tx}
   deriving stock (Generic)
 
