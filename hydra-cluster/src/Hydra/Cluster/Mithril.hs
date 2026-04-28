@@ -37,6 +37,7 @@ downloadLatestSnapshotTo tracer network directory = do
                   [ ["--origin-tag", "HYDRA"]
                   , ["--aggregator-endpoint", aggregatorEndpoint']
                   , ["cardano-db", "download", "latest"]
+                  , ["--include-ancillary"]
                   , ["--genesis-verification-key", decodeUtf8 genesisKey]
                   , ["--ancillary-verification-key", decodeUtf8 ancillaryKey]
                   , ["--download-dir", directory]

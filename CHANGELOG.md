@@ -10,6 +10,8 @@ changes.
 
 ## [UNRELEASED]
 
+- Compatible with mithril `2617.0`.
+
 - Retry transient chain-following errors in the Blockfrost backend
 (DecodeError, MissingNextBlockHash, etc.) with exponential backoff instead of
 crashing the node. HTTP-level Blockfrost API errors are left to the upstream
@@ -20,8 +22,6 @@ now persisted in a database file (`hydra.db`) in the `--persistence-dir`
 directory instead of a plain append-only JSON file (`state`). On first startup
 after upgrading, existing `state` files are automatically migrated into
 `hydra.db` and renamed to `state.migrated`.
-
-## [UNRELEASED]
 
 - **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`):
   - `SnapshotRequested`: `snapshot` renamed to `requestedSnapshot`; `requestedTxIds` field removed (tx ids are now carried inside `requestedSnapshot`).
