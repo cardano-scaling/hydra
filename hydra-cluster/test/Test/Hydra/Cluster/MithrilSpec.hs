@@ -37,7 +37,7 @@ waitForDownload getTraces = do
  where
   isRightTrace = \case
     Envelope{message = StdErr{output}} ->
-      isJust $ output ^? key "bytes_downloaded"
+      isJust $ output ^? key "files_downloaded"
     _ -> False
 
 -- | Create a tracer that captures all messages and a function to retrieve all
