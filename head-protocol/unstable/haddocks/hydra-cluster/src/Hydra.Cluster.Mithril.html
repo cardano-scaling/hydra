@@ -185,22 +185,24 @@ forall (t :: * -&gt; *) a. Foldable t =&gt; t [a] -&gt; [a]
 </span><span class="hs-string">&quot;download&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;latest&quot;</span></span><span class="hs-special">]</span><span>
 </span><span id="line-40"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;--include-ancillary&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-41"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;--genesis-verification-key&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><a href="#local-6989586621679485715"><span class="hs-identifier hs-var">genesisKey</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-41"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span id="line-42"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;--ancillary-verification-key&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; String
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><a href="#local-6989586621679485717"><span class="hs-identifier hs-var">ancillaryKey</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-42"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span id="line-43"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;--download-dir&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String
 </span><a href="#local-6989586621679485708"><span class="hs-identifier hs-var">directory</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-43"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
+</span><span id="line-44"></span><span>                  </span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;--json&quot;</span></span><span class="hs-special">]</span><span>
-</span><span id="line-44"></span><span>                  </span><span class="hs-special">]</span><span>
-</span><span id="line-45"></span><span>      </span><span class="annot"><span class="annottext">ProcessConfig () () Handle
+</span><span id="line-45"></span><span>                  </span><span class="hs-special">]</span><span>
+</span><span id="line-46"></span><span>      </span><span class="annot"><span class="annottext">ProcessConfig () () Handle
 -&gt; (Process () () Handle -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) stdin stdout stderr a.
 MonadUnliftIO m =&gt;
@@ -209,22 +211,22 @@ ProcessConfig stdin stdout stderr
 </span><span class="hs-identifier hs-var">withProcessWait_</span></span><span> </span><span class="annot"><span class="annottext">ProcessConfig () () Handle
 </span><a href="#local-6989586621679485718"><span class="hs-identifier hs-var">cmd</span></a></span><span> </span><span class="annot"><span class="annottext">Process () () Handle -&gt; IO ()
 </span><a href="#local-6989586621679485722"><span class="hs-identifier hs-var">traceStderr</span></a></span><span>
-</span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">(Maybe String, Maybe String, Maybe String)
+</span><span id="line-47"></span><span>    </span><span class="annot"><span class="annottext">(Maybe String, Maybe String, Maybe String)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO ()
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Mithril should not be used with blockfrost chain backend&quot;</span></span><span>
-</span><span id="line-47"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-48"></span><span>  </span><span class="hs-comment">-- Note: Minor hack; we use a different version of the mithril-client for</span><span>
-</span><span id="line-49"></span><span>  </span><span class="hs-comment">-- these networks. Hopefully this can be removed, one day.</span><span>
-</span><span id="line-50"></span><span>  </span><span id="local-6989586621679485719"><span class="annot"><span class="annottext">mithrilExe :: String
+</span><span id="line-48"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-comment">-- Note: Minor hack; we use a different version of the mithril-client for</span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-comment">-- these networks. Hopefully this can be removed, one day.</span><span>
+</span><span id="line-51"></span><span>  </span><span id="local-6989586621679485719"><span class="annot"><span class="annottext">mithrilExe :: String
 </span><a href="#local-6989586621679485719"><span class="hs-identifier hs-var hs-var">mithrilExe</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;mithril-client&quot;</span></span><span>
-</span><span id="line-51"></span><span>
-</span><span id="line-52"></span><span>  </span><span id="local-6989586621679485722"><span class="annot"><span class="annottext">traceStderr :: Process () () Handle -&gt; IO ()
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621679485722"><span class="annot"><span class="annottext">traceStderr :: Process () () Handle -&gt; IO ()
 </span><a href="#local-6989586621679485722"><span class="hs-identifier hs-var hs-var">traceStderr</span></a></span></span><span> </span><span id="local-6989586621679485725"><span class="annot"><span class="annottext">Process () () Handle
 </span><a href="#local-6989586621679485725"><span class="hs-identifier hs-var">p</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
+</span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
 </span><a href="#local-6989586621679485726"><span class="hs-identifier hs-var">ignoreEOFErrors</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; (IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO ()
@@ -232,17 +234,17 @@ forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#forever"><span class="hs-identifier hs-var">forever</span></a></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-54"></span><span>      </span><span id="local-6989586621679485729"><span class="annot"><span class="annottext">ByteString
+</span><span id="line-55"></span><span>      </span><span id="local-6989586621679485729"><span class="annot"><span class="annottext">ByteString
 </span><a href="#local-6989586621679485729"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO ByteString
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.html#hGetLine"><span class="hs-identifier hs-var">BS.hGetLine</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Process () () Handle -&gt; Handle
 forall stdin stdout stderr. Process stdin stdout stderr -&gt; stderr
 </span><span class="hs-identifier hs-var">getStderr</span></span><span> </span><span class="annot"><span class="annottext">Process () () Handle
 </span><a href="#local-6989586621679485725"><span class="hs-identifier hs-var">p</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-55"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String Value
+</span><span id="line-56"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String Value
 forall a. FromJSON a =&gt; ByteString -&gt; Either String a
 </span><span class="hs-identifier hs-var">Aeson.eitherDecodeStrict</span></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><a href="#local-6989586621679485729"><span class="hs-identifier hs-var">bytes</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-56"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679485732"><span class="annot"><span class="annottext">String
+</span><span id="line-57"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621679485732"><span class="annot"><span class="annottext">String
 </span><a href="#local-6989586621679485732"><span class="hs-identifier hs-var">_err</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Tracer IO MithrilLog -&gt; MithrilLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO MithrilLog
@@ -251,7 +253,7 @@ forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><a href="#local-6989586621679485729"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-57"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679485733"><span class="annot"><span class="annottext">Value
+</span><span id="line-58"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679485733"><span class="annot"><span class="annottext">Value
 </span><a href="#local-6989586621679485733"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Tracer IO MithrilLog -&gt; MithrilLog -&gt; IO ()
 forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 </span><span class="hs-identifier hs-var">traceWith</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO MithrilLog
@@ -259,10 +261,10 @@ forall (m :: * -&gt; *) a. Tracer m a -&gt; a -&gt; m ()
 output :: Value
 output :: Value
 </span><a href="Hydra.Cluster.Mithril.html#output"><span class="hs-identifier hs-var hs-var">output</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-58"></span><span>
-</span><span id="line-59"></span><span>  </span><span id="local-6989586621679485726"><span class="annot"><span class="annottext">ignoreEOFErrors :: IO () -&gt; IO ()
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span>  </span><span id="local-6989586621679485726"><span class="annot"><span class="annottext">ignoreEOFErrors :: IO () -&gt; IO ()
 </span><a href="#local-6989586621679485726"><span class="hs-identifier hs-var hs-var">ignoreEOFErrors</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-60"></span><span>    </span><span class="annot"><span class="annottext">(IOError -&gt; Maybe ()) -&gt; (() -&gt; IO ()) -&gt; IO () -&gt; IO ()
+</span><span id="line-61"></span><span>    </span><span class="annot"><span class="annottext">(IOError -&gt; Maybe ()) -&gt; (() -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall e b a.
 Exception e =&gt;
 (e -&gt; Maybe b) -&gt; (b -&gt; IO a) -&gt; IO a -&gt; IO a
@@ -282,97 +284,97 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
-</span><span id="line-61"></span><span>
-</span><span id="line-62"></span><span>  </span><span id="local-6989586621679485709"><span class="annot"><span class="annottext">genesisKeyURL :: Maybe String
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span>  </span><span id="local-6989586621679485709"><span class="annot"><span class="annottext">genesisKeyURL :: Maybe String
 </span><a href="#local-6989586621679485709"><span class="hs-identifier hs-var hs-var">genesisKeyURL</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="#local-6989586621679485707"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-63"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-64"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Mainnet"><span class="hs-identifier hs-var">Mainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey&quot;</span></span><span>
-</span><span id="line-64"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Preproduction"><span class="hs-identifier hs-var">Preproduction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey&quot;</span></span><span>
-</span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Preview"><span class="hs-identifier hs-var">Preview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey&quot;</span></span><span>
-</span><span id="line-66"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostPreview"><span class="hs-identifier hs-var">BlockfrostPreview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostPreprod"><span class="hs-identifier hs-var">BlockfrostPreprod</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostMainnet"><span class="hs-identifier hs-var">BlockfrostMainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-69"></span><span>
-</span><span id="line-70"></span><span>  </span><span id="local-6989586621679485710"><span class="annot"><span class="annottext">ancillaryKeyURL :: Maybe String
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679485710"><span class="annot"><span class="annottext">ancillaryKeyURL :: Maybe String
 </span><a href="#local-6989586621679485710"><span class="hs-identifier hs-var hs-var">ancillaryKeyURL</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="#local-6989586621679485707"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Mainnet"><span class="hs-identifier hs-var">Mainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/ancillary.vkey&quot;</span></span><span>
-</span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Preproduction"><span class="hs-identifier hs-var">Preproduction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey&quot;</span></span><span>
-</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Preview"><span class="hs-identifier hs-var">Preview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/ancillary.vkey&quot;</span></span><span>
-</span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostPreview"><span class="hs-identifier hs-var">BlockfrostPreview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostPreprod"><span class="hs-identifier hs-var">BlockfrostPreprod</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-76"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostMainnet"><span class="hs-identifier hs-var">BlockfrostMainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-77"></span><span>
-</span><span id="line-78"></span><span>  </span><span id="local-6989586621679485711"><span class="annot"><span class="annottext">aggregatorEndpoint :: Maybe String
+</span><span id="line-78"></span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679485711"><span class="annot"><span class="annottext">aggregatorEndpoint :: Maybe String
 </span><a href="#local-6989586621679485711"><span class="hs-identifier hs-var hs-var">aggregatorEndpoint</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="#local-6989586621679485707"><span class="hs-identifier hs-var">network</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Mainnet"><span class="hs-identifier hs-var">Mainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://aggregator.release-mainnet.api.mithril.network/aggregator&quot;</span></span><span>
-</span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Preproduction"><span class="hs-identifier hs-var">Preproduction</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://aggregator.release-preprod.api.mithril.network/aggregator&quot;</span></span><span>
-</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-82"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#Preview"><span class="hs-identifier hs-var">Preview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; Maybe String
 forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;https://aggregator.pre-release-preview.api.mithril.network/aggregator&quot;</span></span><span>
-</span><span id="line-82"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostPreview"><span class="hs-identifier hs-var">BlockfrostPreview</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostPreprod"><span class="hs-identifier hs-var">BlockfrostPreprod</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
+</span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">KnownNetwork
 </span><a href="Hydra.Cluster.Fixture.html#BlockfrostMainnet"><span class="hs-identifier hs-var">BlockfrostMainnet</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe String
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-85"></span></pre></body></html>
+</span><span id="line-86"></span></pre></body></html>
