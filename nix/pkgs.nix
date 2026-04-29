@@ -39,7 +39,7 @@
             weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
             inherit (inputs.cardano-node.packages.${system}) cardano-cli;
             inherit (inputs.cardano-node.packages.${system}) cardano-node;
-            mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli or inputs.mithril.packages.${system}.mithril;
+            mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli or inputs.mithril.packages.${system}.mithril; # Todo: revert when https://github.com/input-output-hk/mithril/pull/3224 is released
             pumba = inputs.pumba.packages.${system}.default;
           })
         ];
