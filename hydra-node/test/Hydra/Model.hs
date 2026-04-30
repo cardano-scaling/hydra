@@ -31,8 +31,8 @@ import Control.Concurrent.Class.MonadSTM (
 import Control.Monad.Class.MonadAsync (cancel, link)
 import Data.List (nub, (\\))
 import Data.List qualified as List
-import Data.Map ((!))
-import Data.Map qualified as Map
+import Data.Map.Strict ((!))
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)

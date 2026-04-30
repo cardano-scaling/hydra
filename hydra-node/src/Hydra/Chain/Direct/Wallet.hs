@@ -6,7 +6,7 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api.Ledger (Data, ExUnits)
+import Cardano.Api.Ledger (ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
@@ -374,7 +374,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     Redeemers era ->
     Redeemers era
   adjustRedeemerIndices initialInputs finalInputs (Redeemers redeemers) =
-    Redeemers $ Map.fromList $ map adjustOne $ Map.toList redeemers
+    Redeemers $ Map.mapKeys adjustPurpose redeemers
    where
     sortedInitialInputs = sort $ toList initialInputs
     sortedFinalInputs = sort $ toList finalInputs
@@ -386,9 +386,6 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
     -- Map from original index to TxIn
     initialIndexToTxIn :: Map Word32 TxIn
     initialIndexToTxIn = Map.fromList $ zip [0 ..] sortedInitialInputs
-
-    adjustOne :: (PlutusPurpose AsIx era, (Data era, ExUnits)) -> (PlutusPurpose AsIx era, (Data era, ExUnits))
-    adjustOne (ptr, v) = (adjustPurpose ptr, v)
 
     adjustPurpose :: PlutusPurpose AsIx era -> PlutusPurpose AsIx era
     adjustPurpose purpose@(SpendingPurpose (AsIx idx)) =

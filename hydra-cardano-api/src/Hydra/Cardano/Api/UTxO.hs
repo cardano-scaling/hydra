@@ -10,7 +10,7 @@ import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
 import Control.Lens ((^.))
 import Data.Foldable (toList)
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 
 -- | Construct a UTxO from a transaction. This constructs artificial `TxIn`

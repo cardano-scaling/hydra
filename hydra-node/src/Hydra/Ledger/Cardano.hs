@@ -34,7 +34,7 @@ import Cardano.Ledger.Shelley.Rules qualified as Ledger
 import Cardano.Ledger.UMap qualified as UM
 import Control.Lens ((%~), (.~), (^.))
 import Data.Default (def)
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))

@@ -38,7 +38,7 @@ import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Val (pointwise)
 import Control.Lens ((.~), (^.))
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)

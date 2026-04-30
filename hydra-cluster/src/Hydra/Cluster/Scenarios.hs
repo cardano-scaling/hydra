@@ -36,7 +36,7 @@ import Data.ByteString (isInfixOf)
 import Data.ByteString qualified as B
 
 import Data.List qualified as List
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.API.HTTPServer (
   DraftCommitTxResponse (..),
