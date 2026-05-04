@@ -211,7 +211,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
-    waitApplyTx $ \_validatedUTxO ->
+    waitApplyTx $
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
       -- NOTE: the post-tx UTxO is not stored on the event; aggregate
@@ -223,7 +223,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
-      Right utxo' -> cont utxo'
+      Right _ -> cont
       Left (_, err)
         | ttl > 0 ->
             wait (WaitOnNotApplicableTx err)
@@ -363,7 +363,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                   --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
                   --         T̂ ← T̂ ⋃ {tx}
                   --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, _newLocalUTxO) = pruneTransactions u
+                  let newLocalTxs = pruneTransactions u
                   -- NOTE: post-snapshot local UTxO not persisted; aggregate
                   -- recomputes it from the snapshot fields + newLocalTxs.
                   newState
@@ -455,22 +455,23 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
 
-  pruneTransactions utxo = do
-    -- NOTE: Using foldl' is important to apply transacations in the correct
-    -- order. That is, left-associative as new transactions are first validated
-    -- and then appended to `localTxs` (when aggregating
-    -- 'TransactionAppliedToLocalUTxO').
-    foldl' go (mempty, utxo) localTxs
+  -- \| Filter 'localTxs' to those that still apply against the running UTxO
+  -- after each previous successful tx. Threads 'u' internally because pending
+  -- local txs can depend on each other (a later tx may spend an earlier tx's
+  -- output), so each must be validated against the post-previous-tx state.
+  -- The post-snapshot UTxO is not returned: aggregate recomputes it from
+  -- the snapshot fields and the resulting tx list.
+  pruneTransactions utxo0 = go utxo0 localTxs
    where
-    go (txs, u) tx =
+    go _ [] = []
+    go u (tx : rest) =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
       -- here when a tx becomes invalid.
       case applyTransactions ledger currentSlot u [tx] of
-        Left (_, _) -> (txs, u)
-        Right u' -> (txs Seq.|> tx, u')
-
+        Left _ -> go u rest
+        Right u' -> tx : go u' rest -- NOTE: guarded recursion ftw
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
@@ -762,7 +763,7 @@ onOpenNetworkReqDec ::
   Outcome tx
 onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
-  waitOnApplicableDecommit $ \_validatedUTxO -> do
+  waitOnApplicableDecommit $
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
     -- NOTE: post-decommit local UTxO not persisted; aggregate recomputes it.
     -- Spec: txω ← tx
@@ -775,7 +776,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     case mExistingDecommitTx of
       Nothing ->
         case applyTransactions currentSlot localUTxO [decommitTx] of
-          Right utxo' -> cont utxo'
+          Right _ -> cont
           Left (_, validationError)
             | ttl > 0 ->
                 wait $
@@ -1861,7 +1862,7 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { allTxs = allTxs <> fromList [(txId tx, tx)]
+                  { allTxs = Map.insert (txId tx) tx allTxs
                   }
             }
        where
