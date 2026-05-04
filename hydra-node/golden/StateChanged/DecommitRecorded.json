@@ -8,19 +8,6 @@
                 "type": "Tx ConwayEra"
             },
             "headId": "01010101000101000100000101010100",
-            "newLocalUTxO": {
-                "0000000000000000000101010100000100010101000101010101010000010001#14": {
-                    "address": "addr_test1vr44lp30x98eq9ek0gdkt8s2nvaa4n7q6fsk96scwue4hxqqsh9dl",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "lovelace": 849070
-                    }
-                }
-            },
             "tag": "DecommitRecorded"
         }
     ],

@@ -93,6 +93,7 @@ instance IsTx Payment where
         bs = second toList <$> b
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
      in second fromList <$> result
+  applyTxTo tx utxo = applyTx utxo tx
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =

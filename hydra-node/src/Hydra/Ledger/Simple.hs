@@ -88,6 +88,8 @@ instance IsTx SimpleTx where
   outputsOfUTxO = toList
   withoutUTxO = Set.difference
 
+  applyTxTo (SimpleTx _ ins outs) utxo = (utxo `Set.difference` ins) <> outs
+
   txSpendingUTxO utxo =
     SimpleTx
       { txSimpleId = 0

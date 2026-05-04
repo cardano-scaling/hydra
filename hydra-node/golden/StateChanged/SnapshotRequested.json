@@ -3,22 +3,6 @@
         {
             "newCurrentDepositTxId": "0000000100010001010101000100010101000001010100010001000000010000",
             "newLocalTxs": [],
-            "newLocalUTxO": {
-                "0100000100010100000001000001010000010000000100000101000001010000#10": {
-                    "address": "addr_test1yzm0e4rsjn6pspnfm2tz60gtxavnl8896jmtf9e0wtyv5m0uvxv374qkxdxgtgvtyvjhs64favvr2rgnc9vyurehgvzq3j6fx2",
-                    "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
-                    "referenceScript": null,
-                    "value": {
-                        "a2642331714821062bc2719942d8d9204e9f5dccfdb239f870db0c4c": {
-                            "36": 7451050861824232369
-                        },
-                        "lovelace": 45000000000000000
-                    }
-                }
-            },
             "requestedSnapshot": {
                 "confirmed": [
                     {
