@@ -861,7 +861,7 @@ replaceContestationPeriod contestationPeriod = \case
         }
   otherState -> otherState
 
-replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G2_Element -> Head.State -> Head.State
+replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G1_Element -> Head.State -> Head.State
 replaceAccumulatorCommitment newCommitment = \case
   Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed

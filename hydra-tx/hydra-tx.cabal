@@ -9,7 +9,9 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files: genesis/mainnet-conway-genesis.json
+extra-source-files:
+  genesis/mainnet-conway-genesis.json
+  trusted_setup.json
 
 source-repository head
   type:     git
@@ -89,6 +91,7 @@ library
     , cardano-strict-containers
     , cborg
     , containers
+    , file-embed
     , formatting
     , haskell-accumulator        >=1.2.0.0
     , hydra-cardano-api

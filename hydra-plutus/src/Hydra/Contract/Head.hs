@@ -16,7 +16,7 @@ import Hydra.Cardano.Api (
   PlutusScript,
   pattern PlutusScriptSerialised,
  )
-import Hydra.Contract.CRS (CRSDatum)
+import Hydra.Contract.CRS (CRSDatum, checkMembershipPairing)
 import Hydra.Contract.Commit (Commit (..))
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
@@ -38,7 +38,6 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import Plutus.Crypto.BlsUtils (Scalar, getFinalPoly, getG2Commitment, mkScalar)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V3 (
@@ -65,7 +64,6 @@ import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
-import PlutusTx.Builtins (bls12_381_finalVerify, bls12_381_millerLoop)
 import PlutusTx.Builtins qualified as Builtins
 import PlutusTx.Foldable qualified as F
 import PlutusTx.List qualified as L
@@ -555,10 +553,10 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
   -- each element when building the accumulator (see Accumulator.addElement).
   -- Since elements are sha2_256(serialised), the scalar becomes
   -- blake2b_224(sha2_256(serialised)), which we must match here.
-  subsetScalars :: [Scalar]
+  subsetScalars :: [Integer]
   subsetScalars =
     let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-     in fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) (L.take totalOutputs txInfoOutputs)
+     in fmap (Builtins.byteStringToInteger BigEndian . elementHash) (L.take totalOutputs txInfoOutputs)
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
@@ -583,10 +581,8 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
               _ -> traceError $(errorCode MissingCRSDatum)
          in case crsData of
               [] -> traceError $(errorCode MissingCRSDatum)
-              (g2 : _) ->
-                bls12_381_finalVerify
-                  (bls12_381_millerLoop accumulatorCommitment g2)
-                  (bls12_381_millerLoop proof (getG2Commitment crsData (getFinalPoly subsetScalars)))
+              _ ->
+                checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
 {-# INLINEABLE headIsFinalizedWith #-}
 
 -- | Verify a partial fanout transaction. This is a self-loop on the Closed
@@ -678,10 +674,10 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
     headOutValue = txOutValue $ L.head txInfoOutputs
 
   -- Accumulator scalars for the distributed outputs (skip first output)
-  subsetScalars :: [Scalar]
+  subsetScalars :: [Integer]
   subsetScalars =
     let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-     in fmap (mkScalar . Builtins.byteStringToInteger BigEndian . elementHash) distributedOutputs
+     in fmap (Builtins.byteStringToInteger BigEndian . elementHash) distributedOutputs
 
   -- CRS reference lookup and membership check.
   -- The newAccumulatorCommitment from the continuing output datum serves as
@@ -697,10 +693,8 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
                 _ -> traceError $(errorCode MissingCRSDatum)
            in case crsData of
                 [] -> traceError $(errorCode MissingCRSDatum)
-                (g2 : _) ->
-                  bls12_381_finalVerify
-                    (bls12_381_millerLoop accumulatorCommitment g2)
-                    (bls12_381_millerLoop newAccumulatorCommitment (getG2Commitment crsData (getFinalPoly subsetScalars)))
+                _ ->
+                  checkMembershipPairing accumulatorCommitment newAccumulatorCommitment crsData subsetScalars
 {-# INLINEABLE checkPartialFanout #-}
 
 --------------------------------------------------------------------------------
