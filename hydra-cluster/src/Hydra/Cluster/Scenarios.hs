@@ -987,7 +987,7 @@ canSubmitTransactionThroughAPI tracer workDir opts hydraScriptsTxId =
     blockTime <- runBackend opts getBlockTime
     let timing = mkTestTiming blockTime
     aliceChainConfig <- chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-    let hydraNodeId = 1 :: Int
+    let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     withHydraNode (HydraNodeConfig{tracer = hydraTracer, blockTime, chainConfig = aliceChainConfig, workDir = workDir, hydraNodeId = hydraNodeId, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [hydraNodeId]}) $ \_ -> do
       -- let's prepare a _user_ transaction from Bob to Carol
