@@ -147,7 +147,7 @@ getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 getAccumulatorCommitment (HydraAccumulator acc) =
   let n = Map.size acc
    in if n > KZG.maxAccumulatorSize
-        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the EIP-4844 limit of " <> show KZG.maxAccumulatorSize
+        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
         else
           let crsG1 = take (n + 1) KZG.g1BuiltinPoints
            in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
@@ -166,7 +166,7 @@ generateCRS n = take n KZG.g1Points
 -- | Returns the first @n@ G2 powers of tau from the Ethereum EIP-4844 KZG trusted setup.
 -- Used as the on-chain CRS for verifying membership proofs.
 -- Shares the same secret tau as 'generateCRS'.
--- Limited to a maximum of 'KZG.maxFanoutBatchSize' + 1 points (65 from EIP-4844).
+-- Limited to a maximum of 'KZG.maxFanoutBatchSize' + 1 points.
 generateCRSG2 :: Int -> [Point2]
 generateCRSG2 n = take n KZG.g2Points
 
@@ -180,16 +180,13 @@ requiredCRSSize (HydraAccumulator acc) = Map.size acc
 
 -- | Create a membership proof for a subset of UTxO elements.
 --
--- This function uses getPolyCommitOverG2 from haskell-accumulator's Bindings module:
+-- This function uses getPolyCommitOverG1 from haskell-accumulator's Bindings module:
 -- https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/lib/Bindings.hs
 --
 -- Given a subset of elements and the full accumulator, it:
 -- 1. Removes the subset elements from the accumulator
--- 2. Computes a polynomial commitment over G2 for the remaining elements
--- 3. Returns the proof as a hex-encoded string
---
--- For testing, it prints "Success" and the hex-encoded proof.
--- For errors, it prints the error message.
+-- 2. Computes a polynomial commitment over G1 for the remaining elements
+-- 3. Returns the proof as a compressed G1 point
 --
 -- Example usage:
 -- > let fullElements = ["elem1", "elem2", "elem3", "elem4", "elem5"]
@@ -223,7 +220,7 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
 -- 1. Each TxOut in the subset is serialized: `Builtins.serialiseData . toBuiltinData`
 -- 2. These elements are passed to `getPolyCommitOverG1` which removes them from the accumulator
 -- 3. A polynomial commitment proof is generated for the remaining elements
--- 4. The proof is returned as a hex-encoded string
+-- 4. The proof is returned as a compressed G1 point
 --
 -- Example usage for partial fanout:
 -- > -- Build full accumulator from ALL UTxOs (do this when creating snapshot)
@@ -231,10 +228,9 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
 -- >
 -- > -- Later, when fanning out a subset
 -- > let subsetUTxO = ... -- The 2 UTxOs you want to fan out
--- > result <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc defaultCRS
--- > -- Returns: "Success: 0xabc123..." (the proof)
+-- > proof <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc crs
 --
--- The proof can then be verified on-chain using pairing checks.
+-- The proof is verified on-chain via e(acc_G1, G2) = e(proof_G1, subsetPoly(τ)·G2).
 createMembershipProofFromUTxO ::
   forall tx.
   (IsTx tx, HasCallStack) =>
