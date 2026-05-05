@@ -875,7 +875,7 @@ canDepositScriptBlueprint tracer workDir opts hydraScriptsTxId =
     let timing = mkTestTiming blockTime
     aliceChainConfig <-
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-    let hydraNodeId = 1 :: Int
+    let hydraNodeId = 1
     let hydraTracer = contramap FromHydraNode tracer
     let aliceConfig = mkSoloConfig hydraTracer blockTime workDir Alice aliceChainConfig
     withHydraNode aliceConfig $ \n1 -> do
