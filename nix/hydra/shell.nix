@@ -136,8 +136,7 @@
           run-tmux
           pkgs.cardano-node
           pkgs.cardano-cli
-          pkgs.pumba
-        ];
+        ] ++ pkgs.lib.optionals (!pkgs.stdenv.isDarwin) [ pkgs.pumba ];
       };
 
       # Shell for CI activities
