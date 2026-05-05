@@ -959,6 +959,26 @@ spec = parallel $ do
               -- and report all UTxOs (not just the last batch) in HeadIsFinalized
               waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
 
+    it "client PartialFanout distributes selected UTxOs and triggers remaining fanout" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 n1 n2
+              send n1 (NewTx (aValidTx 1))
+              send n1 (NewTx (aValidTx 2))
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxo}} -> guard $ utxo == utxoRefs [1, 2]
+                _ -> Nothing
+              send n1 Close
+              forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
+              waitUntil [n1, n2] $ ReadyToFanout testHeadId
+              -- User explicitly selects utxoRef 1 to fan out first
+              send n1 PartialFanout{utxosToFanout = utxoRef 1}
+              -- The simulated chain echoes PartialFanoutTx as OnPartialFanoutTx,
+              -- which auto-triggers FanoutTx for the remaining utxoRef 2.
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [1, 2]}
+
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
         withSimulatedChainAndNetwork $ \chain ->

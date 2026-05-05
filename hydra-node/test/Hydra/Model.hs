@@ -38,6 +38,8 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
+import Hydra.HeadLogic (ClosedState (..), resolveRemainingUTxO)
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
   SimulatedChainNetwork (..),
@@ -49,6 +51,7 @@ import Hydra.BehaviorSpec (
   waitUntilMatch,
  )
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging (Tracer)
@@ -151,6 +154,7 @@ instance StateModel WorldState where
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
     Fanout :: Party -> Action WorldState UTxO
+    PartialFanout :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -176,7 +180,8 @@ instance StateModel WorldState where
         genOpenActions headIdVar confirmedUTxO
       Closed{} ->
         frequency
-          [ (5, genFanout)
+          [ (4, genFanout)
+          , (2, genPartialFanout)
           , (1, genRollbackAndForward)
           ]
       Final{} -> Some <$> genSeed
@@ -212,6 +217,9 @@ instance StateModel WorldState where
     genFanout =
       Some . Fanout . deriveParty . fst <$> elements hydraParties
 
+    genPartialFanout =
+      Some . PartialFanout . deriveParty . fst <$> elements hydraParties
+
     genRollbackAndForward = do
       numberOfBlocks <- choose (1, 2)
       pure . Some $ RollbackAndForward (wordToNatural numberOfBlocks)
@@ -238,6 +246,8 @@ instance StateModel WorldState where
     True
   precondition WorldState{hydraState = Closed{headParameters}} (Fanout party) =
     party `elem` headParameters.parties
+  precondition WorldState{hydraState = Closed{headParameters, closedUTxO}} (PartialFanout party) =
+    party `elem` headParameters.parties && not (null closedUTxO)
   precondition WorldState{hydraState = Open{}} (CloseWithInitialSnapshot _) =
     True
   precondition WorldState{hydraState} (RollbackAndForward _) =
@@ -308,6 +318,12 @@ instance StateModel WorldState where
           Open{offChainState = OffChainState{confirmedUTxO}, headParameters} -> Closed{headParameters, closedUTxO = confirmedUTxO}
           _ -> error "unexpected state"
       Fanout{} ->
+        s{hydraState = updateWithFanout hydraState}
+       where
+        updateWithFanout = \case
+          Closed{closedUTxO} -> Final closedUTxO
+          _ -> error "unexpected state"
+      PartialFanout{} ->
         s{hydraState = updateWithFanout hydraState}
        where
         updateWithFanout = \case
@@ -497,6 +513,10 @@ instance
         case hydraState st of
           Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (UTxO.txOutputs result)
           _ -> pure False
+      PartialFanout{} ->
+        case hydraState st of
+          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (UTxO.txOutputs result)
+          _ -> pure False
       _ -> pure True
 
   monitoring (s, s') _action _lookup _result =
@@ -521,6 +541,8 @@ instance
         performClose party
       Fanout party ->
         performFanout party
+      PartialFanout party ->
+        performPartialFanout party
       NewTx party transaction ->
         performNewTx party transaction
       Wait delay ->
@@ -766,6 +788,41 @@ performFanout party = do
   headIsFinalized = \case
     HeadIsFinalized{} -> True
     _otherwise -> False
+
+performPartialFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
+performPartialFanout party = do
+  nodes <- gets nodes
+  let thisNode = nodes ! party
+  waitForReadyToFanout thisNode
+  -- Get the remaining UTxO from the closed state and fan out just one entry.
+  -- The simulated chain will auto-trigger subsequent steps until HeadIsFinalized.
+  mUtxo <- lift $ getClosedRemainingUTxO thisNode
+  case UTxO.toList (fromMaybe mempty mUtxo) of
+    [] -> failure "performPartialFanout: no UTxO to fan out"
+    ((txIn, txOut) : _) ->
+      party `sendsInput` Input.PartialFanout{utxosToFanout = UTxO.fromList [(txIn, txOut)]}
+  findInOutput thisNode (100 :: Int)
+ where
+  findInOutput :: (MonadDelay m, MonadThrow m) => TestHydraClient Tx m -> Int -> RunMonad m UTxO
+  findInOutput node n
+    | n == 0 = failure "Failed to perform PartialFanout"
+    | otherwise = do
+        outputs <- lift $ serverOutputs node
+        case find headIsFinalized outputs of
+          Just (HeadIsFinalized{utxo}) -> pure utxo
+          _ -> lift (threadDelay 1) >> findInOutput node (n - 1)
+
+  headIsFinalized :: ServerOutput Tx -> Bool
+  headIsFinalized = \case
+    HeadIsFinalized{} -> True
+    _otherwise -> False
+
+getClosedRemainingUTxO :: (IsTx tx, IsChainState tx, Monad m) => TestHydraClient tx m -> m (Maybe (UTxOType tx))
+getClosedRemainingUTxO node = do
+  st <- queryState node
+  pure $ case headState st of
+    HeadLogic.Closed closedState -> Just (resolveRemainingUTxO closedState)
+    _ -> Nothing
 
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
 performCloseWithInitialSnapshot st party = do
