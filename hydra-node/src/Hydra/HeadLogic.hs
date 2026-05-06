@@ -1370,17 +1370,17 @@ onClosedClientFanout closedState =
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
 
 -- | Maximum number of outputs in a fanout transaction before switching to
--- partial fanout. With the current G2 on-chain KZG check, full fanout is
--- limited to ~10 ada-only outputs before hitting the execution budget.
+-- partial fanout. With the G1 on-chain KZG check, full fanout fits up to
+-- ~19 ada-only outputs before hitting the execution budget.
 fanoutOutputThreshold :: Int
-fanoutOutputThreshold = 10
+fanoutOutputThreshold = 19
 
 -- | Number of outputs to include in each partial fanout transaction.
 -- Must be strictly less than 'fanoutOutputThreshold' to stay within limits.
--- With G2 on-chain polynomial commitment, 7 outputs (8 G2 scalar muls)
--- keeps partial fanout well within the execution budget.
+-- With G1 on-chain polynomial commitment, 15 outputs keeps partial fanout
+-- well within the execution budget.
 fanoutChunkSize :: Int
-fanoutChunkSize = 7
+fanoutChunkSize = 15
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.

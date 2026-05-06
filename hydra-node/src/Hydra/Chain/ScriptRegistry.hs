@@ -136,7 +136,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
 
   scriptOutputsWithDatum =
     let crsDatum :: TxOutDatum ctx
-        crsDatum = Accumulator.createCRSG2Datum Accumulator.defaultItems
+        crsDatum = Accumulator.createCRSG1Datum Accumulator.defaultItems
      in mkScriptTxOutUsingDatum crsDatum . mkScriptRef <$> [CRS.validatorScript]
 
   -- Loop over all script outputs to create while re-spending the change output.
