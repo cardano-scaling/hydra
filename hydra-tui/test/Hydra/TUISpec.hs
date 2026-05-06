@@ -50,8 +50,8 @@ import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
   HydraClient (HydraClient, hydraNodeId),
-  HydraNodeConfig (..),
   HydraNodeLog,
+  mkSoloConfig,
   prepareHydraNode,
   withHydraNode,
   withPreparedHydraNode,
@@ -296,8 +296,6 @@ setupNodeAndTUI' hostname lovelace action =
         let backendOpts = Direct backend
         hydraScriptsTxId <- publishHydraScriptsAs backendOpts Faucet
         chainConfig <- chainConfigFor' Alice tmpDir backendOpts hydraScriptsTxId [] tuiContestationPeriod tuiDepositPeriod
-        -- XXX(SN): API port id is inferred from nodeId, in this case 4001
-        let nodeId = 1
 
         -- create user key used for committing to a Head
         let externalKeyFilePath = tmpDir </> "external.sk"
@@ -307,7 +305,7 @@ setupNodeAndTUI' hostname lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         let DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode HydraNodeConfig{tracer = contramap FromHydra tracer, blockTime, chainConfig, workDir = tmpDir, hydraNodeId = nodeId, hydraSigningKey = aliceSk, hydraVerificationKeys = [], allNodeIds = [nodeId]} $ \HydraClient{hydraNodeId} -> do
+        withHydraNode (mkSoloConfig (contramap FromHydra tracer) blockTime tmpDir Alice chainConfig) $ \HydraClient{hydraNodeId} -> do
           seedFromFaucet_ backendOpts aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do

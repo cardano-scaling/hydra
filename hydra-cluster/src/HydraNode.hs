@@ -110,6 +110,36 @@ mkSoloConfig ::
 mkSoloConfig tracer blockTime workDir actor chainConfig =
   mkHydraNodeConfig tracer blockTime workDir actor chainConfig [] [actorNodeId actor]
 
+-- | Standard config for Alice in a two-party Hydra head (node 1, peer = Bob).
+mkAliceConfig ::
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  ChainConfig ->
+  HydraNodeConfig
+mkAliceConfig = mkTwoPartyConfig Alice [bobVk]
+
+-- | Standard config for Bob in a two-party Hydra head (node 2, peer = Alice).
+mkBobConfig ::
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  ChainConfig ->
+  HydraNodeConfig
+mkBobConfig = mkTwoPartyConfig Bob [aliceVk]
+
+-- | Shared shape for one party in a two-party Hydra head.
+mkTwoPartyConfig ::
+  Actor ->
+  [VerificationKey HydraKey] ->
+  Tracer IO HydraNodeLog ->
+  NominalDiffTime ->
+  FilePath ->
+  ChainConfig ->
+  HydraNodeConfig
+mkTwoPartyConfig actor peers tracer blockTime workDir chainConfig =
+  mkHydraNodeConfig tracer blockTime workDir actor chainConfig peers [1, 2]
+
 -- | Create configs for a three-party Hydra head (Alice, Bob, and Carol).
 mkThreePartyConfigs ::
   Tracer IO HydraNodeLog ->
