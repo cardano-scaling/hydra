@@ -114,7 +114,7 @@ remainingAccumulator =
   Accumulator.buildFromUTxO @Tx healthyRemainingUTxO
 
 crsSize :: Int
-crsSize = Accumulator.requiredCRSSize fullAccumulator + 1
+crsSize = Accumulator.requiredCRSPointCount fullAccumulator
 
 -- | The ClosedDatum that the head output currently carries (before partial fanout).
 -- This represents a freshly-closed head with the full accumulator.

@@ -70,6 +70,7 @@ data RequirementFailure tx
   | NoMatchingDeposit
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
   | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
+  | ReqSnUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}
   deriving stock (Generic)
 
 deriving stock instance Eq (TxIdType tx) => Eq (RequirementFailure tx)

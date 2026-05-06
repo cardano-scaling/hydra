@@ -17,7 +17,7 @@ import Hydra.Tx.Accumulator (
   buildFromUTxO,
   createMembershipProof,
   createMembershipProofFromUTxO,
-  generateCRS,
+  crsG2Points,
   getAccumulatorHash,
   unHydraAccumulator,
  )
@@ -53,10 +53,10 @@ main = do
   putTextLn "Pre-built accumulators"
 
   -- Pre-generate CRS of various sizes and force them (max 65)
-  let !crs10 = generateCRS 10
-      !crs20 = generateCRS 20
-      !crs40 = generateCRS 40
-      !crs61 = generateCRS 61
+  let !crs10 = crsG2Points 10
+      !crs20 = crsG2Points 20
+      !crs40 = crsG2Points 40
+      !crs61 = crsG2Points 61
 
   putTextLn "Pre-generated CRS"
 
@@ -125,10 +125,10 @@ main = do
     , bgroup
         "7. CRS Loading (from EIP-4844 trusted setup)"
         -- Point2 lacks NFData, so we force the full spine via length
-        [ bench "CRS size 10" $ whnf (length . generateCRS) 10
-        , bench "CRS size 20" $ whnf (length . generateCRS) 20
-        , bench "CRS size 40" $ whnf (length . generateCRS) 40
-        , bench "CRS size 65 (max)" $ whnf (length . generateCRS) 65
+        [ bench "CRS size 10" $ whnf (length . crsG2Points) 10
+        , bench "CRS size 20" $ whnf (length . crsG2Points) 20
+        , bench "CRS size 40" $ whnf (length . crsG2Points) 40
+        , bench "CRS size 65 (max)" $ whnf (length . crsG2Points) 65
         ]
     , bgroup
         "8. End-to-End Snapshot Simulation"
@@ -170,5 +170,5 @@ fullSnapshotCycle utxo =
 partialFanoutCycle :: UTxO -> UTxO -> ByteString
 partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
-      crs = generateCRS (UTxO.size fullUtxo + 1)
+      crs = crsG2Points (UTxO.size fullUtxo + 1)
    in createMembershipProofFromUTxO @Tx subsetUtxo accumulator crs

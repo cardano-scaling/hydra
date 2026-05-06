@@ -81,7 +81,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (he
     let allUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
         -- Use the full snapshot accumulator (same one used for accumulatorCommitment in the
         -- closed datum). CRS must be sized for the full accumulator, not just the fanout subset.
-        crs = Accumulator.generateCRS $ Accumulator.requiredCRSSize snapshotAccumulator + 1
+        crs = Accumulator.crsG2Points $ Accumulator.requiredCRSPointCount snapshotAccumulator
      in bls12_381_G2_uncompress $
           toBuiltin $
             Accumulator.createMembershipProofFromUTxO @Tx allUTxO snapshotAccumulator crs
