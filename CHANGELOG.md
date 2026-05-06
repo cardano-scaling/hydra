@@ -31,6 +31,9 @@ after upgrading, existing `state` files are automatically migrated into
 
   - Reduce snapshot confirmation latency by ~7% (avg) by caching the pre-computed signable bytes of a snapshot in `SeenSnapshot`, avoiding repeated UTxO serialization and hashing on every `AckSn` verification during a signing round.
 
+- Replace 'list' with `Seq` type to speed up transaction processing in some
+  instances [#2597](https://github.com/cardano-scaling/hydra/pull/2597).
+
 
 ## [2.0.0] - 2026.04.05
 

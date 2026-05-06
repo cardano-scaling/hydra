@@ -20,6 +20,7 @@ import Control.Monad (foldM)
 import Data.List qualified as List
 import Data.Map (notMember)
 import Data.Map qualified as Map
+import Data.Sequence qualified as Seq
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
@@ -174,7 +175,7 @@ spec =
 
           case headState s of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> do
-              localTxs `shouldBe` [tx2, tx3]
+              localTxs `shouldBe` Seq.fromList [tx2, tx3]
             _ -> fail "expected Open state"
 
       describe "Deposit" $ do
@@ -278,7 +279,7 @@ spec =
               ( inOpenState' singleParty $
                   coordinatedHeadState
                     { seenSnapshot = mkSeenSnapshot snapshot1 Map.empty
-                    , localTxs = [tx2]
+                    , localTxs = pure tx2
                     , currentDepositTxId = Nothing
                     }
               )
@@ -1601,7 +1602,7 @@ spec =
                 coordinatedHeadState
                   { localUTxO = utxoRef 4
                   , allTxs = Map.fromList [(txId tx2, tx2), (txId tx3, tx3)]
-                  , localTxs = [tx2, tx3]
+                  , localTxs = Seq.fromList [tx2, tx3]
                   , confirmedSnapshot = ConfirmedSnapshot snapshot1 multisig1
                   , seenSnapshot = RequestedSnapshot{lastSeen = 1, requested = 2}
                   }
@@ -1736,7 +1737,7 @@ spec =
                         CoordinatedHeadState
                           { localUTxO = mempty
                           , allTxs = mempty
-                          , localTxs = []
+                          , localTxs = mempty
                           , confirmedSnapshot = InitialSnapshot testHeadId
                           , seenSnapshot = NoSeenSnapshot
                           , currentDepositTxId = Nothing
@@ -1831,7 +1832,7 @@ spec =
                             CoordinatedHeadState
                               { localUTxO = uncurry UTxO.singleton utxo
                               , allTxs = mempty
-                              , localTxs = [expiringTransaction]
+                              , localTxs = pure expiringTransaction
                               , confirmedSnapshot = InitialSnapshot testHeadId
                               , seenSnapshot = NoSeenSnapshot
                               , currentDepositTxId = Nothing
@@ -1878,7 +1879,7 @@ spec =
                           CoordinatedHeadState
                             { localUTxO = mempty
                             , allTxs = mempty
-                            , localTxs = []
+                            , localTxs = mempty
                             , confirmedSnapshot = InitialSnapshot testHeadId
                             , seenSnapshot = NoSeenSnapshot
                             , currentDepositTxId = Nothing

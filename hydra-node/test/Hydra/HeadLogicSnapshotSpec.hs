@@ -88,7 +88,7 @@ spec = do
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
-            st = coordinatedHeadState{localTxs = [tx]}
+            st = coordinatedHeadState{localTxs = pure tx}
             s0 = inOpenState' [alice, bob] st
         now <- nowFromSlot (currentSlot . chainPointTime $ s0)
         let outcome = update (envFor bobSk) simpleLedger now s0 $ receiveMessageFrom bob $ ReqTx tx
@@ -111,7 +111,7 @@ spec = do
             st' =
               inOpenState' threeParties $
                 coordinatedHeadState
-                  { localTxs = [tx]
+                  { localTxs = pure tx
                   , allTxs = Map.singleton (txId tx) tx
                   , localUTxO = u0 <> utxoRef (txId tx)
                   , seenSnapshot = RequestedSnapshot{lastSeen = 0, requested = 1}
@@ -212,7 +212,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
       CoordinatedHeadState
         { localUTxO = mempty
         , allTxs = mempty
-        , localTxs = []
+        , localTxs = mempty
         , confirmedSnapshot = sn
         , seenSnapshot
         , currentDepositTxId = Nothing
