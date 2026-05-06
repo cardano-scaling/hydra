@@ -82,7 +82,7 @@ healthyFanoutSnapshotAccumulator =
   Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) Nothing (Just $ snd healthyFanoutSnapshotUTxO)
 
 crsSize :: Int
-crsSize = Accumulator.requiredCRSSize healthyFanoutSnapshotAccumulator + 1
+crsSize = Accumulator.requiredCRSPointCount healthyFanoutSnapshotAccumulator
 
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =

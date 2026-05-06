@@ -332,45 +332,46 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
             waitResolvableTxs $ \requestedTxs -> do
               -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO requestedTxs $ \u -> do
+              requireApplyTxs activeUTxO requestedTxs $ \u ->
                 let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
                     accumulator = Accumulator.buildFromSnapshotUTxOs snapshotUTxO mUtxoToCommit mUtxoToDecommit
-                -- Spec: ŝ ← ̅S.s + 1
-                -- NOTE: confSn == seenSn == sn here
-                let nextSnapshot =
-                      Snapshot
-                        { headId
-                        , version = version
-                        , number = sn
-                        , confirmed = requestedTxs
-                        , utxo = snapshotUTxO
-                        , utxoToCommit = mUtxoToCommit
-                        , utxoToDecommit = mUtxoToDecommit
-                        , accumulator
-                        }
+                 in requireValidAccumulatorSize accumulator $ do
+                      -- Spec: ŝ ← ̅S.s + 1
+                      -- NOTE: confSn == seenSn == sn here
+                      let nextSnapshot =
+                            Snapshot
+                              { headId
+                              , version = version
+                              , number = sn
+                              , confirmed = requestedTxs
+                              , utxo = snapshotUTxO
+                              , utxoToCommit = mUtxoToCommit
+                              , utxoToDecommit = mUtxoToDecommit
+                              , accumulator
+                              }
 
-                -- Spec: 𝜂 ← combine(𝑈)
-                --       𝜂𝛼 ← combine(𝑈𝛼)
-                --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
-                --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
-                let snapshotSignature = sign signingKey nextSnapshot
-                -- Spec: multicast (ackSn, ŝ, σᵢ)
-                (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
-                  -- Spec: ̂Σ ← ∅
-                  --       L̂ ← 𝑈
-                  --       𝑋 ← T
-                  --       T̂ ← ∅
-                  --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-                  --         T̂ ← T̂ ⋃ {tx}
-                  --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
-                  newState
-                    SnapshotRequested
-                      { requestedSnapshot = nextSnapshot
-                      , newLocalUTxO
-                      , newLocalTxs
-                      , newCurrentDepositTxId = mDepositTxId
-                      }
+                      -- Spec: 𝜂 ← combine(𝑈)
+                      --       𝜂𝛼 ← combine(𝑈𝛼)
+                      --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
+                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
+                      let snapshotSignature = sign signingKey nextSnapshot
+                      -- Spec: multicast (ackSn, ŝ, σᵢ)
+                      (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
+                        -- Spec: ̂Σ ← ∅
+                        --       L̂ ← 𝑈
+                        --       𝑋 ← T
+                        --       T̂ ← ∅
+                        --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
+                        --         T̂ ← T̂ ⋃ {tx}
+                        --         L̂ ← L̂ ◦ tx
+                        let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                        newState
+                          SnapshotRequested
+                            { requestedSnapshot = nextSnapshot
+                            , newLocalUTxO
+                            , newLocalTxs
+                            , newCurrentDepositTxId = mDepositTxId
+                            }
  where
   requireReqSn continue
     | sv /= version =
@@ -453,6 +454,18 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       Left (tx, err) ->
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
+
+  requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
+  requireValidAccumulatorSize accumulator continue
+    | Accumulator.accumulatorSize accumulator > Accumulator.maxAccumulatorSize =
+        Error $
+          RequireFailed $
+            ReqSnUTxOSetTooLarge
+              { utxoCount = Accumulator.accumulatorSize accumulator
+              , maxAllowed = Accumulator.maxAccumulatorSize
+              }
+    | otherwise =
+        continue
 
   pruneTransactions utxo = do
     -- NOTE: Using foldl' is important to apply transacations in the correct
@@ -1374,15 +1387,14 @@ onClosedClientFanout closedState =
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
 
 -- | Maximum number of outputs in a fanout transaction before switching to
--- partial fanout. With the G1 on-chain KZG check, full fanout fits up to
--- ~19 ada-only outputs before hitting the execution budget.
+-- partial fanout. Based on empirical testing, the fanout limit with BLS
+-- accumulators is around 20 ada-only outputs per transaction (see ModelSpec
+-- and EndToEndSpec tests). We use a conservative threshold below this limit.
 fanoutOutputThreshold :: Int
 fanoutOutputThreshold = 19
 
 -- | Number of outputs to include in each partial fanout transaction.
 -- Must be strictly less than 'fanoutOutputThreshold' to stay within limits.
--- With G1 on-chain polynomial commitment, 15 outputs keeps partial fanout
--- well within the execution budget.
 fanoutChunkSize :: Int
 fanoutChunkSize = 15
 

@@ -31,9 +31,19 @@ type CRSDatum = [BuiltinBLS12_381_G1_Element]
 
 -- | Core BLS pairing check shared by full fanout and partial fanout.
 --
--- Verifies: @e(G1, commitment) = e(S(τ)·G1, proof)@
--- where S is the subset polynomial derived from @scalars@.
--- Delegates to 'Plutus.Crypto.Accumulator.checkMembership'.
+-- Verifies the KZG membership pairing identity:
+--
+-- > e(G1, commitment) = e(P_S(τ)·G1, proof)
+--
+-- Argument mapping:
+--
+-- * @commitment@: A(τ)·G2 — the accumulator commitment from the Closed datum
+-- * @proof@: Q(τ)·G2 — the quotient polynomial committed over G2, proving subset membership
+-- * @crsG1@: @[G1, τ·G1, ...]@ — used on-chain to compute @P_S(τ)·G1@ via MSM
+-- * @ints@: integer encodings of element hashes, defining @P_S(X) = ∏(X − sᵢ)@
+--
+-- Note: the underlying 'checkMembership' takes @(crs, commitment, scalars, proof)@;
+-- this wrapper uses the more natural @(commitment, proof, crs, scalars)@ order.
 {-# INLINEABLE checkMembershipPairing #-}
 checkMembershipPairing ::
   BuiltinBLS12_381_G2_Element ->
