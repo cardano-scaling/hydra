@@ -1647,7 +1647,7 @@ spec =
           _ -> False
 
       it "client fanout triggers PartialFanoutTx when snapshot UTxO exceeds threshold" $ do
-        -- fanoutOutputThreshold = 19, so 20 UTxOs must produce PartialFanoutTx
+        -- fanoutOutputThreshold + 1 UTxOs must produce PartialFanoutTx
         let bigUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
             snap = testSnapshot 1 0 [] bigUTxO
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
@@ -1659,7 +1659,7 @@ spec =
           _ -> False
 
       it "client fanout uses FanoutTx when snapshot UTxO is exactly at threshold" $ do
-        -- fanoutOutputThreshold = 19, so exactly 19 UTxOs must produce FanoutTx
+        -- exactly fanoutOutputThreshold UTxOs must produce FanoutTx
         let thresholdUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold]]
             snap = testSnapshot 1 0 [] thresholdUTxO
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))

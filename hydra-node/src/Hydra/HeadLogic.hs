@@ -1374,16 +1374,17 @@ onClosedClientFanout closedState =
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
 
 -- | Maximum number of outputs in a fanout transaction before switching to
--- partial fanout. Based on empirical testing, the fanout limit with BLS
--- accumulators is around 20 ada-only outputs per transaction (see ModelSpec
--- and EndToEndSpec tests). We use a conservative threshold below this limit.
+-- partial fanout. With the current G2 on-chain KZG check, full fanout is
+-- limited to ~10 ada-only outputs before hitting the execution budget.
 fanoutOutputThreshold :: Int
-fanoutOutputThreshold = 19
+fanoutOutputThreshold = 10
 
 -- | Number of outputs to include in each partial fanout transaction.
 -- Must be strictly less than 'fanoutOutputThreshold' to stay within limits.
+-- With G2 on-chain polynomial commitment, 7 outputs (8 G2 scalar muls)
+-- keeps partial fanout well within the execution budget.
 fanoutChunkSize :: Int
-fanoutChunkSize = 15
+fanoutChunkSize = 7
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
