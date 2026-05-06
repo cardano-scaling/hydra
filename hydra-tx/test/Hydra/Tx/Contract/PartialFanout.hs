@@ -75,22 +75,22 @@ healthyPartialFanoutTx =
         healthyParties
 
 -- | The full UTxO to be distributed, matching the E2E test scenario with
--- 20 UTxOs to exercise partial fanout (threshold is 19).
+-- 11 UTxOs to exercise partial fanout (threshold is 10).
 healthyFullUTxO :: UTxO
 healthyFullUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 42
       utxoList = UTxO.toList utxo
-   in UTxO.fromList $ take 20 utxoList
+   in UTxO.fromList $ take 11 utxoList
 
--- | Split the full UTxO: distribute the first 15, keep the remaining 5.
--- This matches the E2E fanoutChunkSize of 15.
+-- | Split the full UTxO: distribute the first 7, keep the remaining 4.
+-- This matches the E2E fanoutChunkSize of 7.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
-  UTxO.fromList $ take 15 $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ take 7 $ UTxO.toList healthyFullUTxO
 
 healthyRemainingUTxO :: UTxO
 healthyRemainingUTxO =
-  UTxO.fromList $ drop 15 $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ drop 7 $ UTxO.toList healthyFullUTxO
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
