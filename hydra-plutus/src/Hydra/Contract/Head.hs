@@ -509,7 +509,7 @@ headIsFinalizedWith ::
   -- | Number of delta outputs to fanout
   Integer ->
   -- | Membership proof for the fanout outputs
-  BuiltinBLS12_381_G1_Element ->
+  BuiltinBLS12_381_G2_Element ->
   -- | Reference input containing crs
   TxOutRef ->
   Bool

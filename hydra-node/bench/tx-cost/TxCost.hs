@@ -40,6 +40,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.KZGTrustedSetup (maxAccumulatorSize)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
@@ -165,7 +166,7 @@ computeFanOutCost = do
       . getFirst
       <$> foldMapM
         (\(p, u) -> First <$> compute p u)
-        [(p, u) | p <- [numberOfParties], u <- [100, 99 .. 0]]
+        [(p, u) | p <- [numberOfParties], u <- [maxAccumulatorSize, maxAccumulatorSize - 1 .. 0]]
   pure $ interesting <> limit
  where
   numberOfParties = 10
@@ -185,8 +186,9 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    utxoToCommit' <- oneof [arbitrary, pure Nothing]
-    utxoToDecommit' <- oneof [arbitrary, pure Nothing]
+    let maxExtra = maxAccumulatorSize - numOutputs
+    utxoToCommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
+    utxoToDecommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
     let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit' then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
     snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
@@ -209,12 +211,12 @@ computeFanOutCost = do
 -- remaining UTxO count, making this the binding constraint.
 computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutNominalCost = do
-  interesting <- catMaybes <$> mapM compute [fanoutOutputThreshold + 1, 25, 30, 40, 50, 75, 100]
+  interesting <- catMaybes <$> mapM compute [fanoutOutputThreshold + 1, 25, 30, 40, 50, 60]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [500, 499 .. fanoutOutputThreshold + 1]
+        [maxAccumulatorSize, maxAccumulatorSize - 1 .. fanoutOutputThreshold + 1]
   pure $ interesting <> limit
  where
   numberOfParties = 3
