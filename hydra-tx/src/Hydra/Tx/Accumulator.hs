@@ -4,14 +4,16 @@ module Hydra.Tx.Accumulator (
   HydraAccumulator (..),
   getAccumulatorHash,
   getAccumulatorCommitment,
+  accumulatorSize,
+  maxAccumulatorSize,
   build,
   buildFromUTxO,
   buildFromSnapshotUTxOs,
 
   -- * CRS (Common Reference String)
-  generateCRS,
-  generateCRSG1,
-  requiredCRSSize,
+  crsG2Points,
+  crsG1Points,
+  requiredCRSPointCount,
   defaultItems,
 
   -- * Membership proofs for partial fanout
@@ -143,11 +145,19 @@ getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash (HydraAccumulator acc) =
   digest (Proxy @Blake2b_256) . BSL.toStrict . serialise $ acc
 
+-- | Number of elements in the accumulator — equals the number of UTxOs in the snapshot.
+accumulatorSize :: HydraAccumulator -> Int
+accumulatorSize (HydraAccumulator acc) = Map.size acc
+
+-- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
+maxAccumulatorSize :: Int
+maxAccumulatorSize = KZG.maxAccumulatorSize
+
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G2_Element
 getAccumulatorCommitment (HydraAccumulator acc) =
   let n = Map.size acc
    in if n > KZG.maxAccumulatorSize
-        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G2 CRS limit of " <> show KZG.maxAccumulatorSize <> " (64 UTxOs max with EIP-4844 setup)"
+        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G2 CRS limit of " <> show KZG.maxAccumulatorSize
         else
           let crsG2 = take (n + 1) KZG.g2BuiltinPoints
            in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
@@ -155,25 +165,26 @@ getAccumulatorCommitment (HydraAccumulator acc) =
 
 -- * CRS (Common Reference String)
 
--- | Returns the first @n@ G2 powers of tau from the Ethereum EIP-4844 KZG trusted setup.
--- Used as the off-chain CRS for building accumulator commitments and membership proofs.
--- The CRS consists of: [g2 * tau^0, g2 * tau^1, ..., g2 * tau^(n-1)]
--- where tau is the secret from the EIP-4844 multi-party ceremony.
--- Limited to a maximum of 'KZG.maxAccumulatorSize' + 1 points.
-generateCRS :: Int -> [Point2]
-generateCRS n = take n KZG.g2Points
+-- | Returns the first @n@ G2 powers of tau from the EIP-4844 trusted setup.
+-- Used as the off-chain CRS for building accumulator commitments and membership proofs:
+-- @[G2, τ·G2, ..., τ^(n-1)·G2]@.
+crsG2Points :: Int -> [Point2]
+crsG2Points n = take n KZG.g2Points
 
--- | Returns the first @n@ G1 powers of tau from the Ethereum EIP-4844 KZG trusted setup.
--- Used as the on-chain CRS for verifying membership proofs.
--- Shares the same secret tau as 'generateCRS'.
-generateCRSG1 :: Int -> [Point1]
-generateCRSG1 n = take n KZG.g1Points
+-- | Returns the first @n@ G1 powers of tau from the EIP-4844 trusted setup.
+-- Used as the on-chain CRS for verifying membership proofs:
+-- @[G1, τ·G1, ..., τ^(n-1)·G1]@.
+crsG1Points :: Int -> [Point1]
+crsG1Points n = take n KZG.g1Points
 
 defaultItems :: Int
 defaultItems = 30
 
-requiredCRSSize :: HydraAccumulator -> Int
-requiredCRSSize (HydraAccumulator acc) = Map.size acc
+-- | Returns the number of G2 CRS points required for this accumulator.
+-- An n-element accumulator polynomial has degree n, so needs n+1 G2 points
+-- @[G2, τ·G2, ..., τⁿ·G2]@ to compute the commitment A(τ)·G2 and proofs.
+requiredCRSPointCount :: HydraAccumulator -> Int
+requiredCRSPointCount (HydraAccumulator acc) = Map.size acc + 1
 
 -- * Cryptographic Proofs for partial fanout
 
@@ -257,4 +268,4 @@ createCRSG1Datum :: Int -> HApi.TxOutDatum ctx
 createCRSG1Datum n =
   TxOutDatumInline BabbageEraOnwardsConway $
     HApi.toScriptData
-      (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> generateCRSG1 n)
+      (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> crsG1Points n)

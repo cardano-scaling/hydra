@@ -8,7 +8,7 @@ import Cardano.Crypto.Hash (Blake2b_224)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
-import Hydra.Tx.Accumulator (build, createMembershipProof, generateCRS, getAccumulatorCommitment, requiredCRSSize)
+import Hydra.Tx.Accumulator (build, createMembershipProof, crsG2Points, getAccumulatorCommitment, requiredCRSPointCount)
 import Hydra.Tx.KZGTrustedSetup (g1BuiltinPoints, g1Points, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
 import PlutusTx.Builtins (bls12_381_G2_uncompress, byteStringToInteger, toBuiltin)
 
@@ -21,10 +21,16 @@ spec = parallel $ do
     it "g2Points has 65 entries" $
       length g2Points `shouldBe` 65
 
-    it "maxAccumulatorSize is one less than the number of G2 points" $
+    it "maxAccumulatorSize is 64 (EIP-4844 provides 65 G2 points)" $
+      maxAccumulatorSize `shouldBe` 64
+
+    it "maxAccumulatorSize matches the parsed G2 point count minus one" $
       maxAccumulatorSize `shouldBe` length g2Points - 1
 
-    it "maxFanoutBatchSize is one less than the number of G1 points" $
+    it "maxFanoutBatchSize is 4095 (EIP-4844 provides 4096 G1 points)" $
+      maxFanoutBatchSize `shouldBe` 4095
+
+    it "maxFanoutBatchSize matches the parsed G1 point count minus one" $
       maxFanoutBatchSize `shouldBe` length g1Points - 1
 
     it "first G1 point matches the BLS12-381 G1 generator (τ^0·G1 = G1, confirming monomial form)" $
@@ -62,9 +68,9 @@ spec = parallel $ do
       let allElements = ["alpha", "beta", "gamma", "delta", "epsilon"] :: [ByteString]
           fullAcc = build allElements
           subsetElements = ["beta", "gamma"] :: [ByteString]
-          crsSize = requiredCRSSize fullAcc + 1
+          crsSize = requiredCRSPointCount fullAcc
           crsG1 = take crsSize g1BuiltinPoints
-          proofBytes = createMembershipProof subsetElements fullAcc (generateCRS crsSize)
+          proofBytes = createMembershipProof subsetElements fullAcc (crsG2Points crsSize)
           proof = bls12_381_G2_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetElements
       checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG1 ints
@@ -75,9 +81,9 @@ spec = parallel $ do
           fullAcc = build allElements
           subsetA = ["alpha", "beta"] :: [ByteString]
           subsetB = ["gamma", "delta"] :: [ByteString]
-          crsSize = requiredCRSSize fullAcc + 1
+          crsSize = requiredCRSPointCount fullAcc
           crsG1 = take crsSize g1BuiltinPoints
-          proofBytes = createMembershipProof subsetA fullAcc (generateCRS crsSize)
+          proofBytes = createMembershipProof subsetA fullAcc (crsG2Points crsSize)
           proof = bls12_381_G2_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetB
       checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG1 ints
