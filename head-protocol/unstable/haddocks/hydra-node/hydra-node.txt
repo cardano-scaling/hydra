@@ -641,17 +641,17 @@ OpenState :: HeadParameters -> CoordinatedHeadState tx -> ChainStateType tx -> H
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
-CoordinatedHeadState :: UTxOType tx -> [tx] -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
+CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
 
 -- | The latest UTxO resulting from applying
 --   <a>$sel:localTxs:CoordinatedHeadState</a> to
 --   <a>CoordinatedHeadState</a>. Spec: L̂
 [$sel:localUTxO:CoordinatedHeadState] :: CoordinatedHeadState tx -> UTxOType tx
 
--- | List of transactions applied locally and pending inclusion in a
---   snapshot. Ordering in this list is important as transactions are added
---   in order of application. Spec: T̂
-[$sel:localTxs:CoordinatedHeadState] :: CoordinatedHeadState tx -> [tx]
+-- | Sequence of transactions applied locally and pending inclusion in a
+--   snapshot. Ordering is important as transactions are added in order of
+--   application. Spec: T̂
+[$sel:localTxs:CoordinatedHeadState] :: CoordinatedHeadState tx -> Seq tx
 
 -- | Map containing all the transactions ever seen by this node and not yet
 --   included in a snapshot. Spec: Tall
@@ -2643,10 +2643,10 @@ SnapshotRequestDecided :: SnapshotNumber -> StateChanged tx
 -- | A snapshot was requested by some party. NOTE: We deliberately already
 --   include an updated local ledger state to not need a ledger to
 --   interpret this event.
-SnapshotRequested :: Snapshot tx -> UTxOType tx -> [tx] -> Maybe (TxIdType tx) -> StateChanged tx
+SnapshotRequested :: Snapshot tx -> UTxOType tx -> Seq tx -> Maybe (TxIdType tx) -> StateChanged tx
 [$sel:requestedSnapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
 [$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> [tx]
+[$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> Seq tx
 [$sel:newCurrentDepositTxId:NetworkConnected] :: StateChanged tx -> Maybe (TxIdType tx)
 PartySignedSnapshot :: SnapshotNumber -> Party -> Signature (Snapshot tx) -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
@@ -3108,7 +3108,7 @@ onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> Op
 --   <a>ReqSn</a>: commit finalisation passes <a>Nothing</a> (deposit
 --   already included), while decommit finalisation passes the next queued
 --   deposit if one is pending.
-maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> SnapshotNumber -> [tx] -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Outcome tx
+maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> SnapshotNumber -> Seq tx -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Outcome tx
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
@@ -3311,17 +3311,17 @@ RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
-CoordinatedHeadState :: UTxOType tx -> [tx] -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
+CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
 
 -- | The latest UTxO resulting from applying
 --   <a>$sel:localTxs:CoordinatedHeadState</a> to
 --   <a>CoordinatedHeadState</a>. Spec: L̂
 [$sel:localUTxO:CoordinatedHeadState] :: CoordinatedHeadState tx -> UTxOType tx
 
--- | List of transactions applied locally and pending inclusion in a
---   snapshot. Ordering in this list is important as transactions are added
---   in order of application. Spec: T̂
-[$sel:localTxs:CoordinatedHeadState] :: CoordinatedHeadState tx -> [tx]
+-- | Sequence of transactions applied locally and pending inclusion in a
+--   snapshot. Ordering is important as transactions are added in order of
+--   application. Spec: T̂
+[$sel:localTxs:CoordinatedHeadState] :: CoordinatedHeadState tx -> Seq tx
 
 -- | Map containing all the transactions ever seen by this node and not yet
 --   included in a snapshot. Spec: Tall
@@ -3516,10 +3516,10 @@ SnapshotRequestDecided :: SnapshotNumber -> StateChanged tx
 -- | A snapshot was requested by some party. NOTE: We deliberately already
 --   include an updated local ledger state to not need a ledger to
 --   interpret this event.
-SnapshotRequested :: Snapshot tx -> UTxOType tx -> [tx] -> Maybe (TxIdType tx) -> StateChanged tx
+SnapshotRequested :: Snapshot tx -> UTxOType tx -> Seq tx -> Maybe (TxIdType tx) -> StateChanged tx
 [$sel:requestedSnapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
 [$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
-[$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> [tx]
+[$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> Seq tx
 [$sel:newCurrentDepositTxId:NetworkConnected] :: StateChanged tx -> Maybe (TxIdType tx)
 PartySignedSnapshot :: SnapshotNumber -> Party -> Signature (Snapshot tx) -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
