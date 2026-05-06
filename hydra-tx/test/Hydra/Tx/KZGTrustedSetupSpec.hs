@@ -9,8 +9,8 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
 import Hydra.Tx.Accumulator (build, createMembershipProof, generateCRS, getAccumulatorCommitment, requiredCRSSize)
-import Hydra.Tx.KZGTrustedSetup (g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
-import PlutusTx.Builtins (bls12_381_G1_uncompress, byteStringToInteger, toBuiltin)
+import Hydra.Tx.KZGTrustedSetup (g1BuiltinPoints, g1Points, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
+import PlutusTx.Builtins (bls12_381_G2_uncompress, byteStringToInteger, toBuiltin)
 
 spec :: Spec
 spec = parallel $ do
@@ -21,11 +21,11 @@ spec = parallel $ do
     it "g2Points has 65 entries" $
       length g2Points `shouldBe` 65
 
-    it "maxAccumulatorSize is one less than the number of G1 points" $
-      maxAccumulatorSize `shouldBe` length g1Points - 1
+    it "maxAccumulatorSize is one less than the number of G2 points" $
+      maxAccumulatorSize `shouldBe` length g2Points - 1
 
-    it "maxFanoutBatchSize is one less than the number of G2 points" $
-      maxFanoutBatchSize `shouldBe` length g2Points - 1
+    it "maxFanoutBatchSize is one less than the number of G1 points" $
+      maxFanoutBatchSize `shouldBe` length g1Points - 1
 
     it "first G1 point matches the BLS12-381 G1 generator (τ^0·G1 = G1, confirming monomial form)" $
       case g1Points of
@@ -37,11 +37,11 @@ spec = parallel $ do
         [] -> expectationFailure "g2Points is empty"
         (p : _) -> blsCompress p `shouldBe` blsCompress (blsGenerator :: Point2)
 
-    it "first 3 G1 points are in the prime-order G1 subgroup" $
-      all blsInGroup (take 3 g1Points) `shouldBe` True
-
     it "all G2 points are in the prime-order G2 subgroup" $
       all blsInGroup g2Points `shouldBe` True
+
+    it "first 3 G1 points are in the prime-order G1 subgroup" $
+      all blsInGroup (take 3 g1Points) `shouldBe` True
 
     it "G1 points round-trip through compression" $
       case g1Points of
@@ -58,16 +58,16 @@ spec = parallel $ do
           Right p' -> blsCompress (p' :: Point2) `shouldBe` blsCompress p
 
   describe "End-to-end pairing check" $ do
-    it "membership proof satisfies e(acc, G2) = e(proof, S(τ)·G2)" $ do
+    it "membership proof satisfies e(S(τ)·G1, proof) = e(G1, acc)" $ do
       let allElements = ["alpha", "beta", "gamma", "delta", "epsilon"] :: [ByteString]
           fullAcc = build allElements
           subsetElements = ["beta", "gamma"] :: [ByteString]
           crsSize = requiredCRSSize fullAcc + 1
-          crsG2 = take crsSize g2BuiltinPoints
+          crsG1 = take crsSize g1BuiltinPoints
           proofBytes = createMembershipProof subsetElements fullAcc (generateCRS crsSize)
-          proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
+          proof = bls12_381_G2_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetElements
-      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
+      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG1 ints
         `shouldBe` True
 
     it "proof for one subset does not verify for a different subset" $ do
@@ -76,11 +76,11 @@ spec = parallel $ do
           subsetA = ["alpha", "beta"] :: [ByteString]
           subsetB = ["gamma", "delta"] :: [ByteString]
           crsSize = requiredCRSSize fullAcc + 1
-          crsG2 = take crsSize g2BuiltinPoints
+          crsG1 = take crsSize g1BuiltinPoints
           proofBytes = createMembershipProof subsetA fullAcc (generateCRS crsSize)
-          proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
+          proof = bls12_381_G2_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetB
-      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
+      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG1 ints
         `shouldBe` False
 
 toInt :: ByteString -> Integer

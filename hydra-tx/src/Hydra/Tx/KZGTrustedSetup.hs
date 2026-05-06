@@ -1,5 +1,57 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-- | KZG trusted setup parameters for Hydra's accumulator-based partial fanout.
+--
+-- = Background
+--
+-- Hydra's partial fanout uses KZG polynomial commitments to prove on-chain that
+-- a distributed batch of UTxOs is a genuine subset of the UTxOs committed in the
+-- Closed head datum. The accumulator polynomial encodes all snapshot UTxOs as roots:
+--
+-- > A(X) = ∏ (X − sᵢ)   where sᵢ = hash(TxOutᵢ)
+--
+-- The __accumulator commitment__ is @A(τ)·G2@ — a single G2 point stored in the
+-- Closed datum. The __membership proof__ for a distributed subset @S@ is the
+-- quotient @Q(X) = A(X) / P_S(X)@ committed as @Q(τ)·G2@. The on-chain validator
+-- verifies the pairing identity:
+--
+-- > e(G1, A(τ)·G2) = e(P_S(τ)·G1, Q(τ)·G2)
+--
+-- where @P_S(τ)·G1@ is computed on-chain via a G1 MSM using the on-chain G1 CRS.
+-- G1 scalar multiplication is roughly 2× cheaper than G2, which keeps partial
+-- fanout transactions within the Cardano execution budget.
+--
+-- = The Trusted Setup
+--
+-- Computing @A(τ)·G2@ and @Q(τ)·G2@ off-chain, and @P_S(τ)·G1@ on-chain, all
+-- require the same secret @τ@ (powers of tau). We embed the __EIP-4844 KZG
+-- trusted setup__ produced by the Ethereum KZG ceremony (2023):
+--
+--   * Source: <https://github.com/ethereum/kzg-ceremony-verifier/tree/master/output_setups>
+--   * Ceremony: <https://ceremony.ethereum.org/>
+--   * ~140,000 independent participants; secure as long as one destroyed their secret
+--   * We use the @g1_monomial@ and @g2_monomial@ keys (not @g1_lagrange@, which is
+--     for Ethereum blob commitments and is unsuitable here)
+--
+-- The setup provides:
+--
+--   * 4096 G1 points @[G1, τ·G1, ..., τ^4095·G1]@ — used as the on-chain
+--     verification CRS (G1 MSM to evaluate @P_S(τ)·G1@)
+--   * 65 G2 points  @[G2, τ·G2, ..., τ^64·G2]@   — used off-chain to build the
+--     accumulator commitment and membership proofs
+--
+-- = Current Limitation
+--
+-- Because EIP-4844 only provides 65 G2 points, the accumulator polynomial can
+-- have at most 64 roots, meaning a Hydra head snapshot is currently limited to
+-- __64 UTxOs__. This is enforced by 'maxAccumulatorSize'.
+--
+-- = Migration Path
+--
+-- Once Hydra runs its own KZG ceremony producing, say, 4096 G2 points, we can
+-- replace @trusted_setup.json@, bump 'maxAccumulatorSize' to 4095, and
+-- re-publish the script registry — no on-chain validator changes required.
+-- The G2 accumulator design remains identical; only the parameter size grows.
 module Hydra.Tx.KZGTrustedSetup (
   g1Points,
   g2Points,
@@ -19,17 +71,18 @@ import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Data.Text qualified as T
 import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element, BuiltinBLS12_381_G2_Element, bls12_381_G1_uncompress, bls12_381_G2_uncompress, toBuiltin)
 
--- | Maximum accumulator element count supported by the currently embedded G1 CRS.
--- The JSON setup provides 4096 G1 monomial points [G1, τ·G1, ..., τ^4095·G1],
--- so the accumulator supports up to 4095 elements.
+-- | Maximum accumulator element count supported by the currently embedded G2 CRS.
+-- The JSON setup provides 65 G2 monomial points [G2, τ·G2, ..., τ^64·G2],
+-- so the accumulator supports up to 64 elements.
+-- Once we have our own ceremony with more G2 points, this limit will increase.
 maxAccumulatorSize :: Int
-maxAccumulatorSize = length g1Points - 1
+maxAccumulatorSize = length g2Points - 1
 
 -- | Maximum number of UTxOs that can be fanned out in a single partial fanout transaction.
--- The on-chain verification CRS uses G2 points. The EIP-4844 ceremony provides 65 G2 points,
--- so each fanout batch is limited to 64 outputs.
+-- The on-chain verification CRS uses G1 points. The EIP-4844 ceremony provides 4096 G1 points,
+-- so each fanout batch is limited to 4095 outputs (well above execution budget limits).
 maxFanoutBatchSize :: Int
-maxFanoutBatchSize = length g2Points - 1
+maxFanoutBatchSize = length g1Points - 1
 
 -- | G1 and G2 hex strings parsed from the embedded JSON.
 --
@@ -56,7 +109,7 @@ decodeHexPoint t =
     Right bs -> bs
 
 -- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony (monomial form).
--- 4096 points; used off-chain for accumulator and membership proof commitments.
+-- 4096 points; used on-chain as the verification CRS for membership proofs.
 g1Points :: [Point1]
 g1Points = map parseG1 (fst embeddedSetup)
  where
@@ -66,7 +119,7 @@ g1Points = map parseG1 (fst embeddedSetup)
     Right p -> p
 
 -- | G2 powers of tau [G2, τ·G2, ..., τ^64·G2] from the EIP-4844 ceremony (monomial form).
--- 65 points; used on-chain as the verification CRS (limits batch fanout to 64 outputs).
+-- 65 points; used off-chain for accumulator and membership proof commitments (limits head to 64 UTxOs).
 g2Points :: [Point2]
 g2Points = map parseG2 (snd embeddedSetup)
  where
@@ -75,12 +128,12 @@ g2Points = map parseG2 (snd embeddedSetup)
     Left _ -> error "KZGTrustedSetup: invalid G2 point in trusted_setup.json"
     Right p -> p
 
--- | G1 points as Plutus built-in type, for use in off-chain accumulator commitment.
+-- | G1 points as Plutus built-in type, for use in on-chain verification CRS.
 g1BuiltinPoints :: [BuiltinBLS12_381_G1_Element]
 g1BuiltinPoints =
   map (bls12_381_G1_uncompress . toBuiltin . decodeHexPoint) (fst embeddedSetup)
 
--- | G2 points as Plutus built-in type, for use in on-chain verification CRS.
+-- | G2 points as Plutus built-in type, for use in off-chain accumulator commitment.
 g2BuiltinPoints :: [BuiltinBLS12_381_G2_Element]
 g2BuiltinPoints =
   map (bls12_381_G2_uncompress . toBuiltin . decodeHexPoint) (snd embeddedSetup)
