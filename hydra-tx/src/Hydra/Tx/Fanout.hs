@@ -15,7 +15,7 @@ import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (findStateToken, headTokensFromValue, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
-import PlutusTx.Builtins (bls12_381_G2_uncompress)
+import PlutusTx.Builtins (bls12_381_G1_uncompress)
 
 -- * Creation
 
@@ -81,8 +81,8 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (he
     let allUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
         -- Use the full snapshot accumulator (same one used for accumulatorCommitment in the
         -- closed datum). CRS must be sized for the full accumulator, not just the fanout subset.
-        crs = Accumulator.crsG2Points $ Accumulator.requiredCRSPointCount snapshotAccumulator
-     in bls12_381_G2_uncompress $
+        crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount snapshotAccumulator
+     in bls12_381_G1_uncompress $
           toBuiltin $
             Accumulator.createMembershipProofFromUTxO @Tx allUTxO snapshotAccumulator crs
 

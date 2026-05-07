@@ -23,6 +23,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
+import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
@@ -74,23 +75,22 @@ healthyPartialFanoutTx =
         )
         healthyParties
 
--- | The full UTxO to be distributed, matching the E2E test scenario with
--- 20 UTxOs to exercise partial fanout (threshold is 19).
+-- | The full UTxO to be distributed. One more than 'fanoutOutputThreshold'
+-- so this exercises the partial fanout path.
 healthyFullUTxO :: UTxO
 healthyFullUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 42
       utxoList = UTxO.toList utxo
-   in UTxO.fromList $ take 20 utxoList
+   in UTxO.fromList $ take (fanoutOutputThreshold + 1) utxoList
 
--- | Split the full UTxO: distribute the first 15, keep the remaining 5.
--- This matches the E2E fanoutChunkSize of 15.
+-- | Split the full UTxO: distribute the first 'fanoutChunkSize', keep the rest.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
-  UTxO.fromList $ take 15 $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList healthyFullUTxO
 
 healthyRemainingUTxO :: UTxO
 healthyRemainingUTxO =
-  UTxO.fromList $ drop 15 $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList healthyFullUTxO
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42

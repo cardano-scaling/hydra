@@ -10,20 +10,18 @@
 --
 -- > A(X) = ∏ (X − sᵢ)   where sᵢ = hash(TxOutᵢ)
 --
--- The __accumulator commitment__ is @A(τ)·G2@ — a single G2 point stored in the
--- Closed datum. The __membership proof__ for a distributed subset @S@ is the
--- quotient @Q(X) = A(X) / P_S(X)@ committed as @Q(τ)·G2@. The on-chain validator
+-- The __accumulator commitment__ is @A(τ)·G1@ — a single G1 point (48 bytes) stored
+-- in the Closed datum. The __membership proof__ for a distributed subset @S@ is the
+-- quotient @Q(X) = A(X) / P_S(X)@ committed as @Q(τ)·G1@. The on-chain validator
 -- verifies the pairing identity:
 --
--- > e(G1, A(τ)·G2) = e(P_S(τ)·G1, Q(τ)·G2)
+-- > e(A(τ)·G1, G2) = e(Q(τ)·G1, P_S(τ)·G2)
 --
--- where @P_S(τ)·G1@ is computed on-chain via a G1 MSM using the on-chain G1 CRS.
--- G1 scalar multiplication is roughly 2× cheaper than G2, which keeps partial
--- fanout transactions within the Cardano execution budget.
+-- where @P_S(τ)·G2@ is computed on-chain via a G2 MSM using the on-chain G2 CRS.
 --
 -- = The Trusted Setup
 --
--- Computing @A(τ)·G2@ and @Q(τ)·G2@ off-chain, and @P_S(τ)·G1@ on-chain, all
+-- Computing @A(τ)·G1@ and @Q(τ)·G1@ off-chain, and @P_S(τ)·G2@ on-chain, all
 -- require the same secret @τ@ (powers of tau). We embed the __EIP-4844 KZG
 -- trusted setup__ produced by the Ethereum KZG ceremony (2023):
 --
@@ -35,23 +33,18 @@
 --
 -- The setup provides:
 --
---   * 4096 G1 points @[G1, τ·G1, ..., τ^4095·G1]@ — used as the on-chain
---     verification CRS (G1 MSM to evaluate @P_S(τ)·G1@)
---   * 65 G2 points  @[G2, τ·G2, ..., τ^64·G2]@   — used off-chain to build the
+--   * 4096 G1 points @[G1, τ·G1, ..., τ^4095·G1]@ — used off-chain to build the
 --     accumulator commitment and membership proofs
+--   * 65 G2 points  @[G2, τ·G2, ..., τ^64·G2]@   — used as the on-chain
+--     verification CRS (G2 MSM to evaluate @P_S(τ)·G2@)
 --
--- = Current Limitation
+-- = Accumulator size limit
 --
--- Because EIP-4844 only provides 65 G2 points, the accumulator polynomial can
--- have at most 64 roots, meaning a Hydra head snapshot is currently limited to
--- __64 UTxOs__. This is enforced by 'maxAccumulatorSize'.
---
--- = Migration Path
---
--- Once Hydra runs its own KZG ceremony producing, say, 4096 G2 points, we can
--- replace @trusted_setup.json@, bump 'maxAccumulatorSize' to 4095, and
--- re-publish the script registry — no on-chain validator changes required.
--- The G2 accumulator design remains identical; only the parameter size grows.
+-- The accumulator polynomial has degree n (one root per UTxO). Computing @A(τ)·G1@
+-- off-chain needs n+1 G1 points. EIP-4844 provides 4096 G1 points, so a head can
+-- hold up to __4095 UTxOs__. This is enforced by 'maxAccumulatorSize'.
+-- The on-chain G2 CRS only needs batch-size-many points per partial fanout step,
+-- so the 65 G2 points do not constrain the accumulator size.
 module Hydra.Tx.KZGTrustedSetup (
   g1Points,
   g2Points,
@@ -59,6 +52,8 @@ module Hydra.Tx.KZGTrustedSetup (
   g2BuiltinPoints,
   maxAccumulatorSize,
   maxFanoutBatchSize,
+  fanoutChunkSize,
+  fanoutOutputThreshold,
 ) where
 
 import Hydra.Prelude
@@ -73,18 +68,31 @@ import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Data.Text qualified as T
 import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element, BuiltinBLS12_381_G2_Element, bls12_381_G1_uncompress, bls12_381_G2_uncompress, toBuiltin)
 
--- | Maximum accumulator element count supported by the currently embedded G2 CRS.
--- The EIP-4844 setup provides exactly 65 G2 monomial points [G2, τ·G2, ..., τ^64·G2],
--- so the accumulator supports up to 64 elements (n elements need n+1 G2 points).
--- Once we have our own ceremony with more G2 points, this limit will increase.
+-- | Maximum accumulator element count supported by the currently embedded G1 CRS.
+-- The EIP-4844 setup provides exactly 4096 G1 monomial points [G1, τ·G1, ..., τ^4095·G1],
+-- so the accumulator supports up to 4095 elements (n elements need n+1 G1 points).
 maxAccumulatorSize :: Int
-maxAccumulatorSize = 64
+maxAccumulatorSize = 4095
 
 -- | Maximum number of UTxOs that can be fanned out in a single partial fanout transaction.
--- The EIP-4844 ceremony provides exactly 4096 G1 points, so each fanout batch is limited
--- to 4095 outputs (well above execution budget limits).
+-- Constrained by the on-chain G2 CRS (65 points → 64-element batch) and by Cardano
+-- execution budget. In practice the execution budget is the binding constraint.
 maxFanoutBatchSize :: Int
-maxFanoutBatchSize = 4095
+maxFanoutBatchSize = 64
+
+-- | Number of outputs distributed per partial fanout transaction.
+-- Both regular and partial fanout run the same on-chain G2 MSM pairing check.
+-- Empirically validated: 7 ada-only outputs consume ~86% CPU / ~39% memory,
+-- leaving headroom for UTxOs with tokens or complex datums.
+fanoutChunkSize :: Int
+fanoutChunkSize = 7
+
+-- | Maximum outputs in a regular (full) fanout transaction before switching
+-- to partial fanout. Empirically, 10 ada-only outputs consume ~91% CPU budget;
+-- above this the transaction fails. Partial fanout uses 'fanoutChunkSize' per
+-- step to maintain safe headroom.
+fanoutOutputThreshold :: Int
+fanoutOutputThreshold = 10
 
 -- | Expected SHA-256 of trusted_setup.json, from the EIP-4844 ceremony output.
 -- Verify independently with: sha256sum hydra-tx/trusted_setup.json
@@ -144,12 +152,12 @@ g2Points = map parseG2 (snd embeddedSetup)
     Left _ -> error "KZGTrustedSetup: invalid G2 point in trusted_setup.json"
     Right p -> p
 
--- | G1 points as Plutus built-in type, for use in on-chain verification CRS.
+-- | G1 points as Plutus built-in type, for use in off-chain accumulator commitment.
 -- Derived from 'g1Points' by re-compressing to bytes; shares the same parsed data.
 g1BuiltinPoints :: [BuiltinBLS12_381_G1_Element]
 g1BuiltinPoints = map (bls12_381_G1_uncompress . toBuiltin . blsCompress) g1Points
 
--- | G2 points as Plutus built-in type, for use in off-chain accumulator commitment.
+-- | G2 points as Plutus built-in type, for use in on-chain verification CRS.
 -- Derived from 'g2Points' by re-compressing to bytes; shares the same parsed data.
 g2BuiltinPoints :: [BuiltinBLS12_381_G2_Element]
 g2BuiltinPoints = map (bls12_381_G2_uncompress . toBuiltin . blsCompress) g2Points

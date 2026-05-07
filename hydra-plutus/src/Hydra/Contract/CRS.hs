@@ -15,8 +15,7 @@ import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
 
 import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import Plutus.Crypto.Accumulator (checkMembership)
-import Plutus.Crypto.BlsUtils (mkScalar)
+import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar)
 import PlutusLedgerApi.V3 (
   ScriptContext (..),
   serialiseCompiledCode,
@@ -25,34 +24,38 @@ import PlutusTx (CompiledCode, compile)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
   BuiltinBLS12_381_G2_Element,
+  bls12_381_finalVerify,
+  bls12_381_millerLoop,
  )
 
-type CRSDatum = [BuiltinBLS12_381_G1_Element]
+type CRSDatum = [BuiltinBLS12_381_G2_Element]
 
 -- | Core BLS pairing check shared by full fanout and partial fanout.
 --
 -- Verifies the KZG membership pairing identity:
 --
--- > e(G1, commitment) = e(P_S(τ)·G1, proof)
+-- > e(commitment, G2) = e(proof, P_S(τ)·G2)
 --
 -- Argument mapping:
 --
--- * @commitment@: A(τ)·G2 — the accumulator commitment from the Closed datum
--- * @proof@: Q(τ)·G2 — the quotient polynomial committed over G2, proving subset membership
--- * @crsG1@: @[G1, τ·G1, ...]@ — used on-chain to compute @P_S(τ)·G1@ via MSM
+-- * @commitment@: A(τ)·G1 — the accumulator commitment from the Closed datum
+-- * @proof@: Q(τ)·G1 — the quotient polynomial committed over G1, proving subset membership
+-- * @crsG2@: @[G2, τ·G2, ...]@ — used on-chain to compute @P_S(τ)·G2@ via MSM
 -- * @ints@: integer encodings of element hashes, defining @P_S(X) = ∏(X − sᵢ)@
---
--- Note: the underlying 'checkMembership' takes @(crs, commitment, scalars, proof)@;
--- this wrapper uses the more natural @(commitment, proof, crs, scalars)@ order.
 {-# INLINEABLE checkMembershipPairing #-}
 checkMembershipPairing ::
-  BuiltinBLS12_381_G2_Element ->
-  BuiltinBLS12_381_G2_Element ->
+  BuiltinBLS12_381_G1_Element ->
+  BuiltinBLS12_381_G1_Element ->
   CRSDatum ->
   [Integer] ->
   Bool
-checkMembershipPairing commitment proof crsG1 ints =
-  checkMembership crsG1 commitment (fmap mkScalar ints) proof
+checkMembershipPairing commitment proof crsG2 ints =
+  case crsG2 of
+    [] -> False
+    (g2 : _) ->
+      bls12_381_finalVerify
+        (bls12_381_millerLoop commitment g2)
+        (bls12_381_millerLoop proof (getG2Commitment crsG2 (getFinalPoly (fmap mkScalar ints))))
 
 {-# INLINEABLE crsValidator #-}
 crsValidator ::

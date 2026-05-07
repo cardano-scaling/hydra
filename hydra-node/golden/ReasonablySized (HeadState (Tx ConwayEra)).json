@@ -298,7 +298,7 @@
                             ]
                         },
                         "snapshot": {
-                            "accumulator": "8ecc9bff8e886404b36c6f67d61d13a16a74a3d440a2c07ba4db87987b40c73a",
+                            "accumulator": "de8b2bbf10678c5ee702447d10e5cab649b9435cfbd5e8aecd9cb5da4c4696a7",
                             "confirmed": [],
                             "headId": "05020008050304010702080103040701",
                             "number": 2,
@@ -1618,7 +1618,7 @@
                             ]
                         },
                         "snapshot": {
-                            "accumulator": "b02a51357c205ecfd274e0e94e98908e2929287d3f9ad9fd634e08d198846d62",
+                            "accumulator": "1e863712b2a2f65e54c3824ea0f0be0b969d4fc99973d12ee7166c585b28ec0a",
                             "confirmed": [],
                             "headId": "07010302080505060201050304000507",
                             "number": 4,
@@ -2936,7 +2936,7 @@
                             ]
                         },
                         "snapshot": {
-                            "accumulator": "dde0e79e04f066eb7184ffaa7c3a0be425750c708a3fa901b6a376e20356c63a",
+                            "accumulator": "23d7bb6c5f74ceae5834836711c76113b84609537ecacc0d36eec4402808c66c",
                             "confirmed": [],
                             "headId": "04020205080805000108040807020302",
                             "number": 3,
