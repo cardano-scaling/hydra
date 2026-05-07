@@ -19,14 +19,14 @@ module Hydra.Tx.Accumulator (
   -- * Membership proofs for partial fanout
   createMembershipProof,
   createMembershipProofFromUTxO,
-  createCRSG1Datum,
+  createCRSG2Datum,
 ) where
 
 import Hydra.Prelude
 
 import Accumulator (Accumulator, Element)
 import Accumulator qualified
-import Bindings (getPolyCommitOverG2)
+import Bindings (getPolyCommitOverG1)
 import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress)
 import Cardano.Crypto.Hash (Blake2b_256)
@@ -41,11 +41,11 @@ import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.KZGTrustedSetup qualified as KZG
-import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar)
+import Plutus.Crypto.BlsUtils (getFinalPoly, getG1Commitment, mkScalar)
 import PlutusTx.Builtins (
-  BuiltinBLS12_381_G2_Element,
-  bls12_381_G1_uncompress,
-  bls12_381_G2_compress,
+  BuiltinBLS12_381_G1_Element,
+  bls12_381_G1_compress,
+  bls12_381_G2_uncompress,
   byteStringToInteger,
   fromBuiltin,
   toBuiltin,
@@ -131,18 +131,18 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
       <> fromMaybe mempty mUtxoToCommit
       <> fromMaybe mempty mUtxoToDecommit
 
--- | Get a blake2b-256 hash of the accumulator commitment (compressed G2 point).
+-- | Get a blake2b-256 hash of the accumulator commitment (compressed G1 point).
 --
 -- This is a pure function that returns a 32-byte deterministic hash of the
--- compressed G2 accumulator commitment. It is what gets signed by all parties
+-- compressed G1 accumulator commitment. It is what gets signed by all parties
 -- in the multi-signature and stored as 'accumulatorHash' in on-chain datums.
 --
--- Hashing the compressed G2 point (rather than the serialized map) binds the
--- signed hash to the exact G2 point stored in 'ClosedDatum.accumulatorCommitment',
+-- Hashing the compressed G1 point (rather than the serialized map) binds the
+-- signed hash to the exact G1 point stored in 'ClosedDatum.accumulatorCommitment',
 -- allowing the on-chain validator to verify their consistency.
 getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash acc =
-  digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G2_compress $ getAccumulatorCommitment acc
+  digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G1_compress $ getAccumulatorCommitment acc
 
 -- | Number of elements in the accumulator — equals the number of UTxOs in the snapshot.
 accumulatorSize :: HydraAccumulator -> Int
@@ -152,36 +152,36 @@ accumulatorSize (HydraAccumulator acc) = Map.size acc
 maxAccumulatorSize :: Int
 maxAccumulatorSize = KZG.maxAccumulatorSize
 
-getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G2_Element
+getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 getAccumulatorCommitment (HydraAccumulator acc) =
   let n = Map.size acc
    in if n > KZG.maxAccumulatorSize
-        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G2 CRS limit of " <> show KZG.maxAccumulatorSize
+        then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
         else
-          let crsG2 = take (n + 1) KZG.g2BuiltinPoints
-           in getG2Commitment crsG2 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
+          let crsG1 = take (n + 1) KZG.g1BuiltinPoints
+           in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
                 Map.elems acc
 
 -- * CRS (Common Reference String)
 
--- | Returns the first @n@ G2 powers of tau from the EIP-4844 trusted setup.
--- Used as the off-chain CRS for building accumulator commitments and membership proofs:
--- @[G2, τ·G2, ..., τ^(n-1)·G2]@.
-crsG2Points :: Int -> [Point2]
-crsG2Points n = take n KZG.g2Points
-
 -- | Returns the first @n@ G1 powers of tau from the EIP-4844 trusted setup.
--- Used as the on-chain CRS for verifying membership proofs:
+-- Used as the off-chain CRS for building accumulator commitments and membership proofs:
 -- @[G1, τ·G1, ..., τ^(n-1)·G1]@.
 crsG1Points :: Int -> [Point1]
 crsG1Points n = take n KZG.g1Points
 
+-- | Returns the first @n@ G2 powers of tau from the EIP-4844 trusted setup.
+-- Used as the on-chain CRS for verifying membership proofs:
+-- @[G2, τ·G2, ..., τ^(n-1)·G2]@.
+crsG2Points :: Int -> [Point2]
+crsG2Points n = take n KZG.g2Points
+
 defaultItems :: Int
 defaultItems = 30
 
--- | Returns the number of G2 CRS points required for this accumulator.
--- An n-element accumulator polynomial has degree n, so needs n+1 G2 points
--- @[G2, τ·G2, ..., τⁿ·G2]@ to compute the commitment A(τ)·G2 and proofs.
+-- | Returns the number of G1 CRS points required for this accumulator.
+-- An n-element accumulator polynomial has degree n, so needs n+1 G1 points
+-- @[G1, τ·G1, ..., τⁿ·G1]@ to compute the commitment A(τ)·G1 and proofs.
 requiredCRSPointCount :: HydraAccumulator -> Int
 requiredCRSPointCount (HydraAccumulator acc) = Map.size acc + 1
 
@@ -189,20 +189,13 @@ requiredCRSPointCount (HydraAccumulator acc) = Map.size acc + 1
 
 -- | Create a membership proof for a subset of UTxO elements.
 --
--- This function uses getPolyCommitOverG2 from haskell-accumulator's Bindings module:
+-- This function uses getPolyCommitOverG1 from haskell-accumulator's Bindings module:
 -- https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/lib/Bindings.hs
 --
 -- Given a subset of elements and the full accumulator, it:
 -- 1. Removes the subset elements from the accumulator
--- 2. Computes a polynomial commitment over G2 for the remaining elements
--- 3. Returns the proof as a compressed G2 point
---
--- Example usage:
--- > let fullElements = ["elem1", "elem2", "elem3", "elem4", "elem5"]
--- >     fullAcc = build fullElements
--- >     subset = ["elem2", "elem4"]
--- > result <- createMembershipProof subset fullAcc defaultCRS
--- > -- Prints: "Success: 0x..." or "Error: ..."
+-- 2. Computes a polynomial commitment over G1 for the remaining elements
+-- 3. Returns the proof as a compressed G1 point
 createMembershipProof ::
   HasCallStack =>
   -- | The subset of elements to prove membership of (e.g., UTxOs being fanned out)
@@ -210,11 +203,11 @@ createMembershipProof ::
   -- | The full accumulator from the confirmed snapshot
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
-  [Point2] ->
+  [Point1] ->
   -- | Returns the compressed proof point
   ByteString
 createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
-  case getPolyCommitOverG2 subsetElements fullAcc crs of
+  case getPolyCommitOverG1 subsetElements fullAcc crs of
     Left err -> error (toText err) -- FIXME: return Either?
     Right proof ->
       blsCompress proof
@@ -225,21 +218,7 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
 -- they exist in the full accumulator. The full accumulator must be built using
 -- `buildFromUTxO` for this to work correctly.
 --
--- **How it works:**
--- 1. Each TxOut in the subset is serialized: `Builtins.serialiseData . toBuiltinData`
--- 2. These elements are passed to `getPolyCommitOverG2` which removes them from the accumulator
--- 3. A polynomial commitment proof is generated for the remaining elements
--- 4. The proof is returned as a compressed G2 point
---
--- Example usage for partial fanout:
--- > -- Build full accumulator from ALL UTxOs (do this when creating snapshot)
--- > let fullAcc = buildFromUTxO @Tx fullUTxO
--- >
--- > -- Later, when fanning out a subset
--- > let subsetUTxO = ... -- The 2 UTxOs you want to fan out
--- > proof <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc crs
---
--- The proof is verified on-chain via e(acc_G1, G2) = e(proof_G1, subsetPoly(τ)·G2).
+-- The proof is verified on-chain via e(commitment_G1, G2) = e(proof_G1, P_S(τ)·G2).
 createMembershipProofFromUTxO ::
   forall tx.
   (IsTx tx, HasCallStack) =>
@@ -248,7 +227,7 @@ createMembershipProofFromUTxO ::
   -- | The full accumulator from the confirmed snapshot (built with buildFromUTxO)
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
-  [Point2] ->
+  [Point1] ->
   -- | Returns a proof
   ByteString
 createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
@@ -263,8 +242,8 @@ createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
   -- Use the element-based proof function
   createMembershipProof subsetElements fullAcc crs
 
-createCRSG1Datum :: Int -> HApi.TxOutDatum ctx
-createCRSG1Datum n =
+createCRSG2Datum :: Int -> HApi.TxOutDatum ctx
+createCRSG2Datum n =
   TxOutDatumInline BabbageEraOnwardsConway $
     HApi.toScriptData
-      (bls12_381_G1_uncompress . toBuiltin . blsCompress <$> crsG1Points n)
+      (bls12_381_G2_uncompress . toBuiltin . blsCompress <$> crsG2Points n)

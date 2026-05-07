@@ -255,13 +255,13 @@ checkDecrement ctx openBefore redeemer =
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkDecrement #-}
 
--- | Check that the G2 commitment stored in the output datum is consistent with
+-- | Check that the G1 commitment stored in the output datum is consistent with
 -- the hash that parties signed. Prevents a malicious closer from storing a wrong
 -- commitment while providing a valid signature over a correct hash.
-mustMatchAccumulatorCommitmentHash :: BuiltinBLS12_381_G2_Element -> Hash -> Bool
+mustMatchAccumulatorCommitmentHash :: BuiltinBLS12_381_G1_Element -> Hash -> Bool
 mustMatchAccumulatorCommitmentHash commitment hash =
   traceIfFalse $(errorCode AccumulatorCommitmentHashMismatch) $
-    Builtins.blake2b_256 (Builtins.bls12_381_G2_compress commitment) == hash
+    Builtins.blake2b_256 (Builtins.bls12_381_G1_compress commitment) == hash
 {-# INLINEABLE mustMatchAccumulatorCommitmentHash #-}
 
 -- | Verify a close transaction.
@@ -543,7 +543,7 @@ headIsFinalizedWith ::
   -- | Number of delta outputs to fanout
   Integer ->
   -- | Membership proof for the fanout outputs
-  BuiltinBLS12_381_G2_Element ->
+  BuiltinBLS12_381_G1_Element ->
   -- | Reference input containing crs
   TxOutRef ->
   Bool

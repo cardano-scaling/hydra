@@ -160,13 +160,15 @@ computeContestCost = do
 
 computeFanOutCost :: Gen [(NumParties, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFanOutCost = do
-  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [numberOfParties], u <- [0, 1, 5, 10, 20, 30, 40, 50]]
+  interesting <- catMaybes <$> mapM (uncurry compute) [(p, u) | p <- [numberOfParties], u <- [0, 1, 5, 10, 20, 30, 50, 100, 200, 500, 1000]]
   limit <-
     maybeToList
       . getFirst
       <$> foldMapM
         (\(p, u) -> First <$> compute p u)
-        [(p, u) | p <- [numberOfParties], u <- [maxAccumulatorSize, maxAccumulatorSize - 1 .. 0]]
+        -- Sparse descending search: find the largest UTxO count that still fits in a tx.
+        -- Regular fanout is bounded by tx size/budget, not by maxAccumulatorSize.
+        [(p, u) | p <- [numberOfParties], u <- [2000, 1500, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 15, 10]]
   pure $ interesting <> limit
  where
   numberOfParties = 10
@@ -186,7 +188,7 @@ computeFanOutCost = do
     utxo <- genUTxOAdaOnlyOfSize numOutputs
     ctx <- genHydraContextFor numParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    let maxExtra = maxAccumulatorSize - numOutputs
+    let maxExtra = min 50 (maxAccumulatorSize - numOutputs)
     utxoToCommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
     utxoToDecommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
     let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit' then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
@@ -211,12 +213,19 @@ computeFanOutCost = do
 -- remaining UTxO count, making this the binding constraint.
 computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutNominalCost = do
-  interesting <- catMaybes <$> mapM compute [fanoutOutputThreshold + 1, 25, 30, 40, 50, 60]
+  -- Show how partial fanout scales across the full new accumulator range (up to 4095).
+  -- The tx size grows with remaining UTxO count (larger datum), so we probe widely.
+  interesting <-
+    catMaybes
+      <$> mapM
+        compute
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [maxAccumulatorSize, maxAccumulatorSize - 1 .. fanoutOutputThreshold + 1]
+        -- Sparse descending search for the maximum total UTxO count that still fits.
+        [4095, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20]
   pure $ interesting <> limit
  where
   numberOfParties = 3

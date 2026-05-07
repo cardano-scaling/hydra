@@ -18,6 +18,8 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
+  fanoutChunkSize,
+  fanoutOutputThreshold,
 ) where
 
 import Hydra.Prelude
@@ -100,6 +102,7 @@ import Hydra.Tx.Crypto (
   verifyMultiSignatureBytes,
  )
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
@@ -1381,18 +1384,6 @@ onClosedClientFanout closedState =
   Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion, accumulator} = getSnapshot confirmedSnapshot
 
   ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
-
--- | Maximum number of outputs in a fanout transaction before switching to
--- partial fanout. Based on empirical testing, the fanout limit with BLS
--- accumulators is around 20 ada-only outputs per transaction (see ModelSpec
--- and EndToEndSpec tests). We use a conservative threshold below this limit.
-fanoutOutputThreshold :: Int
-fanoutOutputThreshold = 19
-
--- | Number of outputs to include in each partial fanout transaction.
--- Must be strictly less than 'fanoutOutputThreshold' to stay within limits.
-fanoutChunkSize :: Int
-fanoutChunkSize = 15
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.

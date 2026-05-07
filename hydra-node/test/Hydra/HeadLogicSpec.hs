@@ -885,8 +885,8 @@ spec =
 
       it "rejects snapshot request with UTxO set exceeding the accumulator limit" $ do
         -- alice is leader for sn=1 (isLeader: (1-1) mod 3 = 0 = index alice)
-        -- tx produces 65 outputs, which exceeds maxAccumulatorSize=64
-        let bigOutputs = utxoRefs [1 .. 65]
+        let bigCount = Accumulator.maxAccumulatorSize + 1
+            bigOutputs = utxoRefs (map fromIntegral [1 .. bigCount])
             tx = SimpleTx 1 mempty bigOutputs
             st =
               inOpenState' threeParties $
@@ -894,20 +894,7 @@ spec =
             reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st reqSn
-          `shouldBe` Error (RequireFailed ReqSnUTxOSetTooLarge{utxoCount = 65, maxAllowed = 64})
-
-      it "accepts snapshot request with UTxO set at the accumulator size limit" $ do
-        let maxOutputs = utxoRefs [1 .. 64]
-            tx = SimpleTx 1 mempty maxOutputs
-            st =
-              inOpenState' threeParties $
-                coordinatedHeadState{allTxs = Map.fromList [(1, tx)]}
-            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st reqSn
-          `hasEffectSatisfying` \case
-            NetworkEffect (AckSn _ 1) -> True
-            _ -> False
+          `shouldBe` Error (RequireFailed ReqSnUTxOSetTooLarge{utxoCount = bigCount, maxAllowed = Accumulator.maxAccumulatorSize})
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties

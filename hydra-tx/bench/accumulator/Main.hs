@@ -17,11 +17,12 @@ import Hydra.Tx.Accumulator (
   buildFromUTxO,
   createMembershipProof,
   createMembershipProofFromUTxO,
-  crsG2Points,
+  crsG1Points,
   getAccumulatorHash,
   unHydraAccumulator,
  )
 import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
 
@@ -30,50 +31,58 @@ main = do
   putTextLn "=== Accumulator Benchmark Suite ==="
   putTextLn "Generating test data..."
 
-  -- NOTE: All UTxO sizes are capped at 64 because the EIP-4844 KZG trusted
-  -- setup provides only 65 G2 points. Accumulators of n elements require n+1
-  -- G2 CRS points for polynomial commitment, so the maximum is 64 elements.
+  -- NOTE: The accumulator now uses G1 points for commitment (4096 available from
+  -- EIP-4844), so the maximum is 4095 elements. We benchmark a wide range to show
+  -- how build/hash/proof costs scale.
 
-  -- Generate UTxO sets of various sizes (all ≤ 64)
-  utxo5 <- generateUTxO 5
+  -- Generate UTxO sets across the full useful range
   utxo10 <- generateUTxO 10
-  utxo20 <- generateUTxO 20
-  utxo40 <- generateUTxO 40
-  utxo60 <- generateUTxO 60
+  utxo50 <- generateUTxO 50
+  utxo100 <- generateUTxO 100
+  utxo500 <- generateUTxO 500
+  utxo1000 <- generateUTxO 1000
+  utxo2000 <- generateUTxO 2000
+  utxo4000 <- generateUTxO 4000
 
-  putTextLn "Generated UTxO sets: 5, 10, 20, 40, 60"
+  putTextLn "Generated UTxO sets: 10, 50, 100, 500, 1000, 2000, 4000"
 
   -- Pre-build accumulators and force them
-  let !acc5 = buildFromUTxO @Tx utxo5
-      !acc10 = buildFromUTxO @Tx utxo10
-      !acc20 = buildFromUTxO @Tx utxo20
-      !acc40 = buildFromUTxO @Tx utxo40
-      !acc60 = buildFromUTxO @Tx utxo60
+  let !acc10 = buildFromUTxO @Tx utxo10
+      !acc50 = buildFromUTxO @Tx utxo50
+      !acc100 = buildFromUTxO @Tx utxo100
+      !acc500 = buildFromUTxO @Tx utxo500
+      !acc1000 = buildFromUTxO @Tx utxo1000
+      !acc2000 = buildFromUTxO @Tx utxo2000
+      !acc4000 = buildFromUTxO @Tx utxo4000
 
   putTextLn "Pre-built accumulators"
 
-  -- Pre-generate CRS of various sizes and force them (max 65)
-  let !crs10 = crsG2Points 10
-      !crs20 = crsG2Points 20
-      !crs40 = crsG2Points 40
-      !crs61 = crsG2Points 61
+  -- Pre-generate G1 CRS of various sizes and force them
+  let !crs11 = crsG1Points 11
+      !crs51 = crsG1Points 51
+      !crs101 = crsG1Points 101
+      !crs501 = crsG1Points 501
+      !crs1001 = crsG1Points 1001
+      !crs2001 = crsG1Points 2001
+      !crs4001 = crsG1Points 4001
 
   putTextLn "Pre-generated CRS"
 
-  -- Generate subsets for membership proofs
-  let !subset2_from5 = generateSubset utxo5 2
-  let !subset5_from10 = generateSubset utxo10 5
-  let !subset10_from20 = generateSubset utxo20 10
-  let !subset20_from40 = generateSubset utxo40 20
-  let !subset30_from60 = generateSubset utxo60 30
+  -- Generate fanoutChunkSize subsets for membership proofs
+  let !subsetChunk_from50 = generateSubset utxo50 fanoutChunkSize
+  let !subsetChunk_from100 = generateSubset utxo100 fanoutChunkSize
+  let !subsetChunk_from500 = generateSubset utxo500 fanoutChunkSize
+  let !subsetChunk_from1000 = generateSubset utxo1000 fanoutChunkSize
+  let !subsetChunk_from2000 = generateSubset utxo2000 fanoutChunkSize
+  let !subsetChunk_from4000 = generateSubset utxo4000 fanoutChunkSize
 
   putTextLn "Generated subsets for membership proofs"
 
   -- Extract individual elements for low-level proof testing
   let !elements10 = toPairList @Tx utxo10
-      !elements20 = toPairList @Tx utxo20
+      !elements100 = toPairList @Tx utxo100
       !serialized10 = utxoToElement @Tx <$> elements10
-      !serialized20 = utxoToElement @Tx <$> elements20
+      !serialized100 = utxoToElement @Tx <$> elements100
 
   putTextLn "Starting benchmarks..."
   putTextLn ""
@@ -81,61 +90,72 @@ main = do
   defaultMain
     [ bgroup
         "1. Build Accumulator from UTxO"
-        [ bench "5 UTxOs" $ whnf (buildFromUTxO @Tx) utxo5
-        , bench "10 UTxOs" $ whnf (buildFromUTxO @Tx) utxo10
-        , bench "20 UTxOs" $ whnf (buildFromUTxO @Tx) utxo20
-        , bench "40 UTxOs" $ whnf (buildFromUTxO @Tx) utxo40
-        , bench "60 UTxOs" $ whnf (buildFromUTxO @Tx) utxo60
+        [ bench "10 UTxOs" $ whnf (buildFromUTxO @Tx) utxo10
+        , bench "50 UTxOs" $ whnf (buildFromUTxO @Tx) utxo50
+        , bench "100 UTxOs" $ whnf (buildFromUTxO @Tx) utxo100
+        , bench "500 UTxOs" $ whnf (buildFromUTxO @Tx) utxo500
+        , bench "1000 UTxOs" $ whnf (buildFromUTxO @Tx) utxo1000
+        , bench "2000 UTxOs" $ whnf (buildFromUTxO @Tx) utxo2000
+        , bench "4000 UTxOs" $ whnf (buildFromUTxO @Tx) utxo4000
         ]
     , bgroup
         "2. UTxO to Elements Conversion"
         [ bench "Extract 10 TxOuts" $ whnf (toPairList @Tx) utxo10
-        , bench "Extract 20 TxOuts" $ whnf (toPairList @Tx) utxo20
-        , bench "Extract 60 TxOuts" $ whnf (toPairList @Tx) utxo60
+        , bench "Extract 100 TxOuts" $ whnf (toPairList @Tx) utxo100
+        , bench "Extract 1000 TxOuts" $ whnf (toPairList @Tx) utxo1000
         , bench "Serialize 10 TxOuts" $ whnf (fmap (utxoToElement @Tx)) elements10
-        , bench "Serialize 20 TxOuts" $ whnf (fmap (utxoToElement @Tx)) elements20
+        , bench "Serialize 100 TxOuts" $ whnf (fmap (utxoToElement @Tx)) elements100
         ]
     , bgroup
-        "3. Create Membership Proofs"
-        [ bench "2 from 5" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc5 crs10) subset2_from5
-        , bench "5 from 10" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc10 crs10) subset5_from10
-        , bench "10 from 20" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc20 crs20) subset10_from20
-        , bench "20 from 40" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc40 crs40) subset20_from40
-        , bench "30 from 60" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc60 crs61) subset30_from60
+        "3. Create Membership Proofs (fanoutChunkSize batch)"
+        [ bench "fanoutChunkSize from 50" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc50 crs51) subsetChunk_from50
+        , bench "fanoutChunkSize from 100" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc100 crs101) subsetChunk_from100
+        , bench "fanoutChunkSize from 500" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc500 crs501) subsetChunk_from500
+        , bench "fanoutChunkSize from 1000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc1000 crs1001) subsetChunk_from1000
+        , bench "fanoutChunkSize from 2000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc2000 crs2001) subsetChunk_from2000
+        , bench "fanoutChunkSize from 4000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc4000 crs4001) subsetChunk_from4000
         ]
     , bgroup
-        "4. Create Membership Proofs (Low-level)"
-        [ bench "5 elements from 10" $ nf (\s -> createMembershipProof s acc10 crs10) (take 5 serialized10)
-        , bench "10 elements from 20" $ nf (\s -> createMembershipProof s acc20 crs20) (take 10 serialized20)
-        , bench "15 elements from 20" $ nf (\s -> createMembershipProof s acc20 crs20) (take 15 serialized20)
+        "4. Create Membership Proofs (Low-level, variable batch size)"
+        [ bench "5 from 10" $ nf (\s -> createMembershipProof s acc10 crs11) (take 5 serialized10)
+        , bench "15 from 100" $ nf (\s -> createMembershipProof s acc100 crs101) (take 15 serialized100)
+        , bench "30 from 100" $ nf (\s -> createMembershipProof s acc100 crs101) (take 30 serialized100)
+        , bench "60 from 100" $ nf (\s -> createMembershipProof s acc100 crs101) (take 60 serialized100)
         ]
     , bgroup
-        "5. Accumulator Hashing"
-        [ bench "Hash 5 UTxOs" $ nf getAccumulatorHash acc5
-        , bench "Hash 10 UTxOs" $ nf getAccumulatorHash acc10
-        , bench "Hash 40 UTxOs" $ nf getAccumulatorHash acc40
-        , bench "Hash 60 UTxOs" $ nf getAccumulatorHash acc60
+        "5. Accumulator Hashing (blake2b of compressed G1 commitment)"
+        [ bench "Hash 10 UTxOs" $ nf getAccumulatorHash acc10
+        , bench "Hash 100 UTxOs" $ nf getAccumulatorHash acc100
+        , bench "Hash 500 UTxOs" $ nf getAccumulatorHash acc500
+        , bench "Hash 1000 UTxOs" $ nf getAccumulatorHash acc1000
+        , bench "Hash 2000 UTxOs" $ nf getAccumulatorHash acc2000
+        , bench "Hash 4000 UTxOs" $ nf getAccumulatorHash acc4000
         ]
     , bgroup
         "6. Accumulator Serialization"
         [ bench "Serialize accumulator (10)" $ nf (serialise . unHydraAccumulator) acc10
-        , bench "Serialize accumulator (20)" $ nf (serialise . unHydraAccumulator) acc20
-        , bench "Serialize accumulator (60)" $ nf (serialise . unHydraAccumulator) acc60
+        , bench "Serialize accumulator (100)" $ nf (serialise . unHydraAccumulator) acc100
+        , bench "Serialize accumulator (1000)" $ nf (serialise . unHydraAccumulator) acc1000
+        , bench "Serialize accumulator (4000)" $ nf (serialise . unHydraAccumulator) acc4000
         ]
     , bgroup
-        "7. CRS Loading (from EIP-4844 trusted setup)"
-        -- Point2 lacks NFData, so we force the full spine via length
-        [ bench "CRS size 10" $ whnf (length . crsG2Points) 10
-        , bench "CRS size 20" $ whnf (length . crsG2Points) 20
-        , bench "CRS size 40" $ whnf (length . crsG2Points) 40
-        , bench "CRS size 65 (max)" $ whnf (length . crsG2Points) 65
+        "7. CRS Loading (G1 powers of tau from EIP-4844 trusted setup)"
+        -- Point1 lacks NFData, so we force the full spine via length
+        [ bench "CRS size 11" $ whnf (length . crsG1Points) 11
+        , bench "CRS size 101" $ whnf (length . crsG1Points) 101
+        , bench "CRS size 501" $ whnf (length . crsG1Points) 501
+        , bench "CRS size 1001" $ whnf (length . crsG1Points) 1001
+        , bench "CRS size 2001" $ whnf (length . crsG1Points) 2001
+        , bench "CRS size 4001" $ whnf (length . crsG1Points) 4001
         ]
     , bgroup
         "8. End-to-End Snapshot Simulation"
-        [ bench "Full cycle: 20 UTxOs" $ nf fullSnapshotCycle utxo20
-        , bench "Full cycle: 60 UTxOs" $ nf fullSnapshotCycle utxo60
-        , bench "Partial fanout: 10 from 20" $ nf (partialFanoutCycle utxo20) subset10_from20
-        , bench "Partial fanout: 20 from 40" $ nf (partialFanoutCycle utxo40) subset20_from40
+        [ bench "Full cycle: 100 UTxOs" $ nf fullSnapshotCycle utxo100
+        , bench "Full cycle: 1000 UTxOs" $ nf fullSnapshotCycle utxo1000
+        , bench "Full cycle: 4000 UTxOs" $ nf fullSnapshotCycle utxo4000
+        , bench "Partial fanout: fanoutChunkSize from 50" $ nf (partialFanoutCycle utxo50) subsetChunk_from50
+        , bench "Partial fanout: fanoutChunkSize from 500" $ nf (partialFanoutCycle utxo500) subsetChunk_from500
+        , bench "Partial fanout: fanoutChunkSize from 4000" $ nf (partialFanoutCycle utxo4000) subsetChunk_from4000
         ]
     ]
 
@@ -170,5 +190,5 @@ fullSnapshotCycle utxo =
 partialFanoutCycle :: UTxO -> UTxO -> ByteString
 partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
-      crs = crsG2Points (UTxO.size fullUtxo + 1)
+      crs = crsG1Points (UTxO.size fullUtxo + 1)
    in createMembershipProofFromUTxO @Tx subsetUtxo accumulator crs

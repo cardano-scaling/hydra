@@ -8,9 +8,9 @@ import Cardano.Crypto.Hash (Blake2b_224)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
-import Hydra.Tx.Accumulator (build, createMembershipProof, crsG2Points, getAccumulatorCommitment, requiredCRSPointCount)
-import Hydra.Tx.KZGTrustedSetup (g1BuiltinPoints, g1Points, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
-import PlutusTx.Builtins (bls12_381_G2_uncompress, byteStringToInteger, toBuiltin)
+import Hydra.Tx.Accumulator (build, createMembershipProof, crsG1Points, getAccumulatorCommitment, requiredCRSPointCount)
+import Hydra.Tx.KZGTrustedSetup (g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
+import PlutusTx.Builtins (bls12_381_G1_uncompress, byteStringToInteger, toBuiltin)
 
 spec :: Spec
 spec = parallel $ do
@@ -21,17 +21,17 @@ spec = parallel $ do
     it "g2Points has 65 entries" $
       length g2Points `shouldBe` 65
 
-    it "maxAccumulatorSize is 64 (EIP-4844 provides 65 G2 points)" $
-      maxAccumulatorSize `shouldBe` 64
+    it "maxAccumulatorSize is 4095 (EIP-4844 provides 4096 G1 points)" $
+      maxAccumulatorSize `shouldBe` 4095
 
-    it "maxAccumulatorSize matches the parsed G2 point count minus one" $
-      maxAccumulatorSize `shouldBe` length g2Points - 1
+    it "maxAccumulatorSize matches the parsed G1 point count minus one" $
+      maxAccumulatorSize `shouldBe` length g1Points - 1
 
-    it "maxFanoutBatchSize is 4095 (EIP-4844 provides 4096 G1 points)" $
-      maxFanoutBatchSize `shouldBe` 4095
+    it "maxFanoutBatchSize is 64 (EIP-4844 provides 65 G2 points)" $
+      maxFanoutBatchSize `shouldBe` 64
 
-    it "maxFanoutBatchSize matches the parsed G1 point count minus one" $
-      maxFanoutBatchSize `shouldBe` length g1Points - 1
+    it "maxFanoutBatchSize matches the parsed G2 point count minus one" $
+      maxFanoutBatchSize `shouldBe` length g2Points - 1
 
     it "first G1 point matches the BLS12-381 G1 generator (τ^0·G1 = G1, confirming monomial form)" $
       case g1Points of
@@ -64,16 +64,16 @@ spec = parallel $ do
           Right p' -> blsCompress (p' :: Point2) `shouldBe` blsCompress p
 
   describe "End-to-end pairing check" $ do
-    it "membership proof satisfies e(S(τ)·G1, proof) = e(G1, acc)" $ do
+    it "membership proof satisfies e(commitment_G1, G2) = e(proof_G1, P_S(τ)·G2)" $ do
       let allElements = ["alpha", "beta", "gamma", "delta", "epsilon"] :: [ByteString]
           fullAcc = build allElements
           subsetElements = ["beta", "gamma"] :: [ByteString]
           crsSize = requiredCRSPointCount fullAcc
-          crsG1 = take crsSize g1BuiltinPoints
-          proofBytes = createMembershipProof subsetElements fullAcc (crsG2Points crsSize)
-          proof = bls12_381_G2_uncompress (toBuiltin proofBytes)
+          crsG2 = take crsSize g2BuiltinPoints
+          proofBytes = createMembershipProof subsetElements fullAcc (crsG1Points crsSize)
+          proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetElements
-      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG1 ints
+      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
         `shouldBe` True
 
     it "proof for one subset does not verify for a different subset" $ do
@@ -82,11 +82,11 @@ spec = parallel $ do
           subsetA = ["alpha", "beta"] :: [ByteString]
           subsetB = ["gamma", "delta"] :: [ByteString]
           crsSize = requiredCRSPointCount fullAcc
-          crsG1 = take crsSize g1BuiltinPoints
-          proofBytes = createMembershipProof subsetA fullAcc (crsG2Points crsSize)
-          proof = bls12_381_G2_uncompress (toBuiltin proofBytes)
+          crsG2 = take crsSize g2BuiltinPoints
+          proofBytes = createMembershipProof subsetA fullAcc (crsG1Points crsSize)
+          proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetB
-      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG1 ints
+      checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
         `shouldBe` False
 
 toInt :: ByteString -> Integer
