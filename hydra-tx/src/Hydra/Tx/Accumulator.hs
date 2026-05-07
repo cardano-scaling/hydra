@@ -101,10 +101,17 @@ buildFromUTxO utxo =
 
 -- | Build an accumulator from snapshot UTxOs, including commit and decommit UTxOs.
 --
--- This function combines all UTxOs that could potentially be fanned out:
--- - The main snapshot UTxO
--- - UTxOs to be committed (deposited into the Head)
--- - UTxOs to be decommitted (withdrawn from the Head)
+-- Combines all UTxOs that could potentially be fanned out — main snapshot,
+-- commit, and decommit — and delegates to 'buildFromUTxO' on the merged set.
+-- Merging via UTxO union keeps the same canonical TxIn-sorted element order
+-- used by every other accumulator call site ('computeFullFanoutUTxO',
+-- 'partialFanout' staleness check, 'emitNextFanoutStep'), so the commitment
+-- stored in the snapshot and all downstream proofs are built from the same
+-- element set by construction.
+--
+-- Note: the underlying 'HydraAccumulator' is a 'Map' keyed by element bytes,
+-- so insertion order is irrelevant for the commitment value; the merge is done
+-- here for explicit consistency with the rest of the fanout code paths.
 buildFromSnapshotUTxOs ::
   forall tx.
   IsTx tx =>
@@ -117,20 +124,10 @@ buildFromSnapshotUTxOs ::
   -- | The resulting accumulator containing all UTxOs
   HydraAccumulator
 buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
-  let
-    -- Combine all UTxOs that could be fanned out
-    -- Note: For Map-based UTxO types, `<>` performs union (left-biased for same keys)
-    -- If utxoToCommit and utxoToDecommit overlap (protocol violation), union deduplicates by TxIn
-    utxoToCommit = fromMaybe mempty mUtxoToCommit
-    utxoToDecommit = fromMaybe mempty mUtxoToDecommit
-    -- Preserve the fanout output ordering (utxo, then commit, then decommit).
-    orderedOutputs =
-      outputsOfUTxO @tx utxo
-        <> outputsOfUTxO @tx utxoToCommit
-        <> outputsOfUTxO @tx utxoToDecommit
-    elements = utxoToElement @tx <$> orderedOutputs
-   in
-    build elements
+  buildFromUTxO @tx $
+    utxo
+      <> fromMaybe mempty mUtxoToCommit
+      <> fromMaybe mempty mUtxoToDecommit
 
 -- | Get a blake2b-256 hash of the accumulator state.
 --
