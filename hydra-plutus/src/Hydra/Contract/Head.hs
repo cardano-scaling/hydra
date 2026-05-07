@@ -255,6 +255,15 @@ checkDecrement ctx openBefore redeemer =
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkDecrement #-}
 
+-- | Check that the G2 commitment stored in the output datum is consistent with
+-- the hash that parties signed. Prevents a malicious closer from storing a wrong
+-- commitment while providing a valid signature over a correct hash.
+mustMatchAccumulatorCommitmentHash :: BuiltinBLS12_381_G2_Element -> Hash -> Bool
+mustMatchAccumulatorCommitmentHash commitment hash =
+  traceIfFalse $(errorCode AccumulatorCommitmentHashMismatch) $
+    Builtins.blake2b_256 (Builtins.bls12_381_G2_compress commitment) == hash
+{-# INLINEABLE mustMatchAccumulatorCommitmentHash #-}
+
 -- | Verify a close transaction.
 checkClose ::
   ScriptContext ->
@@ -273,6 +282,7 @@ checkClose ctx openBefore redeemer =
     && mustInitializeContesters
     && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
+    && mustBindAccumulatorCommitment
  where
   OpenDatum
     { parties
@@ -297,6 +307,7 @@ checkClose ctx openBefore redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
+    , accumulatorCommitment = accumulatorCommitment'
     } = decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =
@@ -370,6 +381,17 @@ checkClose ctx openBefore redeemer =
     traceIfFalse $(errorCode ContestersNonEmpty) $
       L.null contesters'
 
+  mustBindAccumulatorCommitment =
+    case redeemer of
+      CloseInitial -> True
+      CloseAny{accumulatorHash} -> check' accumulatorHash
+      CloseUnusedDec{accumulatorHash} -> check' accumulatorHash
+      CloseUsedDec{accumulatorHash} -> check' accumulatorHash
+      CloseUnusedInc{accumulatorHash} -> check' accumulatorHash
+      CloseUsedInc{accumulatorHash} -> check' accumulatorHash
+   where
+    check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
+
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}
 
@@ -393,6 +415,7 @@ checkContest ctx closedDatum redeemer =
     && mustPushDeadline
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
     && mustPreserveHeadValue ctx
+    && mustBindAccumulatorCommitment
  where
   mustBeNewer =
     traceIfFalse $(errorCode TooOldSnapshot) $
@@ -483,6 +506,7 @@ checkContest ctx closedDatum redeemer =
     , headId = headId'
     , contesters = contesters'
     , version = version'
+    , accumulatorCommitment = accumulatorCommitment'
     } = decodeHeadOutputClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -495,6 +519,16 @@ checkContest ctx closedDatum redeemer =
   checkSignedParticipantContestOnlyOnce =
     traceIfFalse $(errorCode SignerAlreadyContested) $
       contester `L.notElem` contesters
+
+  mustBindAccumulatorCommitment =
+    case redeemer of
+      ContestCurrent{accumulatorHash} -> check' accumulatorHash
+      ContestUsedDec{accumulatorHash} -> check' accumulatorHash
+      ContestUnusedDec{accumulatorHash} -> check' accumulatorHash
+      ContestUnusedInc{accumulatorHash} -> check' accumulatorHash
+      ContestUsedInc{accumulatorHash} -> check' accumulatorHash
+   where
+    check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
 {-# INLINEABLE checkContest #-}
 
 -- | Verify a fanout transaction.

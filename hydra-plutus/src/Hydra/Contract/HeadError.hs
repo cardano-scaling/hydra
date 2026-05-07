@@ -65,6 +65,7 @@ data HeadError
   | PartialFanoutMembershipFailed
   | PartialFanoutChangedParameters
   | PartialFanoutHashesNotCleared
+  | AccumulatorCommitmentHashMismatch
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -135,3 +136,4 @@ instance ToErrorCode HeadError where
     PartialFanoutMembershipFailed -> "H57"
     PartialFanoutChangedParameters -> "H58"
     PartialFanoutHashesNotCleared -> "H59"
+    AccumulatorCommitmentHashMismatch -> "H60"

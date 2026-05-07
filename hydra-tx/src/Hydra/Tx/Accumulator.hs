@@ -45,7 +45,9 @@ import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G2_Element,
   bls12_381_G1_uncompress,
+  bls12_381_G2_compress,
   byteStringToInteger,
+  fromBuiltin,
   toBuiltin,
  )
 
@@ -129,18 +131,18 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
       <> fromMaybe mempty mUtxoToCommit
       <> fromMaybe mempty mUtxoToDecommit
 
--- | Get a blake2b-256 hash of the accumulator state.
+-- | Get a blake2b-256 hash of the accumulator commitment (compressed G2 point).
 --
 -- This is a pure function that returns a 32-byte deterministic hash of the
--- accumulator's contents. It is what gets signed by all parties in the
--- multi-signature and stored as 'accumulatorHash' in on-chain datums.
+-- compressed G2 accumulator commitment. It is what gets signed by all parties
+-- in the multi-signature and stored as 'accumulatorHash' in on-chain datums.
 --
--- Using a fixed-size hash (rather than the full serialized map) keeps datum
--- and redeemer sizes constant regardless of the number of remaining UTxOs,
--- which is critical for keeping partial fanout transaction sizes bounded.
+-- Hashing the compressed G2 point (rather than the serialized map) binds the
+-- signed hash to the exact G2 point stored in 'ClosedDatum.accumulatorCommitment',
+-- allowing the on-chain validator to verify their consistency.
 getAccumulatorHash :: HydraAccumulator -> ByteString
-getAccumulatorHash (HydraAccumulator acc) =
-  digest (Proxy @Blake2b_256) . BSL.toStrict . serialise $ acc
+getAccumulatorHash acc =
+  digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G2_compress $ getAccumulatorCommitment acc
 
 -- | Number of elements in the accumulator — equals the number of UTxOs in the snapshot.
 accumulatorSize :: HydraAccumulator -> Int

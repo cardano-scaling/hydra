@@ -480,9 +480,11 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot
     version <- arbitrary
     number <- arbitrary
     confirmed <- arbitrary
-    utxo <- arbitrary
-    utxoToCommit <- arbitrary
-    utxoToDecommit <- arbitrary
+    -- Cap each UTxO component so the combined size stays within maxAccumulatorSize.
+    let cap = Accumulator.maxAccumulatorSize `div` 3
+    utxo <- scale (min cap) arbitrary
+    utxoToCommit <- scale (min cap) arbitrary
+    utxoToDecommit <- scale (min cap) arbitrary
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
@@ -499,9 +501,10 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
-    utxo <- arbitrary
-    utxoToCommit <- arbitrary
-    utxoToDecommit <- arbitrary
+    let cap = Accumulator.maxAccumulatorSize `div` 3
+    utxo <- scale (min cap) arbitrary
+    utxoToCommit <- scale (min cap) arbitrary
+    utxoToDecommit <- scale (min cap) arbitrary
     headId <- arbitrary
     genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
 
