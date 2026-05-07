@@ -55,6 +55,7 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceAccumulatorCommitment,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
@@ -221,6 +222,11 @@ data CloseMutation
     MutateValueInOutput
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
+  | -- | Invalidates the tx by writing a wrong accumulator commitment in the
+    -- output datum while keeping a valid signed accumulatorHash in the redeemer.
+    --
+    -- Ensures the on-chain validator binds the G2 commitment to the signed hash.
+    MutateAccumulatorCommitment
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -317,6 +323,11 @@ genCloseCurrentMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
         pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+        -- A commitment from a different accumulator: the signed accumulatorHash
+        -- was derived from the healthy one, so this G2 point won't match.
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     ]
  where
   genOversizedTransactionValidity = do
