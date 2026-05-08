@@ -285,12 +285,12 @@ spec =
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
-                      Fanout{} -> transition === Transition.Fanout
-                      -- NOTE: deposit, recover and partial fanout are not generated
-                      -- in these tests so we don't need to check them.
+                      PartialFanout{} -> transition === Transition.PartialFanout
+                      -- FinalPartialFanout is observed as Fanout (same terminal effect)
+                      Fanout{} -> property $ transition `elem` [Transition.Fanout, Transition.FinalPartialFanout]
+                      -- NOTE: deposit and recover are not generated in these tests
                       Deposit{} -> property False
                       Recover{} -> property False
-                      PartialFanout{} -> property False
 
     describe "depositTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx

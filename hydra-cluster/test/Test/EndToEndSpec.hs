@@ -518,11 +518,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
       describe "Fanout maximum UTxOs" $ do
         -- With partial fanout (see #1468), heads with more UTxOs than the
         -- per-transaction limit can still finalize by automatically sequencing
-        -- multiple PartialFanout transactions followed by a final Fanout.
+        -- multiple PartialFanout transactions followed by a FinalPartialFanout.
         --
         -- The node threshold is fanoutOutputThreshold outputs (HeadLogic).
         -- Below the threshold: single Fanout transaction.
-        -- Above the threshold: automatic partial fanout sequence.
+        -- Above the threshold: PartialFanout* → FinalPartialFanout sequence.
 
         it "can fanout UTxOs within single transaction limit" $ \tracer ->
           failAfter 60 $
@@ -1002,7 +1002,7 @@ fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
 
     -- With partial fanout, the head should finalize regardless of UTxO count.
     -- For large UTxO sets, the node automatically sequences PartialFanout
-    -- transactions before a final Fanout.
+    -- transactions before a final FinalPartialFanout.
     waitMatch 30 node $ \v -> do
       guard $ v ^? key "tag" == Just "HeadIsFinalized"
       guard $ v ^? key "headId" == Just (toJSON headId)

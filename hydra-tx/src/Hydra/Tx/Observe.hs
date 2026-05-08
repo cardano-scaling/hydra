@@ -27,7 +27,7 @@ import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
 import Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
 import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
-import Hydra.Tx.Fanout (FanoutObservation (..), PartialFanoutObservation (..), observeFanoutTx, observePartialFanoutTx)
+import Hydra.Tx.Fanout (FanoutObservation (..), PartialFanoutObservation (..), observeFanoutTx, observeFinalPartialFanoutTx, observePartialFanoutTx)
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
@@ -96,6 +96,7 @@ observeHeadTx networkId utxo tx =
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> PartialFanout <$> observePartialFanoutTx utxo tx
+      <|> Fanout <$> observeFinalPartialFanoutTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
  where
   txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True

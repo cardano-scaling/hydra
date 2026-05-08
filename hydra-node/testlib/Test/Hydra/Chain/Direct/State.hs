@@ -12,10 +12,12 @@ import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
   NetworkId (Testnet),
   NetworkMagic (NetworkMagic),
+  SlotNo,
   Tx,
   UTxO,
   getTxBody,
   getTxId,
+  modifyTxOutValue,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (maximumNumberOfParties)
@@ -36,8 +38,10 @@ import Hydra.Chain.Direct.State (
   unsafeContest,
   unsafeDecrement,
   unsafeFanout,
+  unsafeFinalPartialFanout,
   unsafeIncrement,
   unsafeObserveInit,
+  unsafePartialFanout,
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Tx (
@@ -46,6 +50,7 @@ import Hydra.Tx (
   SnapshotNumber,
   getSnapshot,
   mkSimpleBlueprintTx,
+  splitUTxOAt,
   txInToHeadSeed,
   utxoFromTx,
  )
@@ -53,6 +58,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.Deposit (DepositObservation (..), depositTx, observeDepositTx)
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
+import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.Recover (recoverTx)
 import Hydra.Tx.Utils (splitUTxO)
 import Test.Hydra.Ledger.Cardano.Fixtures (slotLength, systemStart)
@@ -104,6 +110,8 @@ data ChainTransition
   | Close
   | Contest
   | Fanout
+  | PartialFanout
+  | FinalPartialFanout
   deriving stock (Eq, Show, Enum, Bounded)
 
 -- | Generate a 'ChainContext' and 'ChainState' within the known limits above, along with a
@@ -117,6 +125,8 @@ genChainStateWithTx =
     , genCloseWithState
     , genContestWithState
     , genFanoutWithState
+    , genPartialFanoutWithState
+    , genFinalPartialFanoutWithState
     ]
  where
   genInitWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
@@ -153,6 +163,16 @@ genChainStateWithTx =
   genFanoutWithState = do
     (ctx, st, utxo, tx) <- genFanoutTx maxGenParties
     pure (ctx, Closed st, utxo, tx, Fanout)
+
+  genPartialFanoutWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
+  genPartialFanoutWithState = do
+    (ctx, st, _, tx) <- genPartialFanoutTx maxGenParties
+    pure (ctx, Closed st, mempty, tx, PartialFanout)
+
+  genFinalPartialFanoutWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
+  genFinalPartialFanoutWithState = do
+    (ctx, st, fanoutProgressUTxO, tx) <- genFinalPartialFanoutTx maxGenParties
+    pure (ctx, Closed st, fanoutProgressUTxO, tx, FinalPartialFanout)
 
 -- \** Warning zone
 
@@ -357,6 +377,50 @@ genFanoutTx numParties = do
   let finalToCommit = if openVersion /= version then toCommit else Nothing
   let snapshotAcc = (getSnapshot confirmed).accumulator
   pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing snapshotAcc deadlineSlotNo)
+
+genPartialFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
+genPartialFanoutTx numParties = do
+  (cctx, stClosed@ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, utxoToDistribute, remainingUTxO) <-
+    genClosedStateForFanout numParties
+  pure (cctx, stClosed, spendableUTxO, unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo)
+
+-- | Generate a final partial fanout transaction that chains from a partial fanout step.
+-- Returns the FanoutProgress UTxO (output of the intermediate step) as the 3rd element,
+-- since it is the spendable UTxO required for transaction evaluation.
+genFinalPartialFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
+genFinalPartialFanoutTx numParties = do
+  (cctx, stClosed@ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, utxoToDistribute, remainingUTxO) <-
+    genClosedStateForFanout numParties
+  let partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo
+  let fanoutProgressUTxO = utxoFromTx partialTx
+  pure (cctx, stClosed, fanoutProgressUTxO, unsafeFinalPartialFanout cctx fanoutProgressUTxO seedTxIn remainingUTxO deadlineSlotNo)
+
+-- | Shared setup for partial and final-partial fanout generators.
+-- Produces a closed head with some UTxOs in the snapshot (greater than fanoutOutputThreshold),
+-- already split into the first chunk (to distribute) and the remainder.
+genClosedStateForFanout ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateForFanout numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (fanoutOutputThreshold + 1, fanoutOutputThreshold + fanoutChunkSize + 1)
+  u0 <- genUTxOAdaOnlyOfSize n
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let version = 0
+  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let openUTxO = getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  -- The init tx head output has only tokens (0 ADA). We add the full UTxO value
+  -- so the head output can cover all outputs distributed across fanout steps.
+  let u0Value = UTxO.totalValue u0
+  let spendableUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stClosed
+  let (utxoToDistribute, remainingUTxO) = splitUTxOAt @Tx fanoutChunkSize u0
+  pure (cctx, stClosed, spendableUTxO, deadlineSlotNo, utxoToDistribute, remainingUTxO)
 
 genStOpen ::
   HydraContext ->

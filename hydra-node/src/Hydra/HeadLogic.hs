@@ -1336,7 +1336,9 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 --
 --  * If the UTxO count exceeds 'fanoutOutputThreshold', a 'PartialFanoutTx'
 --    is emitted to distribute a chunk and stay in 'ClosedState'.
---  * Otherwise, a 'FanoutTx' is emitted to finalize the head.
+--  * Otherwise: 'FanoutTx' if no partial fanout was in progress ('FreshFanout'),
+--    or 'FinalPartialFanoutTx' if partial fanouts have already been observed
+--    on-chain ('FanoutInProgress').
 --
 -- If a partial fanout was already in progress (remainingFanoutUTxO is Just),
 -- we fan out from the remaining UTxOs instead of the full snapshot.
@@ -1346,44 +1348,10 @@ onClosedClientFanout ::
   IsTx tx =>
   ClosedState tx ->
   Outcome tx
-onClosedClientFanout closedState =
+onClosedClientFanout closedState@ClosedState{remainingFanoutUTxO} =
   case remainingFanoutUTxO of
-    Just remaining ->
-      emitNextFanoutStep remaining closedState
-    Nothing ->
-      let allUTxO = computeFullFanoutUTxO closedState
-       in if sizeUTxO allUTxO > fanoutOutputThreshold
-            then emitNextFanoutStep allUTxO closedState
-            else
-              -- No partial fanout needed: everything fits in a single tx.
-              cause
-                OnChainEffect
-                  { postChainTx =
-                      FanoutTx
-                        { utxo
-                        , -- Include utxoToCommit only if the increment has been
-                          -- applied on chain (version bumped). Otherwise it was
-                          -- never used and must not be distributed.
-                          utxoToCommit =
-                            if snapshotVersion == version
-                              then Nothing
-                              else utxoToCommit
-                        , -- Include utxoToDecommit only if the decrement has NOT
-                          -- been applied on chain yet. If it was applied the
-                          -- UTxO is gone and must not be re-distributed.
-                          utxoToDecommit =
-                            if snapshotVersion == version
-                              then utxoToDecommit
-                              else Nothing
-                        , snapshotAccumulator = accumulator
-                        , headSeed
-                        , contestationDeadline
-                        }
-                  }
- where
-  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion, accumulator} = getSnapshot confirmedSnapshot
-
-  ClosedState{headSeed, confirmedSnapshot, contestationDeadline, version, remainingFanoutUTxO} = closedState
+    Just remaining -> emitNextFanoutStep FanoutInProgress remaining closedState
+    Nothing -> emitNextFanoutStep FreshFanout (computeFullFanoutUTxO closedState) closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -1410,9 +1378,9 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
 --
 -- The next step is decided based on the remaining UTxO count:
 --  * If remaining > 'fanoutOutputThreshold': emit another 'PartialFanoutTx'
---  * Otherwise: emit a final 'FanoutTx' to finalize the head
+--  * Otherwise: emit 'FinalPartialFanoutTx' to finalize the head
 --
--- __Transition__: 'ClosedState' → 'ClosedState'
+-- __Off-chain model__: 'ClosedState' → 'ClosedState' (the on-chain state transitions to FanoutProgress)
 onClosedChainPartialFanoutTx ::
   IsTx tx =>
   ClosedState tx ->
@@ -1437,7 +1405,7 @@ onClosedChainPartialFanoutTx closedState newChainState distributedUTxO =
             , remainingUTxO = remaining
             , chainState = newChainState
             }
-   in stateChange <> emitNextFanoutStep remaining closedState
+   in stateChange <> emitNextFanoutStep FanoutInProgress remaining closedState
  where
   ClosedState{headId} = closedState
 
@@ -1473,15 +1441,25 @@ resolveRemainingUTxO closedState@ClosedState{remainingFanoutUTxO} =
     Just remaining -> remaining
     Nothing -> computeFullFanoutUTxO closedState
 
--- | Decide and emit the next on-chain effect for a given remaining UTxO set:
--- another 'PartialFanoutTx' if the count exceeds 'fanoutOutputThreshold',
--- or a final 'FanoutTx' (rebuilding the accumulator from the remaining set).
+-- | Tracks whether a partial fanout has already been observed on-chain.
+-- Used to decide the final step: 'FanoutInProgress' heads go to
+-- 'FinalPartialFanoutTx'; 'FreshFanout' heads can still use the direct 'FanoutTx'.
+data PartialFanoutPhase = FreshFanout | FanoutInProgress
+  deriving stock (Show)
+
+-- | Decide and emit the next on-chain effect for a given remaining UTxO set.
+-- When the phase is 'FanoutInProgress' the head output is already in
+-- FanoutProgress state (at least one PartialFanout has been posted), so we
+-- must use 'FinalPartialFanoutTx' for the last step instead of 'FanoutTx'.
 emitNextFanoutStep ::
   IsTx tx =>
+  PartialFanoutPhase ->
   UTxOType tx ->
   ClosedState tx ->
   Outcome tx
-emitNextFanoutStep remaining ClosedState{headSeed, contestationDeadline}
+-- NOTE: `phase` only affects the `otherwise` branch below. When more than
+-- `fanoutOutputThreshold` UTxOs remain, both phases always emit `PartialFanoutTx`.
+emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestationDeadline}
   | sizeUTxO remaining > fanoutOutputThreshold =
       let (toDistribute, rest) = splitUTxOAt fanoutChunkSize remaining
        in cause
@@ -1497,15 +1475,39 @@ emitNextFanoutStep remaining ClosedState{headSeed, contestationDeadline}
   | otherwise =
       cause
         OnChainEffect
-          { postChainTx =
-              FanoutTx
-                { utxo = remaining
-                , utxoToCommit = Nothing
-                , utxoToDecommit = Nothing
-                , snapshotAccumulator = Accumulator.buildFromUTxO remaining
-                , headSeed
-                , contestationDeadline
-                }
+          { postChainTx = case phase of
+              FanoutInProgress ->
+                FinalPartialFanoutTx
+                  { utxoToDistribute = remaining
+                  , headSeed
+                  , contestationDeadline
+                  }
+              FreshFanout ->
+                -- `remaining` was used only for the size check above. FanoutTx
+                -- needs the three-part decomposition (utxo, utxoToCommit,
+                -- utxoToDecommit) from the snapshot to verify hashes separately.
+                let ClosedState{confirmedSnapshot, version} = closedState
+                    Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion, accumulator} = getSnapshot confirmedSnapshot
+                 in FanoutTx
+                      { utxo
+                      , -- Include utxoToCommit only if the increment has been
+                        -- applied on chain (version bumped). Otherwise it was
+                        -- never used and must not be distributed.
+                        utxoToCommit =
+                          if snapshotVersion == version
+                            then Nothing
+                            else utxoToCommit
+                      , -- Include utxoToDecommit only if the decrement has NOT
+                        -- been applied on chain yet. If it was applied the
+                        -- UTxO is gone and must not be re-distributed.
+                        utxoToDecommit =
+                          if snapshotVersion == version
+                            then utxoToDecommit
+                            else Nothing
+                      , snapshotAccumulator = accumulator
+                      , headSeed
+                      , contestationDeadline
+                      }
           }
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'

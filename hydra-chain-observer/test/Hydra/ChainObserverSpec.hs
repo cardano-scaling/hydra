@@ -46,7 +46,10 @@ spec =
                     Just (Decrement{}) -> transition === Transition.Decrement
                     Just (Close{}) -> transition === Transition.Close
                     Just (Contest{}) -> transition === Transition.Contest
-                    Just (Fanout{}) -> transition === Transition.Fanout
+                    Just (PartialFanout{}) -> transition === Transition.PartialFanout
+                    -- FinalPartialFanout is the terminal partial-fanout step; it
+                    -- burns tokens just like a regular Fanout and is observed as such.
+                    Just (Fanout{}) -> property $ transition `elem` [Transition.Fanout, Transition.FinalPartialFanout]
                     _ -> property False
 
     prop "Updates UTxO state given transaction part of Head lifecycle" $

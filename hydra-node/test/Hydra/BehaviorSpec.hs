@@ -1358,6 +1358,8 @@ toOnChainTx now = \case
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
   PartialFanoutTx{utxoToDistribute} ->
     OnPartialFanoutTx{headId = testHeadId, distributedUTxO = utxoToDistribute}
+  FinalPartialFanoutTx{utxoToDistribute} ->
+    OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =

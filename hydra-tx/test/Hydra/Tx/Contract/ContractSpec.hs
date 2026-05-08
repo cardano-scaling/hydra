@@ -44,9 +44,10 @@ import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
-import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyPartialFanoutTx)
+import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Observe (observeDepositTx)
@@ -162,10 +163,17 @@ spec = parallel $ do
     prop "does not survive random adversarial mutations" $
       propMutation healthyFanoutTx genFanoutMutation
   describe "PartialFanout" $ do
-    prop "is healthy" $
+    prop "is healthy (from Closed)" $
       propTransactionEvaluates healthyPartialFanoutTx
+    prop "is healthy (from FanoutProgress)" $
+      propTransactionEvaluates healthyIntermediatePartialFanoutTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyPartialFanoutTx genPartialFanoutMutation
+  describe "FinalPartialFanout" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyFinalPartialFanoutTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyFinalPartialFanoutTx genFinalPartialFanoutMutation
 
 --
 -- Properties

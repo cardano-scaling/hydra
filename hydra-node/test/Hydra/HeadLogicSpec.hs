@@ -1616,12 +1616,14 @@ spec =
             outcome `hasStateChangedSatisfying` \case
               HeadPartialFannedOut{} -> True
               _ -> False
-          -- Should also trigger the next fanout automatically (either partial or full
-          -- depending on remaining UTxO size vs threshold)
+          -- Should also trigger the next fanout automatically. After observing a
+          -- PartialFanout the phase is always FanoutInProgress, so FanoutTx is
+          -- never emitted here — only PartialFanoutTx (more chunks) or
+          -- FinalPartialFanoutTx (last chunk).
           run $
             outcome `hasEffectSatisfying` \case
-              OnChainEffect{postChainTx = FanoutTx{}} -> True
               OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
+              OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
               _ -> False
 
       it "partial fanout with large remaining triggers another PartialFanoutTx" $ do
@@ -1634,22 +1636,34 @@ spec =
             Set.size utxoToDistribute == fanoutChunkSize
           _ -> False
 
-      it "partial fanout with small remaining triggers FanoutTx" $ do
+      it "partial fanout reduces remainingUTxO by distributedUTxO" $ do
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + fromIntegral fanoutChunkSize + 1]]
+            (distributedList, _) = splitAt fanoutChunkSize (Set.toList allItems)
+            distributed = Set.fromList distributedList
+            st = inClosedStateWithRemaining threeParties (Just allItems)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedUTxO = distributed})
+        outcome `hasStateChangedSatisfying` \case
+          HeadPartialFannedOut{remainingUTxO} ->
+            Set.size remainingUTxO == Set.size allItems - fanoutChunkSize
+          _ -> False
+
+      it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
         let smallRemaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             st = inClosedStateWithRemaining threeParties (Just smallRemaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedUTxO = mempty})
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == smallRemaining
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == smallRemaining
           _ -> False
 
-      it "client fanout uses remaining UTxO after partial fanout" $ do
+      it "client fanout uses remaining UTxO after partial fanout (FinalPartialFanoutTx)" $ do
         let remaining = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
             st = inClosedStateWithRemaining threeParties (Just remaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (ClientInput Fanout)
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == remaining
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == remaining
           _ -> False
 
       it "client fanout without prior partial fanout uses full snapshot utxo" $ do
