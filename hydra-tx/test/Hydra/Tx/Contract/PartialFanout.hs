@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Tx.Contract.PartialFanout where
@@ -11,12 +10,13 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutHashesNotCleared, PartialFanoutMembershipFailed))
+import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
+import Hydra.Plutus.Gen ()
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -26,18 +26,18 @@ import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceSnapshotNumber, replaceUTxOHash)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadId, replaceParties)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
--- | A healthy partial fanout transaction that distributes a subset of UTxOs
--- and continues the Closed state with an updated accumulator.
-healthyPartialFanoutTx :: (Tx, UTxO)
-healthyPartialFanoutTx =
-  (tx, lookupUTxO)
+-- | Build a healthy partial fanout transaction with a given input head state.
+-- Used for both the Closed → FanoutProgress and FanoutProgress → FanoutProgress cases,
+-- which share identical transaction structure and only differ in the input datum type.
+healthyPartialFanoutTxWith :: Head.State -> (Tx, UTxO)
+healthyPartialFanoutTxWith inputState = (tx, lookupUTxO)
  where
   lookupUTxO =
     UTxO.singleton headInput headOutput
@@ -49,7 +49,7 @@ healthyPartialFanoutTx =
       healthyDistributeUTxO
       (headInput, headOutput)
       healthySlotNo
-      healthyClosedDatum
+      healthyProgressDatum
       remainingAccumulator
 
   scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
@@ -62,18 +62,23 @@ healthyPartialFanoutTx =
       testNetworkId
       testPolicyId
       (verificationKeyToOnChainId <$> healthyParticipants)
-      (mkTxOutDatumInline healthyPartialFanoutState)
+      (mkTxOutDatumInline inputState)
 
-  -- The closed head output holds the full locked UTxO value plus participation tokens.
   headOutput = modifyTxOutValue (<> participationTokens <> UTxO.totalValue healthyFullUTxO) headOutput'
 
   participationTokens =
     fromList $
       map
-        ( \party ->
-            (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1)
-        )
+        (\party -> (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1))
         healthyParties
+
+-- | Closed → FanoutProgress partial fanout.
+healthyPartialFanoutTx :: (Tx, UTxO)
+healthyPartialFanoutTx = healthyPartialFanoutTxWith (Head.Closed healthyClosedDatum)
+
+-- | FanoutProgress → FanoutProgress partial fanout.
+healthyIntermediatePartialFanoutTx :: (Tx, UTxO)
+healthyIntermediatePartialFanoutTx = healthyPartialFanoutTxWith (Head.FanoutProgress healthyProgressDatum)
 
 -- | The full UTxO to be distributed. One more than 'fanoutOutputThreshold'
 -- so this exercises the partial fanout path.
@@ -83,11 +88,12 @@ healthyFullUTxO =
       utxoList = UTxO.toList utxo
    in UTxO.fromList $ take (fanoutOutputThreshold + 1) utxoList
 
--- | Split the full UTxO: distribute the first 'fanoutChunkSize', keep the rest.
+-- | The first chunk to distribute: the leading 'fanoutChunkSize' entries.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
   UTxO.fromList $ take fanoutChunkSize $ UTxO.toList healthyFullUTxO
 
+-- | UTxOs left after distributing the first chunk; carried over to the next step.
 healthyRemainingUTxO :: UTxO
 healthyRemainingUTxO =
   UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList healthyFullUTxO
@@ -99,7 +105,7 @@ healthyContestationDeadline :: UTCTime
 healthyContestationDeadline =
   slotNoToUTCTime systemStart slotLength $ healthySlotNo - 1
 
--- | The full accumulator covers all UTxOs that were originally in the snapshot.
+-- | Accumulator covering all UTxOs in the snapshot (used for the input commitment).
 fullAccumulator :: Accumulator.HydraAccumulator
 fullAccumulator =
   Accumulator.buildFromSnapshotUTxOs
@@ -107,8 +113,8 @@ fullAccumulator =
     Nothing
     Nothing
 
--- | After distributing healthyDistributeUTxO, the remaining accumulator covers
--- only the remaining UTxOs.
+-- | Accumulator covering only the UTxOs that remain after distributing the first chunk.
+-- This is the commitment that the on-chain output must carry after a partial fanout step.
 remainingAccumulator :: Accumulator.HydraAccumulator
 remainingAccumulator =
   Accumulator.buildFromUTxO @Tx healthyRemainingUTxO
@@ -116,8 +122,7 @@ remainingAccumulator =
 crsSize :: Int
 crsSize = Accumulator.requiredCRSPointCount fullAccumulator
 
--- | The ClosedDatum that the head output currently carries (before partial fanout).
--- This represents a freshly-closed head with the full accumulator.
+-- | The ClosedDatum used for the first-step (Closed → FanoutProgress) test.
 healthyClosedDatum :: Head.ClosedDatum
 healthyClosedDatum =
   Head.ClosedDatum
@@ -127,19 +132,18 @@ healthyClosedDatum =
     , omegaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
     , parties = partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
-    , contestationPeriod = healthyContestationPeriod
+    , contestationPeriod = OnChain.contestationPeriodFromDiffTime 10
     , headId = toPlutusCurrencySymbol testPolicyId
     , contesters = []
     , version = 0
-    , accumulatorCommitment =
-        Accumulator.getAccumulatorCommitment fullAccumulator
+    , accumulatorCommitment = Accumulator.getAccumulatorCommitment fullAccumulator
     }
- where
-  healthyContestationPeriod = OnChain.contestationPeriodFromDiffTime 10
 
--- | The Head.State wrapping the ClosedDatum for the datum on the head output.
-healthyPartialFanoutState :: Head.State
-healthyPartialFanoutState = Head.Closed healthyClosedDatum
+-- | The FanoutProgressDatum used for both test cases, derived from 'healthyClosedDatum'.
+-- Both the Closed-input and FanoutProgress-input tests use this as the datum
+-- passed to 'partialFanoutTx' (and as the input datum for the intermediate case).
+healthyProgressDatum :: Head.FanoutProgressDatum
+healthyProgressDatum = Head.progressFromClosed healthyClosedDatum
 
 healthyParties :: [Party]
 healthyParties =
@@ -156,10 +160,8 @@ data PartialFanoutMutation
   | MutatePartialFanoutOutputValue
   | -- | Steal Ada by reducing the continuing head output and adding a personal output
     MutatePartialFanoutStealAda
-  | -- | Continuing datum must preserve snapshotNumber, version, contesters, contestationDeadline
+  | -- | Continuing FanoutProgressDatum must preserve headId, parties, contestationDeadline
     MutatePartialFanoutChangedParameters
-  | -- | Continuing datum must clear utxoHash, alphaUTxOHash, omegaUTxOHash to emptyHash
-    MutatePartialFanoutHashesNotCleared
   | -- | Continuing datum must carry the correct remaining accumulator commitment
     MutatePartialFanoutWrongAccumulator
   deriving stock (Generic, Show, Enum, Bounded)
@@ -167,29 +169,19 @@ data PartialFanoutMutation
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 genPartialFanoutMutation (tx, _utxo) =
   oneof
-    [ -- Partial fanout must also respect the contestation deadline
-      SomeMutation (pure $ toErrorCode LowerBoundBeforeContestationDeadline) MutatePartialFanoutValidityBeforeDeadline . ChangeValidityInterval <$> do
+    [ SomeMutation (pure $ toErrorCode LowerBoundBeforeContestationDeadline) MutatePartialFanoutValidityBeforeDeadline . ChangeValidityInterval <$> do
         lb <- genSlotBefore $ slotNoFromUTCTime systemStart slotLength healthyContestationDeadline
         pure (TxValidityLowerBound lb, TxValidityNoUpperBound)
-    , -- Partial fanout must NOT burn any tokens (tokens are kept for subsequent fanouts).
-      -- mustNotMintOrBurn uses error code "U01"
-      SomeMutation (pure "U01") MutatePartialFanoutBurnTokens <$> do
+    , SomeMutation (pure "U01") MutatePartialFanoutBurnTokens <$> do
         let headTokenScript = mkHeadTokenScript testSeedInput
         changeMintedTokens tx (fromList [(AssetId (scriptPolicyId (PlutusScript headTokenScript)) (UnsafeAssetName ""), -1)])
-    , -- Mutating a distributed output value violates either value conservation (if the
-      -- head output is not compensated) or membership verification. Both are valid
-      -- rejections; which fires first depends on whether conservation is also broken.
-      SomeMutation [toErrorCode PartialFanoutMembershipFailed, toErrorCode HeadValueIsNotPreserved] MutatePartialFanoutOutputValue <$> do
-        -- The distributed outputs start at index 1 (index 0 is the continuing head output)
+    , SomeMutation [toErrorCode PartialFanoutMembershipFailed, toErrorCode HeadValueIsNotPreserved] MutatePartialFanoutOutputValue <$> do
         let outs = txOuts' tx
-        let numDistributed = UTxO.size healthyDistributeUTxO
-        -- Pick one of the distributed outputs (indices 1..numDistributed)
+            numDistributed = UTxO.size healthyDistributeUTxO
         (ix, out) <- elements (zip [1 .. numDistributed] (drop 1 outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
-    , -- An adversary must not be able to steal Ada by reducing the continuing head
-      -- output value and routing the difference into a personal output.
-      SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutatePartialFanoutStealAda <$> do
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutatePartialFanoutStealAda <$> do
         let headOut = fromJust $ txOuts' tx !!? 0
         stolenValue <- extractAdaFromValue (txOutValue headOut)
         someAddress <- genAddressInEra testNetworkId
@@ -199,22 +191,23 @@ genPartialFanoutMutation (tx, _utxo) =
             [ ChangeOutput 0 (modifyTxOutValue (<> negateValue stolenValue) headOut)
             , AppendOutput stolenOutput
             ]
-    , -- The continuing datum must not change snapshotNumber, version, contesters or
-      -- contestationDeadline relative to the input datum.
-      SomeMutation (pure $ toErrorCode PartialFanoutChangedParameters) MutatePartialFanoutChangedParameters <$> do
+    , SomeMutation (pure $ toErrorCode PartialFanoutChangedParameters) MutatePartialFanoutChangedParameters <$> do
         let headOut = fromJust $ txOuts' tx !!? 0
-            mutatedSnapshotNumber = healthyClosedDatum.snapshotNumber + 1
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber mutatedSnapshotNumber) headOut
-    , -- All three hash fields (utxoHash, alphaUTxOHash, omegaUTxOHash) must be
-      -- cleared to emptyHash in the continuing datum after a partial fanout.
-      SomeMutation (pure $ toErrorCode PartialFanoutHashesNotCleared) MutatePartialFanoutHashesNotCleared <$> do
+        oneof
+          [ do
+              mutatedDeadline <- genMutatedDeadline
+              pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headOut
+          , do
+              mutatedParties <- arbitrary `suchThat` (/= (partyToChain <$> healthyParties))
+              pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headOut
+          , do
+              mutatedHeadId <- arbitrary `suchThat` (/= (toPlutusCurrencySymbol testPolicyId :: CurrencySymbol))
+              pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId mutatedHeadId) headOut
+          ]
+    , SomeMutation (pure $ toErrorCode PartialFanoutMembershipFailed) MutatePartialFanoutWrongAccumulator <$> do
         let headOut = fromJust $ txOuts' tx !!? 0
-            nonEmptyHash = toBuiltin $ hashUTxO @Tx healthyFullUTxO
-        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceUTxOHash nonEmptyHash) headOut
-    , -- An adversary must not be able to claim a different remaining accumulator
-      -- commitment in the continuing datum, which would break subsequent fanout steps.
-      SomeMutation (pure $ toErrorCode PartialFanoutMembershipFailed) MutatePartialFanoutWrongAccumulator <$> do
-        let headOut = fromJust $ txOuts' tx !!? 0
+            -- fullAccumulator commitment differs from remainingAccumulator commitment,
+            -- so putting it in the output invalidates the KZG membership proof.
             wrongCommitment = Accumulator.getAccumulatorCommitment fullAccumulator
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment) headOut
     ]
@@ -227,3 +220,11 @@ genPartialFanoutMutation (tx, _utxo) =
     let Coin lovelace = selectLovelace val
     q <- choose (1, min 1_000_000 lovelace)
     pure $ lovelaceToValue (Coin q)
+
+genMutatedDeadline :: Gen POSIXTime
+genMutatedDeadline =
+  oneof
+    [ pure 0
+    , arbitrary
+    ]
+    `suchThat` (/= posixFromUTCTime healthyContestationDeadline)

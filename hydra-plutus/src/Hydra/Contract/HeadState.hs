@@ -67,10 +67,31 @@ data ClosedDatum = ClosedDatum
 
 PlutusTx.unstableMakeIsData ''ClosedDatum
 
+-- | Sub-type for intermediate partial fanout state. Carries only the fields
+-- needed for subsequent partial fanout steps, dropping the snapshot-specific
+-- fields that are no longer relevant after the first partial fanout.
+data FanoutProgressDatum = FanoutProgressDatum
+  { headId :: CurrencySymbol
+  , parties :: [Party]
+  , contestationDeadline :: POSIXTime
+  , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
+  }
+  deriving stock (Generic, Show)
+
+PlutusTx.unstableMakeIsData ''FanoutProgressDatum
+
+-- | Extract the fields needed for partial fanout steps from a ClosedDatum.
+-- Called both on-chain (in the validator dispatch) and off-chain (in tx building).
+progressFromClosed :: ClosedDatum -> FanoutProgressDatum
+progressFromClosed ClosedDatum{headId, parties, contestationDeadline, accumulatorCommitment} =
+  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
+{-# INLINEABLE progressFromClosed #-}
+
 data State
   = Open OpenDatum
   | Closed ClosedDatum
   | Final
+  | FanoutProgress FanoutProgressDatum
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''State
@@ -208,6 +229,11 @@ data Input
       }
   | PartialFanout
       { numberOfPartialOutputs :: Integer
+      , crsRef :: TxOutRef
+      }
+  | FinalPartialFanout
+      { numberOfPartialOutputs :: Integer
+      , proof :: BuiltinBLS12_381_G1_Element
       , crsRef :: TxOutRef
       }
   deriving stock (Generic, Show)

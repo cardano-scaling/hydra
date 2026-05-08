@@ -25,6 +25,7 @@ import Hydra.Contract.HeadState (
   ClosedDatum (..),
   ContestRedeemer (..),
   DecrementRedeemer (..),
+  FanoutProgressDatum (..),
   Hash,
   IncrementRedeemer (..),
   Input (..),
@@ -33,6 +34,7 @@ import Hydra.Contract.HeadState (
   SnapshotNumber,
   SnapshotVersion,
   State (..),
+  progressFromClosed,
  )
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
@@ -94,7 +96,11 @@ headValidator oldState input ctx =
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, proof, crsRef}) ->
       headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef
     (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
-      checkPartialFanout ctx closedDatum numberOfPartialOutputs crsRef
+      checkPartialFanout ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
+    (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
+      checkPartialFanout ctx progressDatum numberOfPartialOutputs crsRef
+    (FanoutProgress progressDatum, FinalPartialFanout{numberOfPartialOutputs, proof, crsRef}) ->
+      checkFinalPartialFanout ctx progressDatum numberOfPartialOutputs proof crsRef
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -550,20 +556,14 @@ headIsFinalizedWith ::
 headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && hashChecks
-    && afterContestationDeadline
+    && afterContestationDeadline txInfo contestationDeadline
     && checkCRSAndMembership
  where
   minted = txInfoMint txInfo
 
   totalOutputs = numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
 
-  -- After partial fanout(s), the hash fields are cleared. In that case we skip
-  -- hash verification and rely solely on the accumulator membership proof.
-  hashesCleared =
-    utxoHash == emptyHash && alphaUTxOHash == emptyHash && omegaUTxOHash == emptyHash
-
-  hashChecks =
-    hashesCleared || (hasSameUTxOHash && hasSameCommitUTxOHash && hasSameDecommitUTxOHash)
+  hashChecks = hasSameUTxOHash && hasSameCommitUTxOHash && hasSameDecommitUTxOHash
 
   -- Hash checks use hashTxOuts which streams via foldMap (no intermediate list retained).
   -- Avoiding a shared allSerialized list prevents retaining all serialized ByteStrings
@@ -582,92 +582,53 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
       omegaUTxOHash
         == hashTxOuts (L.take numberOfDecommitOutputs (L.drop (numberOfFanoutOutputs + numberOfCommitOutputs) txInfoOutputs))
 
-  -- Accumulator scalars: blake2b_224 of sha2_256 per output.
-  -- NOTE: The haskell-accumulator library internally applies Blake2b_224 on
-  -- each element when building the accumulator (see Accumulator.addElement).
-  -- Since elements are sha2_256(serialised), the scalar becomes
-  -- blake2b_224(sha2_256(serialised)), which we must match here.
   subsetScalars :: [Integer]
-  subsetScalars =
-    let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-     in fmap (Builtins.byteStringToInteger BigEndian . elementHash) (L.take totalOutputs txInfoOutputs)
+  subsetScalars = txOutsToSubsetScalars (L.take totalOutputs txInfoOutputs)
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
 
-  afterContestationDeadline =
-    case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ ->
-        traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
-          time > contestationDeadline
-      _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
-
-  -- Combined CRS reference lookup and membership check.
-  -- Performs a single traversal of reference inputs and only decodes the
-  -- CRS datum when the membership proof is actually evaluated (i.e. all
-  -- prior checks have passed).
   checkCRSAndMembership =
-    case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
-      Nothing -> traceError $(errorCode MissingCRSRefInput)
-      Just txInInfo ->
-        let crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
-              Just d -> d
-              _ -> traceError $(errorCode MissingCRSDatum)
-         in case crsData of
-              [] -> traceError $(errorCode MissingCRSDatum)
-              _ ->
-                checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
+    withCRSLookup txInfo crsRef $ \crsData ->
+      checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
 {-# INLINEABLE headIsFinalizedWith #-}
 
--- | Verify a partial fanout transaction. This is a self-loop on the Closed
--- state: it distributes a subset of UTxOs and continues with an updated
--- accumulator commitment in the output datum.
+-- | Verify a partial fanout transaction. Transitions either Closed → FanoutProgress
+-- or FanoutProgress → FanoutProgress: distributes a subset of UTxOs and continues
+-- with a smaller FanoutProgressDatum.
 --
 -- The continuing head output must be the first transaction output. Distributed
 -- UTxOs follow at indices [1 .. numberOfPartialOutputs].
 checkPartialFanout ::
   ScriptContext ->
-  -- | Closed state before the partial fanout
-  ClosedDatum ->
+  -- | Progress state (extracted from either Closed or FanoutProgress input)
+  FanoutProgressDatum ->
   -- | Number of outputs to distribute in this partial fanout
   Integer ->
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfPartialOutputs crsRef =
+checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs crsRef =
   mustNotMintOrBurn txInfo
-    && afterContestationDeadline
-    && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
-    && mustPreserveClosedState
-    && mustClearHashes
+    && afterContestationDeadline txInfo contestationDeadline
+    && mustPreserveFanoutProgressState
     && mustConserveValue
     && checkCRSAndMembership
  where
-  ClosedDatum
+  FanoutProgressDatum
     { parties
     , headId
-    , contestationPeriod
     , contestationDeadline
-    , snapshotNumber
-    , version
-    , contesters
     , accumulatorCommitment
-    } = closedDatum
+    } = progressDatum
 
-  -- Decode continuing output datum (first output, at head address)
-  ClosedDatum
+  -- Decode continuing output datum as FanoutProgressDatum (first output, at head address)
+  FanoutProgressDatum
     { parties = parties'
     , headId = headId'
-    , contestationPeriod = contestationPeriod'
     , contestationDeadline = contestationDeadline'
-    , snapshotNumber = snapshotNumber'
-    , version = version'
-    , contesters = contesters'
-    , utxoHash = utxoHash'
-    , alphaUTxOHash = alphaUTxOHash'
-    , omegaUTxOHash = omegaUTxOHash'
     , accumulatorCommitment = newAccumulatorCommitment
-    } = decodeHeadOutputClosedDatum ctx
+    } = decodeHeadOutputFanoutProgressDatum ctx
 
   TxInfo{txInfoOutputs} = txInfo
 
@@ -675,27 +636,13 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
   -- Index 0 is the continuing head output.
   distributedOutputs = L.take numberOfPartialOutputs (L.drop 1 txInfoOutputs)
 
-  afterContestationDeadline =
-    case ivFrom (txInfoValidRange txInfo) of
-      LowerBound (Finite time) _ ->
-        traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
-          time > contestationDeadline
-      _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
-
-  -- Ensure the continuing output preserves the closed state fields
-  mustPreserveClosedState =
+  -- Ensure the continuing FanoutProgressDatum carries the correct parameters.
+  -- accumulatorCommitment is NOT checked here — it is verified by checkCRSAndMembership.
+  mustPreserveFanoutProgressState =
     traceIfFalse $(errorCode PartialFanoutChangedParameters) $
-      snapshotNumber' == snapshotNumber
-        && version' == version
-        && contesters' == contesters
+      parties' == parties
+        && headId' == headId
         && contestationDeadline' == contestationDeadline
-
-  -- Hash fields must be cleared after partial fanout
-  mustClearHashes =
-    traceIfFalse $(errorCode PartialFanoutHashesNotCleared) $
-      utxoHash' == emptyHash
-        && alphaUTxOHash' == emptyHash
-        && omegaUTxOHash' == emptyHash
 
   -- The head input value must equal the continuing head output value plus the
   -- sum of all distributed outputs. This prevents stealing Ada by adding extra
@@ -707,11 +654,8 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
     headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
     headOutValue = txOutValue $ L.head txInfoOutputs
 
-  -- Accumulator scalars for the distributed outputs (skip first output)
   subsetScalars :: [Integer]
-  subsetScalars =
-    let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-     in fmap (Builtins.byteStringToInteger BigEndian . elementHash) distributedOutputs
+  subsetScalars = txOutsToSubsetScalars distributedOutputs
 
   -- CRS reference lookup and membership check.
   -- The newAccumulatorCommitment from the continuing output datum serves as
@@ -719,17 +663,50 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} closedDatum n
   -- removed from the old accumulator, and the remaining commitment is valid.
   checkCRSAndMembership =
     traceIfFalse $(errorCode PartialFanoutMembershipFailed) $
-      case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
-        Nothing -> traceError $(errorCode MissingCRSRefInput)
-        Just txInInfo ->
-          let crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
-                Just d -> d
-                _ -> traceError $(errorCode MissingCRSDatum)
-           in case crsData of
-                [] -> traceError $(errorCode MissingCRSDatum)
-                _ ->
-                  checkMembershipPairing accumulatorCommitment newAccumulatorCommitment crsData subsetScalars
+      withCRSLookup txInfo crsRef $ \crsData ->
+        checkMembershipPairing accumulatorCommitment newAccumulatorCommitment crsData subsetScalars
 {-# INLINEABLE checkPartialFanout #-}
+
+-- | Verify the final partial fanout transaction. Transitions FanoutProgress → Final:
+-- distributes all remaining UTxOs and burns all head tokens.
+--
+-- Unlike intermediate steps, there is no continuing head output. All distributed
+-- UTxOs start at index 0. Tokens must be burned.
+--
+-- Note: headId, parties, and contestationDeadline are not re-verified explicitly.
+-- headId and parties are validated implicitly by mustBurnAllHeadTokens (wrong values
+-- would target the wrong token set). contestationDeadline was locked in by earlier
+-- checkPartialFanout steps and is trustworthy from the on-chain datum.
+checkFinalPartialFanout ::
+  ScriptContext ->
+  -- | FanoutProgress state before the final fanout
+  FanoutProgressDatum ->
+  -- | Number of outputs to distribute
+  Integer ->
+  -- | Membership proof (quotient commitment G1 element)
+  BuiltinBLS12_381_G1_Element ->
+  -- | Reference input containing CRS
+  TxOutRef ->
+  Bool
+checkFinalPartialFanout ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
+  mustBurnAllHeadTokens minted headId parties
+    && afterContestationDeadline txInfo contestationDeadline
+    && checkCRSAndMembership
+ where
+  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment} = progressDatum
+
+  minted = txInfoMint txInfo
+
+  TxInfo{txInfoOutputs} = txInfo
+
+  subsetScalars :: [Integer]
+  subsetScalars = txOutsToSubsetScalars (L.take numberOfPartialOutputs txInfoOutputs)
+
+  checkCRSAndMembership =
+    traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
+      withCRSLookup txInfo crsRef $ \crsData ->
+        checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
+{-# INLINEABLE checkFinalPartialFanout #-}
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -859,6 +836,13 @@ decodeHeadOutputClosedDatum ctx =
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputClosedDatum #-}
 
+decodeHeadOutputFanoutProgressDatum :: ScriptContext -> FanoutProgressDatum
+decodeHeadOutputFanoutProgressDatum ctx =
+  case fromBuiltinData @DatumType $ getDatum (headOutputDatum ctx) of
+    Just (FanoutProgress progressDatum) -> progressDatum
+    _ -> traceError $(errorCode WrongStateInOutputDatum)
+{-# INLINEABLE decodeHeadOutputFanoutProgressDatum #-}
+
 decodeHeadOutputOpenDatum :: ScriptContext -> OpenDatum
 decodeHeadOutputOpenDatum ctx =
   -- XXX: fromBuiltinData is super big (and also expensive?)
@@ -866,6 +850,48 @@ decodeHeadOutputOpenDatum ctx =
     Just (Open openDatum) -> openDatum
     _ -> traceError $(errorCode WrongStateInOutputDatum)
 {-# INLINEABLE decodeHeadOutputOpenDatum #-}
+
+-- | Check that the lower validity bound of the transaction is strictly after
+-- the contestation deadline. Used by all three fanout paths.
+afterContestationDeadline :: TxInfo -> POSIXTime -> Bool
+afterContestationDeadline txInfo deadline =
+  case ivFrom (txInfoValidRange txInfo) of
+    LowerBound (Finite time) _ ->
+      traceIfFalse $(errorCode LowerBoundBeforeContestationDeadline) $
+        time > deadline
+    _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
+{-# INLINEABLE afterContestationDeadline #-}
+
+-- | Look up the CRS datum from a reference input and pass it to a continuation.
+-- Traces hard errors if the CRS reference input or datum is missing.
+withCRSLookup ::
+  TxInfo ->
+  TxOutRef ->
+  (CRSDatum -> Bool) ->
+  Bool
+withCRSLookup txInfo crsRef cont =
+  case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
+    Nothing -> traceError $(errorCode MissingCRSRefInput)
+    Just txInInfo ->
+      let crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum (txInInfoResolved txInInfo)) of
+            Just d -> d
+            _ -> traceError $(errorCode MissingCRSDatum)
+       in case crsData of
+            [] -> traceError $(errorCode MissingCRSDatum)
+            _ -> cont crsData
+{-# INLINEABLE withCRSLookup #-}
+
+-- | Compute the accumulator scalar for each output in the list.
+-- Used by all three fanout validators ('headIsFinalizedWith', 'checkPartialFanout',
+-- 'checkFinalPartialFanout') to produce subset scalars for 'checkMembershipPairing'.
+-- Each scalar is blake2b_224(hashTxOuts [txOut]), which equals
+-- blake2b_224(sha2_256(serialised)) because 'hashTxOuts' uses sha2_256 internally
+-- (matching what 'Accumulator.addElement' computes off-chain).
+txOutsToSubsetScalars :: [TxOut] -> [Integer]
+txOutsToSubsetScalars outputs =
+  let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
+   in fmap (Builtins.byteStringToInteger BigEndian . elementHash) outputs
+{-# INLINEABLE txOutsToSubsetScalars #-}
 
 emptyHash :: Hash
 emptyHash = hashTxOuts []

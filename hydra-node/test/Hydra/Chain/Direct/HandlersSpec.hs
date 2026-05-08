@@ -153,18 +153,17 @@ spec = do
             PostTxError{} -> failure "Unexpected PostTxError event"
             Tick{} -> pure ()
             Observation{observedTx} -> do
-              let observedTransition =
-                    case observedTx of
-                      OnInitTx{} -> Transition.Init
-                      OnDecrementTx{} -> Transition.Decrement
-                      OnIncrementTx{} -> Transition.Increment
-                      OnCloseTx{} -> Transition.Close
-                      OnContestTx{} -> Transition.Contest
-                      OnFanoutTx{} -> Transition.Fanout
-                      OnDepositTx{} -> error "OnDepositTx not expected"
-                      OnRecoverTx{} -> error "OnRecoverTx not expected"
-                      OnPartialFanoutTx{} -> error "OnPartialFanoutTx not expected"
-              observedTransition `shouldBe` transition
+              case observedTx of
+                OnInitTx{} -> transition `shouldBe` Transition.Init
+                OnDecrementTx{} -> transition `shouldBe` Transition.Decrement
+                OnIncrementTx{} -> transition `shouldBe` Transition.Increment
+                OnCloseTx{} -> transition `shouldBe` Transition.Close
+                OnContestTx{} -> transition `shouldBe` Transition.Contest
+                OnPartialFanoutTx{} -> transition `shouldBe` Transition.PartialFanout
+                -- FinalPartialFanout is observed as OnFanoutTx (same terminal effect)
+                OnFanoutTx{} -> transition `shouldSatisfy` (`elem` [Transition.Fanout, Transition.FinalPartialFanout])
+                OnDepositTx{} -> failure "OnDepositTx not expected"
+                OnRecoverTx{} -> failure "OnRecoverTx not expected"
 
       let handler =
             chainSyncHandler

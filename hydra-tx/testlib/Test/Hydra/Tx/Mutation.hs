@@ -773,6 +773,8 @@ replaceParties parties = \case
         , Head.version = version
         , Head.accumulatorCommitment = accumulatorCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, contestationDeadline, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
 replaceUTxOHash :: Head.Hash -> Head.State -> Head.State
@@ -840,6 +842,8 @@ replaceContestationDeadline contestationDeadline = \case
         , version
         , accumulatorCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
 replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
@@ -878,6 +882,8 @@ replaceAccumulatorCommitment newCommitment = \case
         , Head.version = version
         , Head.accumulatorCommitment = newCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = newCommitment}
   otherState -> otherState
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
@@ -907,6 +913,8 @@ replaceHeadId headId = \case
         , Head.version = version
         , Head.accumulatorCommitment = accumulatorCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{parties, contestationDeadline, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
 replaceContesters :: [Plutus.PubKeyHash] -> Head.State -> Head.State

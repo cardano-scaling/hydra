@@ -62,6 +62,7 @@ import Hydra.Chain.Direct.State (
   contest,
   decrement,
   fanout,
+  finalPartialFanout,
   getKnownUTxO,
   increment,
   initialize,
@@ -479,6 +480,15 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
           case partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlot of
             Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
             Right partialFanoutTx' -> pure partialFanoutTx'
+    FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot of
+            Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
+            Right fanoutTx' -> pure fanoutTx'
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a

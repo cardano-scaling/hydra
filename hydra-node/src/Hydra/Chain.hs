@@ -98,6 +98,11 @@ data PostChainTx tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
+  | FinalPartialFanoutTx
+      { utxoToDistribute :: UTxOType tx
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)

@@ -64,8 +64,8 @@ data HeadError
   | MissingCRSRefInput
   | PartialFanoutMembershipFailed
   | PartialFanoutChangedParameters
-  | PartialFanoutHashesNotCleared
   | AccumulatorCommitmentHashMismatch
+  | FinalPartialFanoutMembershipFailed
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -135,5 +135,5 @@ instance ToErrorCode HeadError where
     -- PartialFanout
     PartialFanoutMembershipFailed -> "H57"
     PartialFanoutChangedParameters -> "H58"
-    PartialFanoutHashesNotCleared -> "H59"
-    AccumulatorCommitmentHashMismatch -> "H60"
+    AccumulatorCommitmentHashMismatch -> "H59"
+    FinalPartialFanoutMembershipFailed -> "H60"
