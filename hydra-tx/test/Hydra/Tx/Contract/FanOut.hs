@@ -9,15 +9,20 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (registryUTxO)
+import Hydra.Tx (mkHeadId, registryUTxO)
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
@@ -25,7 +30,7 @@ import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -112,6 +117,8 @@ data FanoutMutation
   | MutateAddUnexpectedOutput
   | MutateFanoutOutputValue
   | MutateDecommitOutputValue
+  | -- | Inject an unrelated v_deposit input into a healthy Fanout.
+    FanoutAbsorbForeignDeposit
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -145,6 +152,37 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do
+        extraIn <- genTxIn
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        attackerVk <- genVerificationKey
+        let
+          -- Fanout has no upper bound by default; without a finite one
+          -- the deposit validator short-circuits before the later guards.
+          upperSlot = healthySlotNo + 1000
+          upperUTC = slotNoToUTCTime systemStart slotLength upperSlot
+          extraDeadline = addUTCTime (60 * 60 * 24) upperUTC
+          extraDepositOut :: TxOut CtxUTxO
+          extraDepositOut =
+            mkDepositOutput
+              testNetworkId
+              (mkHeadId testPolicyId)
+              extraDeposited
+              extraDeadline
+          attackerOut :: TxOut CtxTx
+          attackerOut =
+            TxOut
+              (mkVkAddress testNetworkId attackerVk)
+              (txOutValue extraDepositOut)
+              TxOutDatumNone
+              ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , AppendOutput attackerOut
+            , AddScript depositValidatorScript
+            , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
+            ]
     ]
  where
   burntTokens =

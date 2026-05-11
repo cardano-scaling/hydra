@@ -10,6 +10,8 @@ changes.
 
 ## [UNRELEASED]
 
+- Improved security for deposits
+
 - Compatible with mithril `2617.0`.
 
 - Retry transient chain-following errors in the Blockfrost backend

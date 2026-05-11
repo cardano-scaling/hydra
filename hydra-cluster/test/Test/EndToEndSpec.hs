@@ -76,6 +76,13 @@ import Hydra.Cluster.Scenarios (
   threeNodesWithMirrorParty,
   waitsForChainInSyncAndSecure,
  )
+import Hydra.Cluster.SecurityScenarios (
+  cannotAbsorbDepositDuringClose,
+  cannotRedirectExtraDepositDuringIncrement,
+  cannotStealDepositWithCounterfeitHeadToken,
+  cannotStealDepositWithoutHeadInput,
+  cannotStealLargerDepositDuringOwnIncrement,
+ )
 import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
@@ -287,6 +294,28 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             nodeReObservesOnChainTxs tracer tmpDir
+
+    describe "security scenarios" $ do
+      it "cannot steal a pending deposit with no head input at all" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            cannotStealDepositWithoutHeadInput tracer tmpDir
+      it "cannot steal a pending deposit using a counterfeit HydraHeadV2 token" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            cannotStealDepositWithCounterfeitHeadToken tracer tmpDir
+      it "cannot redirect an extra deposit during a head Increment" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            cannotRedirectExtraDepositDuringIncrement tracer tmpDir
+      it "cannot absorb a deposit by closing the head" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            cannotAbsorbDepositDuringClose tracer tmpDir
+      it "cannot steal a larger victim deposit during the leaders own Increment" $ \tracer ->
+        withClusterTempDir $ \tmpDir ->
+          withHydraScriptsAndBackendRunning tracer tmpDir $
+            cannotStealLargerDepositDuringOwnIncrement tracer tmpDir
 
     describe "two party hydra head" $ do
       it "can deposit and distribute funds" $ \tracer ->

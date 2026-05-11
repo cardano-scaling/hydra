@@ -1,11 +1,13 @@
 use aiken/builtin
 use aiken/collection/list
+use aiken/collection/pairs
 use aiken/crypto.{Hash, Sha2_256, sha2_256}
 use aiken/interval.{Finite, Interval, IntervalBound}
 use aiken/primitive/bytearray
 use cardano/assets.{PolicyId}
-use cardano/transaction.{Output, OutputReference, Transaction, ValidityRange}
+use cardano/transaction.{Input, Output, OutputReference, Spend, Transaction, ValidityRange}
 use cardano/transaction/output_reference
+use util.{hydra_head_v2}
 
 pub type Commit {
   Commit {
@@ -21,7 +23,7 @@ pub type Datum {
 }
 
 pub type Redeemer {
-  Claim(PolicyId)
+  Claim
   Recover(Int)
 }
 
@@ -31,7 +33,9 @@ type DepositError {
   DepositNoLowerBoundDefined
   DepositPeriodNotReached
   IncorrectDepositHash
-  WrongHeadIdInDepositDatum
+  DepositHeadInputNotFound
+  HeadInputRedeemerNotFound
+  HeadRedeemerNotIncrement
 }
 
 fn toErrorCode(err: DepositError) -> String {
@@ -41,7 +45,9 @@ fn toErrorCode(err: DepositError) -> String {
     DepositNoLowerBoundDefined -> @"D03"
     DepositPeriodNotReached -> @"D04"
     IncorrectDepositHash -> @"D05"
-    WrongHeadIdInDepositDatum -> @"D06"
+    DepositHeadInputNotFound -> @"D06"
+    HeadInputRedeemerNotFound -> @"D07"
+    HeadRedeemerNotIncrement -> @"D08"
   }
 }
 
@@ -49,20 +55,16 @@ validator deposit {
   spend(
     datum: Option<Datum>,
     redeemer: Redeemer,
-    _utxo: OutputReference,
+    _own_ref: OutputReference,
     self: Transaction,
   ) {
     expect Some(datum) = datum
     when redeemer is {
-      Claim(currencySymbol) ->
-       traceIfFalse(
-         toErrorCode(WrongHeadIdInDepositDatum),
-         check_head_id(datum.head_id, currencySymbol),
-       ) &&
-       traceIfFalse(
+      Claim ->
+        traceIfFalse(
           toErrorCode(DepositPeriodSurpassed),
           before_deadline(self.validity_range, datum.deadline),
-        )
+        ) && expect_increment_redeemer(self, datum.head_id)
       Recover(n) ->
         traceIfFalse(
           toErrorCode(DepositPeriodNotReached),
@@ -76,9 +78,38 @@ validator deposit {
   }
 }
 
+fn expect_increment_redeemer(self: Transaction, head_id: PolicyId) -> Bool {
+  when
+    list.find(
+      self.inputs,
+      fn(i) { assets.quantity_of(i.output.value, head_id, hydra_head_v2) == 1 },
+    )
+  is {
+    None -> {
+      trace toErrorCode(DepositHeadInputNotFound)
+      False
+    }
+    Some(head_input) ->
+      when
+        pairs.get_first(self.redeemers, Spend(head_input.output_reference))
+      is {
+        None -> {
+          trace toErrorCode(HeadInputRedeemerNotFound)
+          False
+        }
+        Some(head_redeemer) ->
+          traceIfFalse(
+            toErrorCode(HeadRedeemerNotIncrement),
+            is_head_increment(head_redeemer),
+          )
+      }
+  }
+}
 
-fn check_head_id(datumCS: ByteArray, redeemerCS: ByteArray) {
-  datumCS == redeemerCS
+// True if the redeemer spending the head input is the Increment variant of
+// the head validator's Input type.
+fn is_head_increment(d: Data) -> Bool {
+  builtin.un_constr_data(d).1st == 1 // In HeadState.hs "Increment" is the second constructor.
 }
 
 fn before_deadline(range: ValidityRange, dl) {

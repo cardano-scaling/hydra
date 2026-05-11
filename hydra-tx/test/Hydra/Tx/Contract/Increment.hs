@@ -158,7 +158,8 @@ data IncrementMutation
   = -- | Move the deadline from the deposit datum back in time
     -- so that the increment upper bound is after the deadline
     DepositMutateDepositPeriod
-  | -- | Alter the head id
+  | -- | Change the head id stored in the deposit datum away from the
+    -- head being incremented; checkIncrement must reject this.
     DepositMutateHeadId
   | -- | Change parties in increment output datum
     IncrementMutateParties
@@ -172,6 +173,9 @@ data IncrementMutation
     AlterRequiredSigner
   | -- | Alter the Claim redeemer `TxOutRef`
     IncrementDifferentClaimRedeemer
+  | -- | Add a second v_deposit input alongside an attacker-controlled
+    -- output that redirects its value away from the head's continuation.
+    IncrementAddExtraDepositInput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -184,16 +188,16 @@ genIncrementMutation (tx, utxo) =
                   ((headCS', depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
                     (headCS', Plutus.POSIXTime $ Plutus.getPOSIXTime depositDatumDeadline - 1000, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
-        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (toPlutusCurrencySymbol testPolicyId))
-    , SomeMutation (pure $ toErrorCode WrongHeadIdInDepositDatum) DepositMutateHeadId <$> do
-        otherHeadId <- arbitrary
+        pure $ ChangeInput depositIn newOutput (Just $ toScriptData Claim)
+    , SomeMutation (pure $ toErrorCode DepositHeadInputNotFound) DepositMutateHeadId <$> do
+        otherHeadId <- arbitrary `suchThat` (/= toPlutusCurrencySymbol testPolicyId)
         let datum =
               txOutDatum $
                 flip modifyInlineDatum (fromCtxUTxOTxOut depositOut) $ \case
                   ((_headCS, depositDatumDeadline, commits) :: (Plutus.CurrencySymbol, Plutus.POSIXTime, [Commit])) ->
                     (otherHeadId, depositDatumDeadline, commits)
         let newOutput = toCtxUTxOTxOut $ TxOut addr val datum rscript
-        pure $ ChangeInput depositIn newOutput (Just $ toScriptData $ Claim (toPlutusCurrencySymbol testPolicyId))
+        pure $ ChangeInput depositIn newOutput (Just $ toScriptData Claim)
     , SomeMutation (pure $ toErrorCode ChangedParameters) IncrementMutateParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceParties mutatedParties) headTxOut
@@ -225,6 +229,25 @@ genIncrementMutation (tx, utxo) =
               , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
               , increment = toPlutusTxOutRef invalidDepositRef
               }
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAddExtraDepositInput <$> do
+        extraIn <- genTxIn `suchThat` (/= depositIn)
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        attackerVk <- genVerificationKey
+        let extraDepositOut :: TxOut CtxUTxO
+            extraDepositOut =
+              mkDepositOutput testNetworkId (mkHeadId testPolicyId) extraDeposited healthyDeadline
+            attackerOut :: TxOut CtxTx
+            attackerOut =
+              TxOut
+                (mkVkAddress testNetworkId attackerVk)
+                (txOutValue extraDepositOut)
+                TxOutDatumNone
+                ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , AppendOutput attackerOut
+            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

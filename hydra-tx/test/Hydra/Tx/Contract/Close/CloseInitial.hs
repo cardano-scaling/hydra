@@ -9,10 +9,14 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadState qualified as HeadState
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -34,17 +38,20 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyOpenHeadTxOut,
   somePartyCardanoVerificationKey,
  )
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Snapshot (getSnapshot)
-import Hydra.Tx.Utils (IncrementalAction (..), setIncrementalActionMaybe)
+import Hydra.Tx.Utils (IncrementalAction (..), adaOnly, setIncrementalActionMaybe)
 import PlutusLedgerApi.V3 (POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genScriptRegistry)
+import Test.Hydra.Tx.Gen (genScriptRegistry, genUTxOSized, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), modifyInlineDatum, replaceContestationDeadline)
 import Test.QuickCheck (oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
 data CloseInitialMutation
   = MutateCloseContestationDeadline'
+  | -- | Inject an unrelated v_deposit input into a healthy Close.
+    CloseAbsorbForeignDeposit
   deriving stock (Generic, Show, Enum, Bounded)
 
 healthyCloseSnapshotVersion :: SnapshotVersion
@@ -117,9 +124,40 @@ healthyInitialOpenDatum =
 --- right away.
 genCloseInitialMutation :: (Tx, UTxO) -> Gen SomeMutation
 genCloseInitialMutation (tx, _utxo) =
-  SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
-    mutatedDeadline <- genMutatedDeadline
-    pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
+  oneof
+    [ SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateCloseContestationDeadline' <$> do
+        mutatedDeadline <- genMutatedDeadline
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceContestationDeadline mutatedDeadline) headTxOut
+    , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) CloseAbsorbForeignDeposit <$> do
+        extraIn <- genTxIn
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        attackerVk <- genVerificationKey
+        let
+          -- Past the tx upper bound, so the deadline check passes and
+          -- the later guard fires instead.
+          extraDeadline =
+            addUTCTime (60 * 60 * 24) (snd healthyCloseUpperBoundPointInTime)
+          extraDepositOut :: TxOut CtxUTxO
+          extraDepositOut =
+            mkDepositOutput
+              Fixture.testNetworkId
+              (mkHeadId Fixture.testPolicyId)
+              extraDeposited
+              extraDeadline
+          attackerOut :: TxOut CtxTx
+          attackerOut =
+            TxOut
+              (mkVkAddress Fixture.testNetworkId attackerVk)
+              (txOutValue extraDepositOut)
+              TxOutDatumNone
+              ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , AddScript depositValidatorScript
+            , AppendOutput attackerOut
+            ]
+    ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
 

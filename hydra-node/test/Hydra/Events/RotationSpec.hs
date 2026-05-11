@@ -253,7 +253,7 @@ newtype TrivialEvent = TrivialEvent Word64
   deriving newtype (Num, Show, Eq)
 
 newtype ChunkedEvents = ChunkedEvents [[TrivialEvent]]
-  deriving (Show)
+  deriving stock (Show)
 
 instance Arbitrary ChunkedEvents where
   arbitrary = sized $ \n -> do

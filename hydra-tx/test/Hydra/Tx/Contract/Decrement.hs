@@ -16,10 +16,15 @@ import Test.Hydra.Tx.Mutation (
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Gen ()
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
@@ -27,6 +32,7 @@ import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutus
 import Hydra.Tx.Decrement (
   decrementTx,
  )
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
@@ -36,7 +42,7 @@ import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
-import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
@@ -174,6 +180,14 @@ data DecrementMutation
   | -- | Invalidates the tx by changing the snapshot version in resulting head
     -- output.
     UseDifferentSnapshotVersion
+  | -- | Inject an unrelated v_deposit input into a healthy Decrement and
+    -- route its value to an attacker-controlled output. The deposit
+    -- script's @claim_check@ passes (the head's continuation is still
+    -- @Open@ after a Decrement), so the head validator is the only
+    -- layer that can catch the redirected value -- via the analog of
+    -- Increment's mustPreserveValue summing every non-head script
+    -- input.
+    DecrementAddExtraDepositInput
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -217,6 +231,40 @@ genDecrementMutation (tx, _utxo) =
         pure $ RemoveOutput (fromIntegral ix)
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ExtractSomeValue <$> do
         extractHeadOutputValue headTxOut testPolicyId
+    , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) DecrementAddExtraDepositInput <$> do
+        extraIn <- genTxIn
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        attackerVk <- genVerificationKey
+        let
+          -- Pick an arbitrary upper-validity slot for the tx (the
+          -- healthy Decrement tx leaves validity unbounded). The
+          -- deposit's deadline is set comfortably past it so the
+          -- deposit script's before_deadline check passes and the
+          -- head validator becomes the only layer that could reject.
+          upperSlot = SlotNo 100
+          upperUTC = slotNoToUTCTime systemStart slotLength upperSlot
+          extraDeadline = addUTCTime (60 * 60 * 24) upperUTC
+          extraDepositOut :: TxOut CtxUTxO
+          extraDepositOut =
+            mkDepositOutput
+              testNetworkId
+              (mkHeadId testPolicyId)
+              extraDeposited
+              extraDeadline
+          attackerOut :: TxOut CtxTx
+          attackerOut =
+            TxOut
+              (mkVkAddress testNetworkId attackerVk)
+              (txOutValue extraDepositOut)
+              TxOutDatumNone
+              ReferenceScriptNone
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , AppendOutput attackerOut
+            , AddScript depositValidatorScript
+            , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
+            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

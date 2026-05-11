@@ -21,7 +21,7 @@ import PlutusTx qualified
 
 data DepositRedeemer
   = -- | Claims already deposited funds.
-    Claim CurrencySymbol
+    Claim
   | -- | Recovers m number of deposited outputs.
     Recover Integer
 

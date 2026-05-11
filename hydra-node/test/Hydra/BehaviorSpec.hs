@@ -1078,7 +1078,8 @@ waitUntilMatch nodes predicate = do
   threeDays = 3600 * 24 * 3
 
 newtype NodeId = Node Natural
-  deriving (Enum, Show)
+  deriving stock (Show)
+  deriving newtype (Enum)
 
 -- XXX: The names of the following handles and functions are confusing.
 

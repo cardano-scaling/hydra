@@ -204,7 +204,7 @@ prop_runActions actions =
 -- * ============================== MODEL WORLD ==========================
 
 data SingleUTxO = A | B | C | D | E | F | G | H | I
-  deriving (Show, Eq, Ord, Enum, Generic)
+  deriving stock (Show, Eq, Ord, Enum, Generic)
 
 instance Arbitrary SingleUTxO where
   arbitrary = genericArbitrary
@@ -226,7 +226,7 @@ data Model = Model
     -- snapshots and to remember the pending (delta) utxo during close/fanout
     pendingDecommit :: ModelUTxO
   }
-  deriving (Show)
+  deriving stock (Show)
 
 latestSnapshotNumber :: [ModelSnapshot] -> SnapshotNumber
 latestSnapshotNumber = \case
@@ -242,7 +242,7 @@ data ModelSnapshot = ModelSnapshot
   , toCommit :: ModelUTxO
   , toDecommit :: ModelUTxO
   }
-  deriving (Show, Eq, Ord, Generic)
+  deriving stock (Show, Eq, Ord, Generic)
 
 instance Num ModelSnapshot where
   _ + _ = error "undefined"
@@ -263,10 +263,10 @@ data State
   = Open
   | Closed
   | Final
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 data Actor = Alice | Bob | Carol
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
 
 -- | Result of constructing and performing a transaction. Notably there are
 -- three stages to this which can fail: construction, validation, and
@@ -277,7 +277,7 @@ data TxResult = TxResult
   , validationError :: Maybe String
   , observation :: HeadObservation
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 instance StateModel Model where
   data Action Model a where
@@ -576,8 +576,8 @@ instance HasVariables Model where
 instance HasVariables (Action Model a) where
   getAllVariables = mempty
 
-deriving instance Eq (Action Model a)
-deriving instance Show (Action Model a)
+deriving stock instance Eq (Action Model a)
+deriving stock instance Show (Action Model a)
 
 -- * ============================== REAL WORLD ==========================
 

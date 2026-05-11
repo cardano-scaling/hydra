@@ -38,7 +38,8 @@ import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
 import PlutusLedgerApi.V3 (
-  Address,
+  Address (..),
+  Credential (..),
   CurrencySymbol,
   Datum (..),
   Extended (Finite),
@@ -91,15 +92,15 @@ headValidator oldState input ctx =
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
--- | Try to find the deposit datum in the input and
--- if it is there return the committed utxo
-depositDatum :: TxOut -> [Commit]
+-- | Try to find the deposit datum in the input and, if it is there,
+-- return the head id the deposit was created for and the committed utxo.
+depositDatum :: TxOut -> Maybe (CurrencySymbol, [Commit])
 depositDatum input = do
   let datum = getTxOutDatum input
   case fromBuiltinData @Deposit.DepositDatum $ getDatum datum of
-    Just (_headId, _deadline, commits) ->
-      commits
-    Nothing -> []
+    Just (headId, _deadline, commits) ->
+      Just (headId, commits)
+    Nothing -> Nothing
 {-# INLINEABLE depositDatum #-}
 
 -- | Verify a increment transaction.
@@ -112,7 +113,7 @@ checkIncrement ::
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
-    && mustIncreaseValue
+    && mustPreserveValue
     && mustBeSignedByParticipant ctx prevHeadId
     && checkSnapshotSignature
     && claimedDepositIsSpent
@@ -124,18 +125,32 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
       Nothing -> traceError $(errorCode DepositInputNotFound)
       Just i -> i
 
-  commits = depositDatum $ txInInfoResolved depositInput
+  (_, commits) =
+    case depositDatum (txInInfoResolved depositInput) of
+      Just (h, cs) -> (h, cs)
+      Nothing -> traceError $(errorCode DepositInputNotFound)
 
   depositHash = hashPreSerializedCommits commits
 
-  depositValue = txOutValue $ txInInfoResolved depositInput
-
-  headInValue =
-    case L.find (hasST prevHeadId) $ txOutValue . txInInfoResolved <$> inputs of
+  headTxIn =
+    case L.find (hasST prevHeadId . txOutValue . txInInfoResolved) inputs of
       Nothing -> traceError $(errorCode HeadInputNotFound)
       Just i -> i
 
+  headInValue = txOutValue (txInInfoResolved headTxIn)
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
+
+  -- Sum of every script input that is not the head input itself.
+  -- Pub-key inputs (e.g. fee payers) are excluded so they don't inflate the
+  -- expected head output value.
+  totalNonHeadInputValue =
+    F.foldMap (txOutValue . txInInfoResolved) $
+      L.filter (\i -> txInInfoOutRef i /= txInInfoOutRef headTxIn && isScriptInput (txInInfoResolved i)) inputs
+
+  isScriptInput txOut =
+    case addressCredential (txOutAddress txOut) of
+      ScriptCredential _ -> True
+      PubKeyCredential _ -> False
 
   IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
 
@@ -150,14 +165,15 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
-  -- TODO: This is not as flexible as it could be and rejects deposits that are
-  -- smaller than what the deposit output's min utxo value is. For example: a 1
-  -- ADA utxo can be deposited, but the deposit tx's output will require ~1.5
-  -- ADA because of the inline datum on it. An increment of that deposit will
-  -- fail because the sum here is not exact.
-  mustIncreaseValue =
+  -- TODO: This is not as flexible as it could be and rejects deposits
+  -- that are smaller than what the deposit output's min utxo value is.
+  -- For example: a 1 ADA utxo can be deposited, but the deposit tx's
+  -- output will require ~1.5 ADA because of the inline datum on it. An
+  -- increment of that deposit will fail because the sum here is not
+  -- exact.
+  mustPreserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue <> depositValue == headOutValue
+      headInValue <> totalNonHeadInputValue == headOutValue
 
   OpenDatum
     { parties = prevParties
@@ -186,6 +202,7 @@ checkDecrement ctx openBefore redeemer =
   mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
+    -- && mustPreserveValue
     && mustDecreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
  where
