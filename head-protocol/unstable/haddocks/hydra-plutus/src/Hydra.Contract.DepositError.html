@@ -12,8 +12,10 @@
 </span><span id="line-12"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DepositNoLowerBoundDefined"><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositNoLowerBoundDefined"><span class="hs-identifier hs-var">DepositNoLowerBoundDefined</span></a></span></span><span>
 </span><span id="line-13"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DepositPeriodNotReached"><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositPeriodNotReached"><span class="hs-identifier hs-var">DepositPeriodNotReached</span></a></span></span><span>
 </span><span id="line-14"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="IncorrectDepositHash"><span class="annot"><a href="Hydra.Contract.DepositError.html#IncorrectDepositHash"><span class="hs-identifier hs-var">IncorrectDepositHash</span></a></span></span><span>
-</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="WrongHeadIdInDepositDatum"><span class="annot"><a href="Hydra.Contract.DepositError.html#WrongHeadIdInDepositDatum"><span class="hs-identifier hs-var">WrongHeadIdInDepositDatum</span></a></span></span><span>
-</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679471613"><span id="local-6989586621679471615"><span id="local-6989586621679471619"><span class="annot"><span class="annottext">Int -&gt; DepositError -&gt; ShowS
+</span><span id="line-15"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="DepositHeadInputNotFound"><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositHeadInputNotFound"><span class="hs-identifier hs-var">DepositHeadInputNotFound</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HeadInputRedeemerNotFound"><span class="annot"><a href="Hydra.Contract.DepositError.html#HeadInputRedeemerNotFound"><span class="hs-identifier hs-var">HeadInputRedeemerNotFound</span></a></span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HeadRedeemerNotIncrement"><span class="annot"><a href="Hydra.Contract.DepositError.html#HeadRedeemerNotIncrement"><span class="hs-identifier hs-var">HeadRedeemerNotIncrement</span></a></span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679472189"><span id="local-6989586621679472191"><span id="local-6989586621679472195"><span class="annot"><span class="annottext">Int -&gt; DepositError -&gt; ShowS
 [DepositError] -&gt; ShowS
 DepositError -&gt; String
 (Int -&gt; DepositError -&gt; ShowS)
@@ -29,26 +31,32 @@ show :: DepositError -&gt; String
 $cshowList :: [DepositError] -&gt; ShowS
 showList :: [DepositError] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
-</span><span id="line-17"></span><span>
-</span><span id="line-18"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositError"><span class="hs-identifier hs-type">DepositError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-19"></span><span>  </span><span id="local-6989586621679471632"><span class="annot"><span class="annottext">toErrorCode :: DepositError -&gt; Text
-</span><a href="#local-6989586621679471632"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
-</span><span id="line-20"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="Hydra.Contract.Error.html#ToErrorCode"><span class="hs-identifier hs-type">ToErrorCode</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.DepositError.html#DepositError"><span class="hs-identifier hs-type">DepositError</span></a></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-21"></span><span>  </span><span id="local-6989586621679472210"><span class="annot"><span class="annottext">toErrorCode :: DepositError -&gt; Text
+</span><a href="#local-6989586621679472210"><span class="hs-identifier hs-var hs-var hs-var hs-var">toErrorCode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-22"></span><span>    </span><span class="annot"><span class="annottext">DepositError
 </span><a href="Hydra.Contract.DepositError.html#DepositPeriodSurpassed"><span class="hs-identifier hs-var">DepositPeriodSurpassed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;D01&quot;</span></span><span>
-</span><span id="line-21"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><span id="line-23"></span><span>    </span><span class="annot"><span class="annottext">DepositError
 </span><a href="Hydra.Contract.DepositError.html#DepositNoUpperBoundDefined"><span class="hs-identifier hs-var">DepositNoUpperBoundDefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;D02&quot;</span></span><span>
-</span><span id="line-22"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">DepositError
 </span><a href="Hydra.Contract.DepositError.html#DepositNoLowerBoundDefined"><span class="hs-identifier hs-var">DepositNoLowerBoundDefined</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;D03&quot;</span></span><span>
-</span><span id="line-23"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><span id="line-25"></span><span>    </span><span class="annot"><span class="annottext">DepositError
 </span><a href="Hydra.Contract.DepositError.html#DepositPeriodNotReached"><span class="hs-identifier hs-var">DepositPeriodNotReached</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;D04&quot;</span></span><span>
-</span><span id="line-24"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><span id="line-26"></span><span>    </span><span class="annot"><span class="annottext">DepositError
 </span><a href="Hydra.Contract.DepositError.html#IncorrectDepositHash"><span class="hs-identifier hs-var">IncorrectDepositHash</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;D05&quot;</span></span><span>
-</span><span id="line-25"></span><span>    </span><span class="annot"><span class="annottext">DepositError
-</span><a href="Hydra.Contract.DepositError.html#WrongHeadIdInDepositDatum"><span class="hs-identifier hs-var">WrongHeadIdInDepositDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span id="line-27"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><a href="Hydra.Contract.DepositError.html#DepositHeadInputNotFound"><span class="hs-identifier hs-var">DepositHeadInputNotFound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;D06&quot;</span></span><span>
-</span><span id="line-26"></span></pre></body></html>
+</span><span id="line-28"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><a href="Hydra.Contract.DepositError.html#HeadInputRedeemerNotFound"><span class="hs-identifier hs-var">HeadInputRedeemerNotFound</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;D07&quot;</span></span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">DepositError
+</span><a href="Hydra.Contract.DepositError.html#HeadRedeemerNotIncrement"><span class="hs-identifier hs-var">HeadRedeemerNotIncrement</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;D08&quot;</span></span><span>
+</span><span id="line-30"></span></pre></body></html>

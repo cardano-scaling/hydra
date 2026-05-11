@@ -703,8 +703,8 @@ getHeadUTxO :: HeadState tx -> Maybe (UTxOType tx)
 -- | Get the latest confirmed snapshot from an open node, failing if the
 --   node is not in an open state.
 getConfirmedSnapshotFromNode :: (HasCallStack, MonadThrow m) => TestHydraClient tx m -> m (ConfirmedSnapshot tx)
-instance GHC.Show.Show Hydra.BehaviorSpec.NodeId
 instance GHC.Enum.Enum Hydra.BehaviorSpec.NodeId
+instance GHC.Show.Show Hydra.BehaviorSpec.NodeId
 
 module Hydra.Model.MockChain
 

@@ -610,17 +610,17 @@ EndWaiting :: Int -> HydraNodeLog
 
 module Hydra.Cluster.Scenarios
 oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-
--- | Return the remaining funds to the faucet
-returnFundsToFaucet :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> IO ()
 headIsOpenWith :: Set Party -> Value -> Maybe HeadId
-restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-resumeFromLatestKnownPoint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Refuel given <a>Actor</a> with given <tt>Lovelace</tt> if current
 --   marked UTxO is below that amount.
 refuelIfNeeded :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> Coin -> IO ()
+
+-- | Return the remaining funds to the faucet
+returnFundsToFaucet :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> IO ()
+restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+resumeFromLatestKnownPoint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Get the base URL for HTTP API calls to a hydra-node.
@@ -741,3 +741,142 @@ UsingHydraScriptsAt :: [TxId] -> EndToEndLog
 [$sel:hydraScriptsTxId:ClusterOptions] :: EndToEndLog -> [TxId]
 CreatedKey :: FilePath -> EndToEndLog
 [$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+
+
+-- | End-to-end regression tests for the deposit-stealing class of bugs.
+module Hydra.Cluster.SecurityScenarios
+
+-- | Regression test for the standalone-Claim deposit-stealing attack.
+--   
+--   A third party submits a standalone tx that spends a pending deposit
+--   UTxO with the <tt>Claim</tt> redeemer, redirecting the value to their
+--   own address. The tx has no Head input at all, so there is no Head
+--   output either. The deposit validator's <tt>Claim</tt> branch requires
+--   some transaction output to carry a Head state-token whose policy id
+--   matches <tt>datum.head_id</tt>, so the standalone tx fails with
+--   <tt>HeadOutputNotFound</tt> (D07).
+cannotStealDepositWithoutHeadInput :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | The attacker mints a counterfeit token of asset name
+--   <tt>HydraHeadV2</tt> under a permissive minting policy they control,
+--   locks it in their own wallet, and uses that UTxO as bait alongside a
+--   victim deposit. The deposit validator's <tt>Claim</tt> branch requires
+--   a transaction output carrying a Head state-token whose policy id
+--   matches <tt>datum.head_id</tt>; a counterfeit <tt>HydraHeadV2</tt>
+--   minted under any non-head policy is absent from the outputs, so the tx
+--   is rejected with <tt>HeadOutputNotFound</tt> (D07).
+cannotStealDepositWithCounterfeitHeadToken :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Place a deposit of <tt>amount</tt> lovelace from a fresh wallet into
+--   the head managed by <tt>n1</tt>. Returns the wallet's verification key
+--   (so its balance can be queried later) and the deposit transaction id.
+placeVictimDeposit :: Tracer IO EndToEndLog -> ChainBackendOptions -> HydraClient -> Timing -> Integer -> IO (VerificationKey PaymentKey, TxId)
+
+-- | Encapsulates the moving parts of an attempted-steal transaction.
+data AttemptArgs
+AttemptArgs :: Tracer IO EndToEndLog -> ChainBackendOptions -> TxIn -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] -> TxIn -> [TxOut CtxTx] -> SigningKey PaymentKey -> AddressInEra -> UTxO -> AttemptArgs
+[$sel:tracer:AttemptArgs] :: AttemptArgs -> Tracer IO EndToEndLog
+[$sel:opts:AttemptArgs] :: AttemptArgs -> ChainBackendOptions
+
+-- | Diagnostic / naming hook for the "primary" deposit being attacked.
+[$sel:depositTxIn:AttemptArgs] :: AttemptArgs -> TxIn
+
+-- | Deposit-script UTxOs being attacked. The first entry is wired up as a
+--   Claim-witnessed input by the helper; additional deposit inputs (for
+--   amplification cases) must be passed through
+--   <a>$sel:extraInputs:AttemptArgs</a> with their own deposit-script
+--   witness. TODO: This may not need to be alist, and should be more
+--   simply a <a>UTxO</a> type.
+[$sel:depositTxOuts:AttemptArgs] :: AttemptArgs -> [(TxIn, TxOut CtxUTxO)]
+
+-- | Additional non-deposit-script inputs (key witnesses or extra deposit
+--   script witnesses for amplification cases).
+[$sel:extraInputs:AttemptArgs] :: AttemptArgs -> [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))]
+[$sel:collateralIn:AttemptArgs] :: AttemptArgs -> TxIn
+[$sel:extraOutputs:AttemptArgs] :: AttemptArgs -> [TxOut CtxTx]
+[$sel:attackerSk:AttemptArgs] :: AttemptArgs -> SigningKey PaymentKey
+[$sel:attackerAddr:AttemptArgs] :: AttemptArgs -> AddressInEra
+[$sel:spendable:AttemptArgs] :: AttemptArgs -> UTxO
+
+-- | Build, (try to) submit a steal transaction, and assert it is rejected
+--   by either the autobalancer's script-evaluation phase (a <a>Left</a>
+--   from <a>buildTransactionWithBody</a> whose error trace mentions
+--   <tt>HeadOutputNotFound</tt>/D07) or by the node's submission phase (a
+--   thrown <tt>SubmitTransactionException</tt>).
+attemptStealAndAssertRejected :: AttemptArgs -> IO ()
+requireSingletonUTxO :: HasCallStack => String -> UTxO -> IO (TxIn, TxOut CtxUTxO)
+assertDepositStillLocked :: ChainBackendOptions -> TxId -> Value -> IO ()
+assertWalletLovelace :: ChainBackendOptions -> VerificationKey PaymentKey -> Integer -> IO ()
+
+-- | A malicious participant of a head constructs an Increment-shaped
+--   transaction that consumes the head's ST + the redeemer-specified
+--   deposit + ANOTHER pending deposit for the same head, and routes the
+--   extra deposit's value to attacker-controlled outputs.
+--   
+--   Setup: 1-party head (Alice). Two unrelated depositors (V1 and V2) each
+--   deposit funds for Alice's head. Alice (the malicious participant)
+--   constructs an Increment that claims V1's deposit (which is in the
+--   snapshot Alice signs) but ALSO consumes V2's deposit and routes its
+--   value to a Kate address. The head validator's
+--   <tt>mustPreserveValue</tt> sums every non-head input and requires
+--   <tt>head_in + Σ non-head inputs == head_out</tt>, so V2's value
+--   escaping to Kate makes the equation fail and the tx is rejected with
+--   <tt>HeadValueIsNotPreserved</tt> (H4).
+cannotRedirectExtraDepositDuringIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Like <a>placeVictimDeposit</a> but does not wait for the hydra-node to
+--   emit <tt>CommitRecorded</tt>. The caller is expected to exit the
+--   <a>withHydraNode</a> bracket promptly so the node cannot submit its
+--   own honest Increment for the deposit.
+placeVictimDepositNoWait :: Tracer IO EndToEndLog -> ChainBackendOptions -> HydraClient -> Integer -> IO (VerificationKey PaymentKey, TxId)
+
+-- | Poll the chain for a UTxO at the given TxIn until it appears. Times
+--   out after ~30 seconds.
+waitForOnChainUTxO :: ChainBackendOptions -> TxIn -> IO UTxO
+
+-- | Locate the head's continuation UTxO at v_head address, identified by
+--   its state token policy id matching the head id.
+findHeadContinuationUTxO :: ChainBackendOptions -> NetworkId -> HeadId -> IO (TxIn, TxOut CtxUTxO, OpenDatum)
+
+-- | Read the <tt>[Commit]</tt> list from a deposit-script UTxO's inline
+--   datum.
+readDepositCommits :: TxOut CtxUTxO -> IO [Commit]
+
+-- | A malicious head participant closes the head with a transaction that
+--   ALSO spends a foreign deposit input, padding the closed-state
+--   continuation's value with the deposit's value (mustPreserveHeadValue
+--   uses <tt>geq</tt>, so head_out &gt; head_in is allowed). After the
+--   contestation deadline they fanout the absorbed value to their own
+--   address. The deposit validator's <tt>head_output_is_open</tt> check
+--   requires the head's continuation datum to be the Open state, so Close
+--   <i> Contest </i> Fanout transitions cannot absorb deposits and the tx
+--   is rejected with <tt>HeadOutputNotOpen</tt> (D06).
+--   
+--   The test uses the simplest of the close redeemers,
+--   <a>CloseInitial</a>, which doesn't require an off-chain snapshot
+--   signature: just snapshotNumber = 0 and utxoHash = the open's
+--   initialUtxoHash.
+cannotAbsorbDepositDuringClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | The malicious snapshot leader places their own SMALL deposit alongside
+--   a much LARGER unrelated victim deposit, then constructs an Increment
+--   that claims their own small deposit (which is in the snapshot they
+--   sign) but ALSO consumes the victim's larger deposit and routes its
+--   value to a leader-controlled wallet ("their own pocket") rather than
+--   to the head.
+--   
+--   Compared to <a>cannotRedirectExtraDepositDuringIncrement</a> (two
+--   unrelated depositors, redirection to a third party), this captures the
+--   threat model where the leader benefits *directly* and uses their own
+--   honest deposit as cover ("I was just incrementing my deposit"). The
+--   asymmetric amounts (small honest, large stolen) make the economic
+--   motive explicit.
+--   
+--   The on-chain defense is the same: the head validator's
+--   <tt>mustPreserveValue</tt> sums every non-head input and requires
+--   <tt>head_in + Σ non-head inputs == head_out</tt>. With the victim's
+--   value routed to a non-Head output, the equation fails and the tx is
+--   rejected with <tt>HeadValueIsNotPreserved</tt> (H4).
+--   
+--   TODO: This could move into the MutationSpec or the TraceSpec.
+cannotStealLargerDepositDuringOwnIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()

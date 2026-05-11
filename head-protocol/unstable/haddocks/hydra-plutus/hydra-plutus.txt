@@ -46,7 +46,7 @@ module Hydra.Contract.Deposit
 data DepositRedeemer
 
 -- | Claims already deposited funds.
-Claim :: CurrencySymbol -> DepositRedeemer
+Claim :: DepositRedeemer
 
 -- | Recovers m number of deposited outputs.
 Recover :: Integer -> DepositRedeemer
@@ -126,7 +126,9 @@ DepositNoUpperBoundDefined :: DepositError
 DepositNoLowerBoundDefined :: DepositError
 DepositPeriodNotReached :: DepositError
 IncorrectDepositHash :: DepositError
-WrongHeadIdInDepositDatum :: DepositError
+DepositHeadInputNotFound :: DepositError
+HeadInputRedeemerNotFound :: DepositError
+HeadRedeemerNotIncrement :: DepositError
 instance GHC.Show.Show Hydra.Contract.DepositError.DepositError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.DepositError.DepositError
 
@@ -544,9 +546,9 @@ type DatumType = State
 type RedeemerType = Input
 headValidator :: State -> Input -> ScriptContext -> Bool
 
--- | Try to find the deposit datum in the input and if it is there return
---   the committed utxo
-depositDatum :: TxOut -> [Commit]
+-- | Try to find the deposit datum in the input and, if it is there, return
+--   the head id the deposit was created for and the committed utxo.
+depositDatum :: TxOut -> Maybe (CurrencySymbol, [Commit])
 
 -- | Verify a increment transaction.
 checkIncrement :: ScriptContext -> OpenDatum -> IncrementRedeemer -> Bool

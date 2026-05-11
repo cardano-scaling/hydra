@@ -285,6 +285,9 @@ instance GHC.Generics.Generic Hydra.Tx.Contract.Close.CloseUnused.CloseMutation
 module Hydra.Tx.Contract.Close.CloseInitial
 data CloseInitialMutation
 MutateCloseContestationDeadline' :: CloseInitialMutation
+
+-- | Inject an unrelated v_deposit input into a healthy Close.
+CloseAbsorbForeignDeposit :: CloseInitialMutation
 healthyCloseSnapshotVersion :: SnapshotVersion
 
 -- | Healthy close transaction for the specific case were we close a head
@@ -446,6 +449,9 @@ MutatePartiesInOutput :: ContestMutation
 -- | Ensures headId do not change between head input datum and head output
 --   datum.
 MutateHeadIdInOutput :: ContestMutation
+
+-- | Inject an unrelated v_deposit input into a healthy Contest.
+ContestAbsorbForeignDeposit :: ContestMutation
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Contest.ContestCurrent.ContestMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Contest.ContestCurrent.ContestMutation
@@ -498,6 +504,14 @@ ExtractSomeValue :: DecrementMutation
 -- | Invalidates the tx by changing the snapshot version in resulting head
 --   output.
 UseDifferentSnapshotVersion :: DecrementMutation
+
+-- | Inject an unrelated v_deposit input into a healthy Decrement and route
+--   its value to an attacker-controlled output. The deposit script's
+--   <tt>claim_check</tt> passes (the head's continuation is still
+--   <tt>Open</tt> after a Decrement), so the head validator is the only
+--   layer that can catch the redirected value -- via the analog of
+--   Increment's mustPreserveValue summing every non-head script input.
+DecrementAddExtraDepositInput :: DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Remove a random asset and quantity from headOutput by adding another
@@ -545,6 +559,9 @@ MutateThreadTokenQuantity :: FanoutMutation
 MutateAddUnexpectedOutput :: FanoutMutation
 MutateFanoutOutputValue :: FanoutMutation
 MutateDecommitOutputValue :: FanoutMutation
+
+-- | Inject an unrelated v_deposit input into a healthy Fanout.
+FanoutAbsorbForeignDeposit :: FanoutMutation
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.FanOut.FanoutMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.FanOut.FanoutMutation
@@ -573,7 +590,8 @@ data IncrementMutation
 --   increment upper bound is after the deadline
 DepositMutateDepositPeriod :: IncrementMutation
 
--- | Alter the head id
+-- | Change the head id stored in the deposit datum away from the head
+--   being incremented; checkIncrement must reject this.
 DepositMutateHeadId :: IncrementMutation
 
 -- | Change parties in increment output datum
@@ -593,6 +611,10 @@ AlterRequiredSigner :: IncrementMutation
 
 -- | Alter the Claim redeemer <tt>TxOutRef</tt>
 IncrementDifferentClaimRedeemer :: IncrementMutation
+
+-- | Add a second v_deposit input alongside an attacker-controlled output
+--   that redirects its value away from the head's continuation.
+IncrementAddExtraDepositInput :: IncrementMutation
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Increment.IncrementMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Increment.IncrementMutation
