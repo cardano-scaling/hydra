@@ -69,21 +69,12 @@ data StateChanged tx
       , parties :: [Party]
       }
   | TransactionReceived {tx :: tx}
-  | -- | A transaction was successfully applied to the local UTxO. The
-    -- post-tx UTxO is not persisted on this event — it is recomputed in
-    -- 'aggregate' from 'tx' via 'applyTxTo'. This keeps per-event size
-    -- bounded by the tx itself rather than the full UTxO set.
-    TransactionAppliedToLocalUTxO
+  | TransactionAppliedToLocalUTxO
       { headId :: HeadId
       , tx :: tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
-  | -- | A snapshot was requested by some party. The post-snapshot local UTxO
-    -- is not stored: aggregate recomputes it from
-    -- @requestedSnapshot.utxo <> fromMaybe mempty requestedSnapshot.utxoToCommit@
-    -- by folding 'applyTxTo' over 'newLocalTxs'. This keeps per-event size
-    -- bounded by 'newLocalTxs' instead of the full UTxO set.
-    SnapshotRequested
+  | SnapshotRequested
       { requestedSnapshot :: Snapshot tx
       , newLocalTxs :: [tx]
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
@@ -121,11 +112,7 @@ data StateChanged tx
       , newVersion :: SnapshotVersion
       , depositTxId :: TxIdType tx
       }
-  | -- | A decommit transaction has been recorded. The post-decommit local
-    -- UTxO is not stored: aggregate recomputes it as
-    -- @localUTxO `withoutUTxO` (UTxO subset spent by decommitTx)@, since
-    -- the decommit's outputs leave the head and aren't kept locally.
-    DecommitRecorded {headId :: HeadId, decommitTx :: tx}
+  | DecommitRecorded {headId :: HeadId, decommitTx :: tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitFinalized

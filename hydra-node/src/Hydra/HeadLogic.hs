@@ -214,8 +214,6 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
     waitApplyTx $
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
-      -- NOTE: the post-tx UTxO is not stored on the event; aggregate
-      -- recomputes it via 'applyTxTo' to avoid O(N²) on-disk growth.
       newState TransactionAppliedToLocalUTxO{headId, tx}
         -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
@@ -364,8 +362,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                   --         T̂ ← T̂ ⋃ {tx}
                   --         L̂ ← L̂ ◦ tx
                   let newLocalTxs = pruneTransactions u
-                  -- NOTE: post-snapshot local UTxO not persisted; aggregate
-                  -- recomputes it from the snapshot fields + newLocalTxs.
                   newState
                     SnapshotRequested
                       { requestedSnapshot = nextSnapshot
@@ -456,11 +452,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       Right u -> cont u
 
   -- \| Filter 'localTxs' to those that still apply against the running UTxO
-  -- after each previous successful tx. Threads 'u' internally because pending
-  -- local txs can depend on each other (a later tx may spend an earlier tx's
-  -- output), so each must be validated against the post-previous-tx state.
-  -- The post-snapshot UTxO is not returned: aggregate recomputes it from
-  -- the snapshot fields and the resulting tx list.
+  -- after each previous successful tx. The post-snapshot UTxO is not returned:
+  -- aggregate will recompute it.
   pruneTransactions utxo0 = go utxo0 localTxs
    where
     go _ [] = []
@@ -765,7 +758,6 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
-    -- NOTE: post-decommit local UTxO not persisted; aggregate recomputes it.
     -- Spec: txω ← tx
     newState DecommitRecorded{headId, decommitTx}
       -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
@@ -1875,7 +1867,12 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = applyTxTo tx localUTxO
+                  { localUTxO =
+                      -- NOTE: Safe to use localUTxO here because the tx was
+                      -- ledger-validated before this event was emitted.
+                      -- 'aggregate' folds events in order, so 'localUTxO'
+                      -- here always reflects all previously applied transactions.
+                      applyTxTo tx localUTxO
                   , -- NOTE: Order of transactions is important here. See also
                     -- 'pruneTransactions'.
                     localTxs = localTxs Seq.|> tx
@@ -1911,8 +1908,9 @@ aggregate st = \case
                   { seenSnapshot = mkSeenSnapshot snapshot mempty
                   , localTxs = newLocalTxs
                   , -- NOTE: pure UTxO arithmetic. 'newLocalTxs' was pre-pruned
-                    -- at emission time (so each tx is guaranteed to apply),
-                    -- making 'applyTxTo' safe to use without ledger validation.
+                    -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
+                    -- is guaranteed to apply), making 'applyTxTo' safe to use
+                    -- without ledger validation.
                     localUTxO =
                       let activeUTxO = snapshot.utxo <> fromMaybe mempty snapshot.utxoToCommit
                        in foldl' (flip applyTxTo) activeUTxO newLocalTxs
