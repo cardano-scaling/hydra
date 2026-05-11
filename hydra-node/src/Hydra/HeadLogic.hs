@@ -456,15 +456,15 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   -- aggregate will recompute it.
   pruneTransactions utxo0 = go utxo0 localTxs
    where
-    go _ [] = []
-    go u (tx : rest) =
+    go _ Seq.Empty = Seq.empty
+    go u (tx Seq.:<| rest) =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
       -- here when a tx becomes invalid.
       case applyTransactions ledger currentSlot u [tx] of
         Left _ -> go u rest
-        Right u' -> tx : go u' rest -- NOTE: guarded recursion ftw
+        Right u' -> tx Seq.<| go u' rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
@@ -2107,7 +2107,7 @@ aggregate st = \case
   IgnoredHeadInitializing{} -> st
   TxInvalid{transaction} -> case st of
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
-      Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
+      Open ost{coordinatedHeadState = coordState{allTxs = Map.delete (txId transaction) allTransactions}}
     _otherState -> st
   Checkpoint nodeState -> headState nodeState
   NodeSynced{} -> st

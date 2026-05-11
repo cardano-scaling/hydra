@@ -76,7 +76,7 @@ data StateChanged tx
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | SnapshotRequested
       { requestedSnapshot :: Snapshot tx
-      , newLocalTxs :: [tx]
+      , newLocalTxs :: Seq tx
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
   | PartySignedSnapshot {snapshotNumber :: SnapshotNumber, party :: Party, signature :: Signature (Snapshot tx)}
