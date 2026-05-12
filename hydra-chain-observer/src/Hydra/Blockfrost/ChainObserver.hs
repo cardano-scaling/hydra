@@ -48,7 +48,8 @@ data APIBlockfrostError
   | NotEnoughBlockConfirmations Blockfrost.BlockHash
   | MissingBlockNo Blockfrost.BlockHash
   | MissingNextBlockHash Blockfrost.BlockHash
-  deriving (Show, Exception)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 runBlockfrostM ::
   (MonadIO m, MonadThrow m) =>

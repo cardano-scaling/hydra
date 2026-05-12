@@ -151,8 +151,8 @@ library
     , network
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-network-api        >=0.7.1
-    , ouroboros-network-protocols  >=0.8
+    , ouroboros-network:api
+    , ouroboros-network:protocols
     , process
     , prometheus
     , QuickCheck
@@ -349,7 +349,6 @@ test-suite tests
   ghc-options:        -threaded -rtsopts -with-rtsopts=-N
   hs-source-dirs:     test
   other-modules:
-    Hydra.AccumulatorSpec
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
     Hydra.API.ServerOutputSpec
@@ -412,7 +411,6 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-babbage:testlib
-    , cardano-ledger-conway
     , cardano-ledger-core
     , cardano-ledger-shelley
     , cardano-ledger-shelley:testlib
@@ -425,7 +423,6 @@ test-suite tests
     , directory
     , filepath
     , generic-lens
-    , haskell-accumulator
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
@@ -448,7 +445,7 @@ test-suite tests
     , network-simple-wss
     , network-udp
     , ouroboros-consensus
-    , ouroboros-consensus-cardano
+    , ouroboros-consensus:cardano
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck

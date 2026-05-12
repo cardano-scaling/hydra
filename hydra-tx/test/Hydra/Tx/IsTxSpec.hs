@@ -10,6 +10,7 @@ import Cardano.Binary (decodeFull', serialize')
 import Cardano.Binary qualified as CB
 import Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxBodyL, updateTxBodyL)
 import Cardano.Ledger.Api qualified as Ledger
+import Cardano.Ledger.Core (TxLevel (..))
 import Control.Lens ((.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
@@ -52,7 +53,7 @@ spec =
                   tx ^. bodyTxL . inputsTxBodyL
                     === toLedgerTx decodedTx ^. bodyTxL . inputsTxBodyL
 
-genConwayCompatibleBabbageTx :: Gen (Ledger.Tx Ledger.BabbageEra)
+genConwayCompatibleBabbageTx :: Gen (Ledger.Tx TopTx Ledger.BabbageEra)
 genConwayCompatibleBabbageTx = do
   tx <- arbitrary
   pure $

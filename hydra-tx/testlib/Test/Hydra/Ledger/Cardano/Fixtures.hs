@@ -41,9 +41,9 @@ import Hydra.Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures.TH (loadCostModelTH)
 
 import Cardano.Ledger.Alonzo.Scripts (CostModel, Prices (..), mkCostModels)
-import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppMinFeeAL, ppMinFeeBL, ppPricesL, ppProtocolVersionL)
+import Cardano.Ledger.Api (CoinPerByte (..), ppCoinsPerUTxOByteL, ppCostModelsL, ppMaxBlockExUnitsL, ppMaxTxExUnitsL, ppMaxValSizeL, ppPricesL, ppProtocolVersionL, ppTxFeeFixedL, ppTxFeePerByteL)
 import Cardano.Ledger.BaseTypes (BoundedRational (boundRational), ProtVer (..), natVersion)
-import Cardano.Ledger.Coin (Coin (Coin))
+import Cardano.Ledger.Coin (Coin (Coin), compactCoinOrError)
 import Cardano.Ledger.Conway.PParams (ppMinFeeRefScriptCostPerByteL)
 import Cardano.Ledger.Core (PParams, ppMaxTxSizeL)
 import Cardano.Ledger.Plutus (Language (..))
@@ -75,7 +75,7 @@ import Hydra.Ledger.Cardano.Evaluate (
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
-  Bound (Bound, boundEpoch, boundSlot, boundTime),
+  Bound (Bound, boundEpoch, boundPerasRound, boundSlot, boundTime),
   EraEnd (..),
   EraParams (..),
   EraSummary (..),
@@ -83,6 +83,7 @@ import Ouroboros.Consensus.HardFork.History (
   Summary (Summary),
   initBound,
   mkInterpreter,
+  pattern NoPerasEnabled,
  )
 import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 
@@ -100,9 +101,9 @@ pparams =
   def
     & ppMaxTxSizeL .~ fromIntegral maxTxSize
     & ppMaxValSizeL .~ 1000000000
-    & ppMinFeeAL .~ Coin 44
-    & ppMinFeeBL .~ Coin 155381
-    & ppCoinsPerUTxOByteL .~ CoinPerByte (Coin 4310)
+    & ppTxFeePerByteL .~ CoinPerByte (compactCoinOrError (Coin 44))
+    & ppTxFeeFixedL .~ Coin 155381
+    & ppCoinsPerUTxOByteL .~ CoinPerByte (compactCoinOrError (Coin 4310))
     & ppMaxTxExUnitsL .~ toLedgerExUnits maxTxExecutionUnits
     & ppMaxBlockExUnitsL
       .~ toLedgerExUnits
@@ -169,6 +170,7 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
                 { boundTime = RelativeTime $ fromIntegral n
                 , boundSlot = slotNo
                 , boundEpoch = EpochNo n
+                , boundPerasRound = NoPerasEnabled
                 }
         , eraParams
         }
@@ -181,6 +183,7 @@ eraHistoryWithHorizonAt slotNo@(SlotNo n) =
         -- extend the last era accordingly in the real cardano-node
         eraSafeZone = UnsafeIndefiniteSafeZone
       , eraGenesisWin = GenesisWindow 1
+      , eraPerasRoundLength = NoPerasEnabled
       }
 
 eraHistoryWithoutHorizon :: EraHistory
@@ -204,6 +207,7 @@ eraHistoryWithoutHorizon =
         -- extend the last era accordingly in the real cardano-node
         eraSafeZone = UnsafeIndefiniteSafeZone
       , eraGenesisWin = GenesisWindow 1
+      , eraPerasRoundLength = NoPerasEnabled
       }
 
 epochSize :: EpochSize

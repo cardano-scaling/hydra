@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.Cluster.Scenarios (
@@ -10,14 +11,17 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity)
-import Cardano.Ledger.Api (RewardAccount (..), Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
+import Cardano.Ledger.Address (AccountId (..), pattern AccountAddress)
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.TxWits (unRedeemersL, unTxDatsL)
+import Cardano.Ledger.Api (Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
 import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
 import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
 import Cardano.Ledger.Api.Tx qualified as Ledger
 import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
 import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
 import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
+import Cardano.Ledger.Core (TxLevel (..))
 import Cardano.Ledger.Credential (Credential (ScriptHashObj))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
 import CardanoClient (
@@ -811,7 +815,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
           -- Modify the tx to run a script via the withdraw 0 trick
           let redeemer = toLedgerData $ toScriptData ()
               exUnits = toLedgerExUnits maxTxExecutionUnits
-              rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
+              rewardAccount = AccountAddress Testnet (AccountId (ScriptHashObj scriptHash))
               scriptHash = hashScript script
               script = toLedgerScript @_ @Era dummyRewardingScript
           let tx' =
@@ -838,16 +842,18 @@ recomputeIntegrityHash ::
   (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) =>
   PParams ppera ->
   [Language] ->
-  Ledger.Tx txera ->
-  Ledger.Tx txera
-recomputeIntegrityHash pp languages tx = do
+  Ledger.Tx TopTx txera ->
+  Ledger.Tx TopTx txera
+recomputeIntegrityHash pp languages tx =
   tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
  where
+  langViews = Set.fromList $ getLanguageView pp <$> languages
+  redeemers = tx ^. witsTxL . rdmrsTxWitsL
+  txDats = tx ^. witsTxL . datsTxWitsL
   integrityHash =
-    hashScriptIntegrity
-      (Set.fromList $ getLanguageView pp <$> languages)
-      (tx ^. witsTxL . rdmrsTxWitsL)
-      (tx ^. witsTxL . datsTxWitsL)
+    if null (redeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
+      then SNothing
+      else SJust . hashScriptIntegrity $ ScriptIntegrity redeemers txDats langViews
 
 canDepositScriptBlueprint ::
   Tracer IO EndToEndLog ->

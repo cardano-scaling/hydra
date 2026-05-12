@@ -53,6 +53,7 @@
         pkgs.libsodium-vrf # from iohk-nix overlay
         pkgs.secp256k1
         pkgs.libblst # from iohk-nix overlay
+        pkgs.liburing
         pkgs.lmdb
         pkgs.xz
         pkgs.zlib
@@ -69,6 +70,9 @@
       ];
 
       haskellNixShell = (hsPkgs.shellFor {
+        # ouroboros-network 1.1.0.0 triggers a GHC 9.6.7 haddock panic
+        # (tyConStupidTheta / BigLedgerPeers), so skip hoogle for now.
+        withHoogle = false;
         buildInputs = libs ++ buildInputs;
         # Always create missing golden files
         shellHook = ''

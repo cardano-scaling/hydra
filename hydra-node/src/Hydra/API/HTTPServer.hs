@@ -167,7 +167,7 @@ data HeadInitializationDetails
   { time :: UTCTime
   , slot :: SlotNo
   }
-  deriving (Eq, Show)
+  deriving stock (Eq, Show)
 
 jsonContent :: ResponseHeaders
 jsonContent = [(hContentType, "application/json")]

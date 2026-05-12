@@ -15,7 +15,7 @@ toPlutusKeyHash :: Hash PaymentKey -> Plutus.PubKeyHash
 toPlutusKeyHash (PaymentKeyHash vkh) = transKeyHash vkh
 
 -- | Convert a cardano-api 'Hash' into a cardano-ledger 'KeyHash'
-toLedgerKeyHash :: Hash PaymentKey -> Ledger.KeyHash 'Ledger.Witness
+toLedgerKeyHash :: Hash PaymentKey -> Ledger.KeyHash Ledger.Guard
 toLedgerKeyHash (PaymentKeyHash (Ledger.KeyHash vkh)) =
   Ledger.KeyHash vkh
 
