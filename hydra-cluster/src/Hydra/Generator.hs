@@ -110,11 +110,7 @@ generateConstantUTxODataset faucetSk nClients nTxs = do
   -- funded in the beginning of the benchmark run.
   clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
   let fundingTransaction =
-        mkGenesisTx
-          networkId
-          faucetSk
-          (Coin availableInitialFunds)
-          clientFunds
+        mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
   clientDatasets <- forM allPaymentKeys (generateClientDataset networkId fundingTransaction nTxs)
   pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
 
@@ -135,11 +131,7 @@ generateGrowingUTxODataset faucetSk nClients nTxs = do
   -- funded in the beginning of the benchmark run.
   clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
   let fundingTransaction =
-        mkGenesisTx
-          networkId
-          faucetSk
-          (Coin availableInitialFunds)
-          clientFunds
+        mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
   clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
   pure Dataset{fundingTransaction, hydraNodeKeys, clientDatasets, title = Nothing, description = Nothing}
  where

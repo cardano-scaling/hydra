@@ -11,9 +11,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Address (pattern RewardAccount)
-import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
-import Cardano.Ledger.Alonzo.TxWits (unRedeemersL, unTxDatsL)
+import Cardano.Ledger.Address (AccountAddress (..), AccountId (..))
 import Cardano.Ledger.Api (Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
 import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
 import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
@@ -105,6 +103,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
+import Hydra.Chain.Direct.Wallet (computeScriptIntegrityHash)
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
@@ -815,7 +814,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
           -- Modify the tx to run a script via the withdraw 0 trick
           let redeemer = toLedgerData $ toScriptData ()
               exUnits = toLedgerExUnits maxTxExecutionUnits
-              rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
+              rewardAccount = AccountAddress Testnet (AccountId (ScriptHashObj scriptHash))
               scriptHash = hashScript script
               script = toLedgerScript @_ @Era dummyRewardingScript
           let tx' =
@@ -848,12 +847,11 @@ recomputeIntegrityHash pp languages tx =
   tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
  where
   langViews = Set.fromList $ getLanguageView pp <$> languages
-  redeemers = tx ^. witsTxL . rdmrsTxWitsL
-  txDats = tx ^. witsTxL . datsTxWitsL
   integrityHash =
-    if null (redeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
-      then SNothing
-      else SJust . hashScriptIntegrity $ ScriptIntegrity redeemers txDats langViews
+    computeScriptIntegrityHash
+      (tx ^. witsTxL . rdmrsTxWitsL)
+      (tx ^. witsTxL . datsTxWitsL)
+      langViews
 
 canDepositScriptBlueprint ::
   Tracer IO EndToEndLog ->

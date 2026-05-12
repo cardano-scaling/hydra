@@ -15,9 +15,11 @@ import Cardano.Ledger.Alonzo.Scripts (
   AsIx (..),
   plutusScriptLanguage,
  )
-import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.PParams (LangDepView)
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), ScriptIntegrityHash, hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
+  TxDats,
   datsTxWitsL,
   unRedeemersL,
   unTxDatsL,
@@ -287,10 +289,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         ]
       langViews = Set.fromList langs
       txDats = wits ^. datsTxWitsL
-      scriptIntegrityHash =
-        if null (adjustedRedeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
-          then SNothing
-          else SJust . hashScriptIntegrity $ ScriptIntegrity adjustedRedeemers txDats langViews
+      scriptIntegrityHash = computeScriptIntegrityHash adjustedRedeemers txDats langViews
   let
     unbalancedBody =
       body
@@ -400,6 +399,17 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         newIdx <- Map.lookup txIn finalInputIndex
         pure $ SpendingPurpose (AsIx newIdx)
     adjustPurpose other = other
+
+computeScriptIntegrityHash ::
+  AlonzoEraScript era =>
+  Redeemers era ->
+  TxDats era ->
+  Set.Set LangDepView ->
+  StrictMaybe ScriptIntegrityHash
+computeScriptIntegrityHash redeemers txDats langViews =
+  if null (redeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
+    then SNothing
+    else SJust . hashScriptIntegrity $ ScriptIntegrity redeemers txDats langViews
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =

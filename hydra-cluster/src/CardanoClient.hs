@@ -17,6 +17,7 @@ import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
+import System.IO.Error (userError)
 import Data.Map qualified as Map
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
@@ -88,7 +89,7 @@ waitForUTxO opts utxo =
           (selectLovelace value)
           addr
     txOut ->
-      error $ "Unexpected TxOut " <> show txOut
+      throwIO $ userError $ "Unexpected TxOut " <> show txOut
 
 mkGenesisTx ::
   NetworkId ->
