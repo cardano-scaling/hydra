@@ -432,7 +432,8 @@ data APIBlockfrostError
   | MissingBlockNo Blockfrost.BlockHash
   | MissingBlockSlot (Maybe Blockfrost.Slot)
   | MissingNextBlockHash Blockfrost.BlockHash
-  deriving (Show, Exception)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 isRetryable :: APIBlockfrostError -> Bool
 isRetryable (BlockfrostError _) = True

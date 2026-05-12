@@ -11,7 +11,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Address (AccountAddress (..), AccountId (..))
+import Cardano.Ledger.Address (AccountId (..), pattern AccountAddress)
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
+import Cardano.Ledger.Alonzo.TxWits (unRedeemersL, unTxDatsL)
 import Cardano.Ledger.Api (Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
 import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
 import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
@@ -104,7 +106,6 @@ import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
 import Hydra.Chain.ChainState (ChainSlot)
-import Hydra.Chain.Direct.Wallet (computeScriptIntegrityHash)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
@@ -847,11 +848,12 @@ recomputeIntegrityHash pp languages tx =
   tx & bodyTxL . scriptIntegrityHashTxBodyL .~ integrityHash
  where
   langViews = Set.fromList $ getLanguageView pp <$> languages
+  redeemers = tx ^. witsTxL . rdmrsTxWitsL
+  txDats = tx ^. witsTxL . datsTxWitsL
   integrityHash =
-    computeScriptIntegrityHash
-      (tx ^. witsTxL . rdmrsTxWitsL)
-      (tx ^. witsTxL . datsTxWitsL)
-      langViews
+    if null (redeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
+      then SNothing
+      else SJust . hashScriptIntegrity $ ScriptIntegrity redeemers txDats langViews
 
 canDepositScriptBlueprint ::
   Tracer IO EndToEndLog ->

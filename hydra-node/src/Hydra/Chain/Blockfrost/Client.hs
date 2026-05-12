@@ -80,7 +80,8 @@ data BlockfrostException
   | DeserialiseError Text
   | DecodeError Text
   | BlockfrostAPIError Text
-  deriving (Show, Exception)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 newtype APIBlockfrostError
   = BlockfrostError BlockfrostException

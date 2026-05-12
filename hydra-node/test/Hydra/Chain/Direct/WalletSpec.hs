@@ -9,11 +9,10 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.TxBody (TxBody)
 import Cardano.Ledger.Core (Tx, TxLevel (..), Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
