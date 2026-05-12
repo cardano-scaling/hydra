@@ -103,8 +103,8 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain (PostTxError (..))
 import Hydra.Chain.Backend (ChainBackend (..), buildTransaction, buildTransactionWithPParams, buildTransactionWithPParams')
-import Hydra.Chain.Direct.Wallet (computeScriptIntegrityHash)
 import Hydra.Chain.ChainState (ChainSlot)
+import Hydra.Chain.Direct.Wallet (computeScriptIntegrityHash)
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucet_)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)

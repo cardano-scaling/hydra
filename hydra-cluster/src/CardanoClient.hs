@@ -17,12 +17,12 @@ import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
 
 import Cardano.Api.UTxO qualified as UTxO
-import System.IO.Error (userError)
 import Data.Map qualified as Map
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Options (ChainBackendOptions (..))
+import System.IO.Error (userError)
 
 -- | Run a 'ChainBackend' action given 'ChainBackendOptions'.
 runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) => m a) -> IO a
