@@ -151,8 +151,8 @@ library
     , network
     , optparse-applicative
     , ouroboros-consensus
-    , ouroboros-network:{api}
-    , ouroboros-network:{protocols}
+    , ouroboros-network:api
+    , ouroboros-network:protocols
     , process
     , prometheus
     , QuickCheck
@@ -446,7 +446,7 @@ test-suite tests
     , network-simple-wss
     , network-udp
     , ouroboros-consensus
-    , ouroboros-consensus:{cardano}
+    , ouroboros-consensus:cardano
     , plutus-ledger-api               >=1.1.1.0
     , plutus-tx
     , QuickCheck

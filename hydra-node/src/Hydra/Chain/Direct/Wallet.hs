@@ -15,9 +15,12 @@ import Cardano.Ledger.Alonzo.Scripts (
   AsIx (..),
   plutusScriptLanguage,
  )
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
   datsTxWitsL,
+  unRedeemersL,
+  unTxDatsL,
  )
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
@@ -26,7 +29,6 @@ import Cardano.Ledger.Api (
   ConwayEra,
   PParams,
   TransactionScriptFailure (..),
-  Tx,
   bodyTxL,
   calcMinFeeTx,
   coinTxOutL,
@@ -44,14 +46,12 @@ import Cardano.Ledger.Api (
   pattern SpendingPurpose,
  )
 import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded)
-import Cardano.Ledger.Babbage.Tx (getLanguageView, hashScriptIntegrity)
+import Cardano.Ledger.Babbage.Tx (getLanguageView)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (
-  TxUpgradeError,
- )
+import Cardano.Ledger.Core (TxLevel (..))
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
@@ -63,6 +63,7 @@ import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Sequence.Strict ((|>))
 import Data.Set qualified as Set
 import Data.Text qualified as Text
@@ -218,7 +219,6 @@ data ErrCoverFee
   | ErrUnknownInput {input :: TxIn}
   | ErrScriptExecutionFailed {redeemerPointer :: Text, scriptFailure :: Text}
   | ErrTranslationError (ContextError LedgerEra)
-  | ErrConwayUpgradeError (TxUpgradeError ConwayEra)
   | ErrMissingScript {scriptHash :: Text, purpose :: Text}
   deriving stock (Show)
 
@@ -244,8 +244,8 @@ coverFee_ ::
   EpochInfo (Either Text) ->
   Map TxIn (Ledger.TxOut era) ->
   Map TxIn (Ledger.TxOut era) ->
-  Tx era ->
-  Either ErrCoverFee (Tx era)
+  Ledger.Tx TopTx era ->
+  Either ErrCoverFee (Ledger.Tx TopTx era)
 coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   let body = partialTx ^. bodyTxL
   let wits = partialTx ^. witsTxL
@@ -285,11 +285,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         | script <- toList $ (wits ^. scriptTxWitsL) <> referenceScripts
         , l <- maybeToList $ plutusScriptLanguage <$> toPlutusScript script
         ]
+      langViews = Set.fromList langs
+      txDats = wits ^. datsTxWitsL
       scriptIntegrityHash =
-        hashScriptIntegrity
-          (Set.fromList langs)
-          adjustedRedeemers
-          (wits ^. datsTxWitsL)
+        if null (adjustedRedeemers ^. unRedeemersL) && Set.null langViews && null (txDats ^. unTxDatsL)
+          then SNothing
+          else SJust . hashScriptIntegrity $ ScriptIntegrity adjustedRedeemers txDats langViews
   let
     unbalancedBody =
       body
@@ -422,7 +423,7 @@ estimateScriptsCost ::
   -- | A UTXO needed to resolve inputs
   Map TxIn (Ledger.TxOut era) ->
   -- | The pre-constructed transaction
-  Tx era ->
+  Ledger.Tx TopTx era ->
   Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 estimateScriptsCost pparams systemStart epochInfo utxo tx = do
   Map.traverseWithKey convertResult result

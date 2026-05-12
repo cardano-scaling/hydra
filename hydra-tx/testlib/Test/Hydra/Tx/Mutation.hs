@@ -430,7 +430,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
     ledgerBody' =
       ledgerBody
-        & set Cardano.Ledger.Api.reqSignerHashesTxBodyL (Set.fromList (toLedgerKeyHash <$> newSigners))
+        & set Cardano.Ledger.Api.reqSignerHashesTxBodyL (Set.fromList (coerce . toLedgerKeyHash <$> newSigners))
   ChangeValidityInterval (lowerBound, upperBound) ->
     changeValidityInterval (Just lowerBound) (Just upperBound)
   ChangeValidityLowerBound bound ->

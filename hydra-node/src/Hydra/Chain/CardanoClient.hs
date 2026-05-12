@@ -66,12 +66,14 @@ submitTransaction ::
   IO ()
 submitTransaction connectInfo tx =
   submitTxToNodeLocal connectInfo txInMode >>= \case
-    SubmitSuccess ->
+    TxSubmitSuccess ->
       pure ()
-    SubmitFail (TxValidationEraMismatch e) ->
+    TxSubmitFail (TxValidationEraMismatch e) ->
       throwIO (SubmitEraMismatch e)
-    SubmitFail e@TxValidationErrorInCardanoMode{} ->
+    TxSubmitFail e@TxValidationErrorInCardanoMode{} ->
       throwIO (SubmitTxValidationError e)
+    TxSubmitError e ->
+      throwIO e
  where
   txInMode =
     TxInMode shelleyBasedEra tx
@@ -158,6 +160,8 @@ queryProtocolParameters connectInfo queryPoint =
     queryForCurrentEraInConwayEraOnwardsExpr $ \(ceo :: ConwayEraOnwards era) -> case ceo of
       ConwayEraOnwardsConway ->
         queryInShelleyBasedEraExpr (convert ceo) QueryProtocolParameters
+      ConwayEraOnwardsDijkstra ->
+        error "Dijkstra era not supported"
 
 -- | Query 'GenesisParameters' at a given point.
 --
@@ -180,6 +184,8 @@ queryUTxO connectInfo queryPoint addresses =
       ConwayEraOnwardsConway ->
         queryInShelleyBasedEraExpr (convert ceo) $
           QueryUTxO (QueryUTxOByAddress (Set.fromList $ map AddressShelley addresses))
+      ConwayEraOnwardsDijkstra ->
+        error "Dijkstra era not supported"
 
 -- | Query UTxO for given tx inputs at given point.
 --
@@ -194,6 +200,7 @@ queryUTxOByTxIn connectInfo queryPoint inputs =
     queryForCurrentEraInConwayEraOnwardsExpr
       ( \(ceo :: ConwayEraOnwards era) -> case ceo of
           ConwayEraOnwardsConway -> queryInShelleyBasedEraExpr (convert ceo) (QueryUTxO (QueryUTxOByTxIn (Set.fromList inputs)))
+          ConwayEraOnwardsDijkstra -> error "Dijkstra era not supported"
       )
 
 queryForCurrentEraInEonExpr ::

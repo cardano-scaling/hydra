@@ -185,7 +185,7 @@ pattern ShelleyBootstrapWitness{shelleyBootstrapWitness} <-
     ShelleyBootstrapWitness =
       Cardano.Api.ShelleyBootstrapWitness shelleyBasedEra
 
-pattern ShelleyKeyWitness :: Ledger.WitVKey 'Ledger.Witness -> KeyWitness
+pattern ShelleyKeyWitness :: Ledger.WitVKey Ledger.Witness -> KeyWitness
 pattern ShelleyKeyWitness{shelleyKeyWitness} <-
   Cardano.Api.ShelleyKeyWitness _ shelleyKeyWitness
   where
@@ -277,7 +277,7 @@ pattern Tx{txBody, txKeyWitnesses} <-
       Cardano.Api.Tx
 
 pattern ShelleyTxBody ::
-  Ledger.TxBody LedgerEra ->
+  Ledger.TxBody Ledger.TopTx LedgerEra ->
   [Ledger.Script LedgerEra] ->
   TxBodyScriptData ->
   Maybe (Ledger.AlonzoTxAuxData LedgerEra) ->
