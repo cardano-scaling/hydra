@@ -95,7 +95,6 @@ library
     , lens
     , lens-aeson
     , mono-traversable
-    , ouroboros-consensus:cardano
     , plutus-ledger-api
     , prettyprinter
     , serialise

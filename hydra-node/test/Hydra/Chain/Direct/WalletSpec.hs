@@ -13,7 +13,7 @@ import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (get
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.TxBody (TxBody (ConwayTxBody))
+import Cardano.Ledger.Conway.TxBody (TxBody)
 import Cardano.Ledger.Core (Tx, TxLevel (..), Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
