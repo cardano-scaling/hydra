@@ -11,7 +11,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Address (pattern RewardAccount)
+import Cardano.Ledger.Address (AccountId (..), pattern AccountAddress)
 import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (unRedeemersL, unTxDatsL)
 import Cardano.Ledger.Api (Withdrawals (..), collateralInputsTxBodyL, hashScript, scriptTxWitsL, totalCollateralTxBodyL, withdrawalsTxBodyL)
@@ -815,7 +815,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
           -- Modify the tx to run a script via the withdraw 0 trick
           let redeemer = toLedgerData $ toScriptData ()
               exUnits = toLedgerExUnits maxTxExecutionUnits
-              rewardAccount = RewardAccount Testnet (ScriptHashObj scriptHash)
+              rewardAccount = AccountAddress Testnet (AccountId (ScriptHashObj scriptHash))
               scriptHash = hashScript script
               script = toLedgerScript @_ @Era dummyRewardingScript
           let tx' =

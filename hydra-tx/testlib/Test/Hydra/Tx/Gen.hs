@@ -314,7 +314,7 @@ instance Arbitrary HeadObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
-deriving instance ToADTArbitrary HeadObservation
+deriving anyclass instance ToADTArbitrary HeadObservation
 
 instance Arbitrary InitObservation where
   arbitrary = genericArbitrary

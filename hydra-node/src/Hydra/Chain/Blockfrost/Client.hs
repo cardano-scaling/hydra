@@ -36,11 +36,10 @@ import Data.Time.Clock.POSIX
 import Hydra.Cardano.Api hiding (LedgerState, fromNetworkMagic, queryGenesisParameters)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (CoinPerByte (..))
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
-import Cardano.Ledger.Coin (Coin (..), compactCoinOrError)
+import Cardano.Ledger.Coin (compactCoinOrError)
 import Cardano.Ledger.Conway.Core (
   DRepVotingThresholds (..),
   PoolVotingThresholds (..),
@@ -81,7 +80,8 @@ data BlockfrostException
   | DeserialiseError Text
   | DecodeError Text
   | BlockfrostAPIError Text
-  deriving (Show, Exception)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 newtype APIBlockfrostError
   = BlockfrostError BlockfrostException
@@ -163,8 +163,8 @@ queryProtocolParameters = do
     Just BlockfrostConversion{..} ->
       pure $
         emptyPParams
-          & ppTxFeePerByteL .~ CoinPerByte (compactCoinOrError (Coin (fromIntegral (pparams ^. Blockfrost.minFeeA))))
-          & ppTxFeeFixedL .~ Coin (fromIntegral (pparams ^. Blockfrost.minFeeB))
+          & ppTxFeePerByteL .~ CoinPerByte (compactCoinOrError (Coin (pparams ^. Blockfrost.minFeeA)))
+          & ppTxFeeFixedL .~ Coin (pparams ^. Blockfrost.minFeeB)
           & ppMaxBBSizeL .~ fromIntegral (pparams ^. Blockfrost.maxBlockSize)
           & ppMaxTxSizeL .~ fromIntegral (pparams ^. Blockfrost.maxTxSize)
           & ppMaxBHSizeL .~ fromIntegral (pparams ^. Blockfrost.maxBlockHeaderSize)

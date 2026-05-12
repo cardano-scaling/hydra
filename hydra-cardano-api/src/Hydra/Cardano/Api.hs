@@ -62,7 +62,6 @@ import Cardano.Api as X hiding (
   UTxO (..),
   Witness (..),
   blue,
-  createAndValidateTransactionBody,
   defaultTxBodyContent,
   fromLedgerUTxO,
   fromLedgerValue,
