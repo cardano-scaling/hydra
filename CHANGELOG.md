@@ -36,6 +36,7 @@ after upgrading, existing `state` files are automatically migrated into
 - Replace 'list' with `Seq` type to speed up transaction processing in some
   instances [#2597](https://github.com/cardano-scaling/hydra/pull/2597).
 
+- Compatible with cardano-node protocol version 12+ (upgrades `cardano-api` to `^>=11.1`)
 
 ## [2.0.0] - 2026.04.05
 
