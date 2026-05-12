@@ -22,7 +22,7 @@ supportedNetworks :: [KnownNetwork]
 supportedNetworks = [Mainnet, Preproduction, Preview]
 
 supportedCardanoNodeVersion :: String
-supportedCardanoNodeVersion = "10.6.2"
+supportedCardanoNodeVersion = "11.0.1"
 
 forSupportedKnownNetworks :: String -> (KnownNetwork -> IO ()) -> Spec
 forSupportedKnownNetworks msg action = forEachKnownNetwork msg $ \network -> do
