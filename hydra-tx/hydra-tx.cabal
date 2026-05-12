@@ -95,7 +95,7 @@ library
     , lens
     , lens-aeson
     , mono-traversable
-    , ouroboros-consensus-cardano
+    , ouroboros-consensus:{cardano}
     , plutus-ledger-api
     , prettyprinter
     , serialise
@@ -145,7 +145,7 @@ library testlib
     , hydra-tx
     , lens
     , ouroboros-consensus
-    , ouroboros-consensus-cardano
+    , ouroboros-consensus:{cardano}
     , plutus-ledger-api
     , QuickCheck
     , quickcheck-arbitrary-adt
