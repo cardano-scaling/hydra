@@ -53,7 +53,6 @@
         pkgs.libsodium-vrf # from iohk-nix overlay
         pkgs.secp256k1
         pkgs.libblst # from iohk-nix overlay
-        pkgs.liburing
         pkgs.lmdb
         pkgs.xz
         pkgs.zlib
@@ -65,6 +64,7 @@
       ]
       ++
       pkgs.lib.optionals pkgs.stdenv.isLinux [
+        pkgs.liburing
         pkgs.systemd
         pkgs.selfci
       ];

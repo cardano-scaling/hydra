@@ -3,19 +3,6 @@
     packages = rec {
       docs =
         let
-          src = pkgs.stdenv.mkDerivation {
-            name = "hydra-docs-source";
-            dontBuild = true;
-            dontUnpack = true;
-            installPhase = ''
-              mkdir -p $out
-              mkdir -p $out/static
-              cp -r ${lib.cleanSource "${self}/docs"}/* $out/
-              cp ${inputs.hydra-spec.packages.${system}.default}/hydra-spec.pdf $out/static
-              cp -r ${self'.packages.haddocks} $out/static/haddocks
-            '';
-          };
-
           gitWrapper = pkgs.writeShellScriptBin "git" ''
             if [ "$1" = "--no-pager" ] && [ "$2" = "log" ] && [ "$3" = "-1" ] && [ "$4" = "--pretty=format:'%aI'" ]; then
               date --date="@${builtins.toString self.sourceInfo.lastModified}" +%DT%T
@@ -26,8 +13,8 @@
             fi
           '';
         in
-        pkgs.buildYarnPackage rec {
-          inherit src;
+        pkgs.buildYarnPackage {
+          src = lib.cleanSource "${self}/docs";
           yarnBuildMore = "set -a; source yarn.env; set +a; yarn build";
           # XXX: Note that in principle we are missing `plantuml` binary here;
           # the yarn build tries to run it, but it doesn't have any impact
@@ -38,6 +25,15 @@
           # and; but that seems to require additional changes to the actualy
           # architecture diagram file itself (architecture-c4.puml).
           nativeBuildInputs = [ gitWrapper ];
+          # Inject the spec PDF and haddocks before yarn build runs.
+          # These cannot be part of `src` directly because they are derivation
+          # outputs, but they must be present for the docusaurus build.
+          preBuild = ''
+            mkdir -p static
+            cp ${inputs.hydra-spec.packages.${system}.default}/hydra-spec.pdf static/
+            cp -rL ${self'.packages.haddocks} static/haddocks
+            chmod -R u+w static/haddocks
+          '';
         };
 
       docs-unstable = docs.overrideAttrs {
