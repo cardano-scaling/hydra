@@ -61,6 +61,7 @@ import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeSta
 import Hydra.Events (EventSink (..), EventSource (..), HasEventId (..))
 import Hydra.Events.Rotation (EventStore (..))
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging.PrettyError (PrettyError (..), genericFlatten)
 import System.Directory (createDirectoryIfMissing, doesFileExist, renameFile)
 import System.FilePath (takeDirectory)
 
@@ -79,6 +80,10 @@ data SQLiteLog
   | MigrationComplete {legacyFile :: FilePath}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+-- All migration events are informational; standard one-key-per-line render.
+instance PrettyError SQLiteLog where
+  showPretty = genericFlatten
 
 -- | Items in the write-behind queue: either an event row to insert or a flush
 -- marker that the writer thread signals after processing all preceding items.

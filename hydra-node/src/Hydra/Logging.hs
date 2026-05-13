@@ -24,6 +24,10 @@ module Hydra.Logging (
   contramap,
   mkEnvelope,
   defaultQueueSize,
+
+  -- * Per-type classification & pretty rendering
+  Severity (..),
+  PrettyError (..),
 ) where
 
 import Hydra.Prelude
@@ -45,12 +49,16 @@ import Control.Tracer (
  )
 import Data.Aeson (Value (..), pairs, (.=))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Key qualified as Key
-import Data.Aeson.KeyMap (KeyMap)
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
 import Data.Time.Format (defaultTimeLocale, formatTime)
+import Hydra.Logging.PrettyError (
+  PrettyError (..),
+  Severity (..),
+  ansi,
+  dim,
+ )
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
@@ -104,7 +112,7 @@ defaultQueueSize = 500
 -- 'LogFormat'. This tracer wraps each 'msg' into an 'Envelope' with metadata.
 withTracer ::
   forall m msg a.
-  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg, PrettyError msg) =>
   LogFormat ->
   Verbosity ->
   (Tracer m msg -> IO a) ->
@@ -125,7 +133,7 @@ bufferingFor = \case
 -- to some 'Handle'. Each message is wrapped into an 'Envelope' with metadata.
 withTracerOutputTo ::
   forall m msg a.
-  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
+  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg, PrettyError msg) =>
   LogFormat ->
   BufferMode ->
   Handle ->
@@ -158,94 +166,50 @@ withTracerOutputTo fmt bufferingMode hdl namespace action = do
   write bs = LBS.hPut hdl (bs <> "\n")
 
 -- | Serialise an 'Envelope' according to the chosen 'LogFormat'.
-renderEntry :: ToJSON msg => LogFormat -> Envelope msg -> LBS.ByteString
+renderEntry :: (ToJSON msg, PrettyError msg) => LogFormat -> Envelope msg -> LBS.ByteString
 renderEntry = \case
   LogJSON -> Aeson.encode
   LogPretty -> compactEntry
 
 -- | Render an 'Envelope' for human reading: timestamp + dotted message path
--- on the first line, then each leaf field on its own indented line. Nested
--- objects are flattened recursively, one key per line at deeper indentation.
--- Fields whose value is @null@ are dropped. Tag names keep their original case
--- and values are full JSON (no truncation).
+-- on the first line, then each leaf field on its own indented line. Body
+-- lines come from the message's 'showPretty' if it has one; otherwise they
+-- come from a recursive flatten of the message's JSON shape.
 --
 -- > HH:MM:SS.sss  Outer.Inner.Leaf
 -- >   field1=42
 -- >   by=
 -- >     vkey="abc…"
--- >   point=
--- >     tag="ChainPoint"
--- >     slot=1234
 --
--- Colour is applied per top-level tag (so all 'DirectChain.*' events share a
--- hue, all 'APIServer.*' another, etc.). Keys are faint; values use the
--- default foreground.
-compactEntry :: ToJSON msg => Envelope msg -> LBS.ByteString
+-- Path colour is picked by 'severity':
+--
+-- * 'Error'   → bold red
+-- * 'Warning' → yellow
+-- * 'Info'    → a stable per-top-tag colour (the existing subsystem palette)
+compactEntry :: (ToJSON msg, PrettyError msg) => Envelope msg -> LBS.ByteString
 compactEntry Envelope{timestamp, message} =
   let ts = toText $ formatTime defaultTimeLocale "%H:%M:%S%3Q" timestamp
-      (tags, residual) = walkPath (Aeson.toJSON message)
+      tags = pathTags (Aeson.toJSON message)
       pathTxt = Text.intercalate "." tags
-      colour
-        | any looksLikeError tags = errorColour
-        | otherwise = colourForTag (firstTag tags)
-      headerLine = ansi dim ts <> "  " <> ansi colour pathTxt
-      kvLines = concatMap (renderField 1) (objFields residual)
+      sev = severity message
+      colour = case sev of
+        Error -> "1;31" -- bold red
+        Warning -> "33" -- yellow
+        Info -> colourForTag (firstTag tags)
+      -- Prefix Warning/Error lines with an explicit "[warning]"/"[error]"
+      -- tag in the same colour as the path. Info lines stay un-tagged —
+      -- the path colour already classifies them and most events are Info.
+      sevTag = case sev of
+        Error -> ansi colour "[error] "
+        Warning -> ansi colour "[warning] "
+        Info -> ansi colour "[info] "
+      headerLine = ansi dim ts <> "  " <> sevTag <> ansi colour pathTxt
+      bodyLines = showPretty message
       body =
-        if null kvLines
+        if null bodyLines
           then ""
-          else "\n" <> Text.intercalate "\n" kvLines
+          else "\n" <> Text.intercalate "\n" bodyLines
    in LBS.fromStrict (encodeUtf8 (headerLine <> body))
-
--- | A tag is treated as an error indicator if any of its sub-words signals
--- failure. The match is case-sensitive substring (constructors are
--- PascalCase by convention).
-looksLikeError :: Text -> Bool
-looksLikeError t = any (`Text.isInfixOf` t) ["Failed", "Failure", "Error", "Invalid"]
-
--- | Bold red — used for any path containing a 'looksLikeError' segment.
-errorColour :: Text
-errorColour = "1;31"
-
--- | Render one (synthetic-key, value) at the given indent level. Null values
--- are dropped. Objects flatten by emitting @key=@ then each child one level
--- deeper. Arrays flatten the same way, using @[N]@ as the synthetic key for
--- each element. Scalars render inline on the same line as the key — strings
--- bare (no quoting), numbers/booleans as their JSON forms.
-renderField :: Int -> (Text, Value) -> [Text]
-renderField level (k, v) =
-  let header = indent level <> ansi dim (k <> "=")
-   in case v of
-        Null -> []
-        Object km ->
-          header : concatMap (renderField (level + 1)) (objFields km)
-        Array xs ->
-          header : concatMap (renderField (level + 1)) (arrFields xs)
-        scalar ->
-          [header <> renderScalar scalar]
-
--- | Turn a JSON object into a list of @(name, value)@ pairs.
-objFields :: KeyMap Value -> [(Text, Value)]
-objFields = map (first Key.toText) . KeyMap.toList
-
--- | Turn a JSON array into a list of @([N], value)@ pairs.
-arrFields :: Foldable t => t Value -> [(Text, Value)]
-arrFields xs =
-  zipWith (\i v -> ("[" <> show i <> "]", v)) [0 :: Int ..] (toList xs)
-
--- | Render a JSON scalar. Strings emit bare (no surrounding quotes); numbers,
--- booleans and null go through Aeson's compact encoding. Objects and arrays
--- are never passed here — they're flattened by 'renderField'.
-renderScalar :: Value -> Text
-renderScalar = \case
-  String s -> s
-  Bool True -> "true"
-  Bool False -> "false"
-  Null -> "null"
-  v -> decodeUtf8 (LBS.toStrict (Aeson.encode v))
-
--- | Two-space-per-level indentation.
-indent :: Int -> Text
-indent n = Text.replicate (2 * n) " "
 
 -- | First tag of a walked path, or empty if there isn't one.
 firstTag :: [Text] -> Text
@@ -253,20 +217,17 @@ firstTag = \case
   t : _ -> t
   [] -> ""
 
--- | Walk a 'Value' through single-tagged-field wrappers, accumulating the
--- @tag@ at each level. Returns the path (oldest first) and the residual
--- fields of the leaf object.
-walkPath :: Value -> ([Text], KeyMap Value)
-walkPath = \case
+-- | Walk a 'Value' through single-tagged-field wrappers, returning the
+-- chain of @tag@s (oldest first).
+pathTags :: Value -> [Text]
+pathTags = \case
   Object km
     | Just (String t) <- KeyMap.lookup "tag" km ->
         let rest = KeyMap.delete "tag" km
          in case singleTaggedField rest of
-              Just inner ->
-                let (ts, leaf) = walkPath inner
-                 in (t : ts, leaf)
-              Nothing -> ([t], rest)
-  _ -> ([], mempty)
+              Just inner -> t : pathTags inner
+              Nothing -> [t]
+  _ -> []
  where
   singleTaggedField km
     | [(_, v@(Object km'))] <- KeyMap.toList km
@@ -294,19 +255,6 @@ colourForTag = \case
   "FromMithril" -> "35" -- magenta
   "ClusterOptions" -> "37" -- white
   _ -> "37"
-
--- | Render a single value as faithful JSON: strings get JSON quoting,
--- numbers/booleans/nulls render bare, and nested objects/arrays keep their
--- full JSON form on one line. No truncation.
-renderVal :: Value -> Text
-renderVal v = decodeUtf8 (LBS.toStrict (Aeson.encode v))
-
--- ANSI SGR colour helpers.
-ansi :: Text -> Text -> Text
-ansi code s = "\ESC[" <> code <> "m" <> s <> "\ESC[0m"
-
-dim :: Text
-dim = "2"
 
 -- | Capture logs and output them to stdout when an exception was raised by the
 -- given 'action'. This tracer is wrapping 'msg' into an 'Envelope' with

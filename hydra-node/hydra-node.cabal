@@ -84,6 +84,7 @@ library
     Hydra.Logging
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
+    Hydra.Logging.PrettyError
     Hydra.Network
     Hydra.Network.Authenticate
     Hydra.Network.Etcd

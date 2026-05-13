@@ -45,6 +45,7 @@ module Hydra.Node.Network (
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Control.Tracer (Tracer)
+import Hydra.Logging.PrettyError (PrettyError (..))
 import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
 import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
 import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
@@ -85,3 +86,11 @@ data NetworkLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
   deriving anyclass (FromJSON)
+
+instance PrettyError NetworkLog where
+  severity = \case
+    Authenticate l -> severity l
+    Etcd l -> severity l
+  showPretty = \case
+    Authenticate l -> showPretty l
+    Etcd l -> showPretty l

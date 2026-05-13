@@ -63,6 +63,7 @@ import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging.PrettyError (PrettyError (..), Severity (..), genericFlatten, prettyKv)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
@@ -647,3 +648,28 @@ data EtcdLog
   | WatchMessagesFallbackTo {compactRevision :: Int64}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance PrettyError EtcdLog where
+  severity = \case
+    BroadcastFailed{} -> Error
+    FailedToDecodeLog{} -> Error
+    FailedToDecodeValue{} -> Error
+    NoKeepAliveResponse -> Warning
+    LowLeaseTTL{} -> Warning
+    Reconnecting -> Warning
+    _ -> Info
+  showPretty = \case
+    -- Errors/warnings: lift the failure reason out front so it's the first
+    -- thing visible under the path.
+    BroadcastFailed{reason} ->
+      [prettyKv "reason" reason]
+    FailedToDecodeLog{log, reason} ->
+      [prettyKv "reason" reason, prettyKv "log" log]
+    FailedToDecodeValue{key, value, reason} ->
+      [prettyKv "reason" reason, prettyKv "key" key, prettyKv "value" value]
+    LowLeaseTTL{ttlRemaining} ->
+      [prettyKv "ttlRemaining" (show ttlRemaining)]
+    NoKeepAliveResponse -> []
+    Reconnecting -> []
+    -- Everything else: standard flatten.
+    l -> genericFlatten l

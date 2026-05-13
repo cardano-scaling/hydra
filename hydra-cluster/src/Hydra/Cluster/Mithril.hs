@@ -8,6 +8,7 @@ import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.Cluster.Fixture (KnownNetwork (..))
+import Hydra.Logging.PrettyError (PrettyError (..), genericFlatten)
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
 import System.IO.Error (isEOFError)
 import System.Process.Typed (createPipe, getStderr, proc, setStderr, withProcessWait_)
@@ -20,6 +21,9 @@ data MithrilLog
     StdErrLine {raw :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance PrettyError MithrilLog where
+  showPretty = genericFlatten
 
 -- | Downloads and unpacks latest snapshot for given network in db/ of given
 -- directory.

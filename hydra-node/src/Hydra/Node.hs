@@ -42,6 +42,8 @@ import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging.PrettyError (PrettyError (..), genericFlatten, prettyKvHeader)
+import Hydra.Logging.PrettyError qualified as Severity
 import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -455,3 +457,18 @@ deriving stock instance IsChainState tx => Eq (HydraNodeLog tx)
 deriving stock instance IsChainState tx => Show (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => ToJSON (HydraNodeLog tx)
 deriving anyclass instance IsChainState tx => FromJSON (HydraNodeLog tx)
+
+instance IsChainState tx => PrettyError (HydraNodeLog tx) where
+  severity = \case
+    Misconfiguration{} -> Severity.Error
+    DroppedFromQueue{} -> Severity.Warning
+    _ -> Severity.Info
+  showPretty = \case
+    -- Error: surface the mismatch list one per line so each problem is
+    -- visible without parsing nested JSON.
+    Misconfiguration{misconfigurationErrors} ->
+      prettyKvHeader "errors"
+        : map (\e -> "    " <> show e) misconfigurationErrors
+    -- Everything else: standard flatten — covers Begin/End/Input/Effect,
+    -- LogicOutcome, LoadedState, etc.
+    l -> genericFlatten l

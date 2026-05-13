@@ -15,6 +15,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Prelude (TxId)
 import Hydra.Contract (HydraScriptCatalogue)
 import Hydra.Ledger.Cardano (adjustUTxO)
+import Hydra.Logging.PrettyError (PrettyError (..), genericFlatten)
 import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.Observe (
   CloseObservation (..),
@@ -64,6 +65,10 @@ data ChainObserverLog
   | RollForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+-- Observation events are purely informational; standard one-key-per-line render.
+instance PrettyError ChainObserverLog where
+  showPretty = genericFlatten
 
 logObservation :: HeadObservation -> Maybe ChainObserverLog
 logObservation = \case

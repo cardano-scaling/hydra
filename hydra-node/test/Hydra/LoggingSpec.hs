@@ -6,7 +6,26 @@ import Test.Hydra.Prelude
 import Data.Aeson (object, (.=))
 import Data.Aeson qualified as Aeson
 import Hydra.Logging (LogFormat (..), traceWith, withTracerOutputTo)
+import Hydra.Logging.PrettyError (PrettyError (..))
+import Hydra.Logging.PrettyError qualified as Severity
 import System.IO.Silently (capture_)
+
+-- A toy log type used to exercise the 'PrettyError' class without depending
+-- on any production log type. Severity dispatches off the type; 'Boom' is
+-- the only constructor that opts into a hand-rolled 'showPretty'.
+data Frob = Ok | Wobble | Boom
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON)
+
+instance PrettyError Frob where
+  severity = \case
+    Boom -> Severity.Error
+    Wobble -> Severity.Warning
+    Ok -> Severity.Info
+  showPretty = \case
+    Boom -> ["  detail=oops", "  count=3"]
+    Wobble -> ["  reason=maybe"]
+    Ok -> []
 
 spec :: Spec
 spec = do
@@ -83,36 +102,35 @@ spec = do
     captured `shouldContain` "yes"
     captured `shouldNotContain` "\"yes\""
 
-  it "colours error-ish tags (Failed/Error/Invalid/Failure) in bold red" $ do
+  it "picks bold-red for typed Severity.Error and a normal colour for Info" $ do
     captured <- capture_ $ do
       withTracerOutputTo LogPretty LineBuffering stdout "test-pretty" $ \tracer -> do
-        traceWith tracer $
-          object
-            [ "tag" .= ("Network" :: Text)
-            , "contents"
-                .= object
-                  [ "tag" .= ("Etcd" :: Text)
-                  , "contents"
-                      .= object
-                        [ "tag" .= ("BroadcastFailed" :: Text)
-                        , "reason" .= ("nope" :: Text)
-                        ]
-                  ]
-            ]
-        traceWith tracer $
-          object
-            [ "tag" .= ("APIServer" :: Text)
-            , "api" .= object ["tag" .= ("APIServerStarted" :: Text), "listeningPort" .= (4001 :: Int)]
-            ]
+        traceWith tracer Boom
+        traceWith tracer Wobble
+        traceWith tracer Ok
 
     liftIO $ threadDelay 5
 
-    -- the error path uses bold-red (1;31)
+    -- Boom is Error → bold-red path + an explicit [error] tag in front
     captured `shouldContain` "\ESC[1;31m"
-    captured `shouldContain` "Network.Etcd.BroadcastFailed"
-    -- the non-error path keeps its normal (green) namespace colour
-    captured `shouldContain` "\ESC[32m"
-    captured `shouldContain` "APIServer.APIServerStarted"
+    captured `shouldContain` "[error]"
+    -- Wobble is Warning → yellow path + an explicit [warning] tag
+    captured `shouldContain` "\ESC[33m"
+    captured `shouldContain` "[warning]"
+    -- Ok is Info → the catch-all white colour and an [info] tag
+    captured `shouldContain` "\ESC[37m"
+    captured `shouldContain` "[info]"
+
+  it "uses showPretty lines verbatim in place of the generic JSON-flatten" $ do
+    captured <- capture_ $ do
+      withTracerOutputTo LogPretty LineBuffering stdout "test-pretty" $ \tracer -> do
+        traceWith tracer Boom
+
+    liftIO $ threadDelay 5
+
+    -- the hand-rolled lines appear verbatim under the path
+    captured `shouldContain` "detail=oops"
+    captured `shouldContain` "count=3"
 
   it "flattens arrays element-by-element with [N] synthetic keys" $ do
     captured <- capture_ $ do
