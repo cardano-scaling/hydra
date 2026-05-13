@@ -75,7 +75,7 @@ instance Exception ConfigurationException where
 run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
-  withTracer verbosity $ \tracer' -> do
+  withTracer logFormat verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
     withMonitoring monitoringPort tracer' $ \tracer -> do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
@@ -154,6 +154,7 @@ run opts = do
 
   RunOptions
     { verbosity
+    , logFormat
     , monitoringPort
     , persistenceDir
     , persistenceRotateAfter

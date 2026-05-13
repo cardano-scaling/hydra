@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (
   proxyToAsType,
  )
 
-import Hydra.Logging (Verbosity (..))
+import Hydra.Logging (LogFormat (..), Verbosity (..))
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), LedgerConfig (..), OfflineChainConfig (..), RunOptions (..), defaultBlockfrostOptions, defaultDirectOptions)
 import Test.Hydra.Logging ()
 import Test.Hydra.Network ()
@@ -33,6 +33,7 @@ instance Arbitrary IP where
 instance Arbitrary RunOptions where
   arbitrary = do
     verbosity <- elements [Quiet, Verbose "HydraNode"]
+    logFormat <- elements [LogJSON, LogPretty]
     nodeId <- arbitrary
     listen <- arbitrary
     advertise <- arbitrary
@@ -53,6 +54,7 @@ instance Arbitrary RunOptions where
     pure $
       RunOptions
         { verbosity
+        , logFormat
         , nodeId
         , listen
         , advertise

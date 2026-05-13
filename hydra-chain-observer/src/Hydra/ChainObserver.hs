@@ -10,7 +10,7 @@ import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
 import Hydra.ChainObserver.NodeClient (ChainObservation, ChainObserverLog (..), NodeClient (..))
 import Hydra.ChainObserver.Options (Backend (..), Options (..), hydraChainObserverOptions)
 import Hydra.Contract qualified as Contract
-import Hydra.Logging (Verbosity (..), traceWith, withTracer)
+import Hydra.Logging (LogFormat (..), Verbosity (..), traceWith, withTracer)
 import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Ouroborus.ChainObserver (ouroborusClient)
 import Network.HTTP.Simple (getResponseBody, httpNoBody, parseRequestThrow, setRequestBodyJSON)
@@ -20,7 +20,7 @@ import Options.Applicative (execParser)
 main :: IO ()
 main = do
   Options{backend, startChainFrom, explorerBaseURI} <- execParser hydraChainObserverOptions
-  withTracer (Verbose "hydra-chain-observer") $ \tracer -> do
+  withTracer LogJSON (Verbose "hydra-chain-observer") $ \tracer -> do
     traceWith tracer KnownScripts{hydraScriptCatalogue = Contract.hydraScriptCatalogue}
     NodeClient{follow, networkId} <-
       case backend of
