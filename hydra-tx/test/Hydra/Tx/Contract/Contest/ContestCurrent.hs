@@ -8,8 +8,12 @@ import Hydra.Plutus.Gen ()
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 
+import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.Deposit (DepositRedeemer (Claim))
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
@@ -17,8 +21,10 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
+import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx (mkHeadId)
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
@@ -34,9 +40,12 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyParticipants,
   healthyParties,
   healthySignature,
+  healthySlotNo,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Snapshot (Snapshot (..))
+import Hydra.Tx.Utils (adaOnly)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Gen.Cardano.Api.Typed (genTxValidityLowerBound)
@@ -46,6 +55,7 @@ import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genHash,
   genMintedOrBurnedValue,
+  genUTxOSized,
   genValue,
   genVerificationKey,
  )
@@ -147,6 +157,8 @@ data ContestMutation
   | -- | Ensures headId do not change between head input datum and head output
     -- datum.
     MutateHeadIdInOutput
+  | -- | Inject an unrelated v_deposit input into a healthy Contest.
+    ContestAbsorbForeignDeposit
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -277,6 +289,31 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutateHeadIdInOutput <$> do
         otherHeadId <- toPlutusCurrencySymbol . headPolicyId <$> arbitrary `suchThat` (/= Fixture.testSeedInput)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadId otherHeadId) headTxOut
+    , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) ContestAbsorbForeignDeposit <$> do
+        extraIn <- genTxIn
+        extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
+        let
+          -- Past the tx upper bound, so the deadline check passes and
+          -- the later guard fires instead.
+          extraDeadline =
+            addUTCTime (60 * 60 * 24) $
+              slotNoToUTCTime systemStart slotLength healthySlotNo
+          extraDepositOut :: TxOut CtxUTxO
+          extraDepositOut =
+            mkDepositOutput
+              testNetworkId
+              (mkHeadId testPolicyId)
+              extraDeposited
+              extraDeadline
+          -- Absorb the deposit's value to keep the tx balanced.
+          headTxOut' =
+            modifyTxOutValue (<> txOutValue extraDepositOut) headTxOut
+        pure $
+          Changes
+            [ AddInput extraIn extraDepositOut (Just $ toScriptData Claim)
+            , ChangeOutput 0 headTxOut'
+            , AddScript depositValidatorScript
+            ]
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

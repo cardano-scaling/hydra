@@ -45,11 +45,11 @@ that you have a good version of jq with this command:
 ```shell
 mkdir -p bin
 
-hydra_version=2.0.0
+hydra_version=2.1.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
 unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
 
-cardano_node_version=10.6.2
+cardano_node_version=11.0.1
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux-amd64.tar.gz
 tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./bin/cardano-node ./bin/cardano-cli
 tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./share/preprod --strip-components=3
@@ -71,11 +71,11 @@ Finally, verify your node installation by running `./bin/hydra-node --help`
 ```shell
 mkdir -p bin
 
-hydra_version=2.0.0
+hydra_version=2.1.0
 curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
 unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
 
-cardano_node_version=10.6.2
+cardano_node_version=11.0.1
 curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
 tar xf cardano-node-${cardano_node_version}-macos.tar.gz --strip-components=3 ./share/preprod/
@@ -415,7 +415,7 @@ Start the `hydra-node` using these parameters:
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra_version=2.0.0
+hydra_version=2.1.0
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
@@ -437,7 +437,7 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra_version=2.0.0
+hydra_version=2.1.0
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \

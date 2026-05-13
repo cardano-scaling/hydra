@@ -12,10 +12,16 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
-  , hackage.haskell.org 2026-04-15T11:01:18Z
-  , cardano-haskell-packages 2026-01-30T14:47:00Z
+  , hackage.haskell.org 2026-04-15T20:41:57Z
+  , cardano-haskell-packages 2026-05-11T20:15:43Z
 
 packages: **/*.cabal
+
+-- servant-multipart-client caps random < 1.3 but ouroboros-network 1.1
+-- requires random ^>=1.3; relax the bound since they're compatible.
+allow-newer:
+  servant-multipart-client:random
+
 
 -- Compile more things in parallel
 package *

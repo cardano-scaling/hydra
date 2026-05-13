@@ -70,7 +70,7 @@ data ClientMessage tx
   | RejectedInputBecauseUnsynced {clientInput :: ClientInput tx, drift :: NominalDiffTime}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
   | SyncedStatusReport {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime, synced :: SyncedStatus}
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
   toJSON =
@@ -101,10 +101,10 @@ data Greetings tx = Greetings
   , chainSyncedStatus :: SyncedStatus
   , currentSlot :: ChainSlot
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
-deriving instance IsChainState tx => Eq (Greetings tx)
-deriving instance IsChainState tx => Show (Greetings tx)
+deriving stock instance IsChainState tx => Eq (Greetings tx)
+deriving stock instance IsChainState tx => Show (Greetings tx)
 
 instance IsChainState tx => ToJSON (Greetings tx) where
   toJSON =
@@ -126,10 +126,10 @@ data InvalidInput = InvalidInput
   { reason :: String
   , input :: Text
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
-deriving instance ToJSON InvalidInput
-deriving instance FromJSON InvalidInput
+deriving anyclass instance ToJSON InvalidInput
+deriving anyclass instance FromJSON InvalidInput
 
 data ServerOutput tx
   = NetworkConnected

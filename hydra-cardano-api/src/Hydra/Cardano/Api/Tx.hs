@@ -16,6 +16,7 @@ import Cardano.Ledger.Api (
   mkBasicTxBody,
  )
 import Cardano.Ledger.Api qualified as Ledger
+import Cardano.Ledger.Core (TxLevel (..))
 import Control.Lens ((&), (.~))
 import Data.Bifunctor (bimap)
 import Data.Functor ((<&>))
@@ -63,13 +64,13 @@ utxoProducedByTx tx =
 -- | Convert a cardano-api 'Tx' into a matching cardano-ledger 'Tx'.
 toLedgerTx ::
   Tx era ->
-  Ledger.Tx (ShelleyLedgerEra era)
+  Ledger.Tx TopTx (ShelleyLedgerEra era)
 toLedgerTx (ShelleyTx _era tx) = tx
 
 -- | Convert a cardano-ledger's 'Tx' in the Babbage era into a cardano-api 'Tx'.
 fromLedgerTx ::
   IsShelleyBasedEra era =>
-  Ledger.Tx (ShelleyLedgerEra era) ->
+  Ledger.Tx TopTx (ShelleyLedgerEra era) ->
   Tx era
 fromLedgerTx =
   ShelleyTx shelleyBasedEra

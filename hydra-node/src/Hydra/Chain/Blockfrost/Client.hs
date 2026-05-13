@@ -39,6 +39,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api.PParams
 import Cardano.Ledger.BaseTypes (EpochInterval (..), NonNegativeInterval, UnitInterval, boundRational, unsafeNonZero)
 import Cardano.Ledger.Binary.Version (mkVersion)
+import Cardano.Ledger.Coin (compactCoinOrError)
 import Cardano.Ledger.Conway.Core (
   DRepVotingThresholds (..),
   PoolVotingThresholds (..),
@@ -66,7 +67,7 @@ import Hydra.Options (BlockfrostOptions (..))
 import Hydra.Tx (ScriptRegistry, newScriptRegistry)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
-import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter)
+import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter, pattern NoPerasEnabled)
 
 data BlockfrostException
   = TimeoutOnUTxO TxId
@@ -79,7 +80,8 @@ data BlockfrostException
   | DeserialiseError Text
   | DecodeError Text
   | BlockfrostAPIError Text
-  deriving (Show, Exception)
+  deriving stock (Show)
+  deriving anyclass (Exception)
 
 newtype APIBlockfrostError
   = BlockfrostError BlockfrostException
@@ -161,8 +163,8 @@ queryProtocolParameters = do
     Just BlockfrostConversion{..} ->
       pure $
         emptyPParams
-          & ppMinFeeAL .~ fromIntegral (pparams ^. Blockfrost.minFeeA)
-          & ppMinFeeBL .~ fromIntegral (pparams ^. Blockfrost.minFeeB)
+          & ppTxFeePerByteL .~ CoinPerByte (compactCoinOrError (Coin (pparams ^. Blockfrost.minFeeA)))
+          & ppTxFeeFixedL .~ Coin (pparams ^. Blockfrost.minFeeB)
           & ppMaxBBSizeL .~ fromIntegral (pparams ^. Blockfrost.maxBlockSize)
           & ppMaxTxSizeL .~ fromIntegral (pparams ^. Blockfrost.maxTxSize)
           & ppMaxBHSizeL .~ fromIntegral (pparams ^. Blockfrost.maxBlockHeaderSize)
@@ -175,7 +177,7 @@ queryProtocolParameters = do
           & ppTauL .~ tau
           & ppProtocolVersionL .~ ProtVer maxVersion minVersion
           & ppMinPoolCostL .~ fromIntegral (pparams ^. Blockfrost.minPoolCost)
-          & ppCoinsPerUTxOByteL .~ CoinPerByte (fromIntegral (pparams ^. Blockfrost.coinsPerUtxoSize))
+          & ppCoinsPerUTxOByteL .~ CoinPerByte (compactCoinOrError (Coin (fromIntegral (pparams ^. Blockfrost.coinsPerUtxoSize))))
           & ppCostModelsL .~ convertCostModels (pparams ^. Blockfrost.costModelsRaw)
           & ppPricesL .~ Prices priceMemory priceSteps
           & ppMaxTxExUnitsL .~ ExUnits (fromIntegral $ Blockfrost.unQuantity $ pparams ^. Blockfrost.maxTxExMem) (fromIntegral $ Blockfrost.unQuantity $ pparams ^. Blockfrost.maxTxExSteps)
@@ -396,6 +398,7 @@ queryEraHistory = do
       { boundTime = RelativeTime _boundTime
       , boundSlot = SlotNo $ fromIntegral _boundSlot
       , boundEpoch = EpochNo $ fromIntegral _boundEpoch
+      , boundPerasRound = NoPerasEnabled
       }
   mkEraParams Blockfrost.NetworkEraParameters{_parametersEpochLength, _parametersSlotLength, _parametersSafeZone} =
     EraParams
@@ -403,6 +406,7 @@ queryEraHistory = do
       , eraSlotLength = mkSlotLength _parametersSlotLength
       , eraSafeZone = StandardSafeZone _parametersSafeZone
       , eraGenesisWin = GenesisWindow _parametersSafeZone
+      , eraPerasRoundLength = NoPerasEnabled
       }
   mkEra Blockfrost.NetworkEraSummary{_networkEraStart, _networkEraEnd, _networkEraParameters} =
     EraSummary

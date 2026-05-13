@@ -32,6 +32,7 @@ import Ouroboros.Consensus.HardFork.History (
   Summary (Summary),
   initBound,
   mkInterpreter,
+  pattern NoPerasEnabled,
  )
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
@@ -303,6 +304,7 @@ multiEraHistory =
               { boundTime = RelativeTime byronDurationSeconds
               , boundSlot = SlotNo byronSlots
               , boundEpoch = EpochNo byronEpochs
+              , boundPerasRound = NoPerasEnabled
               }
       , eraParams =
           EraParams
@@ -310,6 +312,7 @@ multiEraHistory =
             , eraSlotLength = byronSlotLength
             , eraSafeZone = StandardSafeZone (2 * byronSlotsPerEpoch)
             , eraGenesisWin = GenesisWindow (2 * byronSlotsPerEpoch)
+            , eraPerasRoundLength = NoPerasEnabled
             }
       }
 
@@ -320,6 +323,7 @@ multiEraHistory =
             { boundTime = RelativeTime byronDurationSeconds
             , boundSlot = SlotNo byronSlots
             , boundEpoch = EpochNo byronEpochs
+            , boundPerasRound = NoPerasEnabled
             }
       , eraEnd = EraUnbounded
       , eraParams =
@@ -328,5 +332,6 @@ multiEraHistory =
             , eraSlotLength = mkSlotLength 1
             , eraSafeZone = UnsafeIndefiniteSafeZone
             , eraGenesisWin = GenesisWindow 432000
+            , eraPerasRoundLength = NoPerasEnabled
             }
       }

@@ -64,11 +64,15 @@
       ]
       ++
       pkgs.lib.optionals pkgs.stdenv.isLinux [
+        pkgs.liburing
         pkgs.systemd
         pkgs.selfci
       ];
 
       haskellNixShell = (hsPkgs.shellFor {
+        # ouroboros-network 1.1.0.0 triggers a GHC 9.6.7 haddock panic
+        # (tyConStupidTheta / BigLedgerPeers), so skip hoogle for now.
+        withHoogle = false;
         buildInputs = libs ++ buildInputs;
         # Always create missing golden files
         shellHook = ''

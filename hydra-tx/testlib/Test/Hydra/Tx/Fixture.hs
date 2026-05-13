@@ -15,8 +15,8 @@ import Hydra.Prelude
 import Cardano.Ledger.Alonzo.Core (ppPricesL)
 import Cardano.Ledger.Alonzo.Scripts (Prices (..))
 import Cardano.Ledger.BaseTypes (BoundedRational (..))
-import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (PParams, ppMinFeeAL, ppMinFeeBL)
+import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), compactCoinOrError)
+import Cardano.Ledger.Core (PParams, ppTxFeeFixedL, ppTxFeePerByteL)
 import Control.Lens ((.~))
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -102,5 +102,5 @@ defaultPParams =
             , prSteps = fromJust $ boundRational 0
             }
          )
-    & ppMinFeeAL .~ Coin 0
-    & ppMinFeeBL .~ Coin 0
+    & ppTxFeePerByteL .~ CoinPerByte (compactCoinOrError (Coin 0))
+    & ppTxFeeFixedL .~ Coin 0

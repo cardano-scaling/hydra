@@ -26,8 +26,9 @@ module Hydra.Ledger.Cardano.Evaluate (
 import Hydra.Prelude hiding (label)
 
 import Cardano.Ledger.Alonzo.Scripts (exUnitsMem, exUnitsSteps, txscriptfee)
-import Cardano.Ledger.Api (ppMaxTxExUnitsL, ppMinFeeAL, ppMinFeeBL, ppPricesL)
-import Cardano.Ledger.Coin (Coin)
+import Cardano.Ledger.Api (ppMaxTxExUnitsL, ppPricesL, ppTxFeeFixedL, ppTxFeePerByteL)
+import Cardano.Ledger.Coin (Coin, CoinPerByte (..))
+import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core (PParams)
 import Cardano.Ledger.Val (Val ((<+>)), (<×>))
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -185,7 +186,7 @@ estimateMinFeeWith pparams' tx evaluationReport =
     <+> txscriptfee prices allExunits
  where
   txSize = BS.length $ serialiseToCBOR tx
-  a = pparams' ^. ppMinFeeAL
-  b = pparams' ^. ppMinFeeBL
+  a = fromCompact . unCoinPerByte $ pparams' ^. ppTxFeePerByteL
+  b = pparams' ^. ppTxFeeFixedL
   prices = pparams' ^. ppPricesL
   allExunits = foldMap toLedgerExUnits . rights $ toList evaluationReport

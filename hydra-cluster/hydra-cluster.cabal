@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-cluster
-version:            2.0.0
+version:            2.1.0
 synopsis:
   Integration test suite using a local cluster of cardano and hydra nodes
 
@@ -78,6 +78,7 @@ library
     Hydra.Cluster.Mithril
     Hydra.Cluster.Options
     Hydra.Cluster.Scenarios
+    Hydra.Cluster.SecurityScenarios
     Hydra.Cluster.Util
     Hydra.Generator
     HydraNode
@@ -101,6 +102,7 @@ library
     , hydra-cardano-api
     , hydra-node
     , hydra-plutus
+    , hydra-plutus-extras
     , hydra-prelude
     , hydra-test-utils
     , hydra-tx
@@ -109,6 +111,7 @@ library
     , lens
     , lens-aeson
     , optparse-applicative
+    , plutus-ledger-api
     , process
     , QuickCheck
     , req

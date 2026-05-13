@@ -13,29 +13,34 @@ import Hydra.Cardano.Api hiding (initialLedgerState, utxoFromTx)
 import Hydra.Ledger.Cardano.Builder
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Address (AccountAddress (..), AccountId (..))
 import Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),
   TagMismatchDescription (FailedUnexpectedly),
  )
-import Cardano.Ledger.Api (bodyTxL, raCredential, unWithdrawals, withdrawalsTxBodyL)
+import Cardano.Ledger.Api (bodyTxL, unWithdrawals, withdrawalsTxBodyL)
 import Cardano.Ledger.BaseTypes qualified as Ledger
-import Cardano.Ledger.CertState (dsUnifiedL)
+import Cardano.Ledger.Coin (CompactForm (CompactCoin))
+import Cardano.Ledger.Conway (ApplyTxError (ConwayApplyTxError))
 import Cardano.Ledger.Conway.Rules (
   ConwayLedgerPredFailure (ConwayUtxowFailure),
   ConwayUtxoPredFailure (UtxosFailure),
   ConwayUtxosPredFailure (ValidationTagMismatch),
   ConwayUtxowPredFailure (UtxoFailure),
  )
-import Cardano.Ledger.Plutus (PlutusDebugOverrides (..), debugPlutus)
+import Cardano.Ledger.Conway.State (ConwayAccountState (..))
+import Cardano.Ledger.Plutus (debugPlutus, defaultPlutusDebugOverrides)
 import Cardano.Ledger.Shelley.API.Mempool qualified as Ledger
 import Cardano.Ledger.Shelley.Genesis qualified as Ledger
 import Cardano.Ledger.Shelley.LedgerState qualified as Ledger
 import Cardano.Ledger.Shelley.Rules qualified as Ledger
-import Cardano.Ledger.UMap qualified as UM
+import Cardano.Ledger.State (ChainAccountState (..), accountsL, addAccountState)
 import Control.Lens ((%~), (.~), (^.))
 import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as Text
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
@@ -75,8 +80,8 @@ cardanoLedger globals ledgerEnv =
    where
     -- As we use applyTx we only expect one ledger rule to run and one tx to
     -- fail validation, hence using the heads of non empty lists is fine.
-    toValidationError :: Ledger.ApplyTxError LedgerEra -> ValidationError
-    toValidationError (Ledger.ApplyTxError (e :| _)) = case e of
+    toValidationError :: ApplyTxError LedgerEra -> ValidationError
+    toValidationError (ConwayApplyTxError (e :| _)) = case e of
       (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
         ValidationError $
           "Plutus validation failed: "
@@ -85,7 +90,7 @@ cardanoLedger globals ledgerEnv =
             -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
             -- action. It only re-evaluates the script and does not have any
             -- side-effects.
-            <> show (unsafeDupablePerformIO $ debugPlutus (decodeUtf8 ctx) $ PlutusDebugOverrides Nothing Nothing Nothing Nothing Nothing Nothing)
+            <> show (unsafeDupablePerformIO $ debugPlutus (T.unpack $ Text.decodeUtf8 ctx) maxBound defaultPlutusDebugOverrides)
       _ -> ValidationError $ show e
 
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
@@ -97,16 +102,19 @@ cardanoLedger globals ledgerEnv =
 
     -- NOTE: Mocked certificate state that simulates any reward accounts for any
     -- withdraw-zero scripts included in the transaction.
-    mockCertState = dsUnifiedL %~ (\umap -> foldl' register umap withdrawZeroCredentials)
-
-    register umap hk = UM.RewDepUView umap UM.∪ (hk, UM.RDPair (UM.CompactCoin 0) (UM.CompactCoin 0))
+    mockCertState =
+      accountsL %~ \accounts ->
+        foldl'
+          (\acc cred -> addAccountState cred ConwayAccountState{casBalance = CompactCoin 0, casDeposit = CompactCoin 0, casStakePoolDelegation = Nothing, casDRepDelegation = Nothing} acc)
+          accounts
+          withdrawZeroCredentials
 
     withdrawZeroCredentials =
       toLedgerTx tx ^. bodyTxL . withdrawalsTxBodyL
         & unWithdrawals
         & Map.filter (== Coin 0)
         & Map.keysSet
-        & Set.map raCredential
+        & Set.map (unAccountId . aaId)
 
 -- * LedgerEnv
 
@@ -123,7 +131,7 @@ newLedgerEnv protocolParams =
     , -- NOTE: This keeps track of the ledger's treasury and reserve which are
       -- both unused in Hydra. There might be room for interesting features in the
       -- future with these two but for now, we'll consider them empty.
-      Ledger.ledgerAccount = Ledger.AccountState mempty mempty
+      Ledger.ledgerAccount = ChainAccountState mempty mempty
     , Ledger.ledgerPp = protocolParams
     , Ledger.ledgerEpochNo = Nothing
     }

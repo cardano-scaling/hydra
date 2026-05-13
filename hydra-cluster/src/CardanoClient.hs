@@ -22,6 +22,7 @@ import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Options (ChainBackendOptions (..))
+import System.IO.Error (userError)
 
 -- | Run a 'ChainBackend' action given 'ChainBackendOptions'.
 runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) => m a) -> IO a
@@ -88,7 +89,7 @@ waitForUTxO opts utxo =
           (selectLovelace value)
           addr
     txOut ->
-      error $ "Unexpected TxOut " <> show txOut
+      throwIO $ userError $ "Unexpected TxOut " <> show txOut
 
 mkGenesisTx ::
   NetworkId ->

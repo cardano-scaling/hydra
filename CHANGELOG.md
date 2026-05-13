@@ -8,32 +8,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
-## [UNRELEASED]
+## [2.1.0] - 2026.05.13
 
-- Compatible with mithril `2617.0`.
+- Improved security for deposits
+
+- Compatible with mithril `2617.0` [#2596](https://github.com/cardano-scaling/hydra/pull/2596) [#2598](https://github.com/cardano-scaling/hydra/pull/2598).
 
 - Retry transient chain-following errors in the Blockfrost backend
 (DecodeError, MissingNextBlockHash, etc.) with exponential backoff instead of
 crashing the node. HTTP-level Blockfrost API errors are left to the upstream
-client library to handle.
+client library to handle [#2579](https://github.com/cardano-scaling/hydra/pull/2579).
 
 - Replace file-based persistence with a SQLite-backed event store. Events are
 now persisted in a database file (`hydra.db`) in the `--persistence-dir`
 directory instead of a plain append-only JSON file (`state`). On first startup
 after upgrading, existing `state` files are automatically migrated into
-`hydra.db` and renamed to `state.migrated`.
+`hydra.db` and renamed to `state.migrated` [#2578](https://github.com/cardano-scaling/hydra/pull/2578).
 
-- **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`):
+- **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`) [#2577](https://github.com/cardano-scaling/hydra/pull/2577):
   - `SnapshotRequested`: `snapshot` renamed to `requestedSnapshot`; `requestedTxIds` field removed (tx ids are now carried inside `requestedSnapshot`).
   - `PartySignedSnapshot`: `snapshot :: Snapshot tx` replaced by `snapshotNumber :: SnapshotNumber` (only the number is stored, not the full snapshot).
   - `SnapshotConfirmed`: `snapshot :: Snapshot tx` changed to `snapshot :: Maybe (Snapshot tx)` (is `Nothing` when a preceding `SnapshotRequested` already carries the snapshot).
   - `DecommitRecorded`: `utxoToDecommit :: UTxOType tx` field removed.
 
-  - Reduce snapshot confirmation latency by ~7% (avg) by caching the pre-computed signable bytes of a snapshot in `SeenSnapshot`, avoiding repeated UTxO serialization and hashing on every `AckSn` verification during a signing round.
+- Reduce snapshot confirmation latency by ~7% (avg) by caching the pre-computed signable bytes of a snapshot in `SeenSnapshot`, avoiding repeated UTxO serialization and hashing on every `AckSn` verification during a signing round [#2571](https://github.com/cardano-scaling/hydra/pull/2571).
 
 - Replace 'list' with `Seq` type to speed up transaction processing in some
   instances [#2597](https://github.com/cardano-scaling/hydra/pull/2597).
 
+- Compatible with cardano-node protocol version 12+ (upgrades `cardano-api` to `^>=11.1`) [#2607](https://github.com/cardano-scaling/hydra/pull/2607).
 
 ## [2.0.0] - 2026.04.05
 

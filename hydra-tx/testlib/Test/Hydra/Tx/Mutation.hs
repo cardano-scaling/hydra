@@ -358,13 +358,9 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
     , utxo
     )
   AddInput i o newRedeemer ->
-    ( alterTxIns addRedeemer tx
+    ( alterTxIns (<> [(i, newRedeemer)]) tx
     , UTxO $ Map.insert i o (UTxO.toMap utxo)
     )
-   where
-    addRedeemer =
-      map $ \(txIn', mRedeemer) ->
-        if txIn' == i then (i, newRedeemer) else (txIn', mRedeemer)
   AddScript script ->
     (Tx body' wits, utxo)
    where

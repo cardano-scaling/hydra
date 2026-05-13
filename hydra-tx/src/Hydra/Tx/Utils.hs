@@ -7,8 +7,9 @@ import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Alonzo.Tx qualified as Ledger
 import Cardano.Ledger.Api (AlonzoTxAuxData (..), auxDataHashTxBodyL, auxDataTxL, bodyTxL, hashTxAuxData)
+import Cardano.Ledger.Core (TxLevel (..))
+import Cardano.Ledger.Core qualified as LedgerCore
 import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -17,7 +18,6 @@ import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Util (hydraHeadV2)
 import Hydra.Tx.HeadId (HeadId, mkHeadId)
 import Hydra.Tx.OnChainId (OnChainId (..))
-import Ouroboros.Consensus.Shelley.Eras qualified as Ledger
 import PlutusLedgerApi.V3 (fromBuiltin, getPubKeyHash)
 
 hydraHeadV2AssetName :: AssetName
@@ -75,7 +75,7 @@ adaOnly = \case
   TxOut addr value datum refScript ->
     TxOut addr (lovelaceToValue $ selectLovelace value) datum refScript
 
-addMetadata :: TxMetadata -> Tx -> Ledger.AlonzoTx Ledger.ConwayEra -> Ledger.AlonzoTx Ledger.ConwayEra
+addMetadata :: TxMetadata -> Tx -> LedgerCore.Tx TopTx LedgerEra -> LedgerCore.Tx TopTx LedgerEra
 addMetadata (TxMetadata newMetadata) blueprintTx tx =
   let
     newMetadataMap = toShelleyMetadata newMetadata
@@ -94,7 +94,7 @@ addMetadata (TxMetadata newMetadata) blueprintTx tx =
 -- not ideal but for now we want to keep track of both fields (de/commit) since
 -- we might want to support batch de/commits too in the future, but having both fields
 -- be Maybe UTxO introduces a lot of checks if the value is Nothing or mempty.
-data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving (Eq, Show)
+data IncrementalAction = ToCommit UTxO | ToDecommit UTxO | NoThing deriving stock (Eq, Show)
 
 setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
 setIncrementalActionMaybe utxoToCommit utxoToDecommit =

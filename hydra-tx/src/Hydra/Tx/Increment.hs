@@ -98,7 +98,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
   -- NOTE: we expect always a single output from a deposit tx
   (depositIn, _) = List.head $ UTxO.toList depositScriptUTxO
 
-  depositRedeemer = toScriptData $ Deposit.redeemer $ Deposit.Claim $ headIdToCurrencySymbol headId
+  depositRedeemer = toScriptData $ Deposit.redeemer Deposit.Claim
 
   depositWitness =
     BuildTxWith $

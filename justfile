@@ -19,7 +19,7 @@ check:
 
 # run cabal tests, optionally with some test selection
 test PKG="all" PATTERN="/":
-  cabal test {{PKG}} --test-options="--match {{PATTERN}}"
+  cabal test {{PKG}} --test-options='--match "{{PATTERN}}"'
 
 # build with -Werror and strict linting flags.
 lint PKG="all":

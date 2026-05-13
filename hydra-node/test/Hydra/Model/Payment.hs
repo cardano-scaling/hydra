@@ -20,7 +20,7 @@ import Prelude qualified
 
 -- NOTE: New type wrapper to add Ord and Eq instances to signing keys
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
-  deriving (Show)
+  deriving stock (Show)
 
 instance Eq CardanoSigningKey where
   CardanoSigningKey ska == CardanoSigningKey skb =

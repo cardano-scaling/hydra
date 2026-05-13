@@ -1,6 +1,6 @@
 cabal-version:      3.0
 name:               hydra-plutus
-version:            2.0.0
+version:            2.1.0
 synopsis:           Hydra Plutus Contracts
 author:             IOG
 copyright:          2022 IOG
@@ -23,7 +23,6 @@ common project-config
     DeriveAnyClass
     DerivingStrategies
     FunctionalDependencies
-    GADTs
     LambdaCase
     MultiWayIf
     NoImplicitPrelude

@@ -9,13 +9,11 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose)
-import Cardano.Ledger.Babbage.Tx (AlonzoTx (..))
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, outputsTxBodyL, pattern SpendingPurpose)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Conway.TxBody (ConwayTxBody (..))
-import Cardano.Ledger.Core (Tx, Value)
+import Cardano.Ledger.Core (Tx, TxLevel (..), Value)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
 import Cardano.Ledger.Shelley.API qualified as Ledger
@@ -168,7 +166,7 @@ prop_wellSuitedGenerators =
         & counterexample ("Our TxIns: " <> show (length $ ourDirectInputs utxo txs))
         & counterexample ("Our TxOuts: " <> show (length $ ourOutputs utxo txs))
  where
-  smallTxSets :: [Tx LedgerEra] -> Bool
+  smallTxSets :: [Tx TopTx LedgerEra] -> Bool
   smallTxSets txs =
     length txs <= 10
 
@@ -248,7 +246,7 @@ prop_balanceTransaction =
             -- genLedgerTx does not generate txs spending from scripts seemingly.
             & cover 5 (tx ^. witsTxL . rdmrsTxWitsL /= mempty) "spending script"
 
-hasLowFees :: PParams LedgerEra -> Tx LedgerEra -> Property
+hasLowFees :: PParams LedgerEra -> Tx TopTx LedgerEra -> Property
 hasLowFees pparams tx =
   counterexample ("PParams: " <> show pparams) $
     notTooLow .&&. notTooHigh
@@ -268,7 +266,7 @@ hasLowFees pparams tx =
   minFee :: Coin
   minFee = getMinFeeTx pparams tx 0
 
-isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
+isBalanced :: Map TxIn TxOut -> Tx TopTx LedgerEra -> Tx TopTx LedgerEra -> Property
 isBalanced utxo originalTx balancedTx =
   let inp' = knownInputBalance utxo balancedTx
       out' = outputBalance balancedTx
@@ -306,16 +304,16 @@ prop_picksLargestUTxOToPayTheFees =
 -- | Generate an arbitrary list of transactions from a UTXO set such that,
 -- transactions may *sometimes* consume given UTXO and produce new ones. The
 -- generator is geared towards certain use-cases,
-genTxsSpending :: Map TxIn TxOut -> Gen [Tx LedgerEra]
+genTxsSpending :: Map TxIn TxOut -> Gen [Tx TopTx LedgerEra]
 genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
   evalStateT genTxs utxo
  where
-  genTxs :: StateT (Map TxIn TxOut) Gen [Tx LedgerEra]
+  genTxs :: StateT (Map TxIn TxOut) Gen [Tx TopTx LedgerEra]
   genTxs = do
     n <- lift getSize
     replicateM n genTx
 
-  genTx :: StateT (Map TxIn TxOut) Gen (Tx LedgerEra)
+  genTx :: StateT (Map TxIn TxOut) Gen (Tx TopTx LedgerEra)
   genTx = do
     genBody <-
       lift $
@@ -324,16 +322,14 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
           , (1, pure genBodyFromUTxO)
           ]
     body <- genBody
-    lift $
-      AlonzoTx body
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    lift $ do
+      tx <- arbitrary
+      pure $ tx & bodyTxL .~ body
 
   -- Generate a TxBody by consuming a UTXO from the state, and generating a new
   -- one. The number of UTXO in the state after calling this function remains
   -- identical.
-  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (ConwayTxBody LedgerEra)
+  genBodyFromUTxO :: StateT (Map TxIn TxOut) Gen (TxBody TopTx LedgerEra)
   genBodyFromUTxO = do
     base <- lift arbitrary
     (input, output) <- gets Map.findMax
@@ -347,7 +343,7 @@ genTxsSpending utxo = scale (round @Double . sqrt . fromIntegral) $ do
 
 genUTxO :: Gen (Map TxIn TxOut)
 genUTxO = do
-  tx <- arbitrary `suchThat` (Prelude.not . Prelude.null . view (bodyTxL . outputsTxBodyL))
+  tx <- arbitrary @(Tx TopTx LedgerEra) `suchThat` (Prelude.not . Prelude.null . view (bodyTxL . outputsTxBodyL))
   txIn <- toLedgerTxIn <$> genTxIn
   let txOut = scaleAda $ Prelude.head $ toList $ tx ^. (bodyTxL . outputsTxBodyL)
   pure $ Map.singleton txIn txOut
@@ -357,13 +353,13 @@ genUTxO = do
     let value' = value <> Ledger.inject (Coin 20_000_000)
      in BabbageTxOut addr value' datum refScript
 
-genOutputsForInputs :: Tx LedgerEra -> Gen (Map TxIn TxOut)
+genOutputsForInputs :: Tx TopTx LedgerEra -> Gen (Map TxIn TxOut)
 genOutputsForInputs tx = do
   let n = Set.size (view (bodyTxL . inputsTxBodyL) tx)
   outs <- vectorOf n arbitrary
   pure $ Map.fromList $ zip (toList (view (bodyTxL . inputsTxBodyL) tx)) outs
 
-genLedgerTx :: Gen (Tx LedgerEra)
+genLedgerTx :: Gen (Tx TopTx LedgerEra)
 genLedgerTx = do
   tx <- arbitrary
   pure $ tx & bodyTxL . feeTxBodyL .~ Coin 0
@@ -372,11 +368,11 @@ genLedgerTx = do
 -- Helpers
 --
 
-allTxIns :: [Tx LedgerEra] -> Set TxIn
+allTxIns :: [Tx TopTx LedgerEra] -> Set TxIn
 allTxIns txs =
   Set.unions (view (bodyTxL . inputsTxBodyL) <$> txs)
 
-allTxOuts :: [Tx LedgerEra] -> [TxOut]
+allTxOuts :: [Tx TopTx LedgerEra] -> [TxOut]
 allTxOuts txs =
   toList $ mconcat (view (bodyTxL . outputsTxBodyL) <$> txs)
 
@@ -387,11 +383,11 @@ isOurs utxo addr =
 -- NOTE: 'direct' here means inputs that can be identified from our initial
 -- UTXO set. UTXOs that are created in a transaction from that blk aren't
 -- counted here.
-ourDirectInputs :: Map TxIn TxOut -> [Tx LedgerEra] -> [TxIn]
+ourDirectInputs :: Map TxIn TxOut -> [Tx TopTx LedgerEra] -> [TxIn]
 ourDirectInputs utxo txs =
   Map.keys $ Map.restrictKeys utxo (allTxIns txs)
 
-ourOutputs :: Map TxIn TxOut -> [Tx LedgerEra] -> [TxOut]
+ourOutputs :: Map TxIn TxOut -> [Tx TopTx LedgerEra] -> [TxOut]
 ourOutputs utxo blk =
   let ours = Map.elems utxo
    in filter (`elem` ours) (allTxOuts blk)
@@ -405,14 +401,14 @@ deltaValue a b
   | otherwise = invert a <> b
 
 -- | NOTE: This does not account for withdrawals
-knownInputBalance :: Map TxIn TxOut -> Tx LedgerEra -> Value LedgerEra
+knownInputBalance :: Map TxIn TxOut -> Tx TopTx LedgerEra -> Value LedgerEra
 knownInputBalance utxo = foldMap resolve . toList . view (bodyTxL . inputsTxBodyL)
  where
   resolve :: TxIn -> Value LedgerEra
   resolve k = maybe zero getValue (Map.lookup k utxo)
 
 -- | NOTE: This does not account for deposits
-outputBalance :: Tx LedgerEra -> Value LedgerEra
+outputBalance :: Tx TopTx LedgerEra -> Value LedgerEra
 outputBalance =
   foldMap getValue . view (bodyTxL . outputsTxBodyL)
 
@@ -444,7 +440,7 @@ prop_detectsMissingScript =
               & counterexample "Expected ErrMissingScript but transaction succeeded"
  where
   -- Generate a transaction that spends from a script-locked UTxO
-  genScriptSpendingTx :: Gen (Tx LedgerEra, Map TxIn TxOut)
+  genScriptSpendingTx :: Gen (Tx TopTx LedgerEra, Map TxIn TxOut)
   genScriptSpendingTx = do
     -- Generate a dummy script hash
     scriptHash <- arbitrary

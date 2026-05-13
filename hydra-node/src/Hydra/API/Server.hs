@@ -57,6 +57,7 @@ import Network.Wai.Handler.Warp (
   setOnException,
   setOnExceptionResponse,
   setPort,
+  setTimeout,
  )
 import Network.Wai.Handler.WarpTLS (runTLS, tlsSettings)
 import Network.Wai.Handler.WebSockets (websocketsOr)
@@ -129,6 +130,7 @@ withAPIServer config env party eventSource tracer initialChainState chain pparam
           defaultSettings
             & setHost (fromString $ show host)
             & setPort (fromIntegral port)
+            & setTimeout 180
             & setOnException (\_ e -> traceWith tracer $ APIConnectionError{reason = show e})
             & setOnExceptionResponse (responseLBS status500 [] . show)
             & setBeforeMainLoop notifyServerRunning
