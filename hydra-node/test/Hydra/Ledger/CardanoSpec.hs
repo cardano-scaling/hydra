@@ -21,6 +21,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.JSONSchema (prop_validateJSONSchema)
 import Hydra.Ledger (applyTransactions)
 import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Tx.IsTx (IsTx (..))
 import Ouroboros.Consensus.Block (GenesisWindow (..))
 import Ouroboros.Consensus.Cardano.Block (CardanoEras)
 import Ouroboros.Consensus.HardFork.History (
@@ -143,6 +144,7 @@ spec =
     describe "applyTransactions" $ do
       prop "works with valid transaction" appliesValidTransaction
       prop "works with valid transaction deserialised from JSON" appliesValidTransactionFromJSON
+      prop "is equivalent to folding applyTxTo for valid transactions" applyTransactionsEquivalence
 
     describe "Generators" $ do
       propCollisionResistant "arbitrary @TxIn" (arbitrary @TxIn)
@@ -184,6 +186,15 @@ roundtripPParams pparams = do
       property False
     Just actual ->
       pparams === actual
+
+applyTransactionsEquivalence :: Property
+applyTransactionsEquivalence =
+  forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
+    let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+        slot = ChainSlot 0
+        viaLedger = applyTransactions ledger slot utxo txs
+        viaApplyTxTo = foldl' (flip applyTxTo) utxo txs
+     in viaLedger === Right viaApplyTxTo
 
 appliesValidTransaction :: Property
 appliesValidTransaction =
