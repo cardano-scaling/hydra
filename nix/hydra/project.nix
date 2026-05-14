@@ -96,6 +96,15 @@
           {
             packages.hydra-node.components.library.pkgconfig = [ [ pkgs.static-sqlite ] ];
           }
+          # GHC 9.6.7 has a haddock bug (tyConStupidTheta) that panics on data
+          # types declared with the deprecated DatatypeContexts extension.
+          # Skip haddocks for the affected upstream packages so `withHoogle`
+          # can still index everything else.
+          {
+            packages.cardano-diffusion.doHaddock = false;
+            packages.cardano-ledger-shelley.doHaddock = false;
+            packages.ouroboros-network.doHaddock = false;
+          }
         ];
       };
 
