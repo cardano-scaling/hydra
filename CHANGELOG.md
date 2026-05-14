@@ -10,6 +10,11 @@ changes.
 
 ## [UNRELEASED]
 
+- **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`) :
+  - `TransactionAppliedToLocalUTxO`: `newLocalUTxO` field removed.
+  - `SnapshotRequested`: `newLocalUTxO` field removed.
+  - `DecommitRecorded`: `newLocalUTxO` field removed.
+
 - Reduce on-disk event-store growth by removing redundant `newLocalUTxO` fields
  from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
  post-tx UTxO via pure arithmetic/no ledger needed.
@@ -36,9 +41,6 @@ after upgrading, existing `state` files are automatically migrated into
   - `PartySignedSnapshot`: `snapshot :: Snapshot tx` replaced by `snapshotNumber :: SnapshotNumber` (only the number is stored, not the full snapshot).
   - `SnapshotConfirmed`: `snapshot :: Snapshot tx` changed to `snapshot :: Maybe (Snapshot tx)` (is `Nothing` when a preceding `SnapshotRequested` already carries the snapshot).
   - `DecommitRecorded`: `utxoToDecommit :: UTxOType tx` field removed.
-  - `TransactionAppliedToLocalUTxO`: `newLocalUTxO` field removed.
-  - `SnapshotRequested`: `newLocalUTxO` field removed.
-  - `DecommitRecorded`: `newLocalUTxO` field removed.
 
 - Reduce snapshot confirmation latency by ~7% (avg) by caching the pre-computed signable bytes of a snapshot in `SeenSnapshot`, avoiding repeated UTxO serialization and hashing on every `AckSn` verification during a signing round [#2571](https://github.com/cardano-scaling/hydra/pull/2571).
 
