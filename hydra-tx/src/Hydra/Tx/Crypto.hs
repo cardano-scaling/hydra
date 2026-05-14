@@ -57,7 +57,7 @@ import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Char8 qualified as BSC
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   AsType (..),
   BlockHeader,

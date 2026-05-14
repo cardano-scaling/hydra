@@ -60,7 +60,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
 import Data.List qualified as List
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Network (

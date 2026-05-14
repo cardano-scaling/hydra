@@ -4,7 +4,7 @@ module Hydra.Node.State where
 
 import Hydra.Prelude
 
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))

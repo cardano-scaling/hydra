@@ -37,7 +37,7 @@ import Cardano.Ledger.Shelley.Rules qualified as Ledger
 import Cardano.Ledger.State (ChainAccountState (..), accountsL, addAccountState)
 import Control.Lens ((%~), (.~), (^.))
 import Data.Default (def)
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as Text

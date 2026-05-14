@@ -17,7 +17,7 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), AsValue (_String), key, values, _JSON)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text (isInfixOf)
 import Data.Time (secondsToDiffTime)

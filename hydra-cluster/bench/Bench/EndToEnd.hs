@@ -23,7 +23,7 @@ import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
 import Data.Aeson.Types (parseEither, parseMaybe)
 import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set

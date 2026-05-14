@@ -11,7 +11,7 @@ import Control.Concurrent.MVar (newEmptyMVar, putMVar, takeMVar)
 import Control.Concurrent.STM.TChan (newBroadcastTChanIO, writeTChan)
 import Control.Exception (IOException)
 import Data.Conduit.List (catMaybes, mapAccum)
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Hydra.API.APIServerLog (APIServerLog (..))
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (httpApp)

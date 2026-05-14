@@ -5,7 +5,7 @@ module Hydra.Tx.ScriptRegistry where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   CtxUTxO,
   ScriptHash,

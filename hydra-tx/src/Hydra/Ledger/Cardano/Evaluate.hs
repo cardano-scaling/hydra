@@ -36,7 +36,7 @@ import Cardano.Slotting.Time (SystemStart)
 import Control.Lens ((.~))
 import Control.Lens.Getter
 import Data.ByteString qualified as BS
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   Era,
   ExecutionUnits (..),

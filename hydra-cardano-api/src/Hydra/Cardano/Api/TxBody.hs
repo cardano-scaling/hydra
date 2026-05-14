@@ -12,7 +12,7 @@ import Cardano.Ledger.Api (
 import Cardano.Ledger.Babbage.Core (redeemerPointer)
 import Cardano.Ledger.BaseTypes (strictMaybeToMaybe)
 import Cardano.Ledger.Plutus.Data qualified as Ledger
-import Data.Map qualified as Map
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api.TxIn (toLedgerTxIn)
 import PlutusLedgerApi.V3 qualified as Plutus
 

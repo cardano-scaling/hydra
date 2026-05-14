@@ -18,8 +18,8 @@ import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
 import Control.Monad (foldM)
 import Data.List qualified as List
-import Data.Map (notMember)
-import Data.Map qualified as Map
+import Data.Map.Strict (notMember)
+import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Hydra.API.ClientInput (ClientInput (SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
