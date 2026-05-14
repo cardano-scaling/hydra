@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Accept `PaymentExtendedKey` (BIP32-Ed25519 / HD wallet) signing and
+verification keys for `--cardano-signing-key` and `--cardano-verification-key`.
+Extended keys produced by HD wallets (e.g., Daedalus, hardware wallets) are now
+natively supported, removing the need to manually convert them before use.
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits

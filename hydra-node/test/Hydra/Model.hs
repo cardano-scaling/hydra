@@ -17,7 +17,7 @@
 -- modelling more complex transactions schemes...
 module Hydra.Model where
 
-import Hydra.Cardano.Api hiding (utxoFromTx)
+import Hydra.Cardano.Api hiding (CardanoSigningKey (..), utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
 import Test.Hydra.Prelude
 

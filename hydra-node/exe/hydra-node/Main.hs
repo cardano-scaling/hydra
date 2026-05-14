@@ -14,7 +14,7 @@ import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.ScriptRegistry (publishHydraScripts)
 import Hydra.Logging (Verbosity (..))
 import Hydra.Node.Run (run)
-import Hydra.Node.Util (readKeyPair)
+import Hydra.Node.Util (readSigningKey)
 import Hydra.Options (ChainBackendOptions (..), Command (GenHydraKey, Publish, Run), PublishOptions (..), RunOptions (..), parseHydraCommand)
 import Hydra.Utils (genHydraKeys)
 import System.Posix.Signals qualified as Signals
@@ -34,7 +34,7 @@ main = do
       either (die . show) pure =<< genHydraKeys outputFile
  where
   publish PublishOptions{chainBackendOptions, publishSigningKey} = do
-    (_, sk) <- readKeyPair publishSigningKey
+    sk <- readSigningKey publishSigningKey
     txIds <- case chainBackendOptions of
       Direct directOptions ->
         runDirectBackend directOptions $ publishHydraScripts sk

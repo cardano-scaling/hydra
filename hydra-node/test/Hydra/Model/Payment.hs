@@ -5,7 +5,7 @@
 -- to `CardanoSigningKey`.
 module Hydra.Model.Payment where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api hiding (CardanoSigningKey (..))
 import Hydra.Prelude hiding (Any, label, toList)
 import Test.Hydra.Prelude
 

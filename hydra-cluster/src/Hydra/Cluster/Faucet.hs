@@ -275,7 +275,7 @@ retryOnExceptions tracer opts action =
 publishHydraScriptsAs :: ChainBackendOptions -> Actor -> IO [TxId]
 publishHydraScriptsAs opts actor = do
   (_, sk) <- keysFor actor
-  txids <- runBackend opts $ publishHydraScripts sk
+  txids <- runBackend opts $ publishHydraScripts (CardanoSigningKey sk)
   delayBF opts
   pure txids
 

@@ -20,7 +20,7 @@ import Data.Text (pack)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.Server (Server, sendMessage)
 import Hydra.Cardano.Api (
-  getVerificationKey,
+  getCardanoPaymentVerificationKey,
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
 import Hydra.Chain.ChainState (IsChainState (..))
@@ -50,7 +50,7 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
-import Hydra.Node.Util (readFileTextEnvelopeThrow)
+import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositPeriod)
 import Hydra.Tx (HasParty (..), HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
@@ -85,9 +85,9 @@ initEnvironment options = do
           { cardanoVerificationKeys
           , cardanoSigningKey
           } -> do
-          ownSigningKey <- readFileTextEnvelopeThrow cardanoSigningKey
-          otherVerificationKeys <- mapM readFileTextEnvelopeThrow cardanoVerificationKeys
-          pure $ verificationKeyToOnChainId <$> (getVerificationKey ownSigningKey : otherVerificationKeys)
+          ownSigningKey <- readSigningKey cardanoSigningKey
+          otherVerificationKeys <- mapM readVerificationKey cardanoVerificationKeys
+          pure $ verificationKeyToOnChainId <$> (getCardanoPaymentVerificationKey ownSigningKey : otherVerificationKeys)
 
   contestationPeriod = case chainConfig of
     Offline{} -> defaultContestationPeriod
