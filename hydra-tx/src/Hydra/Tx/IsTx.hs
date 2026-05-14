@@ -96,6 +96,12 @@ class
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
+  -- | Apply a transaction to a UTxO via pure UTxO arithmetic, returning the
+  -- post-tx UTxO. Removes the tx's inputs from the given UTxO and adds the
+  -- tx's outputs. Performs no ledger validation; the caller must ensure the
+  -- tx is valid against the given UTxO.
+  applyTxTo :: tx -> UTxOType tx -> UTxOType tx
+
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
@@ -164,3 +170,5 @@ instance IsTx Tx where
   outputsOfUTxO = UTxO.txOutputs
 
   withoutUTxO = UTxO.difference
+
+  applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx

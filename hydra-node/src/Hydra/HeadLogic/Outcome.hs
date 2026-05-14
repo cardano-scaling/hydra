@@ -72,15 +72,10 @@ data StateChanged tx
   | TransactionAppliedToLocalUTxO
       { headId :: HeadId
       , tx :: tx
-      , newLocalUTxO :: UTxOType tx
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
-  | -- | A snapshot was requested by some party.
-    -- NOTE: We deliberately already include an updated local ledger state to
-    -- not need a ledger to interpret this event.
-    SnapshotRequested
+  | SnapshotRequested
       { requestedSnapshot :: Snapshot tx
-      , newLocalUTxO :: UTxOType tx
       , newLocalTxs :: Seq tx
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
@@ -117,7 +112,7 @@ data StateChanged tx
       , newVersion :: SnapshotVersion
       , depositTxId :: TxIdType tx
       }
-  | DecommitRecorded {headId :: HeadId, decommitTx :: tx, newLocalUTxO :: UTxOType tx}
+  | DecommitRecorded {headId :: HeadId, decommitTx :: tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitFinalized

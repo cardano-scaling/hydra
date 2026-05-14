@@ -211,17 +211,17 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
   -- Keep track of transactions by-id
   (newState TransactionReceived{tx} <>) $
     -- Spec: wait L̂ ◦ tx ≠ ⊥
-    waitApplyTx $ \newLocalUTxO ->
+    waitApplyTx $
       -- Spec: T̂ ← T̂ ⋃ {tx}
       --       L̂  ← L̂ ◦ tx
-      newState TransactionAppliedToLocalUTxO{headId, tx, newLocalUTxO}
+      newState TransactionAppliedToLocalUTxO{headId, tx}
         -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
         & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
     case applyTransactions currentSlot localUTxO [tx] of
-      Right utxo' -> cont utxo'
+      Right _ -> cont
       Left (_, err)
         | ttl > 0 ->
             wait (WaitOnNotApplicableTx err)
@@ -361,11 +361,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                   --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
                   --         T̂ ← T̂ ⋃ {tx}
                   --         L̂ ← L̂ ◦ tx
-                  let (newLocalTxs, newLocalUTxO) = pruneTransactions u
+                  let newLocalTxs = pruneTransactions u
                   newState
                     SnapshotRequested
                       { requestedSnapshot = nextSnapshot
-                      , newLocalUTxO
                       , newLocalTxs
                       , newCurrentDepositTxId = mDepositTxId
                       }
@@ -452,22 +451,20 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
 
-  pruneTransactions utxo = do
-    -- NOTE: Using foldl' is important to apply transacations in the correct
-    -- order. That is, left-associative as new transactions are first validated
-    -- and then appended to `localTxs` (when aggregating
-    -- 'TransactionAppliedToLocalUTxO').
-    foldl' go (mempty, utxo) localTxs
+  -- \| Filter 'localTxs' to those that still apply against the running UTxO
+  -- after each previous successful tx. The post-snapshot UTxO is not returned:
+  -- aggregate will recompute it.
+  pruneTransactions utxo0 = go utxo0 localTxs
    where
-    go (txs, u) tx =
+    go _ Seq.Empty = Seq.empty
+    go u (tx Seq.:<| rest) =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
       -- here when a tx becomes invalid.
       case applyTransactions ledger currentSlot u [tx] of
-        Left (_, _) -> (txs, u)
-        Right u' -> (txs Seq.|> tx, u')
-
+        Left _ -> go u rest
+        Right u' -> tx Seq.<| go u' rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
@@ -759,12 +756,10 @@ onOpenNetworkReqDec ::
   Outcome tx
 onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
-  waitOnApplicableDecommit $ \newLocalUTxO -> do
+  waitOnApplicableDecommit $
     -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
-    let decommitUTxO = utxoFromTx decommitTx
-        activeUTxO = newLocalUTxO `withoutUTxO` decommitUTxO
     -- Spec: txω ← tx
-    newState DecommitRecorded{headId, decommitTx, newLocalUTxO = activeUTxO}
+    newState DecommitRecorded{headId, decommitTx}
       -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
       --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
       <> maybeRequestSnapshot
@@ -773,7 +768,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
     case mExistingDecommitTx of
       Nothing ->
         case applyTransactions currentSlot localUTxO [decommitTx] of
-          Right utxo' -> cont utxo'
+          Right _ -> cont
           Left (_, validationError)
             | ttl > 0 ->
                 wait $
@@ -1859,27 +1854,32 @@ aggregate st = \case
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { allTxs = allTxs <> fromList [(txId tx, tx)]
+                  { allTxs = Map.insert (txId tx) tx allTxs
                   }
             }
        where
         CoordinatedHeadState{allTxs} = coordinatedHeadState
       _otherState -> st
-  TransactionAppliedToLocalUTxO{tx, newLocalUTxO} ->
+  TransactionAppliedToLocalUTxO{tx} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = newLocalUTxO
+                  { localUTxO =
+                      -- NOTE: Safe to use localUTxO here because the tx was
+                      -- ledger-validated before this event was emitted.
+                      -- 'aggregate' folds events in order, so 'localUTxO'
+                      -- here always reflects all previously applied transactions.
+                      applyTxTo tx localUTxO
                   , -- NOTE: Order of transactions is important here. See also
                     -- 'pruneTransactions'.
                     localTxs = localTxs Seq.|> tx
                   }
             }
        where
-        CoordinatedHeadState{localTxs} = coordinatedHeadState
+        CoordinatedHeadState{localUTxO, localTxs} = coordinatedHeadState
       _otherState -> st
   SnapshotRequestDecided{snapshotNumber} ->
     case st of
@@ -1898,7 +1898,7 @@ aggregate st = \case
        where
         CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
       _otherState -> st
-  SnapshotRequested{requestedSnapshot = snapshot, newLocalUTxO, newLocalTxs, newCurrentDepositTxId} ->
+  SnapshotRequested{requestedSnapshot = snapshot, newLocalTxs, newCurrentDepositTxId} ->
     case st of
       Open os@OpenState{coordinatedHeadState} ->
         Open
@@ -1907,7 +1907,13 @@ aggregate st = \case
                 coordinatedHeadState
                   { seenSnapshot = mkSeenSnapshot snapshot mempty
                   , localTxs = newLocalTxs
-                  , localUTxO = newLocalUTxO
+                  , -- NOTE: pure UTxO arithmetic. 'newLocalTxs' was pre-pruned
+                    -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
+                    -- is guaranteed to apply), making 'applyTxTo' safe to use
+                    -- without ledger validation.
+                    localUTxO =
+                      let activeUTxO = snapshot.utxo <> fromMaybe mempty snapshot.utxoToCommit
+                       in foldl' (flip applyTxTo) activeUTxO newLocalTxs
                   , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                   , currentDepositTxId = newCurrentDepositTxId
                   }
@@ -2002,17 +2008,22 @@ aggregate st = \case
   CommitApproved{} -> st
   DepositRecovered{} -> st
   CommitFinalized{} -> st
-  DecommitRecorded{decommitTx, newLocalUTxO} -> case st of
+  DecommitRecorded{decommitTx} -> case st of
     Open
       os@OpenState{coordinatedHeadState} ->
         Open
           os
             { coordinatedHeadState =
                 coordinatedHeadState
-                  { localUTxO = newLocalUTxO
+                  { -- Apply the decommit to localUTxO and remove its outputs:
+                    -- decommit's outputs leave the head, so net effect is
+                    -- removing the spent inputs from localUTxO.
+                    localUTxO = applyTxTo decommitTx localUTxO `withoutUTxO` utxoFromTx decommitTx
                   , decommitTx = Just decommitTx
                   }
             }
+       where
+        CoordinatedHeadState{localUTxO} = coordinatedHeadState
     _otherState -> st
   DecommitApproved{} -> st
   DecommitInvalid{} -> st
@@ -2096,7 +2107,7 @@ aggregate st = \case
   IgnoredHeadInitializing{} -> st
   TxInvalid{transaction} -> case st of
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
-      Open ost{coordinatedHeadState = coordState{allTxs = foldr Map.delete allTransactions [txId transaction]}}
+      Open ost{coordinatedHeadState = coordState{allTxs = Map.delete (txId transaction) allTransactions}}
     _otherState -> st
   Checkpoint nodeState -> headState nodeState
   NodeSynced{} -> st
