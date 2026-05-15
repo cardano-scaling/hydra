@@ -67,8 +67,8 @@ drawFocusPanel networkId vk now (Connection{headState}) = case headState of
   Idle -> withAttr neutral $ txt "Head is idle."
   Active (ActiveLink{utxo, pendingUTxOToDecommit, pendingIncrements, activeHeadState}) -> case activeHeadState of
     Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now x
-    Closed x -> drawFocusPanelClosed now x
-    FanoutPossible -> txt "Ready to fanout!"
+    Closed x -> drawFocusPanelClosed networkId vk utxo now x
+    FanoutPossible -> drawFocusPanelFanout networkId vk utxo
     Final -> drawFocusPanelFinal networkId vk utxo
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> [PendingIncrement] -> UTCTime -> OpenScreen -> Widget Name
@@ -97,9 +97,25 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
  where
   ownAddress = mkVkAddress networkId vk
 
-drawFocusPanelClosed :: UTCTime -> ClosedState -> Widget Name
-drawFocusPanelClosed now (ClosedState{contestationDeadline}) =
-  drawRemainingContestationPeriod contestationDeadline now
+drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTCTime -> ClosedState -> Widget Name
+drawFocusPanelClosed networkId vk utxo now (ClosedState{contestationDeadline}) =
+  vBox
+    [ drawRemainingContestationPeriod contestationDeadline now
+    , withAttr neutral (txt "Active UTxO")
+    , drawUTxO (highlightOwnAddress ownAddress) utxo
+    ]
+ where
+  ownAddress = mkVkAddress networkId vk
+
+drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
+drawFocusPanelFanout networkId vk utxo =
+  vBox
+    [ withAttr positive $ txt "Ready to fanout!"
+    , withAttr neutral (txt "Active UTxO")
+    , drawUTxO (highlightOwnAddress ownAddress) utxo
+    ]
+ where
+  ownAddress = mkVkAddress networkId vk
 
 drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
 drawFocusPanelFinal networkId vk utxo =

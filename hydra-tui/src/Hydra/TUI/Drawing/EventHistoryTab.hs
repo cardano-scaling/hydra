@@ -35,6 +35,7 @@ drawEventListItem tz selected (LogMessage{message, severity, time}) =
       line = str ts <+> txt "  " <+> txt severityIcon <+> txt "  " <+> txt message
       styled = case severity of
         Success | not selected -> withAttr infoA line
+        Error | not selected -> withAttr negative line
         _ -> line
    in if selected then withAttr BrickList.listSelectedAttr styled else styled
  where

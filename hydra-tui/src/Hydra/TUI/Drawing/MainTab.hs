@@ -102,10 +102,7 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
         case activeHeadState of
           Open{} ->
             vBox $
-              [ withAttr neutral $ txt ("UTxO (" <> show (Map.size (UTxO.toMap utxo)) <> ")")
-              , vLimitPercent 50 $
-                  scrollableViewport mainUTxOViewportName $
-                    drawUTxO (highlightOwnAddress ownAddress) utxo
+              [ utxoBlock utxo
               ]
                 <> [ withAttr infoA $ txt $ "  ↑ " <> show (length pendingIncrements) <> " pending commit(s)"
                    | not (null pendingIncrements)
@@ -114,14 +111,29 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
                    | pendingUTxOToDecommit /= mempty
                    ]
           Closed (ClosedState{contestationDeadline}) ->
-            drawRemainingContestationPeriod contestationDeadline (s ^. nowL)
+            vBox
+              [ drawRemainingContestationPeriod contestationDeadline (s ^. nowL)
+              , utxoBlock utxo
+              ]
           FanoutPossible ->
-            withAttr positive $ txt "Contestation period passed — ready to fan out."
+            vBox
+              [ withAttr positive $ txt "Contestation period passed — ready to fan out."
+              , utxoBlock utxo
+              ]
           Final ->
             vBox
               [ withAttr positive $ txt "Head finalized."
-              , drawUTxO (highlightOwnAddress ownAddress) utxo
+              , utxoBlock utxo
               ]
+
+  utxoBlock :: UTxO -> Widget Name
+  utxoBlock utxo =
+    vBox
+      [ withAttr neutral $ txt ("UTxO (" <> show (Map.size (UTxO.toMap utxo)) <> ")")
+      , vLimitPercent 50 $
+          scrollableViewport mainUTxOViewportName $
+            drawUTxO (highlightOwnAddress ownAddress) utxo
+      ]
 
 drawConnectedStatus :: RootState -> Widget n
 drawConnectedStatus RootState{nodeHost, connectedState} =
