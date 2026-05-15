@@ -160,6 +160,7 @@ genFinalPartialFanoutMutation (tx, _utxo) =
            in ChangeHeadRedeemer
                 Head.FinalPartialFanout
                   { Head.numberOfPartialOutputs = 0
+                  , Head.subsetTxInRefs = []
                   , Head.proof = dummyProof
                   , Head.crsRef = crsRef
                   }

@@ -36,7 +36,7 @@ import Hydra.Contract.HeadState (
   State (..),
   progressFromClosed,
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
+import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, hashTxRefAndOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
@@ -93,14 +93,14 @@ headValidator oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, proof, crsRef}) ->
-      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef
-    (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
-      checkPartialFanout ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
-    (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
-      checkPartialFanout ctx progressDatum numberOfPartialOutputs crsRef
-    (FanoutProgress progressDatum, FinalPartialFanout{numberOfPartialOutputs, proof, crsRef}) ->
-      checkFinalPartialFanout ctx progressDatum numberOfPartialOutputs proof crsRef
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, subsetTxInRefs, proof, crsRef}) ->
+      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs subsetTxInRefs proof crsRef
+    (Closed closedDatum, PartialFanout{numberOfPartialOutputs, subsetTxInRefs, crsRef}) ->
+      checkPartialFanout ctx (progressFromClosed closedDatum) numberOfPartialOutputs subsetTxInRefs crsRef
+    (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, subsetTxInRefs, crsRef}) ->
+      checkPartialFanout ctx progressDatum numberOfPartialOutputs subsetTxInRefs crsRef
+    (FanoutProgress progressDatum, FinalPartialFanout{numberOfPartialOutputs, subsetTxInRefs, proof, crsRef}) ->
+      checkFinalPartialFanout ctx progressDatum numberOfPartialOutputs subsetTxInRefs proof crsRef
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
@@ -548,12 +548,14 @@ headIsFinalizedWith ::
   Integer ->
   -- | Number of delta outputs to fanout
   Integer ->
+  -- | Snapshot 'TxOutRef's for every distributed output, in output order.
+  [TxOutRef] ->
   -- | Membership proof for the fanout outputs
   BuiltinBLS12_381_G1_Element ->
   -- | Reference input containing crs
   TxOutRef ->
   Bool
-headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef =
+headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs subsetTxInRefs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && hashChecks
     && afterContestationDeadline txInfo contestationDeadline
@@ -582,8 +584,13 @@ headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numb
       omegaUTxOHash
         == hashTxOuts (L.take numberOfDecommitOutputs (L.drop (numberOfFanoutOutputs + numberOfCommitOutputs) txInfoOutputs))
 
+  -- We do not explicitly check @length subsetTxInRefs == totalOutputs@: if the
+  -- redeemer supplies a wrong-length list, 'L.zip' truncates and 'P_S' ends up
+  -- with the wrong degree, causing the membership pairing below to reject. The
+  -- explicit length check would cost extra Plutus CPU that small fanouts can't
+  -- afford against the 10B exec budget.
   subsetScalars :: [Integer]
-  subsetScalars = txOutsToSubsetScalars (L.take totalOutputs txInfoOutputs)
+  subsetScalars = txOutsToSubsetScalars (L.zip subsetTxInRefs (L.take totalOutputs txInfoOutputs))
 
   ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorCommitment} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
@@ -605,10 +612,12 @@ checkPartialFanout ::
   FanoutProgressDatum ->
   -- | Number of outputs to distribute in this partial fanout
   Integer ->
+  -- | Snapshot 'TxOutRef's for each distributed output, in output order.
+  [TxOutRef] ->
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs crsRef =
+checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs subsetTxInRefs crsRef =
   mustNotMintOrBurn txInfo
     && afterContestationDeadline txInfo contestationDeadline
     && mustPreserveFanoutProgressState
@@ -654,8 +663,12 @@ checkPartialFanout ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum
     headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
     headOutValue = txOutValue $ L.head txInfoOutputs
 
+  -- See note in 'headIsFinalizedWith' about why we do not explicitly verify
+  -- @length subsetTxInRefs == numberOfPartialOutputs@: 'L.zip' truncating
+  -- mismatched inputs flows through to a wrong @P_S@ degree, which the
+  -- pairing rejects without the cost of an extra list traversal.
   subsetScalars :: [Integer]
-  subsetScalars = txOutsToSubsetScalars distributedOutputs
+  subsetScalars = txOutsToSubsetScalars (L.zip subsetTxInRefs distributedOutputs)
 
   -- CRS reference lookup and membership check.
   -- The newAccumulatorCommitment from the continuing output datum serves as
@@ -683,12 +696,14 @@ checkFinalPartialFanout ::
   FanoutProgressDatum ->
   -- | Number of outputs to distribute
   Integer ->
+  -- | Snapshot 'TxOutRef's for each distributed output, in output order.
+  [TxOutRef] ->
   -- | Membership proof (quotient commitment G1 element)
   BuiltinBLS12_381_G1_Element ->
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-checkFinalPartialFanout ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
+checkFinalPartialFanout ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs subsetTxInRefs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
     && checkCRSAndMembership
@@ -699,8 +714,12 @@ checkFinalPartialFanout ScriptContext{scriptContextTxInfo = txInfo} progressDatu
 
   TxInfo{txInfoOutputs} = txInfo
 
+  -- See note in 'headIsFinalizedWith' about why we do not explicitly verify
+  -- subsetTxInRefs length.
   subsetScalars :: [Integer]
-  subsetScalars = txOutsToSubsetScalars (L.take numberOfPartialOutputs txInfoOutputs)
+  subsetScalars =
+    txOutsToSubsetScalars
+      (L.zip subsetTxInRefs (L.take numberOfPartialOutputs txInfoOutputs))
 
   checkCRSAndMembership =
     traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
@@ -881,16 +900,18 @@ withCRSLookup txInfo crsRef cont =
             _ -> cont crsData
 {-# INLINEABLE withCRSLookup #-}
 
--- | Compute the accumulator scalar for each output in the list.
+-- | Compute the accumulator scalar for each @(TxOutRef, TxOut)@ pair.
 -- Used by all three fanout validators ('headIsFinalizedWith', 'checkPartialFanout',
 -- 'checkFinalPartialFanout') to produce subset scalars for 'checkMembershipPairing'.
--- Each scalar is blake2b_224(hashTxOuts [txOut]), which equals
--- blake2b_224(sha2_256(serialised)) because 'hashTxOuts' uses sha2_256 internally
--- (matching what 'Accumulator.addElement' computes off-chain).
-txOutsToSubsetScalars :: [TxOut] -> [Integer]
-txOutsToSubsetScalars outputs =
-  let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
-   in fmap (Builtins.byteStringToInteger BigEndian . elementHash) outputs
+-- Each scalar is @blake2b_224(hashTxRefAndOuts [(txOutRef, txOut)])@, which equals
+-- @blake2b_224(sha2_256(serialise(txOutRef, txOut)))@ because 'hashTxRefAndOuts'
+-- uses sha2_256 internally (matching what 'Accumulator.addElement' computes off-chain).
+-- Binding to the originating 'TxOutRef' keeps the scalar unique even when two
+-- snapshot UTxOs share identical 'TxOut' content.
+txOutsToSubsetScalars :: [(TxOutRef, TxOut)] -> [Integer]
+txOutsToSubsetScalars pairs =
+  let elementHash p = blake2b_224 (hashTxRefAndOuts [p])
+   in fmap (Builtins.byteStringToInteger BigEndian . elementHash) pairs
 {-# INLINEABLE txOutsToSubsetScalars #-}
 
 emptyHash :: Hash

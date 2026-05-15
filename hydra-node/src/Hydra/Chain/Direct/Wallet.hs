@@ -6,7 +6,6 @@ module Hydra.Chain.Direct.Wallet where
 
 import Hydra.Prelude
 
-import Cardano.Api.Ledger (ExUnits)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Alonzo.PParams (LangDepView)
@@ -56,6 +55,7 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core (TxLevel (..))
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
+import Cardano.Ledger.Plutus (ExUnits (..))
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.Val (invert)
@@ -363,7 +363,23 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
       let exUnits =
             fromMaybe (error $ "applyEstimatedCosts: missing cost for " <> show ptr) $
               Map.lookup ptr estimatedCosts
-       in (d, exUnits)
+       in (d, withSafetyMargin exUnits)
+
+  -- 'evalTxExUnits' runs on 'txForEstimation' which has placeholder change
+  -- output and no script integrity hash; the final submitted tx has the real
+  -- change output and the integrity hash set, so script execution costs can
+  -- shift by a few thousand steps. Without headroom in the redeemer-declared
+  -- budget, on-chain execution overshoots by tiny constants — this manifests
+  -- as @cpu: -N / mem: 0@ termination errors when the script uses most of its
+  -- declared budget (e.g. the BLS pairing in fanout).
+  --
+  -- Pad by 5% with a 1M-step / 1K-mem floor; the protocol's per-tx max still
+  -- caps the actual cost so wildly inflated paddings are not possible.
+  withSafetyMargin :: ExUnits -> ExUnits
+  withSafetyMargin (ExUnits mem steps) =
+    ExUnits
+      (mem + mem `div` 20 + 1_000)
+      (steps + steps `div` 20 + 1_000_000)
 
   -- Adjust redeemer indices when inputs change. When a fee input is added,
   -- it may shift the position of existing inputs in the sorted order, which

@@ -77,6 +77,7 @@ instance FromCBOR SimpleTxOut where
 
 instance IsTx SimpleTx where
   type TxIdType SimpleTx = SimpleId
+  type TxInType SimpleTx = SimpleTxOut
   type TxOutType SimpleTx = SimpleTxOut
   type UTxOType SimpleTx = Set SimpleTxOut
   type ValueType SimpleTx = Int
@@ -97,8 +98,10 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
-  -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
-  toPairList = Set.toList
+  -- \| 'SimpleTx' has no real TxIn distinct from the TxOut, so we pair each
+  -- output with itself; the @SimpleTxOut@ integer already uniquely identifies
+  -- the entry.
+  toPairList s = [(o, o) | o <- Set.toList s]
 
   sizeUTxO = Set.size
 
@@ -107,7 +110,7 @@ instance IsTx SimpleTx where
         (first', rest) = splitAt n l
      in (Set.fromList first', Set.fromList rest)
 
-  utxoToElement = toStrict . serialise . unSimpleTxOut
+  utxoToElement (_, txOut) = toStrict (serialise (unSimpleTxOut txOut))
 
 -- * Simple chain state
 

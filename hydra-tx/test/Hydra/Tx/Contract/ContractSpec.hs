@@ -43,11 +43,17 @@ import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
-import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx, healthySingleCommitFanoutTx)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
-import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx)
+import Hydra.Tx.Contract.PartialFanout (
+  duplicateContentFullUTxO,
+  duplicateContentPartialFanoutTx,
+  genPartialFanoutMutation,
+  healthyIntermediatePartialFanoutTx,
+  healthyPartialFanoutTx,
+ )
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Observe (observeDepositTx)
@@ -160,6 +166,11 @@ spec = parallel $ do
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFanoutTx
+    -- Devnet scenario: snapshot with a single committed UTxO. Mirrors the
+    -- smallest possible fanout to verify the BLS membership pairing stays
+    -- within the on-chain execution budget on the baseline (1-output) path.
+    prop "single-commit fanout stays within exec budget" $
+      propTransactionEvaluates healthySingleCommitFanoutTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyFanoutTx genFanoutMutation
   describe "PartialFanout" $ do
@@ -169,6 +180,17 @@ spec = parallel $ do
       propTransactionEvaluates healthyIntermediatePartialFanoutTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyPartialFanoutTx genPartialFanoutMutation
+    -- Regression for H57 on duplicate-content UTxOs: every accumulator element
+    -- now binds to its 'TxOutRef' (see 'Hydra.Tx.IsTx.utxoToElement'), so 11
+    -- snapshot UTxOs with identical 'TxOut' content but distinct TxIns produce
+    -- 11 distinct elements and the on-chain pairing identity
+    -- A_full = P_S · A_remaining holds.
+    it "off-chain accumulator distinguishes identical TxOut content by TxIn" $ do
+      let utxo = duplicateContentFullUTxO
+          acc = Accumulator.buildFromUTxO @Tx utxo
+      Accumulator.accumulatorSize acc `shouldBe` UTxO.size utxo
+    prop "partial fanout succeeds with duplicate-content UTxOs (H57 regression)" $
+      propTransactionEvaluates duplicateContentPartialFanoutTx
   describe "FinalPartialFanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFinalPartialFanoutTx

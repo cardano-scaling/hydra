@@ -224,15 +224,27 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
+      , subsetTxInRefs :: [TxOutRef]
+      -- ^ Snapshot 'TxOutRef's of every output being fanned out, in output
+      -- order (fanout outputs first, then commit, then decommit). Each
+      -- accumulator element is @blake2b_224(hashTxRefAndOuts [(ref, out)])@,
+      -- so the on-chain validator needs the original 'TxOutRef's to
+      -- recompute the same scalars the off-chain accumulator used.
       , proof :: BuiltinBLS12_381_G1_Element
       , crsRef :: TxOutRef
       }
   | PartialFanout
       { numberOfPartialOutputs :: Integer
+      , subsetTxInRefs :: [TxOutRef]
+      -- ^ Snapshot 'TxOutRef's of the distributed outputs at indices
+      -- @[1 .. numberOfPartialOutputs]@.
       , crsRef :: TxOutRef
       }
   | FinalPartialFanout
       { numberOfPartialOutputs :: Integer
+      , subsetTxInRefs :: [TxOutRef]
+      -- ^ Snapshot 'TxOutRef's of the remaining outputs at indices
+      -- @[0 .. numberOfPartialOutputs - 1]@.
       , proof :: BuiltinBLS12_381_G1_Element
       , crsRef :: TxOutRef
       }

@@ -67,6 +67,9 @@ class
   -- | Type which identifies a transaction
   type TxIdType tx
 
+  -- | Type which identifies a transaction output.
+  type TxInType tx
+
   -- | Type for individual transaction outputs.
   type TxOutType tx = out | out -> tx
 
@@ -102,10 +105,13 @@ class
   -- tx is valid against the given UTxO.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
 
-  -- | Convert a 'UTxOType' to a list of outputs for accumulator operations.
-  -- This is needed by the accumulator to convert UTxOs into elements.
-  -- We only need the TxOut, not the TxIn.
-  toPairList :: UTxOType tx -> [TxOutType tx]
+  -- | Convert a 'UTxOType' to a list of @(TxIn, TxOut)@ pairs. The TxIn is
+  -- required because the accumulator element hash binds each TxOut to its
+  -- originating reference (see 'utxoToElement') — otherwise two snapshot UTxOs
+  -- with identical content would collapse into a single element off-chain
+  -- while the on-chain fanout validator still counts them as separate outputs,
+  -- breaking the KZG membership pairing identity (manifests as error H57).
+  toPairList :: UTxOType tx -> [(TxInType tx, TxOutType tx)]
 
   -- | Get the number of entries in a UTxO set.
   sizeUTxO :: UTxOType tx -> Int
@@ -113,9 +119,11 @@ class
   -- | Split a UTxO set at position n, returning the first n entries and the rest.
   splitUTxOAt :: Int -> UTxOType tx -> (UTxOType tx, UTxOType tx)
 
-  -- | Convert a TxOut to a ByteString element for the accumulator.
-  -- This serializes the TxOut in the same way as the on-chain code does.
-  utxoToElement :: TxOutType tx -> ByteString
+  -- | Convert a @(TxIn, TxOut)@ pair to a ByteString element for the accumulator.
+  -- Binding to the TxIn keeps the element unique even when two UTxOs share
+  -- identical TxOut content. Must produce the same bytes as the on-chain
+  -- 'Hydra.Contract.Util.hashTxRefAndOuts' applied to a singleton list.
+  utxoToElement :: (TxInType tx, TxOutType tx) -> ByteString
 
 -- * Cardano Tx
 
@@ -168,6 +176,7 @@ instance FromCBOR UTxO where
 
 instance IsTx Tx where
   type TxIdType Tx = TxId
+  type TxInType Tx = TxIn
   type TxOutType Tx = TxOut CtxUTxO
   type UTxOType Tx = UTxO
   type ValueType Tx = Value
@@ -188,7 +197,7 @@ instance IsTx Tx where
 
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
 
-  toPairList = UTxO.txOutputs
+  toPairList = UTxO.toList
 
   sizeUTxO = UTxO.size
 
@@ -197,11 +206,16 @@ instance IsTx Tx where
         (first', rest) = splitAt n pairs
      in (UTxO.fromList first', UTxO.fromList rest)
 
-  -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.
-  -- Uses sha2_256 (via hashTxOuts) because the haskell-accumulator library
-  -- internally applies Blake2b_224 on each element (see Accumulator.addElement).
-  -- The on-chain scalar is then blake2b_224(sha2_256(serialised)), matching exactly.
-  utxoToElement txOut =
+  -- \| Hash a Cardano @(TxIn, TxOut)@ pair via on-chain 'hashTxRefAndOuts' so
+  -- the byte representation matches what the validator computes.
+  -- haskell-accumulator additionally applies Blake2b_224 to each element, so
+  -- the final accumulator scalar is identical to what
+  -- 'txOutsToSubsetScalars' computes on-chain.
+  utxoToElement (txIn, txOut) =
     case toPlutusTxOut txOut of
-      Just plutusTxOut -> fromBuiltin (Util.hashTxOuts [plutusTxOut])
+      Just plutusTxOut ->
+        fromBuiltin
+          ( Util.hashTxRefAndOuts
+              [(toPlutusTxOutRef txIn, plutusTxOut)]
+          )
       Nothing -> mempty -- Should not happen for valid UTxO

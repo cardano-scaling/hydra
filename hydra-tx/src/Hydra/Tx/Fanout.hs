@@ -72,9 +72,18 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (he
         { numberOfFanoutOutputs = fromIntegral utxoLength
         , numberOfCommitOutputs = fromIntegral toCommitLength
         , numberOfDecommitOutputs = fromIntegral toDecommitLength
+        , subsetTxInRefs = subsetTxInRefs
         , proof = fanoutProof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
+
+  -- Snapshot TxOutRefs in the same order as their corresponding output bodies
+  -- below. The on-chain validator zips this with the outputs to compute the
+  -- subset scalars; keep the orderings in lockstep.
+  subsetTxInRefs =
+    (toPlutusTxOutRef <$> orderedTxInsToFanout)
+      <> (toPlutusTxOutRef <$> orderedTxInsToCommit)
+      <> (toPlutusTxOutRef <$> orderedTxInsToDecommit)
 
   fanoutProof =
     let allUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
@@ -88,18 +97,21 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (he
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
 
+  orderedTxInsToFanout = fst <$> UTxO.toList utxo
   orderedTxOutsToFanout =
     fromCtxUTxOTxOut <$> UTxO.txOutputs utxo
 
-  orderedTxOutsToCommit =
+  (orderedTxInsToCommit, orderedTxOutsToCommit) =
     case utxoToCommit of
-      Nothing -> []
-      Just commitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs commitUTxO
+      Nothing -> ([], [])
+      Just commitUTxO ->
+        (fst <$> UTxO.toList commitUTxO, fromCtxUTxOTxOut <$> UTxO.txOutputs commitUTxO)
 
-  orderedTxOutsToDecommit =
+  (orderedTxInsToDecommit, orderedTxOutsToDecommit) =
     case utxoToDecommit of
-      Nothing -> []
-      Just decommitUTxO -> fromCtxUTxOTxOut <$> UTxO.txOutputs decommitUTxO
+      Nothing -> ([], [])
+      Just decommitUTxO ->
+        (fst <$> UTxO.toList decommitUTxO, fromCtxUTxOTxOut <$> UTxO.txOutputs decommitUTxO)
 
 -- | Create a partial fanout transaction that distributes a subset of UTxOs
 -- and produces a 'FanoutProgress' head output with an updated accumulator.
@@ -146,6 +158,7 @@ partialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadline
     toScriptData $
       Head.PartialFanout
         { numberOfPartialOutputs = fromIntegral (UTxO.size utxoToDistribute)
+        , subsetTxInRefs = toPlutusTxOutRef . fst <$> UTxO.toList utxoToDistribute
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
@@ -219,6 +232,7 @@ finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) dea
     toScriptData $
       Head.FinalPartialFanout
         { numberOfPartialOutputs = fromIntegral (UTxO.size utxoToDistribute)
+        , subsetTxInRefs = toPlutusTxOutRef . fst <$> UTxO.toList utxoToDistribute
         , proof = fanoutProof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }

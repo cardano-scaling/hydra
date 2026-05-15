@@ -8,7 +8,9 @@ import Hydra.Prelude hiding (label, toList)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.List qualified as List
 import Data.Maybe (fromJust)
+import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
@@ -28,9 +30,9 @@ import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genTxOut, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadId, replaceParties)
-import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
+import Test.QuickCheck (choose, elements, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Instances ()
 
 -- | Build a healthy partial fanout transaction with a given input head state.
@@ -98,6 +100,28 @@ healthyRemainingUTxO :: UTxO
 healthyRemainingUTxO =
   UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList healthyFullUTxO
 
+-- | A UTxO whose entries all share identical TxOut content (same address,
+-- value, datum) but have distinct TxIns. Reproduces the typical TUI demo case
+-- of repeated identical payments. The off-chain accumulator hashes element
+-- content only ('utxoToElement' in 'Hydra.Tx.IsTx'), so these collapse into a
+-- single accumulator element while the on-chain validator still sees N distinct
+-- output positions in the fanout — triggering 'PartialFanoutMembershipFailed'.
+duplicateContentFullUTxO :: UTxO
+duplicateContentFullUTxO =
+  UTxO.fromList [(txIn, canonicalTxOut) | txIn <- distinctTxIns]
+ where
+  n = fanoutOutputThreshold + 1
+  canonicalTxOut = adaOnly (generateWith genTxOut 17)
+  distinctTxIns = take n . List.nub $ generateWith (vectorOf (n * 4) genTxIn) 23
+
+duplicateContentDistributeUTxO :: UTxO
+duplicateContentDistributeUTxO =
+  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList duplicateContentFullUTxO
+
+duplicateContentRemainingUTxO :: UTxO
+duplicateContentRemainingUTxO =
+  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList duplicateContentFullUTxO
+
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
 
@@ -144,6 +168,81 @@ healthyClosedDatum =
 -- passed to 'partialFanoutTx' (and as the input datum for the intermediate case).
 healthyProgressDatum :: Head.FanoutProgressDatum
 healthyProgressDatum = Head.progressFromClosed healthyClosedDatum
+
+-- | Snapshot accumulator covering 'duplicateContentFullUTxO' — note this is a
+-- single-element accumulator because all entries hash to the same content.
+duplicateContentFullAccumulator :: Accumulator.HydraAccumulator
+duplicateContentFullAccumulator =
+  Accumulator.buildFromSnapshotUTxOs
+    duplicateContentFullUTxO
+    Nothing
+    Nothing
+
+duplicateContentRemainingAccumulator :: Accumulator.HydraAccumulator
+duplicateContentRemainingAccumulator =
+  Accumulator.buildFromUTxO @Tx duplicateContentRemainingUTxO
+
+duplicateContentClosedDatum :: Head.ClosedDatum
+duplicateContentClosedDatum =
+  Head.ClosedDatum
+    { snapshotNumber = 1
+    , utxoHash = toBuiltin $ hashUTxO @Tx duplicateContentFullUTxO
+    , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
+    , omegaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
+    , parties = partyToChain <$> healthyParties
+    , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+    , contestationPeriod = OnChain.contestationPeriodFromDiffTime 10
+    , headId = toPlutusCurrencySymbol testPolicyId
+    , contesters = []
+    , version = 0
+    , accumulatorCommitment = Accumulator.getAccumulatorCommitment duplicateContentFullAccumulator
+    }
+
+duplicateContentProgressDatum :: Head.FanoutProgressDatum
+duplicateContentProgressDatum = Head.progressFromClosed duplicateContentClosedDatum
+
+-- | Partial fanout transaction over a UTxO whose entries share identical TxOut
+-- content. This is the H57 reproduction: on-chain 'subsetScalars' is built from
+-- N output positions while the off-chain accumulator only has one element, so
+-- 'P_S(τ)·A_remaining(τ) /= A_full(τ)' and the membership pairing fails.
+duplicateContentPartialFanoutTx :: (Tx, UTxO)
+duplicateContentPartialFanoutTx = (tx, lookupUTxO)
+ where
+  lookupUTxO =
+    UTxO.singleton headInput headOutput
+      <> registryUTxO scriptRegistry
+
+  tx =
+    partialFanoutTx
+      scriptRegistry
+      duplicateContentDistributeUTxO
+      (headInput, headOutput)
+      healthySlotNo
+      duplicateContentProgressDatum
+      duplicateContentRemainingAccumulator
+
+  -- CRS must be large enough for the on-chain pairing check on a 'fanoutChunkSize'
+  -- subset: P_S has degree 'fanoutChunkSize', requiring 'fanoutChunkSize + 1' G2
+  -- points. Sized off the full snapshot for parity with the healthy fixture.
+  scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
+
+  headInput = generateWith arbitrary 42
+
+  headOutput' :: TxOut CtxUTxO
+  headOutput' =
+    mkHeadOutput
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      (mkTxOutDatumInline (Head.Closed duplicateContentClosedDatum))
+
+  headOutput = modifyTxOutValue (<> participationTokens <> UTxO.totalValue duplicateContentFullUTxO) headOutput'
+
+  participationTokens =
+    fromList $
+      map
+        (\party -> (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1))
+        healthyParties
 
 healthyParties :: [Party]
 healthyParties =

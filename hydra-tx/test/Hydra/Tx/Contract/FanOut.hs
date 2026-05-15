@@ -72,6 +72,73 @@ healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
   UTxO.map adaOnly $ generateWith (genUTxOWithSimplifiedAddresses `suchThat` \u -> UTxO.size u > 1) 42
 
+-- | A fanout where the entire snapshot is a single committed UTxO at the
+-- @utxoToCommit@ slot — mirrors the smallest possible devnet scenario
+-- (1 UTxO, ada only, no datum) which exercises the worst-case-baseline of
+-- the on-chain budget.
+healthySingleCommitFanoutTx :: (Tx, UTxO)
+healthySingleCommitFanoutTx = (tx, lookupUTxO)
+ where
+  lookupUTxO =
+    UTxO.singleton headInput headOutput
+      <> registryUTxO scriptRegistry
+
+  -- Snapshot: utxo = empty, utxoToCommit = 1 entry, utxoToDecommit = empty.
+  singleCommitUTxO :: UTxO
+  singleCommitUTxO =
+    UTxO.fromList
+      [
+        ( generateWith genTxIn 1
+        , adaOnly
+            (generateWith (genOutputFor (generateWith genVerificationKey 1)) 1)
+        )
+      ]
+
+  snapshotAccumulator =
+    Accumulator.buildFromSnapshotUTxOs mempty (Just singleCommitUTxO) Nothing
+
+  tx =
+    fanoutTx
+      scriptRegistry
+      mempty
+      (Just singleCommitUTxO)
+      Nothing
+      snapshotAccumulator
+      (headInput, headOutput)
+      healthySlotNo
+      headTokenScript
+
+  scriptRegistry =
+    genScriptRegistryWithCRSSize
+      (Accumulator.requiredCRSPointCount snapshotAccumulator)
+      `generateWith` 42
+
+  headInput = generateWith arbitrary 42
+
+  headTokenScript = mkHeadTokenScript testSeedInput
+
+  headOutput =
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> healthyParticipants)
+      ( mkTxOutDatumInline $
+          Head.Closed
+            Head.ClosedDatum
+              { snapshotNumber = 1
+              , utxoHash = toBuiltin $ hashUTxO @Tx mempty
+              , alphaUTxOHash = toBuiltin $ hashUTxO @Tx singleCommitUTxO
+              , omegaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
+              , parties = partyToChain <$> healthyParties
+              , contestationDeadline = posixFromUTCTime healthyContestationDeadline
+              , contestationPeriod = OnChain.contestationPeriodFromDiffTime 10
+              , headId = toPlutusCurrencySymbol testPolicyId
+              , contesters = []
+              , version = 0
+              , accumulatorCommitment = Accumulator.getAccumulatorCommitment snapshotAccumulator
+              }
+      )
+
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
 

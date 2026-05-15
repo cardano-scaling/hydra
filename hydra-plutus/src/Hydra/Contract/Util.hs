@@ -109,6 +109,26 @@ hashTxOuts =
   sha2_256 . F.foldMap (Builtins.serialiseData . toBuiltinData)
 {-# INLINEABLE hashTxOuts #-}
 
+-- | Hash a list of @(TxOutRef, TxOut)@ pairs. Used for accumulator membership
+-- proofs in fanout, where binding each output to its originating @TxOutRef@
+-- prevents two snapshot UTxOs with identical 'TxOut' content from collapsing
+-- into a single accumulator element off-chain while the on-chain validator
+-- still counts them as separate outputs.
+--
+-- We append the serialised 'TxOutRef' and 'TxOut' bytes directly rather than
+-- wrapping the pair in a tuple before serialising. Skipping the @Constr 0@
+-- envelope shaves enough Plutus CPU off each element to keep small fanout
+-- transactions within the 10B exec budget.
+hashTxRefAndOuts :: [(TxOutRef, TxOut)] -> BuiltinByteString
+hashTxRefAndOuts =
+  sha2_256
+    . F.foldMap
+      ( \(ref, out) ->
+          Builtins.serialiseData (toBuiltinData ref)
+            `Builtins.appendByteString` Builtins.serialiseData (toBuiltinData out)
+      )
+{-# INLINEABLE hashTxRefAndOuts #-}
+
 compareRef :: TxOutRef -> TxOutRef -> Ordering
 TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutRefIdx = idx'} =
   case compare txOutRefId id' of
