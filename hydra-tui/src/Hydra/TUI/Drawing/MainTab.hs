@@ -6,6 +6,8 @@ import Hydra.Prelude hiding (Down, State)
 
 import Brick
 import Brick.Widgets.Border (borderWithLabel, hBorderWithLabel)
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Map qualified as Map
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
@@ -19,6 +21,7 @@ import Hydra.TUI.Drawing.Utils (
   drawUTxO,
   highlightOwnAddress,
   prettyHeadId,
+  scrollableViewport,
  )
 import Hydra.TUI.Logging.Types (logMessagesL)
 import Hydra.TUI.Model
@@ -51,10 +54,9 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
                   padLeftRight 1 drawHeadStateSection
             ]
       , hBorderWithLabel (withAttr neutral $ txt " Recent events ")
-      , vLimitPercent 50 $
-          viewport "recent-events" Vertical $
-            vBox $
-              map (drawEventListItem (s ^. timeZoneL) False) (take 20 (s ^. logStateL . logMessagesL))
+      , viewport "recent-events" Vertical $
+          vBox $
+            map (drawEventListItem (s ^. timeZoneL) False) (s ^. logStateL . logMessagesL)
       ]
  where
   connState = s ^. connectedStateL
@@ -100,8 +102,10 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
         case activeHeadState of
           Open{} ->
             vBox $
-              [ withAttr neutral $ txt "UTxO"
-              , drawUTxO (highlightOwnAddress ownAddress) utxo
+              [ withAttr neutral $ txt ("UTxO (" <> show (Map.size (UTxO.toMap utxo)) <> ")")
+              , vLimitPercent 50 $
+                  scrollableViewport mainUTxOViewportName $
+                    drawUTxO (highlightOwnAddress ownAddress) utxo
               ]
                 <> [ withAttr infoA $ txt $ "  ↑ " <> show (length pendingIncrements) <> " pending commit(s)"
                    | not (null pendingIncrements)

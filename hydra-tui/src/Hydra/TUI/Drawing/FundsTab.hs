@@ -21,6 +21,7 @@ import Hydra.TUI.Drawing.Utils (
   highlightOwnAddress,
   renderAda,
   renderTime,
+  scrollableViewport,
   spinnerFrame,
  )
 import Hydra.TUI.Model
@@ -33,9 +34,13 @@ drawFundsTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel (withAttr neutral $ txt " Funds ") $
     vBox
       [ hBorderWithLabel (withAttr neutral $ txt " L2 State ")
-      , vLimitPercent 50 $ padLeftRight 1 drawL2
+      , vLimitPercent 50 $
+          scrollableViewport fundsL2ViewportName $
+            padLeftRight 1 drawL2
       , hBorderWithLabel (withAttr neutral $ txt " L1 Wallet ")
-      , padLeftRight 1 $ drawL1WalletPanel (s ^. l1UTxOL) ownAddress (s ^. nowL)
+      , scrollableViewport fundsL1ViewportName $
+          padLeftRight 1 $
+            drawL1WalletPanel (s ^. l1UTxOL) ownAddress (s ^. nowL)
       ]
  where
   vk = getVerificationKey sk

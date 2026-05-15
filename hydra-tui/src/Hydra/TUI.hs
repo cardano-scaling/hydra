@@ -12,8 +12,11 @@ import Hydra.Cardano.Api
 import Brick.BChan (BChan, newBChan, writeBChan)
 import Data.Time.LocalTime (getCurrentTimeZone)
 import Graphics.Vty (
+  Mode (Mouse),
   Vty,
   defaultConfig,
+  outputIface,
+  setMode,
  )
 import Graphics.Vty.Platform.Unix (mkVty)
 import Hydra.Chain.Blockfrost.Client as BF
@@ -72,7 +75,9 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       { appDraw = draw cardanoClient hydraClient
       , appChooseCursor = showFirstCursor
       , appHandleEvent = handleEvent cardanoClient hydraClient chan
-      , appStartEvent = pure ()
+      , appStartEvent = do
+          vty <- getVtyHandle
+          liftIO $ setMode (outputIface vty) Mouse True
       , appAttrMap = \s -> case s ^. themeL of
           DarkTheme -> darkStyle s
           LightTheme -> lightStyle s

@@ -96,6 +96,10 @@ handleEvent cardanoClient client chan = \case
                 pendingActionL .= Just "No L1 funds available to increment."
           _ -> pure ()
       _ -> pure ()
+  MouseDown name Vty.BScrollUp _ _ ->
+    vScrollBy (viewportScroll name) (-3)
+  MouseDown name Vty.BScrollDown _ _ ->
+    vScrollBy (viewportScroll name) 3
   MouseDown{} -> pure ()
   MouseUp{} -> pure ()
   VtyEvent e -> do
@@ -565,14 +569,24 @@ handleVtyEventsFinal hydraClient e = do
 handleVtyEventsScrollable :: Vty.Event -> EventM Name RootState ()
 handleVtyEventsScrollable e = do
   tab <- use activeTabL
-  when (tab == EventHistoryTab) $ case e of
-    EvKey KPageUp [] -> vScrollBy (viewportScroll "event-detail") (-10)
-    EvKey KPageDown [] -> vScrollBy (viewportScroll "event-detail") 10
-    Vty.EvMouseDown _ _ Vty.BScrollUp _ ->
-      zoom eventHistoryListL $ BrickList.handleListEvent (EvKey KUp [])
-    Vty.EvMouseDown _ _ Vty.BScrollDown _ ->
-      zoom eventHistoryListL $ BrickList.handleListEvent (EvKey KDown [])
-    _ -> zoom eventHistoryListL $ BrickList.handleListEvent e
+  case tab of
+    EventHistoryTab -> case e of
+      EvKey KPageUp [] -> vScrollBy (viewportScroll "event-detail") (-10)
+      EvKey KPageDown [] -> vScrollBy (viewportScroll "event-detail") 10
+      Vty.EvMouseDown _ _ Vty.BScrollUp _ ->
+        zoom eventHistoryListL $ BrickList.handleListEvent (EvKey KUp [])
+      Vty.EvMouseDown _ _ Vty.BScrollDown _ ->
+        zoom eventHistoryListL $ BrickList.handleListEvent (EvKey KDown [])
+      _ -> zoom eventHistoryListL $ BrickList.handleListEvent e
+    MainTab -> case e of
+      EvKey KPageUp [] -> vScrollBy (viewportScroll mainUTxOViewportName) (-10)
+      EvKey KPageDown [] -> vScrollBy (viewportScroll mainUTxOViewportName) 10
+      _ -> pure ()
+    FundsTab -> case e of
+      EvKey KPageUp [] -> vScrollBy (viewportScroll fundsL2ViewportName) (-10)
+      EvKey KPageDown [] -> vScrollBy (viewportScroll fundsL2ViewportName) 10
+      _ -> pure ()
+    _ -> pure ()
 
 syncEventHistoryList :: EventM Name RootState ()
 syncEventHistoryList = do

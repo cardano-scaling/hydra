@@ -35,7 +35,7 @@ draw cardanoClient hydraClient s =
                 case s ^. pendingActionL of
                   Nothing -> fill ' '
                   Just msg -> withAttr pendingA (txt msg) <+> fill ' '
-          , padLeftRight 2 $ padTopBottom 1 $ drawActionBar s
+          , padLeftRight 2 $ drawActionBar s
           ]
  where
   fundsLabel =

@@ -226,6 +226,15 @@ shortFeedbackViewportName = "short-feedback-view-port"
 eventHistoryListName :: Name
 eventHistoryListName = "event-history-list"
 
+mainUTxOViewportName :: Name
+mainUTxOViewportName = "main-utxo"
+
+fundsL2ViewportName :: Name
+fundsL2ViewportName = "funds-l2"
+
+fundsL1ViewportName :: Name
+fundsL1ViewportName = "funds-l1"
+
 emptyEventHistoryList :: BrickList.List Name LogMessage
 emptyEventHistoryList = BrickList.list eventHistoryListName Vec.empty 1
 

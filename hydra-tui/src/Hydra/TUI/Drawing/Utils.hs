@@ -4,7 +4,7 @@ module Hydra.TUI.Drawing.Utils where
 
 import Hydra.Prelude
 
-import Brick (Padding (..), Widget, padLeft, str, txt, vBox, withAttr, (<+>))
+import Brick (Padding (..), ViewportType (Vertical), Widget, clickable, padLeft, str, txt, vBox, viewport, withAttr, (<+>))
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
 import Data.Text qualified as T
@@ -37,7 +37,8 @@ highlightOwnAddress :: AddressInEra -> AddressInEra -> Widget n
 highlightOwnAddress ownAddress a =
   withAttr (if a == ownAddress then own else mempty) $ drawAddress a
 
--- | Render a UTxO map grouped by address, with ADA amounts.
+-- | Render a UTxO map grouped by address, with ADA amounts and global 1-based
+-- numbering across all entries (so users can confirm scrollable views are scrolling).
 drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
 drawUTxO f utxo =
   let byAddress =
@@ -45,18 +46,34 @@ drawUTxO f utxo =
           (\k v@TxOut{txOutAddress = addr} -> Map.unionWith (++) (Map.singleton addr [(k, v)]))
           mempty
           $ UTxO.toMap utxo
+      indexedGroups =
+        snd $
+          mapAccumL
+            ( \nextIdx (addr, entries) ->
+                let nEntries = length entries
+                 in (nextIdx + nEntries, (addr, zip [nextIdx ..] entries))
+            )
+            (1 :: Int)
+            (Map.toList byAddress)
    in vBox
         [ vBox
           [ f addr
-          , padLeft (Pad 2) $ vBox (drawUTxOEntryAda <$> u)
+          , padLeft (Pad 2) $ vBox (uncurry drawUTxOEntryAda <$> u)
           ]
-        | (addr, u) <- Map.toList byAddress
+        | (addr, u) <- indexedGroups
         ]
 
--- | Render a single UTxO entry: last part of the TxIn plus its ADA value.
-drawUTxOEntryAda :: (TxIn, TxOut CtxUTxO) -> Widget n
-drawUTxOEntryAda (txin, TxOut _ val _ _) =
-  txt (T.drop 54 (renderTxIn txin) <> "  ") <+> withAttr infoA (txt (renderAda val))
+-- | Render a single UTxO entry: index, last part of the TxIn, and ADA value.
+drawUTxOEntryAda :: Int -> (TxIn, TxOut CtxUTxO) -> Widget n
+drawUTxOEntryAda idx (txin, TxOut _ val _ _) =
+  txt (show idx <> ". " <> T.drop 54 (renderTxIn txin) <> "  ") <+> withAttr infoA (txt (renderAda val))
+
+-- | Wrap a widget in a clickable, vertically scrollable viewport using a single name
+-- for both. The shared name lets the mouse-wheel handler (matching MouseDown on any
+-- clickable) target the corresponding viewport, and lets keyboard handlers scroll it
+-- by name too.
+scrollableViewport :: (Ord n, Show n) => n -> Widget n -> Widget n
+scrollableViewport name = clickable name . viewport name Vertical
 
 -- | Render a lovelace value as ADA with the ₳ symbol.
 renderAda :: Value -> Text
