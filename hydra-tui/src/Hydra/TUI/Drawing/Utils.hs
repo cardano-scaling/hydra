@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Hydra.TUI.Drawing.Utils where
 
@@ -12,7 +13,7 @@ import Data.Time (defaultTimeLocale, formatTime, utctDayTime)
 import Data.Time.Format (FormatTime)
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.TUI.Style (infoA, own, positive)
-import Hydra.Tx (HeadId)
+import Hydra.Tx (HeadId, IsTx (..))
 
 -- | Render a 'HeadId' as its hex-encoded bytes (matches the Main tab display).
 prettyHeadId :: HeadId -> Text
@@ -107,4 +108,21 @@ drawRemainingContestationPeriod deadline now =
   let remaining = diffUTCTime deadline now
    in if remaining > 0
         then txt "Remaining time to contest: " <+> str (renderTime remaining)
-        else withAttr positive $ txt "Contestation period passed — ready to fan out."
+        else drawFanoutPossibleMessage
+
+-- | Status message shown when the contestation period has passed and a
+-- fanout transaction can be submitted. Shared between the Main and Funds
+-- tabs so the wording matches.
+drawFanoutPossibleMessage :: Widget n
+drawFanoutPossibleMessage =
+  withAttr positive $ txt "Contestation period passed — ready to fan out."
+
+-- | Status message shown when the head has been finalized, including the
+-- total ADA value of the distributed UTxO. Shared between the Main and
+-- Funds tabs so the wording matches.
+drawHeadFinalizedMessage :: UTxO -> Widget n
+drawHeadFinalizedMessage utxo =
+  vBox
+    [ withAttr positive $ txt "Head finalized."
+    , txt ("Distributed UTxO — total: " <> renderAda (balance @Tx utxo))
+    ]

@@ -15,6 +15,8 @@ import Hydra.Client (Client (..))
 import Hydra.Network (Host)
 import Hydra.TUI.Drawing.EventHistoryTab (drawEventListItem)
 import Hydra.TUI.Drawing.Utils (
+  drawFanoutPossibleMessage,
+  drawHeadFinalizedMessage,
   drawHex,
   drawRemainingContestationPeriod,
   drawShow,
@@ -117,12 +119,12 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
               ]
           FanoutPossible ->
             vBox
-              [ withAttr positive $ txt "Contestation period passed — ready to fan out."
+              [ drawFanoutPossibleMessage
               , utxoBlock utxo
               ]
           Final ->
             vBox
-              [ withAttr positive $ txt "Head finalized."
+              [ drawHeadFinalizedMessage utxo
               , utxoBlock utxo
               ]
 

@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeApplications #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.TUI.Drawing.FundsTab where
@@ -16,17 +15,17 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
 import Hydra.TUI.Drawing.Utils (
+  drawFanoutPossibleMessage,
+  drawHeadFinalizedMessage,
   drawRemainingContestationPeriod,
   drawUTxO,
   highlightOwnAddress,
-  renderAda,
   renderTime,
   scrollableViewport,
   spinnerFrame,
  )
 import Hydra.TUI.Model
 import Hydra.TUI.Style hiding (style)
-import Hydra.Tx (IsTx (..))
 import Lens.Micro ((^.))
 
 drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
@@ -110,7 +109,7 @@ drawFocusPanelClosed networkId vk utxo now (ClosedState{contestationDeadline}) =
 drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
 drawFocusPanelFanout networkId vk utxo =
   vBox
-    [ withAttr positive $ txt "Ready to fanout!"
+    [ drawFanoutPossibleMessage
     , withAttr neutral (txt "Active UTxO")
     , drawUTxO (highlightOwnAddress ownAddress) utxo
     ]
@@ -120,7 +119,7 @@ drawFocusPanelFanout networkId vk utxo =
 drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
 drawFocusPanelFinal networkId vk utxo =
   vBox
-    [ txt ("Distributed UTxO — total: " <> renderAda (balance @Tx utxo))
+    [ drawHeadFinalizedMessage utxo
     , padLeft (Pad 2) (drawUTxO (highlightOwnAddress ownAddress) utxo)
     ]
  where
