@@ -75,6 +75,7 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Logging (Tracer, traceWith)
+import Hydra.Logging.PrettyError (PrettyError (..), Severity (..), genericFlatten, prettyKv, prettyKvHeader)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
   CommitBlueprintTx (..),
@@ -514,3 +515,23 @@ data CardanoChainLog
   | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance PrettyError CardanoChainLog where
+  severity = \case
+    PostingFailed{} -> Error
+    BlockfrostTransientError{} -> Warning
+    _ -> Info
+  showPretty = \case
+    -- Errors: keep the body tight — just the tx id and the show of the
+    -- underlying ledger error.
+    PostingFailed{tx, postTxError} ->
+      [ prettyKv "txId" (show (getTxId (getTxBody tx)))
+      , prettyKvHeader "error"
+      , "    " <> show postTxError
+      ]
+    BlockfrostTransientError{reason, retryDelay} ->
+      [ prettyKv "reason" reason
+      , prettyKv "retryDelay" (show retryDelay)
+      ]
+    -- Everything else: standard one-key-per-line flatten.
+    l -> genericFlatten l

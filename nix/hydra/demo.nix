@@ -65,6 +65,7 @@
                     --listen 127.0.0.1:5001 \
                     --api-port 4001 \
                     --monitoring-port 6001 \
+                    --log-format pretty \
                     --hydra-signing-key "${config.hydra.demo.fixtures.parties.alice.hydra.sk}" \
                     --cardano-signing-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.sk}" \
                     --peer 127.0.0.1:5002 \

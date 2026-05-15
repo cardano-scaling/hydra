@@ -34,7 +34,7 @@ import Hydra.Cardano.Api (
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Contract qualified as Contract
 import Hydra.Ledger.Cardano ()
-import Hydra.Logging (Verbosity (..))
+import Hydra.Logging (LogFormat (..), Verbosity (..))
 import Hydra.Network (Host (..), NodeId (NodeId), PortNumber, WhichEtcd (..), readHost, readPort, showHost)
 import Hydra.NetworkVersions (hydraNodeVersion, parseNetworkTxIds)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout (..))
@@ -197,6 +197,7 @@ publishOptionsParser =
 
 data RunOptions = RunOptions
   { verbosity :: Verbosity
+  , logFormat :: LogFormat
   , nodeId :: NodeId
   , listen :: Host
   , advertise :: Maybe Host
@@ -230,6 +231,7 @@ defaultRunOptions :: RunOptions
 defaultRunOptions =
   RunOptions
     { verbosity = Verbose "HydraNode"
+    , logFormat = LogJSON
     , nodeId = NodeId "hydra-node-1"
     , listen = Host "0.0.0.0" 5001
     , advertise = Nothing
@@ -256,6 +258,7 @@ runOptionsParser :: Parser RunOptions
 runOptionsParser =
   RunOptions
     <$> verbosityParser
+    <*> logFormatParser
     <*> nodeIdParser
     <*> listenParser
     <*> optional advertiseParser
@@ -643,6 +646,25 @@ verbosityParser =
         <> help "Turns off logging."
     )
 
+logFormatParser :: Parser LogFormat
+logFormatParser =
+  option
+    (eitherReader readLogFormat)
+    ( long "log-format"
+        <> metavar "FORMAT"
+        <> value LogJSON
+        <> completer (listCompleter ["json", "pretty"])
+        <> help
+          "Log output format. 'json' (default) emits one JSON object per \
+          \line, suitable for log ingestion. 'pretty' emits ANSI-coloured, \
+          \human-readable entries for local development."
+    )
+ where
+  readLogFormat = \case
+    "json" -> Right LogJSON
+    "pretty" -> Right LogPretty
+    s -> Left $ "Unknown log format: " <> s <> ". Use 'json' or 'pretty'."
+
 listenParser :: Parser Host
 listenParser =
   option
@@ -959,6 +981,7 @@ toArgs :: RunOptions -> [String]
 toArgs
   RunOptions
     { verbosity
+    , logFormat
     , nodeId
     , listen
     , advertise
@@ -978,6 +1001,7 @@ toArgs
     , apiTransactionTimeout
     } =
     isVerbose verbosity
+      <> logFormatArgs logFormat
       <> ["--node-id", unpack nId]
       <> ["--listen", showHost listen]
       <> maybe [] (\h -> ["--advertise", showHost h]) advertise
@@ -1005,6 +1029,10 @@ toArgs
     isVerbose = \case
       Quiet -> ["--quiet"]
       _ -> []
+
+    logFormatArgs = \case
+      LogJSON -> []
+      LogPretty -> ["--log-format", "pretty"]
 
     toArgPeer :: Host -> [String]
     toArgPeer p =

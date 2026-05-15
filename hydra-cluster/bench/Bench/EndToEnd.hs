@@ -35,6 +35,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (Timing (..), depositTimeout)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Logging (
+  LogFormat (..),
   Tracer,
   traceWith,
   withTracerOutputTo,
@@ -67,7 +68,7 @@ bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemSta
 bench startingNodeId timeoutSeconds workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
+    withTracerOutputTo LogJSON (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
         let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
@@ -103,7 +104,7 @@ benchDemo ::
 benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
-    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
+    withTracerOutputTo LogJSON (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark demo"
         let cardanoTracer = contramap FromCardanoNode tracer

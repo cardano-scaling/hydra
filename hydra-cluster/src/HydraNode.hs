@@ -25,7 +25,7 @@ import Data.Text qualified as T
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..))
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Cluster.Util (Timing (..), readConfigFile)
-import Hydra.Logging (Tracer, Verbosity (..), traceWith)
+import Hydra.Logging (LogFormat (..), Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (EmbeddedEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
@@ -395,6 +395,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys allNodeIds
   pure $
     RunOptions
       { verbosity = Verbose "HydraNode"
+      , logFormat = LogJSON
       , nodeId = NodeId $ show hydraNodeId
       , listen = Host "0.0.0.0" (fromIntegral $ 5_000 + hydraNodeId)
       , advertise = Nothing

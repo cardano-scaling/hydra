@@ -37,6 +37,7 @@ import Hydra.Cluster.Fixture qualified as Fixture
 import Hydra.Cluster.Mithril (MithrilLog, downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options)
 import Hydra.Cluster.Util (readConfigFile)
+import Hydra.Logging.PrettyError (PrettyError (..), Severity (..), genericFlatten, prettyKv)
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), DirectOptions (..), defaultBlockfrostOptions)
 import Hydra.Options qualified as Options
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequestThrow)
@@ -73,6 +74,10 @@ data HydraNodeLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+-- Cluster-level @HydraNodeLog@ events are observational; standard render.
+instance PrettyError HydraNodeLog where
+  showPretty = genericFlatten
+
 data EndToEndLog
   = ClusterOptions {options :: Options}
   | FromCardanoNode NodeLog
@@ -88,6 +93,21 @@ data EndToEndLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
+-- | End-to-end events delegate severity/showPretty to their inner logger.
+instance PrettyError EndToEndLog where
+  severity = \case
+    FromCardanoNode l -> severity l
+    FromFaucet l -> severity l
+    FromHydraNode l -> severity l
+    FromMithril l -> severity l
+    _ -> Info
+  showPretty = \case
+    FromCardanoNode l -> showPretty l
+    FromFaucet l -> showPretty l
+    FromHydraNode l -> showPretty l
+    FromMithril l -> showPretty l
+    l -> genericFlatten l
+
 data NodeLog
   = MsgNodeCmdSpec {cmd :: Text}
   | MsgCLI [Text]
@@ -100,6 +120,16 @@ data NodeLog
   | MsgQueryGenesisParametersFailed {err :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance PrettyError NodeLog where
+  severity = \case
+    MsgQueryGenesisParametersFailed{} -> Error
+    MsgCLIRetry{} -> Warning
+    _ -> Info
+  showPretty = \case
+    MsgQueryGenesisParametersFailed{err} -> [prettyKv "err" err]
+    MsgCLIRetry msg -> [prettyKv "msg" msg]
+    l -> genericFlatten l
 
 type Port = Int
 

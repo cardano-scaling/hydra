@@ -29,6 +29,7 @@ import Hydra.Chain.ScriptRegistry (
 import Hydra.Cluster.Fixture (Actor (Faucet))
 import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
+import Hydra.Logging.PrettyError (PrettyError (..), Severity (..), genericFlatten, prettyKv)
 import Hydra.Options (ChainBackendOptions (..), defaultBFQueryTimeout)
 import Hydra.Options qualified as Options
 import Hydra.Tx (balance, txId)
@@ -49,6 +50,16 @@ data FaucetLog
   | SubmitTxError Text
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
+
+instance PrettyError FaucetLog where
+  severity = \case
+    SubmitTxError{} -> Error
+    TraceResourceExhaustedHandled{} -> Warning
+    _ -> Info
+  showPretty = \case
+    SubmitTxError msg -> [prettyKv "error" msg]
+    TraceResourceExhaustedHandled msg -> [prettyKv "msg" msg]
+    l -> genericFlatten l
 
 delayBF :: MonadDelay m => ChainBackendOptions -> m ()
 delayBF opts = do

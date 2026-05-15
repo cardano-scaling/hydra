@@ -4,6 +4,7 @@ import Hydra.Prelude hiding (encodeUtf8)
 
 import Data.Aeson qualified as Aeson
 import Data.Text.Encoding (encodeUtf8)
+import Hydra.Logging.PrettyError (PrettyError (..), Severity (..), genericFlatten, prettyKv)
 import Hydra.Network (PortNumber)
 
 data APIServerLog
@@ -21,6 +22,23 @@ data APIServerLog
   | APIReturnedError {reason :: String}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
+
+instance PrettyError APIServerLog where
+  severity = \case
+    APIInvalidInput{} -> Error
+    APIConnectionError{} -> Error
+    APIReturnedError{} -> Error
+    _ -> Info
+  showPretty = \case
+    -- Errors: lead with the reason; only show the offending input when present.
+    APIInvalidInput{reason, inputReceived} ->
+      [ prettyKv "reason" (toText reason)
+      , prettyKv "inputReceived" inputReceived
+      ]
+    APIConnectionError{reason} -> [prettyKv "reason" (toText reason)]
+    APIReturnedError{reason} -> [prettyKv "reason" (toText reason)]
+    -- Everything else: standard one-key-per-line flatten.
+    l -> genericFlatten l
 
 -- | New type wrapper to define JSON instances.
 newtype PathInfo = PathInfo ByteString

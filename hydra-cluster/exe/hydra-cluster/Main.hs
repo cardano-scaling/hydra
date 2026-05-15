@@ -19,7 +19,7 @@ import Hydra.Cluster.Fixture (Actor (Faucet), KnownNetwork (..))
 import Hydra.Cluster.Mithril (downloadLatestSnapshotTo)
 import Hydra.Cluster.Options (Options (..), PublishOrReuse (Publish, Reuse), Scenario (..), UseMithril (UseMithril), parseOptions)
 import Hydra.Cluster.Scenarios (respendNTimes, singlePartyHeadFullLifeCycle, singlePartyOpenAHead)
-import Hydra.Logging (Tracer, traceWith, withTracerOutputTo)
+import Hydra.Logging (LogFormat (..), Tracer, traceWith, withTracerOutputTo)
 import Hydra.Options (BlockfrostOptions (..), ChainBackendOptions (..), defaultBlockfrostOptions)
 import Options.Applicative (ParserInfo, execParser, fullDesc, header, helper, info, progDesc)
 import System.Directory (doesDirectoryExist, removeDirectoryRecursive)
@@ -32,7 +32,7 @@ main =
 
 run :: Options -> IO ()
 run options =
-  withTracerOutputTo NoBuffering stdout "hydra-cluster" $ \tracer -> do
+  withTracerOutputTo LogPretty NoBuffering stdout "hydra-cluster" $ \tracer -> do
     traceWith tracer ClusterOptions{options}
     let fromCardanoNode = contramap FromCardanoNode tracer
     let blockfrostNetworks = [BlockfrostPreview]

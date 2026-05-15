@@ -11,6 +11,7 @@ import Control.Tracer (Tracer)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import Data.Aeson qualified as Aeson
 import Hydra.Logging (traceWith)
+import Hydra.Logging.PrettyError (PrettyError (..), Severity (..), prettyKv)
 import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
@@ -95,3 +96,11 @@ data AuthLog = MessageDropped {message :: Text, signature :: Text, party :: Part
 -- Without the tag, the message is pretty cryptic in the logs
 instance ToJSON AuthLog where
   toJSON = genericToJSON defaultOptions{tagSingleConstructors = True}
+
+instance PrettyError AuthLog where
+  severity MessageDropped{} = Warning
+  showPretty (MessageDropped msg sig p) =
+    [ prettyKv "party" (show p)
+    , prettyKv "signature" sig
+    , prettyKv "message" msg
+    ]

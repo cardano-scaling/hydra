@@ -16,7 +16,7 @@ import Data.ByteString.Lazy qualified as LBS
 import System.Directory (getTemporaryDirectory, removeFile)
 import System.IO (hClose, openTempFile)
 
-import Hydra.Logging (Envelope (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
+import Hydra.Logging (Envelope (..), LogFormat (..), defaultQueueSize, mkEnvelope, withTracerOutputTo)
 
 main :: IO ()
 main = do
@@ -32,7 +32,7 @@ main = do
 runBuffered :: Int -> IO ()
 runBuffered n =
   withTempLogFile $ \hdl ->
-    withTracerOutputTo (BlockBuffering (Just 64000)) hdl "logging-bench" $ \tracer ->
+    withTracerOutputTo LogJSON (BlockBuffering (Just 64000)) hdl "logging-bench" $ \tracer ->
       replicateM_ n (traceWith tracer benchMessage)
 
 runFlushEach :: Int -> IO ()

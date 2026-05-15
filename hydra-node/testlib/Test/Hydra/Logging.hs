@@ -15,3 +15,7 @@ import Test.QuickCheck.Instances.Text ()
 instance Arbitrary Verbosity where
   arbitrary = genericArbitrary
   shrink = genericShrink
+
+instance Arbitrary LogFormat where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
