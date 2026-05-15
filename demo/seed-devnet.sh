@@ -105,10 +105,10 @@ function queryPParams() {
   echo >&2 "Query Protocol parameters"
   if [[ -x ${CCLI_CMD} ]]; then
      ccli query protocol-parameters --socket-path ${DEVNET_DIR}/node.socket  --out-file /dev/stdout \
-      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
+      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0" > devnet/protocol-parameters.json
    else
      docker exec demo-cardano-node-1 cardano-cli query protocol-parameters --testnet-magic ${NETWORK_ID} --socket-path ${DEVNET_DIR}/node.socket --out-file /dev/stdout \
-      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0" > devnet/protocol-parameters.json
+      | jq ".txFeeFixed = 0 | .txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0" > devnet/protocol-parameters.json
   fi
   echo >&2 "Saved in protocol-parameters.json"
 }
