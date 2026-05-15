@@ -46,7 +46,7 @@ container accordingly.
 Lastly, the `hydra-node` requires some `protocol-parameters.json` to configure the ledger in the `/data/hydra-node` directory. Use the ones from the e2e tests `hydra-cluster/config/protocol-parameters.json` or the L1 ones via the `cardano-cli` on the target host as basis:
 
 ``` sh
-ssh example "CARDANO_NODE_SOCKET_PATH=/data/cardano-node/node.socket cardano-cli query protocol-parameters --testnet-magic 2 | 's/"txFeeFixed.*/"txFeeFixed": 0,/;s/"txFeePerByte.*/"txFeePerByte": 0,/' > /data/hydra-node/protocol-parameters.json"
+ssh example "CARDANO_NODE_SOCKET_PATH=/data/cardano-node/node.socket cardano-cli query protocol-parameters --testnet-magic 2 | 's/"txFeeFixed.*/"txFeeFixed": 0,/;s/"txFeePerByte.*/"txFeePerByte": 0,/;s/"utxoCostPerByte.*/"utxoCostPerByte": 0,/' > /data/hydra-node/protocol-parameters.json"
 ```
 
 IMPORTANT: The `hydraw` application requires **0 fees**! So ensure `"txFeeFixed": 0` and `"txFeePerByte": 0`.

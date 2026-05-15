@@ -392,7 +392,7 @@ The next step involves configuring the protocol parameters for the ledger within
 
 ```
 cardano-cli query protocol-parameters \
-  | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0' \
+  | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0' \
   > protocol-parameters.json
 ```
 
