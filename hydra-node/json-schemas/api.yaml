@@ -1255,6 +1255,7 @@ components:
         - tag
         - joiningParty
         - joiningOnChainId
+        - joiningHost
       properties:
         tag:
           type: string
@@ -1264,6 +1265,9 @@ components:
         joiningOnChainId:
           type: string
           description: Hex-encoded on-chain identifier of the joining party.
+        joiningHost:
+          type: string
+          description: Network host ('hostname:port') the joining party's hydra-node listens on. Used to extend the L2 etcd cluster via 'etcdctl member add'.
 
     # Server outputs
 
@@ -2072,6 +2076,7 @@ components:
         - tag
         - headId
         - joiningParty
+        - joiningHost
         - seq
         - timestamp
       properties:
@@ -2082,6 +2087,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         joiningParty:
           $ref: "api.yaml#/components/schemas/Party"
+        joiningHost:
+          type: string
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2118,6 +2125,7 @@ components:
         - tag
         - headId
         - joiningParty
+        - joiningHost
         - newParties
         - seq
         - timestamp
@@ -2129,6 +2137,8 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         joiningParty:
           $ref: "api.yaml#/components/schemas/Party"
+        joiningHost:
+          type: string
         newParties:
           type: array
           items:
@@ -3324,6 +3334,21 @@ components:
               enum: ["FailedToConstructDecrementTx"]
             failureReason:
               type: string
+        - title: FailedToConstructUpdateParametersTx
+          description: |
+            Raised if the user fails to submit an update-parameters tx
+            (issue #1813, dynamic-head-participants).
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructUpdateParametersTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructFanoutTx
           description: |
             Raised if the user fails to submit a fanout tx.
@@ -3672,6 +3697,7 @@ components:
       - depositPeriod
       - unsyncedPeriod
       - configuredPeers
+      - joinExistingCluster
       additionalProperties: false
       properties:
         party:
@@ -3694,6 +3720,12 @@ components:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
         configuredPeers:
           type: string
+        joinExistingCluster:
+          type: boolean
+          description: |
+            Whether this node is joining an existing L2 (etcd) cluster, rather
+            than bootstrapping a new one. Used for dynamic-head-participants
+            (issue #1813).
 
     NetworkInfo:
       type: object
@@ -4119,6 +4151,7 @@ components:
             - tag
             - joiningParty
             - joiningOnChainId
+            - joiningHost
           properties:
             tag:
               type: string
@@ -4128,6 +4161,9 @@ components:
             joiningOnChainId:
               type: string
               description: Hex-encoded on-chain identifier of the joining party.
+            joiningHost:
+              type: string
+              description: Network host ('hostname:port') the joining party's hydra-node listens on. Off-chain only; used to extend the L2 etcd cluster.
 
     Deposit:
       type: object

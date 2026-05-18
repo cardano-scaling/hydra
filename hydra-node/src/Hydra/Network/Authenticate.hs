@@ -11,7 +11,7 @@ import Control.Tracer (Tracer)
 import Data.Aeson (Options (tagSingleConstructors), defaultOptions, genericToJSON)
 import Data.Aeson qualified as Aeson
 import Hydra.Logging (traceWith)
-import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
+import Hydra.Network (Network (Network, broadcast, memberAdd), NetworkCallback (..), NetworkComponent)
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
 import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
@@ -93,11 +93,12 @@ withAuthentication tracer signingKey readOtherParties readJoiningParty withRawNe
 
   me = deriveParty signingKey
 
-  authenticate Network{broadcast} =
+  authenticate Network{broadcast, memberAdd} =
     action $
       Network
         { broadcast = \msg ->
             broadcast (Signed msg (sign signingKey msg) me)
+        , memberAdd
         }
 
 -- | Smart constructor for 'MessageDropped'

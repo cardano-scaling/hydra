@@ -184,6 +184,7 @@ spec = do
                 OnFanoutTx{} -> transition `shouldSatisfy` (`elem` [Transition.Fanout, Transition.FinalPartialFanout])
                 OnDepositTx{} -> failure "OnDepositTx not expected"
                 OnRecoverTx{} -> failure "OnRecoverTx not expected"
+                OnUpdateParametersTx{} -> failure "OnUpdateParametersTx not expected"
 
       let handler =
             chainSyncHandler

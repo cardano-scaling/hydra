@@ -33,6 +33,7 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
       FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
     FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} ->
       FinalPartialFanoutTx <$> shrink utxoToDistribute <*> shrink headSeed <*> shrink contestationDeadline
+    UpdateParametersTx{} -> []
 
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary

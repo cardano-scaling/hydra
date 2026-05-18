@@ -166,9 +166,14 @@ withDirectChain opts tracer config ctx wallet chainStateHistory callback action 
           _ -> (persistedPoints, FromPersisted (head persistedPoints) False)
 
   -- Use the tip if we would otherwise start at the genesis (it can't be a good choice).
+  -- EXCEPTION: if the user explicitly asked to start from genesis (e.g. a
+  -- party joining an existing head per issue #1813 needs to replay the
+  -- historical 'InitTx'), honour that.
   (prefix, startingDecision') <-
-    case head startFromPrefix of
-      ChainPointAtGenesis -> do
+    case (head startFromPrefix, startChainFrom) of
+      (ChainPointAtGenesis, Just ChainPointAtGenesis) ->
+        pure (ChainPointAtGenesis :| [], FromProvided ChainPointAtGenesis)
+      (ChainPointAtGenesis, _) -> do
         tip <- runDirectBackend opts queryTip
         pure (tip :| [], FromTip tip)
       _ -> pure (startFromPrefix, startingDecision)

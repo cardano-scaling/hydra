@@ -24,7 +24,7 @@ spec :: Spec
 spec = parallel $ do
   let captureOutgoing :: MonadSTM m => TVar m [a] -> p -> (Network m a -> b) -> b
       captureOutgoing msgqueue _cb action =
-        action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :)}
+        action $ Network{broadcast = \msg -> atomically $ modifyTVar' msgqueue (msg :), memberAdd = \_ -> pure ()}
 
       captureIncoming :: MonadSTM m => TVar m [mes] -> NetworkCallback mes m
       captureIncoming receivedMessages =

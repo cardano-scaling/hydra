@@ -28,6 +28,7 @@ import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set ((\\))
 import Data.Set qualified as Set
+import Data.Text qualified as T
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
@@ -159,6 +160,29 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , headSeed
           , parties
           }
+  -- "Joining-party" branch (issue #1813, dynamic-head-participants): we are
+  -- not yet a member of the head, but the head's existing parties are a
+  -- non-empty subset of our configured parties (so this is an existing
+  -- head we are configured to /also/ be in). Record the head as Opened
+  -- so a subsequent 'UpdateParametersTx AddParty <us>' can mutate it.
+  -- Gated on 'joinExistingCluster' so that nodes /not/ joining an
+  -- existing head continue to ignore unrelated init txs the way they
+  -- always have.
+  | joinExistingCluster
+      && not (Set.null initializedParties)
+      && initializedParties `Set.isSubsetOf` configuredParties
+      && not (party `member` initializedParties)
+      && configuredContestationPeriod == contestationPeriod
+      && not (null participants)
+      && Set.fromList participants `Set.isSubsetOf` Set.fromList configuredParticipants =
+      newState
+        HeadOpened
+          { parameters = headParameters
+          , chainState = newChainState
+          , headId
+          , headSeed
+          , parties
+          }
   | otherwise =
       newState
         IgnoredHeadInitializing
@@ -179,6 +203,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
     , otherParties
     , contestationPeriod = configuredContestationPeriod
     , participants = configuredParticipants
+    , joinExistingCluster
     } = env
 
 -- ** Off-chain protocol
@@ -1084,8 +1109,9 @@ onOpenClientAddParticipant ::
   OpenState tx ->
   Party ->
   OnChainId ->
+  Text ->
   Outcome tx
-onOpenClientAddParticipant openState joiningParty joiningOnChainId =
+onOpenClientAddParticipant openState joiningParty joiningOnChainId joiningHost =
   checkPartyNotInHead $
     checkNoUpdateInFlight $
       checkNoDecommitInFlight $
@@ -1095,6 +1121,7 @@ onOpenClientAddParticipant openState joiningParty joiningOnChainId =
                 ReqAddParty
                   { joiningParty
                   , joiningOnChainId
+                  , joiningHost
                   }
             )
  where
@@ -1103,7 +1130,7 @@ onOpenClientAddParticipant openState joiningParty joiningOnChainId =
         cause
           ( ClientEffect
               ServerOutput.CommandFailed
-                { clientInput = AddParticipant joiningParty joiningOnChainId
+                { clientInput = AddParticipant joiningParty joiningOnChainId joiningHost
                 , state = Open openState
                 }
           )
@@ -1114,7 +1141,7 @@ onOpenClientAddParticipant openState joiningParty joiningOnChainId =
         cause
           ( ClientEffect
               ServerOutput.CommandFailed
-                { clientInput = AddParticipant joiningParty joiningOnChainId
+                { clientInput = AddParticipant joiningParty joiningOnChainId joiningHost
                 , state = Open openState
                 }
           )
@@ -1125,7 +1152,7 @@ onOpenClientAddParticipant openState joiningParty joiningOnChainId =
         cause
           ( ClientEffect
               ServerOutput.CommandFailed
-                { clientInput = AddParticipant joiningParty joiningOnChainId
+                { clientInput = AddParticipant joiningParty joiningOnChainId joiningHost
                 , state = Open openState
                 }
           )
@@ -1136,7 +1163,7 @@ onOpenClientAddParticipant openState joiningParty joiningOnChainId =
         cause
           ( ClientEffect
               ServerOutput.CommandFailed
-                { clientInput = AddParticipant joiningParty joiningOnChainId
+                { clientInput = AddParticipant joiningParty joiningOnChainId joiningHost
                 , state = Open openState
                 }
           )
@@ -1162,8 +1189,9 @@ onOpenNetworkReqAddParty ::
   OpenState tx ->
   Party ->
   OnChainId ->
+  Text ->
   Outcome tx
-onOpenNetworkReqAddParty Environment{party} openState joiningParty joiningOnChainId =
+onOpenNetworkReqAddParty Environment{party} openState joiningParty joiningOnChainId joiningHost =
   case pendingParameterUpdate of
     Just AddParty{joiningParty = existing}
       | existing == joiningParty -> noop
@@ -1177,6 +1205,7 @@ onOpenNetworkReqAddParty Environment{party} openState joiningParty joiningOnChai
                   { headId
                   , joiningParty
                   , joiningOnChainId
+                  , joiningHost
                   }
                 <> maybeRequestSnapshot
  where
@@ -1208,7 +1237,7 @@ onOpenNetworkReqAddParty Environment{party} openState joiningParty joiningOnChai
                 (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs)
                 decommitTx
                 Nothing
-                (Just AddParty{joiningParty, joiningOnChainId})
+                (Just AddParty{joiningParty, joiningOnChainId, joiningHost})
           )
     | otherwise = noop
 
@@ -1463,12 +1492,39 @@ onOpenChainUpdateParametersTx openState newChainState newVersion theUpdate =
     ParametersChanged
       { chainState = newChainState
       , headId
-      , newParties = applyParameterUpdate theUpdate parameters.parties
+      , newParties = applyParameterUpdate enrichedUpdate parameters.parties
       , newVersion
-      , parameterUpdate = theUpdate
+      , parameterUpdate = enrichedUpdate
       }
+    <> memberAddEffect
  where
-  OpenState{headId, parameters} = openState
+  OpenState{headId, parameters, coordinatedHeadState} = openState
+  CoordinatedHeadState{pendingParameterUpdate} = coordinatedHeadState
+
+  -- The on-chain redeemer doesn't carry the joining party's L2 host (it's a
+  -- pure off-chain concern), so 'theUpdate' as recovered from the chain has
+  -- an empty host for 'AddParty'. Whenever we observe our /own/ pending
+  -- update being finalized, splice the real host back in from
+  -- 'pendingParameterUpdate' so downstream events (and the etcd member-add
+  -- effect) see it.
+  enrichedUpdate =
+    case (theUpdate, pendingParameterUpdate) of
+      (AddParty{joiningParty, joiningOnChainId}, Just (AddParty{joiningParty = jp, joiningHost}))
+        | jp == joiningParty ->
+            AddParty{joiningParty, joiningOnChainId, joiningHost}
+      _ -> theUpdate
+
+  -- For 'AddParty', emit a 'NetworkMemberAddEffect' so the etcd cluster is
+  -- reconfigured to admit the new peer. We rely on the host having been
+  -- spliced in from 'pendingParameterUpdate' above; if it's empty (we never
+  -- recorded the pending update locally, e.g. observing a historical L1 tx
+  -- on a fresh node), we omit the effect — that node isn't running an
+  -- existing-cluster etcd anyway. See issue #1813.
+  memberAddEffect =
+    case enrichedUpdate of
+      AddParty{joiningHost}
+        | not (T.null joiningHost) -> cause (NetworkMemberAddEffect joiningHost)
+      _ -> noop
 
   applyParameterUpdate :: ParameterUpdate -> [Party] -> [Party]
   applyParameterUpdate = \case
@@ -1649,6 +1705,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
 
   CoordinatedHeadState
     { confirmedSnapshot = currentConfirmedSnapshot
+    , version = currentVersion
     } = coordinatedHeadState
 
   vkeys = vkey <$> parties
@@ -1683,19 +1740,49 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
       then cont
       else sideLoadFailed SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
 
+  -- Joining-party catching up (issue #1813, dynamic-head-participants):
+  -- our local 'confirmedSnapshot' is still 'InitialSnapshot' (so
+  -- 'lastSeenSv = 0') but our 'coordinatedHeadState.version' has been
+  -- bumped to N by observing the 'UpdateParametersTx' that admitted us.
+  -- The AddParty snapshot the inviter is handing us was signed at
+  -- 'version = N - 1' (just before that L1 tx). Accept it.
+  isJoiningCatchup =
+    case requestedSnapshot of
+      Snapshot{parameterUpdate = Just AddParty{}, version = sv}
+        | currentVersion > 0
+        , sv == currentVersion - 1 ->
+            True
+      _ -> False
+
   requireVerifiedL1Snapshot cont
+    | isJoiningCatchup = cont
     | requestedSv /= lastSeenSv = sideLoadFailed SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
     | requestedSc /= lastSeenSc = sideLoadFailed SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
     | requestedSd /= lastSeenSd = sideLoadFailed SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 
+  -- The verification keys we expect to find in the multi-signature. For
+  -- "regular" snapshots this is just the current parties' vkeys, but for
+  -- a snapshot whose 'parameterUpdate' was 'AddParty p' the signers were
+  -- the /pre-update/ parties (current parties minus p). This lets the
+  -- joining party (or any node that lost state) side-load the AddParty
+  -- snapshot using its original two-of-two signature, even though their
+  -- local 'parties' list has already grown to three. See issue #1813
+  -- (dynamic-head-participants).
+  effectiveVkeys Snapshot{parameterUpdate = mUpdate} =
+    case mUpdate of
+      Just AddParty{joiningParty = jp} ->
+        vkey <$> filter (/= jp) parties
+      _ -> vkeys
+
   requireVerifiedMultisignature snapshot signatories cont =
-    case verifyMultiSignature vkeys signatories snapshot of
-      Verified -> cont
-      FailedKeys failures ->
-        sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
-      KeyNumberMismatch ->
-        sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys}
+    let vks = effectiveVkeys snapshot
+     in case verifyMultiSignature vks signatories snapshot of
+          Verified -> cont
+          FailedKeys failures ->
+            sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
+          KeyNumberMismatch ->
+            sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys = vks}
 
 -- | Observe a contest transaction. If the contested snapshot number is smaller
 -- than our last confirmed snapshot, we post a contest transaction.
@@ -2049,6 +2136,13 @@ updateCatchingUpHead env ledger now chainPointTime pendingDeposits st ev syncSta
       handleChainInput env ledger now chainPointTime pendingDeposits st ev syncStatus
     ClientInput{clientInput} ->
       cause . ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput drift
+    -- Connectivity events (NetworkConnected, PeerConnected, etc.) are
+    -- orthogonal to L2 state — they describe the L2 mesh. Dropping them
+    -- during catch-up would mean a late-joining party (issue #1813)
+    -- never observes the NetworkConnected its etcd fired before chain
+    -- replay completed, so its TUI keeps showing 'Network Disconnected'.
+    NetworkInput _ ConnectivityEvent{} ->
+      handleNetworkInput env ledger chainPointTime pendingDeposits st ev
     NetworkInput{} ->
       wait WaitOnNodeInSync{currentSlot}
  where
@@ -2220,8 +2314,8 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
   (Open openState, NetworkInput _ (ReceivedMessage{msg = ReqLeave{leavingParty, leavingOnChainId}})) ->
     onOpenNetworkReqLeave env openState leavingParty leavingOnChainId
-  (Open openState, NetworkInput _ (ReceivedMessage{msg = ReqAddParty{joiningParty, joiningOnChainId}})) ->
-    onOpenNetworkReqAddParty env openState joiningParty joiningOnChainId
+  (Open openState, NetworkInput _ (ReceivedMessage{msg = ReqAddParty{joiningParty, joiningOnChainId, joiningHost}})) ->
+    onOpenNetworkReqAddParty env openState joiningParty joiningOnChainId joiningHost
   _ ->
     Error $ UnhandledInput ev st
 
@@ -2279,8 +2373,8 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, ClientInput Leave) ->
     onOpenClientLeave env openState
-  (Open openState, ClientInput AddParticipant{joiningParty, joiningOnChainId}) ->
-    onOpenClientAddParticipant openState joiningParty joiningOnChainId
+  (Open openState, ClientInput AddParticipant{joiningParty, joiningOnChainId, joiningHost}) ->
+    onOpenClientAddParticipant openState joiningParty joiningOnChainId joiningHost
   -- Closed
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -2676,7 +2770,7 @@ applyEvent st = \case
           }
     _otherState -> st
   LeaveApproved{} -> st
-  JoinRecorded{joiningParty, joiningOnChainId} -> case st of
+  JoinRecorded{joiningParty, joiningOnChainId, joiningHost} -> case st of
     Open os@OpenState{coordinatedHeadState} ->
       Open
         os
@@ -2687,6 +2781,7 @@ applyEvent st = \case
                       AddParty
                         { joiningParty
                         , joiningOnChainId
+                        , joiningHost
                         }
                 }
           }

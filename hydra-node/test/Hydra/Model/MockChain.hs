@@ -359,7 +359,7 @@ findOwnCardanoKey me seedKeys = fromMaybe (error $ "cannot find cardano key for 
 -- TODO: unify with BehaviorSpec's ?
 createMockNetwork :: MonadSTM m => DraftHydraNode Tx m -> TVar m [MockHydraNode m] -> Network m (Message Tx)
 createMockNetwork draftNode nodes =
-  Network{broadcast}
+  Network{broadcast, memberAdd = \_ -> pure ()}
  where
   broadcast msg = do
     allNodes <- fmap node <$> readTVarIO nodes

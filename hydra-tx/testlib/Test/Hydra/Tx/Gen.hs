@@ -37,7 +37,7 @@ import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
 import Hydra.Tx.Fanout (PartialFanoutObservation)
-import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
+import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation, UpdateParametersObservation)
 import Hydra.Tx.OnChainId
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
@@ -388,6 +388,10 @@ instance Arbitrary FanoutObservation where
   shrink = genericShrink
 
 instance Arbitrary PartialFanoutObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary UpdateParametersObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 

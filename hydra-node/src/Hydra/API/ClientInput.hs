@@ -26,7 +26,11 @@ data ClientInput tx
     -- which, once unanimously signed (including by the joining party
     -- themselves), is finalized by an 'UpdateParameters' L1 transaction.
     -- See issue #1813 (dynamic-head-participants, Phase 2).
-    AddParticipant {joiningParty :: Party, joiningOnChainId :: OnChainId}
+    --
+    -- 'joiningHost' is the network host ('hostname:port') the new party's
+    -- hydra-node listens on. Existing nodes use it to run 'etcdctl member
+    -- add' against their L2 network mesh once 'JoinFinalized' fires.
+    AddParticipant {joiningParty :: Party, joiningOnChainId :: OnChainId, joiningHost :: Text}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (ClientInput tx)

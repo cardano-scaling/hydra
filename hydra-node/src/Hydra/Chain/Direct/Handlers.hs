@@ -71,6 +71,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   partialFanout,
   recover,
+  updateParameters,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
@@ -99,7 +100,12 @@ import Hydra.Tx.Observe (
   HeadObservation (..),
   IncrementObservation (..),
   InitObservation (..),
+<<<<<<< HEAD
   PartialFanoutObservation (..),
+||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
+=======
+  UpdateParametersObservation (..),
+>>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
   observeHeadTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
@@ -447,10 +453,16 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnContestTx{contestationDeadline, headId, snapshotNumber}
   Fanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
+<<<<<<< HEAD
   FinalPartialFanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
   PartialFanout PartialFanoutObservation{headId, distributedOutputs} ->
     pure OnPartialFanoutTx{headId, distributedOutputs}
+||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
+=======
+  UpdateParameters UpdateParametersObservation{headId, newVersion, parameterUpdate} ->
+    pure OnUpdateParametersTx{headId, newVersion, parameterUpdate}
+>>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
 
 prepareTxToPost ::
   forall m.
@@ -499,9 +511,35 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
+<<<<<<< HEAD
     -- These are handled in mkChain.postTx before reaching this function.
     FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)
     FinalPartialFanoutTx{} -> throwSTM (FailedToConstructPartialFanoutTx :: PostTxError Tx)
+||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
+            Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
+            Right fanoutTx -> pure fanoutTx
+=======
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
+      case headSeedToTxIn headSeed of
+        Nothing ->
+          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
+        Just seedTxIn ->
+          case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
+            Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
+            Right fanoutTx -> pure fanoutTx
+    UpdateParametersTx{headSeed, headId, headParameters, updateParametersSnapshot, parameterUpdate} ->
+      case updateParameters ctx spendableUTxO (headSeed, headId) headParameters updateParametersSnapshot parameterUpdate of
+        Left err -> throwIO (FailedToConstructUpdateParametersTx{failureReason = show err} :: PostTxError Tx)
+        Right updateParametersTx' -> pure updateParametersTx'
+>>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a

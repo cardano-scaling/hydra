@@ -1,12 +1,13 @@
 {
     "samples": [
         {
-            "joiningOnChainId": "01000101010100010001010100010101000100000100000000010101",
+            "joiningHost": "f",
+            "joiningOnChainId": "00000101000101010000010101010101000100010100010100010001",
             "joiningParty": {
-                "vkey": "0502d3bb88c027a611e2141153bf8c7012794b92a8baba148f920c067c0c6328"
+                "vkey": "b396b1f45b4aa629e9c42e1afcfe888126c0051b3b4e03ac0a67d13a6f97c0ea"
             },
             "tag": "AddParticipant"
         }
     ],
-    "seed": 103413319
+    "seed": 282929845
 }

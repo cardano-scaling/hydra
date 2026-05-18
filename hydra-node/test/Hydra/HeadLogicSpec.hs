@@ -91,6 +91,7 @@ spec =
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
         aliceEnv =
           Environment
@@ -102,6 +103,7 @@ spec =
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
 
     describe "Coordinated Head Protocol" $ do
@@ -862,7 +864,7 @@ spec =
                   ledger
                   now
                   s0
-                  (ClientInput (AddParticipant carol (deriveOnChainId carol)))
+                  (ClientInput (AddParticipant carol (deriveOnChainId carol) "127.0.0.1:5003"))
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqAddParty{joiningParty} -> joiningParty == carol
             _ -> False
@@ -872,7 +874,11 @@ spec =
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let reqAdd =
                 receiveMessageFrom bob $
-                  ReqAddParty{joiningParty = carol, joiningOnChainId = deriveOnChainId carol}
+                  ReqAddParty
+                    { joiningParty = carol
+                    , joiningOnChainId = deriveOnChainId carol
+                    , joiningHost = "127.0.0.1:5003"
+                    }
           update aliceEnv ledger now s0 reqAdd
             `hasStateChangedSatisfying` \case
               JoinRecorded{headId, joiningParty} ->
@@ -888,7 +894,7 @@ spec =
                   ledger
                   now
                   s0
-                  (ClientInput (AddParticipant bob (deriveOnChainId bob)))
+                  (ClientInput (AddParticipant bob (deriveOnChainId bob) "127.0.0.1:5002"))
           outcome `hasEffectSatisfying` \case
             ClientEffect CommandFailed{} -> True
             _ -> False
@@ -900,6 +906,7 @@ spec =
                   { headId = testHeadId
                   , joiningParty = carol
                   , joiningOnChainId = deriveOnChainId carol
+                  , joiningHost = "127.0.0.1:5003"
                   }
               changed =
                 ParametersChanged
@@ -908,11 +915,11 @@ spec =
                   , newParties = [alice, bob, carol]
                   , newVersion = 1
                   , parameterUpdate =
-                      AddParty carol (deriveOnChainId carol)
+                      AddParty carol (deriveOnChainId carol) "127.0.0.1:5003"
                   }
           let stRecorded = aggregateNodeState s0 recorded
           case headState stRecorded of
-            Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingParameterUpdate = Just (AddParty _ _)}} ->
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingParameterUpdate = Just AddParty{}}} ->
               pure ()
             other ->
               expectationFailure $
@@ -2490,7 +2497,12 @@ spec =
 
 prop_ignoresUnrelatedOnInitTx :: Property
 prop_ignoresUnrelatedOnInitTx =
-  forAll arbitrary $ \env ->
+  -- NOTE: We disable the dynamic-head-participants "I'm a joining party"
+  -- branch here (issue #1813). That branch accepts an InitTx whose parties
+  -- list does not include us yet — but the whole point of this property
+  -- is that an unrelated init /must/ be ignored. Tested independently in
+  -- the "Join" / "Leave" describe blocks above.
+  forAll (arbitrary `suchThat` (not . joinExistingCluster)) $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> monadicIO $ do
       let idleSt = inIdleState
       now <- run getCurrentTime

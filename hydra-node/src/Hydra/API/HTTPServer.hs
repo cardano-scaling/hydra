@@ -431,11 +431,14 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
               )
 
 -- | Request body for 'POST /participants'. Carries the joining party's Hydra
--- verification key plus their on-chain identifier (the asset name of the
--- participation token to be minted). See issue #1813, Phase 2.
+-- verification key, on-chain identifier (asset name of the participation
+-- token to be minted) and L2 network host ('hostname:port'). The host
+-- drives the etcd 'member add' once 'JoinFinalized' fires. See issue #1813,
+-- Phase 2.
 data AddParticipantRequest = AddParticipantRequest
   { joiningParty :: Party
   , joiningOnChainId :: OnChainId
+  , joiningHost :: Text
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -456,9 +459,9 @@ handleAddParticipant putClientInput apiTransactionTimeout responseChannel body =
   case Aeson.eitherDecode' body :: Either String AddParticipantRequest of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
-    Right AddParticipantRequest{joiningParty, joiningOnChainId} -> do
+    Right AddParticipantRequest{joiningParty, joiningOnChainId, joiningHost} -> do
       dupChannel <- atomically $ dupTChan responseChannel
-      putClientInput (AddParticipant joiningParty joiningOnChainId :: ClientInput tx)
+      putClientInput (AddParticipant joiningParty joiningOnChainId joiningHost :: ClientInput tx)
       let wait = do
             event <- atomically $ readTChan dupChannel
             case event of

@@ -1041,7 +1041,7 @@ spec = parallel $ do
               waitUntil [n1, n2] $ HeadIsOpen testHeadId (fromList [alice, bob])
 
               -- Alice invites carol into the head.
-              send n1 $ AddParticipant carol (deriveOnChainId carol)
+              send n1 $ AddParticipant carol (deriveOnChainId carol) "127.0.0.1:5003"
               waitUntilMatch [n1, n2] $ \case
                 JoinFinalized{joiningParty, newParties} ->
                   guard $
@@ -1365,7 +1365,7 @@ createMockNetworkWithDelay ::
   TVar m [HydraNode tx m] ->
   Network m (Message tx)
 createMockNetworkWithDelay networkDelay node nodes =
-  Network{broadcast}
+  Network{broadcast, memberAdd = \_ -> pure ()}
  where
   broadcast msg = do
     allNodes <- readTVarIO nodes
@@ -1563,6 +1563,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , unsyncedPeriod = defaultUnsyncedPeriodFor cp
       , participants
       , configuredPeers = ""
+      , joinExistingCluster = False
       }
   party = deriveParty signingKey
 

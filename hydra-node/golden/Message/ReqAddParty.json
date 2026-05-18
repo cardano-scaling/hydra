@@ -1,12 +1,13 @@
 {
     "samples": [
         {
-            "joiningOnChainId": "fb8c0188c04f8e28e6dab0ee5102bade4fdfe24be6c0a99d089c6bae",
+            "joiningHost": "𡟢.nP\u001c1.p]\u000b􎱏􄑏@\u001a\u0006",
+            "joiningOnChainId": "d61f54e3be831a76da26ff654351fe3d4d329665795823c065eb3fed",
             "joiningParty": {
-                "vkey": "bd53fff4ecae6d7e4763829dd47acda091ad06098af9c2d69173ab22aaa8b80e"
+                "vkey": "6f3175fe66a67c34a2c5db4998e11005f9fe66ab871891a775cf9ba6937066b1"
             },
             "tag": "ReqAddParty"
         }
     ],
-    "seed": -1330892729
+    "seed": -1860977533
 }

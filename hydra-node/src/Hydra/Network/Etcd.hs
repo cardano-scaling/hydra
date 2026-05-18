@@ -91,6 +91,7 @@ import Network.GRPC.Client.StreamType.IO (biDiStreaming, nonStreaming)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..), HTTP2Settings (..), NextElem (..), def, defaultHTTP2Settings)
 import Network.GRPC.Common.Protobuf (Proto (..), Protobuf, defMessage, (.~))
 import Network.GRPC.Etcd (
+  Cluster,
   Compare'CompareResult (..),
   Compare'CompareTarget (..),
   KV,
@@ -164,6 +165,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                                   action
                                     Network
                                       { broadcast = writePersistentQueue queue
+                                      , memberAdd = etcdMemberAdd tracer config
                                       }
                               )
                         )
@@ -224,6 +226,17 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         , -- XXX: Could use unique initial-cluster-tokens to isolate clusters
           ["--initial-cluster-token", "hydra-network-1"]
         , ["--initial-cluster", clusterPeers]
+        , -- When joining a pre-existing cluster (Phase 2 of issue #1813,
+          -- after an 'etcdctl member add' has reserved a slot for us), tell
+          -- etcd to look for the cluster rather than bootstrap a fresh one.
+          ["--initial-cluster-state", if joinExistingCluster then "existing" else "new"]
+        , -- Disable the strict reconfig check: when alice/bob add carol as a
+          -- new voting member, carol's hydra-node isn't running yet so
+          -- etcd's default policy ('--strict-reconfig-check=true') would
+          -- reject the change with 'etcdserver: unhealthy cluster'. For
+          -- 2->3 the quorum requirement (2) is met by the existing
+          -- members, so accepting the reconfig is safe. See issue #1813.
+          ["--strict-reconfig-check=false"]
         ]
 
   defaultEnv :: Map.Map String String
@@ -243,7 +256,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
 
   httpUrl (Host h p) = "http://" <> toString h <> ":" <> show p
 
-  NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd} = config
+  NetworkConfiguration{persistenceDir, listen, advertise, peers, whichEtcd, joinExistingCluster} = config
 
 connParams :: Tracer IO EtcdLog -> Maybe Timeout -> ConnParams
 connParams tracer to =
@@ -497,6 +510,7 @@ putMessage tracer config ourHost lastModRevVar msg = do
  where
   key = encodeUtf8 @Text $ "msg-" <> show ourHost
 
+<<<<<<< HEAD
   -- Compare: mod_revision(key) == lastModRev
   modRevMatches lastModRev =
     defMessage
@@ -521,6 +535,52 @@ putMessage tracer config ourHost lastModRevVar msg = do
       & #compare .~ [modRevMatches lastModRev]
       & #success .~ [putReqOp]
       & #failure .~ [rangeReqOp]
+||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
+=======
+-- | Add a new member to the etcd cluster via the 'Cluster.MemberAdd' RPC.
+--
+-- This is a cluster-wide operation: the change is proposed via Raft and
+-- replicated to all current members. It's enough for /any one/ existing
+-- member to call this, but the call is safe to issue from each existing
+-- node — when the new member is already known (peer URL or ID already
+-- present), the gRPC server returns a 'FailedPrecondition' error which we
+-- swallow as success. See 'etcd' runtime-reconfiguration docs:
+--
+--   https://etcd.io/docs/v3.5/op-guide/runtime-reconf-design/
+--
+-- After this call returns successfully, the cluster has reserved a slot
+-- for the new peer URL; the new member can then bootstrap with
+-- @--initial-cluster-state existing@ and the updated cluster list. The
+-- quorum size grows immediately, but for a current 2-of-N where N>=2 the
+-- existing members continue to satisfy quorum, so writes continue during
+-- the gap before the new member starts.
+etcdMemberAdd ::
+  Tracer IO EtcdLog ->
+  NetworkConfiguration ->
+  -- | Peer URL of the joining member, in 'hostname:port' form (e.g.
+  -- "127.0.0.1:5003"). The full @http://...@ form is constructed here.
+  Text ->
+  IO ()
+etcdMemberAdd tracer config peerHostPort =
+  withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 5)) (grpcServer config) $ \conn ->
+    let req = defMessage & #peerURLs .~ [peerUrl]
+     in ( void (nonStreaming conn (rpc @(Protobuf Cluster "memberAdd")) req)
+            `catch` \case
+              GrpcException{grpcError, grpcErrorMessage}
+                | grpcError == GrpcFailedPrecondition
+                , maybe False isAlreadyExists grpcErrorMessage ->
+                    -- Already a member (peer URL or ID present) — safe to ignore.
+                    traceWith tracer EtcdMemberAlreadyExists{peerUrl = peerUrl}
+              e -> throwIO e
+        )
+ where
+  peerUrl = "http://" <> peerHostPort
+
+  isAlreadyExists m =
+    "Peer URLs already exists" `T.isInfixOf` m
+      || "member ID already exist" `T.isInfixOf` m
+      || "Peer URL exists in cluster" `T.isInfixOf` m
+>>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
@@ -802,10 +862,17 @@ data EtcdLog
   | MatchingProtocolVersion {version :: ProtocolVersion}
   | WatchMessagesStartRevision {startRevision :: Int64}
   | WatchMessagesFallbackTo {compactRevision :: Int64}
+<<<<<<< HEAD
   | -- | The etcd transaction wrapping a broadcast 'put' found that our
     -- key's @mod_revision@ had moved past what we last recorded — the
     -- expected outcome when a 'GrpcDeadlineExceeded'-retried put already
     -- committed server-side. No second put was issued.
     BroadcastDeduped {previousModRev :: Int64, observedModRev :: Int64}
+||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
+=======
+  | -- | A 'Cluster.MemberAdd' RPC was issued for a peer URL that is already
+    -- a member. Logged at info level (not an error); see 'etcdMemberAdd'.
+    EtcdMemberAlreadyExists {peerUrl :: Text}
+>>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

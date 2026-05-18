@@ -48,6 +48,8 @@ import Hydra.Cluster.Scenarios (
   canDepositConcurrently,
   canDepositPartially,
   canDepositScriptBlueprint,
+  canJoinHead,
+  canLeaveHead,
   canRecoverDeposit,
   canRecoverDepositInAnyState,
   canResumeOnMemberAlreadyBootstrapped,
@@ -328,6 +330,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         withClusterTempDir $ \tmpDir ->
           withHydraScriptsAndBackendRunning tracer tmpDir $
             canDepositConcurrently tracer tmpDir
+
+    describe "dynamic head participants (issue #1813)" $ do
+      it "can invite a new party to join an open two-party head" $ \tracer ->
+        failAfter 120 $
+          withClusterTempDir $ \tmpDir ->
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              canJoinHead tracer tmpDir
+
+      it "can let a party leave an open three-party head" $ \tracer ->
+        failAfter 120 $
+          withClusterTempDir $ \tmpDir ->
+            withHydraScriptsAndBackendRunning tracer tmpDir $
+              canLeaveHead tracer tmpDir
 
     describe "three party hydra head" $ do
       it "can survive a bit of downtime of 1 in 3 nodes" $ \tracer ->

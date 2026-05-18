@@ -934,9 +934,14 @@ apiServerSpec = do
             delete "/participants/me" `shouldRespondWith` 503
 
     describe "POST /participants (dynamic-head-participants Phase 2)" $ do
+      let someHost = "127.0.0.1:5003" :: Text
       let mkBody party' oid =
             encode $
-              object ["joiningParty" .= party', "joiningOnChainId" .= oid]
+              object
+                [ "joiningParty" .= party'
+                , "joiningOnChainId" .= oid
+                , "joiningHost" .= someHost
+                ]
       let aPartyAndOnChainId =
             let p = generateWith arbitrary 17 :: Party
                 o = generateWith arbitrary 18 :: OnChainId
@@ -970,6 +975,7 @@ apiServerSpec = do
                     JoinFinalized
                       { headId = generateWith arbitrary 42
                       , joiningParty = somePty
+                      , joiningHost = "127.0.0.1:5003"
                       , newParties = []
                       }
                 , seq = 0

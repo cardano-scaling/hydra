@@ -46,6 +46,7 @@ import Hydra.Chain.ChainState (ChainSlot (ChainSlot), IsChainState (..))
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId, mkHeadTokenScript)
+import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Tx (
@@ -84,7 +85,9 @@ import Hydra.Tx.Observe (
   observeInitTx,
  )
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.ParameterUpdate (ParameterUpdate)
 import Hydra.Tx.Recover (recoverTx)
+import Hydra.Tx.UpdateParameters (updateParametersTx)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
@@ -315,6 +318,51 @@ decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapsh
       -- Signatures indicates we might want to simplify 'ConfirmedSnapshot' into
       -- a product directly.
       _ -> (getSnapshot decrementingSnapshot, mempty)
+
+  ChainContext{ownVerificationKey, scriptRegistry} = ctx
+
+data UpdateParametersTxError
+  = InvalidHeadSeedInUpdateParameters {headSeed :: HeadSeed}
+  | InvalidHeadIdInUpdateParameters {headId :: HeadId}
+  | CannotFindHeadOutputInUpdateParameters
+  deriving stock (Show)
+
+-- | Construct an 'UpdateParameters' transaction (issue #1813, dynamic-head-
+-- participants). Spends the head state-machine output, applies the
+-- multi-signed 'ParameterUpdate' on chain, and burns/mints the participation
+-- token of the leaving/joining party.
+updateParameters ::
+  ChainContext ->
+  -- | Spendable UTxO containing the head output
+  UTxO ->
+  (HeadSeed, HeadId) ->
+  HeadParameters ->
+  -- | Snapshot whose 'parameterUpdate' is being applied.
+  ConfirmedSnapshot Tx ->
+  ParameterUpdate ->
+  Either UpdateParametersTxError Tx
+updateParameters ctx spendableUTxO (headSeed, headId) headParameters updateParametersSnapshot parameterUpdate = do
+  seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInUpdateParameters{headSeed}
+  pid <- headIdToPolicyId headId ?> InvalidHeadIdInUpdateParameters{headId}
+  let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
+  headUTxO <- UTxO.find (isScriptTxOut Head.validatorScript) utxoOfThisHead' ?> CannotFindHeadOutputInUpdateParameters
+  let headTokenScript = HeadTokens.mkHeadTokenScript seedTxIn
+  Right $
+    updateParametersTx
+      scriptRegistry
+      ownVerificationKey
+      (seedTxIn, headId)
+      headParameters
+      headUTxO
+      sn
+      sigs
+      parameterUpdate
+      headTokenScript
+ where
+  (sn, sigs) =
+    case updateParametersSnapshot of
+      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
+      _ -> (getSnapshot updateParametersSnapshot, mempty)
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 

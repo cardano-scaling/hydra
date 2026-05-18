@@ -29,5 +29,6 @@ instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx t
     Fanout -> []
     SideLoadSnapshot sn -> SideLoadSnapshot <$> shrink sn
     Leave -> []
+    AddParticipant{} -> []
 
 instance (Arbitrary tx, Arbitrary (TxIdType tx), Arbitrary (UTxOType tx), IsTx tx) => ToADTArbitrary (ClientInput tx)

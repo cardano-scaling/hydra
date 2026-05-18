@@ -314,6 +314,7 @@ spec = parallel $ do
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
         nodeState = inOpenState [alice, bob]
 
@@ -381,7 +382,7 @@ mockServer =
 
 mockNetwork :: Monad m => Network m (Message tx)
 mockNetwork =
-  Network{broadcast = \_ -> pure ()}
+  Network{broadcast = \_ -> pure (), memberAdd = \_ -> pure ()}
 
 mockChain :: MonadThrow m => Chain tx m
 mockChain =
@@ -501,6 +502,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
       , participants
       , configuredPeers = ""
+      , joinExistingCluster = False
       }
 
   party = deriveParty signingKey
@@ -517,7 +519,7 @@ testTTL = 5
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
   (record, query) <- messageRecorder
-  pure (node{hn = Network{broadcast = record}}, query)
+  pure (node{hn = Network{broadcast = record, memberAdd = \_ -> pure ()}}, query)
 
 recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
 recordServerOutputs node = do

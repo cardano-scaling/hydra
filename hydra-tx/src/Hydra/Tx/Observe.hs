@@ -12,6 +12,7 @@ module Hydra.Tx.Observe (
   module Hydra.Tx.Close,
   module Hydra.Tx.Contest,
   module Hydra.Tx.Fanout,
+  module Hydra.Tx.UpdateParameters,
 ) where
 
 import Hydra.Cardano.Api
@@ -31,6 +32,7 @@ import Hydra.Tx.Fanout (FanoutObservation (..), PartialFanoutObservation (..), o
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.Init (InitObservation (..), NotAnInitReason (..), observeInitTx)
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
+import Hydra.Tx.UpdateParameters (UpdateParametersObservation (..), observeUpdateParametersTx)
 
 -- * Observe Hydra Head transactions
 
@@ -47,6 +49,7 @@ data HeadObservation
   | PartialFanout PartialFanoutObservation
   | Fanout FanoutObservation
   | FinalPartialFanout FanoutObservation
+  | UpdateParameters UpdateParametersObservation
   deriving stock (Eq, Show, Generic)
 
 -- NOTE: Custom To/FromJSON instances to create a "flat" encoding. The default
@@ -78,6 +81,7 @@ instance FromJSON HeadObservation where
       "PartialFanout" -> PartialFanout <$> parseJSON (Object o)
       "Fanout" -> Fanout <$> parseJSON (Object o)
       "FinalPartialFanout" -> FinalPartialFanout <$> parseJSON (Object o)
+      "UpdateParameters" -> UpdateParameters <$> parseJSON (Object o)
       _ -> fail $ "Unknown tag: " <> show tag
 
 -- | Observe any Hydra head transaction.
@@ -95,6 +99,7 @@ observeHeadTx networkId utxo tx =
       <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Increment <$> observeIncrementTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
+      <|> UpdateParameters <$> observeUpdateParametersTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> PartialFanout <$> observePartialFanoutTx utxo tx

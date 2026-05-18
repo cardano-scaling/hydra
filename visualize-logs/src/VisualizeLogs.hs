@@ -221,6 +221,11 @@ processLogs decoded =
                     Checkpoint{} -> pure DropLog
                     details@NodeUnsynced{} -> logIt (LogicLabel "NodeUnsynced") details
                     details@NodeSynced{} -> logIt (LogicLabel "NodeSynced") details
+                    details@LeaveRecorded{} -> logIt (LogicLabel "LeaveRecorded") details
+                    details@LeaveApproved{} -> logIt (LogicLabel "LeaveApproved") details
+                    details@JoinRecorded{} -> logIt (LogicLabel "JoinRecorded") details
+                    details@JoinApproved{} -> logIt (LogicLabel "JoinApproved") details
+                    details@ParametersChanged{} -> logIt (LogicLabel "ParametersChanged") details
                 )
                 DropLog
                 stateChanges

@@ -1,13 +1,18 @@
 {
     "samples": [
         {
-            "headId": "01010001000001010100010101000000",
+            "headId": "01000000000100000101000101010100",
+            "joiningHost": "",
             "joiningParty": {
-                "vkey": "59228aae801cd033b6454c4298174ae88520bafb21600f7676dc338b6c96403b"
+                "vkey": "991c0eac84e1b47dfa080a5fb574e68c651063237f78234a919441c4bab131dc"
             },
-            "newParties": [],
+            "newParties": [
+                {
+                    "vkey": "90562eddac3a859f473f83af4febb9d8bb81f73b0c2ab16b2be50c4ba2470ed5"
+                }
+            ],
             "tag": "JoinFinalized"
         }
     ],
-    "seed": 538512345
+    "seed": 1490718287
 }

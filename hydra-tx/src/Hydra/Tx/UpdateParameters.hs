@@ -1,6 +1,7 @@
 -- | Construct and observe the on-chain 'UpdateParameters' transaction that
--- applies a multi-signed parameter change (a party leaving, in Phase 1) to an
--- open head. Modeled after 'Hydra.Tx.Decrement' and 'Hydra.Tx.Fanout'.
+-- applies a multi-signed parameter change (a party leaving or joining, issue
+-- #1813) to an open head. Modeled after 'Hydra.Tx.Decrement' and
+-- 'Hydra.Tx.Fanout'.
 module Hydra.Tx.UpdateParameters where
 
 import Hydra.Cardano.Api
@@ -21,11 +22,11 @@ import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, headIdToPolicyId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ParameterUpdate (ParameterUpdate (..), toOnChain)
-import Hydra.Tx.Party (partyToChain)
+import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..))
-import Hydra.Tx.Utils (mkHydraHeadV2TxName, onChainIdToAssetName)
-import PlutusLedgerApi.V3 (toBuiltin)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
+import Hydra.Tx.Utils (assetNameToOnChainId, findStateToken, mkHydraHeadV2TxName, onChainIdToAssetName)
+import PlutusLedgerApi.V3 (TokenName (..), fromBuiltin, toBuiltin)
 
 -- * Construction
 
@@ -65,6 +66,12 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "UpdateParametersTx")
  where
   Snapshot{number, version, utxo} = snapshot
+  -- The new datum's 'utxoHash' is the hash of the current L2 state at
+  -- the time the snapshot was signed. The 'UpdateParameters' validator
+  -- uses this hash as the signature payload (see 'checkUpdateParameters'
+  -- in 'Hydra.Contract.Head'); the head's 'utxoHash' may advance
+  -- across an 'UpdateParameters' transition the same way it does
+  -- across 'Increment'/'Decrement'.
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
   HeadParameters{parties, contestationPeriod} = headParameters
@@ -130,3 +137,67 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
           }
+
+-- * Observation
+
+-- | The result of observing an 'UpdateParametersTx' on chain. Mirrors
+-- 'DecrementObservation'.
+data UpdateParametersObservation = UpdateParametersObservation
+  { headId :: HeadId
+  , newVersion :: SnapshotVersion
+  , parameterUpdate :: ParameterUpdate
+  }
+  deriving stock (Show, Eq, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+-- | Detect an 'UpdateParametersTx' by inspecting the head input's
+-- 'UpdateParameters' redeemer and the new head output's datum.
+observeUpdateParametersTx ::
+  -- | A UTxO set that should contain the head output being spent (to resolve
+  -- inputs).
+  UTxO ->
+  Tx ->
+  Maybe UpdateParametersObservation
+observeUpdateParametersTx utxo tx = do
+  let inputUTxO = resolveInputsUTxO utxo tx
+  (headInput, headOutput) <- findTxOutByScript inputUTxO Head.validatorScript
+  redeemer <- findRedeemerSpending tx headInput
+  oldHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut headOutput
+  oldDatum <- fromScriptData oldHeadDatum
+  headId <- findStateToken headOutput
+  case (oldDatum, redeemer) of
+    (Head.Open{}, Head.UpdateParameters Head.UpdateParametersRedeemer{parameterUpdate = ocUpdate}) -> do
+      (_, newHeadOutput) <- findTxOutByScript (utxoFromTx tx) Head.validatorScript
+      newHeadDatum <- txOutScriptData $ fromCtxUTxOTxOut newHeadOutput
+      case fromScriptData newHeadDatum of
+        Just (Head.Open Head.OpenDatum{version}) -> do
+          pu <- updateFromOnChain ocUpdate
+          pure
+            UpdateParametersObservation
+              { headId
+              , newVersion = fromChainSnapshotVersion version
+              , parameterUpdate = pu
+              }
+        _ -> Nothing
+    _ -> Nothing
+
+-- | Convert the on-chain 'OnChainParameterUpdate' back into the off-chain
+-- 'ParameterUpdate' carrying a full 'Party' and an 'OnChainId' (derived from
+-- the validator-enforced 'TokenName').
+--
+-- The off-chain 'AddParty' carries a 'joiningHost' that is /not/ part of
+-- the on-chain redeemer (it's a pure off-chain etcd-reconfig concern), so
+-- the recovered shape has an empty host. 'Hydra.HeadLogic' splices the
+-- real host back in from 'pendingParameterUpdate' when observing the
+-- finalization.
+updateFromOnChain :: Head.OnChainParameterUpdate -> Maybe ParameterUpdate
+updateFromOnChain = \case
+  Head.RemovePartyOC ocParty tokenName -> do
+    p <- partyFromChain ocParty
+    pure $ RemoveParty p (tokenNameToOnChainId tokenName)
+  Head.AddPartyOC ocParty tokenName -> do
+    p <- partyFromChain ocParty
+    pure $ AddParty p (tokenNameToOnChainId tokenName) ""
+ where
+  tokenNameToOnChainId (TokenName bs) =
+    assetNameToOnChainId (UnsafeAssetName (fromBuiltin bs))

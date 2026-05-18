@@ -51,6 +51,7 @@ spec = do
                 , unsyncedPeriod = defaultUnsyncedPeriod
                 , participants = deriveOnChainId <$> threeParties
                 , configuredPeers = ""
+                , joinExistingCluster = False
                 }
 
     let coordinatedHeadState =
@@ -209,6 +210,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = [deriveOnChainId party]
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
     st =
       CoordinatedHeadState

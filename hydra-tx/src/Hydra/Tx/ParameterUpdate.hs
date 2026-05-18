@@ -18,14 +18,20 @@ import PlutusLedgerApi.V3 (TokenName (..), toBuiltin)
 -- | An update that, once authorized by a multi-signed snapshot, may be applied
 -- on chain via the 'UpdateParameters' head-validator redeemer.
 --
--- Each variant carries both the 'Party' (Hydra verification key, which
+-- 'RemoveParty' / 'AddParty' carry the 'Party' (Hydra verification key, which
 -- identifies the party off-chain and is in/removed from
 -- 'HeadParameters.parties') and the corresponding 'OnChainId' (the cardano
 -- payment-key hash, which is the asset name of the participation token and
 -- determines which PT to burn / mint on chain).
+--
+-- 'AddParty' additionally carries the joining party's network host
+-- ('hostname:port') as a plain text. This is /off-chain only/ — 'toOnChain'
+-- drops it before producing the snapshot signable bytes or the on-chain
+-- redeemer. It is needed so existing parties can reconfigure their etcd
+-- cluster ('etcdctl member add') when 'JoinFinalized' fires.
 data ParameterUpdate
   = RemoveParty {leavingParty :: Party, leavingOnChainId :: OnChainId}
-  | AddParty {joiningParty :: Party, joiningOnChainId :: OnChainId}
+  | AddParty {joiningParty :: Party, joiningOnChainId :: OnChainId, joiningHost :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -37,7 +43,7 @@ data ParameterUpdate
 instance ToCBOR ParameterUpdate where
   toCBOR = \case
     RemoveParty p oid -> toCBOR (0 :: Word8) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
-    AddParty p oid -> toCBOR (1 :: Word8) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
+    AddParty p oid h -> toCBOR (1 :: Word8) <> toCBOR p <> toCBOR (serialiseToRawBytes oid) <> toCBOR h
 
 instance FromCBOR ParameterUpdate where
   fromCBOR = do
@@ -52,8 +58,9 @@ instance FromCBOR ParameterUpdate where
       1 -> do
         p <- fromCBOR
         oidBytes <- fromCBOR
+        h <- fromCBOR
         case deserialiseFromRawBytes AsOnChainId oidBytes of
-          Right oid -> pure $ AddParty p oid
+          Right oid -> pure $ AddParty p oid h
           Left err -> fail $ "ParameterUpdate: invalid OnChainId (AddParty): " <> show err
       _ -> fail $ "ParameterUpdate: unknown tag " <> show tag
 
@@ -76,7 +83,11 @@ toOnChain = \case
     Onchain.RemovePartyOC
       (partyToChain party)
       (TokenName (toBuiltin (serialiseToRawBytes oid)))
-  AddParty party oid ->
+  AddParty party oid _host ->
+    -- The off-chain 'joiningHost' is intentionally dropped here: it carries
+    -- the new party's etcd peer URL for the L2 network reconfig and has no
+    -- on-chain meaning. Excluding it keeps the snapshot signable bytes
+    -- identical to what the head validator reconstructs from the redeemer.
     Onchain.AddPartyOC
       (partyToChain party)
       (TokenName (toBuiltin (serialiseToRawBytes oid)))

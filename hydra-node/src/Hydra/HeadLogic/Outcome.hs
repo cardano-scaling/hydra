@@ -41,6 +41,12 @@ data Effect tx
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {postChainTx :: PostChainTx tx}
+  | -- | Effect to be handled by the L2 network layer: reconfigure the cluster
+    -- to admit a new peer at the given @hostname:port@. Issued when a
+    -- 'JoinFinalized' / 'ParametersChanged AddParty' is observed (issue
+    -- #1813, dynamic-head-participants). The handler must be idempotent
+    -- (safe for all existing nodes to issue concurrently).
+    NetworkMemberAddEffect {joiningHost :: Text}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (Effect tx)
@@ -133,7 +139,9 @@ data StateChanged tx
     LeaveApproved {headId :: HeadId, leavingParty :: Party}
   | -- | A 'ReqAddParty' has been accepted; the join is now pending sign-off.
     -- Symmetric to 'LeaveRecorded'. See issue #1813 (Phase 2).
-    JoinRecorded {headId :: HeadId, joiningParty :: Party, joiningOnChainId :: OnChainId}
+    -- 'joiningHost' is carried so the L2 'etcdctl member add' has access to
+    -- it once 'ParametersChanged' fires.
+    JoinRecorded {headId :: HeadId, joiningParty :: Party, joiningOnChainId :: OnChainId, joiningHost :: Text}
   | -- | The snapshot carrying an 'AddParty' parameter update has been
     -- multi-signed; the head node now expects an 'UpdateParametersTx' to be
     -- observed on chain.

@@ -229,14 +229,14 @@ data ServerOutput tx
   | -- | An 'AddParticipant' client input (or 'ReqAddParty' network message)
     -- was accepted; the join is pending sign-off (Phase 2 of
     -- dynamic-head-participants, issue #1813).
-    JoinRequested {headId :: HeadId, joiningParty :: Party}
+    JoinRequested {headId :: HeadId, joiningParty :: Party, joiningHost :: Text}
   | -- | All parties (existing + the joiner) have signed the snapshot
     -- authorizing the join; the head node will post an 'UpdateParametersTx'
     -- to finalize.
     JoinApproved {headId :: HeadId, joiningParty :: Party}
   | -- | The on-chain 'UpdateParametersTx' has been observed; the parties
     -- list of the head is now the supplied 'newParties'.
-    JoinFinalized {headId :: HeadId, joiningParty :: Party, newParties :: [Party]}
+    JoinFinalized {headId :: HeadId, joiningParty :: Party, joiningHost :: Text, newParties :: [Party]}
   | -- | An 'AddParticipant' client input could not be accepted.
     JoinInvalid {headId :: HeadId, joiningParty :: Party, joinReason :: JoinInvalidReason}
   | -- TODO: Rename to DepositRecorded following the state events naming. But only
@@ -330,6 +330,15 @@ prepareServerOutput config response =
     EventLogRotated{} -> encodedResponse
     NodeUnsynced{} -> encodedResponse
     NodeSynced{} -> encodedResponse
+    -- dynamic-head-participants (issue #1813) outputs are pass-throughs.
+    LeaveRequested{} -> encodedResponse
+    LeaveApproved{} -> encodedResponse
+    LeaveFinalized{} -> encodedResponse
+    LeaveInvalid{} -> encodedResponse
+    JoinRequested{} -> encodedResponse
+    JoinApproved{} -> encodedResponse
+    JoinFinalized{} -> encodedResponse
+    JoinInvalid{} -> encodedResponse
  where
   encodedResponse = encode response
 

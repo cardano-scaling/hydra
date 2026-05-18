@@ -53,12 +53,15 @@ data Message tx
     -- access to the leaver's 'Environment'.
     ReqLeave {leavingParty :: Party, leavingOnChainId :: OnChainId}
   | -- | Pre-confirmation broadcast that a new 'Party' (carrying their
-    -- 'OnChainId') is being proposed for inclusion in the head. Broadcast
-    -- by one of the existing parties (the inviter); finalization happens
-    -- via 'ReqSn'/'AckSn' on a snapshot whose 'parameterUpdate' is
-    -- 'AddParty'. The joining party themselves must also sign that
-    -- snapshot — see the speculative-accept rule in 'Authenticate'.
-    ReqAddParty {joiningParty :: Party, joiningOnChainId :: OnChainId}
+    -- 'OnChainId' and L2 network host) is being proposed for inclusion in
+    -- the head. Broadcast by one of the existing parties (the inviter);
+    -- finalization happens via 'ReqSn'/'AckSn' on a snapshot whose
+    -- 'parameterUpdate' is 'AddParty'. The joining party themselves must
+    -- also sign that snapshot — see the speculative-accept rule in
+    -- 'Authenticate'. The 'joiningHost' is off-chain only (it does not
+    -- enter the snapshot's signable bytes) and is used to drive the
+    -- 'etcdctl member add' once 'JoinFinalized' fires.
+    ReqAddParty {joiningParty :: Party, joiningOnChainId :: OnChainId, joiningHost :: Text}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)
@@ -80,7 +83,7 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Mess
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
     ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
     ReqLeave p oid -> toCBOR ("ReqLeave" :: Text) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
-    ReqAddParty p oid -> toCBOR ("ReqAddParty" :: Text) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
+    ReqAddParty p oid h -> toCBOR ("ReqAddParty" :: Text) <> toCBOR p <> toCBOR (serialiseToRawBytes oid) <> toCBOR h
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
@@ -98,8 +101,9 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
       "ReqAddParty" -> do
         p <- fromCBOR
         oidBytes <- fromCBOR
+        h <- fromCBOR
         case deserialiseFromRawBytes AsOnChainId oidBytes of
-          Right oid -> pure $ ReqAddParty p oid
+          Right oid -> pure $ ReqAddParty p oid h
           Left err -> fail $ "ReqAddParty: invalid OnChainId: " <> show err
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 

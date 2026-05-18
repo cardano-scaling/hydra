@@ -335,7 +335,6 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
       prevHeadSeed == nextHeadSeed
         && prevCperiod == nextCperiod
         && prevHeadId == nextHeadId
-        && prevUtxoHash == nextUtxoHash
         && prevAccumulatorHash == nextAccumulatorHash
 
   mustApplyUpdateToParties =
@@ -375,16 +374,19 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
       AssocMap.toList
       (AssocMap.lookup headCurrency (mintValueToMap (txInfoMint txInfo)))
 
-  -- The output head value must equal the input head value adjusted by exactly
-  -- the participation token that was minted (Add) or burned (Remove). For
-  -- Remove, output + burnedPT == input. For Add, input + mintedPT == output.
+  -- The output head value must preserve the input head value adjusted by
+  -- exactly the participation token that was minted (Add) or burned (Remove).
+  -- NOTE: We use 'geq' (not '==') for the lovelace component because the
+  -- wallet's 'ensureMinCoinTxOut' may inflate the head output's lovelace to
+  -- cover the higher min-utxo cost incurred by adding a new asset (a PT).
+  -- This mirrors 'mustPreserveHeadValue' in Hydra.Contract.Util.
   mustPreserveHeadValueAdjustedForPT =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       case parameterUpdate of
         RemovePartyOC _ tokenName ->
-          headInValue == headOutValue <> singletonPTValue prevHeadId tokenName
+          headInValue `geq` (headOutValue <> singletonPTValue prevHeadId tokenName)
         AddPartyOC _ tokenName ->
-          headInValue <> singletonPTValue prevHeadId tokenName == headOutValue
+          headOutValue `geq` (headInValue <> singletonPTValue prevHeadId tokenName)
 
   -- A 'Value' containing exactly one participation token of the given asset
   -- name under the head's currency.
@@ -398,10 +400,17 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
+  -- The signature payload uses the /new/ datum's 'utxoHash' (= the L2
+  -- state hash at the time the snapshot was signed; the tx builder
+  -- sets this to 'hashUTxO snapshot.utxo'). This matches what the
+  -- off-chain 'getSignableRepresentation' of a 'Snapshot' emits.
+  -- 'UpdateParameters' may therefore advance the on-chain 'utxoHash'
+  -- the same way 'Increment'/'Decrement' do — see also the
+  -- relaxation of 'mustOnlyChangeParties' above.
   checkSnapshotSignature =
     verifyParameterUpdateSignature
       prevParties
-      (prevHeadId, prevVersion, snapshotNumber, prevUtxoHash, emptyHash, emptyHash, prevAccumulatorHash)
+      (prevHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, emptyHash, prevAccumulatorHash)
       parameterUpdate
       signature
 

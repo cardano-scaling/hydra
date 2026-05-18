@@ -521,11 +521,18 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
       , persistenceDir = stateDir
       , persistenceRotateAfter = Nothing
       , chainConfig
+<<<<<<< HEAD
       , -- NOTE: Use the system etcd to avoid ETXTBSY races where multiple
         -- parallel tests extract the embedded etcd binary into their own
         -- tempdirs and execve while another thread still holds the
         -- write-fd. The dev-shell and CI both provide etcd in $PATH.
         whichEtcd = SystemEtcd
+||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
+      , whichEtcd = EmbeddedEtcd
+=======
+      , whichEtcd = EmbeddedEtcd
+      , joinExistingCluster = False
+>>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
       , ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile

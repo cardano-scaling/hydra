@@ -195,6 +195,7 @@ data PostTxError tx
   | FailedToConstructRecoverTx {failureReason :: Text}
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
+  | FailedToConstructUpdateParametersTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   | FailedToConstructPartialFanoutTx
   | -- | Another node already posted this partial fanout step; the chain
