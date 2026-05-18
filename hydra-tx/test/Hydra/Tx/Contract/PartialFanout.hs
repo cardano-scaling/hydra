@@ -33,29 +33,38 @@ import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTok
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
--- | Build a healthy partial fanout transaction with a given input head state.
--- Used for both the Closed → FanoutProgress and FanoutProgress → FanoutProgress cases,
--- which share identical transaction structure and only differ in the input datum type.
 scriptRegistry :: ScriptRegistry
 scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
+-- | Build a healthy partial fanout transaction with a given input head state.
+-- Used for both the Closed → FanoutProgress and FanoutProgress → FanoutProgress cases,
+-- which share identical transaction structure and only differ in the input datum type.
 healthyPartialFanoutTxWith :: Head.State -> (Tx, UTxO)
-healthyPartialFanoutTxWith inputState = (tx, lookupUTxO)
+healthyPartialFanoutTxWith =
+  mkHealthyPartialFanoutTxWith scriptRegistry healthyFullUTxO healthyDistributeUTxO healthyProgressDatum remainingAccumulator
+
+mkHealthyPartialFanoutTxWith ::
+  ScriptRegistry ->
+  UTxO ->
+  UTxO ->
+  Head.FanoutProgressDatum ->
+  Accumulator.HydraAccumulator ->
+  Head.State ->
+  (Tx, UTxO)
+mkHealthyPartialFanoutTxWith reg fullUTxO distributeUTxO progressDatum remainingAcc inputState = (tx, lookupUTxO)
  where
   lookupUTxO =
-    UTxO.singleton headInput headOutput
-      <> registryUTxO scriptRegistry
+    UTxO.singleton healthyHeadInput headOutput
+      <> registryUTxO reg
 
   tx =
     partialFanoutTx
-      scriptRegistry
-      healthyDistributeUTxO
-      (headInput, headOutput)
+      reg
+      distributeUTxO
+      (healthyHeadInput, headOutput)
       healthySlotNo
-      healthyProgressDatum
-      remainingAccumulator
-
-  headInput = generateWith arbitrary 42
+      progressDatum
+      remainingAcc
 
   headOutput' :: TxOut CtxUTxO
   headOutput' =
@@ -65,13 +74,7 @@ healthyPartialFanoutTxWith inputState = (tx, lookupUTxO)
       (verificationKeyToOnChainId <$> healthyParticipants)
       (mkTxOutDatumInline inputState)
 
-  headOutput = modifyTxOutValue (<> participationTokens <> UTxO.totalValue healthyFullUTxO) headOutput'
-
-  participationTokens =
-    fromList $
-      map
-        (\party -> (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1))
-        healthyParties
+  headOutput = modifyTxOutValue (<> healthyParticipationTokens <> UTxO.totalValue fullUTxO) headOutput'
 
 -- | Closed → FanoutProgress partial fanout.
 healthyPartialFanoutTx :: (Tx, UTxO)
@@ -153,6 +156,72 @@ healthyParties =
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParticipants =
   genForParty genVerificationKey <$> healthyParties
+
+healthyHeadInput :: TxIn
+healthyHeadInput = generateWith arbitrary 42
+
+healthyParticipationTokens :: Value
+healthyParticipationTokens =
+  fromList $
+    map
+      (\party -> (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1))
+      healthyParties
+
+-- | A UTxO set where two entries share identical TxOut content (same address + value).
+-- This exposes the duplicate-element bug: buildFromUTxO deduplicates them in the
+-- off-chain accumulator, but on-chain txOutsToSubsetScalars sees two identical scalars.
+duplicateFullUTxO :: UTxO
+duplicateFullUTxO =
+  case UTxO.toList healthyFullUTxO of
+    (firstIn, firstOut) : (secondIn, _) : rest ->
+      UTxO.fromList $ (firstIn, firstOut) : (secondIn, firstOut) : rest
+    _ -> error "duplicateFullUTxO: healthyFullUTxO has fewer than 2 entries"
+
+duplicateDistributeUTxO :: UTxO
+duplicateDistributeUTxO =
+  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList duplicateFullUTxO
+
+duplicateRemainingUTxO :: UTxO
+duplicateRemainingUTxO =
+  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList duplicateFullUTxO
+
+duplicateFullAccumulator :: Accumulator.HydraAccumulator
+duplicateFullAccumulator =
+  Accumulator.buildFromSnapshotUTxOs
+    duplicateFullUTxO
+    Nothing
+    Nothing
+
+duplicateRemainingAccumulator :: Accumulator.HydraAccumulator
+duplicateRemainingAccumulator =
+  Accumulator.buildFromUTxO @Tx duplicateRemainingUTxO
+
+duplicateCRSSize :: Int
+duplicateCRSSize = Accumulator.requiredCRSPointCount duplicateFullAccumulator
+
+duplicateScriptRegistry :: ScriptRegistry
+duplicateScriptRegistry = genScriptRegistryWithCRSSize duplicateCRSSize `generateWith` 42
+
+duplicateProgressDatum :: Head.FanoutProgressDatum
+duplicateProgressDatum = Head.progressFromClosed duplicateClosedDatum
+
+duplicateClosedDatum :: Head.ClosedDatum
+duplicateClosedDatum =
+  healthyClosedDatum
+    { Head.utxoHash = toBuiltin $ hashUTxO @Tx duplicateFullUTxO
+    , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment duplicateFullAccumulator
+    }
+
+-- | A partial fanout tx where two distributed UTxOs share identical TxOut content.
+healthyPartialFanoutTxWithDuplicates :: (Tx, UTxO)
+healthyPartialFanoutTxWithDuplicates =
+  mkHealthyPartialFanoutTxWith
+    duplicateScriptRegistry
+    duplicateFullUTxO
+    duplicateDistributeUTxO
+    duplicateProgressDatum
+    duplicateRemainingAccumulator
+    (Head.FanoutProgress duplicateProgressDatum)
 
 data PartialFanoutMutation
   = MutatePartialFanoutValidityBeforeDeadline
