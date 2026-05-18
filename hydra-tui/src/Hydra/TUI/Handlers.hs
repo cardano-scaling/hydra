@@ -70,6 +70,10 @@ handleEvent cardanoClient client chan = \case
         triggerL1Query cardanoClient client chan
       Update (ApiTimedServerOutput TimedServerOutput{output = API.DecommitFinalized{}}) ->
         triggerL1Query cardanoClient client chan
+      ClientDisconnected -> do
+        recoveryFormL .= Nothing
+        tab <- use activeTabL
+        when (tab == ModalTab) $ use previousTabL >>= (activeTabL .=)
       _ -> pure ()
   AppEvent (L1UTxORefresh utxo) -> do
     l1UTxOL .= Just utxo
@@ -136,14 +140,15 @@ handleEvent cardanoClient client chan = \case
             previousTabL .= tab
             activeTabL .= ModalTab
           _ -> pure ()
-      EvKey (KChar 'e') [] | not modalOpen -> do
-        tab <- use activeTabL
-        case tab of
-          EventHistoryTab -> do
-            eventHistoryFilterL %= toggleEventHistoryFilter
-            eventHistoryListL %= BrickList.listMoveTo 0
-            syncEventHistoryList
-          _ -> pure ()
+      EvKey (KChar c) []
+        | not modalOpen && c `elem` ['e', 'E'] -> do
+            tab <- use activeTabL
+            case tab of
+              EventHistoryTab -> do
+                eventHistoryFilterL %= toggleEventHistoryFilter
+                eventHistoryListL %= BrickList.listMoveTo 0
+                syncEventHistoryList
+              _ -> pure ()
       EvKey (KChar 'd') [] | not modalOpen -> do
         tab <- use activeTabL
         case tab of
@@ -222,15 +227,13 @@ handleEvent cardanoClient client chan = \case
                     put OpenHome
             currentRecoveryForm <- use recoveryFormL
             case (currentRecoveryForm, e) of
-              (Just _, EvKey KEsc []) -> closeModal
-              (Just _, EvKey (KChar 'c') []) -> closeModal
+              (_, EvKey KEsc []) -> closeModal
+              (_, EvKey (KChar 'c') []) -> closeModal
               (Just form, EvKey KEnter []) -> do
                 let (selectedTxId, _, _) = formState form
                 liftIO $ recoverCommit client selectedTxId
                 closeModal
               (Just _, _) -> zoom (recoveryFormL . _Just) $ handleFormEvent (VtyEvent e)
-              (Nothing, EvKey KEsc []) -> closeModal
-              (Nothing, EvKey (KChar 'c') []) -> closeModal
               (Nothing, _) -> do
                 -- Set pending action for close confirmation
                 openScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
@@ -454,7 +457,7 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
           let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
           case depositIdRadioField pendingDepositIds of
             Just form -> put (SelectingDepositIdToRecover form)
-            Nothing -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
+            Nothing -> pure ()
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()

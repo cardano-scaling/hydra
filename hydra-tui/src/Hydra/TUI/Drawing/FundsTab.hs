@@ -98,41 +98,45 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
 
 drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> ClosedState -> Widget Name
 drawFocusPanelClosed networkId vk utxo pendingIncrements now (ClosedState{contestationDeadline}) =
-  vBox
+  vBox $
     [ drawRemainingContestationPeriod contestationDeadline now
     , withAttr neutral (txt "Active UTxO")
     , drawUTxO (highlightOwnAddress ownAddress) utxo
-    , hBorder
-    , withAttr neutral (txt "Pending commits")
-    , drawPendingIncrement ownAddress pendingIncrements now
     ]
+      <> drawPendingCommits ownAddress pendingIncrements now
  where
   ownAddress = mkVkAddress networkId vk
 
 drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
 drawFocusPanelFanout networkId vk utxo pendingIncrements now =
-  vBox
+  vBox $
     [ drawFanoutPossibleMessage
     , withAttr neutral (txt "Active UTxO")
     , drawUTxO (highlightOwnAddress ownAddress) utxo
-    , hBorder
-    , withAttr neutral (txt "Pending commits")
-    , drawPendingIncrement ownAddress pendingIncrements now
     ]
+      <> drawPendingCommits ownAddress pendingIncrements now
  where
   ownAddress = mkVkAddress networkId vk
 
 drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
 drawFocusPanelFinal networkId vk utxo pendingIncrements now =
-  vBox
+  vBox $
     [ drawHeadFinalizedMessage utxo
     , padLeft (Pad 2) (drawUTxO (highlightOwnAddress ownAddress) utxo)
-    , hBorder
-    , withAttr neutral (txt "Pending commits")
-    , drawPendingIncrement ownAddress pendingIncrements now
     ]
+      <> drawPendingCommits ownAddress pendingIncrements now
  where
   ownAddress = mkVkAddress networkId vk
+
+-- | Shared "Pending commits" tail for the Funds tab's focus-panel
+-- variants (Closed, FanoutPossible, Final). Returns a list of widgets to be
+-- spliced into a surrounding 'vBox'.
+drawPendingCommits :: AddressInEra -> [PendingIncrement] -> UTCTime -> [Widget Name]
+drawPendingCommits ownAddress pendingIncrements now =
+  [ hBorder
+  , withAttr neutral (txt "Pending commits")
+  , drawPendingIncrement ownAddress pendingIncrements now
+  ]
 
 drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
 drawRemainingDepositDeadline deadline now =

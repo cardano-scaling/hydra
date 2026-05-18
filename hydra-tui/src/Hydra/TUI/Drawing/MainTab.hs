@@ -78,7 +78,7 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
             hid = prettyHeadId headId
          in withAttr neutral (txt " ")
               <+> withAttr headStateA (txt stateStr)
-              <+> withAttr neutral (txt (" · " <> hid <> " "))
+              <+> withAttr neutral (txt (" · Head id: " <> hid <> " "))
 
   drawPeersSection :: Widget Name
   drawPeersSection = case connState of

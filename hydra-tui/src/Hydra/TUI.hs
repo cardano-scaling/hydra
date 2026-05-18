@@ -88,7 +88,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , now
       , timeZone = tz
       , connectedState = Disconnected
-      , logState = LogState{logMessages = [], logVerbosity = Short}
+      , logState = LogState{logMessages = []}
       , activeTab = MainTab
       , eventDetailRaw = False
       , eventHistoryList = emptyEventHistoryList

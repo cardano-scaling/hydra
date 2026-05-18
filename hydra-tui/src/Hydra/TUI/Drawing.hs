@@ -130,20 +130,27 @@ drawActionBar s =
             _ -> [("Esc/C", " close")]
           else case (s ^. activeTabL, activeHeadState) of
             (EventHistoryTab, _) -> [("d", " raw/summary"), eventFilterAction, ("Q", "uit")]
-            (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "ecover"), ("U", "pdate")]
-            (FundsTab, Closed{}) -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
-            (FundsTab, FanoutPossible{}) -> recoverIf <> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
-            (FundsTab, Final{}) -> recoverIf <> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
-            (_, Open{}) -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement"), ("R", "ecover"), ("C", "lose"), ("Q", "uit")]
-            (_, Closed{}) -> recoverIf <> [("Q", "uit")]
-            (_, FanoutPossible{}) -> recoverIf <> [("F", "anout"), ("Q", "uit")]
-            (_, Final{}) -> recoverIf <> [("I", "nit"), ("Q", "uit")]
+            (FundsTab, hs) -> fundsTabActions hs
+            (_, hs) -> mainTabActions hs
+  -- Per-state actions on the Funds tab. `U`pdate refreshes the L1 wallet
+  -- view, so we always offer it after the head-specific actions.
+  fundsTabActions = \case
+    Open{} -> [("I", "ncrement"), ("D", "ecommit")] <> recoverIf <> [("U", "pdate"), ("Q", "uit")]
+    Closed{} -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
+    FanoutPossible{} -> recoverIf <> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
+    Final{} -> recoverIf <> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
+  -- Per-state actions on every other (non-Funds, non-EventHistory) tab.
+  mainTabActions = \case
+    Open{} -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement")] <> recoverIf <> [("C", "lose"), ("Q", "uit")]
+    Closed{} -> recoverIf <> [("Q", "uit")]
+    FanoutPossible{} -> recoverIf <> [("F", "anout"), ("Q", "uit")]
+    Final{} -> recoverIf <> [("I", "nit"), ("Q", "uit")]
   recoverIf = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL of
     Just (_ : _) -> [("R", "ecover")]
     _ -> []
   eventFilterAction = case s ^. eventHistoryFilterL of
-    ShowAll -> ("e", " errors only")
-    ErrorsOnly -> ("e", " show all")
+    ShowAll -> ("E", " errors only")
+    ErrorsOnly -> ("E", " show all")
 
   drawAction :: (Text, Text) -> Widget n
   drawAction (key, rest) = withAttr keyA (txt key) <+> withAttr actionDescA (txt rest)

@@ -25,7 +25,7 @@ import Hydra.Chain (PostTxError (..), failureReason, reason, redeemerPtr)
 import Hydra.Client (AllPossibleAPIMessages (..))
 import Hydra.TUI.Drawing.Utils (prettyHeadId, prettyTxId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
-import Hydra.Tx (Snapshot (..), txId)
+import Hydra.Tx (HeadId, Snapshot (..), SnapshotNumber, txId)
 
 data RenderedMessage = RenderedMessage
   { rmSeverity :: Severity
@@ -125,21 +125,14 @@ renderServerOutput time output raw = case output of
       Info
       time
       ("Head closed at snapshot " <> show snapshotNumber)
-      [ fld "Head ID" (prettyHeadId headId)
-      , fld "Snapshot" (show snapshotNumber)
-      , fld "Contestation deadline" (show contestationDeadline)
-      , "Submit a contest transaction before the deadline to challenge."
-      ]
+      (closedDetails headId snapshotNumber contestationDeadline <> ["Submit a contest transaction before the deadline to challenge."])
       raw
   HeadIsContested{headId, snapshotNumber, contestationDeadline} ->
     mk
       Info
       time
       ("Head contested at snapshot " <> show snapshotNumber)
-      [ fld "Head ID" (prettyHeadId headId)
-      , fld "Snapshot" (show snapshotNumber)
-      , fld "Contestation deadline" (show contestationDeadline)
-      ]
+      (closedDetails headId snapshotNumber contestationDeadline)
       raw
   ReadyToFanout{headId} ->
     mk
@@ -265,23 +258,14 @@ renderServerOutput time output raw = case output of
       Info
       time
       ("Deposit activated: " <> prettyTxId depositTxId)
-      [ fld "Head ID" (prettyHeadId headId)
-      , fld "Deposit tx ID" (prettyTxId depositTxId)
-      , fld "Deadline" (show deadline)
-      , fld "Chain time" (show chainTime)
-      ]
+      (depositDetails headId depositTxId deadline chainTime)
       raw
   DepositExpired{headId, depositTxId, deadline, chainTime} ->
     mk
       Error
       time
       ("Deposit expired: " <> prettyTxId depositTxId)
-      [ fld "Head ID" (prettyHeadId headId)
-      , fld "Deposit tx ID" (prettyTxId depositTxId)
-      , fld "Deadline" (show deadline)
-      , fld "Chain time" (show chainTime)
-      , "The deposit was not approved in time and has expired."
-      ]
+      (depositDetails headId depositTxId deadline chainTime <> ["The deposit was not approved in time and has expired."])
       raw
   CommitApproved{headId, utxoToCommit} ->
     mk
@@ -477,31 +461,32 @@ renderPostTxError = \case
     [ "Failed to submit transaction to the chain."
     , fld "Reason" failureReason
     ]
-  FailedToConstructDepositTx{failureReason} ->
-    [ "Failed to construct deposit transaction."
-    , fld "Reason" failureReason
-    ]
-  FailedToConstructRecoverTx{failureReason} ->
-    [ "Failed to construct recover transaction."
-    , fld "Reason" failureReason
-    ]
-  FailedToConstructIncrementTx{failureReason} ->
-    [ "Failed to construct increment transaction."
-    , fld "Reason" failureReason
-    ]
-  FailedToConstructDecrementTx{failureReason} ->
-    [ "Failed to construct decrement transaction."
-    , fld "Reason" failureReason
-    ]
-  FailedToConstructCloseTx ->
-    [ "Failed to construct close transaction."
-    ]
-  FailedToConstructContestTx ->
-    [ "Failed to construct contest transaction."
-    ]
-  FailedToConstructFanoutTx ->
-    [ "Failed to construct fanout transaction."
-    ]
+  FailedToConstructDepositTx{failureReason} -> failedToConstruct "deposit" (Just failureReason)
+  FailedToConstructRecoverTx{failureReason} -> failedToConstruct "recover" (Just failureReason)
+  FailedToConstructIncrementTx{failureReason} -> failedToConstruct "increment" (Just failureReason)
+  FailedToConstructDecrementTx{failureReason} -> failedToConstruct "decrement" (Just failureReason)
+  FailedToConstructCloseTx -> failedToConstruct "close" Nothing
+  FailedToConstructContestTx -> failedToConstruct "contest" Nothing
+  FailedToConstructFanoutTx -> failedToConstruct "fanout" Nothing
   err ->
     [ fld "On-chain error" (show err)
     ]
+
+failedToConstruct :: Text -> Maybe Text -> [Text]
+failedToConstruct name reason =
+  ("Failed to construct " <> name <> " transaction.") : maybe [] (\r -> [fld "Reason" r]) reason
+
+closedDetails :: HeadId -> SnapshotNumber -> UTCTime -> [Text]
+closedDetails headId snapshotNumber contestationDeadline =
+  [ fld "Head ID" (prettyHeadId headId)
+  , fld "Snapshot" (show snapshotNumber)
+  , fld "Contestation deadline" (show contestationDeadline)
+  ]
+
+depositDetails :: HeadId -> TxId -> UTCTime -> UTCTime -> [Text]
+depositDetails headId depositTxId deadline chainTime =
+  [ fld "Head ID" (prettyHeadId headId)
+  , fld "Deposit tx ID" (prettyTxId depositTxId)
+  , fld "Deadline" (show deadline)
+  , fld "Chain time" (show chainTime)
+  ]

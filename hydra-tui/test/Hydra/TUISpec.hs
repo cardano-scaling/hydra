@@ -88,6 +88,7 @@ spec = do
             sendInputEvent $ EvKey (KChar 'i') []
             threadDelay 1
             shouldRender "Open"
+            shouldRender "Head id"
             restartNode
             sendInputEvent $ EvKey (KChar 'h') []
             threadDelay 1
