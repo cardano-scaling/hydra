@@ -35,6 +35,8 @@ changes.
   from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
   post-tx UTxO via pure arithmetic, no ledger needed.
 
+ - Significantly revised hydra-tui [#2590](https://github.com/cardano-scaling/hydra/pull/2590)
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits
