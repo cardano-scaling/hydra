@@ -203,15 +203,17 @@ data DecrementRedeemer = DecrementRedeemer
 
 PlutusTx.unstableMakeIsData ''DecrementRedeemer
 
--- | Sub-type for dynamic-head-participants transitions (issue #1813). Phase 1
--- supports only 'RemovePartyOC'; Phase 2 will add 'AddPartyOC' and additional
--- variants for arbitrary parameter changes will follow. Constructor tags
--- are stable on chain: never re-order existing variants.
+-- | Sub-type for dynamic-head-participants transitions (issue #1813).
+-- Constructor tags are stable on chain: never re-order existing variants.
 data OnChainParameterUpdate
   = -- | Remove a current 'Party' from the head. The 'TokenName' is the asset
     -- name of the leaving party's participation token; the validator burns
     -- exactly that PT.
     RemovePartyOC Party TokenName
+  | -- | Add a new 'Party' to the head. The 'TokenName' is the asset name of
+    -- the joining party's participation token; the validator mints exactly
+    -- that PT and appends it to the head output.
+    AddPartyOC Party TokenName
   deriving stock (Show, Generic)
 
 PlutusTx.unstableMakeIsData ''OnChainParameterUpdate

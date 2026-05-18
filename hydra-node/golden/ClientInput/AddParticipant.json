@@ -1,0 +1,12 @@
+{
+    "samples": [
+        {
+            "joiningOnChainId": "01000101010100010001010100010101000100000100000000010101",
+            "joiningParty": {
+                "vkey": "0502d3bb88c027a611e2141153bf8c7012794b92a8baba148f920c067c0c6328"
+            },
+            "tag": "AddParticipant"
+        }
+    ],
+    "seed": 103413319
+}

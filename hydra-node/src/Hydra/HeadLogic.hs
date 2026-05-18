@@ -695,6 +695,21 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
                         , parameterUpdate = snapshotUpdate
                         }
                   }
+      (Just pending@AddParty{joiningParty}, Just snapshotUpdate)
+        | pending == snapshotUpdate ->
+            outcome
+              <> newState JoinApproved{headId, joiningParty}
+              <> cause
+                OnChainEffect
+                  { postChainTx =
+                      UpdateParametersTx
+                        { headSeed
+                        , headId
+                        , headParameters = parameters
+                        , updateParametersSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                        , parameterUpdate = snapshotUpdate
+                        }
+                  }
       _ -> outcome
 
   vkeys = vkey <$> parties
@@ -1058,6 +1073,161 @@ onOpenNetworkReqLeave Environment{party} openState leavingParty leavingOnChainId
     , version
     } = coordinatedHeadState
 
+-- | Client request from this node to invite a new 'Party' (and their
+-- 'OnChainId') into the open head. Symmetric to 'onOpenClientLeave' — only
+-- broadcasts 'ReqAddParty'; state recording + snapshot-leader trigger happens
+-- via the network loopback through 'onOpenNetworkReqAddParty'.
+--
+-- __Transition__: 'OpenState' -> 'OpenState'
+onOpenClientAddParticipant ::
+  IsTx tx =>
+  OpenState tx ->
+  Party ->
+  OnChainId ->
+  Outcome tx
+onOpenClientAddParticipant openState joiningParty joiningOnChainId =
+  checkPartyNotInHead $
+    checkNoUpdateInFlight $
+      checkNoDecommitInFlight $
+        checkNoDepositInFlight $
+          cause
+            ( NetworkEffect
+                ReqAddParty
+                  { joiningParty
+                  , joiningOnChainId
+                  }
+            )
+ where
+  checkPartyNotInHead cont
+    | joiningParty `elem` parameters.parties =
+        cause
+          ( ClientEffect
+              ServerOutput.CommandFailed
+                { clientInput = AddParticipant joiningParty joiningOnChainId
+                , state = Open openState
+                }
+          )
+    | otherwise = cont
+
+  checkNoUpdateInFlight cont
+    | isJust pendingParameterUpdate =
+        cause
+          ( ClientEffect
+              ServerOutput.CommandFailed
+                { clientInput = AddParticipant joiningParty joiningOnChainId
+                , state = Open openState
+                }
+          )
+    | otherwise = cont
+
+  checkNoDecommitInFlight cont
+    | isJust decommitTx =
+        cause
+          ( ClientEffect
+              ServerOutput.CommandFailed
+                { clientInput = AddParticipant joiningParty joiningOnChainId
+                , state = Open openState
+                }
+          )
+    | otherwise = cont
+
+  checkNoDepositInFlight cont
+    | isJust currentDepositTxId =
+        cause
+          ( ClientEffect
+              ServerOutput.CommandFailed
+                { clientInput = AddParticipant joiningParty joiningOnChainId
+                , state = Open openState
+                }
+          )
+    | otherwise = cont
+
+  OpenState{parameters, coordinatedHeadState} = openState
+
+  CoordinatedHeadState
+    { pendingParameterUpdate
+    , decommitTx
+    , currentDepositTxId
+    } = coordinatedHeadState
+
+-- | Process the network message 'ReqAddParty': a new party (carrying their
+-- 'OnChainId') has been proposed for inclusion. Records the pending update
+-- if validation passes; if we are the snapshot leader, also fires a 'ReqSn'
+-- that carries the 'AddParty' update.
+--
+-- __Transition__: 'OpenState' -> 'OpenState'
+onOpenNetworkReqAddParty ::
+  IsTx tx =>
+  Environment ->
+  OpenState tx ->
+  Party ->
+  OnChainId ->
+  Outcome tx
+onOpenNetworkReqAddParty Environment{party} openState joiningParty joiningOnChainId =
+  case pendingParameterUpdate of
+    Just AddParty{joiningParty = existing}
+      | existing == joiningParty -> noop
+    _ ->
+      checkPartyNotInHead $
+        checkNoUpdateInFlight $
+          checkNoDecommitInFlight $
+            checkNoDepositInFlight $
+              newState
+                JoinRecorded
+                  { headId
+                  , joiningParty
+                  , joiningOnChainId
+                  }
+                <> maybeRequestSnapshot
+ where
+  checkPartyNotInHead cont
+    | joiningParty `elem` parameters.parties = noop
+    | otherwise = cont
+
+  checkNoUpdateInFlight cont
+    | isJust pendingParameterUpdate = noop
+    | otherwise = cont
+
+  checkNoDecommitInFlight cont
+    | isJust decommitTx = noop
+    | otherwise = cont
+
+  checkNoDepositInFlight cont
+    | isJust currentDepositTxId = noop
+    | otherwise = cont
+
+  -- If we are the leader of the next snapshot, request one that carries the
+  -- pending 'AddParty' update.
+  maybeRequestSnapshot
+    | not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn =
+        cause
+          ( NetworkEffect $
+              ReqSn
+                version
+                nextSn
+                (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs)
+                decommitTx
+                Nothing
+                (Just AddParty{joiningParty, joiningOnChainId})
+          )
+    | otherwise = noop
+
+  Snapshot{number} = getSnapshot confirmedSnapshot
+
+  nextSn = number + 1
+
+  OpenState{headId, parameters, coordinatedHeadState} = openState
+
+  CoordinatedHeadState
+    { pendingParameterUpdate
+    , decommitTx
+    , currentDepositTxId
+    , seenSnapshot
+    , localTxs
+    , confirmedSnapshot
+    , version
+    } = coordinatedHeadState
+
 determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 determineNextDepositStatus env pendingDeposits chainTime =
   Map.foldlWithKey updateDeposit mempty pendingDeposits
@@ -1303,6 +1473,7 @@ onOpenChainUpdateParametersTx openState newChainState newVersion theUpdate =
   applyParameterUpdate :: ParameterUpdate -> [Party] -> [Party]
   applyParameterUpdate = \case
     RemoveParty{leavingParty} -> filter (/= leavingParty)
+    AddParty{joiningParty} -> \ps -> ps <> [joiningParty]
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit whose
 -- confirmed snapshot contains a matching utxoToCommit. The rollback may have
@@ -2049,6 +2220,8 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
     onOpenNetworkReqDec env ledger ttl currentSlot openState transaction
   (Open openState, NetworkInput _ (ReceivedMessage{msg = ReqLeave{leavingParty, leavingOnChainId}})) ->
     onOpenNetworkReqLeave env openState leavingParty leavingOnChainId
+  (Open openState, NetworkInput _ (ReceivedMessage{msg = ReqAddParty{joiningParty, joiningOnChainId}})) ->
+    onOpenNetworkReqAddParty env openState joiningParty joiningOnChainId
   _ ->
     Error $ UnhandledInput ev st
 
@@ -2106,6 +2279,8 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
     onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
   (Open openState, ClientInput Leave) ->
     onOpenClientLeave env openState
+  (Open openState, ClientInput AddParticipant{joiningParty, joiningOnChainId}) ->
+    onOpenClientAddParticipant openState joiningParty joiningOnChainId
   -- Closed
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -2501,6 +2676,22 @@ applyEvent st = \case
           }
     _otherState -> st
   LeaveApproved{} -> st
+  JoinRecorded{joiningParty, joiningOnChainId} -> case st of
+    Open os@OpenState{coordinatedHeadState} ->
+      Open
+        os
+          { coordinatedHeadState =
+              coordinatedHeadState
+                { pendingParameterUpdate =
+                    Just
+                      AddParty
+                        { joiningParty
+                        , joiningOnChainId
+                        }
+                }
+          }
+    _otherState -> st
+  JoinApproved{} -> st
   ParametersChanged{chainState, newParties, newVersion} -> case st of
     Open os@OpenState{parameters, coordinatedHeadState} ->
       Open
@@ -2652,6 +2843,8 @@ aggregateChainStateHistory history = \case
   DecommitFinalized{chainState} -> pushNewState chainState history
   LeaveRecorded{} -> history
   LeaveApproved{} -> history
+  JoinRecorded{} -> history
+  JoinApproved{} -> history
   ParametersChanged{chainState} -> pushNewState chainState history
   HeadClosed{chainState} -> pushNewState chainState history
   HeadContested{chainState} -> pushNewState chainState history

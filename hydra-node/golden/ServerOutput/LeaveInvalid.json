@@ -1,11 +1,11 @@
 {
     "samples": [
         {
-            "headId": "01000001010001010101000100010000",
+            "headId": "00010100000000010000010000010000",
+            "leaveReason": "LeaveIncompatibleWithCommit",
             "leavingParty": {
-                "vkey": "d1ed2670e39293158b2d9241af5084a4d5d3b3df039c2e31c4963d1974ea5bdb"
+                "vkey": "706ac713e0a1bdac154d1546b64f98de5b798a91762c6f61ae69f64c1045a547"
             },
-            "reason": "LeaveIncompatibleWithDecommit",
             "tag": "LeaveInvalid"
         }
     ],

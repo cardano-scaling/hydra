@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "headId": "01010001000001010100010101000000",
+            "joiningParty": {
+                "vkey": "59228aae801cd033b6454c4298174ae88520bafb21600f7676dc338b6c96403b"
+            },
+            "newParties": [],
+            "tag": "JoinFinalized"
+        }
+    ],
+    "seed": 538512345
+}

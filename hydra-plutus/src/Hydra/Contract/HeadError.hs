@@ -71,6 +71,7 @@ data HeadError
   | -- UpdateParameters (dynamic-head-participants)
     FailedUpdateParametersBadPartyChange
   | FailedUpdateParametersBadPTBurn
+  | FailedUpdateParametersBadPTMint
   | UpdateParametersChangedOtherFields
 
 instance ToErrorCode HeadError where
@@ -149,3 +150,4 @@ instance ToErrorCode HeadError where
     FailedUpdateParametersBadPartyChange -> "H63"
     FailedUpdateParametersBadPTBurn -> "H64"
     UpdateParametersChangedOtherFields -> "H65"
+    FailedUpdateParametersBadPTMint -> "H66"

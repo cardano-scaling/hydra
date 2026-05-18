@@ -1,10 +1,9 @@
 -- | A pending change to 'HeadParameters' that flows through a multi-signed
 -- snapshot and is finalized by a single L1 'UpdateParameters' transaction.
 --
--- Phase 1 supports only 'RemoveParty' (a party leaving an open Head). Phase 2
--- will add 'AddParty' and the tag space is laid out so an Add (or other future
--- variant) can be appended without disturbing existing constructor tags on the
--- wire.
+-- Supports 'RemoveParty' (a party leaving) and 'AddParty' (a new party
+-- joining). Constructor tags are stable on the wire — never reorder
+-- existing variants.
 module Hydra.Tx.ParameterUpdate where
 
 import Hydra.Prelude
@@ -19,24 +18,26 @@ import PlutusLedgerApi.V3 (TokenName (..), toBuiltin)
 -- | An update that, once authorized by a multi-signed snapshot, may be applied
 -- on chain via the 'UpdateParameters' head-validator redeemer.
 --
--- 'RemoveParty' carries both the leaving 'Party' (the Hydra verification key,
--- which identifies the party off-chain and is removed from
+-- Each variant carries both the 'Party' (Hydra verification key, which
+-- identifies the party off-chain and is in/removed from
 -- 'HeadParameters.parties') and the corresponding 'OnChainId' (the cardano
--- payment-key hash, which is the asset name of the leaving party's
--- participation token and is needed to identify which PT to burn on chain).
+-- payment-key hash, which is the asset name of the participation token and
+-- determines which PT to burn / mint on chain).
 data ParameterUpdate
   = RemoveParty {leavingParty :: Party, leavingOnChainId :: OnChainId}
+  | AddParty {joiningParty :: Party, joiningOnChainId :: OnChainId}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Canonical CBOR encoding. Explicit and hand-rolled so we can extend the
 -- constructor space without changing the encoding of existing variants. Tags:
 --
---   0  RemoveParty (Phase 1)
---   1  AddParty    (Phase 2, reserved)
+--   0  RemoveParty
+--   1  AddParty
 instance ToCBOR ParameterUpdate where
   toCBOR = \case
     RemoveParty p oid -> toCBOR (0 :: Word8) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
+    AddParty p oid -> toCBOR (1 :: Word8) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
 
 instance FromCBOR ParameterUpdate where
   fromCBOR = do
@@ -47,7 +48,13 @@ instance FromCBOR ParameterUpdate where
         oidBytes <- fromCBOR
         case deserialiseFromRawBytes AsOnChainId oidBytes of
           Right oid -> pure $ RemoveParty p oid
-          Left err -> fail $ "ParameterUpdate: invalid OnChainId: " <> show err
+          Left err -> fail $ "ParameterUpdate: invalid OnChainId (RemoveParty): " <> show err
+      1 -> do
+        p <- fromCBOR
+        oidBytes <- fromCBOR
+        case deserialiseFromRawBytes AsOnChainId oidBytes of
+          Right oid -> pure $ AddParty p oid
+          Left err -> fail $ "ParameterUpdate: invalid OnChainId (AddParty): " <> show err
       _ -> fail $ "ParameterUpdate: unknown tag " <> show tag
 
 -- | Delegates to the explicit 'ToCBOR'/'FromCBOR' encoding. This is used by
@@ -67,5 +74,9 @@ toOnChain :: ParameterUpdate -> Onchain.OnChainParameterUpdate
 toOnChain = \case
   RemoveParty party oid ->
     Onchain.RemovePartyOC
+      (partyToChain party)
+      (TokenName (toBuiltin (serialiseToRawBytes oid)))
+  AddParty party oid ->
+    Onchain.AddPartyOC
       (partyToChain party)
       (TokenName (toBuiltin (serialiseToRawBytes oid)))

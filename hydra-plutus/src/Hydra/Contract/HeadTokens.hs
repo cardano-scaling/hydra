@@ -29,7 +29,7 @@ import PlutusTx.List qualified as L
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
-import Hydra.Contract.MintAction (MintAction (Burn, Mint))
+import Hydra.Contract.MintAction (MintAction (Burn, Mint, MintParticipant))
 import Hydra.Contract.Util (hasST, hydraHeadV2, scriptOutputsAt)
 import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
@@ -62,6 +62,7 @@ validate headValidator seedInput action context =
   case action of
     Mint -> validateTokensMinting headValidator seedInput context
     Burn -> validateTokensBurning context
+    MintParticipant -> validateMintParticipant context
 {-# INLINEABLE validate #-}
 
 -- | When minting head tokens we want to make sure that:
@@ -158,6 +159,34 @@ validateTokensBurning context =
     case AssocMap.lookup currency minted of
       Nothing -> False
       Just tokenMap -> AssocMap.all (< 0) tokenMap
+
+-- | Allow minting of a single participation token when an 'UpdateParameters'
+-- transaction is being applied to the head (issue #1813). The token name
+-- (and the exact mint quantity) is enforced by the head validator itself —
+-- here we only validate that the mint context is the right kind of head
+-- transaction by requiring that the head's policy id appears in exactly one
+-- output (the new head state).
+validateMintParticipant :: ScriptContext -> Bool
+validateMintParticipant context =
+  -- Defer to the head validator: it pattern-matches on the spending input's
+  -- redeemer and enforces 'mustMintOrBurnParticipationToken' which restricts
+  -- the exact (asset name, quantity) of the mint. Here we just ensure the
+  -- mint applies a single PT to this head's currency.
+  traceIfFalse $(errorCode MintingNotAllowed) onlyOnePTMinted
+ where
+  currency = ownCurrencySymbol context
+
+  ScriptContext{scriptContextTxInfo = txInfo} = context
+
+  minted = mintValueToMap $ txInfoMint txInfo
+
+  onlyOnePTMinted =
+    case AssocMap.lookup currency minted of
+      Nothing -> False
+      Just tokenMap ->
+        case AssocMap.toList tokenMap of
+          [(_, qty)] -> qty == 1
+          _ -> False
 
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)

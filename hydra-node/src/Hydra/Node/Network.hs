@@ -66,13 +66,19 @@ withNetwork ::
   NetworkConfiguration ->
   -- | Current set of accepted other parties (read once per inbound message).
   STM IO [Party] ->
+  -- | Currently-joining party (Phase 2 of dynamic-head-participants, issue
+  -- #1813). 'Just' for the window between recording the pending 'AddParty'
+  -- and observing the on-chain 'UpdateParametersTx'. Pass @pure Nothing@
+  -- when no join is in flight.
+  STM IO (Maybe Party) ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
-withNetwork tracer conf readAcceptedParties callback action = do
+withNetwork tracer conf readAcceptedParties readJoiningParty callback action = do
   withAuthentication
     (contramap Authenticate tracer)
     signingKey
     readAcceptedParties
+    readJoiningParty
     (withEtcdNetwork (contramap Etcd tracer) currentNetworkProtocolVersion conf)
     callback
     action

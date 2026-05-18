@@ -12,6 +12,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (
   burnTokens,
+  mintTokens,
   unsafeBuildTransaction,
  )
 import Hydra.Tx.ContestationPeriod (toChain)
@@ -29,9 +30,10 @@ import PlutusLedgerApi.V3 (toBuiltin)
 -- * Construction
 
 -- | Build an 'UpdateParameters' transaction that applies the snapshot's
--- 'parameterUpdate' on chain. The head value (apart from the burned PT) is
--- preserved; the leaving party's participation token is burned; the new head
--- datum carries the rewritten parties list and an incremented version.
+-- 'parameterUpdate' on chain. The head value is preserved apart from the
+-- single participation token that is burned ('RemoveParty') or minted
+-- ('AddParty'). The new head datum carries the rewritten parties list and
+-- an incremented version.
 updateParametersTx ::
   -- | Published Hydra scripts to reference.
   ScriptRegistry ->
@@ -58,7 +60,7 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
       & addTxIns [(headInput, headWitness)]
       & addTxInsReference [headScriptRef] mempty
       & addTxOuts [headOutput']
-      & burnTokens headTokenScript Burn (fromList [(burnAssetName, 1)])
+      & ptMintOrBurn
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "UpdateParametersTx")
  where
@@ -67,24 +69,35 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
-  newParties = case parameterUpdate of
-    RemoveParty{leavingParty} ->
-      filter (/= leavingParty) parties
+  -- The new parties list and the value-delta on the head output depend on
+  -- which variant of the update we are applying. Both shapes must match
+  -- exactly what the on-chain validator's 'mustApplyUpdateToParties' and
+  -- 'mustPreserveHeadValueAdjustedForPT' enforce.
+  (newParties, ptAssetName, ptMintOrBurn, headValueDelta) =
+    case parameterUpdate of
+      RemoveParty{leavingParty, leavingOnChainId} ->
+        let an = onChainIdToAssetName leavingOnChainId
+         in ( filter (/= leavingParty) parties
+            , an
+            , burnTokens headTokenScript Burn (fromList [(an, 1)])
+            , valueFromList [(AssetId policyId an, -1)]
+            )
+      AddParty{joiningParty, joiningOnChainId} ->
+        let an = onChainIdToAssetName joiningOnChainId
+         in ( parties <> [joiningParty]
+            , an
+            , mintTokens headTokenScript MintParticipant (fromList [(an, 1)])
+            , valueFromList [(AssetId policyId an, 1)]
+            )
 
-  burnAssetName = case parameterUpdate of
-    RemoveParty{leavingOnChainId} -> onChainIdToAssetName leavingOnChainId
-
-  -- The head minting policy's currency. 'headIdToPolicyId' returns a 'MonadFail'
-  -- value because the underlying byte string could be malformed; we fail hard
-  -- here since the head id is constructed from a valid currency symbol earlier
-  -- in the pipeline.
+  -- The head minting policy's currency. 'headIdToPolicyId' returns a
+  -- 'MonadFail' value because the underlying byte string could be malformed;
+  -- we fail hard here since the head id is constructed from a valid currency
+  -- symbol earlier in the pipeline.
   policyId =
     fromMaybe (error "headIdToPolicyId: head id does not map to a valid PolicyId") $
       headIdToPolicyId headId
-
-  burnedValue =
-    valueFromList [(AssetId policyId burnAssetName, -1)]
-
+  _ = ptAssetName -- kept in scope for diagnostics; the value-delta is what matters
   headRedeemer =
     toScriptData $
       Head.UpdateParameters
@@ -97,7 +110,7 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
   headOutput' =
     headOutput
       & modifyTxOutDatum (const headDatumAfter)
-      & modifyTxOutValue (<> burnedValue)
+      & modifyTxOutValue (<> headValueDelta)
 
   headScriptRef = fst (headReference scriptRegistry)
 

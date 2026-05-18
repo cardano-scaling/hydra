@@ -131,6 +131,13 @@ data StateChanged tx
     -- multi-signed; the head node now expects an 'UpdateParametersTx' to be
     -- observed on chain.
     LeaveApproved {headId :: HeadId, leavingParty :: Party}
+  | -- | A 'ReqAddParty' has been accepted; the join is now pending sign-off.
+    -- Symmetric to 'LeaveRecorded'. See issue #1813 (Phase 2).
+    JoinRecorded {headId :: HeadId, joiningParty :: Party, joiningOnChainId :: OnChainId}
+  | -- | The snapshot carrying an 'AddParty' parameter update has been
+    -- multi-signed; the head node now expects an 'UpdateParametersTx' to be
+    -- observed on chain.
+    JoinApproved {headId :: HeadId, joiningParty :: Party}
   | -- | The 'UpdateParametersTx' was observed on chain. The 'parties' list in
     -- 'OpenState.parameters' is rewritten and 'pendingParameterUpdate' is
     -- cleared.

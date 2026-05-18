@@ -3146,10 +3146,11 @@
                             }
                         },
                         "pendingParameterUpdate": {
-                            "leavingOnChainId": "08080801050402060603080305050300060802000107070701060307",
+                            "leavingOnChainId": "03070306060103050805020107070001080605000603070207050604",
                             "leavingParty": {
-                                "vkey": "89ab4450cc630d34b874cf90ba4e1fb978bbc0d9fcc2cbb840778fbfa248c38c"
-                            }
+                                "vkey": "d573a1785c59d75a7fcb5c713dad78a24e10e1da190049ac96d877e46a03b0cb"
+                            },
+                            "tag": "RemoveParty"
                         },
                         "seenSnapshot": {
                             "lastSeen": 1,

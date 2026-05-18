@@ -80,6 +80,22 @@ data LeaveInvalidReason
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
+-- | Why an 'AddParticipant' client input was rejected. See issue #1813
+-- (dynamic-head-participants, Phase 2).
+data JoinInvalidReason
+  = -- | The head is not in the 'Open' state.
+    JoinHeadNotOpen
+  | -- | The proposed joining party is already a member of the head.
+    JoinPartyAlreadyInHead
+  | -- | Another parameter update is already in flight.
+    JoinParameterUpdateAlreadyInFlight
+  | -- | A decommit is in flight and cannot overlap with a join.
+    JoinIncompatibleWithDecommit
+  | -- | A commit deposit is in flight and cannot overlap with a join.
+    JoinIncompatibleWithCommit
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 -- | Individual messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ClientMessage tx
@@ -209,7 +225,20 @@ data ServerOutput tx
     -- list of the head is now the supplied 'newParties'.
     LeaveFinalized {headId :: HeadId, leavingParty :: Party, newParties :: [Party]}
   | -- | A 'Leave' client input could not be accepted.
-    LeaveInvalid {headId :: HeadId, leavingParty :: Party, reason :: LeaveInvalidReason}
+    LeaveInvalid {headId :: HeadId, leavingParty :: Party, leaveReason :: LeaveInvalidReason}
+  | -- | An 'AddParticipant' client input (or 'ReqAddParty' network message)
+    -- was accepted; the join is pending sign-off (Phase 2 of
+    -- dynamic-head-participants, issue #1813).
+    JoinRequested {headId :: HeadId, joiningParty :: Party}
+  | -- | All parties (existing + the joiner) have signed the snapshot
+    -- authorizing the join; the head node will post an 'UpdateParametersTx'
+    -- to finalize.
+    JoinApproved {headId :: HeadId, joiningParty :: Party}
+  | -- | The on-chain 'UpdateParametersTx' has been observed; the parties
+    -- list of the head is now the supplied 'newParties'.
+    JoinFinalized {headId :: HeadId, joiningParty :: Party, newParties :: [Party]}
+  | -- | An 'AddParticipant' client input could not be accepted.
+    JoinInvalid {headId :: HeadId, joiningParty :: Party, joinReason :: JoinInvalidReason}
   | -- TODO: Rename to DepositRecorded following the state events naming. But only
     -- do this when changing the endpoint also to /deposits
     CommitRecorded

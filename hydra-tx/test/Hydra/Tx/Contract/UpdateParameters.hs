@@ -150,6 +150,116 @@ healthyContestationPeriod =
 healthyUTxO :: UTxO
 healthyUTxO = UTxO.map adaOnly $ generateWith (genUTxOSized 3) 42
 
+-- * Add-party healthy fixture
+
+--
+-- A symmetric fixture for the AddParty branch: an initial two-party head
+-- (alice + bob), with a third party (carol) joining. The validator must
+-- mint exactly carol's PT, append carol to 'parties', and grow the head
+-- output value by the new PT.
+
+healthyAddPartyTx :: (Tx, UTxO)
+healthyAddPartyTx =
+  (tx, lookupUTxO)
+ where
+  lookupUTxO =
+    UTxO.singleton headInput headOutput
+      <> registryUTxO scriptRegistry
+
+  tx =
+    updateParametersTx
+      scriptRegistry
+      somePartyCardanoVerificationKeyExisting
+      (testSeedInput, mkHeadId testPolicyId)
+      parametersBefore
+      (headInput, headOutput)
+      healthyAddSnapshot
+      healthyAddSignature
+      healthyAddParameterUpdate
+      (HeadTokens.mkHeadTokenScript testSeedInput)
+
+  parametersBefore =
+    HeadParameters
+      { parties = existingParties
+      , contestationPeriod = healthyContestationPeriod
+      }
+
+  scriptRegistry = genScriptRegistry `generateWith` 43
+
+  headInput = generateWith arbitrary 43
+
+  -- The pre-Add head output carries only the existing parties' PTs.
+  headOutput =
+    mkHeadOutput @CtxUTxO
+      testNetworkId
+      testPolicyId
+      (verificationKeyToOnChainId <$> existingParticipantsVKs)
+      (mkTxOutDatumInline healthyAddDatumBefore)
+
+somePartyCardanoVerificationKeyExisting :: VerificationKey PaymentKey
+somePartyCardanoVerificationKeyExisting =
+  case existingParticipantsVKs of
+    (vk : _) -> vk
+    [] -> error "existingParticipantsVKs is empty"
+
+existingSigningKeys :: [SigningKey HydraKey]
+existingSigningKeys = [aliceSk, bobSk]
+
+existingParties :: [Party]
+existingParties = deriveParty <$> existingSigningKeys
+
+existingParticipantsVKs :: [VerificationKey PaymentKey]
+existingParticipantsVKs = genForParty genVerificationKey <$> existingParties
+
+healthyJoiningSk :: SigningKey HydraKey
+healthyJoiningSk = carolSk
+
+healthyJoiningParty :: Party
+healthyJoiningParty = deriveParty healthyJoiningSk
+
+healthyJoiningOnChainId :: OnChainId
+healthyJoiningOnChainId = verificationKeyToOnChainId (genForParty genVerificationKey healthyJoiningParty)
+
+healthyAddParameterUpdate :: ParameterUpdate
+healthyAddParameterUpdate =
+  AddParty
+    { joiningParty = healthyJoiningParty
+    , joiningOnChainId = healthyJoiningOnChainId
+    }
+
+healthyAddSnapshot :: Snapshot Tx
+healthyAddSnapshot =
+  Snapshot
+    { headId = mkHeadId testPolicyId
+    , version = healthySnapshotVersion
+    , number = succ healthySnapshotNumber
+    , confirmed = []
+    , utxo = healthyUTxO
+    , utxoToCommit = Nothing
+    , utxoToDecommit = Nothing
+    , parameterUpdate = Just healthyAddParameterUpdate
+    }
+
+-- Only the existing parties sign the snapshot that authorizes the join;
+-- the joining party's consent is captured out-of-band (they have to start
+-- participating in the head after the L1 tx is observed). See the design
+-- note above 'checkUpdateParameters'.
+healthyAddSignature :: MultiSignature (Snapshot Tx)
+healthyAddSignature =
+  aggregate [sign sk healthyAddSnapshot | sk <- existingSigningKeys]
+
+healthyAddDatumBefore :: Head.State
+healthyAddDatumBefore =
+  Head.Open
+    Head.OpenDatum
+      { headSeed = toPlutusTxOutRef testSeedInput
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+      , parties = partyToChain <$> existingParties
+      , contestationPeriod = toChain healthyContestationPeriod
+      , version = toInteger healthySnapshotVersion
+      }
+
 healthyDatum :: Head.State
 healthyDatum =
   Head.Open

@@ -1369,10 +1369,11 @@
                         }
                     },
                     "pendingParameterUpdate": {
-                        "leavingOnChainId": "04040708080501080405010305060100070705030207050003080603",
+                        "leavingOnChainId": "01080407050303020607030103060601030808000100030702020402",
                         "leavingParty": {
-                            "vkey": "f66b10fd40489c7a8c594824b36310341eca00cfd3ada4e647d6bb65036e92d3"
-                        }
+                            "vkey": "aab7102c33689bea3c2e207d299e267b00b1c502ae4680024b68a2a778146354"
+                        },
+                        "tag": "RemoveParty"
                     },
                     "seenSnapshot": {
                         "tag": "NoSeenSnapshot"
@@ -2656,10 +2657,11 @@
                         }
                     },
                     "pendingParameterUpdate": {
-                        "leavingOnChainId": "06020306020605080703050301070104070500060204020103050504",
+                        "leavingOnChainId": "06040701000806080300000805010500020702040102010604000800",
                         "leavingParty": {
-                            "vkey": "8afb8ea6ec623c66bcd7d10e15fbf31f32dc94e8dffacada0fde4e44806b854d"
-                        }
+                            "vkey": "f3c1c1571583e8c3ac2f73489df00e97e4f8e681a1e81ad2b2120ec5c225e1c7"
+                        },
+                        "tag": "RemoveParty"
                     },
                     "seenSnapshot": {
                         "lastSeen": 6,
@@ -3603,10 +3605,11 @@
                         }
                     },
                     "pendingParameterUpdate": {
-                        "leavingOnChainId": "02010203040503040605010206040503060602080205030800060406",
-                        "leavingParty": {
-                            "vkey": "b894cd932433ade07b4ff4c1d600ff30b2299760f4449976f4d6581c38d98f72"
-                        }
+                        "joiningOnChainId": "08030403040405010700020600080503010206000006020102080800",
+                        "joiningParty": {
+                            "vkey": "59fd42919b007d24bb87804665778635640f9237ffeced806fa75db2060d5f47"
+                        },
+                        "tag": "AddParty"
                     },
                     "seenSnapshot": {
                         "tag": "NoSeenSnapshot"

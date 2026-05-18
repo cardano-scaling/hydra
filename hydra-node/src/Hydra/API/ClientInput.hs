@@ -2,7 +2,8 @@ module Hydra.API.ClientInput where
 
 import Hydra.Prelude
 
-import Hydra.Tx (ConfirmedSnapshot, IsTx (..), TxIdType)
+import Hydra.Tx (ConfirmedSnapshot, IsTx (..), Party, TxIdType)
+import Hydra.Tx.OnChainId (OnChainId)
 
 data ClientInput tx
   = Init
@@ -20,6 +21,12 @@ data ClientInput tx
     -- is finalized by an 'UpdateParameters' L1 transaction. See issue
     -- #1813 (dynamic-head-participants).
     Leave
+  | -- | Propose a new party to join the open head. Sent by one of the
+    -- existing parties (the inviter). Triggers a 'ReqAddParty' broadcast
+    -- which, once unanimously signed (including by the joining party
+    -- themselves), is finalized by an 'UpdateParameters' L1 transaction.
+    -- See issue #1813 (dynamic-head-participants, Phase 2).
+    AddParticipant {joiningParty :: Party, joiningOnChainId :: OnChainId}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (ClientInput tx)

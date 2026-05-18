@@ -1,0 +1,12 @@
+{
+    "samples": [
+        {
+            "joiningOnChainId": "fb8c0188c04f8e28e6dab0ee5102bade4fdfe24be6c0a99d089c6bae",
+            "joiningParty": {
+                "vkey": "bd53fff4ecae6d7e4763829dd47acda091ad06098af9c2d69173ab22aaa8b80e"
+            },
+            "tag": "ReqAddParty"
+        }
+    ],
+    "seed": -1330892729
+}

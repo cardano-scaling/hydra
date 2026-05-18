@@ -1018,6 +1018,37 @@ spec = parallel $ do
                         && sortNub newParties == sortNub [alice, bob]
                   _ -> Nothing
 
+    -- End-to-end behavior spec for the join flow (Phase 2 of issue #1813).
+    --
+    -- Two nodes open a head together; one of them ('alice') invites a third
+    -- party ('carol') to join via 'AddParticipant'. The existing parties
+    -- multi-sign the snapshot whose 'parameterUpdate' authorizes the join,
+    -- and after the simulated chain observes the 'UpdateParametersTx' both
+    -- existing parties report 'JoinFinalized' with the grown parties list.
+    --
+    -- NOTE: We deliberately spin up only the two existing-party nodes here.
+    -- The joining node's state-sync onto the existing head is an operational
+    -- step (the inviter hands over a JSON bundle, see the design notes);
+    -- this spec exercises the on-protocol-loop side. The contract spec
+    -- ('Hydra.Tx.Contract.UpdateParameters') validates the L1 transaction
+    -- with its full mint / value / signature checks.
+    it "a new party can join an open two-party head" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1, n2] $ HeadIsOpen testHeadId (fromList [alice, bob])
+
+              -- Alice invites carol into the head.
+              send n1 $ AddParticipant carol (deriveOnChainId carol)
+              waitUntilMatch [n1, n2] $ \case
+                JoinFinalized{joiningParty, newParties} ->
+                  guard $
+                    joiningParty == carol
+                      && sortNub newParties == sortNub [alice, bob, carol]
+                _ -> Nothing
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do

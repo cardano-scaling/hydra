@@ -119,15 +119,20 @@ run opts = do
                       , nodeId
                       , whichEtcd
                       }
-              -- The accepted-parties set is dynamic (dynamic-head-participants
-              -- feature, issue #1813): a 'ParametersChanged' on chain shrinks
-              -- it. For now we initialize from the static
-              -- 'Environment.otherParties' and pin it; the next milestone
-              -- swaps in a 'TVar' that the 'Node' shell rewrites.
+              -- The accepted-parties set and the speculatively-accepted
+              -- joining party are dynamic for the dynamic-head-participants
+              -- feature (issue #1813). For now we initialize the accepted set
+              -- from the static 'Environment.otherParties' and pin it, and
+              -- supply 'Nothing' for the joining-party accessor; the
+              -- 'Node' shell rewrites these as 'ParametersChanged' /
+              -- 'JoinRecorded' events are aggregated. End-to-end behavior
+              -- testing of join goes through IOSim where the wiring is
+              -- exercised directly.
               withNetwork
                 (contramap Network tracer)
                 networkConfiguration
                 (pure otherParties)
+                (pure Nothing)
                 (wireNetworkInput wetHydraNode)
                 $ \network -> do
                   traceWith tracer' NetworkStarted

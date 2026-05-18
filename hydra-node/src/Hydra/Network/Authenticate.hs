@@ -46,10 +46,20 @@ instance FromCBOR msg => FromCBOR (Signed msg) where
 -- node to consume and process. Non-verified messages get discarded.
 --
 -- The accepted-parties set is provided as an 'STM' action rather than a static
--- list so that a node can shrink (or grow, in Phase 2) the live party set at
--- runtime, e.g. after observing a 'ParametersChanged' on chain (issue #1813,
+-- list so that a node can shrink (or grow) the live party set at runtime, e.g.
+-- after observing a 'ParametersChanged' on chain (issue #1813,
 -- dynamic-head-participants). Each inbound message is checked against a fresh
 -- snapshot of the accepted set.
+--
+-- The 'readJoiningParty' accessor provides a narrowly-scoped escape valve for
+-- Phase 2 of the dynamic-head-participants feature (issue #1813): when a join
+-- is in flight, the multi-signed snapshot that authorizes the join includes
+-- the joining party's own 'AckSn', and that message must be accepted before
+-- the on-chain 'UpdateParametersTx' is observed (i.e. before the joiner is
+-- added to the live party set). The accessor returns 'Just' the joining party
+-- exactly when there's a pending 'AddParty' parameter update; the auth
+-- middleware accepts any signed message from that party even while they
+-- aren't yet in the regular set.
 withAuthentication ::
   ( SignableRepresentation inbound
   , ToJSON inbound
@@ -61,17 +71,23 @@ withAuthentication ::
   SigningKey HydraKey ->
   -- Accepted other party members. Read once per inbound message.
   STM m [Party] ->
+  -- Currently-joining party (Phase 2). Pass @pure Nothing@ when no join is in
+  -- flight or to disable the speculative-accept exception.
+  STM m (Maybe Party) ->
   -- The underlying raw network.
   NetworkComponent m (Signed inbound) (Signed outbound) a ->
   -- The node internal authenticated network.
   NetworkComponent m (Authenticated inbound) outbound a
-withAuthentication tracer signingKey readOtherParties withRawNetwork NetworkCallback{deliver, onConnectivity} action = do
+withAuthentication tracer signingKey readOtherParties readJoiningParty withRawNetwork NetworkCallback{deliver, onConnectivity} action = do
   withRawNetwork NetworkCallback{deliver = checkSignature, onConnectivity} authenticate
  where
   checkSignature (Signed msg sig party@Party{vkey = partyVkey}) = do
-    parties <- atomically readOtherParties
+    (parties, mJoining) <- atomically $ (,) <$> readOtherParties <*> readJoiningParty
     let allParties = me : parties
-    if verify partyVkey sig msg && party `elem` allParties
+        knownSender = party `elem` allParties
+        joiningSender = Just party == mJoining
+        partyAllowed = knownSender || joiningSender
+    if verify partyVkey sig msg && partyAllowed
       then deliver $ Authenticated msg party
       else traceWith tracer (mkAuthLog msg sig party)
 

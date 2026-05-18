@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "headId": "00000100000000000101000000000000",
+            "joinReason": "JoinIncompatibleWithDecommit",
+            "joiningParty": {
+                "vkey": "e99d33e7dbd04ca7143c5dc82f76d7937a4289589c339130216c8fa6094a56bf"
+            },
+            "tag": "JoinInvalid"
+        }
+    ],
+    "seed": 1645514007
+}

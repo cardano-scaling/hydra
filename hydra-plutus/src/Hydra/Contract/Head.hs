@@ -286,9 +286,13 @@ mustMatchAccumulatorCommitmentHash commitment hash =
 -- | Verify an UpdateParameters transaction (issue #1813,
 -- dynamic-head-participants). Stays in the open state but rewrites the
 -- 'parties' field of the head datum according to the multi-signed
--- 'parameterUpdate', burns the leaving party's participation token, and bumps
--- the snapshot version. All other open-state datum fields ('headId',
+-- 'parameterUpdate', burns or mints the relevant participation token, and
+-- bumps the snapshot version. All other open-state datum fields ('headId',
 -- 'contestationPeriod', 'headSeed', 'utxoHash') must be preserved.
+--
+-- 'RemovePartyOC' burns the leaving party's PT and shrinks the head output
+-- value by exactly that token. 'AddPartyOC' mints a fresh PT and grows the
+-- head output value by exactly that token.
 checkUpdateParameters ::
   ScriptContext ->
   -- | Open state before the update
@@ -298,9 +302,9 @@ checkUpdateParameters ::
 checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
   mustOnlyChangeParties
     && mustApplyUpdateToParties
-    && mustBurnLeavingParticipationToken
+    && mustMintOrBurnParticipationToken
     && mustIncreaseVersion
-    && mustPreserveHeadValueExceptBurnedPT
+    && mustPreserveHeadValueAdjustedForPT
     && mustBeSignedByParticipant ctx prevHeadId
     && checkSnapshotSignature
  where
@@ -339,6 +343,10 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
       case parameterUpdate of
         RemovePartyOC leavingParty _ ->
           nextParties == removeFirst leavingParty prevParties
+        AddPartyOC joiningParty _ ->
+          -- New party is appended to the end, preserving order of existing
+          -- parties (matters for leader-rotation determinism off chain).
+          nextParties == prevParties L.++ [joiningParty]
 
   -- Remove the first occurrence of x from the list, preserving order. Equivalent
   -- in spirit to Data.List.delete but inlined for plutus-tx.
@@ -350,31 +358,38 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
         | x == y -> ys
         | otherwise -> y : go ys
 
-  mustBurnLeavingParticipationToken =
+  mustMintOrBurnParticipationToken =
     case parameterUpdate of
       RemovePartyOC _ tokenName ->
         traceIfFalse $(errorCode FailedUpdateParametersBadPTBurn) $
-          ptBurnsForHead prevHeadId == [(tokenName, -1)]
+          ptMintsForHead prevHeadId == [(tokenName, -1)]
+      AddPartyOC _ tokenName ->
+        traceIfFalse $(errorCode FailedUpdateParametersBadPTMint) $
+          ptMintsForHead prevHeadId == [(tokenName, 1)]
 
   -- All participation-token mints/burns for the head's currency, as
   -- (asset name, signed quantity) pairs.
-  ptBurnsForHead headCurrency =
+  ptMintsForHead headCurrency =
     maybe
       []
       AssocMap.toList
       (AssocMap.lookup headCurrency (mintValueToMap (txInfoMint txInfo)))
 
-  -- The output head value must equal the input head value with exactly the
-  -- burned participation token removed. We compare the value of the leaving
-  -- party's PT against the difference (input - output) of the head's value.
-  mustPreserveHeadValueExceptBurnedPT =
+  -- The output head value must equal the input head value adjusted by exactly
+  -- the participation token that was minted (Add) or burned (Remove). For
+  -- Remove, output + burnedPT == input. For Add, input + mintedPT == output.
+  mustPreserveHeadValueAdjustedForPT =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue == headOutValue <> burnedTokenValue
+      case parameterUpdate of
+        RemovePartyOC _ tokenName ->
+          headInValue == headOutValue <> singletonPTValue prevHeadId tokenName
+        AddPartyOC _ tokenName ->
+          headInValue <> singletonPTValue prevHeadId tokenName == headOutValue
 
-  burnedTokenValue =
-    case parameterUpdate of
-      RemovePartyOC _ tokenName ->
-        Value $ AssocMap.singleton prevHeadId $ AssocMap.singleton tokenName 1
+  -- A 'Value' containing exactly one participation token of the given asset
+  -- name under the head's currency.
+  singletonPTValue currency tokenName =
+    Value $ AssocMap.singleton currency $ AssocMap.singleton tokenName 1
 
   headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
   headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
@@ -389,6 +404,16 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
       (prevHeadId, prevVersion, snapshotNumber, prevUtxoHash, emptyHash, emptyHash, prevAccumulatorHash)
       parameterUpdate
       signature
+
+-- NOTE: We deliberately verify the signature against the *previous* parties
+-- list for both 'RemovePartyOC' and 'AddPartyOC'. For 'RemoveParty', this lets
+-- the leaving party sign their own departure (they are still in 'prevParties').
+-- For 'AddParty', the joining party does not need to multi-sign the on-chain
+-- transition itself — their consent is captured out-of-band when they start
+-- participating in the head; the multi-sig from existing parties is what
+-- authorizes the parameter change on chain. This keeps the off-chain
+-- 'ifAllMembersHaveSigned' check (which uses 'OpenState.parameters.parties'
+-- = previous parties) consistent with what the validator enforces.
 {-# INLINEABLE checkUpdateParameters #-}
 
 -- | Verify a close transaction.

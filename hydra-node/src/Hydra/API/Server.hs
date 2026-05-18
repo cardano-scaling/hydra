@@ -259,13 +259,14 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
     StateChanged.LeaveRecorded{headId, leavingParty} -> Just LeaveRequested{headId, leavingParty}
     StateChanged.LeaveApproved{headId, leavingParty} -> Just LeaveApproved{headId, leavingParty}
+    StateChanged.JoinRecorded{headId, joiningParty} -> Just JoinRequested{headId, joiningParty}
+    StateChanged.JoinApproved{headId, joiningParty} -> Just JoinApproved{headId, joiningParty}
     StateChanged.ParametersChanged{headId, newParties, parameterUpdate} ->
-      Just
-        LeaveFinalized
-          { headId
-          , leavingParty = case parameterUpdate of RemoveParty{leavingParty} -> leavingParty
-          , newParties
-          }
+      case parameterUpdate of
+        RemoveParty{leavingParty} ->
+          Just LeaveFinalized{headId, leavingParty, newParties}
+        AddParty{joiningParty} ->
+          Just JoinFinalized{headId, joiningParty, newParties}
     StateChanged.DepositRecorded{..} -> Just CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
     StateChanged.DepositActivated{depositTxId, chainTime, deposit = Deposit{..}} -> Just DepositActivated{..}
     StateChanged.DepositExpired{depositTxId, chainTime, deposit = Deposit{..}} -> Just DepositExpired{..}

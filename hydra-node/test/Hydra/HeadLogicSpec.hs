@@ -22,7 +22,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, Leave, NewTx, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (AddParticipant, Fanout, Leave, NewTx, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -851,6 +851,82 @@ spec =
           outcome `hasEffectSatisfying` \case
             ClientEffect CommandFailed{} -> True
             _ -> False
+
+      describe "Join (dynamic-head-participants Phase 2)" $ do
+        it "broadcasts ReqAddParty on AddParticipant client input" $ do
+          let s0 = inOpenState [alice, bob]
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome =
+                update
+                  aliceEnv
+                  ledger
+                  now
+                  s0
+                  (ClientInput (AddParticipant carol (deriveOnChainId carol)))
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqAddParty{joiningParty} -> joiningParty == carol
+            _ -> False
+
+        it "records JoinRecorded when receiving ReqAddParty" $ do
+          let s0 = inOpenState [alice, bob]
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let reqAdd =
+                receiveMessageFrom bob $
+                  ReqAddParty{joiningParty = carol, joiningOnChainId = deriveOnChainId carol}
+          update aliceEnv ledger now s0 reqAdd
+            `hasStateChangedSatisfying` \case
+              JoinRecorded{headId, joiningParty} ->
+                headId == testHeadId && joiningParty == carol
+              _ -> False
+
+        it "rejects AddParticipant when the proposed party is already a member" $ do
+          let s0 = inOpenState [alice, bob]
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome =
+                update
+                  aliceEnv
+                  ledger
+                  now
+                  s0
+                  (ClientInput (AddParticipant bob (deriveOnChainId bob)))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect CommandFailed{} -> True
+            _ -> False
+
+        it "ParametersChanged aggregate adds joining party + clears pendingParameterUpdate" $ do
+          let s0 = inOpenState [alice, bob]
+              recorded =
+                JoinRecorded
+                  { headId = testHeadId
+                  , joiningParty = carol
+                  , joiningOnChainId = deriveOnChainId carol
+                  }
+              changed =
+                ParametersChanged
+                  { chainState = SimpleChainState 0
+                  , headId = testHeadId
+                  , newParties = [alice, bob, carol]
+                  , newVersion = 1
+                  , parameterUpdate =
+                      AddParty carol (deriveOnChainId carol)
+                  }
+          let stRecorded = aggregateNodeState s0 recorded
+          case headState stRecorded of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingParameterUpdate = Just (AddParty _ _)}} ->
+              pure ()
+            other ->
+              expectationFailure $
+                "expected pending AddParty, got: " <> show other
+
+          let stChanged = aggregateNodeState stRecorded changed
+          case headState stChanged of
+            Open OpenState{parameters, coordinatedHeadState = chs} -> do
+              parameters.parties `shouldBe` [alice, bob, carol]
+              chs.pendingParameterUpdate `shouldBe` Nothing
+              chs.version `shouldBe` 1
+            other ->
+              expectationFailure $
+                "expected open with appended party, got: " <> show other
 
         it "ParametersChanged aggregate rewrites parties + clears pendingParameterUpdate" $ do
           let s0 = inOpenState threeParties

@@ -52,6 +52,13 @@ data Message tx
     -- bytes (and, in particular, the same signable snapshot) without needing
     -- access to the leaver's 'Environment'.
     ReqLeave {leavingParty :: Party, leavingOnChainId :: OnChainId}
+  | -- | Pre-confirmation broadcast that a new 'Party' (carrying their
+    -- 'OnChainId') is being proposed for inclusion in the head. Broadcast
+    -- by one of the existing parties (the inviter); finalization happens
+    -- via 'ReqSn'/'AckSn' on a snapshot whose 'parameterUpdate' is
+    -- 'AddParty'. The joining party themselves must also sign that
+    -- snapshot — see the speculative-accept rule in 'Authenticate'.
+    ReqAddParty {joiningParty :: Party, joiningOnChainId :: OnChainId}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)
@@ -73,6 +80,7 @@ instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Mess
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
     ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
     ReqLeave p oid -> toCBOR ("ReqLeave" :: Text) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
+    ReqAddParty p oid -> toCBOR ("ReqAddParty" :: Text) <> toCBOR p <> toCBOR (serialiseToRawBytes oid)
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
@@ -87,6 +95,12 @@ instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCB
         case deserialiseFromRawBytes AsOnChainId oidBytes of
           Right oid -> pure $ ReqLeave p oid
           Left err -> fail $ "ReqLeave: invalid OnChainId: " <> show err
+      "ReqAddParty" -> do
+        p <- fromCBOR
+        oidBytes <- fromCBOR
+        case deserialiseFromRawBytes AsOnChainId oidBytes of
+          Right oid -> pure $ ReqAddParty p oid
+          Left err -> fail $ "ReqAddParty: invalid OnChainId: " <> show err
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance IsTx tx => SignableRepresentation (Message tx) where

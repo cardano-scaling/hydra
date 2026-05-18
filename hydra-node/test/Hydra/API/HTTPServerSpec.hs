@@ -22,7 +22,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
   httpApp,
  )
-import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), LeaveInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), JoinInvalidReason (..), LeaveInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   UTxO,
@@ -42,9 +42,10 @@ import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Logging (nullTracer)
 import Hydra.Node.State (NodeState (..))
-import Hydra.Tx (ConfirmedSnapshot (..))
+import Hydra.Tx (ConfirmedSnapshot (..), Party)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.IsTx (UTxOType, txId)
+import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
@@ -892,7 +893,7 @@ apiServerSpec = do
                     LeaveInvalid
                       { headId = generateWith arbitrary 42
                       , leavingParty = generateWith arbitrary 42
-                      , reason = LeaveLastPartyCannotLeave
+                      , leaveReason = LeaveLastPartyCannotLeave
                       }
                 , seq = 0
                 , time = now'
@@ -931,6 +932,112 @@ apiServerSpec = do
           )
           $ do
             delete "/participants/me" `shouldRespondWith` 503
+
+    describe "POST /participants (dynamic-head-participants Phase 2)" $ do
+      let mkBody party' oid =
+            encode $
+              object ["joiningParty" .= party', "joiningOnChainId" .= oid]
+      let aPartyAndOnChainId =
+            let p = generateWith arbitrary 17 :: Party
+                o = generateWith arbitrary 18 :: OnChainId
+             in (p, o)
+      let (somePty, someOid) = aPartyAndOnChainId
+
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            post "/participants" (mkBody somePty someOid) `shouldRespondWith` 202
+
+      it "returns 200 on JoinFinalized" $ do
+        responseChannel <- newTChanIO
+        now' <- getCurrentTime
+        let event =
+              TimedServerOutput
+                { output =
+                    JoinFinalized
+                      { headId = generateWith arbitrary 42
+                      , joiningParty = somePty
+                      , newParties = []
+                      }
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left event))
+              10
+              responseChannel
+          )
+          $ do
+            post "/participants" (mkBody somePty someOid) `shouldRespondWith` 200
+
+      it "returns 400 on JoinInvalid" $ do
+        responseChannel <- newTChanIO
+        now' <- getCurrentTime
+        let invalid =
+              TimedServerOutput
+                { output =
+                    JoinInvalid
+                      { headId = generateWith arbitrary 42
+                      , joiningParty = somePty
+                      , joinReason = JoinPartyAlreadyInHead
+                      }
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left invalid))
+              10
+              responseChannel
+          )
+          $ do
+            post "/participants" (mkBody somePty someOid) `shouldRespondWith` 400
+
+      it "returns 400 on malformed body" $ do
+        responseChannel <- newTChanIO
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              10
+              responseChannel
+          )
+          $ do
+            post "/participants" (encode (Aeson.String "not a request")) `shouldRespondWith` 400
 
     describe "DELETE /commits/:txid full unencoded TxId" $ do
       it "returns 202 on timeout" $ do
