@@ -324,7 +324,7 @@ renderServerOutput time output raw = case output of
       ]
       raw
   EventLogRotated{} ->
-    mk Info time "Event log rotated (checkpoint)" ["Head state event log checkpoint triggered."] raw
+    mk Info time "Checkpoint triggered" ["Head state event log checkpoint triggered."] raw
   NodeUnsynced{chainSlot, chainTime, drift} ->
     mk
       Error
@@ -363,12 +363,11 @@ renderClientMessage now msg raw = case msg of
       ]
       raw
   PostTxOnChainFailed{postTxError} ->
-    mk
-      Error
-      now
-      "On-chain transaction failed"
-      (renderPostTxError postTxError)
-      raw
+    let summary = case postTxError of
+          NotEnoughFuel _ ->
+            "Not enough Fuel. Please provide more to the internal wallet and try again."
+          _ -> "On-chain transaction failed"
+     in mk Error now summary (renderPostTxError postTxError) raw
   RejectedInputBecauseUnsynced{clientInput, drift} ->
     mk
       Error

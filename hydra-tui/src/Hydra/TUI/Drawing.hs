@@ -12,6 +12,7 @@ import Data.Text qualified as T
 import Hydra.Cardano.Api hiding (Active)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Client (Client (..))
+import Hydra.TUI.Config (Theme (..))
 import Hydra.TUI.Drawing.EventHistoryTab (drawEventHistoryTab)
 import Hydra.TUI.Drawing.FundsTab (drawFocusPanel, drawFundsTab)
 import Hydra.TUI.Drawing.MainTab (drawMainTab)
@@ -99,9 +100,12 @@ drawModalTab CardanoClient{networkId} Client{sk} s =
 
 drawActionBar :: RootState -> Widget n
 drawActionBar s =
-  hBox . intersperse (txt "  ") $ map drawAction (actions <> [("F3", " theme")])
+  hBox . intersperse (txt "  ") $ map drawAction (actions <> [("F3", themeLabel)])
  where
   isModal = s ^. activeTabL == ModalTab
+  themeLabel = case s ^. themeL of
+    DarkTheme -> " ☾ dark (toggle)"
+    LightTheme -> " ☀ light (toggle)"
   actions = case s ^. connectedStateL of
     Disconnected -> [("Q", "uit")]
     Connected c -> case c ^. headStateL of
@@ -123,6 +127,9 @@ drawActionBar s =
           else case (s ^. activeTabL, activeHeadState) of
             (EventHistoryTab, _) -> [("d", " raw/summary"), ("Q", "uit")]
             (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "ecover"), ("U", "pdate")]
+            (FundsTab, Closed{}) -> [("U", "pdate"), ("Q", "uit")]
+            (FundsTab, FanoutPossible{}) -> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
+            (FundsTab, Final{}) -> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
             (_, Open{}) -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement"), ("R", "ecover"), ("C", "lose"), ("Q", "uit")]
             (_, Closed{}) -> [("Q", "uit")]
             (_, FanoutPossible{}) -> [("F", "anout"), ("Q", "uit")]

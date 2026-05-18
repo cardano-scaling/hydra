@@ -12,7 +12,7 @@ import Data.Text qualified as T
 import Data.Time (defaultTimeLocale, formatTime, utctDayTime)
 import Data.Time.Format (FormatTime)
 import Hydra.Cardano.Api hiding (Active)
-import Hydra.TUI.Style (infoA, own, positive)
+import Hydra.TUI.Style (infoA, own, sectionHeaderA)
 import Hydra.Tx (HeadId, IsTx (..))
 
 -- | Render a 'HeadId' as its hex-encoded bytes (matches the Main tab display).
@@ -107,7 +107,7 @@ drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget n
 drawRemainingContestationPeriod deadline now =
   let remaining = diffUTCTime deadline now
    in if remaining > 0
-        then txt "Remaining time to contest: " <+> str (renderTime remaining)
+        then withAttr sectionHeaderA $ txt "Remaining time to contest: " <+> str (renderTime remaining)
         else drawFanoutPossibleMessage
 
 -- | Status message shown when the contestation period has passed and a
@@ -115,7 +115,7 @@ drawRemainingContestationPeriod deadline now =
 -- tabs so the wording matches.
 drawFanoutPossibleMessage :: Widget n
 drawFanoutPossibleMessage =
-  withAttr positive $ txt "Contestation period passed — ready to fan out."
+  withAttr sectionHeaderA $ txt "Contestation period passed — ready to fan out."
 
 -- | Status message shown when the head has been finalized, including the
 -- total ADA value of the distributed UTxO. Shared between the Main and
@@ -123,6 +123,6 @@ drawFanoutPossibleMessage =
 drawHeadFinalizedMessage :: UTxO -> Widget n
 drawHeadFinalizedMessage utxo =
   vBox
-    [ withAttr positive $ txt "Head finalized."
+    [ withAttr sectionHeaderA $ txt "Head finalized."
     , txt ("Distributed UTxO — total: " <> renderAda (balance @Tx utxo))
     ]

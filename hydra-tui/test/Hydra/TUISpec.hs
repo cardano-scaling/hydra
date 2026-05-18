@@ -256,7 +256,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
   withHydraNodeHandle tracer tmpDir nodeId options $ \nodeHandle -> do
     startNode nodeHandle
     HydraClient{apiHost = Host{port = apiPort}} <- getClient nodeHandle
-    withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+    withTUITest (200, 30) $ \brickTest@TUITest{buildVty} -> do
       raceLabelled_
         ( "run-vty"
         , do
@@ -310,7 +310,7 @@ setupNodeAndTUI' hostname lovelace action =
         withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] nodePorts $ \HydraClient{apiHost = Host{port = apiPort}} -> do
           seedFromFaucet_ backendOpts aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
-          withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
+          withTUITest (200, 30) $ \brickTest@TUITest{buildVty} -> do
             raceLabelled_
               ( "run-vty"
               , runWithVty

@@ -65,6 +65,9 @@ headStateA = attrName "headState"
 actionDescA :: AttrName
 actionDescA = attrName "actionDesc"
 
+sectionHeaderA :: AttrName
+sectionHeaderA = attrName "sectionHeader"
+
 -- | Dark theme — optimised for dark terminal backgrounds.
 darkStyle :: s -> AttrMap
 darkStyle _ =
@@ -80,6 +83,7 @@ darkStyle _ =
     , (pendingA, fg magenta)
     , (headStateA, withStyle (fg magenta) bold)
     , (actionDescA, withStyle defAttr italic)
+    , (sectionHeaderA, brightWhite `on` blue)
     , (listSelectedAttr, brightWhite `on` blue)
     , (borderAttr, fg brightBlack)
     , (focusedFormInputAttr, fg blue)
@@ -101,6 +105,7 @@ lightStyle _ =
     , (pendingA, fg magenta)
     , (headStateA, withStyle (fg blue) bold)
     , (actionDescA, withStyle defAttr italic)
+    , (sectionHeaderA, brightWhite `on` blue)
     , (listSelectedAttr, brightWhite `on` blue)
     , (borderAttr, fg black)
     , (focusedFormInputAttr, fg blue)
