@@ -22,7 +22,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Fanout, Leave, NewTx, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -35,7 +35,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateNodeState, aggregateState, cause, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -50,7 +50,7 @@ import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Activ
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx (HeadId)
+import Hydra.Tx (HeadId, ParameterUpdate (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
@@ -116,6 +116,7 @@ spec =
               , seenSnapshot = NoSeenSnapshot
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
+              , pendingParameterUpdate = Nothing
               , version = 0
               }
 
@@ -604,6 +605,7 @@ spec =
                     , confirmedSnapshot = confirmedSn
                     , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
                     , decommitTx = Nothing
+                    , pendingParameterUpdate = Nothing
                     }
 
           -- AckSn for snapshot 1 arrives late
@@ -753,6 +755,132 @@ spec =
               chs.currentDepositTxId `shouldBe` Nothing
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
             _ -> fail "expected Open state"
+
+      describe "Leave (dynamic-head-participants)" $ do
+        it "broadcasts ReqLeave on Leave client input" $ do
+          -- The state-recording happens via the network loopback through
+          -- 'onOpenNetworkReqLeave'; here we only assert the broadcast.
+          -- See the symmetric 'onOpenClientDecommit' pattern.
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now s0 (ClientInput Leave)
+
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqLeave{leavingParty} -> leavingParty == alice
+            _ -> False
+
+        it "records LeaveRecorded when receiving ReqLeave from another party" $ do
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let reqLeave =
+                receiveMessageFrom bob $
+                  ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+          update aliceEnv ledger now s0 reqLeave
+            `hasStateChangedSatisfying` \case
+              LeaveRecorded{headId, leavingParty} -> headId == testHeadId && leavingParty == bob
+              _ -> False
+
+        it "emits ReqSn carrying the parameter update when leader receives ReqLeave" $ do
+          -- For seenSn = 0 the next snapshot leader is 'alice' in our
+          -- threeParties fixture. With alice as the recipient of a ReqLeave
+          -- targeting bob, alice should emit a ReqSn whose parameterUpdate
+          -- carries the RemoveParty record.
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let reqLeave =
+                receiveMessageFrom bob $
+                  ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+          update aliceEnv ledger now s0 reqLeave
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{parameterUpdate = Just (RemoveParty p _)} -> p == bob
+              _ -> False
+
+        it "rejects Leave when an in-flight decommit exists" $ do
+          let decommitTx' = SimpleTx 99 mempty (utxoRef 99)
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { decommitTx = Just decommitTx'
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now s0 (ClientInput Leave)
+
+          outcome `hasEffectSatisfying` \case
+            ClientEffect CommandFailed{} -> True
+            _ -> False
+
+        it "is idempotent: ReqLeave for an already-pending leave is a no-op" $ do
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          s1 <-
+            runHeadLogic aliceEnv ledger s0 $ do
+              step
+                ( receiveMessageFrom bob $
+                    ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+                )
+              getState
+          -- second receipt should produce no further state change or effect
+          let outcome2 =
+                update aliceEnv ledger now s1 $
+                  receiveMessageFrom bob $
+                    ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+          outcome2 `shouldBe` noop
+
+        it "refuses further client inputs after the local party has been removed" $ do
+          let s0 = inOpenState threeParties
+              changed =
+                ParametersChanged
+                  { chainState = SimpleChainState 0
+                  , headId = testHeadId
+                  , newParties = [bob, carol]
+                  , newVersion = 1
+                  , parameterUpdate =
+                      RemoveParty alice (deriveOnChainId alice)
+                  }
+          -- aliceEnv's party is alice; after the change she is no longer in
+          -- the head, so her own NewTx should be refused via CommandFailed.
+          let sLeft = aggregateNodeState s0 changed
+          now <- nowFromSlot sLeft.chainPointTime.currentSlot
+          let outcome =
+                update
+                  aliceEnv
+                  ledger
+                  now
+                  sLeft
+                  (ClientInput (NewTx (aValidTx 99 :: SimpleTx)))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect CommandFailed{} -> True
+            _ -> False
+
+        it "ParametersChanged aggregate rewrites parties + clears pendingParameterUpdate" $ do
+          let s0 = inOpenState threeParties
+              theUpdate = RemoveParty bob (deriveOnChainId bob)
+              recorded =
+                LeaveRecorded
+                  { headId = testHeadId
+                  , leavingParty = bob
+                  , leavingOnChainId = deriveOnChainId bob
+                  }
+              changed =
+                ParametersChanged
+                  { chainState = SimpleChainState 0
+                  , headId = testHeadId
+                  , newParties = [alice, carol]
+                  , newVersion = 1
+                  , parameterUpdate = theUpdate
+                  }
+          let stRecorded = aggregateNodeState s0 recorded
+          case headState stRecorded of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingParameterUpdate = Just _}} -> pure ()
+            other -> expectationFailure $ "expected pending update, got: " <> show other
+
+          let stChanged = aggregateNodeState stRecorded changed
+          case headState stChanged of
+            Open OpenState{parameters, coordinatedHeadState = chs} -> do
+              parameters.parties `shouldBe` [alice, carol]
+              chs.pendingParameterUpdate `shouldBe` Nothing
+              chs.version `shouldBe` 1
+            other -> expectationFailure $ "expected open with rewritten parties, got: " <> show other
 
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
@@ -2115,6 +2243,7 @@ spec =
                           , seenSnapshot = NoSeenSnapshot
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
+                          , pendingParameterUpdate = Nothing
                           , version = 0
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
@@ -2210,6 +2339,7 @@ spec =
                               , seenSnapshot = NoSeenSnapshot
                               , currentDepositTxId = Nothing
                               , decommitTx = Nothing
+                              , pendingParameterUpdate = Nothing
                               , version = 0
                               }
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
@@ -2257,6 +2387,7 @@ spec =
                             , seenSnapshot = NoSeenSnapshot
                             , currentDepositTxId = Nothing
                             , decommitTx = Nothing
+                            , pendingParameterUpdate = Nothing
                             , version = 0
                             }
                       , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
@@ -2414,6 +2545,7 @@ inOpenState parties =
       , seenSnapshot = NoSeenSnapshot
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
+      , pendingParameterUpdate = Nothing
       , version = 0
       }
  where

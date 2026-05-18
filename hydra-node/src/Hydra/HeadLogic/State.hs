@@ -14,6 +14,7 @@ import Hydra.Tx (
   HeadParameters,
   HeadSeed,
   IsTx (..),
+  ParameterUpdate,
   Party,
  )
 import Hydra.Tx.Crypto (Signature, getSignableRepresentation)
@@ -126,6 +127,10 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- TODO: update in spec: Uα -> tx^#α
   , decommitTx :: Maybe tx
   -- ^ Pending decommit transaction. Spec: txω
+  , pendingParameterUpdate :: Maybe ParameterUpdate
+  -- ^ Pending change to 'HeadParameters' (e.g., a party leaving) waiting to
+  -- be signed into a snapshot and finalized via an 'UpdateParameters' L1
+  -- transaction. See 'Hydra.Tx.ParameterUpdate' and issue #1813. Spec: pω
   , version :: SnapshotVersion
   -- ^ Last open state version as observed on chain. Spec: ̂v
   }

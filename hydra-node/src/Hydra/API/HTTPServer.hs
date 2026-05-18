@@ -233,6 +233,8 @@ httpApp tracer directChain env pparams getNodeState getCommitInfo getPendingDepo
       consumeRequestBodyStrict request
         >>= handleDecommit putClientInput apiTransactionTimeout responseChannel
         >>= respond
+    ("DELETE", ["participants", "me"]) ->
+      handleLeave putClientInput apiTransactionTimeout responseChannel >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond . responseLBS status200 jsonContent . Aeson.encode $ pparams
     ("POST", ["cardano-transaction"]) ->
@@ -422,6 +424,47 @@ handleDecommit putClientInput apiTransactionTimeout responseChannel body =
                     , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
                     ]
               )
+
+-- | Handle a 'DELETE /participants/me' request: signal a 'Leave' client
+-- input and wait for either 'LeaveFinalized' (200), 'LeaveInvalid' /
+-- 'CommandFailed' (400), or 'RejectedInputBecauseUnsynced' (503). On
+-- timeout, return 202 with a 'LeaveSubmitted' tag. See issue #1813
+-- (dynamic-head-participants).
+handleLeave ::
+  forall tx.
+  IsChainState tx =>
+  (ClientInput tx -> IO ()) ->
+  ApiTransactionTimeout ->
+  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
+  IO Response
+handleLeave putClientInput apiTransactionTimeout responseChannel = do
+  dupChannel <- atomically $ dupTChan responseChannel
+  putClientInput (Leave :: ClientInput tx)
+  let wait = do
+        event <- atomically $ readTChan dupChannel
+        case event of
+          Left TimedServerOutput{output = LeaveFinalized{}} ->
+            pure $ responseLBS status200 jsonContent (Aeson.encode $ Aeson.String "OK")
+          Left TimedServerOutput{output = LeaveInvalid{reason}} ->
+            pure $ responseLBS status400 jsonContent (Aeson.encode reason)
+          Right (CommandFailed{clientInput = Leave}) ->
+            pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String "Leave failed")
+          Right (RejectedInputBecauseUnsynced{clientInput = Leave, drift}) ->
+            pure $ responseLBS status503 jsonContent (Aeson.encode $ Aeson.String ("Leave failed because node is out of sync with chain, drift: " <> show drift))
+          _ -> wait
+  timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+    Just r -> pure r
+    Nothing ->
+      pure $
+        responseLBS
+          status202
+          jsonContent
+          ( Aeson.encode $
+              object
+                [ "tag" .= Aeson.String "LeaveSubmitted"
+                , "timeout" .= Aeson.String ("Operation timed out after " <> pack (show apiTransactionTimeout) <> " seconds")
+                ]
+          )
 
 -- | Handle request to side load confirmed snapshot.
 handleSideLoadSnapshot ::

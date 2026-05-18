@@ -18,6 +18,7 @@ import Hydra.Tx (
   HeadParameters,
   HeadSeed,
   IsTx,
+  ParameterUpdate,
   Party,
   Snapshot,
   SnapshotNumber,
@@ -121,6 +122,24 @@ data StateChanged tx
       , headId :: HeadId
       , distributedUTxO :: UTxOType tx
       , newVersion :: SnapshotVersion
+      }
+  | -- | A 'ReqLeave' (or our own 'Leave' client input) has been accepted and
+    -- the pending parameter update is now tracked in 'CoordinatedHeadState'.
+    -- See issue #1813 (dynamic-head-participants).
+    LeaveRecorded {headId :: HeadId, leavingParty :: Party, leavingOnChainId :: OnChainId}
+  | -- | The snapshot carrying the pending 'parameterUpdate' has been
+    -- multi-signed; the head node now expects an 'UpdateParametersTx' to be
+    -- observed on chain.
+    LeaveApproved {headId :: HeadId, leavingParty :: Party}
+  | -- | The 'UpdateParametersTx' was observed on chain. The 'parties' list in
+    -- 'OpenState.parameters' is rewritten and 'pendingParameterUpdate' is
+    -- cleared.
+    ParametersChanged
+      { chainState :: ChainStateType tx
+      , headId :: HeadId
+      , newParties :: [Party]
+      , newVersion :: SnapshotVersion
+      , parameterUpdate :: ParameterUpdate
       }
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}

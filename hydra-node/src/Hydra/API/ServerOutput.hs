@@ -62,6 +62,24 @@ instance (ToJSON (TxIdType tx), ToJSON (UTxOType tx)) => ToJSON (DecommitInvalid
 instance (FromJSON (TxIdType tx), FromJSON (UTxOType tx)) => FromJSON (DecommitInvalidReason tx) where
   parseJSON = genericParseJSON defaultOptions
 
+-- | Why a 'Leave' client input was rejected. See issue #1813
+-- (dynamic-head-participants).
+data LeaveInvalidReason
+  = -- | The head is not in the 'Open' state, so a leave cannot be requested.
+    LeaveHeadNotOpen
+  | -- | The leaving party is not currently a member of the head.
+    LeaveLeavingPartyNotInHead
+  | -- | Only one party remains; the head must be 'Close'd instead.
+    LeaveLastPartyCannotLeave
+  | -- | Another parameter update is already in flight.
+    LeaveParameterUpdateAlreadyInFlight
+  | -- | A decommit is in flight and cannot overlap with a leave.
+    LeaveIncompatibleWithDecommit
+  | -- | A commit deposit is in flight and cannot overlap with a leave.
+    LeaveIncompatibleWithCommit
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
 -- | Individual messages as produced by the 'Hydra.HeadLogic' in
 -- the 'ClientEffect'.
 data ClientMessage tx
@@ -181,6 +199,17 @@ data ServerOutput tx
   | DecommitInvalid {headId :: HeadId, decommitTx :: tx, decommitInvalidReason :: DecommitInvalidReason tx}
   | DecommitApproved {headId :: HeadId, decommitTxId :: TxIdType tx, utxoToDecommit :: UTxOType tx}
   | DecommitFinalized {headId :: HeadId, distributedUTxO :: UTxOType tx}
+  | -- | A 'Leave' client input was accepted; the parameter change is now
+    -- pending sign-off (issue #1813, dynamic-head-participants).
+    LeaveRequested {headId :: HeadId, leavingParty :: Party}
+  | -- | All parties have signed the snapshot authorizing the leave; the head
+    -- node will post an 'UpdateParametersTx' to finalize.
+    LeaveApproved {headId :: HeadId, leavingParty :: Party}
+  | -- | The on-chain 'UpdateParametersTx' has been observed; the parties
+    -- list of the head is now the supplied 'newParties'.
+    LeaveFinalized {headId :: HeadId, leavingParty :: Party, newParties :: [Party]}
+  | -- | A 'Leave' client input could not be accepted.
+    LeaveInvalid {headId :: HeadId, leavingParty :: Party, reason :: LeaveInvalidReason}
   | -- TODO: Rename to DepositRecorded following the state events naming. But only
     -- do this when changing the endpoint also to /deposits
     CommitRecorded

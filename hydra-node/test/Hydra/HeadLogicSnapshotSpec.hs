@@ -62,6 +62,7 @@ spec = do
             , seenSnapshot = NoSeenSnapshot
             , currentDepositTxId = Nothing
             , decommitTx = Nothing
+            , pendingParameterUpdate = Nothing
             , version = 0
             }
     let sendReqSn :: Effect tx -> Bool
@@ -218,6 +219,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         , seenSnapshot
         , currentDepositTxId = Nothing
         , decommitTx = Nothing
+        , pendingParameterUpdate = Nothing
         , version
         }
     s0 = inOpenState' [alice] st

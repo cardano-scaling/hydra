@@ -119,9 +119,15 @@ run opts = do
                       , nodeId
                       , whichEtcd
                       }
+              -- The accepted-parties set is dynamic (dynamic-head-participants
+              -- feature, issue #1813): a 'ParametersChanged' on chain shrinks
+              -- it. For now we initialize from the static
+              -- 'Environment.otherParties' and pin it; the next milestone
+              -- swaps in a 'TVar' that the 'Node' shell rewrites.
               withNetwork
                 (contramap Network tracer)
                 networkConfiguration
+                (pure otherParties)
                 (wireNetworkInput wetHydraNode)
                 $ \network -> do
                   traceWith tracer' NetworkStarted

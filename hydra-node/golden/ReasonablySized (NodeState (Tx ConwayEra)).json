@@ -629,6 +629,7 @@
                                 }
                             }
                         },
+                        "pendingParameterUpdate": null,
                         "seenSnapshot": {
                             "signatories": {
                                 "71a4822cac306f8d46e2093d83bf013065d70dbc71ceebb32cd4a527c0c5c942": "ff02bd924ddd0ca9209cdb33fea7cd13cad74ffe3a4f52b5b5d4b790e2e046300097dc462d5139a677d6ef096c36b97fc7d72b25e06abbc1d457ac385a189a00"
@@ -1002,7 +1003,7 @@
                             },
                             "tag": "SeenSnapshot"
                         },
-                        "version": 4
+                        "version": 1
                     },
                     "headId": "05080002030000070403010206030101",
                     "headSeed": "07070106080402070600050606070305",
@@ -3144,12 +3145,18 @@
                                 }
                             }
                         },
+                        "pendingParameterUpdate": {
+                            "leavingOnChainId": "08080801050402060603080305050300060802000107070701060307",
+                            "leavingParty": {
+                                "vkey": "89ab4450cc630d34b874cf90ba4e1fb978bbc0d9fcc2cbb840778fbfa248c38c"
+                            }
+                        },
                         "seenSnapshot": {
                             "lastSeen": 1,
                             "requested": 1,
                             "tag": "RequestedSnapshot"
                         },
-                        "version": 1
+                        "version": 4
                     },
                     "headId": "04000404030308050205060401060406",
                     "headSeed": "02050501060705040700010006020500",
@@ -4074,10 +4081,11 @@
                                 }
                             }
                         },
+                        "pendingParameterUpdate": null,
                         "seenSnapshot": {
                             "tag": "NoSeenSnapshot"
                         },
-                        "version": 0
+                        "version": 2
                     },
                     "headId": "07080103000805050806030706080305",
                     "headSeed": "06020204020201070806030703060302",

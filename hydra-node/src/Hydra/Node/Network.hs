@@ -49,9 +49,14 @@ import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersi
 import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
 import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
 import Hydra.Network.Message (Message)
-import Hydra.Tx (IsTx)
+import Hydra.Tx (IsTx, Party)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
+--
+-- The 'STM' action 'readAcceptedParties' yields the current set of accepted
+-- other parties; it is read on every inbound message. For nodes that don't
+-- yet integrate the dynamic-head-participants flow (issue #1813), pass
+-- @pure (otherParties conf)@.
 withNetwork ::
   forall tx.
   IsTx tx =>
@@ -59,18 +64,20 @@ withNetwork ::
   Tracer IO NetworkLog ->
   -- | The network configuration
   NetworkConfiguration ->
+  -- | Current set of accepted other parties (read once per inbound message).
+  STM IO [Party] ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
-withNetwork tracer conf callback action = do
+withNetwork tracer conf readAcceptedParties callback action = do
   withAuthentication
     (contramap Authenticate tracer)
     signingKey
-    otherParties
+    readAcceptedParties
     (withEtcdNetwork (contramap Etcd tracer) currentNetworkProtocolVersion conf)
     callback
     action
  where
-  NetworkConfiguration{signingKey, otherParties} = conf
+  NetworkConfiguration{signingKey} = conf
 
 -- | The latest hydra network protocol version. Used to identify
 -- incompatibilities ahead of time.

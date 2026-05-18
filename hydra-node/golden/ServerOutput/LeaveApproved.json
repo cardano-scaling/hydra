@@ -1,0 +1,12 @@
+{
+    "samples": [
+        {
+            "headId": "00000001000100000000010100010001",
+            "leavingParty": {
+                "vkey": "4e155d410a574b70bd84828244bfcf7014c23993f07f097595b483a715ba1229"
+            },
+            "tag": "LeaveApproved"
+        }
+    ],
+    "seed": 118250588
+}

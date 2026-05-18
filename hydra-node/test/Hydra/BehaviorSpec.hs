@@ -77,6 +77,8 @@ import Test.Hydra.Tx.Fixture (
   aliceSk,
   bob,
   bobSk,
+  carol,
+  carolSk,
   deriveOnChainId,
   testHeadId,
   testHeadSeed,
@@ -990,6 +992,32 @@ spec = parallel $ do
                 HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
                 _ -> Nothing
 
+  describe "Three participant Head (dynamic-head-participants)" $ do
+    -- End-to-end behavior spec for the leave flow (issue #1813).
+    --
+    -- Three nodes open a head together; one of them ('carol') requests to
+    -- leave. The remaining two ('alice', 'bob') multi-sign the leave snapshot,
+    -- and after the simulated chain observes the UpdateParametersTx the
+    -- remaining parties keep producing snapshots over the new (two-party)
+    -- party set.
+    it "a party can leave an open three-party head" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob, carol] chain $ \n1 ->
+            withHydraNode bobSk [alice, carol] chain $ \n2 ->
+              withHydraNode carolSk [alice, bob] chain $ \n3 -> do
+                openHead3 n1 n2 n3
+                -- Carol requests to leave; we expect alice/bob to see
+                -- LeaveFinalized once the simulated chain observes the
+                -- UpdateParametersTx.
+                send n3 Leave
+                waitUntilMatch [n1, n2] $ \case
+                  LeaveFinalized{leavingParty, newParties} ->
+                    guard $
+                      leavingParty == carol
+                        && sortNub newParties == sortNub [alice, bob]
+                  _ -> Nothing
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -1358,6 +1386,14 @@ toOnChainTx now = \case
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
   FinalPartialFanoutTx{utxoToDistribute} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
+  UpdateParametersTx{headId, updateParametersSnapshot, parameterUpdate} ->
+    OnUpdateParametersTx
+      { headId
+      , newVersion = version + 1
+      , parameterUpdate
+      }
+   where
+    Snapshot{version} = getSnapshot updateParametersSnapshot
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
@@ -1517,6 +1553,15 @@ openHead2 ::
 openHead2 n1 n2 = do
   send n1 Init
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, parties = fromList [alice, bob]}
+
+openHead3 ::
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead3 n1 n2 n3 = do
+  send n1 Init
+  waitUntil [n1, n2, n3] $ HeadIsOpen{headId = testHeadId, parties = fromList [alice, bob, carol]}
 
 depositHead ::
   SimulatedChainNetwork SimpleTx (IOSim s) ->

@@ -22,7 +22,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
   httpApp,
  )
-import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
+import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), LeaveInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
 import Hydra.Cardano.Api (
   UTxO,
@@ -832,6 +832,105 @@ apiServerSpec = do
           )
           $ do
             post "/decommit" (encode tx) `shouldRespondWith` 503
+
+    describe "DELETE /participants/me (dynamic-head-participants)" $ do
+      it "returns 202 on timeout" $ do
+        responseChannel <- newTChanIO
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ pure ())
+              0
+              responseChannel
+          )
+          $ do
+            delete "/participants/me" `shouldRespondWith` 202
+
+      it "returns 200 on LeaveFinalized" $ do
+        responseChannel <- newTChanIO
+        let leavingPty = generateWith arbitrary 42
+        now' <- getCurrentTime
+        let event =
+              TimedServerOutput
+                { output =
+                    LeaveFinalized
+                      { headId = generateWith arbitrary 42
+                      , leavingParty = leavingPty
+                      , newParties = []
+                      }
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left event))
+              10
+              responseChannel
+          )
+          $ do
+            delete "/participants/me" `shouldRespondWith` 200
+
+      it "returns 400 on LeaveInvalid" $ do
+        responseChannel <- newTChanIO
+        now' <- getCurrentTime
+        let invalid =
+              TimedServerOutput
+                { output =
+                    LeaveInvalid
+                      { headId = generateWith arbitrary 42
+                      , leavingParty = generateWith arbitrary 42
+                      , reason = LeaveLastPartyCannotLeave
+                      }
+                , seq = 0
+                , time = now'
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left invalid))
+              10
+              responseChannel
+          )
+          $ do
+            delete "/participants/me" `shouldRespondWith` 400
+
+      it "returns 503 on RejectedInputBecauseUnsynced" $ do
+        responseChannel <- newTChanIO
+        let clientFailed = RejectedInputBecauseUnsynced{clientInput = Leave :: ClientInput SimpleTx, drift = 10}
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inUnsyncedIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Right clientFailed))
+              10
+              responseChannel
+          )
+          $ do
+            delete "/participants/me" `shouldRespondWith` 503
 
     describe "DELETE /commits/:txid full unencoded TxId" $ do
       it "returns 202 on timeout" $ do

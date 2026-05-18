@@ -1,0 +1,45 @@
+# CLAUDE.log — dynamic-head-participants rebase onto master
+
+## 2026-06-02 — Session start
+
+User asked: rebase `dynamic-head-participants` onto current `master` and
+iterate on tests until they pass.
+
+### Inventory
+- merge-base: `eb32586311947e9b6108fa2c3de2938ee2e9e704`
+- branch: 23 commits since base (dynamic-head-participants feature work)
+- master: 155 commits since base (Partial Fanout, KZG removal, TUI
+  refactor, tasty test migration, etcd refactor, large HeadLogic edits)
+
+### Strategy chosen (with user)
+1. Pre-squash branch's 23 commits into 5 cluster commits while still
+   off-master (no conflicts at this step).
+2. `git rebase master` on those 5 commits — 5 conflict resolutions
+   instead of 23.
+3. Preserve-intent adaptation latitude (re-target branch changes onto
+   master's new module shapes; do NOT drag in textual diffs whose
+   anchors disappeared).
+4. Single tail fixup commit for build/test/golden/format adjustments.
+5. Regenerate Plutus scripts + golden files at the end.
+6. NO push without explicit per-turn authorization.
+
+### Safety net (done)
+- Tag `pre-rebase-dynamic-head-participants` at original tip.
+- Branch `backup/dynamic-head-participants-prerebase` at original tip.
+
+### Cluster definitions
+- A: Tx primitive (Snapshot signing, ParameterUpdate, Plutus validator,
+     protocol bump) — 3 commits
+- B: Phase 1 Leave (API, node state, handlers, persistence bump,
+     behavior test) — 9 commits
+- C: Phase 2 Join — 1 commit
+- D: Chain + etcd + side-load + joining-party catch-up — 5 commits
+- E: Demo + TUI alive-peers fix + lint — 5 commits
+
+### Open questions for later
+- Plutus script regen recipe — TBD; will inspect justfile when at Step 3.
+- Whether the tail fixup commit should also include the demo `nix fmt`
+  drift, or whether that gets folded into cluster E. Decision: cluster
+  E re-runs `nix fmt` at the cluster boundary so demo files stay
+  formatted at that commit; final tail fixup is for tasty migration +
+  regenerated `.plutus`/goldens only.

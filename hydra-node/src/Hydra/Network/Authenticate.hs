@@ -44,31 +44,38 @@ instance FromCBOR msg => FromCBOR (Signed msg) where
 -- and verify signed messages upon receiving.
 -- Only verified messages are pushed downstream to the internal network for the
 -- node to consume and process. Non-verified messages get discarded.
+--
+-- The accepted-parties set is provided as an 'STM' action rather than a static
+-- list so that a node can shrink (or grow, in Phase 2) the live party set at
+-- runtime, e.g. after observing a 'ParametersChanged' on chain (issue #1813,
+-- dynamic-head-participants). Each inbound message is checked against a fresh
+-- snapshot of the accepted set.
 withAuthentication ::
   ( SignableRepresentation inbound
   , ToJSON inbound
   , SignableRepresentation outbound
+  , MonadSTM m
   ) =>
   Tracer m AuthLog ->
   -- The party signing key
   SigningKey HydraKey ->
-  -- Other party members
-  [Party] ->
+  -- Accepted other party members. Read once per inbound message.
+  STM m [Party] ->
   -- The underlying raw network.
   NetworkComponent m (Signed inbound) (Signed outbound) a ->
   -- The node internal authenticated network.
   NetworkComponent m (Authenticated inbound) outbound a
-withAuthentication tracer signingKey parties withRawNetwork NetworkCallback{deliver, onConnectivity} action = do
+withAuthentication tracer signingKey readOtherParties withRawNetwork NetworkCallback{deliver, onConnectivity} action = do
   withRawNetwork NetworkCallback{deliver = checkSignature, onConnectivity} authenticate
  where
-  checkSignature (Signed msg sig party@Party{vkey = partyVkey}) =
+  checkSignature (Signed msg sig party@Party{vkey = partyVkey}) = do
+    parties <- atomically readOtherParties
+    let allParties = me : parties
     if verify partyVkey sig msg && party `elem` allParties
       then deliver $ Authenticated msg party
       else traceWith tracer (mkAuthLog msg sig party)
 
   me = deriveParty signingKey
-
-  allParties = me : parties
 
   authenticate Network{broadcast} =
     action $

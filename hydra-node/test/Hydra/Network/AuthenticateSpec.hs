@@ -1,7 +1,7 @@
 module Hydra.Network.AuthenticateSpec where
 
 import Cardano.Crypto.Util (SignableRepresentation)
-import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO), modifyTVar')
+import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVar, readTVarIO, writeTVar), modifyTVar')
 import Control.Monad.IOSim (runSimOrThrow)
 import Data.ByteString (pack)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -45,7 +45,7 @@ spec = parallel $ do
             @(Message SimpleTx)
             nullTracer
             aliceSk
-            [bob]
+            (pure [bob])
             ( \NetworkCallback{deliver} _ -> do
                 deliver (Signed msg (sign bobSk msg) bob)
             )
@@ -67,7 +67,7 @@ spec = parallel $ do
             @(Message SimpleTx)
             nullTracer
             aliceSk
-            [bob]
+            (pure [bob])
             ( \NetworkCallback{deliver} _ -> do
                 deliver (Signed msg (sign aliceSk msg) alice)
                 deliver (Signed msg (sign bobSk msg) bob)
@@ -90,7 +90,7 @@ spec = parallel $ do
             @(Message SimpleTx)
             nullTracer
             aliceSk
-            [bob, carol]
+            (pure [bob, carol])
             ( \NetworkCallback{deliver} _ -> do
                 deliver (Signed msg (sign carolSk msg) bob)
             )
@@ -112,7 +112,7 @@ spec = parallel $ do
             @(Message SimpleTx)
             nullTracer
             bobSk
-            []
+            (pure [])
             (captureOutgoing sentMessages)
             noopCallback
             $ \Network{broadcast} -> do
@@ -136,7 +136,7 @@ spec = parallel $ do
             @(Message SimpleTx)
             tracer
             aliceSk
-            [bob, carol]
+            (pure [bob, carol])
             (\NetworkCallback{deliver} _ -> deliver signedMsg)
             noopCallback
             $ \_ ->
@@ -145,6 +145,37 @@ spec = parallel $ do
           readTVarIO traces
 
     (message <$> traced) `shouldContain` [mkAuthLog msg signature bob]
+
+  it "drops messages from a party that was just removed from the live set" $ do
+    -- dynamic-head-participants (issue #1813): the accepted-parties set is
+    -- an 'STM' action; after we shrink it via 'writeTVar', subsequent
+    -- inbound messages from the removed party must be rejected.
+    let receivedMsgs = runSimOrThrow $ do
+          receivedMessages <- newLabelledTVarIO "received-msgs" []
+          accepted <- newLabelledTVarIO "accepted-parties" [bob, carol]
+
+          withAuthentication
+            @(Message SimpleTx)
+            @(Message SimpleTx)
+            nullTracer
+            aliceSk
+            (readTVar accepted)
+            ( \NetworkCallback{deliver} _ -> do
+                deliver (Signed msg (sign bobSk msg) bob)
+                -- Carol leaves the head: she is removed from the accepted set.
+                atomically $ writeTVar accepted [bob]
+                -- A subsequent message from Carol must be dropped.
+                deliver (Signed msg (sign carolSk msg) carol)
+                -- Bob remains accepted.
+                deliver (Signed msg (sign bobSk msg) bob)
+            )
+            (captureIncoming receivedMessages)
+            $ \_ ->
+              threadDelay 1
+
+          readTVarIO receivedMessages
+
+    receivedMsgs `shouldBe` [Authenticated msg bob, Authenticated msg bob]
 
   describe "Serialization" $ do
     prop "can roundtrip CBOR encoding/decoding of Signed Hydra Message" $
