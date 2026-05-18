@@ -42,7 +42,7 @@ import Hydra.TUI.Model
 import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Style (own)
 import Hydra.Tx (IsTx (..), Snapshot (..))
-import Lens.Micro ((^.), (^?))
+import Lens.Micro ((^.), (^?), _Just)
 import Lens.Micro.Mtl (use, (%=), (.=))
 
 handleEvent ::
@@ -166,14 +166,30 @@ handleEvent cardanoClient client chan = \case
           handleVtyEventsHeadState cardanoClient client chan e
       EvKey (KChar 'r') [] | not modalOpen -> do
         tab <- use activeTabL
-        zoom (connectedStateL . connectionL . headStateL) $
-          handleVtyEventsHeadState cardanoClient client chan e
-        newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
-        case newOpenScreen of
-          Just (SelectingDepositIdToRecover _) -> do
-            previousTabL .= tab
-            activeTabL .= ModalTab
-          _ -> pure ()
+        mActiveHeadState <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL)
+        case mActiveHeadState of
+          Just (Open _) -> do
+            zoom (connectedStateL . connectionL . headStateL) $
+              handleVtyEventsHeadState cardanoClient client chan e
+            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            case newOpenScreen of
+              Just (SelectingDepositIdToRecover _) -> do
+                previousTabL .= tab
+                activeTabL .= ModalTab
+              _ -> pure ()
+          Just _ -> do
+            mPending <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL)
+            case mPending of
+              Just pis@(_ : _) -> do
+                let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pis
+                case depositIdRadioField pendingDepositIds of
+                  Just form -> do
+                    recoveryFormL .= Just form
+                    previousTabL .= tab
+                    activeTabL .= ModalTab
+                  Nothing -> pure ()
+              _ -> pure ()
+          Nothing -> pure ()
       EvKey KRight []
         | not modalOpen -> do
             activeTabL %= cycleTab
@@ -193,12 +209,21 @@ handleEvent cardanoClient client chan = \case
             let closeModal = do
                   prev <- use previousTabL
                   activeTabL .= prev
+                  recoveryFormL .= Nothing
                   zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
                     put OpenHome
-            case e of
-              EvKey KEsc [] -> closeModal
-              EvKey (KChar 'c') [] -> closeModal
-              _ -> do
+            currentRecoveryForm <- use recoveryFormL
+            case (currentRecoveryForm, e) of
+              (Just _, EvKey KEsc []) -> closeModal
+              (Just _, EvKey (KChar 'c') []) -> closeModal
+              (Just form, EvKey KEnter []) -> do
+                let (selectedTxId, _, _) = formState form
+                liftIO $ recoverCommit client selectedTxId
+                closeModal
+              (Just _, _) -> zoom (recoveryFormL . _Just) $ handleFormEvent (VtyEvent e)
+              (Nothing, EvKey KEsc []) -> closeModal
+              (Nothing, EvKey (KChar 'c') []) -> closeModal
+              (Nothing, _) -> do
                 -- Set pending action for close confirmation
                 openScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
                 case (openScreen, e) of

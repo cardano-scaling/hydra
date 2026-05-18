@@ -50,6 +50,7 @@ data RootState = RootState
   , l1UTxO :: Maybe (Map TxIn (TxOut CtxUTxO))
   , previousTab :: ActiveTab
   , theme :: Theme
+  , recoveryForm :: Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
   }
 
 -- | Connection to the hydra node.
@@ -152,7 +153,7 @@ data ActiveHeadState
 type Name = Text
 
 data ActiveTab = MainTab | FundsTab | EventHistoryTab | ModalTab
-  deriving (Eq)
+  deriving stock (Eq)
 
 makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
@@ -186,6 +187,7 @@ makeLensesFor
   , ("l1UTxO", "l1UTxOL")
   , ("previousTab", "previousTabL")
   , ("theme", "themeL")
+  , ("recoveryForm", "recoveryFormL")
   ]
   ''RootState
 

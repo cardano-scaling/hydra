@@ -6,6 +6,7 @@ module Hydra.TUI.Drawing where
 import Hydra.Prelude hiding (Down, State)
 
 import Brick
+import Brick.Forms (renderForm)
 import Brick.Widgets.Border (borderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Data.Text qualified as T
@@ -94,9 +95,11 @@ drawModalTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawModalTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel (withAttr neutral $ txt (" " <> modalTabLabel s <> " ")) $
     padLeftRight 1 $
-      case s ^. connectedStateL of
-        Disconnected -> emptyWidget
-        Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
+      case s ^. recoveryFormL of
+        Just form -> renderForm form
+        Nothing -> case s ^. connectedStateL of
+          Disconnected -> emptyWidget
+          Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k
 
 drawActionBar :: RootState -> Widget n
 drawActionBar s =
@@ -127,13 +130,16 @@ drawActionBar s =
           else case (s ^. activeTabL, activeHeadState) of
             (EventHistoryTab, _) -> [("d", " raw/summary"), ("Q", "uit")]
             (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "ecover"), ("U", "pdate")]
-            (FundsTab, Closed{}) -> [("U", "pdate"), ("Q", "uit")]
-            (FundsTab, FanoutPossible{}) -> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
-            (FundsTab, Final{}) -> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
+            (FundsTab, Closed{}) -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
+            (FundsTab, FanoutPossible{}) -> recoverIf <> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
+            (FundsTab, Final{}) -> recoverIf <> [("I", "nit"), ("U", "pdate"), ("Q", "uit")]
             (_, Open{}) -> [("N", "ew Tx"), ("D", "ecommit"), ("I", "ncrement"), ("R", "ecover"), ("C", "lose"), ("Q", "uit")]
-            (_, Closed{}) -> [("Q", "uit")]
-            (_, FanoutPossible{}) -> [("F", "anout"), ("Q", "uit")]
-            (_, Final{}) -> [("I", "nit"), ("Q", "uit")]
+            (_, Closed{}) -> recoverIf <> [("Q", "uit")]
+            (_, FanoutPossible{}) -> recoverIf <> [("F", "anout"), ("Q", "uit")]
+            (_, Final{}) -> recoverIf <> [("I", "nit"), ("Q", "uit")]
+  recoverIf = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL of
+    Just (_ : _) -> [("R", "ecover")]
+    _ -> []
 
   drawAction :: (Text, Text) -> Widget n
   drawAction (key, rest) = withAttr keyA (txt key) <+> withAttr actionDescA (txt rest)

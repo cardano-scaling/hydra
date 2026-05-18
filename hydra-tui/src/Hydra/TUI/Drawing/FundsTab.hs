@@ -66,9 +66,9 @@ drawFocusPanel networkId vk now (Connection{headState}) = case headState of
   Idle -> withAttr neutral $ txt "Head is idle."
   Active (ActiveLink{utxo, pendingUTxOToDecommit, pendingIncrements, activeHeadState}) -> case activeHeadState of
     Open x -> drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now x
-    Closed x -> drawFocusPanelClosed networkId vk utxo now x
-    FanoutPossible -> drawFocusPanelFanout networkId vk utxo
-    Final -> drawFocusPanelFinal networkId vk utxo
+    Closed x -> drawFocusPanelClosed networkId vk utxo pendingIncrements now x
+    FanoutPossible -> drawFocusPanelFanout networkId vk utxo pendingIncrements now
+    Final -> drawFocusPanelFinal networkId vk utxo pendingIncrements now
 
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> [PendingIncrement] -> UTCTime -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now = \case
@@ -96,31 +96,40 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
  where
   ownAddress = mkVkAddress networkId vk
 
-drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTCTime -> ClosedState -> Widget Name
-drawFocusPanelClosed networkId vk utxo now (ClosedState{contestationDeadline}) =
+drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> ClosedState -> Widget Name
+drawFocusPanelClosed networkId vk utxo pendingIncrements now (ClosedState{contestationDeadline}) =
   vBox
     [ drawRemainingContestationPeriod contestationDeadline now
     , withAttr neutral (txt "Active UTxO")
     , drawUTxO (highlightOwnAddress ownAddress) utxo
+    , hBorder
+    , withAttr neutral (txt "Pending commits")
+    , drawPendingIncrement ownAddress pendingIncrements now
     ]
  where
   ownAddress = mkVkAddress networkId vk
 
-drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
-drawFocusPanelFanout networkId vk utxo =
+drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
+drawFocusPanelFanout networkId vk utxo pendingIncrements now =
   vBox
     [ drawFanoutPossibleMessage
     , withAttr neutral (txt "Active UTxO")
     , drawUTxO (highlightOwnAddress ownAddress) utxo
+    , hBorder
+    , withAttr neutral (txt "Pending commits")
+    , drawPendingIncrement ownAddress pendingIncrements now
     ]
  where
   ownAddress = mkVkAddress networkId vk
 
-drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
-drawFocusPanelFinal networkId vk utxo =
+drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
+drawFocusPanelFinal networkId vk utxo pendingIncrements now =
   vBox
     [ drawHeadFinalizedMessage utxo
     , padLeft (Pad 2) (drawUTxO (highlightOwnAddress ownAddress) utxo)
+    , hBorder
+    , withAttr neutral (txt "Pending commits")
+    , drawPendingIncrement ownAddress pendingIncrements now
     ]
  where
   ownAddress = mkVkAddress networkId vk
