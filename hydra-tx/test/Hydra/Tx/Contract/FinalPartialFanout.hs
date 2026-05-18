@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -24,8 +24,10 @@ import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize)
 import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
+import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
@@ -122,6 +124,10 @@ data FinalPartialFanoutMutation
   | -- | Claiming fewer outputs in the redeemer than are actually in the tx
     -- uses a different scalar set, breaking the membership proof
     MutateFinalPartialFanoutOutputCount
+  | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
+    -- Currently passes because withCRSLookup does not authenticate the reference script.
+    -- Expected to fail with InvalidCRSRefScript.
+    MutateFinalPartialFanoutFakeCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -163,6 +169,33 @@ genFinalPartialFanoutMutation (tx, _utxo) =
                   , Head.proof = dummyProof
                   , Head.crsRef = crsRef
                   }
+    , SomeMutation (pure $ toErrorCode InvalidCRSRefScript) MutateFinalPartialFanoutFakeCRS <$> do
+        -- Build a fake CRS UTxO: same datum as the real CRS but at an attacker's
+        -- address with no reference script. The G2 data is valid so the pairing
+        -- check passes, but the script-hash guard (once added) rejects it.
+        let ScriptRegistry{crsReference = (_, legitCRSOut)} = scriptRegistry
+            fakeCRSDatum = txOutDatum legitCRSOut
+        fakeCRSIn <- arbitrary `suchThat` (/= fst (crsReference scriptRegistry))
+        someAddress <- genAddressInEra testNetworkId
+        let fakeCRSOut = TxOut someAddress (txOutValue legitCRSOut) fakeCRSDatum ReferenceScriptNone
+            realProof =
+              bls12_381_G1_uncompress $
+                toBuiltin $
+                  Accumulator.createMembershipProofFromUTxO @Tx
+                    healthyDistributeUTxO
+                    healthyRemainingAccumulator
+                    (Accumulator.crsG1Points crsSize)
+            fakeRedeemer =
+              Head.FinalPartialFanout
+                { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
+                , Head.proof = realProof
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
     ]
  where
   burntTokens =

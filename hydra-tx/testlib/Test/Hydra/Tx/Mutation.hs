@@ -133,14 +133,14 @@ import Hydra.Cardano.Api hiding (label)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
+import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, referenceInputsTxBodyL, reqSignerHashesTxBodyL)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Control.Exception (assert)
-import Control.Lens (set, view, (.~), (^.))
+import Control.Lens (over, set, view, (.~), (^.))
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -283,6 +283,10 @@ data Mutation
   | -- | Change the included minting policy (the first minted policy) and update
     -- minted/burned values of this policy.
     ChangeMintingPolicy PlutusScript
+  | -- | Adds a reference input to the transaction body and the UTxO context.
+    -- Useful to simulate an attacker supplying a malicious reference UTxO
+    -- (e.g. a fake CRS) while pointing the redeemer at it.
+    AddReferenceInput TxIn (TxOut CtxUTxO)
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -478,6 +482,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         scripts
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+  AddReferenceInput txIn txOut ->
+    (Tx body' wits, UTxO $ Map.insert txIn txOut (UTxO.toMap utxo))
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' =
+      ledgerBody
+        & over Cardano.Ledger.Api.referenceInputsTxBodyL (Set.insert (toLedgerTxIn txIn))
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
  where

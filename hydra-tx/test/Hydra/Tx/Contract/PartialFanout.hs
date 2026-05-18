@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutMembershipFailed))
+import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutMembershipFailed))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
@@ -18,7 +18,7 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Gen ()
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (registryUTxO)
+import Hydra.Tx (ScriptRegistry (..), registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
@@ -36,6 +36,9 @@ import Test.QuickCheck.Instances ()
 -- | Build a healthy partial fanout transaction with a given input head state.
 -- Used for both the Closed → FanoutProgress and FanoutProgress → FanoutProgress cases,
 -- which share identical transaction structure and only differ in the input datum type.
+scriptRegistry :: ScriptRegistry
+scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
+
 healthyPartialFanoutTxWith :: Head.State -> (Tx, UTxO)
 healthyPartialFanoutTxWith inputState = (tx, lookupUTxO)
  where
@@ -51,8 +54,6 @@ healthyPartialFanoutTxWith inputState = (tx, lookupUTxO)
       healthySlotNo
       healthyProgressDatum
       remainingAccumulator
-
-  scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
   headInput = generateWith arbitrary 42
 
@@ -164,6 +165,10 @@ data PartialFanoutMutation
     MutatePartialFanoutChangedParameters
   | -- | Continuing datum must carry the correct remaining accumulator commitment
     MutatePartialFanoutWrongAccumulator
+  | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
+    -- Currently passes because withCRSLookup does not authenticate the reference script.
+    -- Expected to fail with InvalidCRSRefScript.
+    MutatePartialFanoutFakeCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -210,6 +215,25 @@ genPartialFanoutMutation (tx, _utxo) =
             -- so putting it in the output invalidates the KZG membership proof.
             wrongCommitment = Accumulator.getAccumulatorCommitment fullAccumulator
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment) headOut
+    , SomeMutation (pure $ toErrorCode InvalidCRSRefScript) MutatePartialFanoutFakeCRS <$> do
+        -- Build a fake CRS UTxO: same datum as the real CRS but at an attacker's
+        -- address with no reference script. The pairing check still passes because
+        -- the G2 data is valid, but the script-hash guard (once added) rejects it.
+        let ScriptRegistry{crsReference = (_, legitCRSOut)} = scriptRegistry
+            fakeCRSDatum = txOutDatum legitCRSOut
+        fakeCRSIn <- arbitrary `suchThat` (/= fst (crsReference scriptRegistry))
+        someAddress <- genAddressInEra testNetworkId
+        let fakeCRSOut = TxOut someAddress (txOutValue legitCRSOut) fakeCRSDatum ReferenceScriptNone
+            fakeRedeemer =
+              Head.PartialFanout
+                { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
