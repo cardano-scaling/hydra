@@ -50,7 +50,6 @@ healthyFanoutTx =
       (fst healthyFanoutSnapshotUTxO)
       Nothing
       (Just $ snd healthyFanoutSnapshotUTxO)
-      healthyFanoutSnapshotAccumulator
       (headInput, headOutput)
       healthySlotNo
       headTokenScript

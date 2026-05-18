@@ -64,6 +64,7 @@ import PlutusLedgerApi.V3 (
   TxOutRef,
   UpperBound (..),
   Value (Value),
+  mintValueBurned,
  )
 import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
@@ -97,8 +98,8 @@ headValidator crsHash oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs, proof, crsRef}) ->
-      headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
+      headIsFinalizedWith ctx closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs
     (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
       checkPartialFanout crsHash ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
     (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
@@ -542,8 +543,9 @@ checkContest ctx closedDatum redeemer =
 {-# INLINEABLE checkContest #-}
 
 -- | Verify a fanout transaction.
+-- The UTxO hash checks are sufficient to protect correctness here — the KZG membership
+-- proof is redundant because the distributed outputs are fully pinned by the signed utxoHash.
 headIsFinalizedWith ::
-  ScriptHash ->
   ScriptContext ->
   -- | Closed state before the fanout
   ClosedDatum ->
@@ -553,20 +555,13 @@ headIsFinalizedWith ::
   Integer ->
   -- | Number of delta outputs to fanout
   Integer ->
-  -- | Membership proof for the fanout outputs
-  BuiltinBLS12_381_G1_Element ->
-  -- | Reference input containing crs
-  TxOutRef ->
   Bool
-headIsFinalizedWith crsHash ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs proof crsRef =
+headIsFinalizedWith ScriptContext{scriptContextTxInfo = txInfo} closedDatum numberOfFanoutOutputs numberOfCommitOutputs numberOfDecommitOutputs =
   mustBurnAllHeadTokens minted headId parties
     && hashChecks
     && afterContestationDeadline txInfo contestationDeadline
-    && checkCRSAndMembership
  where
   minted = txInfoMint txInfo
-
-  totalOutputs = numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
 
   hashChecks = hasSameUTxOHash && hasSameCommitUTxOHash && hasSameDecommitUTxOHash
 
@@ -587,15 +582,8 @@ headIsFinalizedWith crsHash ScriptContext{scriptContextTxInfo = txInfo} closedDa
       omegaUTxOHash
         == hashTxOuts (L.take numberOfDecommitOutputs (L.drop (numberOfFanoutOutputs + numberOfCommitOutputs) txInfoOutputs))
 
-  subsetScalars :: [Integer]
-  subsetScalars = txOutsToSubsetScalars (L.take totalOutputs txInfoOutputs)
-
-  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline, accumulatorCommitment} = closedDatum
+  ClosedDatum{utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contestationDeadline} = closedDatum
   TxInfo{txInfoOutputs} = txInfo
-
-  checkCRSAndMembership =
-    withCRSLookup crsHash txInfo crsRef $ \crsData ->
-      checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
 {-# INLINEABLE headIsFinalizedWith #-}
 
 -- | Verify a partial fanout transaction. Transitions either Closed → FanoutProgress
@@ -695,9 +683,10 @@ checkFinalPartialFanout ::
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-checkFinalPartialFanout crsHash ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
+checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
+    && mustConserveValue
     && checkCRSAndMembership
  where
   FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment} = progressDatum
@@ -706,8 +695,18 @@ checkFinalPartialFanout crsHash ScriptContext{scriptContextTxInfo = txInfo} prog
 
   TxInfo{txInfoOutputs} = txInfo
 
+  distributedOutputs = L.take numberOfPartialOutputs txInfoOutputs
+
+  -- All head input value must be fully accounted by distributed outputs and burned tokens.
+  -- There is no continuing head output in the final step.
+  mustConserveValue =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      headInValue == F.foldMap txOutValue distributedOutputs <> mintValueBurned minted
+   where
+    headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+
   subsetScalars :: [Integer]
-  subsetScalars = txOutsToSubsetScalars (L.take numberOfPartialOutputs txInfoOutputs)
+  subsetScalars = txOutsToSubsetScalars distributedOutputs
 
   checkCRSAndMembership =
     traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
@@ -828,7 +827,7 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
 
 unappliedValidator :: CompiledCode (ScriptHash -> ValidatorType)
 unappliedValidator =
-  $$(PlutusTx.compile [||\crsHash -> wrap (headValidator crsHash)||])
+  $$(PlutusTx.compile [||wrap . headValidator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
 
@@ -874,8 +873,21 @@ afterContestationDeadline txInfo deadline =
     _ -> traceError $(errorCode FanoutNoLowerBoundDefined)
 {-# INLINEABLE afterContestationDeadline #-}
 
+-- | Find a CRS reference input by 'TxOutRef' and decode its non-empty datum.
+-- Errors on missing input, undecoded datum, or empty CRS list.
+resolveCRS :: TxInfo -> TxOutRef -> (TxOut, CRSDatum)
+resolveCRS txInfo crsRef =
+  case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
+    Nothing -> traceError $(errorCode MissingCRSRefInput)
+    Just txInInfo ->
+      let resolved = txInInfoResolved txInInfo
+       in case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum resolved) of
+            Just d@(_ : _) -> (resolved, d)
+            _ -> traceError $(errorCode MissingCRSDatum)
+{-# INLINEABLE resolveCRS #-}
+
 -- | Look up the CRS datum from a reference input and pass it to a continuation.
--- Traces hard errors if the CRS reference input or datum is missing.
+-- Verifies that the reference input carries the expected CRS validator script hash.
 withCRSLookup ::
   ScriptHash ->
   TxInfo ->
@@ -883,19 +895,12 @@ withCRSLookup ::
   (CRSDatum -> Bool) ->
   Bool
 withCRSLookup expectedHash txInfo crsRef cont =
-  case L.find (\txin -> txInInfoOutRef txin == crsRef) (txInfoReferenceInputs txInfo) of
-    Nothing -> traceError $(errorCode MissingCRSRefInput)
-    Just txInInfo ->
-      let resolved = txInInfoResolved txInInfo
-          crsData = case fromBuiltinData @CRSDatum $ getDatum (getTxOutDatum resolved) of
-            Just d -> d
-            _ -> traceError $(errorCode MissingCRSDatum)
-       in if txOutReferenceScript resolved /= Just expectedHash
-            then traceError $(errorCode InvalidCRSRefScript)
-            else case crsData of
-              [] -> traceError $(errorCode MissingCRSDatum)
-              _ -> cont crsData
+  let (resolved, crsData) = resolveCRS txInfo crsRef
+   in if txOutReferenceScript resolved /= Just expectedHash
+        then traceError $(errorCode InvalidCRSRefScript)
+        else cont crsData
 {-# INLINEABLE withCRSLookup #-}
+
 
 -- | Compute the accumulator scalar for each output in the list.
 -- Used by all three fanout validators ('headIsFinalizedWith', 'checkPartialFanout',

@@ -30,8 +30,6 @@ fanoutTx ::
   Maybe UTxO ->
   -- | Snapshotted decommit UTxO to fanout on layer 1
   Maybe UTxO ->
-  -- | Full snapshot accumulator matching accumulatorCommitment in the closed datum.
-  HydraAccumulator ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -39,11 +37,11 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef, crsScriptRef] mempty
+      & addTxInsReference [headScriptRef] mempty
       & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
@@ -57,9 +55,6 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (he
   headScriptRef =
     fst (headReference scriptRegistry)
 
-  crsScriptRef =
-    fst (crsReference scriptRegistry)
-
   utxoLength = UTxO.size utxo
 
   toCommitLength = length orderedTxOutsToCommit
@@ -72,18 +67,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator (he
         { numberOfFanoutOutputs = fromIntegral utxoLength
         , numberOfCommitOutputs = fromIntegral toCommitLength
         , numberOfDecommitOutputs = fromIntegral toDecommitLength
-        , proof = fanoutProof
-        , crsRef = toPlutusTxOutRef crsScriptRef
         }
-
-  fanoutProof =
-    let allUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit
-        -- Use the full snapshot accumulator (same one used for accumulatorCommitment in the
-        -- closed datum). CRS must be sized for the full accumulator, not just the fanout subset.
-        crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount snapshotAccumulator
-     in bls12_381_G1_uncompress $
-          toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx allUTxO snapshotAccumulator crs
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)

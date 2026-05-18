@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -128,6 +128,9 @@ data FinalPartialFanoutMutation
     -- Currently passes because withCRSLookup does not authenticate the reference script.
     -- Expected to fail with InvalidCRSRefScript.
     MutateFinalPartialFanoutFakeCRS
+  | -- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's value
+    -- is left unaccounted.
+    MutateFinalPartialFanoutStealAda
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -196,6 +199,28 @@ genFinalPartialFanoutMutation (tx, _utxo) =
             [ AddReferenceInput fakeCRSIn fakeCRSOut
             , ChangeHeadRedeemer fakeRedeemer
             ]
+    , -- Claim one fewer output than the tx actually distributes, with a recomputed
+      -- valid proof. The N-th UTxO's value is left unaccounted — no value conservation
+      -- check currently catches this.
+      pure $
+        SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateFinalPartialFanoutStealAda $
+          let n = UTxO.size healthyDistributeUTxO - 1
+              distributedMinus1 = UTxO.fromList $ take n $ UTxO.toList healthyDistributeUTxO
+              proof =
+                bls12_381_G1_uncompress $
+                  toBuiltin $
+                    Accumulator.createMembershipProofFromUTxO @Tx
+                      distributedMinus1
+                      healthyRemainingAccumulator
+                      (Accumulator.crsG1Points crsSize)
+              ScriptRegistry{crsReference} = scriptRegistry
+              crsRef = toPlutusTxOutRef (fst crsReference)
+           in ChangeHeadRedeemer
+                Head.FinalPartialFanout
+                  { Head.numberOfPartialOutputs = fromIntegral n
+                  , Head.proof = proof
+                  , Head.crsRef = crsRef
+                  }
     ]
  where
   burntTokens =

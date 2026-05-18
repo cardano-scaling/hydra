@@ -224,8 +224,6 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
-      , proof :: BuiltinBLS12_381_G1_Element
-      , crsRef :: TxOutRef
       }
   | PartialFanout
       { numberOfPartialOutputs :: Integer

@@ -501,7 +501,7 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccum
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- extractProgressDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
-  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit snapshotAccumulator closedThreadUTxO deadlineSlotNo headTokenScript
+  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
