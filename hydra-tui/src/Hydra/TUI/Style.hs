@@ -111,7 +111,3 @@ lightStyle _ =
     , (focusedFormInputAttr, fg blue)
     , (invalidFormInputAttr, fg red)
     ]
-
--- | Backwards-compatible alias; defaults to the dark theme.
-style :: s -> AttrMap
-style = darkStyle

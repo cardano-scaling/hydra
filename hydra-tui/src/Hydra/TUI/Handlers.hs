@@ -37,7 +37,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State qualified as NodeState
 import Hydra.TUI.Config (TuiConfig (..), toggleTheme, writeConfig)
 import Hydra.TUI.Forms
-import Hydra.TUI.Logging.Types (LogMessage, logMessagesL)
+import Hydra.TUI.Logging.Types (EventHistoryFilter (..), LogMessage (..), Severity (..), logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.RenderMessage (renderMessage, toLogMessage)
 import Hydra.TUI.Style (own)
@@ -135,6 +135,14 @@ handleEvent cardanoClient client chan = \case
           Just (ConfirmingClose _) -> do
             previousTabL .= tab
             activeTabL .= ModalTab
+          _ -> pure ()
+      EvKey (KChar 'e') [] | not modalOpen -> do
+        tab <- use activeTabL
+        case tab of
+          EventHistoryTab -> do
+            eventHistoryFilterL %= toggleEventHistoryFilter
+            eventHistoryListL %= BrickList.listMoveTo 0
+            syncEventHistoryList
           _ -> pure ()
       EvKey (KChar 'd') [] | not modalOpen -> do
         tab <- use activeTabL
@@ -616,15 +624,27 @@ handleVtyEventsScrollable e = do
 syncEventHistoryList :: EventM Name RootState ()
 syncEventHistoryList = do
   msgs <- use (logStateL . logMessagesL)
+  flt <- use eventHistoryFilterL
+  let filteredMsgs = applyEventHistoryFilter flt msgs
   eventHistoryListL %= \l ->
     let oldLen = Vec.length (BrickList.listElements l)
-        newVec = Vec.fromList msgs
+        newVec = Vec.fromList filteredMsgs
         newLen = Vec.length newVec
         added = newLen - oldLen
         newList = BrickList.listReplace newVec (BrickList.listSelected l) l
      in if added > 0
           then BrickList.listMoveTo (maybe 0 (+ added) (BrickList.listSelected l)) newList
           else newList
+
+applyEventHistoryFilter :: EventHistoryFilter -> [LogMessage] -> [LogMessage]
+applyEventHistoryFilter = \case
+  ShowAll -> id
+  ErrorsOnly -> filter (\LogMessage{severity} -> severity == Error)
+
+toggleEventHistoryFilter :: EventHistoryFilter -> EventHistoryFilter
+toggleEventHistoryFilter = \case
+  ShowAll -> ErrorsOnly
+  ErrorsOnly -> ShowAll
 
 myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
 myAvailableUTxO networkId vk (UTxO u) =

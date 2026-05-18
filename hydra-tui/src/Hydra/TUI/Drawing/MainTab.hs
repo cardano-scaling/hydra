@@ -27,7 +27,7 @@ import Hydra.TUI.Drawing.Utils (
  )
 import Hydra.TUI.Logging.Types (logMessagesL)
 import Hydra.TUI.Model
-import Hydra.TUI.Style hiding (style)
+import Hydra.TUI.Style
 import Hydra.Tx (Party (..))
 import Lens.Micro ((^.))
 

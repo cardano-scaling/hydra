@@ -7,14 +7,14 @@ import Brick.Widgets.Border (borderWithLabel, hBorderWithLabel)
 import Brick.Widgets.List qualified as BrickList
 import Data.Time (defaultTimeLocale, formatTime)
 import Data.Time.LocalTime (TimeZone, utcToLocalTime)
-import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
+import Hydra.TUI.Logging.Types (EventHistoryFilter (..), LogMessage (..), Severity (..))
 import Hydra.TUI.Model
-import Hydra.TUI.Style hiding (style)
+import Hydra.TUI.Style
 import Lens.Micro ((^.))
 
 drawEventHistoryTab :: RootState -> Widget Name
 drawEventHistoryTab s =
-  borderWithLabel (withAttr neutral $ txt " Event History ") $
+  borderWithLabel (withAttr neutral $ txt headerLabel) $
     vBox
       [ vLimitPercent 50 $ BrickList.renderList (drawEventListItem tz) True (s ^. eventHistoryListL)
       , hBorderWithLabel (withAttr neutral $ txt detailLabel)
@@ -26,6 +26,9 @@ drawEventHistoryTab s =
   tz = s ^. timeZoneL
   rawView = s ^. eventDetailRawL
   detailLabel = if rawView then " Detail (raw)  d:summary " else " Detail  d:raw "
+  headerLabel = case s ^. eventHistoryFilterL of
+    ShowAll -> " Event History "
+    ErrorsOnly -> " Event History · errors only (e:show all) "
 
 -- | Render a single log entry for display in event lists.
 -- Also used by 'drawMainTab' for the recent-events strip.

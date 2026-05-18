@@ -22,7 +22,7 @@ import Hydra.HeadLogic.State qualified as State
 import Hydra.Network (Host (..))
 import Hydra.Node.State (Deposit (..), NodeState (..))
 import Hydra.TUI.Config (Theme (..))
-import Hydra.TUI.Logging.Types (LogMessage, LogState)
+import Hydra.TUI.Logging.Types (EventHistoryFilter, LogMessage, LogState)
 import Hydra.Tx (HeadId, Party (..), Snapshot (..))
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.HeadParameters as HeadParameters
@@ -51,6 +51,7 @@ data RootState = RootState
   , previousTab :: ActiveTab
   , theme :: Theme
   , recoveryForm :: Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
+  , eventHistoryFilter :: EventHistoryFilter
   }
 
 -- | Connection to the hydra node.
@@ -188,6 +189,7 @@ makeLensesFor
   , ("previousTab", "previousTabL")
   , ("theme", "themeL")
   , ("recoveryForm", "recoveryFormL")
+  , ("eventHistoryFilter", "eventHistoryFilterL")
   ]
   ''RootState
 
@@ -218,12 +220,6 @@ makeLensesFor
   , ("headId", "headIdL")
   ]
   ''ActiveLink
-
-fullFeedbackViewportName :: Name
-fullFeedbackViewportName = "full-feedback-view-port"
-
-shortFeedbackViewportName :: Name
-shortFeedbackViewportName = "short-feedback-view-port"
 
 eventHistoryListName :: Name
 eventHistoryListName = "event-history-list"

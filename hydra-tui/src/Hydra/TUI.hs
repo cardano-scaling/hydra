@@ -97,6 +97,7 @@ runWithVty buildVty options@Options{hydraNodeHost, cardanoNetworkId, cardanoConn
       , previousTab = MainTab
       , theme = cfg.theme
       , recoveryForm = Nothing
+      , eventHistoryFilter = ShowAll
       }
 
   cardanoClient =

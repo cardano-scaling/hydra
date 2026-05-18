@@ -17,8 +17,9 @@ import Hydra.TUI.Config (Theme (..))
 import Hydra.TUI.Drawing.EventHistoryTab (drawEventHistoryTab)
 import Hydra.TUI.Drawing.FundsTab (drawFocusPanel, drawFundsTab)
 import Hydra.TUI.Drawing.MainTab (drawMainTab)
+import Hydra.TUI.Logging.Types (EventHistoryFilter (..))
 import Hydra.TUI.Model
-import Hydra.TUI.Style hiding (style)
+import Hydra.TUI.Style
 
 import Lens.Micro ((^.), (^?))
 
@@ -128,7 +129,7 @@ drawActionBar s =
               _ -> [("Esc/C", " cancel")]
             _ -> [("Esc/C", " close")]
           else case (s ^. activeTabL, activeHeadState) of
-            (EventHistoryTab, _) -> [("d", " raw/summary"), ("Q", "uit")]
+            (EventHistoryTab, _) -> [("d", " raw/summary"), eventFilterAction, ("Q", "uit")]
             (FundsTab, Open{}) -> [("I", "ncrement"), ("D", "ecommit"), ("R", "ecover"), ("U", "pdate")]
             (FundsTab, Closed{}) -> recoverIf <> [("U", "pdate"), ("Q", "uit")]
             (FundsTab, FanoutPossible{}) -> recoverIf <> [("F", "anout"), ("U", "pdate"), ("Q", "uit")]
@@ -140,6 +141,9 @@ drawActionBar s =
   recoverIf = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL of
     Just (_ : _) -> [("R", "ecover")]
     _ -> []
+  eventFilterAction = case s ^. eventHistoryFilterL of
+    ShowAll -> ("e", " errors only")
+    ErrorsOnly -> ("e", " show all")
 
   drawAction :: (Text, Text) -> Widget n
   drawAction (key, rest) = withAttr keyA (txt key) <+> withAttr actionDescA (txt rest)

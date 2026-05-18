@@ -25,7 +25,7 @@ import Hydra.TUI.Drawing.Utils (
   spinnerFrame,
  )
 import Hydra.TUI.Model
-import Hydra.TUI.Style hiding (style)
+import Hydra.TUI.Style
 import Lens.Micro ((^.))
 
 drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
