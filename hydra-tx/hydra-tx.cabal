@@ -69,10 +69,12 @@ library
     Hydra.Tx.KZGTrustedSetup
     Hydra.Tx.Observe
     Hydra.Tx.OnChainId
+    Hydra.Tx.ParameterUpdate
     Hydra.Tx.Party
     Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
     Hydra.Tx.Snapshot
+    Hydra.Tx.UpdateParameters
     Hydra.Tx.Utils
 
   other-modules:   Paths_hydra_tx
@@ -188,15 +190,18 @@ test-suite tests
     Hydra.Tx.Contract.Init
     Hydra.Tx.Contract.PartialFanout
     Hydra.Tx.Contract.Recover
+    Hydra.Tx.Contract.UpdateParameters
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
     Hydra.Tx.KZGTrustedSetupSpec
+    Hydra.Tx.ParameterUpdateSpec
 
   type:           exitcode-stdio-1.0
   build-depends:
     , aeson
     , base
     , base16-bytestring
+    , bytestring
     , cardano-api
     , cardano-api:gen
     , cardano-binary

@@ -2,26 +2,18 @@
     "samples": [
         {
             "decommitTx": null,
-            "depositTxId": -6,
-            "snapshotNumber": 0,
+            "depositTxId": null,
+            "parameterUpdate": {
+                "leavingOnChainId": "21c41bf43b8e07488a8bfa8d024e75d62c1bbc7f173b87d45a57bec7",
+                "leavingParty": {
+                    "vkey": "d6009104cb5cf2e6e7be298569e5fc4dbd2a7524220fa4d957a00404df58af9c"
+                }
+            },
+            "snapshotNumber": 12,
             "snapshotVersion": 6,
             "tag": "ReqSn",
             "transactionIds": [
-                10,
-                3,
-                18,
-                -30,
-                -11,
-                11,
-                2,
-                18,
-                22,
-                -14,
                 -18,
-                -22,
-                -16,
-                -16,
-                24,
                 -10
             ]
         }

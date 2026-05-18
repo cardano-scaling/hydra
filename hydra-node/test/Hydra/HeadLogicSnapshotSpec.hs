@@ -85,7 +85,7 @@ spec = do
         let outcome = update (envFor aliceSk) simpleLedger now s0 $ receiveMessage $ ReqTx tx
 
         outcome
-          `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
+          `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing Nothing)
 
       it "does NOT send ReqSn when we are NOT the leader even if no snapshot in flight" $ do
         let tx = aValidTx 1
@@ -128,7 +128,7 @@ spec = do
 
       it "sends ReqSn  when leader and there are seen transactions" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
-          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing)
           step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
@@ -140,7 +140,7 @@ spec = do
 
       it "does NOT send ReqSn when we are the leader but there are NO seen transactions" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
-          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
           getState
@@ -155,7 +155,7 @@ spec = do
 
         let initiateSigningASnapshot :: (MonadState (StepState SimpleTx) m, MonadTime m) => Party -> m (Outcome SimpleTx)
             initiateSigningASnapshot actor =
-              step (receiveMessageFrom actor $ ReqSn 0 1 [] Nothing Nothing)
+              step (receiveMessageFrom actor $ ReqSn 0 1 [] Nothing Nothing Nothing)
             newTxBeforeSnapshotAcknowledged =
               step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
 
@@ -172,7 +172,7 @@ spec = do
 
       it "updates seenSnapshot state when sending ReqSn" $ do
         nodeState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
-          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing)
           step (receiveMessageFrom carol $ ReqTx $ aValidTx 1)
           step (ackFrom carolSk carol)
           step (ackFrom aliceSk alice)
@@ -226,7 +226,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
       Snapshot{number = confirmedSn} = getSnapshot sn
       nextSn = confirmedSn + 1
   pure $
-    outcome `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing)
+    outcome `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing Nothing)
       & counterexample (show outcome)
 
 prop_thereIsAlwaysALeader :: Property
@@ -255,4 +255,5 @@ testSnapshot number version confirmed utxo =
         , utxoToCommit = mempty
         , utxoToDecommit = mempty
         , accumulator
+        , parameterUpdate = Nothing
         }

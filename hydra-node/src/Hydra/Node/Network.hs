@@ -74,8 +74,12 @@ withNetwork tracer conf callback action = do
 
 -- | The latest hydra network protocol version. Used to identify
 -- incompatibilities ahead of time.
+--
+-- Bumped from 1 -> 2 with the dynamic-head-participants feature
+-- (issue #1813): 'ReqSn' gains an optional 'parameterUpdate' field and
+-- 'ReqLeave' is a new constructor.
 currentNetworkProtocolVersion :: ProtocolVersion
-currentNetworkProtocolVersion = ProtocolVersion 1
+currentNetworkProtocolVersion = ProtocolVersion 2
 
 -- * Tracing
 

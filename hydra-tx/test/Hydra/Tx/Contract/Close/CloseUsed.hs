@@ -96,6 +96,7 @@ healthyOutdatedSnapshot =
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
     , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
+    , parameterUpdate = Nothing
     }
 
 healthyOutdatedOpenDatum :: Head.State

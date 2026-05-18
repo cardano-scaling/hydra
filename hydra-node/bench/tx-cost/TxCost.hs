@@ -154,7 +154,7 @@ computeContestCost = do
     utxo <- arbitrary
     (closedSnapshotNumber, _, _, _, stClosed@ClosedState{headId}) <- genStClosed ctx utxo mempty mempty
     cctx <- pickChainContext ctx
-    snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo Nothing mempty (ctxHydraSigningKeys ctx)
+    snapshot <- genConfirmedSnapshot headId 0 (succ closedSnapshotNumber) utxo Nothing mempty Nothing (ctxHydraSigningKeys ctx)
     pointInTime <- genPointInTimeBefore stClosed.contestationDeadline
     let cp = ctxContestationPeriod ctx
     let contestUtxo = getKnownUTxO stClosed <> getKnownUTxO cctx
@@ -194,7 +194,7 @@ computeFanOutCost = do
     utxoToCommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
     utxoToDecommit' <- oneof [Just <$> genUTxOAdaOnlyOfSize maxExtra, pure Nothing]
     let (utxoToCommit, utxoToDecommit) = if isNothing utxoToCommit' then (mempty, utxoToDecommit') else (utxoToCommit', mempty)
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit [] -- We do not validate the signatures
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo utxoToCommit utxoToDecommit Nothing [] -- We do not validate the signatures
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp

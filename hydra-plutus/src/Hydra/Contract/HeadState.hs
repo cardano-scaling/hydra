@@ -9,7 +9,7 @@ import PlutusTx.Prelude
 import GHC.Generics (Generic)
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.Party (Party)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TokenName, TxOutRef)
 import PlutusTx qualified
 import Text.Show (Show)
 
@@ -203,6 +203,34 @@ data DecrementRedeemer = DecrementRedeemer
 
 PlutusTx.unstableMakeIsData ''DecrementRedeemer
 
+-- | Sub-type for dynamic-head-participants transitions (issue #1813). Phase 1
+-- supports only 'RemovePartyOC'; Phase 2 will add 'AddPartyOC' and additional
+-- variants for arbitrary parameter changes will follow. Constructor tags
+-- are stable on chain: never re-order existing variants.
+data OnChainParameterUpdate
+  = -- | Remove a current 'Party' from the head. The 'TokenName' is the asset
+    -- name of the leaving party's participation token; the validator burns
+    -- exactly that PT.
+    RemovePartyOC Party TokenName
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''OnChainParameterUpdate
+
+-- | Sub-type for the 'UpdateParameters' transition (issue #1813). Carries the
+-- multi-signature over the snapshot whose 'parameterUpdate' authorizes the
+-- change, the snapshot number, and the on-chain representation of the update.
+data UpdateParametersRedeemer = UpdateParametersRedeemer
+  { signature :: [Signature]
+  -- ^ Spec: ξ
+  , snapshotNumber :: SnapshotNumber
+  -- ^ Spec: s
+  , parameterUpdate :: OnChainParameterUpdate
+  -- ^ Spec: pω
+  }
+  deriving stock (Show, Generic)
+
+PlutusTx.unstableMakeIsData ''UpdateParametersRedeemer
+
 data Input
   = CollectCom
   | Increment IncrementRedeemer
@@ -224,6 +252,9 @@ data Input
       , proof :: BuiltinBLS12_381_G1_Element
       , crsRef :: TxOutRef
       }
+  | -- | Apply a multi-signed parameter change (e.g., a party leaving) in the
+    -- open state. See 'OnChainParameterUpdate'.
+    UpdateParameters UpdateParametersRedeemer
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''Input

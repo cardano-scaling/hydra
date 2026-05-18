@@ -495,24 +495,43 @@ instance Arbitrary HeadParameters where
     dedupParties HeadParameters{contestationPeriod, parties} =
       HeadParameters{contestationPeriod, parties = nub parties}
 
+instance Arbitrary ParameterUpdate where
+  arbitrary = genericArbitrary
+
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
+  -- NOTE: 'parameterUpdate' is deliberately fixed to 'Nothing' here. Snapshots
+  -- carrying a 'ParameterUpdate' are produced by the dedicated dynamic-head-
+  -- participants flow and tested in their own specs. Letting the generic
+  -- generator emit 'Just' values would break the existing contract specs that
+  -- exercise snapshot signature verification against on-chain validators that
+  -- do not (yet) know about the field.
   arbitrary = do
     headId <- arbitrary
     version <- arbitrary
     number <- arbitrary
     confirmed <- arbitrary
-    -- Cap each UTxO component so the combined size stays within maxAccumulatorSize.
     let cap = Accumulator.maxAccumulatorSize `div` 3
     utxo <- scale (min cap) arbitrary
     utxoToCommit <- scale (min cap) arbitrary
     utxoToDecommit <- scale (min cap) arbitrary
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+    pure
+      Snapshot
+        { headId
+        , version
+        , number
+        , confirmed
+        , utxo
+        , utxoToCommit
+        , utxoToDecommit
+        , accumulator
+        , parameterUpdate = Nothing
+        }
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
-  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
+  shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit, parameterUpdate} =
     [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
-       in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
+       in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator parameterUpdate
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
     , utxoToCommit' <- shrink utxoToCommit
@@ -527,7 +546,7 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Confirme
     utxoToCommit <- scale (min cap) arbitrary
     utxoToDecommit <- scale (min cap) arbitrary
     headId <- arbitrary
-    genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
+    genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit Nothing ks
 
   shrink = \case
     InitialSnapshot hid -> [InitialSnapshot hid]
@@ -546,9 +565,10 @@ genConfirmedSnapshot ::
   UTxOType tx ->
   Maybe (UTxOType tx) ->
   Maybe (UTxOType tx) ->
+  Maybe ParameterUpdate ->
   [SigningKey HydraKey] ->
   Gen (ConfirmedSnapshot tx)
-genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
+genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit parameterUpdate sks
   | minSn > 0 = confirmedSnapshot
   | otherwise =
       frequency
@@ -562,7 +582,7 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     number <- arbitrary `suchThat` (> minSn)
     let u = utxo `withoutUTxO` fromMaybe mempty utxoToCommit
     let accumulator = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
-        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, accumulator}
+        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, accumulator, parameterUpdate}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

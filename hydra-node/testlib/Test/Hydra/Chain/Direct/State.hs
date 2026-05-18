@@ -278,7 +278,7 @@ genIncrementTx numParties = do
   let openUTxO = getKnownUTxO st
   let version = 0
   -- XXX: openUTxO can't be right here
-  snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) Nothing Nothing (ctxHydraSigningKeys ctx)
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotBeforeDeadline <- chooseEnum (0, deadlineSlot)
   pure
@@ -301,7 +301,7 @@ genDecrementTx numParties = do
   let IncrementObservation{newVersion, deposited} = fromJust $ observeIncrementTx (ctxNetworkId ctx) utxo txIncrement
   let (confirmedUtxo, toDecommit) = splitUTxO deposited
   cctx <- pickChainContext ctx
-  snapshot <- genConfirmedSnapshot headId newVersion 1 confirmedUtxo Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId newVersion 1 confirmedUtxo Nothing (Just toDecommit) Nothing (ctxHydraSigningKeys ctx)
   let utxoSpendable = utxoFromTx txIncrement
   pure
     ( cctx
@@ -329,7 +329,7 @@ genCloseTx numParties = do
           then (inHead, Nothing, if utxoToDecommit' == mempty then Nothing else Just utxoToDecommit')
           else (u0, utxoToCommit', Nothing)
   let version = 0
-  snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -342,7 +342,7 @@ genContestTx = do
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
   let (confirmedUTxO, utxoToDecommit) = splitUTxO u0
   let version = 1
-  confirmed <- genConfirmedSnapshot headId version 1 confirmedUTxO Nothing (Just utxoToDecommit) []
+  confirmed <- genConfirmedSnapshot headId version 1 confirmedUTxO Nothing (Just utxoToDecommit) Nothing []
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -352,7 +352,7 @@ genContestTx = do
   let utxo = getKnownUTxO stClosed
   someUtxo <- genUTxO1 genTxOut
   let (confirmedUTxO', utxoToDecommit') = splitUTxO someUtxo
-  contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing (Just utxoToDecommit') (ctxHydraSigningKeys ctx)
+  contestSnapshot <- genConfirmedSnapshot headId version (succ $ number $ getSnapshot confirmed) confirmedUTxO' Nothing (Just utxoToDecommit') Nothing (ctxHydraSigningKeys ctx)
   contestPointInTime <- genPointInTimeBefore stClosed.contestationDeadline
   pure (ctx, closePointInTime, stClosed, mempty, unsafeContest cctx utxo headId cp version contestSnapshot contestPointInTime)
 
@@ -364,7 +364,7 @@ genFanoutTx numParties = do
   toCommit' <- Just <$> genUTxOAdaOnlyOfSize n
   openVersion <- elements [0, 1]
   version <- elements [0, 1]
-  confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' Nothing (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp

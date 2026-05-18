@@ -9,6 +9,7 @@ import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Hydra.Network (Connectivity)
 import Hydra.Tx (
   IsTx (TxIdType),
+  ParameterUpdate,
   Party,
   Snapshot,
   SnapshotNumber,
@@ -31,12 +32,19 @@ data Message tx
       , transactionIds :: [TxIdType tx]
       , decommitTx :: Maybe tx
       , depositTxId :: Maybe (TxIdType tx)
+      , parameterUpdate :: Maybe ParameterUpdate
+      -- ^ Pending parameter change to multi-sign together with this snapshot.
+      -- See 'Hydra.Tx.ParameterUpdate'.
       }
   | AckSn
       { signed :: Signature (Snapshot tx)
       , snapshotNumber :: SnapshotNumber
       }
   | ReqDec {transaction :: tx}
+  | -- | Pre-confirmation broadcast that a 'Party' is requesting to leave the
+    -- open head. Mirrors 'ReqDec' for decommit. Finalization happens via
+    -- 'ReqSn'/'AckSn' on a snapshot whose 'parameterUpdate' is set.
+    ReqLeave {leavingParty :: Party}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Message tx)
@@ -47,17 +55,26 @@ deriving anyclass instance IsTx tx => FromJSON (Message tx)
 instance (ToCBOR tx, ToCBOR (UTxOType tx), ToCBOR (TxIdType tx)) => ToCBOR (Message tx) where
   toCBOR = \case
     ReqTx tx -> toCBOR ("ReqTx" :: Text) <> toCBOR tx
-    ReqSn sv sn txs decommitTx incrementUTxO -> toCBOR ("ReqSn" :: Text) <> toCBOR sv <> toCBOR sn <> toCBOR txs <> toCBOR decommitTx <> toCBOR incrementUTxO
+    ReqSn sv sn txs decommitTx incrementUTxO parameterUpdate ->
+      toCBOR ("ReqSn" :: Text)
+        <> toCBOR sv
+        <> toCBOR sn
+        <> toCBOR txs
+        <> toCBOR decommitTx
+        <> toCBOR incrementUTxO
+        <> toCBOR parameterUpdate
     AckSn sig sn -> toCBOR ("AckSn" :: Text) <> toCBOR sig <> toCBOR sn
     ReqDec utxo -> toCBOR ("ReqDec" :: Text) <> toCBOR utxo
+    ReqLeave p -> toCBOR ("ReqLeave" :: Text) <> toCBOR p
 
 instance (FromCBOR tx, FromCBOR (UTxOType tx), FromCBOR (TxIdType tx)) => FromCBOR (Message tx) where
   fromCBOR =
     fromCBOR >>= \case
       ("ReqTx" :: Text) -> ReqTx <$> fromCBOR
-      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+      "ReqSn" -> ReqSn <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
       "AckSn" -> AckSn <$> fromCBOR <*> fromCBOR
       "ReqDec" -> ReqDec <$> fromCBOR
+      "ReqLeave" -> ReqLeave <$> fromCBOR
       msg -> fail $ show msg <> " is not a proper CBOR-encoded Message"
 
 instance IsTx tx => SignableRepresentation (Message tx) where

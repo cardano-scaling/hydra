@@ -358,7 +358,7 @@ prop_incrementObservesCorrectUTxO = monadicIO $ do
       -- We rely here on a fact that eventually this property will generate
       -- UTxO which would be wrongly picked up by the increment observation.
       let utxo = getKnownUTxO st <> utxoFromTx txDeposit <> utxoFromTx txDeposit2
-      snapshot <- pickBlind $ genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing (ctxHydraSigningKeys ctx)
+      snapshot <- pickBlind $ genConfirmedSnapshot headId version 1 openUTxO (Just utxo) Nothing Nothing (ctxHydraSigningKeys ctx)
       let txIncrement =
             unsafeIncrement
               cctx

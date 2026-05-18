@@ -1,0 +1,11 @@
+{
+    "samples": [
+        {
+            "leavingParty": {
+                "vkey": "8045db039d01b5788c557bd612a95b39f496359e0ece00049a60b5be565f25ec"
+            },
+            "tag": "ReqLeave"
+        }
+    ],
+    "seed": -1723801115
+}

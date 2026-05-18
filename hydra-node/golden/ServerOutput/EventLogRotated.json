@@ -3,7 +3,7 @@
         {
             "checkpoint": {
                 "chainPointTime": {
-                    "currentChainTime": "1864-05-10T10:49:39.795780693588Z",
+                    "currentChainTime": "1864-05-10T01:10:20.204219306408Z",
                     "currentSlot": 0,
                     "drift": 1
                 },
@@ -41,6 +41,7 @@
                                     "confirmed": [],
                                     "headId": "00000000010000010000000100010100",
                                     "number": 1,
+                                    "parameterUpdate": null,
                                     "utxo": {
                                         "0000010101000000000100010000000100010001000100010101000100000001#11": {
                                             "address": "addr_test1zrzrym75s6qx4rvwspmwry0z9l7v0pq8jsgtsx75x07r65fqgvcmxe0khzgk0updg09huhajcrngwka0vw4mcauguxssexmsta",
@@ -109,9 +110,61 @@
                                 }
                             },
                             "seenSnapshot": {
-                                "lastSeen": 0,
-                                "requested": 1,
-                                "tag": "RequestedSnapshot"
+                                "signatories": {
+                                    "af4069c0c0d8e87e4d0f8c44c0a8b7b1e7fd78e2556fc9e5e6397bd4875fd1ab": "5e902df68635e58bf746203faf970d88221d4d4d1002f79b98a0a7aae6902f4217bceebd8d3c9427a9f6a6f54d5f98c13d565c94fc72996888025477e682b302"
+                                },
+                                "snapshot": {
+                                    "confirmed": [],
+                                    "headId": "00000001000001000000000100000101",
+                                    "number": 0,
+                                    "parameterUpdate": null,
+                                    "utxo": {
+                                        "0101010001000001010000000101000100010100000100010001000001000101#70": {
+                                            "address": "addr_test1yplenauhq0qn32ksn5cde3aucqn0724vy27jewa7fhnv8vacmzurglkdnmjugq7elnjhq9gda05d6hxnm2ffu5axzw3q9327l0",
+                                            "datum": null,
+                                            "datumhash": "dadd2cf557faefe2d798b63f7754f42e040d46e098fa2e43acd36daf6b0246a5",
+                                            "inlineDatum": null,
+                                            "inlineDatumRaw": null,
+                                            "referenceScript": null,
+                                            "value": {
+                                                "lovelace": 45000000000000000
+                                            }
+                                        }
+                                    },
+                                    "utxoToCommit": {
+                                        "0101000000010101010100010100000100010000000000000001000000010000#43": {
+                                            "address": "addr_test1xz2ahj2nfmdsnpgfuscsc24ecrjzjksrq26gkaw0lv5zdvcd8qu0gl4xlf4zzc2rvtxv0fsrxnmxuvwpaj8v2xekj3wsx46a3c",
+                                            "datum": null,
+                                            "inlineDatum": {
+                                                "bytes": "29"
+                                            },
+                                            "inlineDatumRaw": "4129",
+                                            "inlineDatumhash": "f8400fbb26a39c1f4f84ad2026208b67a0a1e642d47731ad10d1e92c6233c9fd",
+                                            "referenceScript": null,
+                                            "value": {
+                                                "lovelace": 45000000000000000
+                                            }
+                                        }
+                                    },
+                                    "utxoToDecommit": {
+                                        "0001000101000100000100000101010000010000000001010001010101010101#4": {
+                                            "address": "addr_test1zpyd6vzcfxj9nvjpvez9dpl882fgf2cxazkhlfcx2n272xezvhrf9mr4h2waklk63guulrrsypc2lyzdaj5aagg2nj9sqa2m8x",
+                                            "datum": null,
+                                            "datumhash": "8231ef8ed55f1f025aa5211b543c698842eb6f6ca43646357b5c47eb2c66e172",
+                                            "inlineDatum": null,
+                                            "inlineDatumRaw": null,
+                                            "referenceScript": null,
+                                            "value": {
+                                                "61e80822127ea97477cf2cc1a02e9c6d10bb797512c9b4246827d832": {
+                                                    "9b36ab48364a2a": 7835185301063772512
+                                                },
+                                                "lovelace": 45000000000000000
+                                            }
+                                        }
+                                    },
+                                    "version": 0
+                                },
+                                "tag": "SeenSnapshot"
                             },
                             "version": 0
                         },
@@ -130,8 +183,8 @@
                 },
                 "pendingDeposits": {
                     "0001000101010100010100000101010101000001010000010100000100010100": {
-                        "created": "1864-05-08T17:43:05.497796133502Z",
-                        "deadline": "1864-05-08T04:57:57.628538075739Z",
+                        "created": "1864-05-08T17:43:05.497796133495Z",
+                        "deadline": "1864-05-08T07:02:02.37146192426Z",
                         "deposited": {
                             "0000010100000101010000000001010101010100000001000101000001010100#0": {
                                 "address": "addr_test1yqy9xxsslgu46n4a90q2ylu7z38tarlsegj5xhnlwy52vs0vh53hfgezv2x0s2p8ngvgajskwgnhla67zl6jzy8hau4s98yd2j",

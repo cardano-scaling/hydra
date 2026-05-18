@@ -173,7 +173,7 @@ spec =
             step $ receiveMessage $ ReqTx tx1
             step $ receiveMessage $ ReqTx tx2
             step $ receiveMessage $ ReqTx tx3
-            step $ receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            step $ receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
             getState
 
           case headState s of
@@ -491,7 +491,7 @@ spec =
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let s1 = update aliceEnv ledger now s0 reqDecEvent
 
-          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
+          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing, parameterUpdate = Nothing}
           s1 `hasEffect` NetworkEffect reqSn
 
         it "does not get stuck when DecommitFinalized races with in-flight ReqSn" $ do
@@ -532,7 +532,7 @@ spec =
 
           -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
           let staleReqSn :: Input SimpleTx
-              staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
+              staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
           update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
             Error (RequireFailed ReqSvNumberInvalid{}) -> True
@@ -770,7 +770,7 @@ spec =
         it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties
               t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
 
           s1 <- runHeadLogic bobEnv ledger s0 $ do
             step $ receiveMessage $ ReqTx t1
@@ -784,7 +784,7 @@ spec =
         it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
-              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
               snapshot1 = testSnapshot 1 0 [t1] (utxoRefs [1])
               ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
@@ -805,7 +805,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             snapshot' = testSnapshot 2 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
@@ -825,7 +825,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different key" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
@@ -843,7 +843,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
@@ -866,7 +866,7 @@ spec =
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
@@ -901,7 +901,7 @@ spec =
       it "rejects snapshot request with transaction not applicable to previous snapshot" $ do
         let reqTx42 = receiveMessage $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
             reqTx1 = receiveMessage $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-            input = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            input = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
             s0 = inOpenState threeParties
 
         s2 <- runHeadLogic bobEnv ledger s0 $ do
@@ -928,7 +928,7 @@ spec =
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties
-            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 reqSn
           `assertWait` WaitOnTxs [1]
@@ -947,16 +947,16 @@ spec =
 
       it "rejects if we receive a too far future snapshot" $ do
         let input :: Input tx
-            input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
+            input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing Nothing
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let reqSn1 :: Input tx
-            reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             reqSn2 :: Input tx
-            reqSn2 = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
+            reqSn2 = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing Nothing
         st <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn1
@@ -969,7 +969,7 @@ spec =
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
             snapshot = testSnapshot 1 0 [] mempty
-            input = receiveMessageFrom leader $ ReqSn 0 (number snapshot) [] Nothing Nothing
+            input = receiveMessageFrom leader $ ReqSn 0 (number snapshot) [] Nothing Nothing Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties
             ack = AckSn sig (number snapshot)
@@ -978,7 +978,7 @@ spec =
 
       it "does not ack snapshots from non-leaders" $ do
         let input :: Input tx
-            input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing
+            input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing Nothing
             notTheLeader = bob
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
@@ -988,7 +988,7 @@ spec =
 
       it "rejects too-old snapshots" $ do
         let input :: Input tx
-            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing Nothing
             theLeader = alice
             snapshot = testSnapshot 2 0 [] mempty
             st =
@@ -999,7 +999,7 @@ spec =
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let input :: Input tx
-            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing Nothing
             theLeader = alice
             snapshot = testSnapshot 2 0 [] mempty
             st =
@@ -1013,7 +1013,7 @@ spec =
 
       it "rejects too-new snapshots from the leader" $ do
         let input :: Input tx
-            input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing Nothing
             theLeader = carol
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
@@ -1022,7 +1022,7 @@ spec =
       it "rejects invalid snapshots version" $ do
         let validSnNumber = 0
             invalidSnVersion = 1
-            input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing Nothing Nothing
             theLeader = carol
             expectedSnVersion = 0
             st = inOpenState threeParties
@@ -1033,9 +1033,9 @@ spec =
         let theLeader = alice
             nextSN = 1
             firstReqTx = receiveMessage $ ReqTx (aValidTx 42)
-            firstReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [42] Nothing Nothing
+            firstReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [42] Nothing Nothing Nothing
             secondReqTx = receiveMessage $ ReqTx (aValidTx 51)
-            secondReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [51] Nothing Nothing
+            secondReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [51] Nothing Nothing Nothing
 
         s3 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step firstReqTx
@@ -1072,8 +1072,8 @@ spec =
                   , seenSnapshot = LastSeenSnapshot 1
                   , localUTxO = activeUTxO
                   }
-            reqSn0 = receiveMessageFrom alice $ ReqSn 0 1 [] (Just decommitTx1) Nothing
-            reqSn1 = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx2) Nothing
+            reqSn0 = receiveMessageFrom alice $ ReqSn 0 1 [] (Just decommitTx1) Nothing Nothing
+            reqSn1 = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx2) Nothing Nothing
 
         outcome <- runHeadLogic bobEnv ledger s0 $ do
           step reqSn0
@@ -1135,7 +1135,7 @@ spec =
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 3: Process ReqSn with the deposit (as if received from network)
-          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId) Nothing
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
             step reqSnWithDeposit
             getState
@@ -1222,7 +1222,7 @@ spec =
             step reqTxInput
             getState
 
-          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
+          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId) Nothing
           let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
           -- Fix bug: Error out instead of waiting for deposit to be observed forever
           reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
@@ -1264,7 +1264,7 @@ spec =
             step tickInput
             getState
 
-          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId) Nothing
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
             step reqSnWithDeposit
             getState
@@ -1334,7 +1334,7 @@ spec =
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 2: Process ReqSn with the decommit tx
-          let reqSnWithDecommit = receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
+          let reqSnWithDecommit = receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing Nothing
           s2 <- runHeadLogic aliceEnv' ledger s1 $ do
             step reqSnWithDecommit
             getState
@@ -2228,7 +2228,7 @@ spec =
         st <-
           run $
             runHeadLogic bobEnv ledger st0 $ do
-              step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+              step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing)
               getState
 
         assert $ case headState st of
@@ -2639,4 +2639,5 @@ testSnapshot number version confirmed utxo =
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
     , accumulator = Accumulator.buildFromUTxO utxo
+    , parameterUpdate = Nothing
     }

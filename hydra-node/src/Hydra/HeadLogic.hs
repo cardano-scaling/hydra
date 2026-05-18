@@ -260,6 +260,7 @@ onOpenNetworkReqTx env ledger currentSlot st ttl pendingDeposits tx =
                       decommitTx
                       (getSnapshot confirmedSnapshot).utxoToCommit
                   )
+                  Nothing
             )
       else outcome
 
@@ -350,6 +351,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                               , utxoToCommit = mUtxoToCommit
                               , utxoToDecommit = mUtxoToDecommit
                               , accumulator
+                              , parameterUpdate = Nothing
                               }
 
                       -- Spec: 𝜂 ← combine(𝑈)
@@ -621,7 +623,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       then
         outcome
           <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) decommitTx nextDeposit)
+          <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) decommitTx nextDeposit Nothing)
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
@@ -818,7 +820,7 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 
   maybeRequestSnapshot =
     if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
-      then cause (NetworkEffect (ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) (Just decommitTx) Nothing))
+      then cause (NetworkEffect (ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) (Just decommitTx) Nothing Nothing))
       else noop
 
   Environment{party} = env
@@ -923,7 +925,7 @@ onOpenChainTick env chainTime pendingDeposits st =
             -- requested a snapshot? If yes, should update spec.
             newState SnapshotRequestDecided{snapshotNumber = nextSn}
               -- Spec: multicast (reqSn,̂ 𝑣,̄ 𝒮.𝑠 + 1,̂ 𝒯, 𝑈𝛼, ⊥)
-              <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) Nothing (Just depositTxId))
+              <> cause (NetworkEffect $ ReqSn version nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) Nothing (Just depositTxId) Nothing)
           else
             noop
  where
@@ -988,7 +990,7 @@ maybeRequestSnapshotAfterVersionBump parameters party nextSn localTxs version ne
   if isLeader parameters party nextSn && not (null localTxs) && version /= newVersion && not (isCollectingAcks seenSnapshot)
     then
       newState SnapshotRequestDecided{snapshotNumber = nextSn}
-        <> cause (NetworkEffect $ ReqSn newVersion nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) Nothing depositTxId)
+        <> cause (NetworkEffect $ ReqSn newVersion nextSn (toList $ txId <$> Seq.take maxTxsPerSnapshot localTxs) Nothing depositTxId Nothing)
     else noop
 
 -- | Observe a increment transaction. If the outputs match the ones of the
@@ -1794,7 +1796,9 @@ handleNetworkInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev 
   -- Open
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
     onOpenNetworkReqTx env ledger currentSlot openState ttl (depositsForHead ourHeadId pendingDeposits) tx
-  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId _parameterUpdate})) ->
+    -- Phase 1 of dynamic-head-participants (issue #1813) just plumbs the new
+    -- field through; the leave handler is wired up in the next milestone.
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) currentSlot openState sender sv sn txIds decommitTx depositTxId
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env (depositsForHead ourHeadId pendingDeposits) openState sender snapshotSignature sn
