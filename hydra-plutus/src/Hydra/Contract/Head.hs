@@ -686,8 +686,8 @@ checkFinalPartialFanout ::
 checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
-    && mustConserveValue
     && checkCRSAndMembership
+    && mustConserveValue
  where
   FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment} = progressDatum
 
