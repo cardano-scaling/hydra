@@ -35,7 +35,6 @@ import Codec.Serialise (deserialiseOrFail, serialise)
 import Data.Aeson (Value (String), withText)
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as BSL
-import Data.List (nub)
 import Data.Map.Strict qualified as Map
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
@@ -144,9 +143,10 @@ getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash acc =
   digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G1_compress $ getAccumulatorCommitment acc
 
--- | Number of elements in the accumulator — equals the number of UTxOs in the snapshot.
+-- | Number of elements in the accumulator — equals the number of UTxOs in the snapshot,
+-- counting duplicates (i.e., the sum of all element counts).
 accumulatorSize :: HydraAccumulator -> Int
-accumulatorSize (HydraAccumulator acc) = Map.size acc
+accumulatorSize (HydraAccumulator acc) = sum (map snd $ Map.elems acc)
 
 -- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
 maxAccumulatorSize :: Int
@@ -154,13 +154,14 @@ maxAccumulatorSize = KZG.maxAccumulatorSize
 
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 getAccumulatorCommitment (HydraAccumulator acc) =
-  let n = Map.size acc
+  let expandedElems = concatMap (\(hash, count) -> replicate count hash) $ Map.elems acc
+      n = length expandedElems
    in if n > KZG.maxAccumulatorSize
         then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
         else
           let crsG1 = take (n + 1) KZG.g1BuiltinPoints
-           in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin . fst) $
-                Map.elems acc
+           in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin) $
+                expandedElems
 
 -- * CRS (Common Reference String)
 
@@ -182,8 +183,9 @@ defaultItems = 30
 -- | Returns the number of G1 CRS points required for this accumulator.
 -- An n-element accumulator polynomial has degree n, so needs n+1 G1 points
 -- @[G1, τ·G1, ..., τⁿ·G1]@ to compute the commitment A(τ)·G1 and proofs.
+-- n is the total element count including duplicates (sum of all counts).
 requiredCRSPointCount :: HydraAccumulator -> Int
-requiredCRSPointCount (HydraAccumulator acc) = Map.size acc + 1
+requiredCRSPointCount (HydraAccumulator acc) = sum (map snd $ Map.elems acc) + 1
 
 -- * Cryptographic Proofs for partial fanout
 
@@ -231,14 +233,13 @@ createMembershipProofFromUTxO ::
   -- | Returns a proof
   ByteString
 createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
-  -- Extract individual TxOut elements from the subset (each TxOut -> hash)
+  -- Extract individual TxOut elements from the subset (each TxOut -> hash).
   -- This matches how buildFromUTxO / buildFromSnapshotUTxOs serialize each TxOut.
-  -- Deduplicate: the same TxOut content can appear under different TxIns (e.g. in
-  -- both snapshot.utxo and utxoToCommit); the underlying accumulator stores each
-  -- element at most once, so we must only pass each unique element once.
+  -- The underlying accumulator tracks element multiplicity (via Count), so duplicate
+  -- elements are handled correctly — no deduplication needed here.
   -- Drop mempty: TxOuts for which toPlutusTxOut returns Nothing yield mempty here;
   -- we only prove membership of outputs that convert successfully.
-  let subsetElements = filter (/= mempty) $ nub $ utxoToElement @tx <$> toPairList @tx subsetUTxO
+  let subsetElements = filter (/= mempty) $ utxoToElement @tx <$> toPairList @tx subsetUTxO
   -- Use the element-based proof function
   createMembershipProof subsetElements fullAcc crs
 
