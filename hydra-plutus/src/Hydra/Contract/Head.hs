@@ -44,6 +44,7 @@ import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
+import PlutusLedgerApi.V1.Value (geq)
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
@@ -697,11 +698,12 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
 
   distributedOutputs = L.take numberOfPartialOutputs txInfoOutputs
 
-  -- All head input value must be fully accounted by distributed outputs and burned tokens.
-  -- There is no continuing head output in the final step.
+  -- All head input value must be accounted by distributed outputs and burned tokens.
+  -- XXX: geq rather than == because the head UTxO carries extra ADA (min-UTxO overhead
+  -- from initialization) not represented in the L2 UTxO set.
   mustConserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue == F.foldMap txOutValue distributedOutputs <> mintValueBurned minted
+      headInValue `geq` (F.foldMap txOutValue distributedOutputs <> mintValueBurned minted)
    where
     headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
@@ -900,7 +902,6 @@ withCRSLookup expectedHash txInfo crsRef cont =
         then traceError $(errorCode InvalidCRSRefScript)
         else cont crsData
 {-# INLINEABLE withCRSLookup #-}
-
 
 -- | Compute the accumulator scalar for each output in the list.
 -- Used by all three fanout validators ('headIsFinalizedWith', 'checkPartialFanout',
