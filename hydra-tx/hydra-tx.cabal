@@ -11,6 +11,7 @@ license-files:
 
 extra-source-files:
   genesis/mainnet-conway-genesis.json
+  genesis/protocol-parameters-dijkstra.json
   trusted_setup.json
 
 source-repository head

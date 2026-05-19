@@ -89,13 +89,8 @@ import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 
 -- * Test Fixtures
 
--- FIXME: these were outdated and we use them for many things.. need to update them again
-
--- | Current (2023-04-12) mainchain protocol parameters.
--- XXX: Avoid specifying not required parameters here (e.g. max block units
--- should not matter).
--- XXX: Load and use mainnet parameters from a file which we can easily review
--- to be in sync with mainnet.
+-- | Protocol parameters matching the Hydra devnet (Dijkstra era, protocol version 11).
+-- Cost model loaded from hydra-cluster/config/protocol-parameters.json.
 pparams :: PParams LedgerEra
 pparams =
   def
@@ -116,7 +111,7 @@ pparams =
         { prSteps = fromJust $ boundRational $ 721 % 10000000
         , prMem = fromJust $ boundRational $ 577 % 10000
         }
-    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @10, pvMinor = 0}
+    & ppProtocolVersionL .~ ProtVer{pvMajor = natVersion @11, pvMinor = 0}
     & ppCostModelsL
       .~ mkCostModels
         ( Map.fromList
@@ -226,9 +221,11 @@ systemStart = SystemStart $ posixSecondsToUTCTime 0
 -- or hardcoded for eras where genesis files don't contain the cost model.
 -- Source: Official Cardano mainnet genesis files from book.world.dev.cardano.org
 
--- | PlutusV3 cost model loaded from Conway genesis file at compile time.
+-- | PlutusV3 cost model loaded from Dijkstra-era protocol parameters at compile time.
+-- Uses cost model from hydra-cluster/config/protocol-parameters.json,
+-- extracted to genesis/protocol-parameters-dijkstra.json.
 plutusV3CostModel :: CostModel
-plutusV3CostModel = $(loadCostModelTH "mainnet-conway-genesis.json" "plutusV3CostModel" PlutusV3)
+plutusV3CostModel = $(loadCostModelTH "protocol-parameters-dijkstra.json" "plutusV3CostModel" PlutusV3)
 
 -- * Evaluation convenience wrappers
 
