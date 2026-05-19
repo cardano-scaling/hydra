@@ -2505,7 +2505,6 @@ components:
           required:
             - tag
             - utxo
-            - snapshotAccumulator
             - headSeed
             - contestationDeadline
           description: |
@@ -2524,12 +2523,6 @@ components:
              oneOf:
               - $ref: "api.yaml#/components/schemas/UTxO"
               - type: "null"
-            snapshotAccumulator:
-              type: string
-              description: |
-                Hex-encoded CBOR serialization of the HydraAccumulator used to compute
-                the accumulatorCommitment in the closed datum. Required for generating
-                the membership proof during fanout.
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
