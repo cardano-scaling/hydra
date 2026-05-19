@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -131,6 +131,11 @@ data FinalPartialFanoutMutation
   | -- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's value
     -- is left unaccounted.
     MutateFinalPartialFanoutStealAda
+  | -- | Set numberOfPartialOutputs = 0 with proof = accumulatorCommitment.
+    -- This is the fund-theft vector: empty subset makes e(A,G2)=e(proof,G2) trivially
+    -- true when proof=A (public from datum), and geq lets excess ADA go anywhere.
+    -- mustHaveOutputs should reject this with FinalPartialFanoutZeroOutputs.
+    MutateFinalPartialFanoutZeroOutputs
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -156,11 +161,9 @@ genFinalPartialFanoutMutation (tx, _utxo) =
           let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromUTxO @Tx mempty)
               Head.FanoutProgressDatum{headId, parties, contestationDeadline} = healthyProgressDatum
            in ChangeInputHeadDatum (Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = wrongCommitment})
-    , -- Under-counting outputs (numberOfPartialOutputs = 0) produces an empty
-      -- scalar set, which does not match the proof built for the full set.
-      -- The proof field is also a dummy G1 point — the real proof cannot be
-      -- recovered from the test fixture without re-running the off-chain prover,
-      -- so both count and proof are wrong; either alone would fail membership.
+    , -- Under-counting outputs: claim 1 output with a dummy proof when the actual
+      -- count is larger. The subset scalars differ from what the proof was built for,
+      -- so the membership check fails.
       pure $
         SomeMutation (pure $ toErrorCode FinalPartialFanoutMembershipFailed) MutateFinalPartialFanoutOutputCount $
           let ScriptRegistry{crsReference} = scriptRegistry
@@ -168,7 +171,7 @@ genFinalPartialFanoutMutation (tx, _utxo) =
               dummyProof = Accumulator.getAccumulatorCommitment (Accumulator.buildFromUTxO @Tx mempty)
            in ChangeHeadRedeemer
                 Head.FinalPartialFanout
-                  { Head.numberOfPartialOutputs = 0
+                  { Head.numberOfPartialOutputs = 1
                   , Head.proof = dummyProof
                   , Head.crsRef = crsRef
                   }
@@ -199,6 +202,24 @@ genFinalPartialFanoutMutation (tx, _utxo) =
             [ AddReferenceInput fakeCRSIn fakeCRSOut
             , ChangeHeadRedeemer fakeRedeemer
             ]
+    , -- The fund-theft attack: numberOfPartialOutputs = 0 with proof = accumulatorCommitment.
+      -- With an empty subset, getFinalPoly [] = [1] so getG2Commitment = G2, reducing the
+      -- KZG check to e(A,G2) = e(proof,G2) — trivially true when proof = A (public datum).
+      -- The geq value check would then allow all ADA to be routed to any output.
+      -- mustHaveOutputs must catch this before the KZG and value checks are reached.
+      pure $
+        SomeMutation (pure $ toErrorCode FinalPartialFanoutZeroOutputs) MutateFinalPartialFanoutZeroOutputs $
+          let ScriptRegistry{crsReference} = scriptRegistry
+              crsRef = toPlutusTxOutRef (fst crsReference)
+              -- Use the real accumulatorCommitment as proof — this is exactly what the
+              -- attacker would provide to satisfy the degenerate empty-subset pairing check.
+              Head.FanoutProgressDatum{Head.accumulatorCommitment = attackProof} = healthyProgressDatum
+           in ChangeHeadRedeemer
+                Head.FinalPartialFanout
+                  { Head.numberOfPartialOutputs = 0
+                  , Head.proof = attackProof
+                  , Head.crsRef = crsRef
+                  }
     , -- Claim one fewer output than the tx actually distributes, with a recomputed
       -- valid proof. The N-th UTxO's value is left unaccounted — no value conservation
       -- check currently catches this.

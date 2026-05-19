@@ -685,7 +685,8 @@ checkFinalPartialFanout ::
   TxOutRef ->
   Bool
 checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs proof crsRef =
-  mustBurnAllHeadTokens minted headId parties
+  mustHaveOutputs
+    && mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
     && checkCRSAndMembership
     && mustConserveValue
@@ -695,6 +696,14 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
   minted = txInfoMint txInfo
 
   TxInfo{txInfoOutputs} = txInfo
+
+  -- Guard against numberOfPartialOutputs = 0: with an empty subset the KZG check
+  -- degenerates to e(A,G2) = e(proof,G2), which passes whenever proof = A. Since A
+  -- is public (from the datum), any third party could satisfy the check with zero
+  -- distributed outputs and route all head ADA to themselves under the geq value check.
+  mustHaveOutputs =
+    traceIfFalse $(errorCode FinalPartialFanoutZeroOutputs) $
+      numberOfPartialOutputs > 0
 
   distributedOutputs = L.take numberOfPartialOutputs txInfoOutputs
 

@@ -67,6 +67,7 @@ data HeadError
   | AccumulatorCommitmentHashMismatch
   | FinalPartialFanoutMembershipFailed
   | InvalidCRSRefScript
+  | FinalPartialFanoutZeroOutputs
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -139,3 +140,4 @@ instance ToErrorCode HeadError where
     AccumulatorCommitmentHashMismatch -> "H59"
     FinalPartialFanoutMembershipFailed -> "H60"
     InvalidCRSRefScript -> "H61"
+    FinalPartialFanoutZeroOutputs -> "H62"
