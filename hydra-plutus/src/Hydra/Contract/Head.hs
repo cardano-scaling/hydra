@@ -723,6 +723,10 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
     traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
       withCRSLookup crsHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
+          -- When all accumulator elements are distributed the quotient polynomial is 1,
+          -- so the proof must equal the G1 generator. This prevents a valid subset proof
+          -- from being used to leave UTxOs unaccounted.
+          && Builtins.bls12_381_G1_compress proof == Builtins.bls12_381_G1_compressed_generator
 {-# INLINEABLE checkFinalPartialFanout #-}
 
 --------------------------------------------------------------------------------

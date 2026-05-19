@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -221,10 +221,10 @@ genFinalPartialFanoutMutation (tx, _utxo) =
                   , Head.crsRef = crsRef
                   }
     , -- Claim one fewer output than the tx actually distributes, with a recomputed
-      -- valid proof. The N-th UTxO's value is left unaccounted — no value conservation
-      -- check currently catches this.
+      -- valid subset proof. The completeness check (proof == G1_generator) catches this:
+      -- a proof for n-1 of n elements is not the G1 generator.
       pure $
-        SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateFinalPartialFanoutStealAda $
+        SomeMutation (pure $ toErrorCode FinalPartialFanoutMembershipFailed) MutateFinalPartialFanoutStealAda $
           let n = UTxO.size healthyDistributeUTxO - 1
               distributedMinus1 = UTxO.fromList $ take n $ UTxO.toList healthyDistributeUTxO
               proof =
