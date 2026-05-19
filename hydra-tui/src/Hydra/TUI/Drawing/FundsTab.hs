@@ -152,7 +152,7 @@ drawPendingIncrement ownAddress pendingIncrements now =
   pendingWidget acc = \case
     PendingIncrement{utxoToCommit, deposit, depositDeadline, status} ->
       acc
-        <> [ txt ("id: " <> show deposit)
+        <> [ txt ("id: " <> serialiseToRawBytesHexText deposit)
            , txt ("status: " <> show status)
            , drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
            , drawRemainingDepositDeadline depositDeadline now
@@ -190,7 +190,7 @@ drawRecoverDetail ownAddress selectedTxId pendingIncrements now =
     Just PendingIncrement{utxoToCommit, deposit, depositDeadline, status} ->
       vBox
         [ withAttr neutral (txt "Selected deposit")
-        , txt ("id: " <> show deposit)
+        , txt ("id: " <> serialiseToRawBytesHexText deposit)
         , txt ("status: " <> show status)
         , drawRemainingDepositDeadline depositDeadline now
         , withAttr neutral (txt "Outputs")

@@ -91,7 +91,7 @@ renderDepositSummary txid u =
       fracStr = show frac
       padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
       sign = if l < 0 then "-" else ""
-      shortId = Text.take 12 (show txid) <> "…"
+      shortId = Text.take 12 (serialiseToRawBytesHexText txid) <> "…"
    in shortId <> "  ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 confirmRadioField ::
