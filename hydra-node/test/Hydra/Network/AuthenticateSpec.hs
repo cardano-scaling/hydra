@@ -1,7 +1,7 @@
 module Hydra.Network.AuthenticateSpec where
 
 import Cardano.Crypto.Util (SignableRepresentation)
-import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVar, readTVarIO, writeTVar), modifyTVar')
+import Control.Concurrent.Class.MonadSTM (MonadSTM (readTVarIO, writeTVar), modifyTVar')
 import Control.Monad.IOSim (runSimOrThrow)
 import Data.ByteString (pack)
 import Hydra.Ledger.Simple (SimpleTx)

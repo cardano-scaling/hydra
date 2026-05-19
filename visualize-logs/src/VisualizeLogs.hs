@@ -179,6 +179,7 @@ processLogs decoded =
             ClientEffect{} -> pure DropLog
             NetworkEffect{message} -> logIt NetworkLabel message
             OnChainEffect{postChainTx} -> logIt ChainEffectLabel postChainTx
+            NetworkMemberAddEffect{} -> pure DropLog
         EndEffect{} -> pure DropLog
         LogicOutcome{outcome} ->
           case outcome of

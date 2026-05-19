@@ -225,6 +225,7 @@ healthyAddParameterUpdate =
   AddParty
     { joiningParty = healthyJoiningParty
     , joiningOnChainId = healthyJoiningOnChainId
+    , joiningHost = "127.0.0.1:5003"
     }
 
 healthyAddSnapshot :: Snapshot Tx

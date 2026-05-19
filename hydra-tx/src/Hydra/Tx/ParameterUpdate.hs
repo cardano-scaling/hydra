@@ -8,7 +8,6 @@ module Hydra.Tx.ParameterUpdate where
 
 import Hydra.Prelude
 
-import Codec.Serialise (Serialise (..))
 import Hydra.Cardano.Api (deserialiseFromRawBytes, serialiseToRawBytes)
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.OnChainId (AsType (..), OnChainId)
@@ -63,14 +62,6 @@ instance FromCBOR ParameterUpdate where
           Right oid -> pure $ AddParty p oid h
           Left err -> fail $ "ParameterUpdate: invalid OnChainId (AddParty): " <> show err
       _ -> fail $ "ParameterUpdate: unknown tag " <> show tag
-
--- | Delegates to the explicit 'ToCBOR'/'FromCBOR' encoding. This is used by
--- the network-protocol wire format for 'ReqSn'/'ReqLeave' and the JSON/CBOR
--- round-trip in tests. It is /not/ used by the snapshot signable
--- representation; see 'toOnChain' for that path.
-instance Serialise ParameterUpdate where
-  encode = toCBOR
-  decode = fromCBOR
 
 -- | Convert an off-chain 'ParameterUpdate' to its on-chain
 -- 'OnChainParameterUpdate' counterpart. The on-chain shape is what gets

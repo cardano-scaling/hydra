@@ -774,7 +774,8 @@ spec =
         it "records LeaveRecorded when receiving ReqLeave from another party" $ do
           let s0 = inOpenState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let reqLeave =
+          let reqLeave :: Input SimpleTx
+              reqLeave =
                 receiveMessageFrom bob $
                   ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
           update aliceEnv ledger now s0 reqLeave
@@ -789,7 +790,8 @@ spec =
           -- carries the RemoveParty record.
           let s0 = inOpenState threeParties
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let reqLeave =
+          let reqLeave :: Input SimpleTx
+              reqLeave =
                 receiveMessageFrom bob $
                   ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
           update aliceEnv ledger now s0 reqLeave
@@ -872,7 +874,8 @@ spec =
         it "records JoinRecorded when receiving ReqAddParty" $ do
           let s0 = inOpenState [alice, bob]
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let reqAdd =
+          let reqAdd :: Input SimpleTx
+              reqAdd =
                 receiveMessageFrom bob $
                   ReqAddParty
                     { joiningParty = carol
@@ -901,6 +904,7 @@ spec =
 
         it "ParametersChanged aggregate adds joining party + clears pendingParameterUpdate" $ do
           let s0 = inOpenState [alice, bob]
+              recorded, changed :: StateChanged SimpleTx
               recorded =
                 JoinRecorded
                   { headId = testHeadId
@@ -938,6 +942,7 @@ spec =
         it "ParametersChanged aggregate rewrites parties + clears pendingParameterUpdate" $ do
           let s0 = inOpenState threeParties
               theUpdate = RemoveParty bob (deriveOnChainId bob)
+              recorded, changed :: StateChanged SimpleTx
               recorded =
                 LeaveRecorded
                   { headId = testHeadId

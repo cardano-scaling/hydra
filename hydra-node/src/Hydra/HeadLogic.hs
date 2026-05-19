@@ -925,7 +925,6 @@ onOpenNetworkReqDec env ledger ttl currentSlot openState decommitTx =
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientLeave ::
-  IsTx tx =>
   Environment ->
   OpenState tx ->
   Outcome tx
@@ -1002,7 +1001,7 @@ onOpenClientLeave env openState =
           )
     | otherwise = cont
 
-  OpenState{headId, parameters, coordinatedHeadState} = openState
+  OpenState{parameters, coordinatedHeadState} = openState
 
   CoordinatedHeadState
     { pendingParameterUpdate
@@ -1105,7 +1104,6 @@ onOpenNetworkReqLeave Environment{party} openState leavingParty leavingOnChainId
 --
 -- __Transition__: 'OpenState' -> 'OpenState'
 onOpenClientAddParticipant ::
-  IsTx tx =>
   OpenState tx ->
   Party ->
   OnChainId ->
@@ -1481,7 +1479,6 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
 --
 -- __Transition__: 'OpenState' -> 'OpenState'
 onOpenChainUpdateParametersTx ::
-  IsTx tx =>
   OpenState tx ->
   ChainStateType tx ->
   SnapshotVersion ->

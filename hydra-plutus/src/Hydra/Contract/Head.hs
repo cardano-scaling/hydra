@@ -316,7 +316,6 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
     , contestationPeriod = prevCperiod
     , headId = prevHeadId
     , version = prevVersion
-    , utxoHash = prevUtxoHash
     , accumulatorHash = prevAccumulatorHash
     } = openBefore
 
@@ -349,6 +348,7 @@ checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore
 
   -- Remove the first occurrence of x from the list, preserving order. Equivalent
   -- in spirit to Data.List.delete but inlined for plutus-tx.
+  removeFirst :: Party -> [Party] -> [Party]
   removeFirst x = go
    where
     go = \case

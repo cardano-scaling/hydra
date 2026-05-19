@@ -140,7 +140,6 @@ import HydraNode (
   waitForNodesDisconnected,
   waitForNodesSynced,
   waitMatch,
-  waitNoMatch,
   withHydraCluster,
   withHydraNode,
   withHydraNodeCatchingUp,

@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Binary (serialize')
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
-import Hydra.Cardano.Api (AsType (..), deserialiseFromRawBytes, serialiseToRawBytes)
+import Hydra.Cardano.Api (deserialiseFromRawBytes, serialiseToRawBytes)
 import Hydra.Network (Connectivity)
 import Hydra.Tx (
   IsTx (TxIdType),

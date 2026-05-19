@@ -6,7 +6,7 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff,
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
-import Control.Concurrent.Class.MonadSTM (newTVarIO, readTVar, writeTVar)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)

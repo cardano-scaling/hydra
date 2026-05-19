@@ -441,7 +441,7 @@ data AddParticipantRequest = AddParticipantRequest
   , joiningHost :: Text
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
+  deriving anyclass (FromJSON)
 
 -- | Handle 'POST /participants': signal an 'AddParticipant' client input
 -- and wait for one of 'JoinFinalized' (200), 'JoinInvalid' / 'CommandFailed'
@@ -449,7 +449,6 @@ data AddParticipantRequest = AddParticipantRequest
 -- with a 'JoinSubmitted' tag. See issue #1813 (dynamic-head-participants).
 handleAddParticipant ::
   forall tx.
-  IsChainState tx =>
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -495,7 +494,6 @@ handleAddParticipant putClientInput apiTransactionTimeout responseChannel body =
 -- (dynamic-head-participants).
 handleLeave ::
   forall tx.
-  IsChainState tx =>
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->

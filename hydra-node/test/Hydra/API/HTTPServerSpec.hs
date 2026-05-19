@@ -564,8 +564,8 @@ apiServerSpec = do
                 case confirmedSnapshot of
                   InitialSnapshot{headId} -> InitialSnapshot{headId}
                   ConfirmedSnapshot{snapshot, signatures} ->
-                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit, accumulator} = snapshot
-                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, accumulator}
+                    let Snapshot{headId, version, number, confirmed, utxoToCommit, utxoToDecommit, accumulator, parameterUpdate} = snapshot
+                        snapshot' = Snapshot{headId, version, number, confirmed, utxo = utxo', utxoToCommit, utxoToDecommit, accumulator, parameterUpdate}
                      in ConfirmedSnapshot{snapshot = snapshot', signatures}
               closedState' = closedState{confirmedSnapshot = confirmedSnapshot'}
           withApplication
@@ -669,6 +669,7 @@ apiServerSpec = do
                 , utxoToCommit = mempty
                 , utxoToDecommit = mempty
                 , accumulator
+                , parameterUpdate = Nothing
                 }
             event =
               TimedServerOutput
@@ -935,7 +936,8 @@ apiServerSpec = do
 
     describe "POST /participants (dynamic-head-participants Phase 2)" $ do
       let someHost = "127.0.0.1:5003" :: Text
-      let mkBody party' oid =
+      let mkBody :: Party -> OnChainId -> LByteString
+          mkBody party' oid =
             encode $
               object
                 [ "joiningParty" .= party'

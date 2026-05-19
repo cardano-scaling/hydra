@@ -7,7 +7,6 @@ module Hydra.Tx.UpdateParameters where
 import Hydra.Cardano.Api
 import Hydra.Prelude
 
-import GHC.IsList (fromList)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
@@ -80,21 +79,19 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
   -- which variant of the update we are applying. Both shapes must match
   -- exactly what the on-chain validator's 'mustApplyUpdateToParties' and
   -- 'mustPreserveHeadValueAdjustedForPT' enforce.
-  (newParties, ptAssetName, ptMintOrBurn, headValueDelta) =
+  (newParties, ptMintOrBurn, headValueDelta) =
     case parameterUpdate of
       RemoveParty{leavingParty, leavingOnChainId} ->
         let an = onChainIdToAssetName leavingOnChainId
          in ( filter (/= leavingParty) parties
-            , an
             , burnTokens headTokenScript Burn (fromList [(an, 1)])
-            , valueFromList [(AssetId policyId an, -1)]
+            , fromList [(AssetId policyId an, -1)]
             )
       AddParty{joiningParty, joiningOnChainId} ->
         let an = onChainIdToAssetName joiningOnChainId
          in ( parties <> [joiningParty]
-            , an
             , mintTokens headTokenScript MintParticipant (fromList [(an, 1)])
-            , valueFromList [(AssetId policyId an, 1)]
+            , fromList [(AssetId policyId an, 1)]
             )
 
   -- The head minting policy's currency. 'headIdToPolicyId' returns a
@@ -104,7 +101,6 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
   policyId =
     fromMaybe (error "headIdToPolicyId: head id does not map to a valid PolicyId") $
       headIdToPolicyId headId
-  _ = ptAssetName -- kept in scope for diagnostics; the value-delta is what matters
   headRedeemer =
     toScriptData $
       Head.UpdateParameters
