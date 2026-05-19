@@ -126,7 +126,6 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
               , utxoToDecommit = Nothing
               , headSeed
               , contestationDeadline = deadline
-              , snapshotAccumulator = Snapshot.accumulator snapshot
               }
           let expectedUTxO =
                 (Snapshot.utxo snapshot <> fromMaybe mempty (Snapshot.utxoToCommit snapshot))

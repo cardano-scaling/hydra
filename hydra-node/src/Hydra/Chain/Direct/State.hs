@@ -490,12 +490,10 @@ fanout ::
   Maybe UTxO ->
   -- | Snapshot UTxO to decommit to fanout
   Maybe UTxO ->
-  -- | Full snapshot accumulator matching accumulatorCommitment in the closed datum
-  HydraAccumulator ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Either FanoutTxError Tx
-fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccumulator deadlineSlotNo = do
+fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
@@ -799,13 +797,11 @@ unsafeFanout ::
   Maybe UTxO ->
   -- | Snapshot decommit UTxO to fanout
   Maybe UTxO ->
-  -- | Full snapshot accumulator matching the accumulatorCommitment in the closed datum.
-  HydraAccumulator ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccumulator deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit snapshotAccumulator deadlineSlotNo
+unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
+  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
 
 unsafePartialFanout ::
   HasCallStack =>

@@ -38,7 +38,6 @@ import Hydra.Tx (
   SnapshotVersion,
   UTxOType,
  )
-import Hydra.Tx.Accumulator (HydraAccumulator)
 import Hydra.Tx.OnChainId (OnChainId)
 
 -- | Hardcoded limit for maximum number of parties in a head protocol. A too
@@ -86,9 +85,6 @@ data PostChainTx tx
       { utxo :: UTxOType tx
       , utxoToCommit :: Maybe (UTxOType tx)
       , utxoToDecommit :: Maybe (UTxOType tx)
-      , snapshotAccumulator :: HydraAccumulator
-      -- ^ Full snapshot accumulator matching the accumulatorCommitment in the closed datum.
-      -- Used to compute the membership proof for the fanout outputs.
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }

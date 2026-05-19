@@ -147,7 +147,6 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                 , utxoToDecommit = Snapshot.utxoToDecommit snapshot
                 , headSeed
                 , contestationDeadline = deadline
-                , snapshotAccumulator = Snapshot.accumulator snapshot
                 }
             let expectedUTxO =
                   ( Snapshot.utxo snapshot

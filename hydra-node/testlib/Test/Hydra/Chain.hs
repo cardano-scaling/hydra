@@ -29,8 +29,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
       CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
     ContestTx{headId, headParameters, openVersion, contestingSnapshot} ->
       ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
-    FanoutTx{utxo, utxoToCommit, utxoToDecommit, snapshotAccumulator, headSeed, contestationDeadline} ->
-      FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> pure snapshotAccumulator <*> shrink headSeed <*> shrink contestationDeadline
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} ->
+      FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
     PartialFanoutTx{utxoToDistribute, remainingUTxO, headSeed, contestationDeadline} ->
       PartialFanoutTx <$> shrink utxoToDistribute <*> shrink remainingUTxO <*> shrink headSeed <*> shrink contestationDeadline
     FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} ->

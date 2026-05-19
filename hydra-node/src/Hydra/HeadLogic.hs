@@ -1487,7 +1487,7 @@ emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestatio
                 -- needs the three-part decomposition (utxo, utxoToCommit,
                 -- utxoToDecommit) from the snapshot to verify hashes separately.
                 let ClosedState{confirmedSnapshot, version} = closedState
-                    Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion, accumulator} = getSnapshot confirmedSnapshot
+                    Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
                  in FanoutTx
                       { utxo
                       , -- Include utxoToCommit only if the increment has been
@@ -1504,7 +1504,6 @@ emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestatio
                           if snapshotVersion == version
                             then utxoToDecommit
                             else Nothing
-                      , snapshotAccumulator = accumulator
                       , headSeed
                       , contestationDeadline
                       }

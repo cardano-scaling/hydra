@@ -924,13 +924,11 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       -- Model world has no 'Maybe ModelUTxO', but real world does.
       fanoutCommit
       fanoutDecommit
-      snapshotAcc
       deadline
  where
   fanoutUTxO = realWorldModelUTxO utxo
   fanoutCommit = if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit
   fanoutDecommit = if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit
-  snapshotAcc = Accumulator.buildFromSnapshotUTxOs @Tx fanoutUTxO fanoutCommit fanoutDecommit
   deadline = SlotNo $ fromIntegral Fixture.cperiod * fromIntegral (length allActors)
 
 -- | Cardano payment keys for 'alice', 'bob', and 'carol'.
