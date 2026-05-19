@@ -6,7 +6,6 @@ module Hydra.TUI.Drawing where
 import Hydra.Prelude hiding (Down, State)
 
 import Brick
-import Brick.Forms (renderForm)
 import Brick.Widgets.Border (borderWithLabel)
 import Brick.Widgets.Border.Style (unicodeRounded)
 import Data.Text qualified as T
@@ -15,7 +14,7 @@ import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Client (Client (..))
 import Hydra.TUI.Config (Theme (..))
 import Hydra.TUI.Drawing.EventHistoryTab (drawEventHistoryTab)
-import Hydra.TUI.Drawing.FundsTab (drawFocusPanel, drawFundsTab)
+import Hydra.TUI.Drawing.FundsTab (drawFocusPanel, drawFundsTab, drawRecoverFormWithDetail)
 import Hydra.TUI.Drawing.MainTab (drawMainTab)
 import Hydra.TUI.Logging.Types (EventHistoryFilter (..))
 import Hydra.TUI.Model
@@ -97,7 +96,12 @@ drawModalTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel (withAttr neutral $ txt (" " <> modalTabLabel s <> " ")) $
     padLeftRight 1 $
       case s ^. recoveryFormL of
-        Just form -> renderForm form
+        Just form ->
+          let ownAddress = mkVkAddress @Era networkId (getVerificationKey sk)
+              pendingIncrements =
+                fromMaybe [] $
+                  s ^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL
+           in drawRecoverFormWithDetail ownAddress form pendingIncrements (s ^. nowL)
         Nothing -> case s ^. connectedStateL of
           Disconnected -> emptyWidget
           Connected k -> drawFocusPanel networkId (getVerificationKey sk) (s ^. nowL) k

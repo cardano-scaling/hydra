@@ -230,17 +230,18 @@ handleEvent cardanoClient client chan = \case
               (_, EvKey KEsc []) -> closeModal
               (_, EvKey (KChar 'c') []) -> closeModal
               (Just form, EvKey KEnter []) -> do
-                let (selectedTxId, _, _) = formState form
-                liftIO $ recoverCommit client selectedTxId
+                let selectedTxId = formState form
+                pendingActionL .= Just "Sending recovery…"
+                liftIO $ recoverCommitAsync client chan selectedTxId
                 closeModal
               (Just _, _) -> zoom (recoveryFormL . _Just) $ handleFormEvent (VtyEvent e)
               (Nothing, _) -> do
-                -- Set pending action for close confirmation
-                openScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
-                case (openScreen, e) of
-                  (Just (ConfirmingClose form), EvKey KEnter []) ->
-                    when (formState form) $ pendingActionL .= Just "Sending Close…"
-                  _ -> pure ()
+                -- Show "Sending …" status for in-modal Enter actions
+                -- (decommit / increment / recover / close confirm). Done
+                -- before handleVtyEventsHeadState so the read of openState
+                -- sees the action being submitted, not the post-action
+                -- 'OpenHome'.
+                setPendingAction e
                 zoom (connectedStateL . connectionL . headStateL) $
                   handleVtyEventsHeadState cardanoClient client chan e
                 -- Auto-close modal if action completed and we returned to OpenHome
@@ -513,8 +514,8 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
       case e of
         EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
-          let (selectedTxId, _, _) = formState i
-          liftIO $ recoverCommit hydraClient selectedTxId
+          let selectedTxId = formState i
+          liftIO $ recoverCommitAsync hydraClient chan selectedTxId
           put OpenHome
         _ -> zoom selectingDepositIdToRecoverFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
@@ -694,6 +695,18 @@ setPendingAction e = do
               pendingActionL .= Just "Sending Close…"
           _ -> pure ()
       _ -> pure ()
+
+-- | Fire-and-forget recover request. Forking is essential — 'recoverCommit'
+-- runs a synchronous HTTP DELETE against the hydra-node, and if the node is
+-- unresponsive the call would otherwise block the brick event loop (no way to
+-- press Esc or Ctrl-C). Errors are surfaced through the TUI's event channel
+-- as a 'TxBuildError' so the user sees them in the pending-action slot.
+recoverCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> TxId -> IO ()
+recoverCommitAsync client chan depositTxId =
+  void $
+    forkIO $
+      handle (\(e :: SomeException) -> writeBChan chan (TxBuildError ("Recovery request failed: " <> show e))) $
+        recoverCommit client depositTxId
 
 triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1Query cardanoClient client chan = do

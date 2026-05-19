@@ -58,30 +58,41 @@ utxoRadioField u = case Map.toList u of
         ]
         x
 
+-- | Build a radio form for selecting one pending deposit (by 'TxId') to
+-- recover. The form yields just the 'TxId' — the full UTxO breakdown is
+-- rendered separately in the recover detail panel (see
+-- 'Hydra.TUI.Drawing.FundsTab.drawRecoverDetail').
 depositIdRadioField ::
   forall s e n.
-  ( s ~ (TxId, TxIn, TxOut CtxUTxO)
+  ( s ~ TxId
   , n ~ Text
   ) =>
   [(TxId, UTxO)] ->
   Maybe (Form s e n)
-depositIdRadioField txIdUTxO = case flattened txIdUTxO of
+depositIdRadioField txIdUTxO = case txIdUTxO of
   [] -> Nothing
-  (x : _) ->
+  ((firstTxId, _) : _) ->
     Just $
       newForm
         [ radioField
             id
-            [ ((txid, i, o), show txid, renderUTxOAsAda (i, o))
-            | (txid, i, o) <- flattened txIdUTxO
+            [ (txid, show txid, renderDepositSummary txid u)
+            | (txid, u) <- txIdUTxO
             ]
         ]
-        x
- where
-  flattened :: [(TxId, UTxO)] -> [(TxId, TxIn, TxOut CtxUTxO)]
-  flattened =
-    concatMap
-      (\(a, u) -> (\(i, o) -> (a, i, o)) <$> Map.toList (UTxO.toMap u))
+        firstTxId
+
+-- | One-line summary of a pending deposit: shortened TxId plus the total
+-- lovelace across all its outputs.
+renderDepositSummary :: TxId -> UTxO -> Text
+renderDepositSummary txid u =
+  let Coin l = foldMap (\(TxOut _ v _ _) -> selectLovelace v) (UTxO.txOutputs u)
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
+      sign = if l < 0 then "-" else ""
+      shortId = Text.take 12 (show txid) <> "…"
+   in shortId <> "  ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 confirmRadioField ::
   forall s e n.

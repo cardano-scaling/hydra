@@ -6,7 +6,7 @@ module Hydra.TUI.Drawing.FundsTab where
 import Hydra.Prelude hiding (Down, State)
 
 import Brick
-import Brick.Forms (renderForm)
+import Brick.Forms (Form, formState, renderForm)
 import Brick.Widgets.Border (borderWithLabel, hBorder, hBorderWithLabel)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
@@ -88,7 +88,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
   SelectingUTxO x -> renderForm x
   SelectingUTxOToDecommit x -> renderForm x
   SelectingUTxOToIncrement x -> renderForm x
-  SelectingDepositIdToRecover x -> renderForm x
+  SelectingDepositIdToRecover x -> drawRecoverFormWithDetail ownAddress x pendingIncrements now
   EnteringAmount _ x -> renderForm x
   SelectingRecipient _ _ x -> renderForm x
   EnteringRecipientAddress _ _ x -> renderForm x
@@ -158,3 +158,41 @@ drawPendingIncrement ownAddress pendingIncrements now =
            , drawRemainingDepositDeadline depositDeadline now
            , hBorder
            ]
+
+-- | Render the recover modal: a radio list of pending deposit ids on top, and
+-- a detail panel for the currently-focused deposit (status, deadline, UTxO
+-- outputs) below. Keeps one selection per deposit instead of one per output.
+drawRecoverFormWithDetail ::
+  AddressInEra ->
+  Form TxId e Name ->
+  [PendingIncrement] ->
+  UTCTime ->
+  Widget Name
+drawRecoverFormWithDetail ownAddress form pendingIncrements now =
+  vBox
+    [ withAttr neutral (txt "Select a deposit to recover:")
+    , renderForm form
+    , hBorder
+    , drawRecoverDetail ownAddress (formState form) pendingIncrements now
+    ]
+
+-- | Detail panel for one pending deposit: full TxId, current status,
+-- remaining time to the deposit deadline, and the per-output UTxO listing.
+drawRecoverDetail ::
+  AddressInEra ->
+  TxId ->
+  [PendingIncrement] ->
+  UTCTime ->
+  Widget Name
+drawRecoverDetail ownAddress selectedTxId pendingIncrements now =
+  case find (\PendingIncrement{deposit} -> deposit == selectedTxId) pendingIncrements of
+    Nothing -> withAttr neutral $ txt "(no deposit selected)"
+    Just PendingIncrement{utxoToCommit, deposit, depositDeadline, status} ->
+      vBox
+        [ withAttr neutral (txt "Selected deposit")
+        , txt ("id: " <> show deposit)
+        , txt ("status: " <> show status)
+        , drawRemainingDepositDeadline depositDeadline now
+        , withAttr neutral (txt "Outputs")
+        , drawUTxO (highlightOwnAddress ownAddress) utxoToCommit
+        ]

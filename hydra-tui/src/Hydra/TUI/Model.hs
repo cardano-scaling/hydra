@@ -83,7 +83,7 @@ type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
 
-type TxIdRadioFieldForm e n = Form (TxId, TxIn, TxOut CtxUTxO) e n
+type TxIdRadioFieldForm e n = Form TxId e n
 
 type ConfirmingRadioFieldForm e n = Form Bool e n
 

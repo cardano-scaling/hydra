@@ -15,17 +15,20 @@ import Graphics.Vty (
   black,
   blue,
   bold,
-  brightBlack,
+  brightBlue,
+  brightMagenta,
+  brightRed,
   brightWhite,
+  brightYellow,
   cyan,
   defAttr,
   green,
   italic,
   magenta,
   red,
+  white,
   withForeColor,
   withStyle,
-  yellow,
  )
 import Hydra.TUI.Logging.Types (Severity (..))
 
@@ -68,26 +71,29 @@ actionDescA = attrName "actionDesc"
 sectionHeaderA :: AttrName
 sectionHeaderA = attrName "sectionHeader"
 
--- | Dark theme — optimised for dark terminal backgrounds.
+-- | Dark theme — optimised for dark terminal backgrounds. We deliberately use
+-- the bright ANSI palette for foreground colours so that text stays legible
+-- on a true-black background, where the dim variants (e.g. plain @blue@ or
+-- @brightBlack@) blend into the background.
 darkStyle :: s -> AttrMap
 darkStyle _ =
   attrMap
     defAttr
-    [ (infoA, fg blue)
-    , (negative, fg red)
+    [ (infoA, fg brightBlue)
+    , (negative, fg brightRed)
     , (positive, fg green)
-    , (neutral, fg brightBlack)
-    , (own, fg yellow)
+    , (neutral, fg brightWhite)
+    , (own, fg brightYellow)
     , (activeTabA, brightWhite `on` blue)
     , (keyA, withStyle (withStyle defAttr bold) italic)
-    , (pendingA, fg magenta)
-    , (headStateA, withStyle (fg magenta) bold)
+    , (pendingA, fg brightMagenta)
+    , (headStateA, withStyle (fg brightMagenta) bold)
     , (actionDescA, withStyle defAttr italic)
     , (sectionHeaderA, brightWhite `on` blue)
     , (listSelectedAttr, brightWhite `on` blue)
-    , (borderAttr, fg brightBlack)
-    , (focusedFormInputAttr, fg blue)
-    , (invalidFormInputAttr, fg red)
+    , (borderAttr, fg white)
+    , (focusedFormInputAttr, fg brightBlue)
+    , (invalidFormInputAttr, fg brightRed)
     ]
 
 -- | Light theme — optimised for light terminal backgrounds.
