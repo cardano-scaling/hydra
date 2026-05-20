@@ -219,7 +219,7 @@ computePartialFanOutNominalCost = do
     catMaybes
       <$> mapM
         compute
-        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 150, 200]
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
   limit <-
     maybeToList . getFirst
       <$> foldMapM

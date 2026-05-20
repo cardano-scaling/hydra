@@ -1753,8 +1753,8 @@ spec =
           _ -> False
 
       it "partial fanout reduces remainingUTxO by distributedUTxO" $ do
-        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 18]]
-            (distributedList, _) = splitAt 7 (Set.toList allItems)
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + fromIntegral fanoutChunkSize + 1]]
+            (distributedList, _) = splitAt fanoutChunkSize (Set.toList allItems)
             distributed = Set.fromList distributedList
             st = inClosedStateWithRemaining threeParties (Just allItems)
         now <- nowFromSlot st.chainPointTime.currentSlot

@@ -71,11 +71,11 @@ healthyFinalPartialFanoutTx =
   headOutput = modifyTxOutValue (<> UTxO.totalValue healthyDistributeUTxO) headOutput'
 
 -- | The UTxOs to distribute in the final partial fanout step.
--- We use a small UTxO set (≤ 7) representing the last batch.
+-- We use a small UTxO set (≤ fanoutChunkSize) representing the last batch.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 99
-   in UTxO.fromList $ take 7 $ UTxO.toList utxo
+   in UTxO.fromList $ take fanoutChunkSize $ UTxO.toList utxo
 
 -- | The accumulator covering exactly the UTxOs being distributed in this final step.
 healthyRemainingAccumulator :: Accumulator.HydraAccumulator
