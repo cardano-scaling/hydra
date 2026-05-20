@@ -92,6 +92,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport, evaluateTxWith)
 import Hydra.Logging (Tracer, traceWith)
 
 type Address = Ledger.Addr
@@ -117,6 +118,13 @@ data TinyWallet m = TinyWallet
       Api.UTxO ->
       Api.Tx ->
       m (Either ErrCoverFee Api.Tx)
+  , evaluateScriptCosts ::
+      Api.Tx ->
+      Api.UTxO ->
+      m (Either EvaluationError EvaluationReport)
+  -- ^ Evaluate script execution costs for a transaction using current protocol
+  -- parameters from the node. Returns Right if all scripts succeed within
+  -- budget, Left otherwise.
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -167,6 +175,11 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           pure $
             fromLedgerTx
               <$> coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
+      , evaluateScriptCosts = \tx lookupUTxO -> do
+          WalletInfoOnChain{systemStart} <- readTVarIO walletInfoVar
+          epochInfo <- queryEpochInfo
+          pparams <- querySomePParams
+          pure $ evaluateTxWith systemStart epochInfo pparams tx lookupUTxO
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header

@@ -89,12 +89,6 @@ data PostChainTx tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
-  | PartialFanoutTx
-      { utxoToDistribute :: UTxOType tx
-      , remainingUTxO :: UTxOType tx
-      , headSeed :: HeadSeed
-      , contestationDeadline :: UTCTime
-      }
   | FinalPartialFanoutTx
       { utxoToDistribute :: UTxOType tx
       , headSeed :: HeadSeed

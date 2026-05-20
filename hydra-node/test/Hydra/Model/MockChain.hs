@@ -392,6 +392,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
           , getSeedInput = pure (Just seedInput)
           , sign = id
           , coverFee = \_ tx -> pure (Right tx)
+          , evaluateScriptCosts = \tx utxo -> pure $ evaluateTx tx utxo
           , reset = pure ()
           , update = \_ _ -> pure ()
           }

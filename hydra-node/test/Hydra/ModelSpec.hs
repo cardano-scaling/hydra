@@ -85,7 +85,6 @@ import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Typeable (cast)
 import Hydra.BehaviorSpec (TestHydraClient (..), dummySimulatedChainNetwork)
-import Hydra.HeadLogic (fanoutOutputThreshold)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
   Action (..),
@@ -154,8 +153,8 @@ spec = do
   -- This scenario seeds a head with a single party and an UTxO set of elements.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
-    prop "succeeds fanout over the limit via partial fanout" $ propFanoutLimit (fanoutOutputThreshold + 1)
-    prop "succeeds fanout under the limit" $ propFanoutLimit fanoutOutputThreshold
+    prop "succeeds fanout with many outputs" $ propFanoutLimit 11
+    prop "succeeds fanout with few outputs" $ propFanoutLimit 10
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO

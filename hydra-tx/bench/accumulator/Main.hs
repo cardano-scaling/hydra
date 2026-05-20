@@ -22,7 +22,6 @@ import Hydra.Tx.Accumulator (
   unHydraAccumulator,
  )
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
 
@@ -70,13 +69,13 @@ main = do
 
   putTextLn "Pre-generated CRS"
 
-  -- Generate fanoutChunkSize subsets for membership proofs
-  let !subsetChunk_from50 = generateSubset utxo50 fanoutChunkSize
-  let !subsetChunk_from100 = generateSubset utxo100 fanoutChunkSize
-  let !subsetChunk_from500 = generateSubset utxo500 fanoutChunkSize
-  let !subsetChunk_from1000 = generateSubset utxo1000 fanoutChunkSize
-  let !subsetChunk_from2000 = generateSubset utxo2000 fanoutChunkSize
-  let !subsetChunk_from4000 = generateSubset utxo4000 fanoutChunkSize
+  -- Generate 7 subsets for membership proofs
+  let !subsetChunk_from50 = generateSubset utxo50 7
+  let !subsetChunk_from100 = generateSubset utxo100 7
+  let !subsetChunk_from500 = generateSubset utxo500 7
+  let !subsetChunk_from1000 = generateSubset utxo1000 7
+  let !subsetChunk_from2000 = generateSubset utxo2000 7
+  let !subsetChunk_from4000 = generateSubset utxo4000 7
 
   putTextLn "Generated subsets for membership proofs"
 
@@ -109,13 +108,13 @@ main = do
         , bench "Serialize 100 TxOuts" $ whnf (fmap (utxoToElement @Tx)) elements100
         ]
     , bgroup
-        "3. Create Membership Proofs (fanoutChunkSize batch)"
-        [ bench "fanoutChunkSize from 50" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc50 crs51) subsetChunk_from50
-        , bench "fanoutChunkSize from 100" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc100 crs101) subsetChunk_from100
-        , bench "fanoutChunkSize from 500" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc500 crs501) subsetChunk_from500
-        , bench "fanoutChunkSize from 1000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc1000 crs1001) subsetChunk_from1000
-        , bench "fanoutChunkSize from 2000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc2000 crs2001) subsetChunk_from2000
-        , bench "fanoutChunkSize from 4000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc4000 crs4001) subsetChunk_from4000
+        "3. Create Membership Proofs (7 batch)"
+        [ bench "7 from 50" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc50 crs51) subsetChunk_from50
+        , bench "7 from 100" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc100 crs101) subsetChunk_from100
+        , bench "7 from 500" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc500 crs501) subsetChunk_from500
+        , bench "7 from 1000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc1000 crs1001) subsetChunk_from1000
+        , bench "7 from 2000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc2000 crs2001) subsetChunk_from2000
+        , bench "7 from 4000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc4000 crs4001) subsetChunk_from4000
         ]
     , bgroup
         "4. Create Membership Proofs (Low-level, variable batch size)"
@@ -155,9 +154,9 @@ main = do
         [ bench "Full cycle: 100 UTxOs" $ nf fullSnapshotCycle utxo100
         , bench "Full cycle: 1000 UTxOs" $ nf fullSnapshotCycle utxo1000
         , bench "Full cycle: 4000 UTxOs" $ nf fullSnapshotCycle utxo4000
-        , bench "Partial fanout: fanoutChunkSize from 50" $ nf (partialFanoutCycle utxo50) subsetChunk_from50
-        , bench "Partial fanout: fanoutChunkSize from 500" $ nf (partialFanoutCycle utxo500) subsetChunk_from500
-        , bench "Partial fanout: fanoutChunkSize from 4000" $ nf (partialFanoutCycle utxo4000) subsetChunk_from4000
+        , bench "Partial fanout: 7 from 50" $ nf (partialFanoutCycle utxo50) subsetChunk_from50
+        , bench "Partial fanout: 7 from 500" $ nf (partialFanoutCycle utxo500) subsetChunk_from500
+        , bench "Partial fanout: 7 from 4000" $ nf (partialFanoutCycle utxo4000) subsetChunk_from4000
         ]
     ]
 

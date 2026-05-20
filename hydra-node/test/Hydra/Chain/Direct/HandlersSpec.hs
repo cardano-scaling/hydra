@@ -45,7 +45,6 @@ import Hydra.Chain.Direct.State (
   initialize,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
-import Hydra.HeadLogic (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx)
@@ -278,12 +277,34 @@ spec = do
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
       pure $ latestResumedChainState === latestChainState
 
-  describe "fanout constants" $ do
-    it "chunk size is less than threshold" $
-      fanoutChunkSize `shouldSatisfy` (< fanoutOutputThreshold)
+  describe "splitUTxOAt (IsTx)" $ do
+    it "splits UTxO into n and remaining" $ do
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+          n = 2
+          (first', rest) = splitUTxOAt n utxo
+      UTxO.size first' `shouldBe` n
+      UTxO.size rest `shouldBe` (UTxO.size utxo - n)
 
-    it "threshold is reasonable" $
-      fanoutOutputThreshold `shouldSatisfy` (> 0)
+    it "preserves all entries" $ do
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+          n = 2
+          (first', rest) = splitUTxOAt n utxo
+      UTxO.toList (first' <> rest) `shouldBe` UTxO.toList utxo
+
+    it "handles n larger than UTxO size" $ do
+      let fullUtxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+          -- Take only the first 3 entries to get a small UTxO
+          utxo = UTxO.fromList $ take 3 (UTxO.toList fullUtxo)
+          n = 100
+          (first', rest) = splitUTxOAt n utxo
+      UTxO.size first' `shouldBe` UTxO.size utxo
+      UTxO.size rest `shouldBe` 0
+
+    it "handles empty UTxO" $ do
+      let utxo = mempty :: UTxO
+          (first', rest) = splitUTxOAt 5 utxo
+      UTxO.size first' `shouldBe` 0
+      UTxO.size rest `shouldBe` 0
 
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])

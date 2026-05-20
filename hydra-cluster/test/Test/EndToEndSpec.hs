@@ -84,7 +84,6 @@ import Hydra.Cluster.SecurityScenarios (
   cannotStealLargerDepositDuringOwnIncrement,
  )
 import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
-import Hydra.HeadLogic (fanoutOutputThreshold)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -525,22 +524,19 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- With partial fanout (see #1468), heads with more UTxOs than the
         -- per-transaction limit can still finalize by automatically sequencing
         -- multiple PartialFanout transactions followed by a FinalPartialFanout.
-        --
-        -- The node threshold is fanoutOutputThreshold outputs (HeadLogic).
-        -- Below the threshold: single Fanout transaction.
-        -- Above the threshold: PartialFanout* → FinalPartialFanout sequence.
+        -- Handlers dynamically determines the right chunk size via tx evaluation.
 
         it "can fanout UTxOs within single transaction limit" $ \tracer ->
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
               withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
-                fanoutWithNOutputs (fromIntegral fanoutOutputThreshold) tmpDir tracer hydraScriptsTxId opts
+                fanoutWithNOutputs 10 tmpDir tracer hydraScriptsTxId opts
 
         it "can fanout more UTxOs than single transaction limit via partial fanout" $ \tracer ->
           failAfter 120 $
             withClusterTempDir $ \tmpDir -> do
               withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
-                fanoutWithNOutputs (fromIntegral fanoutOutputThreshold + 1) tmpDir tracer hydraScriptsTxId opts
+                fanoutWithNOutputs 11 tmpDir tracer hydraScriptsTxId opts
 
     describe "restarting nodes" $ do
       it "resume from latest observed point" $ \tracer -> do

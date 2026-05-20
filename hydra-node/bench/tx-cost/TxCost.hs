@@ -35,7 +35,6 @@ import Hydra.Chain.Direct.State (
   unsafeFinalPartialFanout,
   unsafePartialFanout,
  )
-import Hydra.HeadLogic (fanoutChunkSize)
 import Hydra.Ledger.Cardano.Evaluate (
   usedExecutionUnits,
  )
@@ -206,13 +205,19 @@ computeFanOutCost = do
 -- | Compute costs of partial fanout transactions across a range of per-step
 -- distribution sizes.
 --
--- Sweeps 'numToDistribute' from 1 to 'fanoutChunkSize'. The remaining UTxO
--- count is fixed because, with a BLS accumulator, the accumulator commitment
--- stored in the continuing output datum is a constant-size G1 point regardless
--- of how many UTxOs remain.
-computePartialFanOutNominalCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+-- For each total UTxO count N, we build one partial fanout that distributes
+-- all-but-one outputs (the benchmark shows max-chunk scaling). The tx size
+-- grows with the total UTxO count because the accumulator serialisation stored
+-- in the output datum grows linearly with remaining UTxO count.
+computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutNominalCost = do
-  interesting <- catMaybes <$> mapM compute [1 .. fanoutChunkSize]
+  -- Show how partial fanout scales across the full new accumulator range (up to 4095).
+  -- The tx size grows with remaining UTxO count (larger datum), so we probe widely.
+  interesting <-
+    catMaybes
+      <$> mapM
+        compute
+        [11, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
@@ -223,8 +228,9 @@ computePartialFanOutNominalCost = do
   numberOfParties = 3
   numRemaining = fanoutChunkSize
 
-  compute numToDistribute = do
-    let totalUTxO = numToDistribute + numRemaining
+  compute totalUTxO = do
+    let numToDistribute = totalUTxO - 1
+        numRemaining = totalUTxO - numToDistribute
     utxo <- genUTxOAdaOnlyOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -238,14 +244,11 @@ computePartialFanOutNominalCost = do
         spendableUTxO =
           UTxO.map (modifyTxOutValue (<> UTxO.totalValue utxo)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-        allPairs = UTxO.toList utxo
-        (toDistributePairs, remainingPairs) = splitAt numToDistribute allPairs
-        utxoToDistribute = UTxO.fromList toDistributePairs
-        utxoRemaining = UTxO.fromList remainingPairs
-        tx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
+        tx = unsafePartialFanout cctx spendableUTxO seedTxIn numToDistribute utxo deadlineSlotNo
+        (utxoToDistribute, _) = splitAt numToDistribute (UTxO.toList utxo)
     case checkSizeAndEvaluate tx spendableUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO numToDistribute, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize (UTxO.fromList utxoToDistribute), txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 

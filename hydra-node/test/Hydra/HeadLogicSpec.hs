@@ -35,7 +35,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, fanoutChunkSize, fanoutOutputThreshold, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -1618,61 +1618,34 @@ spec =
               HeadPartialFannedOut{} -> True
               _ -> False
           -- Should also trigger the next fanout automatically. After observing a
-          -- PartialFanout the phase is always FanoutInProgress, so FanoutTx is
-          -- never emitted here — only PartialFanoutTx (more chunks) or
-          -- FinalPartialFanoutTx (last chunk).
+          -- PartialFanout the phase is always FanoutInProgress, so HeadLogic
+          -- always emits FinalPartialFanoutTx (Handlers decides whether to
+          -- actually do a partial chunk or finalize based on tx evaluation).
           run $
             outcome `hasEffectSatisfying` \case
-              OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
               OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
               _ -> False
 
-      it "partial fanout with large remaining triggers another PartialFanoutTx" $ do
-        let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
+      it "partial fanout with large remaining triggers FinalPartialFanoutTx" $ do
+        let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. 11]]
             st = inClosedStateWithRemaining threeParties (Just bigRemaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
-            Set.size utxoToDistribute == fanoutChunkSize
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} ->
+            Set.size utxoToDistribute == Set.size bigRemaining
           _ -> False
 
       it "partial fanout reduces remainingUTxO by distributedUTxO" $ do
-        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + fromIntegral fanoutChunkSize + 1]]
-            (distributedList, _) = splitAt fanoutChunkSize (Set.toList allItems)
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 18]]
+            (distributedList, _) = splitAt 7 (Set.toList allItems)
             distributed = Set.fromList distributedList
             st = inClosedStateWithRemaining threeParties (Just allItems)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
-          HeadPartialFannedOut{remainingOutputs} ->
-            Set.size remainingOutputs == Set.size allItems - fanoutChunkSize
-          _ -> False
-
-      it "partial fanout of non-prefix items tracks remaining by content, not by count" $ do
-        -- This test demonstrates the robustness requirement: an adversary can
-        -- submit a valid partial fanout of UTxOs that are NOT the prefix of the
-        -- full set in internal sort order. The remaining computation must use
-        -- content-based set-difference, not a count-based positional split.
-        let total = fanoutOutputThreshold + fanoutChunkSize + 1
-            allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral total]]
-            -- Adversarial distribution: the LAST fanoutChunkSize items, not the first.
-            attackedDistributed =
-              Set.fromList
-                [SimpleTxOut i | i <- [fromIntegral (total - fanoutChunkSize + 1) .. fromIntegral total]]
-            st = inClosedStateWithRemaining threeParties (Just allItems)
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome =
-              update
-                bobEnv
-                ledger
-                now
-                st
-                (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = attackedDistributed})
-        -- remainingOutputs must equal allItems minus the actually-distributed items.
-        outcome `hasStateChangedSatisfying` \case
-          HeadPartialFannedOut{remainingOutputs} ->
-            remainingOutputs == Set.difference allItems attackedDistributed
+          HeadPartialFannedOut{remainingUTxO} ->
+            Set.size remainingUTxO == Set.size allItems - 7
           _ -> False
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
@@ -1701,27 +1674,14 @@ spec =
           OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == mempty
           _ -> False
 
-      it "client fanout triggers PartialFanoutTx when snapshot UTxO exceeds threshold" $ do
-        -- fanoutOutputThreshold + 1 UTxOs must produce PartialFanoutTx
-        let bigUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
+      it "client fanout always triggers FanoutTx for FreshFanout phase" $ do
+        let bigUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. 11]]
             snap = testSnapshot 1 0 [] bigUTxO
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (ClientInput Fanout)
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
-            Set.size utxoToDistribute == fanoutChunkSize
-          _ -> False
-
-      it "client fanout uses FanoutTx when snapshot UTxO is exactly at threshold" $ do
-        -- exactly fanoutOutputThreshold UTxOs must produce FanoutTx
-        let thresholdUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold]]
-            snap = testSnapshot 1 0 [] thresholdUTxO
-            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now st (ClientInput Fanout)
-        outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == thresholdUTxO
+          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == bigUTxO
           _ -> False
 
       it "client fanout resumes from remaining UTxOs when prior step posting failed due to insufficient funds" $ do

@@ -1357,8 +1357,6 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
-  PartialFanoutTx{utxoToDistribute} ->
-    OnPartialFanoutTx{headId = testHeadId, distributedOutputs = Set.fromList (outputsOfUTxO utxoToDistribute)}
   FinalPartialFanoutTx{utxoToDistribute} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
 
