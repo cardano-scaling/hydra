@@ -89,17 +89,17 @@ healthyFullUTxO :: UTxO
 healthyFullUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 42
       utxoList = UTxO.toList utxo
-   in UTxO.fromList $ take (fanoutOutputThreshold + 1) utxoList
+   in UTxO.fromList $ take 11 utxoList
 
--- | The first chunk to distribute: the leading 'fanoutChunkSize' entries.
+-- | The first chunk to distribute: the leading '7' entries.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
-  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ take 7 $ UTxO.toList healthyFullUTxO
 
 -- | UTxOs left after distributing the first chunk; carried over to the next step.
 healthyRemainingUTxO :: UTxO
 healthyRemainingUTxO =
-  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ drop 7 $ UTxO.toList healthyFullUTxO
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
@@ -178,11 +178,11 @@ duplicateFullUTxO =
 
 duplicateDistributeUTxO :: UTxO
 duplicateDistributeUTxO =
-  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList duplicateFullUTxO
+  UTxO.fromList $ take 7 $ UTxO.toList duplicateFullUTxO
 
 duplicateRemainingUTxO :: UTxO
 duplicateRemainingUTxO =
-  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList duplicateFullUTxO
+  UTxO.fromList $ drop 7 $ UTxO.toList duplicateFullUTxO
 
 duplicateFullAccumulator :: Accumulator.HydraAccumulator
 duplicateFullAccumulator =
