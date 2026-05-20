@@ -70,7 +70,7 @@ import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
-import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
 import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Gen (generate)
@@ -1627,7 +1627,7 @@ spec =
               _ -> False
 
       it "partial fanout with large remaining triggers FinalPartialFanoutTx" $ do
-        let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. 11]]
+        let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
             st = inClosedStateWithRemaining threeParties (Just bigRemaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
@@ -1637,15 +1637,15 @@ spec =
           _ -> False
 
       it "partial fanout reduces remainingUTxO by distributedUTxO" $ do
-        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 18]]
-            (distributedList, _) = splitAt 7 (Set.toList allItems)
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + fromIntegral fanoutChunkSize + 1]]
+            (distributedList, _) = splitAt fanoutChunkSize (Set.toList allItems)
             distributed = Set.fromList distributedList
             st = inClosedStateWithRemaining threeParties (Just allItems)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
           HeadPartialFannedOut{remainingUTxO} ->
-            Set.size remainingUTxO == Set.size allItems - 7
+            Set.size remainingUTxO == Set.size allItems - fanoutChunkSize
           _ -> False
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
@@ -1675,7 +1675,7 @@ spec =
           _ -> False
 
       it "client fanout always triggers FanoutTx for FreshFanout phase" $ do
-        let bigUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. 11]]
+        let bigUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
             snap = testSnapshot 1 0 [] bigUTxO
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st.chainPointTime.currentSlot

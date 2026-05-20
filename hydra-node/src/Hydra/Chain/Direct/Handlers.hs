@@ -73,6 +73,7 @@ import Hydra.Chain.Direct.State (
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
+import System.IO.Error (userError)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -103,7 +104,6 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
-import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
@@ -184,7 +184,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         vtx <- case tx of
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
             let TimeHandle{slotFromUTCTime} = timeHandle
-            deadlineSlot <- either (throwIO . userError . toString) pure $ slotFromUTCTime contestationDeadline
+            deadlineSlot <- either (const $ throwIO (FailedToConstructFanoutTx @Tx)) pure $ slotFromUTCTime contestationDeadline
             seedTxIn <- case headSeedToTxIn headSeed of
               Nothing -> throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
               Just tin -> pure tin
@@ -194,7 +194,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
             let TimeHandle{slotFromUTCTime} = timeHandle
-            deadlineSlot <- either (throwIO . userError . toString) pure $ slotFromUTCTime contestationDeadline
+            deadlineSlot <- either (const $ throwIO (FailedToConstructFanoutTx @Tx)) pure $ slotFromUTCTime contestationDeadline
             seedTxIn <- case headSeedToTxIn headSeed of
               Nothing -> throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
               Just tin -> pure tin
@@ -487,12 +487,9 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
-    FanoutTx{} ->
-      -- FanoutTx is handled outside STM in mkChain.postTx via findFittingFanoutTx
-      throwSTM (userError "FanoutTx must not reach prepareTxToPost")
-    FinalPartialFanoutTx{} ->
-      -- FinalPartialFanoutTx is handled outside STM in mkChain.postTx via findFittingFanoutTx
-      throwSTM (userError "FinalPartialFanoutTx must not reach prepareTxToPost")
+    -- These are handled in mkChain.postTx before reaching this function.
+    FanoutTx{} -> error "FanoutTx must not reach prepareTxToPost"
+    FinalPartialFanoutTx{} -> error "FinalPartialFanoutTx must not reach prepareTxToPost"
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a

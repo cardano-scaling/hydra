@@ -26,7 +26,7 @@ import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadId, replaceParties)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
@@ -89,17 +89,17 @@ healthyFullUTxO :: UTxO
 healthyFullUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 42
       utxoList = UTxO.toList utxo
-   in UTxO.fromList $ take 11 utxoList
+   in UTxO.fromList $ take (fanoutOutputThreshold + 1) utxoList
 
--- | The first chunk to distribute: the leading '7' entries.
+-- | The first chunk to distribute: the leading 'fanoutChunkSize' entries.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
-  UTxO.fromList $ take 7 $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList healthyFullUTxO
 
 -- | UTxOs left after distributing the first chunk; carried over to the next step.
 healthyRemainingUTxO :: UTxO
 healthyRemainingUTxO =
-  UTxO.fromList $ drop 7 $ UTxO.toList healthyFullUTxO
+  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList healthyFullUTxO
 
 healthySlotNo :: SlotNo
 healthySlotNo = arbitrary `generateWith` 42
@@ -178,11 +178,11 @@ duplicateFullUTxO =
 
 duplicateDistributeUTxO :: UTxO
 duplicateDistributeUTxO =
-  UTxO.fromList $ take 7 $ UTxO.toList duplicateFullUTxO
+  UTxO.fromList $ take fanoutChunkSize $ UTxO.toList duplicateFullUTxO
 
 duplicateRemainingUTxO :: UTxO
 duplicateRemainingUTxO =
-  UTxO.fromList $ drop 7 $ UTxO.toList duplicateFullUTxO
+  UTxO.fromList $ drop fanoutChunkSize $ UTxO.toList duplicateFullUTxO
 
 duplicateFullAccumulator :: Accumulator.HydraAccumulator
 duplicateFullAccumulator =

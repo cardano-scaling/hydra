@@ -60,6 +60,7 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
+import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
@@ -217,7 +218,7 @@ computePartialFanOutNominalCost = do
     catMaybes
       <$> mapM
         compute
-        [11, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
   limit <-
     maybeToList . getFirst
       <$> foldMapM

@@ -109,6 +109,7 @@ import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
+import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
 import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, property, vectorOf, withMaxSuccess, within)
 import Test.QuickCheck.DynamicLogic (
   DL,
@@ -153,8 +154,8 @@ spec = do
   -- This scenario seeds a head with a single party and an UTxO set of elements.
   -- See https://github.com/cardano-scaling/hydra/issues/2270
   context "fanout limit" $ do
-    prop "succeeds fanout with many outputs" $ propFanoutLimit 11
-    prop "succeeds fanout with few outputs" $ propFanoutLimit 10
+    prop "succeeds fanout with many outputs" $ propFanoutLimit (fanoutOutputThreshold + 1)
+    prop "succeeds fanout with few outputs" $ propFanoutLimit fanoutOutputThreshold
   context "logic" $ do
     prop "check conflict-free liveness" $ propDL conflictFreeLiveness
     prop "fanout contains whole confirmed UTxO" $ propDL fanoutContainsWholeConfirmedUTxO

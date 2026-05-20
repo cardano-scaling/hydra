@@ -25,7 +25,7 @@ import Hydra.Tx.ScriptRegistry (ScriptRegistry (..))
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusTx.Builtins (bls12_381_G1_uncompress)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (fanoutChunkSize, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
@@ -71,11 +71,11 @@ healthyFinalPartialFanoutTx =
   headOutput = modifyTxOutValue (<> UTxO.totalValue healthyDistributeUTxO) headOutput'
 
 -- | The UTxOs to distribute in the final partial fanout step.
--- We use a small UTxO set (≤ 7) representing the last batch.
+-- We use a small UTxO set (≤ fanoutChunkSize) representing the last batch.
 healthyDistributeUTxO :: UTxO
 healthyDistributeUTxO =
   let utxo = UTxO.map adaOnly $ generateWith (resize 100 genUTxOWithSimplifiedAddresses) 99
-   in UTxO.fromList $ take 7 $ UTxO.toList utxo
+   in UTxO.fromList $ take fanoutChunkSize $ UTxO.toList utxo
 
 -- | The accumulator covering exactly the UTxOs being distributed in this final step.
 healthyRemainingAccumulator :: Accumulator.HydraAccumulator

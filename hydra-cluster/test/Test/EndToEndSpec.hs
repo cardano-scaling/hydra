@@ -94,7 +94,7 @@ import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Fixture (fanoutOutputThreshold, testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import Test.QuickCheck (Positive (..), generate)
 import Prelude qualified
@@ -530,13 +530,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           failAfter 60 $
             withClusterTempDir $ \tmpDir -> do
               withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
-                fanoutWithNOutputs 10 tmpDir tracer hydraScriptsTxId opts
+                fanoutWithNOutputs (fromIntegral fanoutOutputThreshold) tmpDir tracer hydraScriptsTxId opts
 
         it "can fanout more UTxOs than single transaction limit via partial fanout" $ \tracer ->
           failAfter 120 $
             withClusterTempDir $ \tmpDir -> do
               withHydraScriptsAndBackendRunning tracer tmpDir $ \opts hydraScriptsTxId ->
-                fanoutWithNOutputs 11 tmpDir tracer hydraScriptsTxId opts
+                fanoutWithNOutputs (fromIntegral fanoutOutputThreshold + 1) tmpDir tracer hydraScriptsTxId opts
 
     describe "restarting nodes" $ do
       it "resume from latest observed point" $ \tracer -> do

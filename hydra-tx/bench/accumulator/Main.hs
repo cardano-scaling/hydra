@@ -22,6 +22,7 @@ import Hydra.Tx.Accumulator (
   unHydraAccumulator,
  )
 import Hydra.Tx.IsTx (IsTx (..))
+import Test.Hydra.Tx.Fixture (fanoutChunkSize)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
 
@@ -70,12 +71,12 @@ main = do
   putTextLn "Pre-generated CRS"
 
   -- Generate 7 subsets for membership proofs
-  let !subsetChunk_from50 = generateSubset utxo50 7
-  let !subsetChunk_from100 = generateSubset utxo100 7
-  let !subsetChunk_from500 = generateSubset utxo500 7
-  let !subsetChunk_from1000 = generateSubset utxo1000 7
-  let !subsetChunk_from2000 = generateSubset utxo2000 7
-  let !subsetChunk_from4000 = generateSubset utxo4000 7
+  let !subsetChunk_from50 = generateSubset utxo50 fanoutChunkSize
+  let !subsetChunk_from100 = generateSubset utxo100 fanoutChunkSize
+  let !subsetChunk_from500 = generateSubset utxo500 fanoutChunkSize
+  let !subsetChunk_from1000 = generateSubset utxo1000 fanoutChunkSize
+  let !subsetChunk_from2000 = generateSubset utxo2000 fanoutChunkSize
+  let !subsetChunk_from4000 = generateSubset utxo4000 fanoutChunkSize
 
   putTextLn "Generated subsets for membership proofs"
 
