@@ -61,7 +61,7 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
-import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold)
+import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
@@ -301,12 +301,12 @@ computePartialFanOutMixedCost = do
 -- head output, since FinalPartialFanout requires that datum as input.
 computeFinalPartialFanOutCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFinalPartialFanOutCost = do
-  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200]
+  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200, 500]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
+        [4094, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
   pure $ interesting <> limit
  where
   numberOfParties = 3
