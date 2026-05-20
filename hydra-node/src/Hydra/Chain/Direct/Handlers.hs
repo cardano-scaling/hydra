@@ -73,7 +73,6 @@ import Hydra.Chain.Direct.State (
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import System.IO.Error (userError)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -104,6 +103,7 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
+import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
@@ -181,26 +181,24 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
+        let TimeHandle{slotFromUTCTime} = timeHandle
+            resolveHeadInfo headSeed deadline = do
+              slot <- either (\err -> throwIO (ContestationDeadlineOutsideTimeHorizon{failureReason = err} :: PostTxError Tx)) pure $ slotFromUTCTime deadline
+              tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure $ headSeedToTxIn headSeed
+              pure (slot, tin)
+            postFanoutWith seedTxIn mPreferred fullUTxO deadlineSlot =
+              findFittingFanoutTx wallet ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot
+                >>= finalizeTx wallet ctx spendableUTxO mempty
         vtx <- case tx of
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
-            let TimeHandle{slotFromUTCTime} = timeHandle
-            deadlineSlot <- either (const $ throwIO (FailedToConstructFanoutTx @Tx)) pure $ slotFromUTCTime contestationDeadline
-            seedTxIn <- case headSeedToTxIn headSeed of
-              Nothing -> throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
-              Just tin -> pure tin
+            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
                 mPreferred = either (const Nothing) Just $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot
-            findFittingFanoutTx wallet ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot
-              >>= finalizeTx wallet ctx spendableUTxO mempty
+            postFanoutWith seedTxIn mPreferred fullUTxO deadlineSlot
           FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
-            let TimeHandle{slotFromUTCTime} = timeHandle
-            deadlineSlot <- either (const $ throwIO (FailedToConstructFanoutTx @Tx)) pure $ slotFromUTCTime contestationDeadline
-            seedTxIn <- case headSeedToTxIn headSeed of
-              Nothing -> throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
-              Just tin -> pure tin
+            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let mPreferred = either (const Nothing) Just $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot
-            findFittingFanoutTx wallet ctx spendableUTxO seedTxIn mPreferred utxoToDistribute deadlineSlot
-              >>= finalizeTx wallet ctx spendableUTxO mempty
+            postFanoutWith seedTxIn mPreferred utxoToDistribute deadlineSlot
           _ ->
             atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
               >>= finalizeTx wallet ctx spendableUTxO mempty
@@ -527,26 +525,29 @@ findFittingFanoutTx ::
   SlotNo ->
   m Tx
 findFittingFanoutTx TinyWallet{evaluateScriptCosts} ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot =
-  fitsOrFallback mPreferred
+  findFirst candidates >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
+  candidates =
+    maybeToList mPreferred
+      <> mapMaybe mkFallback [sizeUTxO fullUTxO - 1, sizeUTxO fullUTxO - 2 .. 1]
+
+  mkFallback n =
+    either (const Nothing) Just $
+      partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot
+
+  findFirst [] = pure Nothing
+  findFirst (tx : rest) =
+    fits tx >>= \case
+      True -> pure (Just tx)
+      False -> findFirst rest
+
+  fits tx = do
+    result <- evaluateScriptCosts tx evalUTxO
+    pure $ case result of
+      Right report -> all isRight (Map.elems report)
+      _ -> False
+
   evalUTxO = spendableUTxO <> getKnownUTxO ctx
-
-  fitsOrFallback Nothing = go [sizeUTxO fullUTxO - 1, sizeUTxO fullUTxO - 2 .. 1]
-  fitsOrFallback (Just preferredTx) = do
-    evalResult <- evaluateScriptCosts preferredTx evalUTxO
-    case evalResult of
-      Right report | all isRight (Map.elems report) -> pure preferredTx
-      _ -> go [sizeUTxO fullUTxO - 1, sizeUTxO fullUTxO - 2 .. 1]
-
-  go [] = throwIO (FailedToConstructPartialFanoutTx @Tx)
-  go (chunkSize : rest) =
-    case partialFanout ctx spendableUTxO seedTxIn chunkSize fullUTxO deadlineSlot of
-      Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
-      Right tx -> do
-        evalResult <- evaluateScriptCosts tx evalUTxO
-        case evalResult of
-          Right report | all isRight (Map.elems report) -> pure tx
-          _ -> go rest
 
 -- | Maximum delay we put on the upper bound of transactions to fit into a block.
 -- NOTE: This is highly depending on the network. If the security parameter and

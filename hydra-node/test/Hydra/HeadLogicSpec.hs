@@ -1686,7 +1686,7 @@ spec =
 
       it "client fanout resumes from remaining UTxOs when prior step posting failed due to insufficient funds" $ do
         -- Build a snapshot large enough to require at least two partial fanout steps:
-        -- first step distributes fanoutChunkSize, leaving fanoutOutputThreshold + 1 → another PartialFanoutTx.
+        -- first step distributes fanoutChunkSize, leaving fanoutOutputThreshold + 1 → FinalPartialFanoutTx.
         let totalCount = fanoutOutputThreshold + fanoutChunkSize + 1
             allUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral totalCount]]
             snap = testSnapshot 1 0 [] allUTxO
@@ -1717,7 +1717,7 @@ spec =
         -- If fanout restarted from scratch it would re-distribute distributed1,
         -- making Set.disjoint fail.
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} ->
             Set.isSubsetOf utxoToDistribute remaining1
               && Set.disjoint utxoToDistribute distributed1
           _ -> False

@@ -60,7 +60,7 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
-import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
+import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
@@ -284,11 +284,8 @@ computePartialFanOutMixedCost = do
         spendableUTxO =
           UTxO.map (modifyTxOutValue (<> UTxO.totalValue utxo)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-        allPairs = UTxO.toList utxo
-        (toDistributePairs, remainingPairs) = splitAt numToDistribute allPairs
-        utxoToDistribute = UTxO.fromList toDistributePairs
-        utxoRemaining = UTxO.fromList remainingPairs
-        tx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
+        utxoToDistribute = UTxO.fromList . take numToDistribute $ UTxO.toList utxo
+        tx = unsafePartialFanout cctx spendableUTxO seedTxIn numToDistribute utxo deadlineSlotNo
     case checkSizeAndEvaluate tx spendableUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumUTxO numToDistribute, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
@@ -324,12 +321,9 @@ computeFinalPartialFanOutCost =
         spendableUTxO =
           UTxO.map (modifyTxOutValue (<> u0Value)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-        allPairs = UTxO.toList utxo
-        (toDistributePairs, remainingPairs) = splitAt fanoutChunkSize allPairs
-        utxoToDistribute = UTxO.fromList toDistributePairs
-        utxoRemaining = UTxO.fromList remainingPairs
+        utxoRemaining = UTxO.fromList . drop fanoutChunkSize $ UTxO.toList utxo
         -- Step 1: PartialFanout → produces FanoutProgress head output
-        partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
+        partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn fanoutChunkSize utxo deadlineSlotNo
         fanoutProgressUTxO = utxoFromTx partialTx <> getKnownUTxO cctx
         -- Step 2: FinalPartialFanout spends the FanoutProgress output
         tx = unsafeFinalPartialFanout cctx fanoutProgressUTxO seedTxIn utxoRemaining deadlineSlotNo
