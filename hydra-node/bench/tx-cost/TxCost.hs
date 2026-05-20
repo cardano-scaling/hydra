@@ -32,6 +32,7 @@ import Hydra.Chain.Direct.State (
   unsafeClose,
   unsafeContest,
   unsafeFanout,
+  unsafeFinalPartialFanout,
   unsafePartialFanout,
  )
 import Hydra.HeadLogic (fanoutChunkSize, fanoutOutputThreshold)
@@ -40,6 +41,7 @@ import Hydra.Ledger.Cardano.Evaluate (
  )
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx (utxoFromTx)
 import Hydra.Tx.KZGTrustedSetup (maxAccumulatorSize)
 import PlutusLedgerApi.V3 (toBuiltinData)
 import PlutusTx.Builtins (lengthOfByteString, serialiseData)
@@ -59,7 +61,7 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
-import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
@@ -252,6 +254,97 @@ computePartialFanOutNominalCost = do
     case checkSizeAndEvaluate tx spendableUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
         pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
+      Nothing ->
+        pure Nothing
+
+-- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
+-- tokens (all sharing one policy ID so the accumulated head value stays
+-- bounded). Reveals how multi-asset outputs affect script execution costs
+-- and the safe per-step UTxO limit.
+computePartialFanOutMixedCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+computePartialFanOutMixedCost = do
+  interesting <-
+    catMaybes
+      <$> mapM
+        compute
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
+  limit <-
+    maybeToList . getFirst
+      <$> foldMapM
+        (fmap First . compute)
+        [4095, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20]
+  pure $ interesting <> limit
+ where
+  numberOfParties = 3
+
+  compute totalUTxO = do
+    let numToDistribute = min fanoutChunkSize totalUTxO
+        numRemaining = totalUTxO - numToDistribute
+    utxo <- genUTxOWithTokensOfSize totalUTxO
+    ctx <- genHydraContextFor numberOfParties
+    (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty []
+    cctx <- pickChainContext ctx
+    let cp = ctxContestationPeriod ctx
+    (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
+        stClosed = snd . fromJust $ observeClose stOpen closeTx
+        deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+        spendableUTxO =
+          UTxO.map (modifyTxOutValue (<> UTxO.totalValue utxo)) (getKnownUTxO stClosed)
+            <> getKnownUTxO cctx
+        allPairs = UTxO.toList utxo
+        (toDistributePairs, remainingPairs) = splitAt numToDistribute allPairs
+        utxoToDistribute = UTxO.fromList toDistributePairs
+        utxoRemaining = UTxO.fromList remainingPairs
+        tx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
+    case checkSizeAndEvaluate tx spendableUTxO of
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
+      Nothing ->
+        pure Nothing
+
+-- | Compute costs of the final partial fanout transaction (FanoutProgress → Final)
+-- with mixed UTxOs. This is the terminal step that burns all head tokens and
+-- proves the accumulator is fully exhausted via KZG proof.
+--
+-- Setup chains through a preceding PartialFanout to produce a FanoutProgress
+-- head output, since FinalPartialFanout requires that datum as input.
+computeFinalPartialFanOutCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+computeFinalPartialFanOutCost =
+  catMaybes <$> mapM compute [1 .. fanoutChunkSize]
+ where
+  numberOfParties = 3
+
+  compute numFinal = do
+    -- Total = one full chunk (for the preceding PartialFanout) + numFinal (for FinalPartialFanout)
+    let totalUTxO = fanoutChunkSize + numFinal
+    utxo <- genUTxOWithTokensOfSize totalUTxO
+    ctx <- genHydraContextFor numberOfParties
+    (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty []
+    cctx <- pickChainContext ctx
+    let cp = ctxContestationPeriod ctx
+    (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
+    let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
+        stClosed = snd . fromJust $ observeClose stOpen closeTx
+        deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+        u0Value = UTxO.totalValue utxo
+        spendableUTxO =
+          UTxO.map (modifyTxOutValue (<> u0Value)) (getKnownUTxO stClosed)
+            <> getKnownUTxO cctx
+        allPairs = UTxO.toList utxo
+        (toDistributePairs, remainingPairs) = splitAt fanoutChunkSize allPairs
+        utxoToDistribute = UTxO.fromList toDistributePairs
+        utxoRemaining = UTxO.fromList remainingPairs
+        -- Step 1: PartialFanout → produces FanoutProgress head output
+        partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
+        fanoutProgressUTxO = utxoFromTx partialTx <> getKnownUTxO cctx
+        -- Step 2: FinalPartialFanout spends the FanoutProgress output
+        tx = unsafeFinalPartialFanout cctx fanoutProgressUTxO seedTxIn utxoRemaining deadlineSlotNo
+    case checkSizeAndEvaluate tx fanoutProgressUTxO of
+      Just (txSize, memUnit, cpuUnit, minFee) ->
+        pure $ Just (NumUTxO numFinal, serializedSize utxoRemaining, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 

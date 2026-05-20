@@ -183,6 +183,27 @@ genUTxOAdaOnlyOfSize numUTxO =
   gen :: Gen UTxO
   gen = UTxO.singleton <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
 
+-- | Generate a fixed size UTxO where every output carries a native token from a
+-- single shared (policyId, assetName) pair. A shared type keeps the accumulated
+-- head-output value bounded to exactly two entries (ADA + one token type),
+-- avoiding the 4 KB value-size limit that would be hit if each output had a
+-- distinct policy or asset name.
+genUTxOWithTokensOfSize :: Int -> Gen UTxO
+genUTxOWithTokensOfSize numUTxO = do
+  policyId <- arbitrary
+  assetName <- arbitrary
+  fold <$> vectorOf numUTxO (gen policyId assetName)
+ where
+  gen :: PolicyId -> AssetName -> Gen UTxO
+  gen policyId assetName = do
+    txIn <- arbitrary
+    vk <- arbitrary
+    let tokenValue = fromList [(AssetId policyId assetName, 1)]
+        baseValue = lovelaceToValue (Coin 3_000_000) <> tokenValue
+        out :: TxOut CtxUTxO
+        out = TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) baseValue TxOutDatumNone ReferenceScriptNone
+    pure $ UTxO.singleton txIn (ensureMinAda out)
+
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
 genOneUTxOFor vk = do
