@@ -73,7 +73,6 @@ import Hydra.Chain.Direct.State (
   recover,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
-import System.IO.Error (userError)
 import Hydra.Chain.Direct.Wallet (
   ErrCoverFee (..),
   TinyWallet (..),
@@ -105,6 +104,7 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
+import System.IO.Error (userError)
 
 -- | Handle of a mutable local chain state that is kept in the direct chain layer.
 data LocalChainState m tx = LocalChainState
