@@ -269,8 +269,9 @@ computePartialFanOutMixedCost = do
   numberOfParties = 3
   numRemaining = fanoutChunkSize
 
-  compute numToDistribute = do
-    let totalUTxO = numToDistribute + numRemaining
+  compute totalUTxO = do
+    let numToDistribute = totalUTxO - 1
+        numRemaining = totalUTxO - numToDistribute
     utxo <- genUTxOWithTokensOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -299,14 +300,21 @@ computePartialFanOutMixedCost = do
 -- Setup chains through a preceding PartialFanout to produce a FanoutProgress
 -- head output, since FinalPartialFanout requires that datum as input.
 computeFinalPartialFanOutCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
-computeFinalPartialFanOutCost =
-  catMaybes <$> mapM compute [1 .. fanoutChunkSize]
+computeFinalPartialFanOutCost = do
+  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200, 500]
+  limit <-
+    maybeToList . getFirst
+      <$> foldMapM
+        (fmap First . compute)
+        [4094, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
+  pure $ interesting <> limit
  where
   numberOfParties = 3
 
   compute numFinal = do
-    -- Total = one full chunk (for the preceding PartialFanout) + numFinal (for FinalPartialFanout)
-    let totalUTxO = fanoutChunkSize + numFinal
+    -- 1 UTxO for the preceding PartialFanout (minimal setup to reach FanoutProgress),
+    -- numFinal UTxOs for the FinalPartialFanout being measured.
+    let totalUTxO = 1 + numFinal
     utxo <- genUTxOWithTokensOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -321,11 +329,11 @@ computeFinalPartialFanOutCost =
         spendableUTxO =
           UTxO.map (modifyTxOutValue (<> u0Value)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-        utxoRemaining = UTxO.fromList . drop fanoutChunkSize $ UTxO.toList utxo
-        -- Step 1: PartialFanout → produces FanoutProgress head output
-        partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn fanoutChunkSize utxo deadlineSlotNo
+        utxoRemaining = UTxO.fromList . drop 1 $ UTxO.toList utxo
+        -- Step 1: minimal PartialFanout (1 output) to produce a FanoutProgress head output
+        partialTx = unsafePartialFanout cctx spendableUTxO seedTxIn 1 utxo deadlineSlotNo
         fanoutProgressUTxO = utxoFromTx partialTx <> getKnownUTxO cctx
-        -- Step 2: FinalPartialFanout spends the FanoutProgress output
+        -- Step 2: FinalPartialFanout distributes all remaining outputs in one tx
         tx = unsafeFinalPartialFanout cctx fanoutProgressUTxO seedTxIn utxoRemaining deadlineSlotNo
     case checkSizeAndEvaluate tx fanoutProgressUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->

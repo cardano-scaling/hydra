@@ -352,8 +352,8 @@ costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed comp
   markdownPartialFanOutNominalCost stats =
     unlines $
       [ "## `PartialFanOut` transaction costs"
-      , "One partial fanout transaction distributing the given number of ada-only outputs per step. "
-          <> "The total UTxO count does not affect per-step costs (BLS accumulator commitment is constant size)."
+      , "One partial fanout step distributing all-but-one ada-only outputs from a head with the given total UTxO count. "
+          <> "The last row is the maximum total UTxO count that still fits within the transaction size limit."
       , ""
       , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
