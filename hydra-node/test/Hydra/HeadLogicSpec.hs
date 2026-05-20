@@ -1697,6 +1697,44 @@ spec =
           OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == thresholdUTxO
           _ -> False
 
+      it "client fanout resumes from remaining UTxOs when prior step posting failed due to insufficient funds" $ do
+        -- Build a snapshot large enough to require at least two partial fanout steps:
+        -- first step distributes fanoutChunkSize, leaving fanoutOutputThreshold + 1 → another PartialFanoutTx.
+        let totalCount = fanoutOutputThreshold + fanoutChunkSize + 1
+            allUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral totalCount]]
+            snap = testSnapshot 1 0 [] allUTxO
+            initialSt = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
+        -- Compute exactly what the first partial fanout step would have distributed.
+        let (distributed1List, remaining1List) = splitAt fanoutChunkSize (Set.toList allUTxO)
+            distributed1 = Set.fromList distributed1List
+            remaining1 = Set.fromList remaining1List
+        -- Step 1 was confirmed on-chain (HeadPartialFannedOut observed).
+        -- The auto-emitted step 2 effect was never posted because the operator
+        -- ran out of funds. State stays Closed with remainingFanoutUTxO = Just remaining1.
+        let step1 =
+              HeadPartialFannedOut
+                { headId = testHeadId
+                , distributedUTxO = distributed1
+                , remainingUTxO = remaining1
+                , chainState = SimpleChainState{slot = 0}
+                }
+            stAfterStep1 = aggregateState initialSt (newState step1)
+        case headState stAfterStep1 of
+          Closed ClosedState{remainingFanoutUTxO} ->
+            remainingFanoutUTxO `shouldBe` Just remaining1
+          other -> failure $ "Expected Closed state, got: " <> show other
+        -- Operator tops up funds and calls Fanout again.
+        now <- nowFromSlot stAfterStep1.chainPointTime.currentSlot
+        let outcome = update bobEnv ledger now stAfterStep1 (ClientInput Fanout)
+        -- Must continue from remaining1: the next chunk is disjoint from distributed1.
+        -- If fanout restarted from scratch it would re-distribute distributed1,
+        -- making Set.disjoint fail.
+        outcome `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
+            Set.isSubsetOf utxoToDistribute remaining1
+              && Set.disjoint utxoToDistribute distributed1
+          _ -> False
+
       it "aggregate HeadPartialFannedOut keeps state Closed with remaining UTxO" $ do
         let remaining = Set.fromList [SimpleTxOut 5, SimpleTxOut 6]
             distributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
