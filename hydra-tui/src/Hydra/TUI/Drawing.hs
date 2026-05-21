@@ -65,17 +65,18 @@ drawTabBar active modalTabName fundsLabel =
           _ -> []
 
 modalTabLabel :: RootState -> Text
-modalTabLabel s = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL of
-  Just LoadingUTxOForIncrement -> "Increment"
-  Just (SelectingUTxOToIncrement _) -> "Increment"
-  Just (SelectingUTxOToDecommit _) -> "Decommit"
-  Just (SelectingDepositIdToRecover _) -> "Recover"
-  Just (SelectingUTxO _) -> "New Tx"
-  Just EnteringAmount{} -> "New Tx"
-  Just SelectingRecipient{} -> "New Tx"
-  Just EnteringRecipientAddress{} -> "New Tx"
-  Just (ConfirmingClose _) -> "Close"
-  _ -> "Action"
+modalTabLabel s
+  | isJust (s ^. recoveryFormL) = "Recover"
+  | otherwise = case s ^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL of
+      Just LoadingUTxOForIncrement -> "Increment"
+      Just (SelectingUTxOToIncrement _) -> "Increment"
+      Just (SelectingUTxOToDecommit _) -> "Decommit"
+      Just (SelectingUTxO _) -> "New Tx"
+      Just EnteringAmount{} -> "New Tx"
+      Just SelectingRecipient{} -> "New Tx"
+      Just EnteringRecipientAddress{} -> "New Tx"
+      Just (ConfirmingClose _) -> "Close"
+      _ -> "Action"
 
 drawTab :: ActiveTab -> Text -> ActiveTab -> Widget n
 drawTab tab tabLabel current =
@@ -120,18 +121,21 @@ drawActionBar s =
       Idle -> [("I", "nit"), ("Q", "uit")]
       Active (ActiveLink{activeHeadState}) ->
         if isModal
-          then case activeHeadState of
-            Open{openState} -> case openState of
-              SelectingUTxOToIncrement _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
-              SelectingUTxOToDecommit _ -> [("↑↓/Space", " choose"), ("Enter", " decommit"), ("Esc/C", " cancel")]
-              SelectingDepositIdToRecover _ -> [("↑↓/Space", " choose"), ("Enter", " recover"), ("Esc/C", " cancel")]
-              SelectingUTxO _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
-              EnteringAmount{} -> [("Enter", " confirm"), ("Esc/C", " cancel")]
-              SelectingRecipient{} -> [("↑↓/Space", " choose"), ("Enter", " send"), ("Esc/C", " cancel")]
-              EnteringRecipientAddress{} -> [("Enter", " send"), ("Esc/C", " cancel")]
-              ConfirmingClose _ -> [("↑↓/Space", " choose"), ("Enter", " confirm"), ("Esc/C", " cancel")]
-              _ -> [("Esc/C", " cancel")]
-            _ -> [("Esc/C", " close")]
+          then case s ^. recoveryFormL of
+            -- Recovery is a top-level modal flow (uses recoveryFormL, not openState),
+            -- so its action bar wins over any per-head openState actions.
+            Just _ -> [("↑↓/Space", " choose"), ("Enter", " recover"), ("Esc/C", " cancel")]
+            Nothing -> case activeHeadState of
+              Open{openState} -> case openState of
+                SelectingUTxOToIncrement _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
+                SelectingUTxOToDecommit _ -> [("↑↓/Space", " choose"), ("Enter", " decommit"), ("Esc/C", " cancel")]
+                SelectingUTxO _ -> [("↑↓/Space", " choose"), ("Enter", " select"), ("Esc/C", " cancel")]
+                EnteringAmount{} -> [("Enter", " confirm"), ("Esc/C", " cancel")]
+                SelectingRecipient{} -> [("↑↓/Space", " choose"), ("Enter", " send"), ("Esc/C", " cancel")]
+                EnteringRecipientAddress{} -> [("Enter", " send"), ("Esc/C", " cancel")]
+                ConfirmingClose _ -> [("↑↓/Space", " choose"), ("Enter", " confirm"), ("Esc/C", " cancel")]
+                _ -> [("Esc/C", " cancel")]
+              _ -> [("Esc/C", " close")]
           else case (s ^. activeTabL, activeHeadState) of
             (EventHistoryTab, _) -> [("d", " raw/summary"), eventFilterAction, ("Q", "uit")]
             (FundsTab, hs) -> fundsTabActions hs

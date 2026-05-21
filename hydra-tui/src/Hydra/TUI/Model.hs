@@ -93,7 +93,6 @@ data OpenScreen
   | SelectingUTxO {selectingUTxOForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToDecommit {selectingUTxOToDecommitForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
   | SelectingUTxOToIncrement {selectingUTxOToIncrementForm :: UTxORadioFieldForm (HydraEvent Tx) Name}
-  | SelectingDepositIdToRecover {selectingDepositIdToRecoverForm :: TxIdRadioFieldForm (HydraEvent Tx) Name}
   | EnteringAmount {utxoSelected :: (TxIn, TxOut CtxUTxO), enteringAmountForm :: Form Double (HydraEvent Tx) Name}
   | SelectingRecipient
       { utxoSelected :: (TxIn, TxOut CtxUTxO)
@@ -160,7 +159,6 @@ makeLensesFor
   [ ("selectingUTxOForm", "selectingUTxOFormL")
   , ("selectingUTxOToDecommitForm", "selectingUTxOToDecommitFormL")
   , ("selectingUTxOToIncrementForm", "selectingUTxOToIncrementFormL")
-  , ("selectingDepositIdToRecoverForm", "selectingDepositIdToRecoverFormL")
   , ("enteringAmountForm", "enteringAmountFormL")
   , ("selectingRecipientForm", "selectingRecipientFormL")
   , ("enteringRecipientAddressForm", "enteringRecipientAddressFormL")

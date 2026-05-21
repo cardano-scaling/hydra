@@ -169,28 +169,21 @@ handleEvent cardanoClient client chan = \case
         zoom (connectedStateL . connectionL . headStateL) $
           handleVtyEventsHeadState cardanoClient client chan e
       EvKey (KChar 'r') [] | not modalOpen -> do
-        mActiveHeadState <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL)
-        case mActiveHeadState of
-          Just (Open _) -> do
-            zoom (connectedStateL . connectionL . headStateL) $
-              handleVtyEventsHeadState cardanoClient client chan e
-            newOpenScreen <- useOpenScreen
-            case newOpenScreen of
-              Just (SelectingDepositIdToRecover _) -> enterModal
-              _ -> pure ()
-          Just _ -> do
-            mPending <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL)
-            let noDeposits = liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
-            case mPending of
-              Just pis@(_ : _) -> do
-                let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pis
-                case depositIdRadioField pendingDepositIds of
-                  Just form -> do
-                    recoveryFormL .= Just form
-                    enterModal
-                  Nothing -> noDeposits
-              _ -> noDeposits
-          Nothing -> pure ()
+        -- Recovery is a single modal flow regardless of head state. The form
+        -- is stored in 'recoveryFormL' (not the per-head 'openState') so the
+        -- same code path works whether the head is Open, Closed, or Final.
+        mPending <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL)
+        let noDeposits = liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
+        case mPending of
+          Nothing -> pure () -- Idle or Disconnected: no head, nothing to recover.
+          Just [] -> noDeposits
+          Just pis -> do
+            let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pis
+            case depositIdRadioField pendingDepositIds of
+              Just form -> do
+                recoveryFormL .= Just form
+                enterModal
+              Nothing -> noDeposits
       EvKey KRight []
         | not modalOpen -> do
             activeTabL %= cycleTab
@@ -429,11 +422,9 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
           put LoadingUTxOForIncrement
           let myAddr = mkMyAddress cardanoClient hydraClient
           liftIO $ queryL1UTxOAsync cardanoClient myAddr chan UTxOQueryResult "L1 UTxO query failed"
-        EvKey (KChar 'r') [] -> do
-          let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
-          case depositIdRadioField pendingDepositIds of
-            Just form -> put (SelectingDepositIdToRecover form)
-            Nothing -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
+        -- 'r' (recover) is handled at the outer event loop as a top-level
+        -- modal flow (see 'EvKey (KChar 'r')' in handleEvent), not as an
+        -- 'OpenScreen' transition.
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()
@@ -485,14 +476,6 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
           liftIO $ externalCommit hydraClient commitUTxO
           put OpenHome
         _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)
-    SelectingDepositIdToRecover i -> do
-      case e of
-        EvKey KEsc [] -> put OpenHome
-        EvKey KEnter [] -> do
-          let selectedTxId = formState i
-          liftIO $ recoverCommitAsync hydraClient chan selectedTxId
-          put OpenHome
-        _ -> zoom selectingDepositIdToRecoverFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
       case e of
         EvKey KEsc [] -> put OpenHome
@@ -672,8 +655,6 @@ setPendingAction e = do
             pendingActionL .= Just "Sending decommit…"
           SelectingUTxOToIncrement _ ->
             pendingActionL .= Just "Sending increment…"
-          SelectingDepositIdToRecover _ ->
-            pendingActionL .= Just "Sending recovery…"
           EnteringRecipientAddress{} ->
             pendingActionL .= Just "Sending transaction…"
           SelectingRecipient{selectingRecipientForm = form} ->
