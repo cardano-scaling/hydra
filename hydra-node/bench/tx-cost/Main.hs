@@ -348,18 +348,18 @@ costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
 costOfPartialFanOutNominal :: Int -> Text
 costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed computePartialFanOutNominalCost
  where
-  markdownPartialFanOutNominalCost :: [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
+  markdownPartialFanOutNominalCost :: [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownPartialFanOutNominalCost stats =
     unlines $
       [ "## `PartialFanOut` transaction costs"
-      , "One partial fanout step distributing all-but-one ada-only outputs from a head with the given total UTxO count. "
-          <> "The last row is the maximum total UTxO count that still fits within the transaction size limit."
+      , "Largest chunk of ada-only outputs that can be distributed in one partial fanout step, computed dynamically. "
+          <> "The last row is the maximum total UTxO count where at least one output can still be distributed."
       , ""
       , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numDistributed, utxoSize, txSize, mem, cpu, Coin minFee) ->
+          ( \(numDistributed, _numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numDistributed
                 <> " | "
@@ -379,17 +379,18 @@ costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed comp
 costOfPartialFanOutMixed :: Int -> Text
 costOfPartialFanOutMixed = markdownPartialFanOutMixedCost . genFromSeed computePartialFanOutMixedCost
  where
-  markdownPartialFanOutMixedCost :: [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
+  markdownPartialFanOutMixedCost :: [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
   markdownPartialFanOutMixedCost stats =
     unlines $
       [ "## `PartialFanOut` transaction costs (with native tokens)"
-      , "Same as the nominal partial fanout but with outputs carrying a native token."
+      , "Largest chunk of native-token outputs that can be distributed in one partial fanout step, computed dynamically. "
+          <> "The last row is the maximum total UTxO count where at least one output can still be distributed."
       , ""
       , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
       , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
       ]
         <> fmap
-          ( \(numDistributed, utxoSize, txSize, mem, cpu, Coin minFee) ->
+          ( \(numDistributed, _numRemaining, utxoSize, txSize, mem, cpu, Coin minFee) ->
               "| "
                 <> show numDistributed
                 <> " | "

@@ -218,20 +218,18 @@ computePartialFanOutNominalCost = do
     catMaybes
       <$> mapM
         compute
-        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 150, 200]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [30, 29 .. fanoutChunkSize + 1]
+        -- Sparse descending search for the maximum total UTxO count that still fits.
+        [200, 100, 60, 50, 40, 30, 20]
   pure $ interesting <> limit
  where
   numberOfParties = 3
-  numRemaining = fanoutChunkSize
 
   compute totalUTxO = do
-    let numToDistribute = totalUTxO - 1
-        numRemaining = totalUTxO - numToDistribute
     utxo <- genUTxOAdaOnlyOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -245,33 +243,41 @@ computePartialFanOutNominalCost = do
         spendableUTxO =
           UTxO.map (modifyTxOutValue (<> UTxO.totalValue utxo)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-        tx = unsafePartialFanout cctx spendableUTxO seedTxIn numToDistribute utxo deadlineSlotNo
-        (utxoToDistribute, _) = splitAt numToDistribute (UTxO.toList utxo)
-    case checkSizeAndEvaluate tx spendableUTxO of
-      Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize (UTxO.fromList utxoToDistribute), txSize, memUnit, cpuUnit, minFee)
-      Nothing ->
-        pure Nothing
+        tryChunk n =
+          let tx = unsafePartialFanout cctx spendableUTxO seedTxIn n utxo deadlineSlotNo
+              utxoDistributed = UTxO.fromList . take n $ UTxO.toList utxo
+           in fmap
+                (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
+                (checkSizeAndEvaluate tx spendableUTxO)
+        binarySearch lo hi best
+          | lo > hi = best
+          | otherwise =
+              let mid = (lo + hi) `div` 2
+               in case tryChunk mid of
+                    Nothing -> binarySearch lo (mid - 1) best
+                    Just r -> binarySearch (mid + 1) hi (Just r)
+    pure $ binarySearch 1 (totalUTxO - 1) Nothing
 
 -- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
 -- tokens (all sharing one policy ID so the accumulated head value stays
 -- bounded). Reveals how multi-asset outputs affect script execution costs.
-computePartialFanOutMixedCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+computePartialFanOutMixedCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutMixedCost = do
-  interesting <- catMaybes <$> mapM compute [1 .. fanoutChunkSize]
+  interesting <-
+    catMaybes
+      <$> mapM
+        compute
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 150, 200]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [30, 29 .. fanoutChunkSize + 1]
+        [200, 100, 60, 50, 40, 30, 20]
   pure $ interesting <> limit
  where
   numberOfParties = 3
-  numRemaining = fanoutChunkSize
 
   compute totalUTxO = do
-    let numToDistribute = totalUTxO - 1
-        numRemaining = totalUTxO - numToDistribute
     utxo <- genUTxOWithTokensOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -285,13 +291,20 @@ computePartialFanOutMixedCost = do
         spendableUTxO =
           UTxO.map (modifyTxOutValue (<> UTxO.totalValue utxo)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-        utxoToDistribute = UTxO.fromList . take numToDistribute $ UTxO.toList utxo
-        tx = unsafePartialFanout cctx spendableUTxO seedTxIn numToDistribute utxo deadlineSlotNo
-    case checkSizeAndEvaluate tx spendableUTxO of
-      Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO numToDistribute, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
-      Nothing ->
-        pure Nothing
+        tryChunk n =
+          let tx = unsafePartialFanout cctx spendableUTxO seedTxIn n utxo deadlineSlotNo
+              utxoDistributed = UTxO.fromList . take n $ UTxO.toList utxo
+           in fmap
+                (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
+                (checkSizeAndEvaluate tx spendableUTxO)
+        binarySearch lo hi best
+          | lo > hi = best
+          | otherwise =
+              let mid = (lo + hi) `div` 2
+               in case tryChunk mid of
+                    Nothing -> binarySearch lo (mid - 1) best
+                    Just r -> binarySearch (mid + 1) hi (Just r)
+    pure $ binarySearch 1 (totalUTxO - 1) Nothing
 
 -- | Compute costs of the final partial fanout transaction (FanoutProgress → Final)
 -- with mixed UTxOs. This is the terminal step that burns all head tokens and
@@ -301,12 +314,12 @@ computePartialFanOutMixedCost = do
 -- head output, since FinalPartialFanout requires that datum as input.
 computeFinalPartialFanOutCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFinalPartialFanOutCost = do
-  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200, 500]
+  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [4094, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
+        [200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
   pure $ interesting <> limit
  where
   numberOfParties = 3
