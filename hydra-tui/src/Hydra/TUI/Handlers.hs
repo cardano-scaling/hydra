@@ -73,7 +73,7 @@ handleEvent cardanoClient client chan = \case
       ClientDisconnected -> do
         recoveryFormL .= Nothing
         tab <- use activeTabL
-        when (tab == ModalTab) $ use previousTabL >>= (activeTabL .=)
+        when (tab == ModalTab) leaveModal
       _ -> pure ()
   AppEvent (L1UTxORefresh utxo) -> do
     l1UTxOL .= Just utxo
@@ -88,15 +88,11 @@ handleEvent cardanoClient client chan = \case
           Active (ActiveLink{activeHeadState = Open{openState = LoadingUTxOForIncrement}}) ->
             case utxoRadioField utxo of
               Just form ->
-                zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
-                  put $
-                    SelectingUTxOToIncrement form
+                zoomOpenScreen $ put $ SelectingUTxOToIncrement form
               Nothing -> do
                 -- Empty or failed query — close modal, return to previous tab, show message
-                zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
-                  put OpenHome
-                prev <- use previousTabL
-                activeTabL .= prev
+                zoomOpenScreen $ put OpenHome
+                leaveModal
                 pendingActionL .= Just "No L1 funds available to increment."
           _ -> pure ()
       _ -> pure ()
@@ -131,14 +127,11 @@ handleEvent cardanoClient client chan = \case
             activeTabL .= EventHistoryTab
             eventHistoryListL %= BrickList.listMoveTo 0
       EvKey (KChar 'c') [] | not modalOpen -> do
-        tab <- use activeTabL
         zoom (connectedStateL . connectionL . headStateL) $
           handleVtyEventsHeadState cardanoClient client chan e
-        newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+        newOpenScreen <- useOpenScreen
         case newOpenScreen of
-          Just (ConfirmingClose _) -> do
-            previousTabL .= tab
-            activeTabL .= ModalTab
+          Just (ConfirmingClose _) -> enterModal
           _ -> pure ()
       EvKey (KChar 'e') []
         | not modalOpen -> do
@@ -157,11 +150,9 @@ handleEvent cardanoClient client chan = \case
             setPendingAction e
             zoom (connectedStateL . connectionL . headStateL) $
               handleVtyEventsHeadState cardanoClient client chan e
-            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            newOpenScreen <- useOpenScreen
             case newOpenScreen of
-              Just (SelectingUTxOToDecommit _) -> do
-                previousTabL .= tab
-                activeTabL .= ModalTab
+              Just (SelectingUTxOToDecommit _) -> enterModal
               Just OpenHome ->
                 pendingActionL .= Just "No L2 UTxO available to decommit."
               _ -> pure ()
@@ -178,30 +169,27 @@ handleEvent cardanoClient client chan = \case
         zoom (connectedStateL . connectionL . headStateL) $
           handleVtyEventsHeadState cardanoClient client chan e
       EvKey (KChar 'r') [] | not modalOpen -> do
-        tab <- use activeTabL
         mActiveHeadState <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL)
         case mActiveHeadState of
           Just (Open _) -> do
             zoom (connectedStateL . connectionL . headStateL) $
               handleVtyEventsHeadState cardanoClient client chan e
-            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            newOpenScreen <- useOpenScreen
             case newOpenScreen of
-              Just (SelectingDepositIdToRecover _) -> do
-                previousTabL .= tab
-                activeTabL .= ModalTab
+              Just (SelectingDepositIdToRecover _) -> enterModal
               _ -> pure ()
           Just _ -> do
             mPending <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL)
+            let noDeposits = liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
             case mPending of
               Just pis@(_ : _) -> do
                 let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pis
                 case depositIdRadioField pendingDepositIds of
                   Just form -> do
                     recoveryFormL .= Just form
-                    previousTabL .= tab
-                    activeTabL .= ModalTab
-                  Nothing -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
-              _ -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
+                    enterModal
+                  Nothing -> noDeposits
+              _ -> noDeposits
           Nothing -> pure ()
       EvKey KRight []
         | not modalOpen -> do
@@ -220,11 +208,9 @@ handleEvent cardanoClient client chan = \case
         case tab of
           ModalTab -> do
             let closeModal = do
-                  prev <- use previousTabL
-                  activeTabL .= prev
+                  leaveModal
                   recoveryFormL .= Nothing
-                  zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL) $
-                    put OpenHome
+                  zoomOpenScreen $ put OpenHome
             currentRecoveryForm <- use recoveryFormL
             case (currentRecoveryForm, e) of
               (_, EvKey KEsc []) -> closeModal
@@ -245,25 +231,19 @@ handleEvent cardanoClient client chan = \case
                 zoom (connectedStateL . connectionL . headStateL) $
                   handleVtyEventsHeadState cardanoClient client chan e
                 -- Auto-close modal if action completed and we returned to OpenHome
-                newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+                newOpenScreen <- useOpenScreen
                 case newOpenScreen of
-                  Just OpenHome -> do
-                    prev <- use previousTabL
-                    activeTabL .= prev
+                  Just OpenHome -> leaveModal
                   _ -> pure ()
           _ -> do
             unless modalOpen $ setPendingAction e
             zoom (connectedStateL . connectionL . headStateL) $
               handleVtyEventsHeadState cardanoClient client chan e
             -- Switch to ModalTab when a modal flow starts
-            newOpenScreen <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+            newOpenScreen <- useOpenScreen
             case newOpenScreen of
-              Just LoadingUTxOForIncrement -> do
-                previousTabL .= tab
-                activeTabL .= ModalTab
-              Just (SelectingUTxO _) -> do
-                previousTabL .= tab
-                activeTabL .= ModalTab
+              Just LoadingUTxOForIncrement -> enterModal
+              Just (SelectingUTxO _) -> enterModal
               _ -> pure ()
             unless modalOpen $
               handleVtyEventsScrollable e
@@ -448,21 +428,7 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
         EvKey (KChar 'i') [] -> do
           put LoadingUTxOForIncrement
           let myAddr = mkMyAddress cardanoClient hydraClient
-          liftIO
-            $ void
-            $ forkIO
-            $
-            -- On exception: close the modal via UTxOQueryResult Map.empty, then
-            -- overwrite the misleading "No L1 funds…" message with the real error.
-            -- Order matters — TxBuildError must be written last so it wins.
-            handle
-              ( \(ex :: SomeException) -> do
-                  writeBChan chan (UTxOQueryResult Map.empty)
-                  writeBChan chan (TxBuildError ("L1 UTxO query failed: " <> show ex))
-              )
-            $ do
-              utxo' <- queryUTxOByAddress cardanoClient [myAddr]
-              writeBChan chan (UTxOQueryResult (UTxO.toMap utxo'))
+          liftIO $ queryL1UTxOAsync cardanoClient myAddr chan UTxOQueryResult "L1 UTxO query failed"
         EvKey (KChar 'r') [] -> do
           let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
           case depositIdRadioField pendingDepositIds of
@@ -720,36 +686,78 @@ setPendingAction e = do
           _ -> pure ()
       _ -> pure ()
 
--- | Fire-and-forget recover request. Forking is essential — 'recoverCommit'
--- runs a synchronous HTTP DELETE against the hydra-node, and if the node is
--- unresponsive the call would otherwise block the brick event loop (no way to
--- press Esc or Ctrl-C). Errors are surfaced through the TUI's event channel
--- as a 'TxBuildError' so the user sees them in the pending-action slot.
-recoverCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> TxId -> IO ()
-recoverCommitAsync client chan depositTxId =
+-- | Read the current 'OpenScreen', if the head is currently 'Open'.
+useOpenScreen :: EventM Name RootState (Maybe OpenScreen)
+useOpenScreen = gets (^? connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+
+-- | Mutate the current 'OpenScreen'. No-op if the head isn't 'Open'.
+zoomOpenScreen :: EventM Name OpenScreen () -> EventM Name RootState ()
+zoomOpenScreen = zoom (connectedStateL . connectionL . headStateL . activeLinkL . activeHeadStateL . openStateL)
+
+-- | Switch to the modal tab, remembering the currently-active tab so we can
+-- return to it later via 'leaveModal'.
+enterModal :: EventM Name RootState ()
+enterModal = do
+  tab <- use activeTabL
+  previousTabL .= tab
+  activeTabL .= ModalTab
+
+-- | Return from the modal tab to whichever tab was active before.
+leaveModal :: EventM Name RootState ()
+leaveModal = do
+  prev <- use previousTabL
+  activeTabL .= prev
+
+-- | Run an IO action in a background thread, reporting any exception through
+-- the TUI's event channel as a 'TxBuildError' (visible in the pending-action
+-- slot). 'cleanup' events, if any, are written before the error so the TUI
+-- can reset transient loading state. Order matters — 'TxBuildError' is
+-- written last so its message wins over anything 'cleanup' might display.
+--
+-- Forking is essential for any blocking call against the hydra-node or
+-- cardano-node: if the remote is unresponsive a synchronous call would block
+-- the brick event loop, leaving no way to press Esc or Ctrl-C.
+forkWithErrorReport ::
+  BChan (TUIEvent Tx) ->
+  Text ->
+  [TUIEvent Tx] ->
+  IO () ->
+  IO ()
+forkWithErrorReport chan errorPrefix cleanup action =
   void $
     forkIO $
-      handle (\(e :: SomeException) -> writeBChan chan (TxBuildError ("Recovery request failed: " <> show e))) $
-        recoverCommit client depositTxId
+      handle
+        ( \(ex :: SomeException) -> do
+            mapM_ (writeBChan chan) cleanup
+            writeBChan chan (TxBuildError (errorPrefix <> ": " <> show ex))
+        )
+        action
+
+-- | Query L1 UTxO at the given address in a background thread. On success,
+-- the result is wrapped via 'mkResult' and written to the channel. On
+-- exception, an empty result is written first (so the TUI clears any
+-- loading-state spinner) followed by a 'TxBuildError' with the real cause.
+queryL1UTxOAsync ::
+  CardanoClient ->
+  Address ShelleyAddr ->
+  BChan (TUIEvent Tx) ->
+  (Map TxIn (TxOut CtxUTxO) -> TUIEvent Tx) ->
+  Text ->
+  IO ()
+queryL1UTxOAsync cardanoClient myAddr chan mkResult errorPrefix =
+  forkWithErrorReport chan errorPrefix [mkResult Map.empty] $ do
+    utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+    writeBChan chan (mkResult (UTxO.toMap utxo'))
+
+recoverCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> TxId -> IO ()
+recoverCommitAsync client chan depositTxId =
+  forkWithErrorReport chan "Recovery request failed" [] $
+    recoverCommit client depositTxId
 
 triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1Query cardanoClient client chan = do
   let myAddr = mkMyAddress cardanoClient client
-  liftIO
-    $ void
-    $ forkIO
-    $
-    -- On exception: clear the loading state via L1UTxORefresh Map.empty, then
-    -- write the real error so the user sees it instead of "Update complete".
-    -- Order matters — TxBuildError must be written last so it wins.
-    handle
-      ( \(ex :: SomeException) -> do
-          writeBChan chan (L1UTxORefresh Map.empty)
-          writeBChan chan (TxBuildError ("L1 wallet refresh failed: " <> show ex))
-      )
-    $ do
-      utxo' <- queryUTxOByAddress cardanoClient [myAddr]
-      writeBChan chan (L1UTxORefresh (UTxO.toMap utxo'))
+  liftIO $ queryL1UTxOAsync cardanoClient myAddr chan L1UTxORefresh "L1 wallet refresh failed"
 
 triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1IfNeeded cardanoClient client chan = do
