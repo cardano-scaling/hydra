@@ -63,6 +63,12 @@ the state of a newly opened head.
   transitions, consistent with all other head transitions
   [#2697](https://github.com/cardano-scaling/hydra/issues/2697).
 
+- The node now dynamically determines the largest chunk of UTxOs it can
+distribute in a single partial fanout step, replacing a hardcoded limit.
+`findFittingFanoutTx` uses binary search over all valid chunk sizes and tries the
+preferred transaction first, falling back to progressively smaller chunks until
+one fits within the script [#2619](https://github.com/cardano-scaling/hydra/pull/2619)
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits
