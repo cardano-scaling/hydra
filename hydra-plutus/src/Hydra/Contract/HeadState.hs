@@ -54,24 +54,19 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: v
   , snapshotNumber :: SnapshotNumber
   -- ^ Spec: s
-  , utxoHash :: Hash
-  -- ^ Spec: η. Digest of snapshotted UTxO
-  , alphaUTxOHash :: Hash
-  , omegaUTxOHash :: Hash
-  -- ^ Spec: ηΔ. Digest of UTxO still to be distributed
   , contesters :: [PubKeyHash]
   -- ^ Spec: C
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
   , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
+  -- ^ KZG commitment to the full UTxO set (utxo ∪ alpha ∪ omega).
   }
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''ClosedDatum
 
 -- | Sub-type for intermediate partial fanout state. Carries only the fields
--- needed for subsequent partial fanout steps, dropping the snapshot-specific
--- fields that are no longer relevant after the first partial fanout.
+-- needed for subsequent partial fanout steps.
 data FanoutProgressDatum = FanoutProgressDatum
   { headId :: CurrencySymbol
   , parties :: [Party]
@@ -115,22 +110,22 @@ data CloseRedeemer
     CloseUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , alreadyDecommittedUTxOHash :: Hash
-      -- ^ UTxO which was already decommitted ηω
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , alreadyCommittedUTxOHash :: Hash
-      -- ^ UTxO which was signed but not committed ηα
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , alreadyCommittedUTxOHash :: Hash
-      -- ^ UTxO which was already committed ηα
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   deriving stock (Show, Generic)
 
@@ -149,8 +144,6 @@ data ContestRedeemer
     ContestUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , alreadyDecommittedUTxOHash :: Hash
-      -- ^ UTxO which was already decommitted ηω
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator ηA
       }
@@ -165,8 +158,6 @@ data ContestRedeemer
     ContestUnusedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , alreadyCommittedUTxOHash :: Hash
-      -- ^ UTxO which was already committed ηα
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator ηA
       }
@@ -209,9 +200,8 @@ data Input
   | Close CloseRedeemer
   | Contest ContestRedeemer
   | Fanout
-      { numberOfFanoutOutputs :: Integer
-      , numberOfCommitOutputs :: Integer
-      , numberOfDecommitOutputs :: Integer
+      { proof :: BuiltinBLS12_381_G1_Element
+      , crsRef :: TxOutRef
       }
   | PartialFanout
       { numberOfPartialOutputs :: Integer
