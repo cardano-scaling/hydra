@@ -60,12 +60,10 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationPeriod,
   replaceContesters,
   replaceHeadId,
-  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUTxOHash,
  )
 import Test.QuickCheck (arbitrarySizedNatural, choose, elements, listOf1, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
@@ -176,14 +174,6 @@ data CloseMutation
     -- the signer used on the tx to have multiple signers (including the signer
     -- to not fail for SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
-  | -- | Invalidates the tx by changing the utxo hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateCloseUTxOHash
-  | -- | Invalidates the tx by changing the utxo to decommit hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateCloseUTxOToDecommitHash
   | -- | Ensures parties do not change between head input datum and head output datum.
     MutatePartiesInOutput
   | -- | Ensures headId do not change between head input datum and head output
@@ -267,9 +257,6 @@ genCloseCurrentMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey))
         let signerAndOthers = somePartyCardanoVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= toBuiltin (hashUTxO @Tx healthySplitUTxOInHead)) . toBuiltin)
-        pure $ modifyInlineDatum (replaceUTxOHash $ toBuiltin mutatedUTxOHash) headTxOut
     , -- Correct contestation deadline is set
       SomeMutation (pure $ toErrorCode IncorrectClosedContestationDeadline) MutateContestationDeadline <$> do
         mutatedDeadline <- genMutatedDeadline

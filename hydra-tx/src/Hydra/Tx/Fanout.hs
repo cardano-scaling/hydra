@@ -42,7 +42,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef] mempty
+      & addTxInsReference [headScriptRef, crsScriptRef] mempty
       & addTxOuts (orderedTxOutsToFanout <> orderedTxOutsToCommit <> orderedTxOutsToDecommit)
       & burnTokens headTokenScript Burn headTokens
       & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
@@ -56,19 +56,25 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headScriptRef =
     fst (headReference scriptRegistry)
 
-  utxoLength = UTxO.size utxo
+  crsScriptRef =
+    fst (crsReference scriptRegistry)
 
-  toCommitLength = length orderedTxOutsToCommit
-
-  toDecommitLength = length orderedTxOutsToDecommit
+  accumulator =
+    Accumulator.buildFromSnapshotUTxOs @Tx utxo utxoToCommit utxoToDecommit
 
   headRedeemer =
     toScriptData $
       Head.Fanout
-        { numberOfFanoutOutputs = fromIntegral utxoLength
-        , numberOfCommitOutputs = fromIntegral toCommitLength
-        , numberOfDecommitOutputs = fromIntegral toDecommitLength
+        { proof = fanoutProof
+        , crsRef = toPlutusTxOutRef crsScriptRef
         }
+
+  fanoutProof =
+    let allUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
+        crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount accumulator
+     in bls12_381_G1_uncompress $
+          toBuiltin $
+            Accumulator.createMembershipProofFromUTxO @Tx allUTxO accumulator crs
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
@@ -243,9 +249,8 @@ observeFanoutTx utxo tx = do
   headId <- findStateToken headOutput
   findRedeemerSpending tx headInput
     >>= \case
-      Head.Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs} -> do
-        let allOutputs = fromIntegral $ numberOfFanoutOutputs + numberOfCommitOutputs + numberOfDecommitOutputs
-        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> take allOutputs (txOuts' tx))
+      Head.Fanout{} -> do
+        let fanoutUTxO = UTxO.fromList $ zip (mkTxIn tx <$> [0 ..]) (toCtxUTxOTxOut <$> txOuts' tx)
         pure FanoutObservation{headId, fanoutUTxO}
       _ -> Nothing
 

@@ -718,14 +718,11 @@ replaceSnapshotVersion snapshotVersion = \case
         , Head.version = snapshotVersion
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
         , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
         , Head.contestationDeadline = contestationDeadline
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -737,14 +734,11 @@ replaceSnapshotVersion snapshotVersion = \case
 
 replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
 replaceSnapshotNumber snapshotNumber = \case
-  Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{parties, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
         , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
         , Head.contestationDeadline = contestationDeadline
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -767,14 +761,11 @@ replaceParties parties = \case
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
         , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
         , Head.contestationDeadline = contestationDeadline
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -799,51 +790,17 @@ replaceUTxOHash utxoHash = \case
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{parties, alphaUTxOHash, omegaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
-    Head.Closed
-      Head.ClosedDatum
-        { Head.parties = parties
-        , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
-        , Head.contestationDeadline = contestationDeadline
-        , Head.contestationPeriod = contestationPeriod
-        , Head.headId = headId
-        , Head.contesters = contesters
-        , Head.version = version
-        , Head.accumulatorCommitment = accumulatorCommitment
-        }
   otherState -> otherState
 
 replaceOmegaUTxOHash :: Head.Hash -> Head.State -> Head.State
-replaceOmegaUTxOHash omegaUTxOHash' = \case
-  Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
-    Head.Closed
-      Head.ClosedDatum
-        { Head.parties = parties
-        , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash'
-        , Head.contestationDeadline = contestationDeadline
-        , Head.contestationPeriod = contestationPeriod
-        , Head.headId = headId
-        , Head.contesters = contesters
-        , Head.version = version
-        , accumulatorCommitment
-        }
-  otherState -> otherState
+replaceOmegaUTxOHash _ = id
 
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
-        , utxoHash
-        , alphaUTxOHash
-        , omegaUTxOHash
         , parties
         , contestationDeadline
         , contestationPeriod
@@ -858,13 +815,10 @@ replaceContestationDeadline contestationDeadline = \case
 
 replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
 replaceContestationPeriod contestationPeriod = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contesters, contestationDeadline, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationDeadline, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
-        , utxoHash
-        , alphaUTxOHash
-        , omegaUTxOHash
         , parties
         , contestationDeadline
         , contestationPeriod
@@ -877,14 +831,11 @@ replaceContestationPeriod contestationPeriod = \case
 
 replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G1_Element -> Head.State -> Head.State
 replaceAccumulatorCommitment newCommitment = \case
-  Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
         , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
         , Head.contestationDeadline = contestationDeadline
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -909,14 +860,11 @@ replaceHeadId headId = \case
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, parties, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
         , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
         , Head.contestationDeadline = contestationDeadline
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
@@ -930,14 +878,11 @@ replaceHeadId headId = \case
 
 replaceContesters :: [Plutus.PubKeyHash] -> Head.State -> Head.State
 replaceContesters contesters = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, parties, headId, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, headId, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
         , Head.snapshotNumber = snapshotNumber
-        , Head.utxoHash = utxoHash
-        , Head.alphaUTxOHash = alphaUTxOHash
-        , Head.omegaUTxOHash = omegaUTxOHash
         , Head.contestationDeadline = contestationDeadline
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId

@@ -14,7 +14,6 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
 import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
@@ -88,12 +87,11 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
   contestRedeemer =
     case incrementalAction of
-      ToCommit utxo' ->
+      ToCommit _ ->
         if version == openVersion
           then
             Head.ContestUnusedInc
               { signature = toPlutusSignatures sig
-              , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
               , accumulatorHash = accHash
               }
           else
@@ -101,7 +99,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
               { signature = toPlutusSignatures sig
               , accumulatorHash = accHash
               }
-      ToDecommit utxo' ->
+      ToDecommit _ ->
         if version == openVersion
           then
             Head.ContestUnusedDec
@@ -111,7 +109,6 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           else
             Head.ContestUsedDec
               { signature = toPlutusSignatures sig
-              , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
               , accumulatorHash = accHash
               }
       NoThing ->
@@ -139,17 +136,6 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       Head.Closed
         Head.ClosedDatum
           { snapshotNumber = toInteger number
-          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , alphaUTxOHash =
-              case contestRedeemer of
-                Head.ContestUsedInc{} ->
-                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToCommit
-                _ -> toBuiltin $ hashUTxO @Tx mempty
-          , omegaUTxOHash =
-              case contestRedeemer of
-                Head.ContestUnusedDec{} ->
-                  toBuiltin $ hashUTxO @Tx $ fromMaybe mempty utxoToDecommit
-                _ -> toBuiltin $ hashUTxO @Tx mempty
           , parties = closedParties
           , contestationDeadline = newContestationDeadline
           , contestationPeriod = onChainConstestationPeriod

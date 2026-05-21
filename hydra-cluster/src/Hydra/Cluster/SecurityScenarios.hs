@@ -692,7 +692,6 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
           , Head.version = prevVersion
-          , Head.utxoHash = prevUtxoHash
           } = prevOpenDatum
 
     pparams <- runBackend opts $ queryProtocolParameters QueryTip
@@ -716,11 +715,8 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
             { Head.headId = headIdToCurrencySymbol headId
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
-            , Head.version = prevVersion -- mustNotChangeVersion
-            , Head.snapshotNumber = 0 -- CloseInitial requires
-            , Head.utxoHash = prevUtxoHash -- CloseInitial: utxoHash' == initialUtxoHash
-            , Head.alphaUTxOHash = toBuiltin (hashUTxO @CAPI.Tx mempty)
-            , Head.omegaUTxOHash = toBuiltin (hashUTxO @CAPI.Tx mempty)
+            , Head.version = prevVersion
+            , Head.snapshotNumber = 0
             , Head.contesters = []
             , Head.contestationDeadline = contestationDeadline
             , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty Nothing Nothing

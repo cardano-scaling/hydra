@@ -26,10 +26,8 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
-import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
@@ -93,9 +91,6 @@ healthyFanoutDatum =
   Head.Closed
     Head.ClosedDatum
       { snapshotNumber = 1
-      , utxoHash = toBuiltin $ hashUTxO @Tx (fst healthyFanoutSnapshotUTxO)
-      , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
-      , omegaUTxOHash = toBuiltin $ hashUTxO @Tx (snd healthyFanoutSnapshotUTxO)
       , parties =
           partyToChain <$> healthyParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
@@ -156,7 +151,7 @@ genFanoutMutation (tx, _utxo) =
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , -- Spec: The following n outputs are distributing funds according to η∆.
       -- That is, the outputs exactly # correspond to the UTxO canonically combined U∆
-      SomeMutation (pure $ toErrorCode FanoutUTxOToDecommitHashMismatch) MutateDecommitOutputValue <$> do
+      SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateDecommitOutputValue <$> do
         let outs = txOuts' tx
         let noOfUtxoToOutputs = size $ UTxO.toMap (fst healthyFanoutSnapshotUTxO)
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)

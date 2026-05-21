@@ -121,9 +121,6 @@ healthyClosedState =
   Head.Closed
     Head.ClosedDatum
       { snapshotNumber = fromIntegral healthyClosedSnapshotNumber
-      , utxoHash = healthyClosedUTxOHash
-      , alphaUTxOHash = mempty
-      , omegaUTxOHash = mempty
       , parties = healthyOnChainParties
       , contestationDeadline = posixFromUTCTime healthyContestationDeadline
       , contestationPeriod = healthyOnChainContestationPeriod
@@ -140,10 +137,6 @@ healthyContestUTxOHash =
 healthyContestUTxOToDecommitHash :: BuiltinByteString
 healthyContestUTxOToDecommitHash =
   toBuiltin $ hashUTxO @Tx splitUTxOToDecommit
-
-healthyClosedUTxOHash :: BuiltinByteString
-healthyClosedUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthyClosedUTxO
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3

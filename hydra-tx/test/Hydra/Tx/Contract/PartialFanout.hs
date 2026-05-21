@@ -22,10 +22,9 @@ import Hydra.Tx (ScriptRegistry (..), registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
+import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadId, replaceParties)
@@ -130,9 +129,6 @@ healthyClosedDatum :: Head.ClosedDatum
 healthyClosedDatum =
   Head.ClosedDatum
     { snapshotNumber = 1
-    , utxoHash = toBuiltin $ hashUTxO @Tx healthyFullUTxO
-    , alphaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
-    , omegaUTxOHash = toBuiltin $ hashUTxO @Tx mempty
     , parties = partyToChain <$> healthyParties
     , contestationDeadline = posixFromUTCTime healthyContestationDeadline
     , contestationPeriod = OnChain.contestationPeriodFromDiffTime 10
@@ -207,8 +203,7 @@ duplicateProgressDatum = Head.progressFromClosed duplicateClosedDatum
 duplicateClosedDatum :: Head.ClosedDatum
 duplicateClosedDatum =
   healthyClosedDatum
-    { Head.utxoHash = toBuiltin $ hashUTxO @Tx duplicateFullUTxO
-    , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment duplicateFullAccumulator
+    { Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment duplicateFullAccumulator
     }
 
 -- | A partial fanout tx where two distributed UTxOs share identical TxOut content.

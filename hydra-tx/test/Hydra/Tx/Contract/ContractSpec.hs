@@ -255,16 +255,10 @@ prop_verifySnapshotSignatures =
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]
           snapshotNumber = toInteger number
           snapshotVersion = toInteger version
-          utxoHash = toBuiltin $ hashUTxO utxo
-          utxoToCommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToCommit
-          utxoToDecommitHash = toBuiltin . hashUTxO $ fromMaybe mempty utxoToDecommit
           accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) signatures
+       in verifySnapshotSignature onChainParties (headIdToCurrencySymbol headId, snapshotVersion, snapshotNumber, accumulatorHash) signatures
             & counterexample ("headId: " <> toString (serialiseToRawBytesHexText headId))
             & counterexample ("version: " <> show snapshotVersion)
             & counterexample ("number: " <> show snapshotNumber)
-            & counterexample ("utxoHash: " <> show utxoHash)
-            & counterexample ("utxoToCommitHash: " <> show utxoToCommitHash)
-            & counterexample ("utxoToDecommitHash: " <> show utxoToDecommitHash)
             & counterexample ("off-chain message: " <> show (Base16.encode $ getSignableRepresentation snapshot))
             & counterexample ("signatures: " <> show signatures)

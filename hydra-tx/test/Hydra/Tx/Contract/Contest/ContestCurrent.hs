@@ -33,8 +33,6 @@ import Hydra.Tx.Contract.Contest.Healthy (
   healthyClosedState,
   healthyContestSnapshot,
   healthyContestSnapshotNumber,
-  healthyContestUTxOHash,
-  healthyContestUTxOToDecommitHash,
   healthyContestationDeadline,
   healthyContesterVerificationKey,
   healthyOnChainContestationPeriod,
@@ -71,12 +69,10 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationPeriod,
   replaceContesters,
   replaceHeadId,
-  replaceOmegaUTxOHash,
   replaceParties,
   replacePolicyIdWith,
   replaceSnapshotNumber,
   replaceSnapshotVersion,
-  replaceUTxOHash,
  )
 import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, suchThat, vectorOf)
 import Test.QuickCheck.Gen (choose)
@@ -119,10 +115,6 @@ data ContestMutation
     -- used on the tx to have multiple signers (including the signer to not fail for
     -- SignerIsNotAParticipant).
     MutateMultipleRequiredSigner
-  | -- | Invalidates the tx by changing the utxo hash in resulting head output.
-    --
-    -- Ensures the output state is consistent with the redeemer.
-    MutateContestUTxOHash
   | -- | Ensures the contest snapshot is multisigned by all Head participants by
     -- changing the parties in the input head datum. If they do not align the
     -- multisignature will not be valid anymore.
@@ -240,18 +232,6 @@ genContestMutation (tx, _utxo) =
         otherSigners <- listOf1 (genVerificationKey `suchThat` (/= healthyContesterVerificationKey))
         let signerAndOthers = healthyContesterVerificationKey : otherSigners
         pure $ ChangeRequiredSigners (verificationKeyHash <$> signerAndOthers)
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- genHash `suchThat` ((/= healthyContestUTxOHash) . toBuiltin)
-        pure $
-          modifyInlineDatum
-            (replaceUTxOHash (toBuiltin mutatedUTxOHash))
-            headTxOut
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateContestUTxOHash . ChangeOutput 0 <$> do
-        mutatedUTxOHash <- arbitrary `suchThat` (/= healthyContestUTxOToDecommitHash)
-        pure $
-          modifyInlineDatum
-            (replaceOmegaUTxOHash mutatedUTxOHash)
-            headTxOut
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) SnapshotNotSignedByAllParties . ChangeInputHeadDatum <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure $
