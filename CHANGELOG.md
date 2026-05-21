@@ -50,6 +50,12 @@ the state of a newly opened head.
   L2 UTxO after sideloading a snapshot, making the same UTxO spendable on both
   L1 and L2 simultaneously [#2629](https://github.com/cardano-scaling/hydra/issues/2629).
 
+- The node now dynamically determines the largest chunk of UTxOs it can
+distribute in a single partial fanout step, replacing a hardcoded limit.
+`findFittingFanoutTx` uses binary search over all valid chunk sizes and tries the
+preferred transaction first, falling back to progressively smaller chunks until
+one fits within the script [#2619](https://github.com/cardano-scaling/hydra/pull/2619)
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits
