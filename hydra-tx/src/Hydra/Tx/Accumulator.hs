@@ -199,20 +199,16 @@ requiredCRSPointCount (HydraAccumulator acc) = sum (map snd $ Map.elems acc) + 1
 -- 2. Computes a polynomial commitment over G1 for the remaining elements
 -- 3. Returns the proof as a compressed G1 point
 createMembershipProof ::
-  HasCallStack =>
   -- | The subset of elements to prove membership of (e.g., UTxOs being fanned out)
   [Element] ->
   -- | The full accumulator from the confirmed snapshot
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
   [Point1] ->
-  -- | Returns the compressed proof point
-  ByteString
+  -- | Returns the compressed proof point, or an error if elements are missing or CRS is too short
+  Either Text ByteString
 createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
-  case getPolyCommitOverG1 subsetElements fullAcc crs of
-    Left err -> error (toText err) -- FIXME: return Either?
-    Right proof ->
-      blsCompress proof
+  bimap toText blsCompress $ getPolyCommitOverG1 subsetElements fullAcc crs
 
 -- | Create a membership proof from a UTxO subset.
 --
@@ -223,25 +219,25 @@ createMembershipProof subsetElements (HydraAccumulator fullAcc) crs =
 -- The proof is verified on-chain via e(commitment_G1, G2) = e(proof_G1, P_S(τ)·G2).
 createMembershipProofFromUTxO ::
   forall tx.
-  (IsTx tx, HasCallStack) =>
+  IsTx tx =>
   -- | The subset of UTxO to prove membership of (e.g., UTxOs being fanned out)
   UTxOType tx ->
   -- | The full accumulator from the confirmed snapshot (built with buildFromUTxO)
   HydraAccumulator ->
   -- | Common Reference String (CRS) for the cryptographic proof
   [Point1] ->
-  -- | Returns a proof
-  ByteString
-createMembershipProofFromUTxO subsetUTxO fullAcc crs = do
+  -- | Returns the compressed proof point, or an error if elements are missing or CRS is too short
+  Either Text ByteString
+createMembershipProofFromUTxO subsetUTxO fullAcc crs =
   -- Extract individual TxOut elements from the subset (each TxOut -> hash).
   -- This matches how buildFromUTxO / buildFromSnapshotUTxOs serialize each TxOut.
   -- The underlying accumulator tracks element multiplicity (via Count), so duplicate
-  -- elements are handled correctly — no deduplication needed here.
+  -- elements are handled correctly.
   -- Drop mempty: TxOuts for which toPlutusTxOut returns Nothing yield mempty here;
   -- we only prove membership of outputs that convert successfully.
   let subsetElements = filter (/= mempty) $ utxoToElement @tx <$> toPairList @tx subsetUTxO
-  -- Use the element-based proof function
-  createMembershipProof subsetElements fullAcc crs
+   in -- Use the element-based proof function
+      createMembershipProof subsetElements fullAcc crs
 
 createCRSG2Datum :: Int -> HApi.TxOutDatum ctx
 createCRSG2Datum n =

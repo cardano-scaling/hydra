@@ -526,6 +526,9 @@ data PartialFanoutError
     -- distribute. This happens when another node already posted a partial
     -- fanout and the chain state moved forward.
     StaleChainState
+  | -- | Membership proof generation failed (e.g. subset element not in accumulator
+    -- or CRS too short). Indicates a programming error in the caller.
+    CannotCreateProof Text
   deriving stock (Eq, Show)
 
 -- | Construct a partial fanout transaction that distributes a subset of UTxOs.
@@ -582,7 +585,7 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = 
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
   remainingAccumulator <- buildAndVerifyAccumulator progressDatum utxoToDistribute
-  pure $
+  first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
       utxoToDistribute

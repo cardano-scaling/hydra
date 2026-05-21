@@ -70,11 +70,19 @@ spec = parallel $ do
           subsetElements = ["beta", "gamma"] :: [ByteString]
           crsSize = requiredCRSPointCount fullAcc
           crsG2 = take crsSize g2BuiltinPoints
-          proofBytes = createMembershipProof subsetElements fullAcc (crsG1Points crsSize)
-          proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
+      proofBytes <- either error pure $ createMembershipProof subsetElements fullAcc (crsG1Points crsSize)
+      let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetElements
       checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
         `shouldBe` True
+
+    it "proof fails when subset element is not in accumulator" $ do
+      let allElements = ["alpha", "beta", "gamma"] :: [ByteString]
+          fullAcc = build allElements
+          foreignElement = ["omega"] :: [ByteString]
+          crsSize = requiredCRSPointCount fullAcc
+      createMembershipProof foreignElement fullAcc (crsG1Points crsSize)
+        `shouldSatisfy` isLeft
 
     it "proof for one subset does not verify for a different subset" $ do
       let allElements = ["alpha", "beta", "gamma", "delta"] :: [ByteString]
@@ -83,9 +91,9 @@ spec = parallel $ do
           subsetB = ["gamma", "delta"] :: [ByteString]
           crsSize = requiredCRSPointCount fullAcc
           crsG2 = take crsSize g2BuiltinPoints
-          proofBytes = createMembershipProof subsetA fullAcc (crsG1Points crsSize)
-          proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetB
+      proofBytes <- either error pure $ createMembershipProof subsetA fullAcc (crsG1Points crsSize)
+      let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
       checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
         `shouldBe` False
 

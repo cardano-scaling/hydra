@@ -177,21 +177,23 @@ finalPartialFanoutTx ::
   PlutusScript ->
   -- | Remaining accumulator (should cover exactly utxoToDistribute)
   HydraAccumulator ->
-  Tx
-finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadlineSlotNo headTokenScript remainingAccumulator =
-  unsafeBuildTransaction $
-    defaultTxBodyContent
-      & addTxIns [(headInput, headWitness)]
-      & addTxInsReference [headScriptRef, crsScriptRef] mempty
-      & addTxOuts orderedDistributedOutputs
-      & burnTokens headTokenScript Burn headTokens
-      & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
-      & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "FinalPartialFanoutTx")
+  Either Text Tx
+finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadlineSlotNo headTokenScript remainingAccumulator = do
+  fanoutProof <- computeFanoutProof
+  pure $
+    unsafeBuildTransaction $
+      defaultTxBodyContent
+        & addTxIns [(headInput, headWitness fanoutProof)]
+        & addTxInsReference [headScriptRef, crsScriptRef] mempty
+        & addTxOuts orderedDistributedOutputs
+        & burnTokens headTokenScript Burn headTokens
+        & setTxValidityLowerBound (TxValidityLowerBound $ deadlineSlotNo + 1)
+        & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "FinalPartialFanoutTx")
  where
-  headWitness =
+  headWitness proof =
     BuildTxWith $
       ScriptWitness scriptWitnessInCtx $
-        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
+        mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum (headRedeemer proof)
 
   headScriptRef =
     fst (headReference scriptRegistry)
@@ -199,19 +201,18 @@ finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) dea
   crsScriptRef =
     fst (crsReference scriptRegistry)
 
-  headRedeemer =
+  headRedeemer proof =
     toScriptData $
       Head.FinalPartialFanout
         { numberOfPartialOutputs = fromIntegral (UTxO.size utxoToDistribute)
-        , proof = fanoutProof
+        , proof = proof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
-  fanoutProof =
+  computeFanoutProof = do
     let crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount remainingAccumulator
-     in bls12_381_G1_uncompress $
-          toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx utxoToDistribute remainingAccumulator crs
+    proofBytes <- Accumulator.createMembershipProofFromUTxO @Tx utxoToDistribute remainingAccumulator crs
+    pure $ bls12_381_G1_uncompress $ toBuiltin proofBytes
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)

@@ -108,19 +108,19 @@ main = do
         ]
     , bgroup
         "3. Create Membership Proofs (fanoutChunkSize batch)"
-        [ bench "fanoutChunkSize from 50" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc50 crs51) subsetChunk_from50
-        , bench "fanoutChunkSize from 100" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc100 crs101) subsetChunk_from100
-        , bench "fanoutChunkSize from 500" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc500 crs501) subsetChunk_from500
-        , bench "fanoutChunkSize from 1000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc1000 crs1001) subsetChunk_from1000
-        , bench "fanoutChunkSize from 2000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc2000 crs2001) subsetChunk_from2000
-        , bench "fanoutChunkSize from 4000" $ nf (\s -> createMembershipProofFromUTxO @Tx s acc4000 crs4001) subsetChunk_from4000
+        [ bench "fanoutChunkSize from 50" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc50 crs51) subsetChunk_from50
+        , bench "fanoutChunkSize from 100" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc100 crs101) subsetChunk_from100
+        , bench "fanoutChunkSize from 500" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc500 crs501) subsetChunk_from500
+        , bench "fanoutChunkSize from 1000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc1000 crs1001) subsetChunk_from1000
+        , bench "fanoutChunkSize from 2000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc2000 crs2001) subsetChunk_from2000
+        , bench "fanoutChunkSize from 4000" $ nf (\s -> unsafeProof $ createMembershipProofFromUTxO @Tx s acc4000 crs4001) subsetChunk_from4000
         ]
     , bgroup
         "4. Create Membership Proofs (Low-level, variable batch size)"
-        [ bench "5 from 10" $ nf (\s -> createMembershipProof s acc10 crs11) (take 5 serialized10)
-        , bench "15 from 100" $ nf (\s -> createMembershipProof s acc100 crs101) (take 15 serialized100)
-        , bench "30 from 100" $ nf (\s -> createMembershipProof s acc100 crs101) (take 30 serialized100)
-        , bench "60 from 100" $ nf (\s -> createMembershipProof s acc100 crs101) (take 60 serialized100)
+        [ bench "5 from 10" $ nf (\s -> unsafeProof $ createMembershipProof s acc10 crs11) (take 5 serialized10)
+        , bench "15 from 100" $ nf (\s -> unsafeProof $ createMembershipProof s acc100 crs101) (take 15 serialized100)
+        , bench "30 from 100" $ nf (\s -> unsafeProof $ createMembershipProof s acc100 crs101) (take 30 serialized100)
+        , bench "60 from 100" $ nf (\s -> unsafeProof $ createMembershipProof s acc100 crs101) (take 60 serialized100)
         ]
     , bgroup
         "5. Accumulator Hashing (blake2b of compressed G1 commitment)"
@@ -183,6 +183,11 @@ fullSnapshotCycle utxo =
   let accumulator = buildFromUTxO @Tx utxo
    in getAccumulatorHash accumulator
 
+-- | Unwrap a proof result, crashing on error. Only for benchmark use where
+-- inputs are always valid by construction.
+unsafeProof :: Either Text ByteString -> ByteString
+unsafeProof = either error id
+
 -- | Simulate a partial fanout operation:
 -- 1. Build accumulator from full UTxO
 -- 2. Create membership proof for subset
@@ -191,4 +196,4 @@ partialFanoutCycle :: UTxO -> UTxO -> ByteString
 partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
       crs = crsG1Points (UTxO.size fullUtxo + 1)
-   in createMembershipProofFromUTxO @Tx subsetUtxo accumulator crs
+   in unsafeProof $ createMembershipProofFromUTxO @Tx subsetUtxo accumulator crs

@@ -46,13 +46,14 @@ healthyFinalPartialFanoutTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    finalPartialFanoutTx
-      scriptRegistry
-      healthyDistributeUTxO
-      (headInput, headOutput)
-      healthySlotNo
-      headTokenScript
-      healthyRemainingAccumulator
+    either error id $
+      finalPartialFanoutTx
+        scriptRegistry
+        healthyDistributeUTxO
+        (headInput, headOutput)
+        healthySlotNo
+        headTokenScript
+        healthyRemainingAccumulator
 
   headInput = generateWith arbitrary 42
 
@@ -187,10 +188,11 @@ genFinalPartialFanoutMutation (tx, _utxo) =
             realProof =
               bls12_381_G1_uncompress $
                 toBuiltin $
-                  Accumulator.createMembershipProofFromUTxO @Tx
-                    healthyDistributeUTxO
-                    healthyRemainingAccumulator
-                    (Accumulator.crsG1Points crsSize)
+                  either error id $
+                    Accumulator.createMembershipProofFromUTxO @Tx
+                      healthyDistributeUTxO
+                      healthyRemainingAccumulator
+                      (Accumulator.crsG1Points crsSize)
             fakeRedeemer =
               Head.FinalPartialFanout
                 { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
@@ -230,10 +232,11 @@ genFinalPartialFanoutMutation (tx, _utxo) =
               proof =
                 bls12_381_G1_uncompress $
                   toBuiltin $
-                    Accumulator.createMembershipProofFromUTxO @Tx
-                      distributedMinus1
-                      healthyRemainingAccumulator
-                      (Accumulator.crsG1Points crsSize)
+                    either error id $
+                      Accumulator.createMembershipProofFromUTxO @Tx
+                        distributedMinus1
+                        healthyRemainingAccumulator
+                        (Accumulator.crsG1Points crsSize)
               ScriptRegistry{crsReference} = scriptRegistry
               crsRef = toPlutusTxOutRef (fst crsReference)
            in ChangeHeadRedeemer
