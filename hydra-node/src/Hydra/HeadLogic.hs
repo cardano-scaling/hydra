@@ -1961,9 +1961,44 @@ aggregateNodeState nodeState sc =
 
 -- * HeadState aggregate
 
+-- | Extract the 'HeadId' from a 'StateChanged' event, if the event carries one.
+-- Events that do not carry a 'HeadId' always pass through 'aggregate' unchanged.
+eventHeadId :: StateChanged tx -> Maybe HeadId
+eventHeadId = \case
+  HeadOpened{headId} -> Just headId
+  TransactionAppliedToLocalUTxO{headId} -> Just headId
+  SnapshotConfirmed{headId} -> Just headId
+  LocalStateCleared{headId} -> Just headId
+  DecommitRecorded{headId} -> Just headId
+  DecommitFinalized{headId} -> Just headId
+  HeadIsReadyToFanout{headId} -> Just headId
+  HeadClosed{headId} -> Just headId
+  HeadContested{headId} -> Just headId
+  HeadFannedOut{headId} -> Just headId
+  TxInvalid{headId} -> Just headId
+  _ -> Nothing
+
+-- | Extract the 'HeadId' from the current 'HeadState', if any.
+headIdOf :: HeadState tx -> Maybe HeadId
+headIdOf = \case
+  Idle _ -> Nothing
+  Open OpenState{headId} -> Just headId
+  Closed ClosedState{headId} -> Just headId
+
 -- | Reflect 'StateChanged' events onto the 'HeadState' aggregate.
+-- Events carrying a 'HeadId' that does not match the current state are silently
+-- ignored, preventing cross-head state contamination during event replay.
+-- Events without a 'HeadId' are always applied.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
-aggregate st = \case
+aggregate st sc
+  | Just eid <- eventHeadId sc
+  , Just sid <- headIdOf st
+  , eid /= sid =
+      st
+  | otherwise = applyEvent st sc
+
+applyEvent :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
+applyEvent st = \case
   NetworkConnected -> st
   NetworkDisconnected -> st
   NetworkVersionMismatch{} -> st

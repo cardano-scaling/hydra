@@ -357,6 +357,35 @@ spec =
               chs.localUTxO `shouldBe` ownUTxO
             _ -> fail "expected Open state"
 
+        it "HeadClosed from another head does not transition Open to Closed during replay" $ do
+          otherHeadId :: HeadId <- generate arbitrary
+          let s0 = inOpenState threeParties
+              closedEvent =
+                HeadClosed
+                  { headId = otherHeadId
+                  , snapshotNumber = 0
+                  , chainState = 0
+                  , contestationDeadline = arbitrary `generateWith` 42
+                  }
+          let s1 = aggregateState s0 $ Continue [closedEvent] []
+          case s1 of
+            NodeInSync{headState = Open _} -> pure ()
+            other -> fail $ "expected Open state, got: " <> show other
+
+        it "HeadFannedOut from another head does not transition Closed to Idle during replay" $ do
+          otherHeadId :: HeadId <- generate arbitrary
+          let s0 = inClosedState threeParties
+              fanoutEvent =
+                HeadFannedOut
+                  { headId = otherHeadId
+                  , utxo = mempty
+                  , chainState = 0
+                  }
+          let s1 = aggregateState s0 $ Continue [fanoutEvent] []
+          case s1 of
+            NodeInSync{headState = Closed _} -> pure ()
+            other -> fail $ "expected Closed state, got: " <> show other
+
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
