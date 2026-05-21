@@ -155,9 +155,9 @@ main = do
         [ bench "Full cycle: 100 UTxOs" $ nf fullSnapshotCycle utxo100
         , bench "Full cycle: 1000 UTxOs" $ nf fullSnapshotCycle utxo1000
         , bench "Full cycle: 4000 UTxOs" $ nf fullSnapshotCycle utxo4000
-        , bench "Partial fanout: 7 from 50" $ nf (partialFanoutCycle utxo50) subsetChunk_from50
-        , bench "Partial fanout: 7 from 500" $ nf (partialFanoutCycle utxo500) subsetChunk_from500
-        , bench "Partial fanout: 7 from 4000" $ nf (partialFanoutCycle utxo4000) subsetChunk_from4000
+        , bench "Partial fanout: fanoutChunkSize from 50" $ nf (partialFanoutCycle utxo50) subsetChunk_from50
+        , bench "Partial fanout: fanoutChunkSize from 500" $ nf (partialFanoutCycle utxo500) subsetChunk_from500
+        , bench "Partial fanout: fanoutChunkSize from 4000" $ nf (partialFanoutCycle utxo4000) subsetChunk_from4000
         ]
     ]
 
