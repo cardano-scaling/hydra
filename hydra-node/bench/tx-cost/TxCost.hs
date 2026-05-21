@@ -219,7 +219,7 @@ computePartialFanOutNominalCost = do
     catMaybes
       <$> mapM
         compute
-        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
+        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 150, 200]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
@@ -301,12 +301,12 @@ computePartialFanOutMixedCost = do
 -- head output, since FinalPartialFanout requires that datum as input.
 computeFinalPartialFanOutCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computeFinalPartialFanOutCost = do
-  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200, 500]
+  interesting <- catMaybes <$> mapM compute [1, 5, 10, 20, 30, 50, 100, 200]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [4094, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
+        [200, 100, 60, 50, 40, 30, 20, 10, 5, 1]
   pure $ interesting <> limit
  where
   numberOfParties = 3
