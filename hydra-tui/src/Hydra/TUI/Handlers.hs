@@ -448,12 +448,21 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
         EvKey (KChar 'i') [] -> do
           put LoadingUTxOForIncrement
           let myAddr = mkMyAddress cardanoClient hydraClient
-          liftIO $
-            void $
-              forkIO $
-                handle (\(_ :: SomeException) -> writeBChan chan (UTxOQueryResult Map.empty)) $ do
-                  utxo' <- queryUTxOByAddress cardanoClient [myAddr]
-                  writeBChan chan (UTxOQueryResult (UTxO.toMap utxo'))
+          liftIO
+            $ void
+            $ forkIO
+            $
+            -- On exception: close the modal via UTxOQueryResult Map.empty, then
+            -- overwrite the misleading "No L1 funds…" message with the real error.
+            -- Order matters — TxBuildError must be written last so it wins.
+            handle
+              ( \(ex :: SomeException) -> do
+                  writeBChan chan (UTxOQueryResult Map.empty)
+                  writeBChan chan (TxBuildError ("L1 UTxO query failed: " <> show ex))
+              )
+            $ do
+              utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+              writeBChan chan (UTxOQueryResult (UTxO.toMap utxo'))
         EvKey (KChar 'r') [] -> do
           let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
           case depositIdRadioField pendingDepositIds of
@@ -726,12 +735,21 @@ recoverCommitAsync client chan depositTxId =
 triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1Query cardanoClient client chan = do
   let myAddr = mkMyAddress cardanoClient client
-  liftIO $
-    void $
-      forkIO $
-        handle (\(_ :: SomeException) -> writeBChan chan (L1UTxORefresh Map.empty)) $ do
-          utxo' <- queryUTxOByAddress cardanoClient [myAddr]
-          writeBChan chan (L1UTxORefresh (UTxO.toMap utxo'))
+  liftIO
+    $ void
+    $ forkIO
+    $
+    -- On exception: clear the loading state via L1UTxORefresh Map.empty, then
+    -- write the real error so the user sees it instead of "Update complete".
+    -- Order matters — TxBuildError must be written last so it wins.
+    handle
+      ( \(ex :: SomeException) -> do
+          writeBChan chan (L1UTxORefresh Map.empty)
+          writeBChan chan (TxBuildError ("L1 wallet refresh failed: " <> show ex))
+      )
+    $ do
+      utxo' <- queryUTxOByAddress cardanoClient [myAddr]
+      writeBChan chan (L1UTxORefresh (UTxO.toMap utxo'))
 
 triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1IfNeeded cardanoClient client chan = do
