@@ -118,6 +118,18 @@ spec = do
           threadDelay 1
           shouldRender "Main"
           sendInputEvent $ EvKey (KChar 'q') []
+      it "shows feedback when pressing r with no pending deposits" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          sendInputEvent $ EvKey (KChar 'r') []
+          threadDelay 1
+          shouldRender "No pending deposits to recover"
+          sendInputEvent $ EvKey (KChar 'q') []
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1

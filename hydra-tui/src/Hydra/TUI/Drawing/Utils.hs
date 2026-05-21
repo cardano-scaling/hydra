@@ -65,9 +65,14 @@ drawUTxO f utxo =
         ]
 
 -- | Render a single UTxO entry: index, last part of the TxIn, and ADA value.
+-- The TxIn is shortened to the last 10 characters of the hash plus its
+-- '#index' suffix, derived structurally so it stays correct if the rendering
+-- of 'TxIn' ever changes width.
 drawUTxOEntryAda :: Int -> (TxIn, TxOut CtxUTxO) -> Widget n
 drawUTxOEntryAda idx (txin, TxOut _ val _ _) =
-  txt (show idx <> ". " <> T.drop 54 (renderTxIn txin) <> "  ") <+> withAttr infoA (txt (renderAda val))
+  let (hashHex, idxPart) = T.breakOn "#" (renderTxIn txin)
+      shortened = T.takeEnd 10 hashHex <> idxPart
+   in txt (show idx <> ". " <> shortened <> "  ") <+> withAttr infoA (txt (renderAda val))
 
 -- | Wrap a widget in a clickable, vertically scrollable viewport using a single name
 -- for both. The shared name lets the mouse-wheel handler (matching MouseDown on any

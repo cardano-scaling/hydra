@@ -12,6 +12,8 @@ import Hydra.TUI.Model
 import Hydra.TUI.Style
 import Lens.Micro ((^.))
 
+-- | Render the Event History tab: a scrollable list of past log messages with
+-- a detail pane showing the selected entry (summary or raw JSON).
 drawEventHistoryTab :: RootState -> Widget Name
 drawEventHistoryTab s =
   borderWithLabel (withAttr neutral $ txt headerLabel) $
@@ -47,6 +49,7 @@ drawEventListItem tz selected (LogMessage{message, severity, time}) =
     Info -> "·"
     Error -> "✗"
 
+-- | Render the detail pane for a selected event, either as a summary or the raw JSON.
 drawEventDetail :: TimeZone -> Bool -> Maybe (Int, LogMessage) -> Widget Name
 drawEventDetail _ _ Nothing = withAttr neutral $ txt "No event selected."
 drawEventDetail tz rawView (Just (_, LogMessage{detail, severity, time, rawJson})) =

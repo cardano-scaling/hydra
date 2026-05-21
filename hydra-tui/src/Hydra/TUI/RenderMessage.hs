@@ -27,6 +27,10 @@ import Hydra.TUI.Drawing.Utils (prettyHeadId, prettyTxId)
 import Hydra.TUI.Logging.Types (LogMessage (..), Severity (..))
 import Hydra.Tx (HeadId, Snapshot (..), SnapshotNumber, txId)
 
+-- | A fully-rendered API message, ready to be turned into a 'LogMessage'.
+-- The three representations are kept separate so the TUI can show a short
+-- summary in lists, a structured detail view, and the raw JSON when the user
+-- toggles the detail pane.
 data RenderedMessage = RenderedMessage
   { rmSeverity :: Severity
   , rmTime :: UTCTime

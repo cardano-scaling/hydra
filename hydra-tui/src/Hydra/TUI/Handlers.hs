@@ -140,8 +140,8 @@ handleEvent cardanoClient client chan = \case
             previousTabL .= tab
             activeTabL .= ModalTab
           _ -> pure ()
-      EvKey (KChar c) []
-        | not modalOpen && c `elem` ['e', 'E'] -> do
+      EvKey (KChar 'e') []
+        | not modalOpen -> do
             tab <- use activeTabL
             case tab of
               EventHistoryTab -> do
@@ -200,8 +200,8 @@ handleEvent cardanoClient client chan = \case
                     recoveryFormL .= Just form
                     previousTabL .= tab
                     activeTabL .= ModalTab
-                  Nothing -> pure ()
-              _ -> pure ()
+                  Nothing -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
+              _ -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
           Nothing -> pure ()
       EvKey KRight []
         | not modalOpen -> do
@@ -458,7 +458,7 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
           let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pendingIncrements
           case depositIdRadioField pendingDepositIds of
             Just form -> put (SelectingDepositIdToRecover form)
-            Nothing -> pure ()
+            Nothing -> liftIO $ writeBChan chan (TxBuildError "No pending deposits to recover.")
         EvKey (KChar 'c') [] ->
           put $ ConfirmingClose confirmRadioField
         _ -> pure ()
@@ -548,7 +548,9 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
         EvKey KEnter [] -> do
           case formState i of
             SelectAddress recipient -> do
-              case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin $ round (amountEntered * 1_000_000)) (sk hydraClient) of
+              let Coin lovelaceLimit = selectLovelace (txOutValue (snd utxoSelected))
+              let lovelaceAmount = adaToLovelace amountEntered lovelaceLimit
+              case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin lovelaceAmount) (sk hydraClient) of
                 Left err -> liftIO $ writeBChan chan (TxBuildError $ "Could not build transaction: " <> show err)
                 Right tx -> do
                   liftIO (sendInput hydraClient (NewTx tx))
@@ -577,7 +579,9 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
         EvKey KEsc [] -> put OpenHome
         EvKey KEnter [] -> do
           let recipient = formState i
-          case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin $ round (amountEntered * 1_000_000)) (sk hydraClient) of
+          let Coin lovelaceLimit = selectLovelace (txOutValue (snd utxoSelected))
+          let lovelaceAmount = adaToLovelace amountEntered lovelaceLimit
+          case mkSimpleTx utxoSelected (recipient, lovelaceToValue $ Coin lovelaceAmount) (sk hydraClient) of
             Left err -> liftIO $ writeBChan chan (TxBuildError $ "Could not build transaction: " <> show err)
             Right tx -> do
               liftIO (sendInput hydraClient (NewTx tx))
@@ -661,6 +665,17 @@ mkMyAddress cardanoClient hydraClient =
     (networkId cardanoClient)
     (PaymentCredentialByKey . verificationKeyHash $ getVerificationKey $ sk hydraClient)
     NoStakeAddress
+
+-- | Convert a user-entered ADA amount to lovelace. The TUI accepts amounts
+-- as 'Double' for usability (typing decimals), so any precision finer than
+-- one lovelace is silently rounded. 'Double' represents integers exactly up
+-- to 2^53 lovelace (~9e15), well above any realistic UTxO value, so the
+-- only practical loss is sub-lovelace fractional input from the user. The
+-- 'min' clamp defends against floating-point overshoot of the form
+-- validator's upper bound.
+adaToLovelace :: Double -> Integer -> Integer
+adaToLovelace ada lovelaceLimit =
+  min lovelaceLimit (round (ada * 1_000_000))
 
 setPendingAction :: Vty.Event -> EventM Name RootState ()
 setPendingAction e = do

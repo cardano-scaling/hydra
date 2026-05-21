@@ -29,6 +29,8 @@ import Hydra.Chain.Direct.State ()
 import Lens.Micro (Lens', (^.))
 
 -- | Render a UTxO entry as "txin#ix ↦ ₳ X.XXXXXX" for form labels.
+-- The TxIn is shortened to the last 10 characters of the hash plus its
+-- '#index' suffix.
 renderUTxOAsAda :: (TxIn, TxOut CtxUTxO) -> Text
 renderUTxOAsAda (txin, TxOut _ val _ _) =
   let Coin l = selectLovelace val
@@ -36,7 +38,9 @@ renderUTxOAsAda (txin, TxOut _ val _ _) =
       fracStr = show frac
       padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
       sign = if l < 0 then "-" else ""
-   in Text.drop 54 (renderTxIn txin) <> " ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
+      (hashHex, idxPart) = Text.breakOn "#" (renderTxIn txin)
+      shortened = Text.takeEnd 10 hashHex <> idxPart
+   in shortened <> " ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 utxoRadioField ::
   forall s e n.

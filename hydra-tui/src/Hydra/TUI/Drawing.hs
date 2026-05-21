@@ -153,8 +153,8 @@ drawActionBar s =
     Just (_ : _) -> [("R", "ecover")]
     _ -> []
   eventFilterAction = case s ^. eventHistoryFilterL of
-    ShowAll -> ("E", " errors only")
-    ErrorsOnly -> ("E", " show all")
+    ShowAll -> ("e", " errors only")
+    ErrorsOnly -> ("e", " show all")
 
   drawAction :: (Text, Text) -> Widget n
   drawAction (key, rest) = withAttr keyA (txt key) <+> withAttr actionDescA (txt rest)

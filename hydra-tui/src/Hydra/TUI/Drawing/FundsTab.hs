@@ -28,6 +28,8 @@ import Hydra.TUI.Model
 import Hydra.TUI.Style
 import Lens.Micro ((^.))
 
+-- | Render the Funds tab: the L2 head state (utxo, pending commits/decommits,
+-- active modal flow if any) above the L1 wallet refresh panel.
 drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawFundsTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel (withAttr neutral $ txt " Funds ") $
@@ -48,6 +50,8 @@ drawFundsTab CardanoClient{networkId} Client{sk} s =
     Disconnected -> withAttr neutral $ txt "Not connected."
     Connected k -> drawFocusPanel networkId vk (s ^. nowL) k
 
+-- | Render the L1 wallet panel: a spinner while the L1 query is in flight,
+-- otherwise the UTxO listing (or a placeholder when empty).
 drawL1WalletPanel :: Maybe (Map TxIn (TxOut CtxUTxO)) -> AddressInEra -> UTCTime -> Widget Name
 drawL1WalletPanel Nothing _ now =
   withAttr neutral $ padAll 1 $ txt (spinnerFrame now <> " Refreshing…")
@@ -70,6 +74,7 @@ drawFocusPanel networkId vk now (Connection{headState}) = case headState of
     FanoutPossible -> drawFocusPanelFanout networkId vk utxo pendingIncrements now
     Final -> drawFocusPanelFinal networkId vk utxo pendingIncrements now
 
+-- | Focus panel for an 'Open' head: dispatches to home view or the active modal-form view.
 drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> [PendingIncrement] -> UTCTime -> OpenScreen -> Widget Name
 drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now = \case
   OpenHome ->
@@ -96,6 +101,7 @@ drawFocusPanelOpen networkId vk utxo pendingUTxOToDecommit pendingIncrements now
  where
   ownAddress = mkVkAddress networkId vk
 
+-- | Focus panel for a 'Closed' head: contestation countdown, active UTxO, pending commits.
 drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> ClosedState -> Widget Name
 drawFocusPanelClosed networkId vk utxo pendingIncrements now (ClosedState{contestationDeadline}) =
   vBox $
@@ -107,6 +113,7 @@ drawFocusPanelClosed networkId vk utxo pendingIncrements now (ClosedState{contes
  where
   ownAddress = mkVkAddress networkId vk
 
+-- | Focus panel when fanout is possible.
 drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
 drawFocusPanelFanout networkId vk utxo pendingIncrements now =
   vBox $
@@ -118,6 +125,7 @@ drawFocusPanelFanout networkId vk utxo pendingIncrements now =
  where
   ownAddress = mkVkAddress networkId vk
 
+-- | Focus panel for a finalised head.
 drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
 drawFocusPanelFinal networkId vk utxo pendingIncrements now =
   vBox $
@@ -138,6 +146,8 @@ drawPendingCommits ownAddress pendingIncrements now =
   , drawPendingIncrement ownAddress pendingIncrements now
   ]
 
+-- | Render the remaining time before a deposit becomes recoverable, or a
+-- "ready to recover" hint once the deadline has passed.
 drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
 drawRemainingDepositDeadline deadline now =
   let remaining = diffUTCTime deadline now
@@ -145,6 +155,8 @@ drawRemainingDepositDeadline deadline now =
         then txt "Remaining time to deposit: " <+> str (renderTime remaining)
         else withAttr negative $ txt "Deposit deadline passed, ready to recover."
 
+-- | Render the list of pending deposit/increment entries with their status,
+-- UTxO outputs, and remaining deadline.
 drawPendingIncrement :: AddressInEra -> [PendingIncrement] -> UTCTime -> Widget Name
 drawPendingIncrement ownAddress pendingIncrements now =
   vBox $ foldl' pendingWidget [] pendingIncrements

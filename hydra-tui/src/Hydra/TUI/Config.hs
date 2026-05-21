@@ -15,9 +15,11 @@ newtype TuiConfig = TuiConfig
   }
   deriving stock (Eq, Show)
 
+-- | Default config used when no file is present or parsing fails.
 defaultConfig :: TuiConfig
 defaultConfig = TuiConfig{theme = DarkTheme}
 
+-- | Flip between dark and light themes.
 toggleTheme :: Theme -> Theme
 toggleTheme DarkTheme = LightTheme
 toggleTheme LightTheme = DarkTheme
@@ -51,9 +53,10 @@ writeConfig cfg = do
     Right () -> pure ()
 
 -- ---------------------------------------------------------------------------
--- Internal YAML helpers (single-field file — no library needed)
+-- Internal YAML helpers
 -- ---------------------------------------------------------------------------
 
+-- | Parse the on-disk config text. Unrecognised content falls back to 'defaultConfig'.
 parseConfig :: Text -> TuiConfig
 parseConfig content =
   TuiConfig{theme = fromMaybe (theme defaultConfig) parsedTheme}
@@ -70,6 +73,7 @@ parseConfig content =
   themeFromText "light" = LightTheme
   themeFromText _ = DarkTheme
 
+-- | Serialise the config to its on-disk text form.
 encodeConfig :: TuiConfig -> Text
 encodeConfig TuiConfig{theme} =
   "theme: " <> themeToText theme <> "\n"

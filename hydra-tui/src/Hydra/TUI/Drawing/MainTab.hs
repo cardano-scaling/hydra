@@ -31,6 +31,8 @@ import Hydra.TUI.Style
 import Hydra.Tx (Party (..))
 import Lens.Micro ((^.))
 
+-- | Render the Main tab: connection/network/chain status, peers, head parties,
+-- head state with UTxOs, and a strip of recent events.
 drawMainTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawMainTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel panelLabel $
@@ -137,12 +139,14 @@ drawMainTab CardanoClient{networkId} Client{sk} s =
             drawUTxO (highlightOwnAddress ownAddress) utxo
       ]
 
+-- | Render the API-connection status line ("Connected" / "Connecting to …").
 drawConnectedStatus :: RootState -> Widget n
 drawConnectedStatus RootState{nodeHost, connectedState} =
   txt "API: " <+> case connectedState of
     Disconnected -> withAttr negative $ str $ "Connecting to " <> show nodeHost
     Connected _ -> withAttr positive $ txt "Connected"
 
+-- | Render the Hydra-network status line.
 drawNetworkState :: ConnectedState -> Widget n
 drawNetworkState s =
   txt "Network: " <+> case s of
@@ -153,6 +157,7 @@ drawNetworkState s =
         Just NetworkConnected -> withAttr positive $ txt "Connected"
         Just NetworkDisconnected -> withAttr negative $ txt "Disconnected"
 
+-- | Render the chain-sync status line ("In sync" / "Catching up").
 drawChainSyncedState :: ConnectedState -> Widget n
 drawChainSyncedState s =
   txt "Chain: " <+> case s of
@@ -162,6 +167,7 @@ drawChainSyncedState s =
         InSync -> withAttr positive $ txt "In sync"
         CatchingUp -> withAttr negative $ txt "Catching up"
 
+-- | Render the peer list with per-peer connection state.
 drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
 drawPeers s peers = vBox rest
  where
@@ -181,11 +187,14 @@ drawPeers s peers = vBox rest
     PeerIsDisconnected -> negative
     PeerIsUnknown -> neutral
 
+-- | Render a single 'Party' as its hex-encoded verification key with the given attribute.
 drawParty :: AttrName -> Party -> Widget n
 drawParty x Party{vkey} = withAttr x $ drawHex vkey
 
+-- | Vertically stack a list of parties using the given renderer.
 drawParties :: (Party -> Widget n) -> [Party] -> Widget n
 drawParties f xs = vBox $ map f xs
 
+-- | Render parties with the local party highlighted.
 drawPartiesWithOwnHighlighted :: Party -> [Party] -> Widget n
 drawPartiesWithOwnHighlighted k = drawParties (\p -> drawParty (if k == p then own else mempty) p)
