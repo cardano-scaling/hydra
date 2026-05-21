@@ -37,12 +37,19 @@ drawMainTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
 drawMainTab CardanoClient{networkId} Client{sk} s =
   borderWithLabel panelLabel $
     vBox
-      [ -- Status strip: plain text, no border characters so junctions don't misalign
+      [ -- Status strip: plain text, no border characters so junctions don't misalign.
+        -- Connection/network/chain status sit on the left; the user's address is
+        -- right-aligned via padLeft Max.
         padLeftRight 1 $
-          hBox . intersperse (txt "   ") $
-            [ drawConnectedStatus s
-            , drawNetworkState connState
-            , drawChainSyncedState connState
+          hBox
+            [ hBox . intersperse (txt "   ") $
+                [ drawConnectedStatus s
+                , drawNetworkState connState
+                , drawChainSyncedState connState
+                ]
+            , padLeft Max $
+                withAttr neutral (txt "Address: ")
+                  <+> withAttr infoA (txt (serialiseAddress ownAddress))
             ]
       , padLeftRight 1 $
           hBox
