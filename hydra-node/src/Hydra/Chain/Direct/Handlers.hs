@@ -486,8 +486,8 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
     -- These are handled in mkChain.postTx before reaching this function.
-    FanoutTx{} -> error "FanoutTx must not reach prepareTxToPost"
-    FinalPartialFanoutTx{} -> error "FinalPartialFanoutTx must not reach prepareTxToPost"
+    FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)
+    FinalPartialFanoutTx{} -> throwSTM (FailedToConstructPartialFanoutTx :: PostTxError Tx)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a
