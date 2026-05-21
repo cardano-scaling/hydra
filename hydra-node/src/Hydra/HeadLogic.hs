@@ -37,6 +37,7 @@ import Hydra.Chain (
   ChainStateHistory,
   OnChainTx (..),
   PostChainTx (..),
+  PostTxError (..),
   initHistory,
   pushNewState,
   rollbackHistory,
@@ -1778,6 +1779,11 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     newState TickObserved{chainPoint}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
+  (_, ChainInput PostTxError{postTxError = StalePartialFanoutTx}) ->
+    -- The chain advanced past this step before we could post it (another node
+    -- was faster). The chain observation loop already emitted the correct next
+    -- step, so this is safe to ignore.
+    noop
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   _ ->

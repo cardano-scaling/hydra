@@ -2865,6 +2865,18 @@ components:
             tag:
               type: string
               enum: ["FailedToConstructPartialFanoutTx"]
+        - title: StalePartialFanoutTx
+          description: |
+            Another node already posted this partial fanout step; the chain
+            observation loop will emit the correct next step automatically.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          properties:
+            tag:
+              type: string
+              enum: ["StalePartialFanoutTx"]
         - title: DepositTooLow
           description: |
             Raised if the user requests a deposit using too small UTxO.

@@ -185,6 +185,9 @@ data PostTxError tx
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   | FailedToConstructPartialFanoutTx
+  | -- | Another node already posted this partial fanout step; the chain
+    -- observation loop will emit the correct next step automatically.
+    StalePartialFanoutTx
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 

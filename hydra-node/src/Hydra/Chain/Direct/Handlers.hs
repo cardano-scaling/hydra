@@ -57,6 +57,7 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
+  PartialFanoutError (..),
   chainSlotFromPoint,
   close,
   contest,
@@ -478,6 +479,7 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
           case partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlot of
+            Left StaleChainState -> throwIO (StalePartialFanoutTx @Tx)
             Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
             Right partialFanoutTx' -> pure partialFanoutTx'
     FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
@@ -487,6 +489,7 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
           throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
         Just seedTxIn ->
           case finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot of
+            Left StaleChainState -> throwIO (StalePartialFanoutTx @Tx)
             Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
             Right fanoutTx' -> pure fanoutTx'
  where

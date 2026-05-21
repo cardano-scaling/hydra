@@ -30,6 +30,7 @@ import Hydra.Chain (
   ChainEvent (..),
   OnChainTx (..),
   PostChainTx (..),
+  PostTxError (..),
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
@@ -1733,6 +1734,19 @@ spec =
           OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
             Set.isSubsetOf utxoToDistribute remaining1
               && Set.disjoint utxoToDistribute distributed1
+          _ -> False
+
+      it "StalePartialFanoutTx PostTxError is silently ignored (no PostTxOnChainFailed to client)" $ do
+        -- This covers the race condition where another node already posted the
+        -- same partial fanout step. The chain observation loop self-heals by
+        -- emitting the correct next effect; the stale attempt must not surface
+        -- as an error to the API client.
+        let st = inClosedState threeParties
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let postTxError = ChainInput PostTxError{postChainTx = PartialFanoutTx{utxoToDistribute = mempty, remainingUTxO = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
+            outcome = update bobEnv ledger now st postTxError
+        outcome `hasNoEffectSatisfying` \case
+          ClientEffect{} -> True
           _ -> False
 
       it "aggregate HeadPartialFannedOut keeps state Closed with remaining UTxO" $ do
