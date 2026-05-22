@@ -39,10 +39,29 @@ jobs:
         if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
           cd ${{ matrix.package }}
           echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
-          nix develop .#${{ matrix.package }}-tests --command tests -m "@requiresBlockfrost"
+          mkdir -p test-reports
+          nix develop .#${{ matrix.package }}-tests --command tests -p "/@requiresBlockfrost/" --xml=test-reports/junit.xml
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
+
+    - name: 📊 Publish test report
+      if: always()
+      uses: mikepenz/action-junit-report@3a81627bfac62268172037048872e8ebd4207e6d # v6.4.1
+      with:
+        report_paths: '${{ matrix.package }}/test-reports/junit.xml'
+        check_name: 'nightly blockfrost / ${{ matrix.package }}'
+        detailed_summary: true
+        include_passed: false
+        require_tests: false
+
+    - name: 💾 Upload JUnit XML
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: junit-nightly-blockfrost-${{ matrix.package }}
+        path: ${{ matrix.package }}/test-reports/junit.xml
+        if-no-files-found: warn
 
 
   other-nightly-tests:
@@ -71,4 +90,23 @@ jobs:
     - name: Run tests
       run: |
         cd ${{ matrix.package }}
-        nix develop .#${{ matrix.package }}-tests --command tests -m "@nightly"
+        mkdir -p test-reports
+        nix develop .#${{ matrix.package }}-tests --command tests -p "/@nightly/" --xml=test-reports/junit.xml
+
+    - name: 📊 Publish test report
+      if: always()
+      uses: mikepenz/action-junit-report@3a81627bfac62268172037048872e8ebd4207e6d # v6.4.1
+      with:
+        report_paths: '${{ matrix.package }}/test-reports/junit.xml'
+        check_name: 'nightly / ${{ matrix.package }}'
+        detailed_summary: true
+        include_passed: false
+        require_tests: false
+
+    - name: 💾 Upload JUnit XML
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: junit-nightly-${{ matrix.package }}
+        path: ${{ matrix.package }}/test-reports/junit.xml
+        if-no-files-found: warn

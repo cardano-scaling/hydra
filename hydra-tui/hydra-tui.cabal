@@ -93,7 +93,6 @@ test-suite tests
   other-modules:
     Hydra.TUI.OptionsSpec
     Hydra.TUISpec
-    Spec
 
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
@@ -101,7 +100,6 @@ test-suite tests
     , blaze-builder
     , bytestring
     , filepath
-    , hspec
     , hydra-cardano-api
     , hydra-cluster
     , hydra-node
@@ -117,8 +115,5 @@ test-suite tests
     , vty
     , vty-unix
 
-  build-tool-depends:
-    , hspec-discover:hspec-discover
-    , hydra-node:hydra-node
-
+  build-tool-depends: hydra-node:hydra-node
   ghc-options:        -threaded -rtsopts

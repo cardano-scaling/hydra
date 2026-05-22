@@ -149,7 +149,6 @@ test-suite tests
   type:               exitcode-stdio-1.0
   other-modules:
     Paths_hydra_cluster
-    Spec
     Test.BlockfrostChainSpec
     Test.CardanoClientSpec
     Test.CardanoNodeSpec
@@ -173,7 +172,6 @@ test-suite tests
     , containers
     , directory
     , filepath
-    , hspec
     , hspec-golden-aeson
     , http-conduit
     , hydra-cardano-api
@@ -191,11 +189,11 @@ test-suite tests
     , QuickCheck
     , split
     , stm
+    , tasty
     , text
     , time
 
   build-tool-depends:
-    , hspec-discover:hspec-discover
     , hydra-chain-observer:hydra-chain-observer
     , hydra-node:hydra-node
 

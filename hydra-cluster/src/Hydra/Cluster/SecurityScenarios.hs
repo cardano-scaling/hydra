@@ -106,7 +106,7 @@ import HydraNode (
   requestCommitTx,
   send,
   waitMatch,
-  withHydraNode,
+  withSoloHydraNode,
  )
 import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Hydra.Tx.Gen (genKeyPair)
@@ -134,7 +134,7 @@ cannotStealDepositWithoutHeadInput tracer workDir opts hydraScriptsTxId =
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
       send n1 $ input "Init" []
       _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
@@ -196,7 +196,7 @@ cannotStealDepositWithCounterfeitHeadToken tracer workDir opts hydraScriptsTxId 
       chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
         <&> setNetworkId networkId
     let hydraTracer = contramap FromHydraNode tracer
-    withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+    withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
       send n1 $ input "Init" []
       _headId <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
 
@@ -404,7 +404,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
     -- get a chance to submit its own honest Increment that would race the
     -- redirection.
     (headId, victim1Vk, deposit1TxId, victim2Vk, deposit2TxId) <-
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
         send n1 $ input "Init" []
         hid <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
         (vVk1, dTxId1) <- placeVictimDepositNoWait tracer opts n1 5_000_000
@@ -655,7 +655,7 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
     -- Bootstrap the head and craft the deposit tx; exit before the node
     -- can auto-Increment.
     (headId, victimVk, depositTxId') <-
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
         send n1 $ input "Init" []
         hid <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
         (vVk, dTxId) <- placeVictimDepositNoWait tracer opts n1 5_000_000
@@ -802,7 +802,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
     -- over. The "victim" deposit is much larger (20 ADA) and is what the
     -- leader will redirect.
     (headId, leaderDepositorVk, leaderDepositTxId, victimVk, victimDepositTxId) <-
-      withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] [1] $ \n1 -> do
+      withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
         send n1 $ input "Init" []
         hid <- waitMatch (10 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
         (lVk, lTxId) <- placeVictimDepositNoWait tracer opts n1 3_000_000

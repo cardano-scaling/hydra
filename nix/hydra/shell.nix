@@ -25,7 +25,6 @@
         # For plotting results of hydra-cluster benchmarks
         pkgs.gnuplot
         pkgs.haskell-language-server
-        pkgs.haskellPackages.hspec-discover
         # The interactive Glasgow Haskell Compiler as a Daemon
         pkgs.haskellPackages.ghcid
         # Generate a graph of the module dependencies in the "dot" format

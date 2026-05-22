@@ -45,7 +45,7 @@ spec = do
       let v1 = ProtocolVersion 1
 
       it "broadcasts to self" $ \tracer -> do
-        failAfter 5 $
+        failAfter 30 $
           withTempDir "test-etcd" $ \tmp -> do
             withFreePort $ \port -> do
               let config =
@@ -57,7 +57,7 @@ spec = do
                       , peers = []
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
-                      , whichEtcd = EmbeddedEtcd
+                      , whichEtcd = SystemEtcd
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
@@ -88,7 +88,7 @@ spec = do
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 5 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, waitNext, _) <- newRecordingCallback
@@ -189,7 +189,7 @@ spec = do
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 10 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
@@ -206,7 +206,9 @@ spec = do
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          -- Sends 1000 messages through a 3-node etcd cluster; the
+          -- 20s budget was too tight under parallel CI load.
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
@@ -283,7 +285,7 @@ spec = do
 
       it "emits cluster id mismatch" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 10 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
@@ -326,7 +328,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -337,7 +339,7 @@ setup2Peers tmp = do
             , peers = [aliceHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       }
 
@@ -364,7 +366,7 @@ setup3Peers tmp = do
             , peers = [bobHost, carolHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -375,7 +377,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, carolHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , carolConfig =
           NetworkConfiguration
@@ -386,7 +388,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, bobHost]
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       }
 

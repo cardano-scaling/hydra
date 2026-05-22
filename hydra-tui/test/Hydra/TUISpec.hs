@@ -49,8 +49,9 @@ import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
-  HydraClient (HydraClient, hydraNodeId),
+  HydraClient (..),
   HydraNodeLog,
+  allocateHydraNodePortsFor,
   prepareHydraNode,
   withHydraNode,
   withPreparedHydraNode,
@@ -188,7 +189,8 @@ setupRotatedStateTUI action = do
         seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backendOpts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
+        nodePorts <- allocateHydraNodePortsFor [nodeId]
+        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] nodePorts id
         let options' = options{persistenceRotateAfter = Just (Positive 1)}
         withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId blockTime backend externalKeyFilePath options' action
 
@@ -255,7 +257,7 @@ withTUIRotatedTest ::
 withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath options action =
   withHydraNodeHandle tracer tmpDir nodeId options $ \nodeHandle -> do
     startNode nodeHandle
-    HydraClient{hydraNodeId} <- getClient nodeHandle
+    HydraClient{apiHost = Host{port = apiPort}} <- getClient nodeHandle
     withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
       raceLabelled_
         ( "run-vty"
@@ -266,7 +268,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
                 { hydraNodeHost =
                     Host
                       { hostname = "127.0.0.1"
-                      , port = fromIntegral $ 4000 + hydraNodeId
+                      , port = apiPort
                       }
                 , cardanoConnection =
                     Right nodeSocket
@@ -306,7 +308,8 @@ setupNodeAndTUI' hostname lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         let DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        nodePorts <- allocateHydraNodePortsFor [nodeId]
+        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] nodePorts $ \HydraClient{apiHost = Host{port = apiPort}} -> do
           seedFromFaucet_ backendOpts aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
@@ -318,7 +321,7 @@ setupNodeAndTUI' hostname lovelace action =
                     { hydraNodeHost =
                         Host
                           { hostname = hostname
-                          , port = fromIntegral $ 4000 + hydraNodeId
+                          , port = apiPort
                           }
                     , cardanoConnection =
                         Right nodeSocket

@@ -134,7 +134,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand workDir 
     case apiHosts of
       [] -> action connections
       ((apiHost, peerId) : rest) -> do
-        withConnectionToNodeHost tracer peerId apiHost (Just "/?history=no") $ \con -> do
+        withConnectionToNodeHost tracer peerId apiHost Nothing (Just "/?history=no") $ \con -> do
           withHydraClientConnections tracer rest (con : connections) action
 
   returnFaucetFunds tracer opts = do

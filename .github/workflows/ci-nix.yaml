@@ -53,7 +53,8 @@ jobs:
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
         cd ${{ matrix.package }} # To ensure the `./golden` files are available.
-        nix develop .#${{ matrix.package }}-tests --command tests
+        mkdir -p test-reports
+        nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml
 
     # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
@@ -66,7 +67,26 @@ jobs:
         TERM: "xterm"
       run: |
         cd ${{ matrix.package  }}
-        nix develop .#${{ matrix.package }}-tests --command tests
+        mkdir -p test-reports
+        nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml
+
+    - name: 📊 Publish test report
+      if: always()
+      uses: mikepenz/action-junit-report@3a81627bfac62268172037048872e8ebd4207e6d # v6.4.1
+      with:
+        report_paths: '${{ matrix.package }}/test-reports/junit.xml'
+        check_name: 'tests / ${{ matrix.package }} (${{ matrix.os }})'
+        detailed_summary: true
+        include_passed: false
+        require_tests: false
+
+    - name: 💾 Upload JUnit XML
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: junit-${{ matrix.package }}-${{ matrix.os }}
+        path: ${{ matrix.package }}/test-reports/junit.xml
+        if-no-files-found: warn
 
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs

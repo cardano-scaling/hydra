@@ -4,6 +4,8 @@ module CardanoNode where
 
 import Hydra.Prelude
 
+import Test.Network.Ports qualified as Ports
+
 import Cardano.Slotting.Time (diffRelativeTime, getRelativeTime, toRelativeTime)
 import CardanoClient (QueryPoint (QueryTip))
 import Control.Lens ((?~), (^?!))
@@ -211,7 +213,11 @@ withCardanoNodeDevnet ::
   IO a
 withCardanoNodeDevnet tracer stateDirectory action = do
   args <- setupCardanoDevnet stateDirectory
-  withCardanoNode tracer stateDirectory args action
+  -- Allocate a free port for the cardano-node P2P listener so concurrent
+  -- devnets don't all try to bind 3001 (the cardano-node default).
+  [p] <- Ports.randomUnusedTCPPorts 1
+  let args' = args{nodePort = Just p}
+  withCardanoNode tracer stateDirectory args' action
 
 withBlockfrostBackend ::
   Tracer IO EndToEndLog ->
