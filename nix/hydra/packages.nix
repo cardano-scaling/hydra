@@ -204,6 +204,7 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
       } // staticPackages;
