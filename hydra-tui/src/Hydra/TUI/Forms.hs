@@ -73,18 +73,35 @@ depositIdRadioField ::
   ) =>
   [(TxId, UTxO)] ->
   Maybe (Form s e n)
-depositIdRadioField txIdUTxO = case txIdUTxO of
+depositIdRadioField = depositIdRadioFieldWith Nothing
+
+-- | Like 'depositIdRadioField', but use 'desired' as the initial selection
+-- if it is still present in the list (otherwise fall back to the first
+-- entry). Used when rebuilding the recovery form after the underlying
+-- 'pendingIncrements' has changed.
+depositIdRadioFieldWith ::
+  forall s e n.
+  ( s ~ TxId
+  , n ~ Text
+  ) =>
+  Maybe TxId ->
+  [(TxId, UTxO)] ->
+  Maybe (Form s e n)
+depositIdRadioFieldWith desired txIdUTxO = case txIdUTxO of
   [] -> Nothing
   ((firstTxId, _) : _) ->
-    Just $
-      newForm
-        [ radioField
-            id
-            [ (txid, show txid, renderDepositSummary txid u)
-            | (txid, u) <- txIdUTxO
+    let initial = case desired of
+          Just d | any ((== d) . fst) txIdUTxO -> d
+          _ -> firstTxId
+     in Just $
+          newForm
+            [ radioField
+                id
+                [ (txid, show txid, renderDepositSummary txid u)
+                | (txid, u) <- txIdUTxO
+                ]
             ]
-        ]
-        firstTxId
+            initial
 
 -- | One-line summary of a pending deposit: shortened TxId plus the total
 -- lovelace across all its outputs.

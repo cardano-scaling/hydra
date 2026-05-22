@@ -16,7 +16,7 @@ import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
-  Key (KChar, KEnter),
+  Key (KChar, KEnter, KEsc),
   Output (..),
   Vty (..),
   displayContext,
@@ -129,6 +129,35 @@ spec = do
           sendInputEvent $ EvKey (KChar 'r') []
           threadDelay 1
           shouldRender "No pending deposits to recover"
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "opens the recovery modal for a pending deposit" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          -- Init head.
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          -- Start an increment: queries L1 UTxO, opens the increment modal.
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 3
+          shouldRender "Increment"
+          -- Commit the first available UTxO.
+          sendInputEvent $ EvKey KEnter []
+          -- Wait for the chain follower to observe the deposit and emit
+          -- CommitRecorded. On devnet this typically lands within a handful
+          -- of seconds.
+          threadDelay 8
+          shouldRender "PendingDeposit"
+          -- Open the recovery modal; the deposit should be visible.
+          sendInputEvent $ EvKey (KChar 'r') []
+          threadDelay 1
+          shouldRender "Recover"
+          shouldRender "Selected deposit"
+          -- Cancel out.
+          sendInputEvent $ EvKey KEsc []
+          threadDelay 1
           sendInputEvent $ EvKey (KChar 'q') []
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do

@@ -65,6 +65,7 @@ handleEvent cardanoClient client chan = \case
     when (afterLen > beforeLen) $
       pendingActionL .= Nothing
     syncEventHistoryList
+    refreshRecoveryForm
     case e of
       Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitRecorded{}}) ->
         triggerL1Query cardanoClient client chan
@@ -72,6 +73,8 @@ handleEvent cardanoClient client chan = \case
         triggerL1Query cardanoClient client chan
       ClientDisconnected -> do
         recoveryFormL .= Nothing
+        pendingActionL .= Nothing
+        l1UTxOL .= Nothing
         tab <- use activeTabL
         when (tab == ModalTab) leaveModal
       _ -> pure ()
@@ -81,21 +84,25 @@ handleEvent cardanoClient client chan = \case
   AppEvent (TxBuildError msg) -> pendingActionL .= Just msg
   AppEvent (UTxOQueryResult utxo) -> do
     pendingActionL .= Nothing
-    connState <- use connectedStateL
-    case connState of
-      Connected c ->
-        case c ^. headStateL of
-          Active (ActiveLink{activeHeadState = Open{openState = LoadingUTxOForIncrement}}) ->
-            case utxoRadioField utxo of
-              Just form ->
-                zoomOpenScreen $ put $ SelectingUTxOToIncrement form
-              Nothing -> do
-                -- Empty or failed query — close modal, return to previous tab, show message
-                zoomOpenScreen $ put OpenHome
-                leaveModal
-                pendingActionL .= Just "No L1 funds available to increment."
-          _ -> pure ()
-      _ -> pure ()
+    openScreen <- useOpenScreen
+    case openScreen of
+      Just LoadingUTxOForIncrement -> case utxoRadioField utxo of
+        Just form ->
+          zoomOpenScreen $ put $ SelectingUTxOToIncrement form
+        Nothing -> do
+          -- Empty or failed query — close modal, return to previous tab, show message
+          zoomOpenScreen $ put OpenHome
+          leaveModal
+          pendingActionL .= Just "No L1 funds available to increment."
+      Nothing -> do
+        -- Head is no longer Open (e.g. it closed mid-query). If we're still
+        -- stuck on the loading modal, return the user to their previous tab.
+        -- Without this, the result would be silently dropped and the modal
+        -- would be stranded showing a stale loading panel.
+        tab <- use activeTabL
+        hasRecoveryForm <- isJust <$> use recoveryFormL
+        when (tab == ModalTab && not hasRecoveryForm) leaveModal
+      _ -> pure () -- User navigated away (Esc, started a different flow) — drop silently.
   MouseDown name Vty.BScrollUp _ _ ->
     vScrollBy (viewportScroll name) (-3)
   MouseDown name Vty.BScrollDown _ _ ->
@@ -647,8 +654,9 @@ setPendingAction e = do
         pendingActionL .= Just "Sending Init…"
       (Active (ActiveLink{activeHeadState = FanoutPossible}), EvKey (KChar 'f') []) ->
         pendingActionL .= Just "Sending Fanout…"
-      (Active (ActiveLink{activeHeadState = Open{openState = OpenHome}}), EvKey (KChar 'i') []) ->
-        pendingActionL .= Just "Querying Cardano node…"
+      -- Note: 'i' on Open OpenHome does not set a pending-action message —
+      -- the modal panel itself shows "Querying Cardano node for available
+      -- UTxO…" while LoadingUTxOForIncrement, which is enough.
       (Active (ActiveLink{activeHeadState = Open{openState}}), EvKey KEnter []) ->
         case openState of
           SelectingUTxOToDecommit _ ->
@@ -688,6 +696,31 @@ leaveModal :: EventM Name RootState ()
 leaveModal = do
   prev <- use previousTabL
   activeTabL .= prev
+
+-- | If the recovery modal is open, rebuild its form from the current
+-- 'pendingIncrements'. Keeps the user's selection if that deposit is still
+-- pending, otherwise falls back to the first entry. If the list is now
+-- empty (e.g. the selected deposit was finalized or recovered), close the
+-- modal and surface a message in the pending-action slot. Should be called
+-- after any node event that may mutate 'pendingIncrements'.
+refreshRecoveryForm :: EventM Name RootState ()
+refreshRecoveryForm = do
+  mForm <- use recoveryFormL
+  case mForm of
+    Nothing -> pure ()
+    Just form -> do
+      let prevSelection = formState form
+      mPending <- gets (^? connectedStateL . connectionL . headStateL . activeLinkL . pendingIncrementsL)
+      let pis = fromMaybe [] mPending
+      let pendingDepositIds = (\PendingIncrement{deposit, utxoToCommit} -> (deposit, utxoToCommit)) <$> pis
+      case depositIdRadioFieldWith (Just prevSelection) pendingDepositIds of
+        Just refreshed -> recoveryFormL .= Just refreshed
+        Nothing -> do
+          recoveryFormL .= Nothing
+          tab <- use activeTabL
+          when (tab == ModalTab) $ do
+            leaveModal
+            pendingActionL .= Just "No pending deposits left to recover."
 
 -- | Run an IO action in a background thread, reporting any exception through
 -- the TUI's event channel as a 'TxBuildError' (visible in the pending-action

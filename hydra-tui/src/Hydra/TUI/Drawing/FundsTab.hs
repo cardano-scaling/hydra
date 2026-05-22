@@ -1,5 +1,4 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.TUI.Drawing.FundsTab where
 
