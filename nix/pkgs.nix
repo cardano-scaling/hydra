@@ -26,7 +26,14 @@
           inputs.haskellNix.overlay
           # Custom static libs used for darwin build
           self.overlays.static-libs
-          inputs.nix-npm-buildpackage.overlays.default
+          # Take only `buildYarnPackage` from serokell's overlay (used by
+          # nix/hydra/docs.nix). Their overlay also overrides nixpkgs's
+          # `buildNpmPackage`, but their version doesn't support
+          # lockfileVersion 3 — which breaks transitive uses in newer nixpkgs
+          # (e.g. prometheus). Keep nixpkgs's `buildNpmPackage` intact.
+          (final: _prev: {
+            inherit (final.callPackage inputs.nix-npm-buildpackage { }) buildYarnPackage;
+          })
           # Specific versions of tools we require
           (_final: _prev: {
             inherit (inputs.aiken.packages.${system}) aiken;
