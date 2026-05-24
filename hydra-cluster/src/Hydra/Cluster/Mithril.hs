@@ -6,7 +6,7 @@ import Hydra.Prelude
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (Value)
 import Data.Aeson qualified as Aeson
-import Data.ByteString qualified as BS
+import Data.ByteString.Char8 qualified as BS
 import Hydra.Cluster.Fixture (KnownNetwork (..))
 import Network.HTTP.Simple (getResponseBody, httpBS, parseRequest)
 import System.IO.Error (isEOFError)

@@ -58,7 +58,7 @@ getEvent env bucketName eventId = do
   let req = AWS.newGetObject bucketName (toObjectKey eventId)
   body <- AWS.send env req <&> view AWS.getObjectResponse_body
   bytes <- AWS.sinkBody body sinkLazy
-  case Aeson.eitherDecode bytes of
+  case Aeson.eitherDecodeStrict' (toStrict bytes) of
     Left err ->
       fail $ "Failed to decode event: " <> show err
     Right e -> pure e

@@ -264,7 +264,7 @@ handleDraftCommitUtxo ::
   LBS.ByteString ->
   IO Response
 handleDraftCommitUtxo tracer env pparams directChain getCommitInfo body = do
-  case Aeson.eitherDecode' body :: Either String (DraftCommitTxRequest tx) of
+  case Aeson.eitherDecodeStrict' (LBS.toStrict body) :: Either String (DraftCommitTxRequest tx) of
     Left err -> do
       traceWith tracer $
         APIInvalidInput
@@ -356,7 +356,7 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
   parseTxIdFromPath txIdStr =
     -- First try parsing as a raw JSON value (for backwards compatibility with numeric IDs)
     -- then fall back to parsing as a JSON String (for hex-encoded TxIds)
-    case Aeson.eitherDecode (LBS.fromStrict $ encodeUtf8 txIdStr) of
+    case Aeson.eitherDecodeStrict' (encodeUtf8 txIdStr) of
       Right txid -> Right txid
       Left _ -> case parseEither parseJSON (Aeson.String txIdStr) of
         Right txid -> Right txid
@@ -371,7 +371,7 @@ handleSubmitUserTx ::
   LBS.ByteString ->
   IO Response
 handleSubmitUserTx directChain body = do
-  case Aeson.eitherDecode' body of
+  case Aeson.eitherDecodeStrict' (LBS.toStrict body) of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right txToSubmit -> do
@@ -391,7 +391,7 @@ handleDecommit ::
   LBS.ByteString ->
   IO Response
 handleDecommit putClientInput apiTransactionTimeout responseChannel body =
-  case Aeson.eitherDecode' body :: Either String tx of
+  case Aeson.eitherDecodeStrict' (LBS.toStrict body) :: Either String tx of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right decommitTx -> do
@@ -433,7 +433,7 @@ handleSideLoadSnapshot ::
   LBS.ByteString ->
   IO Response
 handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel body = do
-  case Aeson.eitherDecode' body :: Either String (SideLoadSnapshotRequest tx) of
+  case Aeson.eitherDecodeStrict' (LBS.toStrict body) :: Either String (SideLoadSnapshotRequest tx) of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right SideLoadSnapshotRequest{snapshot} -> do
@@ -475,7 +475,7 @@ handleSubmitL2Tx ::
   LBS.ByteString ->
   IO Response
 handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel body = do
-  case Aeson.eitherDecode' @(SubmitL2TxRequest tx) body of
+  case Aeson.eitherDecodeStrict' @(SubmitL2TxRequest tx) (LBS.toStrict body) of
     Left err ->
       pure $ responseLBS status400 jsonContent (Aeson.encode $ Aeson.String $ pack err)
     Right SubmitL2TxRequest{submitL2Tx} -> do

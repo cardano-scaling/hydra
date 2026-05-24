@@ -56,7 +56,6 @@ import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens qualified as Aeson
 import Data.Aeson.Types (Value)
-import Data.ByteString qualified as BS
 import Data.ByteString.Char8 qualified as BS8
 import Data.List ((\\))
 import Data.List qualified as List
@@ -173,7 +172,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} =
     forever $ do
-      bs <- BS.hGetLine (getStderr p)
+      bs <- BS8.hGetLine (getStderr p)
       case Aeson.eitherDecodeStrict bs of
         Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
         Right v -> do

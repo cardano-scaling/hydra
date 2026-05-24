@@ -22,6 +22,9 @@ test PKG="all" PATTERN="/":
   cabal test {{PKG}} --test-options='--match "{{PATTERN}}"'
 
 # build with -Werror and strict linting flags.
+# Note: -Wno-x-partial silences GHC 9.8+'s warning on `head`, `tail`, etc. so
+# pre-existing call sites don't become errors under -Werror; the codebase can
+# migrate off partial functions incrementally.
 lint PKG="all":
   cabal build {{PKG}} \
     --ghc-options="-Werror \
@@ -32,4 +35,5 @@ lint PKG="all":
       -Wincomplete-uni-patterns \
       -Wmissing-deriving-strategies \
       -Wredundant-constraints \
-      -Wunused-packages"
+      -Wunused-packages \
+      -Wno-x-partial"

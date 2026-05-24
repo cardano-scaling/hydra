@@ -96,14 +96,23 @@
           {
             packages.hydra-node.components.library.pkgconfig = [ [ pkgs.static-sqlite ] ];
           }
-          # GHC 9.6.7 has a haddock bug (tyConStupidTheta) that panics on data
-          # types declared with the deprecated DatatypeContexts extension.
-          # Skip haddocks for the affected upstream packages so `withHoogle`
-          # can still index everything else.
+          # amazonka-* 2.0 packages export duplicate record fields without
+          # enabling the DuplicateRecordFields extension; harmless in GHC 9.6
+          # but an error in GHC 9.12+. Enable the extension per-package.
+          # We also skip their haddocks: the same error fires under haddock
+          # and haskell.nix has no per-package option to inject extensions
+          # there. They are dependencies, not a target for hydra docs.
           {
-            packages.cardano-diffusion.doHaddock = false;
-            packages.cardano-ledger-shelley.doHaddock = false;
-            packages.ouroboros-network.doHaddock = false;
+            packages.amazonka.ghcOptions = [ "-XDuplicateRecordFields" ];
+            packages.amazonka.doHaddock = false;
+            packages.amazonka-core.ghcOptions = [ "-XDuplicateRecordFields" ];
+            packages.amazonka-core.doHaddock = false;
+            packages.amazonka-s3.ghcOptions = [ "-XDuplicateRecordFields" ];
+            packages.amazonka-s3.doHaddock = false;
+            packages.amazonka-sso.ghcOptions = [ "-XDuplicateRecordFields" ];
+            packages.amazonka-sso.doHaddock = false;
+            packages.amazonka-sts.ghcOptions = [ "-XDuplicateRecordFields" ];
+            packages.amazonka-sts.doHaddock = false;
           }
         ];
       };

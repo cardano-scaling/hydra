@@ -121,9 +121,13 @@ deserialiseFromRawBytesBase16 str =
 
 instance Key HydraKey where
   -- Hydra verification key, which can be used to 'verify' signed messages.
+  -- Ord intentionally not derived: newer cardano-crypto-class raises a
+  -- TypeError on `Ord (VerKeyDSIGN _)` and `Ord (SignKeyDSIGN _)`
+  -- ("use the hash instead"). Hydra already orders parties via their
+  -- verification-key hash (see `Hydra.Tx.Party`).
   newtype VerificationKey HydraKey
     = HydraVerificationKey (VerKeyDSIGN Ed25519DSIGN)
-    deriving stock (Eq, Ord)
+    deriving stock (Eq)
     deriving (Show, IsString) via UsingRawBytesHex (VerificationKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
@@ -132,7 +136,7 @@ instance Key HydraKey where
   -- multi-signatures or 'deriveVerificationKey'.
   newtype SigningKey HydraKey
     = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
-    deriving stock (Eq, Ord)
+    deriving stock (Eq)
     deriving (Show, IsString) via UsingRawBytesHex (SigningKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)

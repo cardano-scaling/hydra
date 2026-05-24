@@ -9,7 +9,7 @@ import Hydra.Prelude hiding (encodeUtf8, takeWhile)
 import Conduit
 import Control.Lens ((^?))
 import Control.Monad (foldM)
-import Data.Aeson (eitherDecode')
+import Data.Aeson (eitherDecodeStrict')
 import Data.Aeson.Lens (key, _String)
 import Data.Attoparsec.ByteString
 import Data.Attoparsec.ByteString qualified as A
@@ -129,7 +129,7 @@ decodeAndProcess l =
  where
   process :: ByteString -> ResourceT IO (Decoded Tx)
   process line =
-    case eitherDecode' (fromStrict line) of
+    case eitherDecodeStrict' line of
       Left e -> do
         putTextLn $ red <> "Decoding failed for line: " <> decodeUtf8 l <> "\nError: " <> show e
         pure DropLog

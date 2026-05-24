@@ -14,7 +14,7 @@ import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO)
 import Control.Lens ((^?))
 import Data.Aeson as Aeson
 import Data.Aeson.Lens (key, _String)
-import Data.ByteString (hGetLine)
+import Data.ByteString.Char8 (hGetLine)
 import Data.Text qualified as T
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..), unFile)
 import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, seedFromFaucet_)

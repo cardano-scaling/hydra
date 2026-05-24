@@ -30,13 +30,17 @@
           # Specific versions of tools we require
           (_final: _prev: {
             inherit (inputs.aiken.packages.${system}) aiken;
+            # NOTE: versions of haskell.nix-built tools bumped for GHC 9.12 /
+            # base 4.21 compatibility. The previously-pinned versions (e.g.
+            # cabal-install 3.10.3.0, weeder 2.9.0) cannot resolve under base
+            # 4.21 and broke `nix flake check` and `withHoogle`.
             apply-refact = pkgs.haskell-nix.tool compiler "apply-refact" "0.15.0.0";
-            cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.10.3.0";
-            cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" { version = "0.7.5.0"; cabalProjectLocal = "package cabal-plan\nflags: +exe"; };
+            cabal-install = pkgs.haskell-nix.tool compiler "cabal-install" "3.16.1.0";
+            cabal-plan = pkgs.haskell-nix.tool compiler "cabal-plan" { version = "0.7.6.1"; cabalProjectLocal = "package cabal-plan\nflags: +exe"; };
             cabal-fmt = config.treefmt.programs.cabal-fmt.package;
             fourmolu = config.treefmt.programs.fourmolu.package;
-            haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.11.0.0";
-            weeder = pkgs.haskell-nix.tool compiler "weeder" "2.9.0";
+            haskell-language-server = pkgs.haskell-nix.tool compiler "haskell-language-server" "2.13.0.0";
+            weeder = pkgs.haskell-nix.tool compiler "weeder" "2.10.0";
             inherit (inputs.cardano-node.packages.${system}) cardano-cli;
             inherit (inputs.cardano-node.packages.${system}) cardano-node;
             mithril-client-cli = inputs.mithril.packages.${system}.mithril-client-cli or inputs.mithril.packages.${system}.mithril; # Todo: revert when https://github.com/input-output-hk/mithril/pull/3224 is released

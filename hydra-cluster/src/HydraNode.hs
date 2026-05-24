@@ -82,7 +82,7 @@ waitNext HydraClient{connection} = do
         threadDelay 1
         failure $ "waitNext: " <> show err
       Right msg -> pure msg
-  case Aeson.eitherDecode' bytes of
+  case Aeson.eitherDecodeStrict' (toStrict bytes) of
     Left err -> failure $ "WaitNext failed to decode msg: " <> err
     Right value -> pure value
 

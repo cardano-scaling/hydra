@@ -35,6 +35,8 @@ main = do
       toNewTx :: ByteString -> Value
       toNewTx bs = object ["tag" .= ("NewTx" :: Text), "transaction" .= String (decodeUtf8 bs)]
       cborNewTx = (Aeson.encode . toNewTx . serialiseToCBOR) tx
+      jsonNewTxStrict = toStrict jsonNewTx
+      cborNewTxStrict = toStrict cborNewTx
   defaultMain
     [ bgroup
         "Cardano Ledger"
@@ -42,7 +44,9 @@ main = do
         , bench "Serialize NewTx (JSON)" $ nf (Aeson.encode . NewTx) tx
         , bench "Serialize NewTx (CBOR)" $ nf serialiseToCBOR tx
         , bench "Deserialize NewTx (JSON)" $ whnf (Aeson.decode @(ClientInput Tx)) jsonNewTx
+        , bench "Deserialize NewTx (JSON, strict)" $ whnf (Aeson.decodeStrict' @(ClientInput Tx)) jsonNewTxStrict
         , bench "Deserialize NewTx (CBOR-in-JSON)" $ whnf (Aeson.decode @(ClientInput Tx)) cborNewTx
+        , bench "Deserialize NewTx (CBOR-in-JSON, strict)" $ whnf (Aeson.decodeStrict' @(ClientInput Tx)) cborNewTxStrict
         ]
     ]
 

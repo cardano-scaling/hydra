@@ -171,7 +171,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP responseCh
 
   receiveInputs con = forever $ do
     msg <- receiveData con
-    case Aeson.eitherDecode msg of
+    case Aeson.eitherDecodeStrict' (toStrict msg) of
       Right input -> do
         traceWith tracer (APIInputReceived $ toJSON input)
         case input of
