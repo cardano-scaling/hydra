@@ -46,6 +46,7 @@
 -- The on-chain G2 CRS only needs batch-size-many points per partial fanout step,
 -- so the 65 G2 points do not constrain the accumulator size.
 module Hydra.Tx.KZGTrustedSetup (
+  KZGSetupError (..),
   g1Points,
   g2Points,
   g1BuiltinPoints,
@@ -56,7 +57,7 @@ module Hydra.Tx.KZGTrustedSetup (
   fanoutOutputThreshold,
 ) where
 
-import Hydra.Prelude
+import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
 
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsUncompress)
 import Cardano.Crypto.Hash (SHA256)
@@ -67,6 +68,28 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Data.Text qualified as T
 import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element, BuiltinBLS12_381_G2_Element, bls12_381_G1_uncompress, bls12_381_G2_uncompress, toBuiltin)
+
+-- | Errors that can occur when loading the embedded KZG trusted setup.
+--
+-- In practice these should never occur — the trusted setup JSON is embedded at
+-- compile time and its integrity is validated by the test suite. A 'Left' here
+-- would indicate binary tampering ('IntegrityCheckFailed') or a corrupted
+-- build artefact.
+data KZGSetupError
+  = -- | SHA-256 digest of the embedded file does not match the known-good value.
+    IntegrityCheckFailed
+      { expectedHash :: Text
+      , actualHash :: Text
+      }
+  | -- | The embedded bytes could not be decoded as JSON at all.
+    JsonDecodeFailed
+  | -- | The JSON decoded but failed the structural parser (missing keys etc.).
+    JsonParseFailed {parseError :: Text}
+  | -- | A G1 point hex string could not be hex-decoded or BLS-decompressed.
+    InvalidG1Point {hexPoint :: Text}
+  | -- | A G2 point hex string could not be hex-decoded or BLS-decompressed.
+    InvalidG2Point {hexPoint :: Text}
+  deriving stock (Show, Eq, Generic)
 
 -- | Maximum accumulator element count supported by the currently embedded G1 CRS.
 -- The EIP-4844 setup provides exactly 4096 G1 monomial points [G1, τ·G1, ..., τ^4095·G1],
@@ -103,61 +126,48 @@ trustedSetupExpectedSHA256 = "9a8dcad9eaba191842f57d23d14674cbdea4b3cf7912fcc477
 -- We use @g1_monomial@ (not @g1_lagrange@): the monomial form @[G1, τ·G1, ...]@ is required
 -- for KZG polynomial commitments. The @g1_lagrange@ form (used by Ethereum clients for blob
 -- commitments) is NOT suitable for the accumulator scheme here.
-embeddedSetup :: ([Text], [Text])
-embeddedSetup =
+embeddedSetup :: Either KZGSetupError ([Text], [Text])
+embeddedSetup = do
   let rawBytes = $(makeRelativeToProject "trusted_setup.json" >>= embedFile)
       actualHex = decodeUtf8 $ Base16.encode $ digest (Proxy @SHA256) rawBytes
-   in if actualHex /= trustedSetupExpectedSHA256
-        then
-          error $
-            "KZGTrustedSetup: trusted_setup.json integrity check failed. "
-              <> "Expected SHA-256 "
-              <> trustedSetupExpectedSHA256
-              <> " but got "
-              <> actualHex
-              <> ". The trusted setup file may have been tampered with."
-        else case Aeson.decodeStrict rawBytes of
-          Nothing -> error "KZGTrustedSetup: failed to parse trusted_setup.json"
-          Just v ->
-            case parseEither (withObject "TrustedSetup" parse) v of
-              Left err -> error $ "KZGTrustedSetup: " <> toText err
-              Right result -> result
+  when (actualHex /= trustedSetupExpectedSHA256) $
+    Left IntegrityCheckFailed{expectedHash = trustedSetupExpectedSHA256, actualHash = actualHex}
+  v <- maybe (Left JsonDecodeFailed) Right (Aeson.decodeStrict rawBytes)
+  first (JsonParseFailed . toText) $
+    parseEither (withObject "TrustedSetup" parse) v
  where
   parse :: Aeson.Object -> Parser ([Text], [Text])
-  parse obj = (,) <$> obj .: "g1_monomial" <*> obj .: "g2_monomial"
+  parse obj = fmap (,) (obj .: "g1_monomial") <*> obj .: "g2_monomial"
 
-decodeHexPoint :: Text -> ByteString
-decodeHexPoint t =
-  case Base16.decode $ encodeUtf8 $ fromMaybe t (T.stripPrefix "0x" t) of
-    Left err -> error $ "KZGTrustedSetup: invalid hex: " <> toText err
-    Right bs -> bs
+decodeHexPoint :: Text -> Either String ByteString
+decodeHexPoint t = Base16.decode $ encodeUtf8 $ fromMaybe t (T.stripPrefix "0x" t)
 
 -- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony (monomial form).
--- 4096 points; used on-chain as the verification CRS for membership proofs.
-g1Points :: [Point1]
-g1Points = map parseG1 (fst embeddedSetup)
+-- 4096 points; used off-chain to build accumulator commitments and membership proofs.
+g1Points :: Either KZGSetupError [Point1]
+g1Points = mapM parseG1 . fst =<< embeddedSetup
  where
-  parseG1 :: Text -> Point1
-  parseG1 hex = case blsUncompress (decodeHexPoint hex) of
-    Left _ -> error "KZGTrustedSetup: invalid G1 point in trusted_setup.json"
-    Right p -> p
+  parseG1 :: Text -> Either KZGSetupError Point1
+  parseG1 hex = do
+    bs <- first (const (InvalidG1Point hex)) (decodeHexPoint hex)
+    first (const (InvalidG1Point hex)) (blsUncompress bs)
 
 -- | G2 powers of tau [G2, τ·G2, ..., τ^64·G2] from the EIP-4844 ceremony (monomial form).
--- 65 points; used off-chain for accumulator and membership proof commitments (limits head to 64 UTxOs).
-g2Points :: [Point2]
-g2Points = map parseG2 (snd embeddedSetup)
+-- 65 points; used as the on-chain verification CRS (G2 MSM to evaluate @P_S(τ)·G2@).
+g2Points :: Either KZGSetupError [Point2]
+g2Points = mapM parseG2 . snd =<< embeddedSetup
  where
-  parseG2 :: Text -> Point2
-  parseG2 hex = case blsUncompress (decodeHexPoint hex) of
-    Left _ -> error "KZGTrustedSetup: invalid G2 point in trusted_setup.json"
-    Right p -> p
+  parseG2 :: Text -> Either KZGSetupError Point2
+  parseG2 hex = do
+    bs <- first (const (InvalidG2Point hex)) (decodeHexPoint hex)
+    first (const (InvalidG2Point hex)) (blsUncompress bs)
 
 -- | G1 points as Plutus built-in type, for use in off-chain accumulator commitment.
 -- Derived from 'g1Points' by re-compressing to bytes; shares the same parsed data.
-g1BuiltinPoints :: [BuiltinBLS12_381_G1_Element]
-g1BuiltinPoints = map (bls12_381_G1_uncompress . toBuiltin . blsCompress) g1Points
+g1BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G1_Element]
+g1BuiltinPoints = fmap (fmap (bls12_381_G1_uncompress . toBuiltin . blsCompress)) g1Points
 
 -- | G2 points as Plutus built-in type, for use in on-chain verification CRS.
 -- Derived from 'g2Points' by re-compressing to bytes; shares the same parsed data.
-g2BuiltinPoints :: [BuiltinBLS12_381_G2_Element]
-g2BuiltinPoints = map (bls12_381_G2_uncompress . toBuiltin . blsCompress) g2Points
+g2BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G2_Element]
+g2BuiltinPoints = fmap (fmap (bls12_381_G2_uncompress . toBuiltin . blsCompress)) g2Points

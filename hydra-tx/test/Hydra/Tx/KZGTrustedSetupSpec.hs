@@ -14,50 +14,56 @@ import PlutusTx.Builtins (bls12_381_G1_uncompress, byteStringToInteger, toBuilti
 
 spec :: Spec
 spec = parallel $ do
+  -- Extract the setup values once; a Left here means the embedded binary is
+  -- corrupted or tampered with, which should crash the test suite loudly.
+  let g1Pts = either (error . show) id g1Points
+      g2Pts = either (error . show) id g2Points
+      g2BuiltinPts = either (error . show) id g2BuiltinPoints
+
   describe "KZGTrustedSetup (EIP-4844)" $ do
     it "g1Points has 4096 entries" $
-      length g1Points `shouldBe` 4096
+      length g1Pts `shouldBe` 4096
 
     it "g2Points has 65 entries" $
-      length g2Points `shouldBe` 65
+      length g2Pts `shouldBe` 65
 
     it "maxAccumulatorSize is 4095 (EIP-4844 provides 4096 G1 points)" $
       maxAccumulatorSize `shouldBe` 4095
 
     it "maxAccumulatorSize matches the parsed G1 point count minus one" $
-      maxAccumulatorSize `shouldBe` length g1Points - 1
+      maxAccumulatorSize `shouldBe` length g1Pts - 1
 
     it "maxFanoutBatchSize is 64 (EIP-4844 provides 65 G2 points)" $
       maxFanoutBatchSize `shouldBe` 64
 
     it "maxFanoutBatchSize matches the parsed G2 point count minus one" $
-      maxFanoutBatchSize `shouldBe` length g2Points - 1
+      maxFanoutBatchSize `shouldBe` length g2Pts - 1
 
     it "first G1 point matches the BLS12-381 G1 generator (τ^0·G1 = G1, confirming monomial form)" $
-      case g1Points of
+      case g1Pts of
         [] -> expectationFailure "g1Points is empty"
         (p : _) -> blsCompress p `shouldBe` blsCompress (blsGenerator :: Point1)
 
     it "first G2 point matches the BLS12-381 G2 generator (τ^0·G2 = G2)" $
-      case g2Points of
+      case g2Pts of
         [] -> expectationFailure "g2Points is empty"
         (p : _) -> blsCompress p `shouldBe` blsCompress (blsGenerator :: Point2)
 
     it "all G2 points are in the prime-order G2 subgroup" $
-      all blsInGroup g2Points `shouldBe` True
+      all blsInGroup g2Pts `shouldBe` True
 
     it "first 3 G1 points are in the prime-order G1 subgroup" $
-      all blsInGroup (take 3 g1Points) `shouldBe` True
+      all blsInGroup (take 3 g1Pts) `shouldBe` True
 
     it "G1 points round-trip through compression" $
-      case g1Points of
+      case g1Pts of
         [] -> expectationFailure "g1Points is empty"
         (p : _) -> case blsUncompress (blsCompress p) of
           Left err -> expectationFailure $ "G1 decompression failed: " <> show err
           Right p' -> blsCompress (p' :: Point1) `shouldBe` blsCompress p
 
     it "G2 points round-trip through compression" $
-      case g2Points of
+      case g2Pts of
         [] -> expectationFailure "g2Points is empty"
         (p : _) -> case blsUncompress (blsCompress p) of
           Left err -> expectationFailure $ "G2 decompression failed: " <> show err
@@ -69,7 +75,7 @@ spec = parallel $ do
           fullAcc = build allElements
           subsetElements = ["beta", "gamma"] :: [ByteString]
           crsSize = requiredCRSPointCount fullAcc
-          crsG2 = take crsSize g2BuiltinPoints
+          crsG2 = take crsSize g2BuiltinPts
       proofBytes <- either error pure $ createMembershipProof subsetElements fullAcc (crsG1Points crsSize)
       let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
           ints = map toInt subsetElements
@@ -90,7 +96,7 @@ spec = parallel $ do
           subsetA = ["alpha", "beta"] :: [ByteString]
           subsetB = ["gamma", "delta"] :: [ByteString]
           crsSize = requiredCRSPointCount fullAcc
-          crsG2 = take crsSize g2BuiltinPoints
+          crsG2 = take crsSize g2BuiltinPts
           ints = map toInt subsetB
       proofBytes <- either error pure $ createMembershipProof subsetA fullAcc (crsG1Points crsSize)
       let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)

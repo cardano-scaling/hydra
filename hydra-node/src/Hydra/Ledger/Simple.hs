@@ -102,10 +102,7 @@ instance IsTx SimpleTx where
 
   sizeUTxO = Set.size
 
-  splitUTxOAt n s =
-    let l = Set.toList s
-        (first', rest) = splitAt n l
-     in (Set.fromList first', Set.fromList rest)
+  splitUTxOAt = Set.splitAt
 
   utxoToElement = toStrict . serialise . unSimpleTxOut
 

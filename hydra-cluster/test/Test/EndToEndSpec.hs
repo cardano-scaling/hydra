@@ -966,9 +966,6 @@ fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
       output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTxAlice]
 
     -- Create many transactions to produce the desired number of UTxOs.
-    -- Each output must have a unique value so that the on-chain accumulator
-    -- membership proof works correctly (duplicate TxOuts collapse into one
-    -- accumulator element, breaking the pairing check).
     let loop 0 _ res = return res
         loop n utxo _ = do
           let Right tx =

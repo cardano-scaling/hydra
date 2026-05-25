@@ -152,6 +152,16 @@ accumulatorSize (HydraAccumulator acc) = sum (map snd $ Map.elems acc)
 maxAccumulatorSize :: Int
 maxAccumulatorSize = KZG.maxAccumulatorSize
 
+-- | Convert a 'KZG.KZGSetupError' 'Either' to the contained value, aborting
+-- with a descriptive message if the setup is invalid.
+--
+-- This should never be reached in a correctly built binary: the trusted setup
+-- bytes are embedded at compile time, integrity-checked via SHA-256, and
+-- exercised by the test suite. A failure here would indicate binary tampering
+-- or a corrupted build artefact.
+fromKZGSetup :: Either KZG.KZGSetupError a -> a
+fromKZGSetup = either (\e -> error $ "KZG trusted setup invariant violated: " <> show e) id
+
 getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
 getAccumulatorCommitment (HydraAccumulator acc) =
   let expandedElems = concatMap (\(hash, count) -> replicate count hash) $ Map.elems acc
@@ -159,7 +169,7 @@ getAccumulatorCommitment (HydraAccumulator acc) =
    in if n > KZG.maxAccumulatorSize
         then error $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
         else
-          let crsG1 = take (n + 1) KZG.g1BuiltinPoints
+          let crsG1 = take (n + 1) $ fromKZGSetup KZG.g1BuiltinPoints
            in getG1Commitment crsG1 . getFinalPoly . map (mkScalar . byteStringToInteger BigEndian . toBuiltin) $
                 expandedElems
 
@@ -169,13 +179,13 @@ getAccumulatorCommitment (HydraAccumulator acc) =
 -- Used as the off-chain CRS for building accumulator commitments and membership proofs:
 -- @[G1, τ·G1, ..., τ^(n-1)·G1]@.
 crsG1Points :: Int -> [Point1]
-crsG1Points n = take n KZG.g1Points
+crsG1Points n = take n $ fromKZGSetup KZG.g1Points
 
 -- | Returns the first @n@ G2 powers of tau from the EIP-4844 trusted setup.
 -- Used as the on-chain CRS for verifying membership proofs:
 -- @[G2, τ·G2, ..., τ^(n-1)·G2]@.
 crsG2Points :: Int -> [Point2]
-crsG2Points n = take n KZG.g2Points
+crsG2Points n = take n $ fromKZGSetup KZG.g2Points
 
 defaultItems :: Int
 defaultItems = 30
