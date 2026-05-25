@@ -1197,7 +1197,7 @@ canDepositConcurrently tracer workDir opts hydraScriptsTxId =
           -- Seed both UTxOs before drafting deposits so L1 confirmations don't
           -- eat into the deposit deadline window.
           commitUTxO <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
-          commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_001) (contramap FromFaucet tracer)
+          commitUTxO2 <- seedFromFaucet opts walletVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
 
           -- Draft and submit both deposits concurrently.
           (tx, tx2) <-
@@ -1851,15 +1851,18 @@ waitsForChainInSyncAndSecure tracer workDir opts hydraScriptsTxId = do
         waitMatch 5 n3 $ \v -> do
           guard $ v ^? key "tag" == Just "RejectedInputBecauseUnsynced"
 
-        -- Carol API notifies the node is back on sync with the chain
-        -- note this is tuned based on how long it takes to sync
-        waitMatch (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 5 * blockTime) n3 $ \v -> do
-          guard $ v ^? key "tag" == Just "NodeSynced"
-
-        -- Finally, Carol observes the head getting closed
-        waitMatch (20 * blockTime) n3 $ \v -> do
+        -- Carol observes the head getting closed while still catching up:
+        -- the Close was posted before Carol reconnected, so it is replayed
+        -- during chain sync (drift >> threshold at that point), which means
+        -- HeadIsClosed is always emitted BEFORE NodeSynced in this scenario.
+        waitMatch (unsyncedPeriodToNominalDiffTime unsyncedPeriod + 20 * blockTime) n3 $ \v -> do
           guard $ v ^? key "tag" == Just "HeadIsClosed"
           guard $ v ^? key "headId" == Just (toJSON headId)
+
+        -- Carol API notifies the node is back on sync with the chain
+        -- note this is tuned based on how long it takes to sync
+        waitMatch (20 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "NodeSynced"
  where
   hydraTracer = contramap FromHydraNode tracer
 
