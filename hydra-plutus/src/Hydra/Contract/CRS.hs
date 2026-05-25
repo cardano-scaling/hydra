@@ -57,13 +57,21 @@ checkMembershipPairing commitment proof crsG2 ints =
         (bls12_381_millerLoop commitment g2)
         (bls12_381_millerLoop proof (getG2Commitment crsG2 (getFinalPoly (fmap mkScalar ints))))
 
+-- | Validator for the CRS reference script UTxO.
+--
+-- This UTxO is published at an __AlwaysFails__ script address, meaning the
+-- on-chain rules already make it unspendable — no transaction can ever
+-- consume it regardless of what this validator returns.  Returning 'False'
+-- here is therefore not strictly required, but it makes the intent
+-- self-documenting: the CRS UTxO is a permanently locked datum carrier and
+-- must never be spent.
 {-# INLINEABLE crsValidator #-}
 crsValidator ::
   CRSDatum ->
   () ->
   ScriptContext ->
   Bool
-crsValidator _ _ _ = True
+crsValidator _ _ _ = False
 
 crsValidatorScript :: CompiledCode ValidatorType
 crsValidatorScript =
