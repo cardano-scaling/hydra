@@ -22,6 +22,8 @@ packages: **/*.cabal
 --
 -- cardano-api 11.1.0.0 declares ^>=1.61 but cardano-node 11.0.1 uses
 -- plutus 1.63.0.0; relax upper bounds to align with the on-chain evaluator.
+--
+-- XXX: Review what is needed here
 allow-newer:
   servant-multipart-client:random,
   cardano-api:plutus-core,
