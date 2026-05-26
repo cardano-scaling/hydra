@@ -193,7 +193,7 @@ data IncrementRedeemer = IncrementRedeemer
   { signature :: [Signature]
   , snapshotNumber :: SnapshotNumber
   , increment :: TxOutRef
-  , accumulatorHash :: Hash
+  , accumulatorHash :: Hash -- XXX: Follow-up; maybe this can be moved to Open
   }
   deriving stock (Show, Generic)
 
@@ -207,7 +207,7 @@ data DecrementRedeemer = DecrementRedeemer
   -- ^ Spec: s
   , numberOfDecommitOutputs :: Integer
   -- ^ Spec: m
-  , accumulatorHash :: Hash
+  , accumulatorHash :: Hash -- XXX: Follow-up; maybe this can be moved to Open
   }
   deriving stock (Show, Generic)
 
