@@ -1458,59 +1458,52 @@ emitNextFanoutStep ::
   Set (TxOutType tx) ->
   ClosedState tx ->
   Outcome tx
--- NOTE: `phase` only affects the `otherwise` branch below. When more than
--- `fanoutOutputThreshold` outputs remain, both phases always emit `PartialFanoutTx`.
-emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestationDeadline}
-  | Set.size remaining > fanoutOutputThreshold =
-      let (toDistribute, rest) = Set.splitAt fanoutChunkSize remaining
-          fullUTxO = computeFullFanoutUTxO closedState
-       in cause
-            OnChainEffect
-              { postChainTx =
-                  PartialFanoutTx
-                    { utxoToDistribute = filterUTxOByOutputs fullUTxO toDistribute
-                    , remainingUTxO = filterUTxOByOutputs fullUTxO rest
-                    , headSeed
-                    , contestationDeadline
-                    }
+emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestationDeadline} =
+  cause OnChainEffect{postChainTx}
+ where
+  postChainTx
+    | Set.size remaining > fanoutOutputThreshold =
+        let (toDistribute, rest) = Set.splitAt fanoutChunkSize remaining
+            fullUTxO = computeFullFanoutUTxO closedState
+         in PartialFanoutTx
+              { utxoToDistribute = filterUTxOByOutputs fullUTxO toDistribute
+              , remainingUTxO = filterUTxOByOutputs fullUTxO rest
+              , headSeed
+              , contestationDeadline
               }
-  | otherwise =
-      cause
-        OnChainEffect
-          { postChainTx = case phase of
-              FanoutInProgress ->
-                let fullUTxO = computeFullFanoutUTxO closedState
-                 in FinalPartialFanoutTx
-                      { utxoToDistribute = filterUTxOByOutputs fullUTxO remaining
-                      , headSeed
-                      , contestationDeadline
-                      }
-              FreshFanout ->
-                -- `remaining` was used only for the size check above. FanoutTx
-                -- needs the three-part decomposition (utxo, utxoToCommit,
-                -- utxoToDecommit) from the snapshot to verify hashes separately.
-                let ClosedState{confirmedSnapshot, version} = closedState
-                    Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
-                 in FanoutTx
-                      { utxo
-                      , -- Include utxoToCommit only if the increment has been
-                        -- applied on chain (version bumped). Otherwise it was
-                        -- never used and must not be distributed.
-                        utxoToCommit =
-                          if snapshotVersion == version
-                            then Nothing
-                            else utxoToCommit
-                      , -- Include utxoToDecommit only if the decrement has NOT
-                        -- been applied on chain yet. If it was applied the
-                        -- UTxO is gone and must not be re-distributed.
-                        utxoToDecommit =
-                          if snapshotVersion == version
-                            then utxoToDecommit
-                            else Nothing
-                      , headSeed
-                      , contestationDeadline
-                      }
-          }
+    | otherwise = case phase of
+        FanoutInProgress ->
+          let fullUTxO = computeFullFanoutUTxO closedState
+           in FinalPartialFanoutTx
+                { utxoToDistribute = filterUTxOByOutputs fullUTxO remaining
+                , headSeed
+                , contestationDeadline
+                }
+        FreshFanout ->
+          -- `remaining` was used only for the size check above. FanoutTx
+          -- needs the three-part decomposition (utxo, utxoToCommit,
+          -- utxoToDecommit) from the snapshot to verify hashes separately.
+          let ClosedState{confirmedSnapshot, version} = closedState
+              Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+           in FanoutTx
+                { utxo
+                , -- Include utxoToCommit only if the increment has been
+                  -- applied on chain (version bumped). Otherwise it was
+                  -- never used and must not be distributed.
+                  utxoToCommit =
+                    if snapshotVersion == version
+                      then Nothing
+                      else utxoToCommit
+                , -- Include utxoToDecommit only if the decrement has NOT
+                  -- been applied on chain yet. If it was applied the
+                  -- UTxO is gone and must not be re-distributed.
+                  utxoToDecommit =
+                    if snapshotVersion == version
+                      then utxoToDecommit
+                      else Nothing
+                , headSeed
+                , contestationDeadline
+                }
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.

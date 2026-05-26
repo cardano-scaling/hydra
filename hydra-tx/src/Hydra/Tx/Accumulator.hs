@@ -145,8 +145,7 @@ getAccumulatorHash :: HydraAccumulator -> ByteString
 getAccumulatorHash acc =
   digest (Proxy @Blake2b_256) . fromBuiltin . bls12_381_G1_compress $ getAccumulatorCommitment acc
 
--- | Number of elements in the accumulator — equals the number of UTxOs in the snapshot,
--- counting duplicates (i.e., the sum of all element counts).
+-- | Number of UTxOs tracked by the accumulator.
 accumulatorSize :: HydraAccumulator -> Int
 accumulatorSize (HydraAccumulator acc) = sum (map snd $ Map.elems acc)
 
