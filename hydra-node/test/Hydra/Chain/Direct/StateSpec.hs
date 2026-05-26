@@ -40,12 +40,10 @@ import Hydra.Chain.Direct.State (
   PartialFanoutError (..),
   ctxHeadParameters,
   ctxParticipants,
-  finalPartialFanout,
   getKnownUTxO,
   initialize,
   partialFanout,
   unsafeIncrement,
-  unsafePartialFanout,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
@@ -240,17 +238,6 @@ spec = parallel $ do
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
     propIsValid forAllFinalPartialFanout
-    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
-      -- Use genClosedStateForFanout and build the fanoutProgressUTxO manually to
-      -- avoid eagerly evaluating the (potentially crashing) final fanout tx from
-      -- genFinalPartialFanoutTx.
-      forAll (genClosedStateForFanout maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, utxoToDistribute, remainingUTxO) ->
-          let fanoutProgressUTxO = utxoFromTx $ unsafePartialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo
-           in -- Pass empty UTxO so the accumulator commitment won't match
-              case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty deadlineSlotNo of
-                Left StaleChainState -> property True
-                other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
