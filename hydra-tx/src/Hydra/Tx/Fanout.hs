@@ -175,10 +175,8 @@ finalPartialFanoutTx ::
   SlotNo ->
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
-  -- | Remaining accumulator (should cover exactly utxoToDistribute)
-  HydraAccumulator ->
   Either Text Tx
-finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadlineSlotNo headTokenScript remainingAccumulator = do
+finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadlineSlotNo headTokenScript = do
   fanoutProof <- computeFanoutProof
   pure $
     unsafeBuildTransaction $
@@ -208,6 +206,8 @@ finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) dea
         , proof = proof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
+
+  remainingAccumulator = Accumulator.buildFromUTxO @Tx utxoToDistribute
 
   computeFanoutProof = do
     let crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount remainingAccumulator

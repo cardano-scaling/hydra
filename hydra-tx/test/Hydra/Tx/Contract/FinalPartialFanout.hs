@@ -53,7 +53,6 @@ healthyFinalPartialFanoutTx =
         (headInput, headOutput)
         healthySlotNo
         headTokenScript
-        healthyRemainingAccumulator
 
   headInput = generateWith arbitrary 42
 

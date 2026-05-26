@@ -581,10 +581,9 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = 
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
   headState <- readHeadState headUTxO
-  progressDatum <- case headState of
-    Head.FanoutProgress d -> pure d
+  case headState of
+    Head.FanoutProgress{} -> pure ()
     _ -> Left WrongDatum
-  remainingAccumulator <- buildAndVerifyAccumulator progressDatum utxoToDistribute
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
@@ -592,7 +591,6 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = 
       headUTxO
       deadlineSlotNo
       headTokenScript
-      remainingAccumulator
  where
   headTokenScript = mkHeadTokenScript seedTxIn
   ChainContext{scriptRegistry} = ctx
