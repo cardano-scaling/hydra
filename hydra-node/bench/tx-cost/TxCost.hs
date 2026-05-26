@@ -35,7 +35,7 @@ import Hydra.Chain.Direct.State (
   unsafeFinalPartialFanout,
   unsafePartialFanout,
  )
-import Hydra.HeadLogic (fanoutChunkSize, fanoutOutputThreshold)
+import Hydra.HeadLogic (fanoutChunkSize)
 import Hydra.Ledger.Cardano.Evaluate (
   usedExecutionUnits,
  )
@@ -203,36 +203,28 @@ computeFanOutCost = do
         utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
     pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
--- | Compute costs of partial fanout transactions across a range of total UTxO
--- set sizes.
+-- | Compute costs of partial fanout transactions across a range of per-step
+-- distribution sizes.
 --
--- For each total UTxO count N (where N > 'fanoutOutputThreshold'), we build one
--- partial fanout that distributes exactly 'fanoutChunkSize' outputs and keeps
--- the rest. The tx size grows with the total UTxO count because the
--- accumulator serialisation stored in the output datum grows linearly with
--- remaining UTxO count, making this the binding constraint.
-computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+-- Sweeps 'numToDistribute' from 1 to 'fanoutChunkSize'. The remaining UTxO
+-- count is fixed because, with a BLS accumulator, the accumulator commitment
+-- stored in the continuing output datum is a constant-size G1 point regardless
+-- of how many UTxOs remain.
+computePartialFanOutNominalCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutNominalCost = do
-  -- Show how partial fanout scales across the full new accumulator range (up to 4095).
-  -- The tx size grows with remaining UTxO count (larger datum), so we probe widely.
-  interesting <-
-    catMaybes
-      <$> mapM
-        compute
-        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
+  interesting <- catMaybes <$> mapM compute [1 .. fanoutChunkSize]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        -- Sparse descending search for the maximum total UTxO count that still fits.
-        [4095, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20]
+        [30, 29 .. fanoutChunkSize + 1]
   pure $ interesting <> limit
  where
   numberOfParties = 3
+  numRemaining = fanoutChunkSize
 
-  compute totalUTxO = do
-    let numToDistribute = min fanoutChunkSize totalUTxO
-        numRemaining = totalUTxO - numToDistribute
+  compute numToDistribute = do
+    let totalUTxO = numToDistribute + numRemaining
     utxo <- genUTxOAdaOnlyOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -253,33 +245,28 @@ computePartialFanOutNominalCost = do
         tx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
     case checkSizeAndEvaluate tx spendableUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumUTxO numToDistribute, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
 -- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
 -- tokens (all sharing one policy ID so the accumulated head value stays
--- bounded). Reveals how multi-asset outputs affect script execution costs
--- and the safe per-step UTxO limit.
-computePartialFanOutMixedCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
+-- bounded). Reveals how multi-asset outputs affect script execution costs.
+computePartialFanOutMixedCost :: Gen [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutMixedCost = do
-  interesting <-
-    catMaybes
-      <$> mapM
-        compute
-        [fanoutOutputThreshold + 1, 25, 30, 40, 50, 100, 200, 500, 1000, 2000, 4000]
+  interesting <- catMaybes <$> mapM compute [1 .. fanoutChunkSize]
   limit <-
     maybeToList . getFirst
       <$> foldMapM
         (fmap First . compute)
-        [4095, 4000, 3000, 2000, 1000, 500, 200, 100, 60, 50, 40, 30, 20]
+        [30, 29 .. fanoutChunkSize + 1]
   pure $ interesting <> limit
  where
   numberOfParties = 3
+  numRemaining = fanoutChunkSize
 
-  compute totalUTxO = do
-    let numToDistribute = min fanoutChunkSize totalUTxO
-        numRemaining = totalUTxO - numToDistribute
+  compute numToDistribute = do
+    let totalUTxO = numToDistribute + numRemaining
     utxo <- genUTxOWithTokensOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
@@ -300,7 +287,7 @@ computePartialFanOutMixedCost = do
         tx = unsafePartialFanout cctx spendableUTxO seedTxIn utxoToDistribute utxoRemaining deadlineSlotNo
     case checkSizeAndEvaluate tx spendableUTxO of
       Just (txSize, memUnit, cpuUnit, minFee) ->
-        pure $ Just (NumUTxO totalUTxO, NumUTxO numRemaining, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
+        pure $ Just (NumUTxO numToDistribute, serializedSize utxoToDistribute, txSize, memUnit, cpuUnit, minFee)
       Nothing ->
         pure Nothing
 
