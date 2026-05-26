@@ -27,7 +27,7 @@ import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
 
 --- TODO: Get this benchmark to be ran as part of the GitHub "benchmark"
---comment thing
+-- comment thing
 main :: IO ()
 main = do
   putTextLn "=== Accumulator Benchmark Suite ==="

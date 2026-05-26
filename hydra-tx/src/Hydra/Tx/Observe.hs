@@ -46,6 +46,7 @@ data HeadObservation
   | Contest ContestObservation
   | PartialFanout PartialFanoutObservation
   | Fanout FanoutObservation
+  | FinalPartialFanout FanoutObservation
   deriving stock (Eq, Show, Generic)
 
 -- NOTE: Custom To/FromJSON instances to create a "flat" encoding. The default
@@ -76,6 +77,7 @@ instance FromJSON HeadObservation where
       "Contest" -> Contest <$> parseJSON (Object o)
       "PartialFanout" -> PartialFanout <$> parseJSON (Object o)
       "Fanout" -> Fanout <$> parseJSON (Object o)
+      "FinalPartialFanout" -> FinalPartialFanout <$> parseJSON (Object o)
       _ -> fail $ "Unknown tag: " <> show tag
 
 -- | Observe any Hydra head transaction.
@@ -96,7 +98,7 @@ observeHeadTx networkId utxo tx =
       <|> Close <$> observeCloseTx utxo tx
       <|> Contest <$> observeContestTx utxo tx
       <|> PartialFanout <$> observePartialFanoutTx utxo tx
-      <|> Fanout <$> observeFinalPartialFanoutTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
+      <|> FinalPartialFanout <$> observeFinalPartialFanoutTx utxo tx
  where
   txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True
