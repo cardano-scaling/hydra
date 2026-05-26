@@ -87,6 +87,8 @@ build = HydraAccumulator . Accumulator.buildAccumulator
 -- > -- Later, prove a subset exists
 -- > result <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc defaultCRS
 --
+-- XXX: Implement the above as a unit test on this library.
+--
 -- This approach allows proving that 2 out of 5 UTxOs are part of the original set,
 -- which is essential for partial fanout functionality.
 buildFromUTxO ::
