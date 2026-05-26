@@ -50,7 +50,6 @@ import Hydra.Tx (
   SnapshotNumber,
   getSnapshot,
   mkSimpleBlueprintTx,
-  splitUTxOAt,
   txInToHeadSeed,
   utxoFromTx,
  )
@@ -418,7 +417,8 @@ genClosedStateForFanout numParties = do
   -- so the head output can cover all outputs distributed across fanout steps.
   let u0Value = UTxO.totalValue u0
   let spendableUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stClosed
-  let (utxoToDistribute, remainingUTxO) = splitUTxOAt @Tx fanoutChunkSize u0
+  let (utxoToDistribute, remainingUTxO) =
+        bimap UTxO.fromList UTxO.fromList $ splitAt fanoutChunkSize (UTxO.toList u0)
   pure (cctx, stClosed, spendableUTxO, deadlineSlotNo, utxoToDistribute, remainingUTxO)
 
 genStOpen ::

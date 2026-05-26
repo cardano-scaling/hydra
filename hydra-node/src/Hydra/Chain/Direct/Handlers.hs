@@ -415,8 +415,8 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnFanoutTx{headId, fanoutUTxO}
   FinalPartialFanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
-  PartialFanout PartialFanoutObservation{headId, distributedUTxO} ->
-    pure OnPartialFanoutTx{headId, distributedUTxO}
+  PartialFanout PartialFanoutObservation{headId, distributedOutputs} ->
+    pure OnPartialFanoutTx{headId, distributedOutputs}
 
 prepareTxToPost ::
   forall m.

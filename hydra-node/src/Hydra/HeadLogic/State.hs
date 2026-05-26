@@ -249,12 +249,12 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
-  , remainingFanoutUTxO :: Maybe (UTxOType tx)
-  -- ^ Tracks remaining UTxOs to fan out after partial fanouts.
-  -- Nothing means no partial fanout has occurred yet.
-  , distributedFanoutUTxO :: UTxOType tx
-  -- ^ Accumulates UTxOs distributed by partial fanout transactions, with their
-  -- actual L1 TxIns. Used to reconstruct the full UTxO set in 'HeadFannedOut'.
+  , remainingFanoutOutputs :: Maybe (Set (TxOutType tx))
+  -- ^ Tracks remaining TxOut values to fan out after partial fanouts.
+  --   Nothing means no partial fanout has occurred yet.
+  , distributedFanoutOutputs :: Set (TxOutType tx)
+  -- ^ Accumulates TxOut values distributed by partial fanout transactions.
+  --   Used to reconstruct the full output set in 'HeadFannedOut'.
   }
   deriving stock (Generic)
 

@@ -1580,7 +1580,7 @@ spec =
           monitor $ counterexample ("Outcome: " <> show outcome)
           run $
             outcome `hasStateChangedSatisfying` \case
-              HeadFannedOut{utxo} -> utxo == fanoutUTxO
+              HeadFannedOut{finalizedOutputs} -> finalizedOutputs == fanoutUTxO
               _ -> False
 
       prop "fanout utxo includes accumulated UTxO from prior partial fanouts" $
@@ -1588,7 +1588,7 @@ spec =
           forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
             let stWithPrior = case closedState.headState of
                   Closed cst ->
-                    closedState{headState = Closed cst{distributedFanoutUTxO = priorDistributed}}
+                    closedState{headState = Closed cst{distributedFanoutOutputs = priorDistributed}}
                   _ -> closedState
                 fanoutHead = observeTx $ OnFanoutTx{headId = testHeadId, fanoutUTxO}
             now <- run $ nowFromSlot closedState.chainPointTime.currentSlot
@@ -1596,11 +1596,11 @@ spec =
             monitor $ counterexample ("Outcome: " <> show outcome)
             run $
               outcome `hasStateChangedSatisfying` \case
-                HeadFannedOut{utxo} -> utxo == priorDistributed <> fanoutUTxO
+                HeadFannedOut{finalizedOutputs} -> finalizedOutputs == priorDistributed <> fanoutUTxO
                 _ -> False
 
       prop "ignores partial fanoutTx of another head" $ \otherHeadId distributedUTxO -> do
-        let partialFanoutOtherHead = observeTx $ OnPartialFanoutTx{headId = otherHeadId, distributedUTxO}
+        let partialFanoutOtherHead = observeTx $ OnPartialFanoutTx{headId = otherHeadId, distributedOutputs = distributedUTxO}
             st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st partialFanoutOtherHead
@@ -1608,7 +1608,7 @@ spec =
 
       prop "partial fanout emits HeadPartialFannedOut and triggers next fanout" $ \distributedUTxO ->
         forAllShrink genClosedState shrink $ \closedState -> monadicIO $ do
-          let partialFanoutHead = observeTx $ OnPartialFanoutTx{headId = testHeadId, distributedUTxO}
+          let partialFanoutHead = observeTx $ OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributedUTxO}
           now <- run $ nowFromSlot closedState.chainPointTime.currentSlot
           let outcome = update bobEnv ledger now closedState partialFanoutHead
           monitor $ counterexample ("Outcome: " <> show outcome)
@@ -1631,7 +1631,7 @@ spec =
         let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
             st = inClosedStateWithRemaining threeParties (Just bigRemaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedUTxO = mempty})
+        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
             Set.size utxoToDistribute == fanoutChunkSize
@@ -1643,17 +1643,43 @@ spec =
             distributed = Set.fromList distributedList
             st = inClosedStateWithRemaining threeParties (Just allItems)
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedUTxO = distributed})
+        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
-          HeadPartialFannedOut{remainingUTxO} ->
-            Set.size remainingUTxO == Set.size allItems - fanoutChunkSize
+          HeadPartialFannedOut{remainingOutputs} ->
+            Set.size remainingOutputs == Set.size allItems - fanoutChunkSize
+          _ -> False
+
+      it "partial fanout of non-prefix items tracks remaining by content, not by count" $ do
+        -- This test demonstrates the robustness requirement: an adversary can
+        -- submit a valid partial fanout of UTxOs that are NOT the prefix of the
+        -- full set in internal sort order. The remaining computation must use
+        -- content-based set-difference, not a count-based positional split.
+        let total = fanoutOutputThreshold + fanoutChunkSize + 1
+            allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral total]]
+            -- Adversarial distribution: the LAST fanoutChunkSize items, not the first.
+            attackedDistributed =
+              Set.fromList
+                [SimpleTxOut i | i <- [fromIntegral (total - fanoutChunkSize + 1) .. fromIntegral total]]
+            st = inClosedStateWithRemaining threeParties (Just allItems)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome =
+              update
+                bobEnv
+                ledger
+                now
+                st
+                (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = attackedDistributed})
+        -- remainingOutputs must equal allItems minus the actually-distributed items.
+        outcome `hasStateChangedSatisfying` \case
+          HeadPartialFannedOut{remainingOutputs} ->
+            remainingOutputs == Set.difference allItems attackedDistributed
           _ -> False
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
         let smallRemaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             st = inClosedStateWithRemaining threeParties (Just smallRemaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedUTxO = mempty})
+        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == smallRemaining
           _ -> False
@@ -1715,14 +1741,14 @@ spec =
         let step1 =
               HeadPartialFannedOut
                 { headId = testHeadId
-                , distributedUTxO = distributed1
-                , remainingUTxO = remaining1
+                , distributedOutputs = distributed1
+                , remainingOutputs = remaining1
                 , chainState = SimpleChainState{slot = 0}
                 }
             stAfterStep1 = aggregateState initialSt (newState step1)
         case headState stAfterStep1 of
-          Closed ClosedState{remainingFanoutUTxO} ->
-            remainingFanoutUTxO `shouldBe` Just remaining1
+          Closed ClosedState{remainingFanoutOutputs} ->
+            remainingFanoutOutputs `shouldBe` Just remaining1
           other -> failure $ "Expected Closed state, got: " <> show other
         -- Operator tops up funds and calls Fanout again.
         now <- nowFromSlot stAfterStep1.chainPointTime.currentSlot
@@ -1758,15 +1784,15 @@ spec =
             let stateChange =
                   HeadPartialFannedOut
                     { headId = testHeadId
-                    , distributedUTxO = distributed
-                    , remainingUTxO = remaining
+                    , distributedOutputs = distributed
+                    , remainingOutputs = remaining
                     , chainState = SimpleChainState{slot = 0}
                     }
                 result = aggregateState closedSt (newState stateChange)
              in case headState result of
-                  Closed ClosedState{remainingFanoutUTxO, distributedFanoutUTxO} -> do
-                    remainingFanoutUTxO `shouldBe` Just remaining
-                    distributedFanoutUTxO `shouldBe` distributed
+                  Closed ClosedState{remainingFanoutOutputs, distributedFanoutOutputs} -> do
+                    remainingFanoutOutputs `shouldBe` Just remaining
+                    distributedFanoutOutputs `shouldBe` distributed
                   other -> failure $ "Expected Closed state, got: " <> show other
           other -> failure $ "Expected Closed state, got: " <> show other
 
@@ -1780,22 +1806,22 @@ spec =
             let step1 =
                   HeadPartialFannedOut
                     { headId = testHeadId
-                    , distributedUTxO = firstDistributed
-                    , remainingUTxO = secondDistributed <> remaining
+                    , distributedOutputs = firstDistributed
+                    , remainingOutputs = secondDistributed <> remaining
                     , chainState = SimpleChainState{slot = 0}
                     }
                 afterStep1 = aggregateState closedSt (newState step1)
                 step2 =
                   HeadPartialFannedOut
                     { headId = testHeadId
-                    , distributedUTxO = secondDistributed
-                    , remainingUTxO = remaining
+                    , distributedOutputs = secondDistributed
+                    , remainingOutputs = remaining
                     , chainState = SimpleChainState{slot = 0}
                     }
                 afterStep2 = aggregateState afterStep1 (newState step2)
              in case headState afterStep2 of
-                  Closed ClosedState{distributedFanoutUTxO} ->
-                    distributedFanoutUTxO `shouldBe` firstDistributed <> secondDistributed
+                  Closed ClosedState{distributedFanoutOutputs} ->
+                    distributedFanoutOutputs `shouldBe` firstDistributed <> secondDistributed
                   other -> failure $ "Expected Closed state, got: " <> show other
           other -> failure $ "Expected Closed state, got: " <> show other
 
@@ -2221,7 +2247,7 @@ prop_ignoresUnrelatedOnInitTx =
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do
   closedState <- arbitrary
-  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutUTxO = Nothing, distributedFanoutUTxO = mempty})
+  pure $ inSync (Closed $ closedState{headId = testHeadId, remainingFanoutOutputs = Nothing, distributedFanoutOutputs = mempty})
 
 -- * Utilities
 
@@ -2326,8 +2352,8 @@ inClosedState' parties confirmedSnapshot =
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
-        , remainingFanoutUTxO = Nothing
-        , distributedFanoutUTxO = mempty
+        , remainingFanoutOutputs = Nothing
+        , distributedFanoutOutputs = mempty
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties
@@ -2340,15 +2366,21 @@ inClosedStateWithRemaining parties remaining =
     Closed
       ClosedState
         { parameters
-        , confirmedSnapshot = InitialSnapshot @SimpleTx testHeadId
+        , -- Use a snapshot whose utxo matches the remaining set so that
+          -- filterUTxOByOutputs can find entries when emitNextFanoutStep
+          -- converts Set (TxOutType tx) back to UTxOType tx.
+          confirmedSnapshot =
+            ConfirmedSnapshot
+              (testSnapshot 0 0 [] (fromMaybe mempty remaining))
+              (Crypto.aggregate [])
         , contestationDeadline
         , readyToFanoutSent = False
         , chainState = 0
         , headId = testHeadId
         , headSeed = testHeadSeed
         , version = 0
-        , remainingFanoutUTxO = remaining
-        , distributedFanoutUTxO = mempty
+        , remainingFanoutOutputs = remaining
+        , distributedFanoutOutputs = mempty
         }
  where
   parameters = HeadParameters defaultContestationPeriod parties

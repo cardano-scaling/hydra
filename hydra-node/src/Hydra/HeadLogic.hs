@@ -1349,10 +1349,10 @@ onClosedClientFanout ::
   IsTx tx =>
   ClosedState tx ->
   Outcome tx
-onClosedClientFanout closedState@ClosedState{remainingFanoutUTxO} =
-  case remainingFanoutUTxO of
+onClosedClientFanout closedState@ClosedState{remainingFanoutOutputs} =
+  case remainingFanoutOutputs of
     Just remaining -> emitNextFanoutStep FanoutInProgress remaining closedState
-    Nothing -> emitNextFanoutStep FreshFanout (computeFullFanoutUTxO closedState) closedState
+    Nothing -> emitNextFanoutStep FreshFanout (Set.fromList $ outputsOfUTxO $ computeFullFanoutUTxO closedState) closedState
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 -- clients about it.
@@ -1366,13 +1366,15 @@ onClosedChainFanoutTx ::
   UTxOType tx ->
   Outcome tx
 onClosedChainFanoutTx closedState newChainState fanoutUTxO =
-  -- When partial fanouts preceded this final fanout, combine the UTxOs
-  -- distributed by each partial fanout (with their real L1 TxIns) with the
-  -- final batch so clients receive the complete set with correct references.
-  let allUTxO = distributedFanoutUTxO <> fanoutUTxO
-   in newState HeadFannedOut{headId, utxo = allUTxO, chainState = newChainState}
+  -- When partial fanouts preceded this final fanout, combine the output values
+  -- distributed by each partial fanout with the final batch so clients receive
+  -- the complete set.
+  let allOutputs =
+        distributedFanoutOutputs
+          <> Set.fromList (outputsOfUTxO fanoutUTxO)
+   in newState HeadFannedOut{headId, finalizedOutputs = allOutputs, chainState = newChainState}
  where
-  ClosedState{headId, distributedFanoutUTxO} = closedState
+  ClosedState{headId, distributedFanoutOutputs} = closedState
 
 -- | Observe a partial fanout transaction on chain. This stays in 'ClosedState'
 -- with updated remaining UTxOs and automatically triggers the next fanout.
@@ -1387,23 +1389,21 @@ onClosedChainPartialFanoutTx ::
   ClosedState tx ->
   -- | New chain state
   ChainStateType tx ->
-  -- | UTxOs that were distributed in this partial fanout
-  UTxOType tx ->
+  -- | Output values that were distributed in this partial fanout
+  Set (TxOutType tx) ->
   Outcome tx
-onClosedChainPartialFanoutTx closedState newChainState distributedUTxO =
-  -- Compute the remaining UTxOs after removing the distributed ones.
-  -- NOTE: We use splitUTxOAt (drop first N) rather than withoutUTxO (set
-  -- difference by TxIn) because the observed distributedUTxO has fresh TxIns
-  -- from the partial fanout transaction, not the original snapshot TxIns.
-  let fullUTxO = resolveRemainingUTxO closedState
-      distributedCount = sizeUTxO distributedUTxO
-      (_, remaining) = splitUTxOAt distributedCount fullUTxO
+onClosedChainPartialFanoutTx closedState newChainState distributedOutputs =
+  -- Compute the remaining outputs after removing the distributed ones.
+  -- Use content-based Set.difference so an adversary distributing non-prefix
+  -- items does not corrupt our tracking.
+  let fullOutputs = resolveRemainingOutputs closedState
+      remaining = Set.difference fullOutputs distributedOutputs
       stateChange =
         newState
           HeadPartialFannedOut
             { headId
-            , distributedUTxO
-            , remainingUTxO = remaining
+            , distributedOutputs
+            , remainingOutputs = remaining
             , chainState = newChainState
             }
    in stateChange <> emitNextFanoutStep FanoutInProgress remaining closedState
@@ -1431,16 +1431,16 @@ computeFullFanoutUTxO ClosedState{confirmedSnapshot, version} =
       then utxoToDecommit
       else Nothing
 
--- | Resolve the UTxO set to fan out: the already-narrowed remaining set if a
--- partial fanout is in progress, or the full snapshot UTxO otherwise.
-resolveRemainingUTxO ::
+-- | Resolve the output set to fan out: the already-narrowed remaining set if a
+-- partial fanout is in progress, or the full snapshot outputs otherwise.
+resolveRemainingOutputs ::
   IsTx tx =>
   ClosedState tx ->
-  UTxOType tx
-resolveRemainingUTxO closedState@ClosedState{remainingFanoutUTxO} =
-  case remainingFanoutUTxO of
+  Set (TxOutType tx)
+resolveRemainingOutputs closedState@ClosedState{remainingFanoutOutputs} =
+  case remainingFanoutOutputs of
     Just remaining -> remaining
-    Nothing -> computeFullFanoutUTxO closedState
+    Nothing -> Set.fromList $ outputsOfUTxO $ computeFullFanoutUTxO closedState
 
 -- | Tracks whether a partial fanout has already been observed on-chain.
 -- Used to decide the final step: 'FanoutInProgress' heads go to
@@ -1448,27 +1448,28 @@ resolveRemainingUTxO closedState@ClosedState{remainingFanoutUTxO} =
 data PartialFanoutPhase = FreshFanout | FanoutInProgress
   deriving stock (Show)
 
--- | Decide and emit the next on-chain effect for a given remaining UTxO set.
+-- | Decide and emit the next on-chain effect for a given remaining output set.
 -- When the phase is 'FanoutInProgress' the head output is already in
 -- FanoutProgress state (at least one PartialFanout has been posted), so we
 -- must use 'FinalPartialFanoutTx' for the last step instead of 'FanoutTx'.
 emitNextFanoutStep ::
   IsTx tx =>
   PartialFanoutPhase ->
-  UTxOType tx ->
+  Set (TxOutType tx) ->
   ClosedState tx ->
   Outcome tx
 -- NOTE: `phase` only affects the `otherwise` branch below. When more than
--- `fanoutOutputThreshold` UTxOs remain, both phases always emit `PartialFanoutTx`.
+-- `fanoutOutputThreshold` outputs remain, both phases always emit `PartialFanoutTx`.
 emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestationDeadline}
-  | sizeUTxO remaining > fanoutOutputThreshold =
-      let (toDistribute, rest) = splitUTxOAt fanoutChunkSize remaining
+  | Set.size remaining > fanoutOutputThreshold =
+      let (toDistribute, rest) = Set.splitAt fanoutChunkSize remaining
+          fullUTxO = computeFullFanoutUTxO closedState
        in cause
             OnChainEffect
               { postChainTx =
                   PartialFanoutTx
-                    { utxoToDistribute = toDistribute
-                    , remainingUTxO = rest
+                    { utxoToDistribute = filterUTxOByOutputs fullUTxO toDistribute
+                    , remainingUTxO = filterUTxOByOutputs fullUTxO rest
                     , headSeed
                     , contestationDeadline
                     }
@@ -1478,11 +1479,12 @@ emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestatio
         OnChainEffect
           { postChainTx = case phase of
               FanoutInProgress ->
-                FinalPartialFanoutTx
-                  { utxoToDistribute = remaining
-                  , headSeed
-                  , contestationDeadline
-                  }
+                let fullUTxO = computeFullFanoutUTxO closedState
+                 in FinalPartialFanoutTx
+                      { utxoToDistribute = filterUTxOByOutputs fullUTxO remaining
+                      , headSeed
+                      , contestationDeadline
+                      }
               FreshFanout ->
                 -- `remaining` was used only for the size check above. FanoutTx
                 -- needs the three-part decomposition (utxo, utxoToCommit,
@@ -1742,9 +1744,9 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         onClosedChainFanoutTx closedState newChainState fanoutUTxO
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
-  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnPartialFanoutTx{headId, distributedUTxO}, newChainState})
+  (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnPartialFanoutTx{headId, distributedOutputs}, newChainState})
     | ourHeadId == headId ->
-        onClosedChainPartialFanoutTx closedState newChainState distributedUTxO
+        onClosedChainPartialFanoutTx closedState newChainState distributedOutputs
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Node-level
@@ -2230,13 +2232,13 @@ aggregate st = \case
               , headId
               , headSeed
               , version
-              , remainingFanoutUTxO = Nothing
-              , distributedFanoutUTxO = mempty
+              , remainingFanoutOutputs = Nothing
+              , distributedFanoutOutputs = mempty
               }
       _otherState -> st
   HeadContested{chainState, contestationDeadline} ->
     case st of
-      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, remainingFanoutUTxO, distributedFanoutUTxO} ->
+      Closed ClosedState{parameters, confirmedSnapshot, readyToFanoutSent, headId, headSeed, version, remainingFanoutOutputs, distributedFanoutOutputs} ->
         Closed
           ClosedState
             { parameters
@@ -2247,8 +2249,8 @@ aggregate st = \case
             , headId
             , headSeed
             , version
-            , remainingFanoutUTxO
-            , distributedFanoutUTxO
+            , remainingFanoutOutputs
+            , distributedFanoutOutputs
             }
       _otherState -> st
   HeadFannedOut{chainState} ->
@@ -2259,14 +2261,14 @@ aggregate st = \case
             { chainState
             }
       _otherState -> st
-  HeadPartialFannedOut{distributedUTxO, remainingUTxO, chainState} ->
+  HeadPartialFannedOut{distributedOutputs, remainingOutputs, chainState} ->
     case st of
       Closed cst ->
         Closed
           cst
             { chainState
-            , remainingFanoutUTxO = Just remainingUTxO
-            , distributedFanoutUTxO = distributedFanoutUTxO cst <> distributedUTxO
+            , remainingFanoutOutputs = Just remainingOutputs
+            , distributedFanoutOutputs = distributedFanoutOutputs cst <> distributedOutputs
             }
       _otherState -> st
   HeadIsReadyToFanout{} ->

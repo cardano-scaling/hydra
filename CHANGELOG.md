@@ -10,14 +10,30 @@ changes.
 
 ## [UNRELEASED]
 
-- **BREAKING** Several fields renamed or removed in `StateChanged` events (`Hydra.HeadLogic.Outcome`) :
-  - `TransactionAppliedToLocalUTxO`: `newLocalUTxO` field removed.
-  - `SnapshotRequested`: `newLocalUTxO` field removed.
-  - `DecommitRecorded`: `newLocalUTxO` field removed.
+- Heads with large UTxO sets (above the fanout output threshold) can now be
+  fanned out in multiple steps using `PartialFanoutTx` and `FinalPartialFanoutTx`
+  transactions. Each step distributes a fixed-size chunk of outputs and uses a
+  BLS accumulator membership proof to verify correctness on-chain. The final step
+  burns the head tokens and completes the fanout.
+
+- **BREAKING** Several fields renamed or retype-changed across the API and
+  persisted state:
+  - `HeadIsFinalized` server output: `utxo` renamed to `finalizedUTxO`; type
+    changed from a UTxO map (object keyed by `TxIn`) to an array of `TxOut`
+    values, since intermediate partial fanout outputs do not carry spending
+    references.
+  - `ClosedState` (persisted `StateChanged` event): `remainingFanoutUTxO`
+    renamed to `remainingFanoutOutputs`; `distributedFanoutUTxO` renamed to
+    `distributedFanoutOutputs`. Both changed from a UTxO map to an array of
+    `TxOut` values in JSON.
+  - `StateChanged` events (`Hydra.HeadLogic.Outcome`):
+    - `TransactionAppliedToLocalUTxO`: `newLocalUTxO` field removed.
+    - `SnapshotRequested`: `newLocalUTxO` field removed.
+    - `DecommitRecorded`: `newLocalUTxO` field removed.
 
 - Reduce on-disk event-store growth by removing redundant `newLocalUTxO` fields
- from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
- post-tx UTxO via pure arithmetic/no ledger needed.
+  from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
+  post-tx UTxO via pure arithmetic, no ledger needed.
 
 ## [2.1.0] - 2026.05.13
 

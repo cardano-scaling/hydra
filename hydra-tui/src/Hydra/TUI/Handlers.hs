@@ -168,8 +168,7 @@ handleHydraEventsActiveLink e = do
       activeHeadStateL .= Closed{closedState = ClosedState{contestationDeadline}}
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.ReadyToFanout{}}) ->
       activeHeadStateL .= FanoutPossible
-    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{utxo}}) -> do
-      utxoL .= utxo
+    Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{}}) -> do
       activeHeadStateL .= Final
     Update (ApiTimedServerOutput TimedServerOutput{time, output = API.DecommitRequested{utxoToDecommit}}) -> do
       ActiveLink{utxo} <- get
@@ -287,7 +286,7 @@ handleHydraEventsInfo = \case
     report Success time $
       "Commit finalized "
         <> show depositTxId
-  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{utxo}}) -> do
+  Update (ApiTimedServerOutput TimedServerOutput{time, output = API.HeadIsFinalized{}}) -> do
     info time "Head is finalized"
   Update (ApiInvalidInput API.InvalidInput{reason}) -> do
     time <- liftIO getCurrentTime

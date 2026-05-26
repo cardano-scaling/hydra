@@ -99,9 +99,8 @@ instance IsTx Payment where
   -- For Payment, UTxO is already a list of pairs
   toPairList = id
 
-  sizeUTxO = length
-
-  splitUTxOAt = List.splitAt
+  -- For Payment, filter UTxO by keeping entries whose output is in the given set
+  filterUTxOByOutputs utxo outputs = filter (`Set.member` outputs) utxo
 
   -- For Payment, just use show for serialization (consistent with hashUTxO)
   utxoToElement = encodeUtf8 . show @Text
@@ -117,6 +116,12 @@ genAdaValue = lovelaceToValue . fromInteger <$> choose (minimumUTxOAda, 10000000
   minimumUTxOAda = 1000000
 
 -- * Orphans
+
+-- | Orphan 'Ord' instance for Cardano 'Value' using JSON encoding for comparison.
+-- Needed to use '(CardanoSigningKey, Value)' as 'TxOutType Payment' in 'Set'.
+instance Ord Value where
+  compare x y = compare (toJSON x) (toJSON y)
+
 instance Arbitrary Value where
   arbitrary = genAdaValue
 

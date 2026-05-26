@@ -100,9 +100,7 @@ instance IsTx SimpleTx where
   -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
   toPairList = Set.toList
 
-  sizeUTxO = Set.size
-
-  splitUTxOAt = Set.splitAt
+  filterUTxOByOutputs = Set.intersection
 
   utxoToElement = toStrict . serialise . unSimpleTxOut
 

@@ -18,6 +18,7 @@ import Data.Aeson ((.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
+import Data.Set qualified as Set
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
 import Hydra.Cardano.Api.Tx qualified as Api
@@ -50,6 +51,7 @@ class
   , ToJSONKey (TxIdType tx)
   , --
     Eq (TxOutType tx)
+  , Ord (TxOutType tx)
   , Show (TxOutType tx)
   , ToJSON (TxOutType tx)
   , FromJSON (TxOutType tx)
@@ -107,11 +109,8 @@ class
   -- We only need the TxOut, not the TxIn.
   toPairList :: UTxOType tx -> [TxOutType tx]
 
-  -- | Get the number of entries in a UTxO set.
-  sizeUTxO :: UTxOType tx -> Int
-
-  -- | Split a UTxO set at position n, returning the first n entries and the rest.
-  splitUTxOAt :: Int -> UTxOType tx -> (UTxOType tx, UTxOType tx)
+  -- | Filter a UTxO set keeping only entries whose output value is in the given set.
+  filterUTxOByOutputs :: UTxOType tx -> Set (TxOutType tx) -> UTxOType tx
 
   -- | Convert a TxOut to a ByteString element for the accumulator.
   -- This serializes the TxOut in the same way as the on-chain code does.
@@ -129,6 +128,11 @@ instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where
       Aeson.Object km ->
         Aeson.Object $ KeyMap.insert "txId" (toJSON $ getTxId $ getTxBody tx) km
       v -> v
+
+-- | Orphan 'Ord' instance for 'TxOut CtxUTxO' using JSON encoding for comparison.
+-- Needed to use 'TxOut CtxUTxO' in 'Set' and as 'TxOutType Tx' with the 'Ord' constraint.
+instance Ord (TxOut CtxUTxO) where
+  compare x y = compare (Aeson.encode x) (Aeson.encode y)
 
 instance FromJSON Tx where
   parseJSON =
@@ -190,12 +194,7 @@ instance IsTx Tx where
 
   toPairList = UTxO.txOutputs
 
-  sizeUTxO = UTxO.size
-
-  splitUTxOAt n utxo =
-    let pairs = UTxO.toList utxo
-        (first', rest) = splitAt n pairs
-     in (UTxO.fromList first', UTxO.fromList rest)
+  filterUTxOByOutputs utxo outputs = UTxO.filter (`Set.member` outputs) utxo
 
   -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.
   -- Uses sha2_256 (via hashTxOuts) because the haskell-accumulator library
