@@ -81,8 +81,8 @@ main = do
   putTextLn "Generated subsets for membership proofs"
 
   -- Extract individual elements for low-level proof testing
-  let !elements10 = toPairList @Tx utxo10
-      !elements100 = toPairList @Tx utxo100
+  let !elements10 = outputsOfUTxO @Tx utxo10
+      !elements100 = outputsOfUTxO @Tx utxo100
       !serialized10 = utxoToElement @Tx <$> elements10
       !serialized100 = utxoToElement @Tx <$> elements100
 
@@ -102,9 +102,9 @@ main = do
         ]
     , bgroup
         "2. UTxO to Elements Conversion"
-        [ bench "Extract 10 TxOuts" $ whnf (toPairList @Tx) utxo10
-        , bench "Extract 100 TxOuts" $ whnf (toPairList @Tx) utxo100
-        , bench "Extract 1000 TxOuts" $ whnf (toPairList @Tx) utxo1000
+        [ bench "Extract 10 TxOuts" $ whnf (outputsOfUTxO @Tx) utxo10
+        , bench "Extract 100 TxOuts" $ whnf (outputsOfUTxO @Tx) utxo100
+        , bench "Extract 1000 TxOuts" $ whnf (outputsOfUTxO @Tx) utxo1000
         , bench "Serialize 10 TxOuts" $ whnf (fmap (utxoToElement @Tx)) elements10
         , bench "Serialize 100 TxOuts" $ whnf (fmap (utxoToElement @Tx)) elements100
         ]

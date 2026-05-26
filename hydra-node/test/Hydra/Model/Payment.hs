@@ -96,9 +96,6 @@ instance IsTx Payment where
      in second fromList <$> result
   applyTxTo tx utxo = applyTx utxo tx
 
-  -- For Payment, UTxO is already a list of pairs
-  toPairList = id
-
   -- For Payment, filter UTxO by keeping entries whose output is in the given set
   filterUTxOByOutputs utxo outputs = filter (`Set.member` outputs) utxo
 

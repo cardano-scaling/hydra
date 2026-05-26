@@ -97,9 +97,6 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
-  -- \| For SimpleTx, we use a simple pair representation where both elements are the same output.
-  toPairList = Set.toList
-
   filterUTxOByOutputs = Set.intersection
 
   utxoToElement = toStrict . serialise . unSimpleTxOut

@@ -104,11 +104,6 @@ class
   -- tx is valid against the given UTxO.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
 
-  -- | Convert a 'UTxOType' to a list of outputs for accumulator operations.
-  -- This is needed by the accumulator to convert UTxOs into elements.
-  -- We only need the TxOut, not the TxIn.
-  toPairList :: UTxOType tx -> [TxOutType tx]
-
   -- | Filter a UTxO set keeping only entries whose output value is in the given set.
   filterUTxOByOutputs :: UTxOType tx -> Set (TxOutType tx) -> UTxOType tx
 
@@ -191,8 +186,6 @@ instance IsTx Tx where
   withoutUTxO = UTxO.difference
 
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
-
-  toPairList = UTxO.txOutputs
 
   filterUTxOByOutputs utxo outputs = UTxO.filter (`Set.member` outputs) utxo
 

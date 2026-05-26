@@ -99,7 +99,7 @@ buildFromUTxO ::
   -- | The resulting accumulator containing one element per TxOut
   HydraAccumulator
 buildFromUTxO utxo =
-  let elements = utxoToElement @tx <$> toPairList @tx utxo
+  let elements = utxoToElement @tx <$> outputsOfUTxO @tx utxo
    in build elements
 
 -- | Build an accumulator from snapshot UTxOs, including commit and decommit UTxOs.
@@ -246,7 +246,7 @@ createMembershipProofFromUTxO subsetUTxO fullAcc crs =
   -- elements are handled correctly.
   -- Drop mempty: TxOuts for which toPlutusTxOut returns Nothing yield mempty here;
   -- we only prove membership of outputs that convert successfully.
-  let subsetElements = filter (/= mempty) $ utxoToElement @tx <$> toPairList @tx subsetUTxO
+  let subsetElements = filter (/= mempty) $ utxoToElement @tx <$> outputsOfUTxO @tx subsetUTxO
    in -- Use the element-based proof function
       createMembershipProof subsetElements fullAcc crs
 
