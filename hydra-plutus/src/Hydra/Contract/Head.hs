@@ -826,6 +826,9 @@ verifySnapshotSignature parties msg sigs =
 
 -- | Verify individual party signature of a snapshot. See
 -- 'SignableRepresentation Snapshot' for more details.
+--
+-- XXX: Maybe have a newtype for all the hashes instead of so many fields of
+-- the same type.
 verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash) -> Party -> Signature -> Bool
 verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) party =
   verifyEd25519Signature (vkey party) message
