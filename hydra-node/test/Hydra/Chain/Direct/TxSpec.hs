@@ -286,8 +286,8 @@ spec =
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
                       PartialFanout{} -> transition === Transition.PartialFanout
-                      -- FinalPartialFanout is observed as Fanout (same terminal effect)
-                      Fanout{} -> property $ transition `elem` [Transition.Fanout, Transition.FinalPartialFanout]
+                      Fanout{} -> transition === Transition.Fanout
+                      FinalPartialFanout{} -> transition === Transition.FinalPartialFanout
                       -- NOTE: deposit and recover are not generated in these tests
                       Deposit{} -> property False
                       Recover{} -> property False

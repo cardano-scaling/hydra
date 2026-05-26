@@ -113,7 +113,6 @@ import Test.QuickCheck (
   label,
   tabulate,
   (.&&.),
-  (.||.),
   (===),
   (==>),
  )
@@ -300,10 +299,8 @@ prop_observeAnyTx =
             Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
-            -- Both regular Fanout and FinalPartialFanout are observed as Fanout.
-            Fanout FanoutObservation{headId} ->
-              (transition === Transition.Fanout .||. transition === Transition.FinalPartialFanout)
-                .&&. Just headId === expectedHeadId
+            Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
+            FinalPartialFanout FanoutObservation{headId} -> transition === Transition.FinalPartialFanout .&&. Just headId === expectedHeadId
             PartialFanout PartialFanoutObservation{headId} -> transition === Transition.PartialFanout .&&. Just headId === expectedHeadId
  where
   showTransition :: (a, b, c, d, ChainTransition) -> String

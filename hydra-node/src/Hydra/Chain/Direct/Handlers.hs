@@ -413,6 +413,8 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnContestTx{contestationDeadline, headId, snapshotNumber}
   Fanout FanoutObservation{headId, fanoutUTxO} ->
     pure OnFanoutTx{headId, fanoutUTxO}
+  FinalPartialFanout FanoutObservation{headId, fanoutUTxO} ->
+    pure OnFanoutTx{headId, fanoutUTxO}
   PartialFanout PartialFanoutObservation{headId, distributedUTxO} ->
     pure OnPartialFanoutTx{headId, distributedUTxO}
 

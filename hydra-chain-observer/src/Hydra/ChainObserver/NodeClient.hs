@@ -78,6 +78,7 @@ logObservation = \case
   Close CloseObservation{headId} -> Just HeadCloseTx{headId}
   Contest ContestObservation{headId} -> Just HeadContestTx{headId}
   Fanout FanoutObservation{headId} -> Just HeadFanoutTx{headId}
+  FinalPartialFanout FanoutObservation{headId} -> Just HeadFanoutTx{headId}
   PartialFanout PartialFanoutObservation{headId} -> Just HeadPartialFanoutTx{headId}
 
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
