@@ -14,7 +14,6 @@ module Test.Hydra.TastyMain (
   hydraTestTree,
   hydraIngredients,
   testSpec,
-  serializeOnCI,
 ) where
 
 import Hydra.Prelude
@@ -24,19 +23,9 @@ import Test.Tasty (TestName, TestTree, defaultMainWithIngredients, localOption, 
 import Test.Tasty.Hspec (TreatPendingAs (TreatPendingAsSuccess), testSpec)
 import Test.Tasty.Ingredients (Ingredient, composeReporters)
 import Test.Tasty.Ingredients.Rerun (rerunningTests)
-import Test.Tasty.Runners (NumThreads (..), consoleTestReporter, listingTests)
+import Test.Tasty.Runners (consoleTestReporter, listingTests)
 import Test.Tasty.Runners.AntXML (antXMLRunner)
 import Test.Tasty.Runners.Html (htmlRunner)
-
--- | Force the given 'TestTree' to run one test at a time, but only when the
--- @CI@ env var is set. Keeps full parallelism on developer machines (which
--- have spare cores) while serializing resource-sensitive groups on the small
--- CI runners where parallel execution might otherwise starve them out.
-serializeOnCI :: IO TestTree -> IO TestTree
-serializeOnCI mtree = do
-  tree <- mtree
-  onCI <- isJust <$> lookupEnv "CI"
-  pure $ if onCI then localOption (NumThreads 1) tree else tree
 
 -- | Resolve a list of @IO TestTree@ into one Hydra-style 'TestTree' wrapped in
 -- the project-wide options. Suitable for further wrapping with 'localOption'

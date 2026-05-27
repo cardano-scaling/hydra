@@ -54,7 +54,16 @@ jobs:
       run: |
         cd ${{ matrix.package }} # To ensure the `./golden` files are available.
         mkdir -p test-reports
-        nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml
+        # hydra-node's NetworkSpec spins etcd subprocesses; under tasty's
+        # default parallelism it wedges on these small CI runners (etcd
+        # loses quorum after the manual lease revoke and the suite hangs).
+        # Force the suite single-threaded here; other packages keep tasty's
+        # default parallelism, which they handle fine.
+        threads_flag=""
+        if [ "${{ matrix.package }}" = "hydra-node" ]; then
+          threads_flag="--num-threads=1"
+        fi
+        nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml $threads_flag
 
     # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
