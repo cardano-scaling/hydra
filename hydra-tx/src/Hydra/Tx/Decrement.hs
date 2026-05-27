@@ -57,7 +57,6 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
-          , accumulatorHash = toBuiltin decrementAccumulatorHash
           }
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
@@ -92,6 +91,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
+          , accumulatorHash = toBuiltin decrementAccumulatorHash
           }
 
   Snapshot{utxo, utxoToDecommit, number, version, accumulator} = snapshot

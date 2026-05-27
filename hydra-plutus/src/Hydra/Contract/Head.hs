@@ -170,14 +170,14 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
       ScriptCredential _ -> True
       PubKeyCredential _ -> False
 
-  IncrementRedeemer{signature, snapshotNumber, increment, accumulatorHash} = redeemer
+  IncrementRedeemer{signature, snapshotNumber, increment} = redeemer
 
   claimedDepositIsSpent =
     traceIfFalse $(errorCode DepositNotSpent) $
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash, accumulatorHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, depositHash, emptyHash, nextAccumulatorHash) signature
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -206,6 +206,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     , contestationPeriod = nextCperiod
     , headId = nextHeadId
     , version = nextVersion
+    , accumulatorHash = nextAccumulatorHash
     } = decodeHeadOutputOpenDatum ctx
 {-# INLINEABLE checkIncrement #-}
 
@@ -225,7 +226,7 @@ checkDecrement ctx openBefore redeemer =
     && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, decommitUtxoHash, accumulatorHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, decommitUtxoHash, nextAccumulatorHash) signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -237,7 +238,7 @@ checkDecrement ctx openBefore redeemer =
 
   decommitUtxoHash = hashTxOuts decommitOutputs
 
-  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs, accumulatorHash} = redeemer
+  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs} = redeemer
 
   OpenDatum
     { parties = prevParties
@@ -252,6 +253,7 @@ checkDecrement ctx openBefore redeemer =
     , contestationPeriod = nextCperiod
     , headId = nextHeadId
     , version = nextVersion
+    , accumulatorHash = nextAccumulatorHash
     } = decodeHeadOutputOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
@@ -302,6 +304,7 @@ checkClose ctx openBefore redeemer =
     , contestationPeriod = cperiod
     , headId
     , version
+    , accumulatorHash = openAccumulatorHash
     } = openBefore
 
   hasBoundedValidity =
@@ -333,46 +336,46 @@ checkClose ctx openBefore redeemer =
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
-      CloseAny{signature, accumulatorHash} ->
+      CloseAny{signature} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
             && alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, accumulatorHash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, openAccumulatorHash)
               signature
-      CloseUnusedDec{signature, accumulatorHash} ->
+      CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' /= emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', accumulatorHash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', openAccumulatorHash)
               signature
-      CloseUsedDec{signature, alreadyDecommittedUTxOHash, accumulatorHash} ->
+      CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, accumulatorHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, openAccumulatorHash)
               signature
-      CloseUnusedInc{signature, alreadyCommittedUTxOHash, accumulatorHash} ->
+      CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
           alphaUTxOHash' == emptyHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash)
+              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, openAccumulatorHash)
               signature
-      CloseUsedInc{signature, alreadyCommittedUTxOHash, accumulatorHash} ->
+      CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
           alphaUTxOHash' == alreadyCommittedUTxOHash
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, accumulatorHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, openAccumulatorHash)
               signature
 
   checkDeadline =
@@ -394,15 +397,7 @@ checkClose ctx openBefore redeemer =
       L.null contesters'
 
   mustBindAccumulatorCommitment =
-    case redeemer of
-      CloseInitial -> True
-      CloseAny{accumulatorHash} -> check' accumulatorHash
-      CloseUnusedDec{accumulatorHash} -> check' accumulatorHash
-      CloseUsedDec{accumulatorHash} -> check' accumulatorHash
-      CloseUnusedInc{accumulatorHash} -> check' accumulatorHash
-      CloseUsedInc{accumulatorHash} -> check' accumulatorHash
-   where
-    check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
+    mustMatchAccumulatorCommitmentHash accumulatorCommitment' openAccumulatorHash
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}

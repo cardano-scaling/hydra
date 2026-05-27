@@ -143,6 +143,7 @@ healthyCurrentOpenDatum =
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCurrentSnapshotVersion
+      , accumulatorHash = healthyCurrentAccumulatorHash
       }
 
 data CloseMutation
@@ -223,9 +224,9 @@ data CloseMutation
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
   | -- | Invalidates the tx by writing a wrong accumulator commitment in the
-    -- output datum while keeping a valid signed accumulatorHash in the redeemer.
+    -- output datum while the input datum carries the correct accumulatorHash.
     --
-    -- Ensures the on-chain validator binds the G2 commitment to the signed hash.
+    -- Ensures the on-chain validator binds the G1 commitment to the hash in the Open datum.
     MutateAccumulatorCommitment
   deriving stock (Generic, Show, Enum, Bounded)
 
@@ -237,7 +238,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature, accumulatorHash = healthyCurrentAccumulatorHash}
+        pure $ Head.Close Head.CloseUnusedDec{signature}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -304,7 +305,6 @@ genCloseCurrentMutation (tx, _utxo) =
                       ( Head.Close
                           Head.CloseUnusedDec
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
-                            , accumulatorHash = healthyCurrentAccumulatorHash
                             }
                       )
                 )
@@ -324,8 +324,8 @@ genCloseCurrentMutation (tx, _utxo) =
         mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
         pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
-        -- A commitment from a different accumulator: the signed accumulatorHash
-        -- was derived from the healthy one, so this G2 point won't match.
+        -- A commitment from a different accumulator: the input datum's accumulatorHash
+        -- was derived from the healthy one, so this G1 point won't match.
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     ]

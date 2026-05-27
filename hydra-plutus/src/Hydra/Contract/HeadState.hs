@@ -35,6 +35,8 @@ data OpenDatum = OpenDatum
   -- ^ Spec: v
   , utxoHash :: Hash
   -- ^ Spec: η
+  , accumulatorHash :: Hash
+  -- ^ Digest of the accumulator ηA for the last confirmed snapshot
   }
   deriving stock (Generic, Show)
 
@@ -103,15 +105,11 @@ data CloseRedeemer
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny
       { signature :: [Signature]
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedDec
@@ -119,8 +117,6 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash
       -- ^ UTxO which was already decommitted ηω
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedInc
@@ -128,8 +124,6 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyCommittedUTxOHash :: Hash
       -- ^ UTxO which was signed but not committed ηα
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
@@ -137,8 +131,6 @@ data CloseRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyCommittedUTxOHash :: Hash
       -- ^ UTxO which was already committed ηα
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
       }
   deriving stock (Show, Generic)
 
@@ -193,7 +185,6 @@ data IncrementRedeemer = IncrementRedeemer
   { signature :: [Signature]
   , snapshotNumber :: SnapshotNumber
   , increment :: TxOutRef
-  , accumulatorHash :: Hash -- XXX: Follow-up; maybe this can be moved to Open
   }
   deriving stock (Show, Generic)
 
@@ -207,7 +198,6 @@ data DecrementRedeemer = DecrementRedeemer
   -- ^ Spec: s
   , numberOfDecommitOutputs :: Integer
   -- ^ Spec: m
-  , accumulatorHash :: Hash -- XXX: Follow-up; maybe this can be moved to Open
   }
   deriving stock (Show, Generic)
 

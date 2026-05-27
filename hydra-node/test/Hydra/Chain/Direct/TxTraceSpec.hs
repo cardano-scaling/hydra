@@ -815,6 +815,7 @@ openHeadUTxO =
           , headSeed = toPlutusTxOutRef Fixture.testSeedInput
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
           , version = 0
+          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs inHeadUTxO Nothing Nothing
           }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)

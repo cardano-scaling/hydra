@@ -95,40 +95,34 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       InitialSnapshot{} ->
         Head.CloseInitial
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
-        let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
-         in case incrementalAction of
-              ToCommit utxo' ->
-                if version == openVersion
-                  then
-                    Head.CloseUnusedInc
-                      { signature = toPlutusSignatures signatures
-                      , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                      , accumulatorHash = accHash
-                      }
-                  else
-                    Head.CloseUsedInc
-                      { signature = toPlutusSignatures signatures
-                      , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                      , accumulatorHash = accHash
-                      }
-              ToDecommit utxo' ->
-                if version == openVersion
-                  then
-                    Head.CloseUnusedDec
-                      { signature = toPlutusSignatures signatures
-                      , accumulatorHash = accHash
-                      }
-                  else
-                    Head.CloseUsedDec
-                      { signature = toPlutusSignatures signatures
-                      , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
-                      , accumulatorHash = accHash
-                      }
-              NoThing ->
-                Head.CloseAny
+        case incrementalAction of
+          ToCommit utxo' ->
+            if version == openVersion
+              then
+                Head.CloseUnusedInc
                   { signature = toPlutusSignatures signatures
-                  , accumulatorHash = accHash
+                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
                   }
+              else
+                Head.CloseUsedInc
+                  { signature = toPlutusSignatures signatures
+                  , alreadyCommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  }
+          ToDecommit utxo' ->
+            if version == openVersion
+              then
+                Head.CloseUnusedDec
+                  { signature = toPlutusSignatures signatures
+                  }
+              else
+                Head.CloseUsedDec
+                  { signature = toPlutusSignatures signatures
+                  , alreadyDecommittedUTxOHash = toBuiltin $ hashUTxO utxo'
+                  }
+          NoThing ->
+            Head.CloseAny
+              { signature = toPlutusSignatures signatures
+              }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore

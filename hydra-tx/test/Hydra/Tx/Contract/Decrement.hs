@@ -166,6 +166,7 @@ healthyDatum =
           , parties = healthyOnChainParties
           , contestationPeriod = toChain healthyContestationPeriod
           , version = toInteger healthySnapshotVersion
+          , accumulatorHash = toBuiltin healthyAccumulatorHash
           }
 
 data DecrementMutation
@@ -221,7 +222,6 @@ genDecrementMutation (tx, _utxo) =
               { signature = invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
-              , accumulatorHash = toBuiltin healthyAccumulatorHash
               }
     , -- Spec: Transaction is signed by a participant
       SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do

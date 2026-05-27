@@ -160,6 +160,7 @@ healthyDatum =
       , headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , version = toInteger healthySnapshotVersion
+      , accumulatorHash = toBuiltin healthyAccumulatorHash
       }
 
 data IncrementMutation
@@ -221,7 +222,6 @@ genIncrementMutation (tx, utxo) =
                   invalidSignature
               , snapshotNumber = fromIntegral healthySnapshotNumber
               , increment = toPlutusTxOutRef healthyDepositInput
-              , accumulatorHash = toBuiltin healthyAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ChangeHeadValue <$> do
         newValue <- genValue `suchThat` (/= txOutValue headTxOut)
@@ -237,7 +237,6 @@ genIncrementMutation (tx, utxo) =
               { signature = toPlutusSignatures healthySignature
               , snapshotNumber = fromIntegral $ succ healthySnapshotNumber
               , increment = toPlutusTxOutRef invalidDepositRef
-              , accumulatorHash = toBuiltin healthyAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) IncrementAddExtraDepositInput <$> do
         extraIn <- genTxIn `suchThat` (/= depositIn)

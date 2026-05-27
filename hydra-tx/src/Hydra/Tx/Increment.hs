@@ -64,7 +64,6 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           { signature = toPlutusSignatures sigs
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
-          , accumulatorHash = toBuiltin incrementAccumulatorHash
           }
 
   HeadParameters{parties, contestationPeriod} = headParameters
@@ -95,6 +94,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
+          , accumulatorHash = toBuiltin incrementAccumulatorHash
           }
 
   depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)

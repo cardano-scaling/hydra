@@ -485,7 +485,6 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
                 { Head.signature = toPlutusSignatures sigs
                 , Head.snapshotNumber = prevVersion + 1
                 , Head.increment = toPlutusTxOutRef deposit1In
-                , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
                 }
         headWitness =
           BuildTxWith $
@@ -506,6 +505,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
             , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
+            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         headOut' =
           fromCtxUTxOTxOut headOut
@@ -878,7 +878,6 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
                 { Head.signature = toPlutusSignatures sigs
                 , Head.snapshotNumber = prevVersion + 1
                 , Head.increment = toPlutusTxOutRef leaderDepositIn
-                , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
                 }
         headWitness =
           BuildTxWith $
@@ -899,6 +898,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
             , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
+            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         -- Head value grows by ONLY the leader's small deposit; the
         -- victim's value is siphoned to lootAddr.
