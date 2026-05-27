@@ -296,7 +296,6 @@ checkClose ctx openBefore redeemer =
     && mustInitializeContesters
     && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
-    && mustBindAccumulatorCommitment
  where
   OpenDatum
     { parties
@@ -304,7 +303,6 @@ checkClose ctx openBefore redeemer =
     , contestationPeriod = cperiod
     , headId
     , version
-    , accumulatorHash = openAccumulatorHash
     } = openBefore
 
   hasBoundedValidity =
@@ -343,7 +341,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, openAccumulatorHash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, emptyHash, closedAccumulatorHash)
               signature
       CloseUnusedDec{signature} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
@@ -351,7 +349,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' /= emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', openAccumulatorHash)
+              (headId, version, snapshotNumber', utxoHash', emptyHash, omegaUTxOHash', closedAccumulatorHash)
               signature
       CloseUsedDec{signature, alreadyDecommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedDec) $
@@ -359,7 +357,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, openAccumulatorHash)
+              (headId, version - 1, snapshotNumber', utxoHash', emptyHash, alreadyDecommittedUTxOHash, closedAccumulatorHash)
               signature
       CloseUnusedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedInc) $
@@ -367,7 +365,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, openAccumulatorHash)
+              (headId, version, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, closedAccumulatorHash)
               signature
       CloseUsedInc{signature, alreadyCommittedUTxOHash} ->
         traceIfFalse $(errorCode FailedCloseUsedInc) $
@@ -375,7 +373,7 @@ checkClose ctx openBefore redeemer =
             && omegaUTxOHash' == emptyHash
             && verifySnapshotSignature
               parties
-              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, openAccumulatorHash)
+              (headId, version - 1, snapshotNumber', utxoHash', alreadyCommittedUTxOHash, emptyHash, closedAccumulatorHash)
               signature
 
   checkDeadline =
@@ -396,8 +394,8 @@ checkClose ctx openBefore redeemer =
     traceIfFalse $(errorCode ContestersNonEmpty) $
       L.null contesters'
 
-  mustBindAccumulatorCommitment =
-    mustMatchAccumulatorCommitmentHash accumulatorCommitment' openAccumulatorHash
+  closedAccumulatorHash =
+    Builtins.blake2b_256 (Builtins.bls12_381_G1_compress accumulatorCommitment')
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}

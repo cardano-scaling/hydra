@@ -71,7 +71,6 @@ import Test.Hydra.Tx.Gen (
   genUTxOAdaOnlyOfSize,
   genValidityBoundsFromContestationPeriod,
   genVerificationKey,
-  setOpenDatumAccumulatorHash,
  )
 import Test.QuickCheck (choose, chooseEnum, elements, oneof, suchThat, vector)
 
@@ -328,16 +327,11 @@ genCloseTx numParties = do
           else (u0, utxoToCommit', Nothing)
   let version = 0
   snapshot <- genConfirmedSnapshot headId version 1 confirmedUTxO utxoToCommit utxoToDecommit (ctxHydraSigningKeys ctx)
-  -- Patch the open state's OpenDatum.accumulatorHash to match the snapshot's
-  -- accumulator hash. This simulates the invariant maintained by the protocol:
-  -- OpenDatum.accumulatorHash always reflects the last confirmed snapshot's accumulator.
-  let snapshotAcc = accumulator $ getSnapshot snapshot
-      stOpen' = stOpen{openUTxO = UTxO.map (setOpenDatumAccumulatorHash snapshotAcc) stOpen.openUTxO}
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let utxo = getKnownUTxO stOpen'
-  pure (cctx, stOpen', utxo, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
+  let utxo = getKnownUTxO stOpen
+  pure (cctx, stOpen, utxo, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, UTxO, Tx)
 genContestTx = do

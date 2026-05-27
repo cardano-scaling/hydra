@@ -224,9 +224,9 @@ data CloseMutation
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
   | -- | Invalidates the tx by writing a wrong accumulator commitment in the
-    -- output datum while the input datum carries the correct accumulatorHash.
-    --
-    -- Ensures the on-chain validator binds the G1 commitment to the hash in the Open datum.
+    -- output datum. The validator derives the accumulator hash from this
+    -- commitment and verifies the multi-signature against it, so a wrong
+    -- commitment makes the signature check fail.
     MutateAccumulatorCommitment
   deriving stock (Generic, Show, Enum, Bounded)
 
@@ -323,9 +323,9 @@ genCloseCurrentMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
         pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
-    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
-        -- A commitment from a different accumulator: the input datum's accumulatorHash
-        -- was derived from the healthy one, so this G1 point won't match.
+    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+        -- A wrong commitment changes the hash derived by the validator, so the
+        -- signature check fails.
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     ]

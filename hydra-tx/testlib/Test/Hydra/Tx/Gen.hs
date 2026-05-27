@@ -26,7 +26,6 @@ import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
 import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
-import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -41,7 +40,6 @@ import Hydra.Tx.Fanout (PartialFanoutObservation)
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
-import PlutusLedgerApi.V3 (toBuiltin)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -135,32 +133,6 @@ genTxOutWithReferenceScript = do
   -- not so easily accessible.
   refScript <- (txOutReferenceScript . fromLedgerTxOut <$> arbitrary) `suchThat` (/= ReferenceScriptNone)
   genTxOut <&> \out -> out{txOutReferenceScript = refScript}
-
--- | Update the 'OpenDatum.accumulatorHash' field in a head script output to
--- match the given accumulator. Used in generators to enforce the protocol
--- invariant that 'OpenDatum.accumulatorHash' always reflects the last
--- confirmed snapshot's accumulator.
-setOpenDatumAccumulatorHash :: Accumulator.HydraAccumulator -> TxOut CtxUTxO -> TxOut CtxUTxO
-setOpenDatumAccumulatorHash acc =
-  modifyTxOutDatum patchDatum
- where
-  newAccHash = toBuiltin $ Accumulator.getAccumulatorHash acc
-  patchDatum (TxOutDatumInline sd) =
-    case fromScriptData sd of
-      Just (Head.Open Head.OpenDatum{headSeed = dSeed, headId = dHeadId, parties = dParties, contestationPeriod = dPeriod, version = dVersion, utxoHash = dUtxoHash}) ->
-        mkTxOutDatumInline $
-          Head.Open
-            Head.OpenDatum
-              { Head.headSeed = dSeed
-              , Head.headId = dHeadId
-              , Head.parties = dParties
-              , Head.contestationPeriod = dPeriod
-              , Head.version = dVersion
-              , Head.utxoHash = dUtxoHash
-              , Head.accumulatorHash = newAccHash
-              }
-      _ -> TxOutDatumInline sd
-  patchDatum other = other
 
 -- * UTxO
 
