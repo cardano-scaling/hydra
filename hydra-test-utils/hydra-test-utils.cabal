@@ -46,7 +46,6 @@ library
     , HUnit
     , hydra-prelude
     , network
-    , port-utils
     , process
     , QuickCheck
     , quickcheck-arbitrary-adt

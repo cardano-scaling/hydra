@@ -359,20 +359,37 @@ data HydraNodePorts = HydraNodePorts
 -- | Allocate three unused TCP ports from the OS for a single hydra-node.
 allocateHydraNodePorts :: IO HydraNodePorts
 allocateHydraNodePorts = do
-  [a, l, m] <- randomUnusedTCPPorts 3
-  pure
-    HydraNodePorts
-      { apiPort = fromIntegral a
-      , listenPort = fromIntegral l
-      , monitoringPort = fromIntegral m
-      }
+  m <- allocateHydraNodePortsFor [0]
+  case Map.lookup 0 m of
+    Just ports -> pure ports
+    Nothing -> Prelude.error "allocateHydraNodePorts: empty allocation"
 
 -- | Allocate ports for every node in a cluster up front. The returned map
 -- must be passed to every 'prepareHydraNode' / 'withHydraNode' call for
 -- nodes in this cluster so peers can be addressed correctly.
+--
+-- All @3 * length nodeIds@ ports are requested in a single
+-- 'randomUnusedTCPPorts' call so they're mutually unique. A per-node loop
+-- would close each batch's sockets between calls, letting the kernel hand
+-- back a just-released port to a later node — which is exactly how
+-- @--listen@ for one node ended up equal to @--monitoring-port@ for another
+-- and crashed etcd with @EADDRINUSE@ in the 'two heads on the same network'
+-- test.
 allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
-allocateHydraNodePortsFor nodeIds =
-  Map.fromList <$> traverse (\i -> (i,) <$> allocateHydraNodePorts) nodeIds
+allocateHydraNodePortsFor nodeIds = do
+  ports <- randomUnusedTCPPorts (3 * length nodeIds)
+  pure $ Map.fromList $ zip nodeIds (chunk3 ports)
+ where
+  chunk3 :: [Int] -> [HydraNodePorts]
+  chunk3 = \case
+    a : l : m : rest ->
+      HydraNodePorts
+        { apiPort = fromIntegral a
+        , listenPort = fromIntegral l
+        , monitoringPort = fromIntegral m
+        }
+        : chunk3 rest
+    _ -> []
 
 -- | Process-global cache mapping each @(workDir, nodeId)@ to its allocated
 -- ports. The cache exists because restart-style tests (re-running
