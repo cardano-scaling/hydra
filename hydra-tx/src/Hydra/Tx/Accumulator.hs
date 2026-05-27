@@ -31,10 +31,6 @@ import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress)
 import Cardano.Crypto.Hash (Blake2b_256)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
-import Codec.Serialise (deserialiseOrFail, serialise)
-import Data.Aeson (Value (String), withText)
-import Data.ByteString.Base16 qualified as Base16
-import Data.ByteString.Lazy qualified as BSL
 import Data.Map.Strict qualified as Map
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api qualified as HApi
