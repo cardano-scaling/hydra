@@ -55,19 +55,6 @@ import PlutusTx.Builtins (
 newtype HydraAccumulator = HydraAccumulator {unHydraAccumulator :: Accumulator}
   deriving newtype (Eq, Show)
 
-instance ToJSON HydraAccumulator where
-  toJSON (HydraAccumulator acc) =
-    String $ decodeUtf8 $ Base16.encode $ BSL.toStrict $ serialise acc
-
-instance FromJSON HydraAccumulator where
-  parseJSON = withText "HydraAccumulator" $ \t ->
-    case Base16.decode (encodeUtf8 t) of
-      Left err -> fail $ "Invalid base16 for HydraAccumulator: " <> show err
-      Right bs ->
-        case deserialiseOrFail (BSL.fromStrict bs) of
-          Left err -> fail $ "Failed to deserialize HydraAccumulator: " <> show err
-          Right acc -> pure $ HydraAccumulator acc
-
 build :: [ByteString] -> HydraAccumulator
 build = HydraAccumulator . Accumulator.buildAccumulator
 

@@ -57,4 +57,5 @@ root-instances = [
   { module = "Hydra.Cardano.Api.NetworkMagic", instance = "Arbitrary NetworkMagic" },
   # test instances
   { module = "Hydra.ModelSpec", instance = "HasVariables" },
+  { module = "Test.Hydra.Tx.Gen", instance = "Arbitrary HydraAccumulator" },
 ]
