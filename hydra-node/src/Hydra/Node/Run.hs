@@ -53,7 +53,6 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
-import Hydra.Tx.KZGTrustedSetup qualified as KZG
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
@@ -75,13 +74,6 @@ instance Exception ConfigurationException where
 
 run :: RunOptions -> IO ()
 run opts = do
-  -- Force all KZG G1 points into memory before opening any sockets.
-  -- initTx (and snapshot signing) call getAccumulatorHash, which on first
-  -- access parses ~300KB of JSON and BLS-decompresses 4096 curve points.
-  -- Doing it here means the API server only starts after the warm-up, so
-  -- clients cannot connect and time out waiting for HeadIsOpen while the
-  -- node is still initialising the cryptographic setup.
-  void $ evaluate $ either (error . show) length KZG.g1BuiltinPoints
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withTracer verbosity $ \tracer' -> do
     traceWith tracer' (NodeOptions opts)
