@@ -41,7 +41,7 @@ import Hydra.OptionsSpec qualified
 import Hydra.PartySpec qualified
 import Hydra.PersistentQueueSpec qualified
 import Hydra.UtilsSpec qualified
-import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
+import Test.Hydra.TastyMain (defaultMainHydra, serializeOnCI, testSpec)
 
 main :: IO ()
 main =
@@ -77,7 +77,10 @@ main =
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec
     , testSpec "Model" Hydra.ModelSpec.spec
     , testSpec "Network.Authenticate" Hydra.Network.AuthenticateSpec.spec
-    , testSpec "Network" Hydra.NetworkSpec.spec
+    , -- NetworkSpec spins 2–3 etcd subprocesses per test; running its cases
+      -- in parallel starves etcd on small CI runners and deadlocks the suite.
+      -- Serialize only there (CI=…); dev machines stay fully parallel.
+      serializeOnCI (testSpec "Network" Hydra.NetworkSpec.spec)
     , testSpec "NetworkVersions" Hydra.NetworkVersionsSpec.spec
     , testSpec "Node.InputQueue" Hydra.Node.InputQueueSpec.spec
     , testSpec "Node.Run" Hydra.Node.RunSpec.spec
