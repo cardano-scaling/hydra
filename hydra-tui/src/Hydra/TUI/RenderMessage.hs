@@ -147,13 +147,13 @@ renderServerOutput time output raw = case output of
       , "Contestation period has passed. You can now submit a fanout transaction."
       ]
       raw
-  HeadIsFinalized{headId, utxo} ->
+  HeadIsFinalized{headId, finalizedUTxO} ->
     mk
       Success
       time
       "Head finalized"
       [ fld "Head ID" (prettyHeadId headId)
-      , utxoBlock "Distributed UTxO" utxo
+      , fld "Distributed outputs" (show (length finalizedUTxO))
       ]
       raw
   TxValid{headId, transactionId} ->

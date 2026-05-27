@@ -27,7 +27,7 @@ import Graphics.Vty.Config (userConfig)
 import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
-import Graphics.Vty.Platform.Unix.Settings (defaultSettings)
+import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..))
 import Hydra.Cardano.Api (Coin, Key (getVerificationKey))
 import Hydra.Cluster.Faucet (
   FaucetLog,
@@ -56,7 +56,7 @@ import HydraNode (
   withPreparedHydraNode,
  )
 import System.FilePath ((</>))
-import System.Posix (OpenMode (WriteOnly), closeFd, defaultFileFlags, openFd)
+import System.Posix (OpenMode (WriteOnly), defaultFileFlags, openFd, stdInput)
 import Test.QuickCheck (Positive (..))
 
 tuiContestationPeriod :: ContestationPeriod
@@ -149,7 +149,7 @@ spec = do
           -- CommitRecorded. On devnet this typically lands within a handful
           -- of seconds.
           threadDelay 8
-          shouldRender "PendingDeposit"
+          shouldRender "Deposit recorded"
           -- Open the recovery modal; the deposit should be visible.
           sendInputEvent $ EvKey (KChar 'r') []
           threadDelay 1
@@ -456,12 +456,23 @@ withTUITest region action = do
     -- always has the initial state to get a full rendering of the picture. That
     -- way we can capture output bytes line-by-line and drop the cursor moving.
     as <- newIORef initialAssumedState
-    -- NOTE(SN): The null device should allow using this in CI, while we do
-    -- capture the output via `outputByteBuffer` anyway.
+    -- NOTE: Direct escape sequences written by the Output (e.g. setMode for
+    -- mouse) to /dev/null so they don't pollute the terminal. We also avoid
+    -- 'Graphics.Vty.Platform.Unix.Settings.defaultSettings' because it calls
+    -- 'flushStdin' which throws an EOF exception when stdin is not a TTY
+    -- (e.g. running 'cabal test' without 'script' to allocate a pty).
     nullFd <- openFd "/dev/null" WriteOnly defaultFileFlags
+    termName <- fromMaybe "xterm" <$> lookupEnv "TERM"
+    let settings =
+          UnixSettings
+            { settingVmin = 1
+            , settingVtime = 100
+            , settingInputFd = stdInput
+            , settingOutputFd = nullFd
+            , settingTermName = termName
+            }
     userCfg <- userConfig
-    realOut <- buildOutput userCfg =<< defaultSettings
-    closeFd nullFd
+    realOut <- buildOutput userCfg settings
     let output = testOut realOut as frameBuffer
     -- Poll the test event queue instead of STM-blocking on it. A blocking
     -- 'readTQueue q' makes GHC raise 'BlockedIndefinitelyOnSTM' against the
