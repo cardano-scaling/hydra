@@ -37,10 +37,12 @@ import Hydra.Chain.Direct.State (
   HasKnownUTxO (getKnownUTxO),
   HydraContext (..),
   OpenState (..),
+  PartialFanoutError (..),
   ctxHeadParameters,
   ctxParticipants,
   getKnownUTxO,
   initialize,
+  partialFanout,
   unsafeIncrement,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
@@ -57,6 +59,7 @@ import Hydra.Tx.Observe (
   HeadObservation (..),
   IncrementObservation (..),
   NotAnInitReason (..),
+  PartialFanoutObservation (..),
   observeDecrementTx,
   observeHeadTx,
   observeIncrementTx,
@@ -70,12 +73,15 @@ import Test.Hydra.Chain.Direct.State (
   ChainTransition,
   genChainStateWithTx,
   genCloseTx,
+  genClosedStateForFanout,
   genContestTx,
   genDecrementTx,
   genDepositTx,
   genFanoutTx,
+  genFinalPartialFanoutTx,
   genHydraContext,
   genIncrementTx,
+  genPartialFanoutTx,
   genRecoverTx,
   maxGenParties,
   pickChainContext,
@@ -219,6 +225,20 @@ spec = parallel $ do
     propBelowSizeLimit maxTxSize forAllFanout
     propIsValid forAllFanout
 
+  describe "partialFanout" $ do
+    propBelowSizeLimit maxTxSize forAllPartialFanout
+    propIsValid forAllPartialFanout
+    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
+      forAll (genClosedStateForFanout maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, _utxoToDistribute, _remainingUTxO) ->
+          -- Pass empty UTxO so the accumulator commitment won't match
+          partialFanout ctx spendableUTxO seedTxIn mempty mempty deadlineSlotNo
+            === Left StaleChainState
+
+  describe "finalPartialFanout" $ do
+    propBelowSizeLimit maxTxSize forAllFinalPartialFanout
+    propIsValid forAllFinalPartialFanout
+
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
   genChangeMintingPolicy
@@ -267,6 +287,8 @@ prop_observeAnyTx =
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId
             Contest ContestObservation{headId} -> transition === Transition.Contest .&&. Just headId === expectedHeadId
             Fanout FanoutObservation{headId} -> transition === Transition.Fanout .&&. Just headId === expectedHeadId
+            FinalPartialFanout FanoutObservation{headId} -> transition === Transition.FinalPartialFanout .&&. Just headId === expectedHeadId
+            PartialFanout PartialFanoutObservation{headId} -> transition === Transition.PartialFanout .&&. Just headId === expectedHeadId
  where
   showTransition :: (a, b, c, d, ChainTransition) -> String
   showTransition (_, _, _, _, t) = show t
@@ -498,3 +520,28 @@ forAllFanout action =
     | len >= 10 = "10-40"
     | len >= 1 = "1-10"
     | otherwise = "0"
+
+forAllPartialFanout ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+
+-- | Use spendableUTxO (not 'getKnownUTxO stClosed'): the generator adds the
+-- full UTxO value to the head output so 'partialFanoutTx' can subtract
+-- distributed values without going negative. The evaluation UTxO must match.
+forAllPartialFanout action =
+  forAll (genPartialFanoutTx maximumNumberOfParties) $ \(ctx, _, spendableUTxO, tx) ->
+    let utxo = spendableUTxO <> getKnownUTxO ctx
+     in action utxo tx
+
+-- | The spendable UTxO for the final partial fanout is the FanoutProgress head
+-- output produced by the preceding partial fanout step, so we use the 3rd
+-- element from the generator rather than 'getKnownUTxO stClosed'.
+forAllFinalPartialFanout ::
+  Testable property =>
+  (UTxO -> Tx -> property) ->
+  Property
+forAllFinalPartialFanout action =
+  forAll (genFinalPartialFanoutTx maximumNumberOfParties) $ \(ctx, _, fanoutProgressUTxO, tx) ->
+    let utxo = fanoutProgressUTxO <> getKnownUTxO ctx
+     in action utxo tx

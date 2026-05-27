@@ -60,6 +60,14 @@ data HeadError
   | FailedCloseUsedDec
   | FailedCloseUnusedInc
   | FailedCloseUsedInc
+  | MissingCRSDatum
+  | MissingCRSRefInput
+  | PartialFanoutMembershipFailed
+  | PartialFanoutChangedParameters
+  | AccumulatorCommitmentHashMismatch
+  | FinalPartialFanoutMembershipFailed
+  | InvalidCRSRefScript
+  | FinalPartialFanoutZeroOutputs
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -124,3 +132,12 @@ instance ToErrorCode HeadError where
     FailedCloseUnusedInc -> "H52"
     FailedCloseUsedInc -> "H53"
     FanoutUTxOToCommitHashMismatch -> "H54"
+    MissingCRSDatum -> "H55"
+    MissingCRSRefInput -> "H56"
+    -- PartialFanout
+    PartialFanoutMembershipFailed -> "H57"
+    PartialFanoutChangedParameters -> "H58"
+    AccumulatorCommitmentHashMismatch -> "H59"
+    FinalPartialFanoutMembershipFailed -> "H60"
+    InvalidCRSRefScript -> "H61"
+    FinalPartialFanoutZeroOutputs -> "H62"

@@ -21,6 +21,7 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Data.List.NonEmpty qualified as NE
+import Data.Set qualified as Set
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
@@ -135,7 +136,7 @@ spec = parallel $ do
             waitForNext n1 >>= assertHeadIsClosed
             waitUntil [n1] $ ReadyToFanout testHeadId
             send n1 Fanout
-            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
+            waitUntil [n1] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = mempty}
 
   -- XXX: Restructure test suites as it makes more sense to speak about
   -- features rather than head structure
@@ -275,7 +276,7 @@ spec = parallel $ do
                 send n1 (NewTx tx)
                 waitUntil [n1, n2] $ TxValid testHeadId 42
 
-                let snapshot = Snapshot testHeadId 0 1 [tx] (utxoRefs [42]) mempty mempty
+                let snapshot = testSnapshot 1 0 [tx] (utxoRefs [42])
                     sigs = aggregate [sign aliceSk snapshot, sign bobSk snapshot]
                 waitUntil [n1] $ SnapshotConfirmed testHeadId snapshot sigs
 
@@ -587,7 +588,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [3, 11, 22]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [3, 11, 22]}
 
         it "can process transactions while commit pending" $
           shouldRunInSim $ do
@@ -611,7 +612,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [3, 11]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [3, 11]}
 
         -- XXX: This could be a single node test
         it "can close with commit in flight" $
@@ -635,7 +636,7 @@ spec = parallel $ do
                     _ -> Nothing
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [11]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [11]}
 
         -- XXX: This could be a single node test
         it "fanout utxo is correct after a commit" $
@@ -652,7 +653,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = depositUTxO}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = depositUTxO}
 
         -- XXX: This could be a single node test
         it "multiple commits and decommits in sequence" $
@@ -678,7 +679,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n2 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [22]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [22]}
 
         it "commit and decommit same utxo" $
           shouldRunInSim $ do
@@ -809,7 +810,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs [42]}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [42]}
 
         it "can fanout after a decommit" $
           shouldRunInSim $ do
@@ -828,7 +829,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = mempty}
 
         it "can fanout with empty utxo" $
           shouldRunInSim $ do
@@ -859,7 +860,7 @@ spec = parallel $ do
                   send n1 Close
                   waitUntil [n1, n2] $ ReadyToFanout{headId = testHeadId}
                   send n1 Fanout
-                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = utxoRefs []}
+                  waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs []}
 
       describe "Side load snapshot" $ do
         it "head remains functional after side-loading a snapshot" $
@@ -934,7 +935,30 @@ spec = parallel $ do
               waitUntil [n1, n2] $ ReadyToFanout testHeadId
               send n1 Fanout
               send n2 Fanout
-              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, utxo = mempty}
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = mempty}
+
+    it "handles partial fanout observation and triggers next fanout" $
+      shouldRunInSim $ do
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              openHead2 n1 n2
+              -- Create UTxO [1, 2] in the head so the partial fanout test is meaningful.
+              -- aValidTx has empty inputs, so it's valid even against empty initial UTxO.
+              send n1 (NewTx (aValidTx 1))
+              send n1 (NewTx (aValidTx 2))
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{utxo}} -> guard $ utxo == utxoRefs [1, 2]
+                _ -> Nothing
+              send n1 Close
+              forM_ [n1, n2] $ waitForNext >=> assertHeadIsClosed
+              waitUntil [n1, n2] $ ReadyToFanout testHeadId
+              -- Simulate a partial fanout observed on chain (e.g. from the real
+              -- Handlers layer splitting a large UTxO set)
+              simulatePartialFanout chain testHeadId (utxoRef 1)
+              -- The node should auto-trigger the next fanout with the remaining UTxO
+              -- and report all UTxOs (not just the last batch) in HeadIsFinalized
+              waitUntil [n1, n2] $ HeadIsFinalized{headId = testHeadId, finalizedUTxO = utxoRefs [1, 2]}
 
     it "contest automatically when detecting closing with old snapshot" $
       shouldRunInSim $ do
@@ -1103,6 +1127,7 @@ data SimulatedChainNetwork tx m = SimulatedChainNetwork
   , tickThread :: Async m ()
   , rollbackAndForward :: Natural -> m ()
   , simulateDeposit :: HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
+  , simulatePartialFanout :: HeadId -> UTxOType tx -> m ()
   , closeWithInitialSnapshot :: Party -> m ()
   }
 
@@ -1113,6 +1138,7 @@ dummySimulatedChainNetwork =
     , tickThread = error "tickThread"
     , rollbackAndForward = error "rollbackAndForward"
     , simulateDeposit = error "simulateDeposit"
+    , simulatePartialFanout = error "simulatePartialFanout"
     , closeWithInitialSnapshot = error "closeWithInitialSnapshot"
     }
 
@@ -1190,6 +1216,8 @@ simulatedChainAndNetworkUsing networkCallback chainDelay initialChainState = do
           createAndYieldEvent nodes history localChainState $
             OnDepositTx{headId, deposited = toDeposit, created, deadline, depositTxId}
           pure depositTxId
+      , simulatePartialFanout = \headId distributedOutputs ->
+          createAndYieldEvent nodes history localChainState $ OnPartialFanoutTx{headId, distributedOutputs}
       , closeWithInitialSnapshot = error "unexpected call to closeWithInitialSnapshot"
       }
  where
@@ -1329,6 +1357,10 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
+  PartialFanoutTx{utxoToDistribute} ->
+    OnPartialFanoutTx{headId = testHeadId, distributedOutputs = Set.fromList (outputsOfUTxO utxoToDistribute)}
+  FinalPartialFanoutTx{utxoToDistribute} ->
+    OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =

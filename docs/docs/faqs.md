@@ -161,7 +161,7 @@ If UTXOs are snapshotted on layer 2, they must be fanned out on layer 1
 1. **Minimum UTXO value (`minUTxOValue = 0`)**:
    - Outputs with no 'ada' on layer 2 would be disallowed on layer 1,
    preventing their fanout. This restriction makes direct fanout impossible
-   for such outputs. Even using partial fanout, as considered in [this
+   for such outputs. Even using partial fanout, as implemented in [this
    feature](https://github.com/cardano-scaling/hydra/issues/190), would not
    permit the fanout of affected UTXOs.
 

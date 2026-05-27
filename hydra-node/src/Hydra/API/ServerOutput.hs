@@ -24,7 +24,7 @@ import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.IsTx (IsTx (..), TxOutType)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
@@ -157,7 +157,7 @@ data ServerOutput tx
       }
   | HeadIsContested {headId :: HeadId, snapshotNumber :: SnapshotNumber, contestationDeadline :: UTCTime}
   | ReadyToFanout {headId :: HeadId}
-  | HeadIsFinalized {headId :: HeadId, utxo :: UTxOType tx}
+  | HeadIsFinalized {headId :: HeadId, finalizedUTxO :: Set (TxOutType tx)}
   | -- | Given transaction has been seen as valid in the Head. It is expected to
     -- eventually be part of a 'SnapshotConfirmed'.
     TxValid {headId :: HeadId, transactionId :: TxIdType tx}
@@ -307,7 +307,7 @@ data NetworkInfo = NetworkInfo
   deriving anyclass (ToJSON, FromJSON)
 
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
-getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
   HeadState.Idle{} ->
     Nothing
@@ -319,7 +319,7 @@ getSnapshotUtxo = \case
      in Just $ Tx.utxo snapshot <> fromMaybe mempty (Tx.utxoToCommit snapshot)
 
 -- | Get latest seen snapshot from 'HeadState'.
-getSeenSnapshot :: Monoid (UTxOType tx) => HeadState tx -> HeadState.SeenSnapshot tx
+getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
   HeadState.Idle{} ->
     NoSeenSnapshot

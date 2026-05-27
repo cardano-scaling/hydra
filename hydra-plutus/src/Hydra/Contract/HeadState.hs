@@ -35,6 +35,8 @@ data OpenDatum = OpenDatum
   -- ^ Spec: v
   , utxoHash :: Hash
   -- ^ Spec: η
+  , accumulatorHash :: Hash
+  -- ^ Digest of the accumulator ηA for the last confirmed snapshot
   }
   deriving stock (Generic, Show)
 
@@ -61,15 +63,37 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: C
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
+  , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
   }
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''ClosedDatum
 
+-- | Sub-type for intermediate partial fanout state. Carries only the fields
+-- needed for subsequent partial fanout steps, dropping the snapshot-specific
+-- fields that are no longer relevant after the first partial fanout.
+data FanoutProgressDatum = FanoutProgressDatum
+  { headId :: CurrencySymbol
+  , parties :: [Party]
+  , contestationDeadline :: POSIXTime
+  , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
+  }
+  deriving stock (Generic, Show)
+
+PlutusTx.unstableMakeIsData ''FanoutProgressDatum
+
+-- | Extract the fields needed for partial fanout steps from a ClosedDatum.
+-- Called both on-chain (in the validator dispatch) and off-chain (in tx building).
+progressFromClosed :: ClosedDatum -> FanoutProgressDatum
+progressFromClosed ClosedDatum{headId, parties, contestationDeadline, accumulatorCommitment} =
+  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
+{-# INLINEABLE progressFromClosed #-}
+
 data State
   = Open OpenDatum
   | Closed ClosedDatum
   | Final
+  | FanoutProgress FanoutProgressDatum
   deriving stock (Generic, Show)
 
 PlutusTx.unstableMakeIsData ''State
@@ -80,7 +104,8 @@ data CloseRedeemer
     CloseInitial
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny
-      {signature :: [Signature]}
+      { signature :: [Signature]
+      }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
@@ -117,6 +142,8 @@ data ContestRedeemer
     ContestCurrent
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Contesting snapshot refers to the previous state version
     ContestUsedDec
@@ -124,11 +151,15 @@ data ContestRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyDecommittedUTxOHash :: Hash
       -- ^ UTxO which was already decommitted ηω
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Redeemer to use when the decommit was not yet observed but we closed the Head.
     ContestUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Redeemer to use when the commit was not yet observed but we closed the Head.
     ContestUnusedInc
@@ -136,10 +167,14 @@ data ContestRedeemer
       -- ^ Multi-signature of a snapshot ξ
       , alreadyCommittedUTxOHash :: Hash
       -- ^ UTxO which was already committed ηα
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | ContestUsedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   deriving stock (Show, Generic)
 
@@ -179,6 +214,15 @@ data Input
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
       , numberOfDecommitOutputs :: Integer
+      }
+  | PartialFanout
+      { numberOfPartialOutputs :: Integer
+      , crsRef :: TxOutRef
+      }
+  | FinalPartialFanout
+      { numberOfPartialOutputs :: Integer
+      , proof :: BuiltinBLS12_381_G1_Element
+      , crsRef :: TxOutRef
       }
   deriving stock (Generic, Show)
 

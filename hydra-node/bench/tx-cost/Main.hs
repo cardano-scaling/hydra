@@ -38,8 +38,11 @@ import TxCost (
   computeContestCost,
   computeDecrementCost,
   computeFanOutCost,
+  computeFinalPartialFanOutCost,
   computeIncrementCost,
   computeInitCost,
+  computePartialFanOutMixedCost,
+  computePartialFanOutNominalCost,
  )
 
 data Options = Options {outputDirectory :: Maybe FilePath, seed :: Maybe Int}
@@ -99,6 +102,9 @@ writeTransactionCostMarkdown mseed hdl = do
   let closeC = costOfClose seed
   let contestC = costOfContest seed
   let fanoutC = costOfFanOut seed
+  let partialFanoutNominalC = costOfPartialFanOutNominal seed
+  let partialFanoutMixedC = costOfPartialFanOutMixed seed
+  let finalPartialFanoutC = costOfFinalPartialFanOut seed
   hPut hdl $
     encodeUtf8 $
       unlines $
@@ -112,6 +118,9 @@ writeTransactionCostMarkdown mseed hdl = do
             , closeC
             , contestC
             , fanoutC
+            , partialFanoutNominalC
+            , partialFanoutMixedC
+            , finalPartialFanoutC
             ]
 
 -- NOTE: GitHub actions CI depends on the number of header lines, see
@@ -149,6 +158,7 @@ scriptSizes =
   , "| " <> "νHead" <> " | " <> serialiseToRawBytesHexText headScriptHash <> " | " <> show headScriptSize <> " | "
   , "| " <> "μHead" <> " | " <> serialiseToRawBytesHexText mintingScriptHash <> "* | " <> show mintingScriptSize <> " | "
   , "| " <> "νDeposit" <> " | " <> serialiseToRawBytesHexText depositScriptHash <> " | " <> show depositScriptSize <> " | "
+  , "| " <> "νCRS" <> " | " <> serialiseToRawBytesHexText crsScriptHash <> " | " <> show crsScriptSize <> " | "
   , ""
   , "* The minting policy hash is only usable for comparison. As the script is parameterized, the actual script is unique per head."
   , ""
@@ -161,6 +171,8 @@ scriptSizes =
     , headScriptSize
     , depositScriptHash
     , depositScriptSize
+    , crsScriptHash
+    , crsScriptSize
     } = hydraScriptCatalogue
 
 genFromSeed :: Gen a -> Int -> a
@@ -319,6 +331,98 @@ costOfFanOut = markdownFanOutCost . genFromSeed computeFanOutCost
                 <> show parties
                 <> " | "
                 <> show numElems
+                <> " | "
+                <> show utxoSize
+                <> " | "
+                <> show txSize
+                <> " | "
+                <> show (mem `percentOf` maxMem)
+                <> " | "
+                <> show (cpu `percentOf` maxCpu)
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> " |"
+          )
+          stats
+
+costOfPartialFanOutNominal :: Int -> Text
+costOfPartialFanOutNominal = markdownPartialFanOutNominalCost . genFromSeed computePartialFanOutNominalCost
+ where
+  markdownPartialFanOutNominalCost :: [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
+  markdownPartialFanOutNominalCost stats =
+    unlines $
+      [ "## `PartialFanOut` transaction costs"
+      , "One partial fanout transaction distributing the given number of ada-only outputs per step. "
+          <> "The total UTxO count does not affect per-step costs (BLS accumulator commitment is constant size)."
+      , ""
+      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(numDistributed, utxoSize, txSize, mem, cpu, Coin minFee) ->
+              "| "
+                <> show numDistributed
+                <> " | "
+                <> show utxoSize
+                <> " | "
+                <> show txSize
+                <> " | "
+                <> show (mem `percentOf` maxMem)
+                <> " | "
+                <> show (cpu `percentOf` maxCpu)
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> " |"
+          )
+          stats
+
+costOfPartialFanOutMixed :: Int -> Text
+costOfPartialFanOutMixed = markdownPartialFanOutMixedCost . genFromSeed computePartialFanOutMixedCost
+ where
+  markdownPartialFanOutMixedCost :: [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
+  markdownPartialFanOutMixedCost stats =
+    unlines $
+      [ "## `PartialFanOut` transaction costs (with native tokens)"
+      , "Same as the nominal partial fanout but with outputs carrying a native token."
+      , ""
+      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(numDistributed, utxoSize, txSize, mem, cpu, Coin minFee) ->
+              "| "
+                <> show numDistributed
+                <> " | "
+                <> show utxoSize
+                <> " | "
+                <> show txSize
+                <> " | "
+                <> show (mem `percentOf` maxMem)
+                <> " | "
+                <> show (cpu `percentOf` maxCpu)
+                <> " | "
+                <> show (realToFrac minFee / 1_000_000 :: Centi)
+                <> " |"
+          )
+          stats
+
+costOfFinalPartialFanOut :: Int -> Text
+costOfFinalPartialFanOut = markdownFinalPartialFanOutCost . genFromSeed computeFinalPartialFanOutCost
+ where
+  markdownFinalPartialFanOutCost :: [(NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)] -> Text
+  markdownFinalPartialFanOutCost stats =
+    unlines $
+      [ "## `FinalPartialFanOut` transaction costs (with native tokens)"
+      , "Terminal partial fanout step (FanoutProgress → Final) with outputs carrying a native token. "
+          <> "Burns all head tokens and proves accumulator exhaustion via BLS proof."
+      , ""
+      , "| Distributed | UTxO (bytes) | Tx size | % max Mem | % max CPU | Min fee ₳ |"
+      , "| ----------: | -----------: | ------: | --------: | --------: | --------: |"
+      ]
+        <> fmap
+          ( \(numDistributed, utxoSize, txSize, mem, cpu, Coin minFee) ->
+              "| "
+                <> show numDistributed
                 <> " | "
                 <> show utxoSize
                 <> " | "

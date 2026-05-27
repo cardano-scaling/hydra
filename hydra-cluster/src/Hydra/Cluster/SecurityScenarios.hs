@@ -94,6 +94,7 @@ import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (HeadId, IsTx (balance), headIdToCurrencySymbol, headIdToPolicyId, txId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot))
@@ -465,6 +466,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Snapshot.utxo = mempty :: CAPI.UTxO
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
+            , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
 
@@ -503,6 +505,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
             , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
+            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         headOut' =
           fromCtxUTxOTxOut headOut
@@ -709,6 +712,7 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
             , Head.omegaUTxOHash = toBuiltin (hashUTxO @CAPI.Tx mempty)
             , Head.contesters = []
             , Head.contestationDeadline = contestationDeadline
+            , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty Nothing Nothing
             }
 
         headRedeemer = toScriptData (Close CloseInitial)
@@ -855,6 +859,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Snapshot.utxo = mempty :: CAPI.UTxO
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
+            , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
 
@@ -893,6 +898,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
             , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
+            , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         -- Head value grows by ONLY the leader's small deposit; the
         -- victim's value is siphoned to lootAddr.

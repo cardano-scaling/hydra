@@ -47,6 +47,7 @@ import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming, modifyConfig, 
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Logging (Tracer, nullTracer, showLogsOnFailure)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), toArgNetworkId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId, HeadSeed (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -108,6 +109,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
 
             let v = 0
             let snapshotVersion = 0
+                accumulator = Accumulator.buildFromUTxO @Tx mempty
             let snapshot =
                   Snapshot
                     { headId
@@ -117,6 +119,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Nothing
                     , version = snapshotVersion
+                    , accumulator
                     }
 
             postTx $ CloseTx headId headParameters snapshotVersion (ConfirmedSnapshot{snapshot, signatures = aggregate [sign aliceSk snapshot]})
@@ -255,6 +258,8 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
               _ -> Nothing
             let (inHead, toDecommit) = splitUTxO someUTxO
             -- Alice contests with some snapshot U1 -> successful
+            let utxoToDecommit = Just toDecommit
+            let accumulator = Accumulator.buildFromSnapshotUTxOs inHead Nothing utxoToDecommit
             let snapshot1 =
                   Snapshot
                     { headId
@@ -262,8 +267,9 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxo = inHead
                     , confirmed = []
                     , utxoToCommit = Nothing
-                    , utxoToDecommit = Just toDecommit
+                    , utxoToDecommit = utxoToDecommit
                     , version = 0
+                    , accumulator
                     }
             postTx $
               ContestTx
@@ -288,6 +294,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                     , utxoToCommit = Nothing
                     , utxoToDecommit = Just toDecommit
                     , version = 1
+                    , accumulator
                     }
             let contestAgain =
                   postTx $

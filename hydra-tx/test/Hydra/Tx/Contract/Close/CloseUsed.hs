@@ -28,6 +28,7 @@ import Hydra.Tx (
   registryUTxO,
   signatures,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -94,6 +95,7 @@ healthyOutdatedSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
 
 healthyOutdatedOpenDatum :: Head.State
@@ -106,6 +108,7 @@ healthyOutdatedOpenDatum =
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyOpenStateVersion
+      , accumulatorHash = healthyOutdatedAccumulatorHash
       }
 
 -- | In the outdated case, the used snapshot version is exactly one lower than the open state version.
@@ -114,6 +117,10 @@ healthyOpenStateVersion = healthyOutdatedSnapshotVersion + 1
 
 healthyOutdatedConfirmedClosingSnapshot :: ConfirmedSnapshot Tx
 healthyOutdatedConfirmedClosingSnapshot = healthyConfirmedSnapshot healthyOutdatedSnapshot
+
+healthyOutdatedAccumulatorHash :: Head.Hash
+healthyOutdatedAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyOutdatedSnapshot
 
 healthyCloseOutdatedTx :: (Tx, UTxO)
 healthyCloseOutdatedTx =

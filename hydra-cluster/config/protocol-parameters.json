@@ -6,7 +6,6 @@
         "priceMemory": 0,
         "priceSteps": 0
     },
-
     "collateralPercentage": 150,
     "committeeMaxTermLength": 365,
     "committeeMinSize": 0,
@@ -698,7 +697,7 @@
         "ppSecurityGroup": 0.51
     },
     "protocolVersion": {
-        "major": 10,
+        "major": 11,
         "minor": 0
     },
     "stakeAddressDeposit": 2000000,

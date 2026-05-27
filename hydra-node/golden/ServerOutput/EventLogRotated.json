@@ -37,6 +37,7 @@
                                     "multiSignature": []
                                 },
                                 "snapshot": {
+                                    "accumulator": "c0697ac12c10310ef207fa9ee08a2bbe07afe28bb96bd0120ee7c323c39fffa0",
                                     "confirmed": [],
                                     "headId": "00000000010000010000000100010100",
                                     "number": 1,

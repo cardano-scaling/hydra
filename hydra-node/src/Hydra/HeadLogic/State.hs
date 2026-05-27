@@ -249,6 +249,12 @@ data ClosedState tx = ClosedState
   , headId :: HeadId
   , headSeed :: HeadSeed
   , version :: SnapshotVersion
+  , remainingFanoutOutputs :: Maybe (Set (TxOutType tx))
+  -- ^ Tracks remaining TxOut values to fan out after partial fanouts.
+  --   Nothing means no partial fanout has occurred yet.
+  , distributedFanoutOutputs :: Set (TxOutType tx)
+  -- ^ Accumulates TxOut values distributed by partial fanout transactions.
+  --   Used to reconstruct the full output set in 'HeadFannedOut'.
   }
   deriving stock (Generic)
 

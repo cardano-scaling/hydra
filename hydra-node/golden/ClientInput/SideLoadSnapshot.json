@@ -6,6 +6,7 @@
                     "multiSignature": []
                 },
                 "snapshot": {
+                    "accumulator": "24c167c4ef08eadc59378133d07f1c799b2fda9890956736fa071a6db422c5ff",
                     "confirmed": [],
                     "headId": "00000100010100010000000101010101",
                     "number": 1,

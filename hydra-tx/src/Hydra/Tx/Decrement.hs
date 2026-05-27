@@ -9,6 +9,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -60,6 +61,8 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+  decrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+
   HeadParameters{parties, contestationPeriod} = headParameters
 
   headOutput' =
@@ -88,9 +91,10 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
+          , accumulatorHash = toBuiltin decrementAccumulatorHash
           }
 
-  Snapshot{utxo, utxoToDecommit, number, version} = snapshot
+  Snapshot{utxo, utxoToDecommit, number, version, accumulator} = snapshot
 
 -- * Observation
 

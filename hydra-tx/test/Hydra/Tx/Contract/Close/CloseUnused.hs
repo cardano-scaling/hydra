@@ -18,6 +18,7 @@ import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
   healthyCloseLowerBoundSlot,
@@ -54,6 +55,7 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceAccumulatorCommitment,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
@@ -124,7 +126,12 @@ healthyCurrentSnapshot =
     , utxo = healthySplitUTxOInHead
     , utxoToCommit = Nothing
     , utxoToDecommit = Just healthySplitUTxOToDecommit
+    , accumulator = Accumulator.buildFromSnapshotUTxOs healthySplitUTxOInHead Nothing (Just healthySplitUTxOToDecommit)
     }
+
+healthyCurrentAccumulatorHash :: Head.Hash
+healthyCurrentAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCurrentSnapshot
 
 healthyCurrentOpenDatum :: Head.State
 healthyCurrentOpenDatum =
@@ -136,6 +143,7 @@ healthyCurrentOpenDatum =
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCurrentSnapshotVersion
+      , accumulatorHash = healthyCurrentAccumulatorHash
       }
 
 data CloseMutation
@@ -215,6 +223,11 @@ data CloseMutation
     MutateValueInOutput
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
+  | -- | Invalidates the tx by writing a wrong accumulator commitment in the
+    -- output datum. The validator derives the accumulator hash from this
+    -- commitment and verifies the multi-signature against it, so a wrong
+    -- commitment makes the signature check fail.
+    MutateAccumulatorCommitment
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -310,6 +323,11 @@ genCloseCurrentMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
         mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
         pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
+    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+        -- A wrong commitment changes the hash derived by the validator, so the
+        -- signature check fails.
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     ]
  where
   genOversizedTransactionValidity = do

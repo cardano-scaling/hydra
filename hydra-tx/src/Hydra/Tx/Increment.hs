@@ -13,6 +13,7 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (depositValidatorScript)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
@@ -81,6 +82,8 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
 
+  incrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Open
@@ -91,6 +94,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
+          , accumulatorHash = toBuiltin incrementAccumulatorHash
           }
 
   depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)
@@ -105,7 +109,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, version, number} = snapshot
+  Snapshot{utxo, utxoToCommit, version, number, accumulator} = snapshot
 
 -- * Observation
 

@@ -27,6 +27,7 @@ import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Gen ()
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Decrement (
@@ -128,7 +129,16 @@ healthySnapshot =
         , utxo
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
+        , accumulator = healthyAccumulator
         }
+
+healthyAccumulator :: Accumulator.HydraAccumulator
+healthyAccumulator =
+  let (utxoToDecommit', utxo) = splitUTxO healthyUTxO
+   in Accumulator.buildFromSnapshotUTxOs utxo Nothing (Just utxoToDecommit')
+
+healthyAccumulatorHash :: ByteString
+healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
 
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 splitDecommitUTxO utxo =
@@ -156,6 +166,7 @@ healthyDatum =
           , parties = healthyOnChainParties
           , contestationPeriod = toChain healthyContestationPeriod
           , version = toInteger healthySnapshotVersion
+          , accumulatorHash = toBuiltin healthyAccumulatorHash
           }
 
 data DecrementMutation

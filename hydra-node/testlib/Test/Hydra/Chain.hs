@@ -25,9 +25,16 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
       RecoverTx <$> shrink headId <*> shrink recoverTxId <*> shrink deadline <*> shrink recoverUTxO
     DecrementTx{headSeed, headId, headParameters, decrementingSnapshot} ->
       DecrementTx <$> shrink headSeed <*> shrink headId <*> shrink headParameters <*> shrink decrementingSnapshot
-    CloseTx{headId, headParameters, openVersion, closingSnapshot} -> CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
-    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
-    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
+    CloseTx{headId, headParameters, openVersion, closingSnapshot} ->
+      CloseTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink closingSnapshot
+    ContestTx{headId, headParameters, openVersion, contestingSnapshot} ->
+      ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
+    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} ->
+      FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink headSeed <*> shrink contestationDeadline
+    PartialFanoutTx{utxoToDistribute, remainingUTxO, headSeed, contestationDeadline} ->
+      PartialFanoutTx <$> shrink utxoToDistribute <*> shrink remainingUTxO <*> shrink headSeed <*> shrink contestationDeadline
+    FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} ->
+      FinalPartialFanoutTx <$> shrink utxoToDistribute <*> shrink headSeed <*> shrink contestationDeadline
 
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary

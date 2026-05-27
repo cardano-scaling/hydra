@@ -285,10 +285,10 @@ spec =
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
                       Contest{} -> transition === Transition.Contest
+                      PartialFanout{} -> transition === Transition.PartialFanout
                       Fanout{} -> transition === Transition.Fanout
-                      -- NOTE: deposit and recover are not Head transactions as
-                      -- they are not operating on Hydra state machine. We don't generate them
-                      -- in these tests so we don't need to check them.
+                      FinalPartialFanout{} -> transition === Transition.FinalPartialFanout
+                      -- NOTE: deposit and recover are not generated in these tests
                       Deposit{} -> property False
                       Recover{} -> property False
 

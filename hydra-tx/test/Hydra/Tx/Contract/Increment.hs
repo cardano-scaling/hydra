@@ -19,6 +19,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Plutus.Orphans ()
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Contract.Deposit (healthyDeadline)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign, toPlutusSignatures)
@@ -133,7 +134,14 @@ healthySnapshot =
     , utxo = healthyUTxO
     , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
+    , accumulator = healthyAccumulator
     }
+
+healthyAccumulatorHash :: ByteString
+healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
+
+healthyAccumulator :: Accumulator.HydraAccumulator
+healthyAccumulator = Accumulator.buildFromSnapshotUTxOs healthyUTxO (Just healthyDeposited) Nothing
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =
@@ -152,6 +160,7 @@ healthyDatum =
       , headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , version = toInteger healthySnapshotVersion
+      , accumulatorHash = toBuiltin healthyAccumulatorHash
       }
 
 data IncrementMutation

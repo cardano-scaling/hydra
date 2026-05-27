@@ -9,7 +9,10 @@ license-files:
   LICENSE
   NOTICE
 
-extra-source-files: genesis/mainnet-conway-genesis.json
+extra-source-files:
+  genesis/mainnet-conway-genesis.json
+  genesis/protocol-parameters-dijkstra.json
+  trusted_setup.json
 
 source-repository head
   type:     git
@@ -49,6 +52,7 @@ library
     Hydra.Ledger.Cardano.Evaluate
     Hydra.Ledger.Cardano.Time
     Hydra.Tx
+    Hydra.Tx.Accumulator
     Hydra.Tx.BlueprintTx
     Hydra.Tx.Close
     Hydra.Tx.Contest
@@ -62,6 +66,7 @@ library
     Hydra.Tx.Increment
     Hydra.Tx.Init
     Hydra.Tx.IsTx
+    Hydra.Tx.KZGTrustedSetup
     Hydra.Tx.Observe
     Hydra.Tx.OnChainId
     Hydra.Tx.Party
@@ -87,7 +92,9 @@ library
     , cardano-strict-containers
     , cborg
     , containers
+    , file-embed
     , formatting
+    , haskell-accumulator        >=1.2.0.0
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus-extras
@@ -95,7 +102,9 @@ library
     , lens
     , lens-aeson
     , mono-traversable
+    , plutus-accumulator
     , plutus-ledger-api
+    , plutus-tx
     , prettyprinter
     , serialise
     , text
@@ -146,6 +155,7 @@ library testlib
     , ouroboros-consensus
     , ouroboros-consensus:cardano
     , plutus-ledger-api
+    , plutus-tx
     , QuickCheck
     , quickcheck-arbitrary-adt
     , quickcheck-instances
@@ -173,11 +183,14 @@ test-suite tests
     Hydra.Tx.Contract.Decrement
     Hydra.Tx.Contract.Deposit
     Hydra.Tx.Contract.FanOut
+    Hydra.Tx.Contract.FinalPartialFanout
     Hydra.Tx.Contract.Increment
     Hydra.Tx.Contract.Init
+    Hydra.Tx.Contract.PartialFanout
     Hydra.Tx.Contract.Recover
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
+    Hydra.Tx.KZGTrustedSetupSpec
     Spec
 
   type:               exitcode-stdio-1.0
@@ -214,6 +227,23 @@ test-suite tests
 
   build-tool-depends: hspec-discover:hspec-discover
   ghc-options:        -threaded -rtsopts
+
+benchmark accumulator-bench
+  import:         project-config
+  hs-source-dirs: bench/accumulator
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , cardano-api
+    , criterion
+    , hydra-cardano-api
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , QuickCheck
+    , serialise
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
 
 executable hydra-tx
   import:         project-config

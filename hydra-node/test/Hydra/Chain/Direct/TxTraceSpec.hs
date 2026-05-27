@@ -51,6 +51,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano (Tx, adjustUTxO)
 import Hydra.ModelSpec (propIsDistributive)
 import Hydra.Tx (CommitBlueprintTx (..))
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Tx.Deposit (depositTx)
@@ -755,6 +756,7 @@ signedSnapshot ms =
       , utxo
       , utxoToCommit
       , utxoToDecommit
+      , accumulator
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]
@@ -768,6 +770,8 @@ signedSnapshot ms =
   utxoToCommit =
     let u = realWorldModelUTxO (toCommit ms)
      in if UTxO.null u then Nothing else Just u
+
+  accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
 
 -- | A confirmed snapshot (either initial or later confirmed), based onTxTra
 -- 'signedSnapshot'.
@@ -811,6 +815,7 @@ openHeadUTxO =
           , headSeed = toPlutusTxOutRef Fixture.testSeedInput
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
           , version = 0
+          , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs inHeadUTxO Nothing Nothing
           }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)
@@ -916,12 +921,15 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       (actorChainContext actor)
       spendableUTxO
       Fixture.testSeedInput
-      (realWorldModelUTxO utxo)
+      fanoutUTxO
       -- Model world has no 'Maybe ModelUTxO', but real world does.
-      (if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit)
-      (if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit)
+      fanoutCommit
+      fanoutDecommit
       deadline
  where
+  fanoutUTxO = realWorldModelUTxO utxo
+  fanoutCommit = if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit
+  fanoutDecommit = if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit
   deadline = SlotNo $ fromIntegral Fixture.cperiod * fromIntegral (length allActors)
 
 -- | Cardano payment keys for 'alice', 'bob', and 'carol'.

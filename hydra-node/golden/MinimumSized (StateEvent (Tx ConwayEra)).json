@@ -37,17 +37,14 @@
                     "headId": "01010101010100010101010101010001",
                     "number": 1,
                     "utxo": {
-                        "0000010101000100000001000101010101010101000100010000010100010100#10": {
-                            "address": "addr_test1xrk40u4w33rpp27htdluggywsephqfddnl5hr37zqsux6djszf8u2p0lt7lksflha4u4slgt8emn760a2jf2ucgs960sx5vexw",
+                        "0001000100010101010101000001000000000100000000010101000001000100#70": {
+                            "address": "addr_test1yq7d3me74gvs7505w7zr8p8ksljgk2dpasr9lflyr80hj0enlxmxtn3xjh56dffp5kfmg36zq8tfky69mrygenmqld5q8l256w",
                             "datum": null,
                             "datumhash": null,
                             "inlineDatum": null,
                             "inlineDatumRaw": null,
                             "referenceScript": null,
                             "value": {
-                                "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
-                                    "37": 1
-                                },
                                 "lovelace": 45000000000000000
                             }
                         }

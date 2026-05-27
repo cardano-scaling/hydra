@@ -133,14 +133,14 @@ import Hydra.Cardano.Api hiding (label)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts qualified as Ledger
 import Cardano.Ledger.Alonzo.TxWits qualified as Ledger
-import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, reqSignerHashesTxBodyL)
+import Cardano.Ledger.Api (AllegraEraTxBody (vldtTxBodyL), AsIx (..), inputsTxBodyL, mintTxBodyL, outputsTxBodyL, referenceInputsTxBodyL, reqSignerHashesTxBodyL)
 import Cardano.Ledger.Conway.Scripts (ConwayPlutusPurpose (..))
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Mary.Value qualified as Ledger
 import Cardano.Ledger.Plutus.Data qualified as Ledger
 import Control.Exception (assert)
-import Control.Lens (set, view, (.~), (^.))
+import Control.Lens (over, set, view, (.~), (^.))
 import Data.Map qualified as Map
 import Data.Sequence.Strict qualified as StrictSeq
 import Data.Set qualified as Set
@@ -155,6 +155,7 @@ import Hydra.Prelude hiding (label, toList)
 import Hydra.Tx.Utils (findFirst)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toData)
 import PlutusLedgerApi.V3 qualified as Plutus
+import PlutusTx.Builtins qualified as PlutusTx
 import System.Directory.Internal.Prelude qualified as Prelude
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx)
 import Test.Hydra.Prelude
@@ -282,6 +283,10 @@ data Mutation
   | -- | Change the included minting policy (the first minted policy) and update
     -- minted/burned values of this policy.
     ChangeMintingPolicy PlutusScript
+  | -- | Adds a reference input to the transaction body and the UTxO context.
+    -- Useful to simulate an attacker supplying a malicious reference UTxO
+    -- (e.g. a fake CRS) while pointing the redeemer at it.
+    AddReferenceInput TxIn (TxOut CtxUTxO)
   | -- | Applies several mutations as a single atomic 'Mutation'.
     -- This is useful to enable specific mutations that require consistent
     -- change of more than one thing in the transaction and/or UTxO set, for
@@ -477,6 +482,14 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
         scripts
 
     ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+  AddReferenceInput txIn txOut ->
+    (Tx body' wits, UTxO $ Map.insert txIn txOut (UTxO.toMap utxo))
+   where
+    ShelleyTxBody ledgerBody scripts scriptData mAuxData scriptValidity = body
+    body' = ShelleyTxBody ledgerBody' scripts scriptData mAuxData scriptValidity
+    ledgerBody' =
+      ledgerBody
+        & over Cardano.Ledger.Api.referenceInputsTxBodyL (Set.insert (toLedgerTxIn txIn))
   Changes mutations ->
     foldr applyMutation (tx, utxo) mutations
  where
@@ -699,7 +712,7 @@ replacePolicyInValue original replacement =
 
 replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
 replaceSnapshotVersion snapshotVersion = \case
-  Head.Open Head.OpenDatum{headSeed, parties, utxoHash, headId, contestationPeriod} ->
+  Head.Open Head.OpenDatum{headSeed, parties, utxoHash, headId, contestationPeriod, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -708,8 +721,9 @@ replaceSnapshotVersion snapshotVersion = \case
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
         , Head.version = snapshotVersion
+        , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod} ->
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -722,12 +736,13 @@ replaceSnapshotVersion snapshotVersion = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = snapshotVersion
+        , Head.accumulatorCommitment = accumulatorCommitment
         }
   otherState -> otherState
 
 replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
 replaceSnapshotNumber snapshotNumber = \case
-  Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -740,12 +755,13 @@ replaceSnapshotNumber snapshotNumber = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = version
+        , Head.accumulatorCommitment = accumulatorCommitment
         }
   otherState -> otherState
 
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, headId, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, headId, version, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -754,8 +770,9 @@ replaceParties parties = \case
         , Head.utxoHash = utxoHash
         , Head.headId = headId
         , Head.version = version
+        , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -768,12 +785,15 @@ replaceParties parties = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = version
+        , Head.accumulatorCommitment = accumulatorCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, contestationDeadline, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
 replaceUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceUTxOHash utxoHash = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, headId, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, headId, version, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -782,8 +802,9 @@ replaceUTxOHash utxoHash = \case
         , Head.utxoHash = utxoHash
         , Head.headId = headId
         , Head.version = version
+        , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{parties, alphaUTxOHash, omegaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, alphaUTxOHash, omegaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -796,12 +817,13 @@ replaceUTxOHash utxoHash = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = version
+        , Head.accumulatorCommitment = accumulatorCommitment
         }
   otherState -> otherState
 
 replaceOmegaUTxOHash :: Head.Hash -> Head.State -> Head.State
 replaceOmegaUTxOHash omegaUTxOHash' = \case
-  Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, utxoHash, alphaUTxOHash, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -814,12 +836,13 @@ replaceOmegaUTxOHash omegaUTxOHash' = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = version
+        , accumulatorCommitment
         }
   otherState -> otherState
 
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
@@ -832,12 +855,15 @@ replaceContestationDeadline contestationDeadline = \case
         , headId
         , contesters
         , version
+        , accumulatorCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
 replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
 replaceContestationPeriod contestationPeriod = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contesters, contestationDeadline, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, parties, headId, contesters, contestationDeadline, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
@@ -850,12 +876,34 @@ replaceContestationPeriod contestationPeriod = \case
         , headId
         , contesters
         , version
+        , accumulatorCommitment
         }
+  otherState -> otherState
+
+replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G1_Element -> Head.State -> Head.State
+replaceAccumulatorCommitment newCommitment = \case
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+    Head.Closed
+      Head.ClosedDatum
+        { Head.parties = parties
+        , Head.snapshotNumber = snapshotNumber
+        , Head.utxoHash = utxoHash
+        , Head.alphaUTxOHash = alphaUTxOHash
+        , Head.omegaUTxOHash = omegaUTxOHash
+        , Head.contestationDeadline = contestationDeadline
+        , Head.contestationPeriod = contestationPeriod
+        , Head.headId = headId
+        , Head.contesters = contesters
+        , Head.version = version
+        , Head.accumulatorCommitment = newCommitment
+        }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = newCommitment}
   otherState -> otherState
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
 replaceHeadId headId = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, parties, version} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, parties, version, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -864,8 +912,9 @@ replaceHeadId headId = \case
         , Head.utxoHash = utxoHash
         , Head.headId = headId
         , Head.version = version
+        , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, parties, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, parties, contesters, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -878,12 +927,15 @@ replaceHeadId headId = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = version
+        , Head.accumulatorCommitment = accumulatorCommitment
         }
+  Head.FanoutProgress Head.FanoutProgressDatum{parties, contestationDeadline, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
 replaceContesters :: [Plutus.PubKeyHash] -> Head.State -> Head.State
 replaceContesters contesters = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, parties, headId, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, utxoHash, alphaUTxOHash, omegaUTxOHash, contestationDeadline, parties, headId, contestationPeriod, version, accumulatorCommitment} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -896,5 +948,6 @@ replaceContesters contesters = \case
         , Head.headId = headId
         , Head.contesters = contesters
         , Head.version = version
+        , Head.accumulatorCommitment = accumulatorCommitment
         }
   otherState -> otherState

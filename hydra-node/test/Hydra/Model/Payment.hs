@@ -79,6 +79,7 @@ instance IsTx Payment where
   type TxOutType Payment = (CardanoSigningKey, Value)
   type UTxOType Payment = [(CardanoSigningKey, Value)]
   type ValueType Payment = Value
+
   txId = error "undefined"
   balance = foldMap snd
   hashUTxO = encodeUtf8 . show @Text
@@ -95,6 +96,12 @@ instance IsTx Payment where
      in second fromList <$> result
   applyTxTo tx utxo = applyTx utxo tx
 
+  -- For Payment, filter UTxO by keeping entries whose output is in the given set
+  filterUTxOByOutputs utxo outputs = filter (`Set.member` outputs) utxo
+
+  -- For Payment, just use show for serialization (consistent with hashUTxO)
+  utxoToElement = encodeUtf8 . show @Text
+
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment
 applyTx utxo Payment{from, to, value} =
   (to, value) : List.delete (from, value) utxo
@@ -106,6 +113,12 @@ genAdaValue = lovelaceToValue . fromInteger <$> choose (minimumUTxOAda, 10000000
   minimumUTxOAda = 1000000
 
 -- * Orphans
+
+-- | Orphan 'Ord' instance for Cardano 'Value' using JSON encoding for comparison.
+-- Needed to use '(CardanoSigningKey, Value)' as 'TxOutType Payment' in 'Set'.
+instance Ord Value where
+  compare x y = compare (toJSON x) (toJSON y)
+
 instance Arbitrary Value where
   arbitrary = genAdaValue
 

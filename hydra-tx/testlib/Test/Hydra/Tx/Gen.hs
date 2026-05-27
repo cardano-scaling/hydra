@@ -24,15 +24,19 @@ import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.ChainState
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx
+import Hydra.Tx.Accumulator (createCRSG2Datum, defaultItems)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation)
 import Hydra.Tx.ContestationPeriod
 import Hydra.Tx.Crypto
+import Hydra.Tx.Fanout (PartialFanoutObservation)
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
@@ -66,7 +70,7 @@ genTxOut =
   gen =
     oneof
       [ fromLedgerTxOut <$> arbitrary
-      , notMultiAsset . fromLedgerTxOut <$> arbitrary
+      , noDatum . notMultiAsset . fromLedgerTxOut <$> arbitrary
       ]
 
 notMultiAsset :: TxOut ctx -> TxOut ctx
@@ -109,6 +113,10 @@ noStakeRefPtr out@(TxOut addr val dat refScript) = case addr of
 noRefScripts :: TxOut ctx -> TxOut ctx
 noRefScripts out =
   out{txOutReferenceScript = ReferenceScriptNone}
+
+noDatum :: TxOut ctx -> TxOut ctx
+noDatum out =
+  out{txOutDatum = TxOutDatumNone}
 
 -- | Generate an ada-only 'TxOut' paid to an arbitrary public key.
 genTxOutAdaOnly :: VerificationKey PaymentKey -> Gen (TxOut ctx)
@@ -174,6 +182,27 @@ genUTxOAdaOnlyOfSize numUTxO =
  where
   gen :: Gen UTxO
   gen = UTxO.singleton <$> arbitrary <*> (genTxOutAdaOnly =<< arbitrary)
+
+-- | Generate a fixed size UTxO where every output carries a native token from a
+-- single shared (policyId, assetName) pair. A shared type keeps the accumulated
+-- head-output value bounded to exactly two entries (ADA + one token type),
+-- avoiding the 4 KB value-size limit that would be hit if each output had a
+-- distinct policy or asset name.
+genUTxOWithTokensOfSize :: Int -> Gen UTxO
+genUTxOWithTokensOfSize numUTxO = do
+  policyId <- arbitrary
+  assetName <- arbitrary
+  fold <$> vectorOf numUTxO (gen policyId assetName)
+ where
+  gen :: PolicyId -> AssetName -> Gen UTxO
+  gen policyId assetName = do
+    txIn <- arbitrary
+    vk <- arbitrary
+    let tokenValue = fromList [(AssetId policyId assetName, 1)]
+        baseValue = lovelaceToValue (Coin 3_000_000) <> tokenValue
+        out :: TxOut CtxUTxO
+        out = TxOut (mkVkAddress (Testnet $ NetworkMagic 42) vk) baseValue TxOutDatumNone ReferenceScriptNone
+    pure $ UTxO.singleton txIn (ensureMinAda out)
 
 -- | Generate a single UTXO owned by 'vk'.
 genOneUTxOFor :: VerificationKey PaymentKey -> Gen UTxO
@@ -284,8 +313,14 @@ instance Arbitrary TxId where
    where
     onlyTxId (TxIn txi _) = txi
 
+instance Arbitrary Accumulator.HydraAccumulator where
+  arbitrary = Accumulator.build <$> listOf (BS.pack <$> vectorOf 32 arbitrary)
+
 genScriptRegistry :: Gen ScriptRegistry
-genScriptRegistry = do
+genScriptRegistry = genScriptRegistryWithCRSSize defaultItems
+
+genScriptRegistryWithCRSSize :: Int -> Gen ScriptRegistry
+genScriptRegistryWithCRSSize crsSize = do
   txId' <- arbitrary
   vk <- arbitrary
   txOut <- genTxOutAdaOnly vk
@@ -294,6 +329,10 @@ genScriptRegistry = do
       { headReference =
           ( TxIn txId' (TxIx 2)
           , txOut{txOutReferenceScript = mkScriptRef Head.validatorScript}
+          )
+      , crsReference =
+          ( TxIn txId' (TxIx 3)
+          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG2Datum crsSize}
           )
       }
 
@@ -345,6 +384,10 @@ instance Arbitrary ContestObservation where
   shrink = genericShrink
 
 instance Arbitrary FanoutObservation where
+  arbitrary = genericArbitrary
+  shrink = genericShrink
+
+instance Arbitrary PartialFanoutObservation where
   arbitrary = genericArbitrary
   shrink = genericShrink
 
@@ -452,12 +495,24 @@ instance Arbitrary HeadParameters where
     dedupParties HeadParameters{contestationPeriod, parties} =
       HeadParameters{contestationPeriod, parties = nub parties}
 
-instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) where
-  arbitrary = genericArbitrary
+instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (Snapshot tx) where
+  arbitrary = do
+    headId <- arbitrary
+    version <- arbitrary
+    number <- arbitrary
+    confirmed <- arbitrary
+    -- Cap each UTxO component so the combined size stays within maxAccumulatorSize.
+    let cap = Accumulator.maxAccumulatorSize `div` 3
+    utxo <- scale (min cap) arbitrary
+    utxoToCommit <- scale (min cap) arbitrary
+    utxoToDecommit <- scale (min cap) arbitrary
+    let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
   -- NOTE: See note on 'Arbitrary (ClientInput tx)'
   shrink Snapshot{headId, version, number, utxo, confirmed, utxoToCommit, utxoToDecommit} =
-    [ Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit'
+    [ let accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCommit' utxoToDecommit'
+       in Snapshot headId version number confirmed' utxo' utxoToCommit' utxoToDecommit' accumulator
     | confirmed' <- shrink confirmed
     , utxo' <- shrink utxo
     , utxoToCommit' <- shrink utxoToCommit
@@ -467,9 +522,10 @@ instance (Arbitrary tx, Arbitrary (UTxOType tx)) => Arbitrary (Snapshot tx) wher
 instance (Arbitrary tx, Arbitrary (UTxOType tx), IsTx tx) => Arbitrary (ConfirmedSnapshot tx) where
   arbitrary = do
     ks <- arbitrary
-    utxo <- arbitrary
-    utxoToCommit <- arbitrary
-    utxoToDecommit <- arbitrary
+    let cap = Accumulator.maxAccumulatorSize `div` 3
+    utxo <- scale (min cap) arbitrary
+    utxoToCommit <- scale (min cap) arbitrary
+    utxoToDecommit <- scale (min cap) arbitrary
     headId <- arbitrary
     genConfirmedSnapshot headId 0 0 utxo utxoToCommit utxoToDecommit ks
 
@@ -504,7 +560,9 @@ genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
     -- FIXME: This is another nail in the coffin to our current modeling of
     -- snapshots
     number <- arbitrary `suchThat` (> minSn)
-    let snapshot = Snapshot{headId, version, number, confirmed = [], utxo, utxoToCommit, utxoToDecommit}
+    let u = utxo `withoutUTxO` fromMaybe mempty utxoToCommit
+    let accumulator = Accumulator.buildFromSnapshotUTxOs u utxoToCommit utxoToDecommit
+        snapshot = Snapshot{headId, version, number, confirmed = [], utxo = u, utxoToCommit, utxoToDecommit, accumulator}
     let signatures = aggregate $ fmap (`sign` snapshot) sks
     pure $ ConfirmedSnapshot{snapshot, signatures}
 

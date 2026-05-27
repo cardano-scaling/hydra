@@ -42,7 +42,7 @@ Here, isolate the transaction for `5` parties by altering the function to `maybe
 The `collectCom` transaction utilizes the `vCommit` and `vHead` validator scripts. To enable profiling, add the following directive to the modules [`Hydra.Contract.Commit`](pathname:///haddock/hydra-plutus/Hydra-Contract-Commit.html) and [`Hydra.Contract.Head`](pathname:///haddock/hydra-plutus/Hydra-Contract-Head.html):
 
 ```
-{-# OPTIONS_GHC -fplugin-opt PlutusTx.Plugin:profile-all #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:profile-all #-}
 ```
 
 ## Acquiring an executable script

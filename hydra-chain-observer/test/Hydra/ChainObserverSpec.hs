@@ -46,7 +46,9 @@ spec =
                     Just (Decrement{}) -> transition === Transition.Decrement
                     Just (Close{}) -> transition === Transition.Close
                     Just (Contest{}) -> transition === Transition.Contest
+                    Just (PartialFanout{}) -> transition === Transition.PartialFanout
                     Just (Fanout{}) -> transition === Transition.Fanout
+                    Just (FinalPartialFanout{}) -> transition === Transition.FinalPartialFanout
                     _ -> property False
 
     prop "Updates UTxO state given transaction part of Head lifecycle" $

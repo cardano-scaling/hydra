@@ -25,11 +25,13 @@ import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (mkHeadId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Contract.Contest.Healthy (
   healthyCloseSnapshotVersion,
   healthyClosedHeadTxIn,
   healthyClosedHeadTxOut,
   healthyClosedState,
+  healthyContestSnapshot,
   healthyContestSnapshotNumber,
   healthyContestUTxOHash,
   healthyContestUTxOToDecommitHash,
@@ -64,6 +66,7 @@ import Test.Hydra.Tx.Mutation (
   SomeMutation (..),
   changeMintedTokens,
   modifyInlineDatum,
+  replaceAccumulatorCommitment,
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
@@ -79,6 +82,10 @@ import Test.QuickCheck (arbitrarySizedNatural, listOf, listOf1, oneof, resize, s
 import Test.QuickCheck.Gen (choose)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Instances ()
+
+healthyContestAccumulatorHash :: Head.Hash
+healthyContestAccumulatorHash =
+  toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyContestSnapshot
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
@@ -159,6 +166,11 @@ data ContestMutation
     MutateHeadIdInOutput
   | -- | Inject an unrelated v_deposit input into a healthy Contest.
     ContestAbsorbForeignDeposit
+  | -- | Invalidates the tx by writing a wrong accumulator commitment in the
+    -- output datum while keeping a valid signed accumulatorHash in the redeemer.
+    --
+    -- Ensures the on-chain validator binds the G2 commitment to the signed hash.
+    MutateAccumulatorCommitment
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -173,6 +185,7 @@ genContestMutation (tx, _utxo) =
           Head.Contest
             Head.ContestCurrent
               { signature = toPlutusSignatures mutatedSignature
+              , accumulatorHash = healthyContestAccumulatorHash
               }
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyContestSnapshotNumber)
@@ -193,6 +206,7 @@ genContestMutation (tx, _utxo) =
                     { signature =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
+                    , accumulatorHash = healthyContestAccumulatorHash
                     }
             ]
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
@@ -215,6 +229,7 @@ genContestMutation (tx, _utxo) =
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber
+                            , accumulatorHash = healthyContestAccumulatorHash
                             }
                       )
                 )
@@ -314,6 +329,11 @@ genContestMutation (tx, _utxo) =
             , ChangeOutput 0 headTxOut'
             , AddScript depositValidatorScript
             ]
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+        -- A commitment from a different accumulator: the signed accumulatorHash
+        -- was derived from the healthy one, so this G2 point won't match.
+        let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
+        pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

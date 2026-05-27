@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "distributedOutputs": [],
+            "headId": "01000100000100000000000101010001",
+            "tag": "PartialFanout"
+        }
+    ],
+    "seed": -1071321849
+}

@@ -292,12 +292,13 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "dbf62baf3727e3230f399f827dd320ab7fcf9945385c4bdc10f814473044c069f78117112082d7f0abceaddd937461ec6ccba6c564beaed7c1ae45dc221c9909",
-                                "981b02bded34fbe99dc31039b14d8a58f424b9f625c2893b52d8672db17730357be185f7ac1e9f053aaaba1acd1b9397076faaf236655eeaeb05bda0f9368203",
-                                "f67f671e2da68dca95c2fca1a885abeab7f602b8a9410eb8ed08e80f6476c490b829ef28fc3334b00024e8d4b26afd63bfaa8d05770c9c694b81e7857ffb9801"
+                                "1cd99cc4b6e32ce475d0258f0798b82b75da87cc5e89079b1d5a23a787c5a716b1cca43cc2d17f8dd741bec022e951f1df1d429e916e20189be9ae91c6097206",
+                                "9bf3a429cd6decdc9ad9b86c55ecc5d8d473ad2b9fe18e563f7350a80b62675d6456aaee7d0ffbcfc88967acad4209368643e76786496f2743e52f1209c65502",
+                                "b354122aefd5037db7758a643cbd653896893fb20334039c6c3b84af10c60feadae0602eba25f912dda54054029f5c90a4f24eca576b7aa7927f76f83123510b"
                             ]
                         },
                         "snapshot": {
+                            "accumulator": "de8b2bbf10678c5ee702447d10e5cab649b9435cfbd5e8aecd9cb5da4c4696a7",
                             "confirmed": [],
                             "headId": "05020008050304010702080103040701",
                             "number": 2,
@@ -1613,10 +1614,11 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "e233ba9cdef2453ae9c4657b0b2654b59d881c4acf422afb6d5efb7514fa3e7782312b77fc8ec56a8a698272efa51f80b08568c7a35e0017be1b0ba815724202"
+                                "e884daf96dcc27a7ae364cc40b8cbd0f4eed52b104c21467d4bdf02c319cb007878e2e53c851096e7b5357c725c4a3b1f4ce9e069a59f29cda89cb8ca10dfa0f"
                             ]
                         },
                         "snapshot": {
+                            "accumulator": "1e863712b2a2f65e54c3824ea0f0be0b969d4fc99973d12ee7166c585b28ec0a",
                             "confirmed": [],
                             "headId": "07010302080505060201050304000507",
                             "number": 4,
@@ -2930,10 +2932,11 @@
                     "confirmedSnapshot": {
                         "signatures": {
                             "multiSignature": [
-                                "ccd497b9f521cc38a66530e2a0e1f8364212d7f79fa2294a63221104981cff4b4c18187fec2b59436cf19d33f8fcb0974552d534f6b64d07617add4923729d02"
+                                "5a9d9f465fa345fa30b352faf8601ed69f5f9f81c35b741b7f42c93c1119a03467e1d9dc965e9564222571b7f60554891cb9dad92f705d1f2dbfe72cafc28c05"
                             ]
                         },
                         "snapshot": {
+                            "accumulator": "23d7bb6c5f74ceae5834836711c76113b84609537ecacc0d36eec4402808c66c",
                             "confirmed": [],
                             "headId": "04020205080805000108040807020302",
                             "number": 3,

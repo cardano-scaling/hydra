@@ -97,6 +97,10 @@ instance IsTx SimpleTx where
       , txOutputs = mempty
       }
 
+  filterUTxOByOutputs = Set.intersection
+
+  utxoToElement = toStrict . serialise . unSimpleTxOut
+
 -- * Simple chain state
 
 newtype SimpleChainState = SimpleChainState {slot :: ChainSlot}

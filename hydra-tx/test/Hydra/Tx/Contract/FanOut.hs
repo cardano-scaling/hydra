@@ -22,6 +22,7 @@ import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (mkHeadId, registryUTxO)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
@@ -30,7 +31,7 @@ import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import PlutusTx.Builtins (toBuiltin)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistry, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
@@ -53,7 +54,7 @@ healthyFanoutTx =
       healthySlotNo
       headTokenScript
 
-  scriptRegistry = genScriptRegistry `generateWith` 42
+  scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
   headInput = generateWith arbitrary 42
 
@@ -80,6 +81,13 @@ healthyContestationDeadline =
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
 healthyFanoutSnapshotUTxO = splitUTxO healthyFanoutUTxO
 
+healthyFanoutSnapshotAccumulator :: Accumulator.HydraAccumulator
+healthyFanoutSnapshotAccumulator =
+  Accumulator.buildFromSnapshotUTxOs (fst healthyFanoutSnapshotUTxO) Nothing (Just $ snd healthyFanoutSnapshotUTxO)
+
+crsSize :: Int
+crsSize = Accumulator.requiredCRSPointCount healthyFanoutSnapshotAccumulator
+
 healthyFanoutDatum :: Head.State
 healthyFanoutDatum =
   Head.Closed
@@ -95,6 +103,8 @@ healthyFanoutDatum =
       , headId = toPlutusCurrencySymbol testPolicyId
       , contesters = []
       , version = 0
+      , accumulatorCommitment =
+          Accumulator.getAccumulatorCommitment healthyFanoutSnapshotAccumulator
       }
  where
   healthyContestationPeriodSeconds = 10

@@ -20,7 +20,7 @@ import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
-import Data.Aeson.Types (parseEither, parseMaybe)
+import Data.Aeson.Types (parseMaybe)
 import Data.ByteString.Lazy qualified as LBS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (Era, NetworkId, SocketPath, Tx, TxId, getVerificationKey, lovelaceToValue, signTx)
+import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, getVerificationKey, lovelaceToValue, signTx)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -209,17 +209,18 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
 
   putTextLn "Finalizing the Head"
   send leader $ input "Fanout" []
-  fanoutResult :: Either SomeException Value <- try $ waitMatch 100 leader $ \v -> do
+  fanoutResult :: Either SomeException Int <- try $ waitMatch 100 leader $ \v -> do
     guard (v ^? key "tag" == Just "HeadIsFinalized")
     guard $ v ^? key "headId" == Just (toJSON headId)
-    v ^? key "utxo"
+    finalizedArr <- v ^? key "finalizedUTxO"
+    pure $ length (finalizedArr ^.. values)
 
-  finalUTxOJSON <-
+  numberOfFanoutOutputs <-
     case fanoutResult of
       Left _ -> do
         putStrLn "Fanout failed."
-        toJSON <$> getSnapshotUTxO leader
-      Right finalUTxO -> pure finalUTxO
+        UTxO.size <$> getSnapshotUTxO leader
+      Right n -> pure n
 
   let confTimes = map (\(_, _, a) -> a) res
       numberOfTxs = length confTimes
@@ -228,10 +229,6 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       quantiles = makeQuantiles confTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
-      numberOfFanoutOutputs =
-        case parseEither (parseJSON @(UTxO.UTxO Era)) finalUTxOJSON of
-          Left _ -> error "Failed to decode Fanout UTxO"
-          Right fanoutUTxO -> UTxO.size fanoutUTxO
 
   pure $
     Summary

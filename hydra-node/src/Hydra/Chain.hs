@@ -36,6 +36,7 @@ import Hydra.Tx (
   IsTx (..),
   SnapshotNumber,
   SnapshotVersion,
+  TxOutType,
   UTxOType,
  )
 import Hydra.Tx.OnChainId (OnChainId)
@@ -81,7 +82,24 @@ data PostChainTx tx
       , openVersion :: SnapshotVersion
       , contestingSnapshot :: ConfirmedSnapshot tx
       }
-  | FanoutTx {utxo :: UTxOType tx, utxoToCommit :: Maybe (UTxOType tx), utxoToDecommit :: Maybe (UTxOType tx), headSeed :: HeadSeed, contestationDeadline :: UTCTime}
+  | FanoutTx
+      { utxo :: UTxOType tx
+      , utxoToCommit :: Maybe (UTxOType tx)
+      , utxoToDecommit :: Maybe (UTxOType tx)
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
+  | PartialFanoutTx
+      { utxoToDistribute :: UTxOType tx
+      , remainingUTxO :: UTxOType tx
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
+  | FinalPartialFanoutTx
+      { utxoToDistribute :: UTxOType tx
+      , headSeed :: HeadSeed
+      , contestationDeadline :: UTCTime
+      }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -131,6 +149,7 @@ data OnChainTx tx
       , contestationDeadline :: UTCTime
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
+  | OnPartialFanoutTx {headId :: HeadId, distributedOutputs :: Set (TxOutType tx)}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
@@ -166,6 +185,10 @@ data PostTxError tx
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
   | FailedToConstructFanoutTx
+  | FailedToConstructPartialFanoutTx
+  | -- | Another node already posted this partial fanout step; the chain
+    -- observation loop will emit the correct next step automatically.
+    StalePartialFanoutTx
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 
