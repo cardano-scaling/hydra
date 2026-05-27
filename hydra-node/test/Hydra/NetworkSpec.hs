@@ -32,7 +32,7 @@ import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGold
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
-import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
+import Test.Network.Ports (randomUnusedTCPPortsWithDerived, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
@@ -179,7 +179,12 @@ spec = do
                 -- Expire all leases manually to simulate a keepAlive coming too
                 -- late. Note that we do not distinguish which is which so
                 -- alice's lease will also be killed, but does not matter here.
-                let endpoints = "--endpoints=" <> show (listen aliceConfig)
+                -- NOTE: etcdctl talks to the etcd /client/ port, not the peer
+                -- port. Using @listen aliceConfig@ here used to work on etcd
+                -- 3.5 (whose peer listener happened to answer client RPCs too)
+                -- but hangs on etcd 3.6, where the peer port no longer serves
+                -- the lease API.
+                let endpoints = "--endpoints=127.0.0.1:" <> show (getClientPort aliceConfig)
                 output <- readProcessStdout_ . shell $ "etcdctl lease list " <> endpoints
                 let leases = drop 1 $ lines $ decodeUtf8 output
                 forM_ leases $ \lease ->
@@ -314,7 +319,10 @@ data PeerConfig2 = PeerConfig2
 
 setup2Peers :: FilePath -> IO PeerConfig2
 setup2Peers tmp = do
-  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+  -- Allocate peer ports whose derived etcd client ports (peer - 2622) are
+  -- also free at allocation time — otherwise etcd dies on startup with
+  -- "bind: address already in use" for the client port. See 'getClientPort'.
+  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived (\p -> p - 2622) 2
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   pure
@@ -351,7 +359,8 @@ data PeerConfig3 = PeerConfig3
 
 setup3Peers :: FilePath -> IO PeerConfig3
 setup3Peers tmp = do
-  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+  -- See note in 'setup2Peers' about the derived client port.
+  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived (\p -> p - 2622) 3
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   let carolHost = Host lo port3

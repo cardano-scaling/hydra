@@ -55,3 +55,57 @@ bindFreshLoopback = do
   s <- socket AF_INET Stream defaultProtocol
   bind s (SockAddrInet 0 (tupleToHostAddress (127, 0, 0, 1)))
   pure s
+
+-- | Find @count@ free TCPv4 ports such that for each returned port @p@, the
+-- /derived/ port @derive p@ is also free at allocation time.
+--
+-- This is needed for tests that drive a subprocess which itself opens a
+-- companion port computed from the configured one — e.g. etcd, whose client
+-- port is @listen - 2622@ in this codebase. A vanilla 'randomUnusedTCPPorts'
+-- guarantees the @count@ primary ports are mutually unique but says nothing
+-- about the derived companions, which can be in use by anything on the host
+-- (other processes, other test fixtures, TIME_WAIT, etc.). The result is a
+-- flaky 'bind: address already in use' the moment the subprocess starts.
+--
+-- We acquire the primary port from the OS, then try to bind its companion to
+-- prove it's free; if the companion bind fails we drop the primary and
+-- retry, up to a generous bound (collisions on the companion are rare in
+-- the ephemeral range, so we should converge quickly).
+--
+-- NOTE: There's still a small race between releasing the bound sockets and
+-- the subprocess binding them, but it's the same race 'randomUnusedTCPPorts'
+-- already has, and not the root cause of the etcd flakes.
+randomUnusedTCPPortsWithDerived ::
+  (PortNumber -> PortNumber) ->
+  Int ->
+  IO [Int]
+randomUnusedTCPPortsWithDerived derive count =
+  bracket (acquire count [] (count * 20)) release (pure . map (\(p, _, _) -> fromIntegral p))
+ where
+  acquire :: Int -> [(PortNumber, Socket, Socket)] -> Int -> IO [(PortNumber, Socket, Socket)]
+  acquire 0 acc _ = pure acc
+  acquire _ _ 0 =
+    fail $
+      "randomUnusedTCPPortsWithDerived: ran out of retries trying to pair "
+        <> show count
+        <> " primary ports with free derived ports."
+  acquire k acc budget = do
+    peerSock <- bindFreshLoopback
+    peerPortNum <- socketPort peerSock
+    let companion = derive peerPortNum
+    eClient <- try $ bindSpecificLoopback companion
+    case eClient of
+      Left (_ :: SomeException) -> do
+        close peerSock
+        acquire k acc (budget - 1)
+      Right clientSock ->
+        acquire (k - 1) ((peerPortNum, peerSock, clientSock) : acc) (budget - 1)
+
+  release :: [(PortNumber, Socket, Socket)] -> IO ()
+  release = mapM_ (\(_, ps, cs) -> close ps `finally` close cs)
+
+bindSpecificLoopback :: PortNumber -> IO Socket
+bindSpecificLoopback portNumber = do
+  s <- socket AF_INET Stream defaultProtocol
+  bind s (SockAddrInet portNumber (tupleToHostAddress (127, 0, 0, 1)))
+  pure s
