@@ -178,8 +178,13 @@ spec =
                 mapM_ putEvent history
                 -- start client that doesn't want to see the history
                 withClient port "/?history=yes" $ \conn -> do
-                  -- wait on the greeting message
-                  waitMatch 5 conn $ guard . matchGreetings
+                  -- Wait on the greeting message. The longer-than-typical
+                  -- budget here is because this is a property test running
+                  -- ~100 iterations; each iteration spins up a full WS
+                  -- server, and the per-iteration 5s default was racing
+                  -- with CPU contention when the full hydra-node test
+                  -- suite runs in parallel.
+                  waitMatch 20 conn $ guard . matchGreetings
 
                   notHistoryMessage :: StateEvent SimpleTx <- generate genStateEventForApi
                   putEvent notHistoryMessage
@@ -218,7 +223,11 @@ spec =
       forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
         monadicIO $ do
           run $
-            showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
+            -- NOTE: 20s, matching the similar property test above, so the
+            -- timeout doesn't fire just because the full tasty suite is
+            -- running many of these in parallel and starving each server's
+            -- WS read of CPU.
+            showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $
               withFreePort $ \port ->
                 withTestAPIServer port alice (mockSource events) tracer $ \_ -> do
                   withClient port "/?history=yes" $ \conn -> do

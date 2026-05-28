@@ -23,19 +23,38 @@ check:
   # invocation ('just test') has already populated test-reports/.
   if ls test-reports/*.xml >/dev/null 2>&1; then just test-index; fi
 
-# run cabal tests, optionally with a tasty pattern (see `--pattern`).
+# run cabal tests, optionally with a tasty `--pattern`.
 # `--keep-going` so failures in one test-suite don't hide failures in others;
 # `{suite}` is substituted with the test-suite name by `runHydraTests`, so a
 # single `just test` produces one HTML+XML report per package and an
 # index.html that links them.
+#
+# The pattern is wrapped in /.../ so tasty matches it as a literal substring
+# of the test path (a bare word like `expired-lease` is otherwise read as
+# the awk expression `expired - lease`, which evaluates to 0 and matches
+# nothing). Hyphens are translated to spaces so a shell-friendly hyphenated
+# token like `expired-lease` matches a test named `expired lease` — handy
+# because tasty matches `/.../` content verbatim (including spaces) rather
+# than as full regex.
+#
+# Example:
+#   just test hydra-node expired-lease       # → --pattern=/expired lease/
 test PKG="all" PATTERN="":
   #!/usr/bin/env bash
   set -euo pipefail
   mkdir -p test-reports
-  cabal test {{PKG}} \
-    --keep-going \
-    --test-options="--html=$(pwd)/test-reports/{suite}.html --xml=$(pwd)/test-reports/{suite}.xml" \
-    {{ if PATTERN == "" { "" } else { "--test-options=--pattern=" + PATTERN } }}
+  args=(
+    --keep-going
+    "--test-options=--html=$(pwd)/test-reports/{suite}.html --xml=$(pwd)/test-reports/{suite}.xml"
+  )
+  if [ -n "{{PATTERN}}" ]; then
+    needle=$(printf %s "{{PATTERN}}" | tr '-' ' ')
+    # --test-option (singular) passes ARG verbatim, while --test-options
+    # (plural) splits on whitespace — so use the singular form for the
+    # pattern, which usually contains spaces after the hyphen rewrite.
+    args+=("--test-option=--pattern=/${needle}/")
+  fi
+  cabal test {{PKG}} "${args[@]}"
   just test-index
 
 # emit ./test-reports/index.html linking to per-suite HTML reports, with

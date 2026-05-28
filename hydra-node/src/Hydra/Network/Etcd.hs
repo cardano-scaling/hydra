@@ -197,7 +197,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
         -- the one that fires.
         loop `catch` \e ->
           if isEOFError e
-            then forever (threadDelay 60)
+            then pure ()
             else throwIO e
 
   -- XXX: Could use TLS to secure peer connections
