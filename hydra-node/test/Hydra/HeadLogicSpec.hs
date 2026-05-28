@@ -378,7 +378,7 @@ spec =
               fanoutEvent =
                 HeadFannedOut
                   { headId = otherHeadId
-                  , utxo = mempty
+                  , finalizedOutputs = mempty
                   , chainState = 0
                   }
           let s1 = aggregateState s0 $ Continue [fanoutEvent] []
