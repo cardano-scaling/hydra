@@ -22,7 +22,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
+import Hydra.Network.Etcd (getClientPort, peerPortToClientPort, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
@@ -319,10 +319,10 @@ data PeerConfig2 = PeerConfig2
 
 setup2Peers :: FilePath -> IO PeerConfig2
 setup2Peers tmp = do
-  -- Allocate peer ports whose derived etcd client ports (peer - 2622) are
-  -- also free at allocation time — otherwise etcd dies on startup with
-  -- "bind: address already in use" for the client port. See 'getClientPort'.
-  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived (\p -> p - 2622) 2
+  -- Allocate peer ports whose derived etcd client ports are also free at
+  -- allocation time — otherwise etcd dies on startup with "bind: address
+  -- already in use" for the client port. See 'peerPortToClientPort'.
+  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived peerPortToClientPort 2
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   pure
@@ -360,7 +360,7 @@ data PeerConfig3 = PeerConfig3
 setup3Peers :: FilePath -> IO PeerConfig3
 setup3Peers tmp = do
   -- See note in 'setup2Peers' about the derived client port.
-  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived (\p -> p - 2622) 3
+  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived peerPortToClientPort 3
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   let carolHost = Host lo port3

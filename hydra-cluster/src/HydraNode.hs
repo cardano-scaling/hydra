@@ -409,7 +409,7 @@ soloHydraNodePortsFor workDir nodeId = do
     Just ports -> pure ports
     Nothing -> do
       ports <- allocateHydraNodePorts
-      modifyIORef' soloHydraNodePortsCache (Map.insert (workDir, nodeId) ports)
+      atomicModifyIORef' soloHydraNodePortsCache (Map.insert (workDir, nodeId) ports)
       pure ports
 
 -- | Prepare protocol-parameters to run a hydra-node with given 'ChainConfig' and using the config from

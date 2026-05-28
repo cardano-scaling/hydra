@@ -79,23 +79,13 @@ jobs:
         mkdir -p test-reports
         nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml
 
-    - name: 📊 Publish test report
+    - name: 📊 Publish test report & upload JUnit XML
       if: always()
-      uses: mikepenz/action-junit-report@3a81627bfac62268172037048872e8ebd4207e6d # v6.4.1
+      uses: ./.github/actions/publish-test-report
       with:
-        report_paths: '${{ matrix.package }}/test-reports/junit.xml'
-        check_name: 'tests / ${{ matrix.package }} (${{ matrix.os }})'
-        detailed_summary: true
-        include_passed: false
-        require_tests: false
-
-    - name: 💾 Upload JUnit XML
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: junit-${{ matrix.package }}-${{ matrix.os }}
-        path: ${{ matrix.package }}/test-reports/junit.xml
-        if-no-files-found: warn
+        report-path: ${{ matrix.package }}/test-reports/junit.xml
+        check-name: tests / ${{ matrix.package }} (${{ matrix.os }})
+        artifact-name: junit-${{ matrix.package }}-${{ matrix.os }}
 
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs

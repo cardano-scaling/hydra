@@ -276,7 +276,16 @@ grpcServer config =
 -- the listen address is offset by the default port 5001. This will result in
 -- the default client port 2379 be used by default still.
 getClientPort :: NetworkConfiguration -> PortNumber
-getClientPort NetworkConfiguration{listen} = 2379 + port listen - 5001
+getClientPort NetworkConfiguration{listen} = peerPortToClientPort (port listen)
+
+-- | Derive the etcd client port from a configured peer (listen) port.
+--
+-- Exposed separately from 'getClientPort' so test fixtures can pre-allocate
+-- both the peer and the derived client port without constructing a full
+-- 'NetworkConfiguration'. Keep this and 'getClientPort' in lockstep — any
+-- change to the offset must happen here, in one place.
+peerPortToClientPort :: PortNumber -> PortNumber
+peerPortToClientPort listenPort = 2379 + listenPort - 5001
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding
