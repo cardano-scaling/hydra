@@ -44,8 +44,10 @@ import Hydra.Chain.Direct.State (
   ctxParticipants,
   getKnownUTxO,
   initialize,
+  finalPartialFanout,
   partialFanout,
   unsafeIncrement,
+  unsafePartialFanout,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens

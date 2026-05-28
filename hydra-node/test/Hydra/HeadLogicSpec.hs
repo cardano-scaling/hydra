@@ -1644,8 +1644,8 @@ spec =
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
-          HeadPartialFannedOut{remainingUTxO} ->
-            Set.size remainingUTxO == Set.size allItems - fanoutChunkSize
+          HeadPartialFannedOut{remainingOutputs} ->
+            Set.size remainingOutputs == Set.size allItems - 7
           _ -> False
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
@@ -1729,7 +1729,7 @@ spec =
         -- as an error to the API client.
         let st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let postTxError = ChainInput PostTxError{postChainTx = PartialFanoutTx{utxoToDistribute = mempty, remainingUTxO = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
+        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
             outcome = update bobEnv ledger now st postTxError
         outcome `hasNoEffectSatisfying` \case
           ClientEffect{} -> True

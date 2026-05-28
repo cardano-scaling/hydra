@@ -63,7 +63,6 @@ import Hydra.Tx (
   headSeedToTxIn,
   partyToChain,
   registryUTxO,
-  splitUTxOAt,
  )
 import Hydra.Tx.Accumulator (HydraAccumulator)
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -561,7 +560,9 @@ partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo 
     _ -> Left WrongDatum
   -- Guard against stale chain state: on-chain commitment must match remainingUTxO.
   _fullAccumulator <- buildAndVerifyAccumulator progressDatum remainingUTxO
-  let (utxoToDistribute, rest) = splitUTxOAt @Tx chunkSize remainingUTxO
+  let allPairs = UTxO.toList remainingUTxO
+      utxoToDistribute = UTxO.fromList (take chunkSize allPairs)
+      rest = UTxO.fromList (drop chunkSize allPairs)
   let remainingAccumulator = Accumulator.buildFromUTxO @Tx rest
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
@@ -585,9 +586,10 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = 
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
   headState <- readHeadState headUTxO
-  case headState of
-    Head.FanoutProgress{} -> pure ()
+  progressDatum <- case headState of
+    Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
+  _fullAccumulator <- buildAndVerifyAccumulator progressDatum utxoToDistribute
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry

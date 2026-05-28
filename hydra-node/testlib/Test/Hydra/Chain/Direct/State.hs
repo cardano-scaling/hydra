@@ -53,8 +53,6 @@ import Hydra.Tx (
   SnapshotNumber,
   getSnapshot,
   mkSimpleBlueprintTx,
-  sizeUTxO,
-  splitUTxOAt,
   txInToHeadSeed,
   utxoFromTx,
  )
@@ -398,7 +396,7 @@ genFinalPartialFanoutTx numParties = do
     genClosedStateForFanout numParties
   let evalUTxO = spendableUTxO <> getKnownUTxO cctx
       (k, partialTx) = findFittingPartialChunk evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo
-      (_, remainingUTxO) = splitUTxOAt @Tx k u0
+      remainingUTxO = UTxO.fromList (drop k (UTxO.toList u0))
       fanoutProgressUTxO = utxoFromTx partialTx
   pure (cctx, stClosed, fanoutProgressUTxO, unsafeFinalPartialFanout cctx fanoutProgressUTxO seedTxIn remainingUTxO deadlineSlotNo)
 
@@ -432,7 +430,7 @@ genClosedStateForFanout numParties = do
 -- full execution budget. Returns the chunk size used and the built transaction.
 findFittingPartialChunk :: UTxO -> ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> (Int, Tx)
 findFittingPartialChunk evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
-  go [sizeUTxO u0 - 1, sizeUTxO u0 - 2 .. 1]
+  go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
  where
   go [] = error "findFittingPartialChunk: no fitting chunk size found"
   go (n : rest) =
@@ -484,7 +482,7 @@ genPartialFanoutTxWithComplexUTxO numParties = do
     )
  where
   findFittingChunk safeUnits evalUTxO cctx spendableUTxO seedTxIn u0 deadlineSlotNo =
-    go [sizeUTxO u0 - 1, sizeUTxO u0 - 2 .. 1]
+    go [UTxO.size u0 - 1, UTxO.size u0 - 2 .. 1]
    where
     go [] = error "genPartialFanoutTxWithComplexUTxO: no fitting chunk size found"
     go (n : rest) =

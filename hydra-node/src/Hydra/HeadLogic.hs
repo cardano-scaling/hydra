@@ -1483,12 +1483,12 @@ emitNextFanoutStep FreshFanout _ closedState =
                 , contestationDeadline
                 }
           }
-emitNextFanoutStep FanoutInProgress remaining ClosedState{headSeed, contestationDeadline} =
+emitNextFanoutStep FanoutInProgress remaining closedState@ClosedState{headSeed, contestationDeadline} =
   cause
     OnChainEffect
       { postChainTx =
           FinalPartialFanoutTx
-            { utxoToDistribute = remaining
+            { utxoToDistribute = filterUTxOByOutputs (computeFullFanoutUTxO closedState) remaining
             , headSeed
             , contestationDeadline
             }

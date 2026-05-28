@@ -11,6 +11,7 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   SlotNo (..),
   Tx,
+  UTxO,
   fromLedgerTx,
   getChainPoint,
   toLedgerTx,
@@ -277,32 +278,35 @@ spec = do
       latestResumedChainState <- run . atomically $ getLatest resumedLocalChainState
       pure $ latestResumedChainState === latestChainState
 
-  describe "splitUTxOAt (IsTx)" $ do
+  describe "UTxO splitting" $ do
     it "splits UTxO into n and remaining" $ do
-      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
           n = 2
-          (first', rest) = splitUTxOAt n utxo
-      UTxO.size first' `shouldBe` n
+          pairs = UTxO.toList utxo
+          (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
+      UTxO.size (first' :: UTxO) `shouldBe` n
       UTxO.size rest `shouldBe` (UTxO.size utxo - n)
 
     it "preserves all entries" $ do
-      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
+      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
           n = 2
-          (first', rest) = splitUTxOAt n utxo
-      UTxO.toList (first' <> rest) `shouldBe` UTxO.toList utxo
+          pairs = UTxO.toList utxo
+          (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
+      UTxO.toList (first' <> rest) `shouldBe` UTxO.toList (utxo :: UTxO)
 
     it "handles n larger than UTxO size" $ do
-      let fullUtxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42 :: UTxO
-          -- Take only the first 3 entries to get a small UTxO
-          utxo = UTxO.fromList $ take 3 (UTxO.toList fullUtxo)
+      let fullUtxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
+          utxo = UTxO.fromList $ take 3 (UTxO.toList (fullUtxo :: UTxO))
           n = 100
-          (first', rest) = splitUTxOAt n utxo
+          pairs = UTxO.toList utxo
+          (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
       UTxO.size first' `shouldBe` UTxO.size utxo
       UTxO.size rest `shouldBe` 0
 
     it "handles empty UTxO" $ do
-      let utxo = mempty :: UTxO
-          (first', rest) = splitUTxOAt 5 utxo
+      let utxo = mempty
+          pairs = UTxO.toList (utxo :: UTxO)
+          (first', rest) = (UTxO.fromList (take 5 pairs), UTxO.fromList (drop 5 pairs))
       UTxO.size first' `shouldBe` 0
       UTxO.size rest `shouldBe` 0
 

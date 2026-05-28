@@ -59,7 +59,6 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
-  PartialFanoutError (..),
   chainSlotFromPoint,
   close,
   contest,
@@ -529,7 +528,7 @@ findFittingFanoutTx TinyWallet{evaluateScriptCosts} ctx spendableUTxO seedTxIn m
  where
   candidates =
     maybeToList mPreferred
-      <> mapMaybe mkFallback [sizeUTxO fullUTxO - 1, sizeUTxO fullUTxO - 2 .. 1]
+      <> mapMaybe mkFallback [UTxO.size fullUTxO - 1, UTxO.size fullUTxO - 2 .. 1]
 
   mkFallback n =
     either (const Nothing) Just $
