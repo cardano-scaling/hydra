@@ -18,7 +18,10 @@ check:
     --flake ".#checks.$(nix eval --impure --raw --expr builtins.currentSystem)" \
     --no-link \
     --skip-cached
-  just check-html
+  # nix-fast-build writes per-suite XML/HTML into each test derivation's nix
+  # store path, not ./test-reports/. Only build a local index if some other
+  # invocation ('just test') has already populated test-reports/.
+  if ls test-reports/*.xml >/dev/null 2>&1; then just test-index; fi
 
 # run cabal tests, optionally with a tasty pattern (see `--pattern`).
 # `--keep-going` so failures in one test-suite don't hide failures in others;
