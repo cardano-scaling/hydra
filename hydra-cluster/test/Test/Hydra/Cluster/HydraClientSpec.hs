@@ -234,6 +234,7 @@ runScenario hydraTracer hnode addr action = do
     hydraTracer
     (HydraNode.hydraNodeId hnode)
     (HydraNode.apiHost hnode)
+    (HydraNode.monitoringPort hnode)
     (Just $ Text.unpack (queryAddress addr))
     action
 

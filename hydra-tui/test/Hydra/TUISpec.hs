@@ -9,7 +9,7 @@ import Test.Hydra.Prelude
 import Blaze.ByteString.Builder.Char8 (writeChar)
 import CardanoNode (NodeLog, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadMVar (MonadMVar (..))
-import Control.Concurrent.Class.MonadSTM (readTQueue, tryReadTQueue, writeTQueue)
+import Control.Concurrent.Class.MonadSTM (tryReadTQueue, writeTQueue)
 import Control.Monad.Class.MonadAsync (cancel, waitCatch)
 import Data.ByteString qualified as BS
 import Graphics.Vty (
@@ -49,8 +49,9 @@ import Hydra.TUI.Drawing (renderTime)
 import Hydra.TUI.Options (Options (..))
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import HydraNode (
-  HydraClient (HydraClient, hydraNodeId),
+  HydraClient (..),
   HydraNodeLog,
+  allocateHydraNodePortsFor,
   prepareHydraNode,
   withHydraNode,
   withPreparedHydraNode,
@@ -188,7 +189,8 @@ setupRotatedStateTUI action = do
         seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         (aliceCardanoVk, _) <- keysFor Alice
         seedFromFaucet_ backendOpts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
-        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] [nodeId] id
+        nodePorts <- allocateHydraNodePortsFor [nodeId]
+        options <- prepareHydraNode chainConfig tmpDir nodeId aliceSk [] nodePorts id
         let options' = options{persistenceRotateAfter = Just (Positive 1)}
         withTUIRotatedTest (contramap FromHydra tracer) tmpDir nodeId blockTime backend externalKeyFilePath options' action
 
@@ -255,7 +257,7 @@ withTUIRotatedTest ::
 withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath options action =
   withHydraNodeHandle tracer tmpDir nodeId options $ \nodeHandle -> do
     startNode nodeHandle
-    HydraClient{hydraNodeId} <- getClient nodeHandle
+    HydraClient{apiHost = Host{port = apiPort}} <- getClient nodeHandle
     withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
       raceLabelled_
         ( "run-vty"
@@ -266,7 +268,7 @@ withTUIRotatedTest tracer tmpDir nodeId blockTime backend externalKeyFilePath op
                 { hydraNodeHost =
                     Host
                       { hostname = "127.0.0.1"
-                      , port = fromIntegral $ 4000 + hydraNodeId
+                      , port = apiPort
                       }
                 , cardanoConnection =
                     Right nodeSocket
@@ -306,7 +308,8 @@ setupNodeAndTUI' hostname lovelace action =
         -- Some ADA to commit
         seedFromFaucet_ backendOpts externalVKey 42_000_000 (contramap FromFaucet tracer)
         let DirectOptions{nodeSocket, networkId} = backend
-        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] [nodeId] $ \HydraClient{hydraNodeId} -> do
+        nodePorts <- allocateHydraNodePortsFor [nodeId]
+        withHydraNode (contramap FromHydra tracer) blockTime chainConfig tmpDir nodeId aliceSk [] nodePorts $ \HydraClient{apiHost = Host{port = apiPort}} -> do
           seedFromFaucet_ backendOpts aliceCardanoVk lovelace (contramap FromFaucet tracer)
 
           withTUITest (150, 10) $ \brickTest@TUITest{buildVty} -> do
@@ -318,7 +321,7 @@ setupNodeAndTUI' hostname lovelace action =
                     { hydraNodeHost =
                         Host
                           { hostname = hostname
-                          , port = fromIntegral $ 4000 + hydraNodeId
+                          , port = apiPort
                           }
                     , cardanoConnection =
                         Right nodeSocket
@@ -360,14 +363,32 @@ withTUITest region action = do
       , sendInputEvent = atomically . writeTQueue q
       , getPicture
       , shouldRender = \expected -> do
-          bytes <- getPicture
-          let unescaped = findBytes bytes
-          unless (expected `BS.isInfixOf` unescaped) $
-            failure $
-              "Expected bytes not found in frame: "
-                <> decodeUtf8 expected
-                <> "\n"
-                <> decodeUtf8 unescaped
+          -- Poll the frame buffer until @expected@ appears or the budget runs
+          -- out. The TUI updates asynchronously (vty render + WebSocket event
+          -- stream), so a single point check after a fixed 'threadDelay' is
+          -- racy under CI load — especially after 'restartNode', where the
+          -- ~700 ms hydra-node KZG warm-up eats most of the post-restart
+          -- budget before the head state is even pushed to the TUI.
+          let budget = 5 :: NominalDiffTime
+          deadline <- addUTCTime budget <$> getCurrentTime
+          let loop = do
+                bytes <- getPicture
+                let unescaped = findBytes bytes
+                if expected `BS.isInfixOf` unescaped
+                  then pure ()
+                  else do
+                    now <- getCurrentTime
+                    if now >= deadline
+                      then
+                        failure $
+                          "Expected bytes not found in frame within "
+                            <> show budget
+                            <> ": "
+                            <> decodeUtf8 expected
+                            <> "\n"
+                            <> decodeUtf8 unescaped
+                      else threadDelay 0.05 >> loop
+          loop
       , shouldNotRender = \expected -> do
           bytes <- getPicture
           let unescaped = findBytes bytes
@@ -395,10 +416,23 @@ withTUITest region action = do
     realOut <- buildOutput userCfg =<< defaultSettings
     closeFd nullFd
     let output = testOut realOut as frameBuffer
+    -- Poll the test event queue instead of STM-blocking on it. A blocking
+    -- 'readTQueue q' makes GHC raise 'BlockedIndefinitelyOnSTM' against the
+    -- brick thread the moment the test action returns: that's when its
+    -- 'sendInputEvent' closure (the only writer reference to @q@) is GC'd,
+    -- and the RTS notices the brick reader has no possible writers. The
+    -- 'raceLabelled_' below cancels the brick thread immediately after, so
+    -- the deadlock is purely transient — but the RTS still prints the
+    -- exception to stderr before the cancel arrives, which makes the test
+    -- output look broken even though it passes.
+    let pollNextEvent =
+          atomically (tryReadTQueue q) >>= \case
+            Just e -> pure e
+            Nothing -> threadDelay 0.01 >> pollNextEvent
     pure $
       Vty
         { inputIface = input -- TODO(SN): this is not used
-        , nextEvent = atomically $ readTQueue q
+        , nextEvent = pollNextEvent
         , nextEventNonblocking = atomically $ tryReadTQueue q
         , outputIface = output
         , update = \p -> do

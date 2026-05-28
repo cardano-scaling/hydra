@@ -31,7 +31,9 @@ spec = do
 
 shouldNotBlock :: HasCallStack => IO a -> IO a
 shouldNotBlock action = do
-  timeout 0.1 action >>= \case
+  -- Generous enough to survive heavy parallel load on CI; the goal is to
+  -- detect a hung action, not benchmark responsiveness.
+  timeout 5 action >>= \case
     Nothing -> failure "blocked unexpectedly"
     Just a -> pure a
 

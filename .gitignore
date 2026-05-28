@@ -10,6 +10,12 @@
 *.hp
 *.prof
 .hspec-failures
+.tasty-rerun-log
+/test-reports/
+# stray hspec-golden-aeson output when `cabal test PKG` is run from the
+# repo root instead of from inside the package directory; the canonical
+# golden files live at e.g. hydra-node/golden/, hydra-tx/golden/, etc.
+/golden/
 
 # Nix
 result*

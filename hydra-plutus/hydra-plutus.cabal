@@ -66,20 +66,17 @@ library
     , base
     , base16-bytestring
     , bytestring
-    , cardano-crypto-class
     , file-embed
-    , haskell-accumulator
     , hydra-cardano-api
     , hydra-plutus-extras
     , hydra-prelude
     , lens
     , lens-aeson
     , plutus-accumulator
-    , plutus-core           >=1.55
-    , plutus-ledger-api     >=1.55
-    , plutus-tx             >=1.53
-    , plutus-tx-plugin      >=1.53
-    , QuickCheck
+    , plutus-core          >=1.55
+    , plutus-ledger-api    >=1.55
+    , plutus-tx            >=1.53
+    , plutus-tx-plugin     >=1.53
     , serialise
     , template-haskell
     , time
@@ -96,19 +93,17 @@ library testlib
     , QuickCheck
 
 test-suite tests
-  import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs:     test
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
+  import:         project-config
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: test
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
   other-modules:
     Hydra.Data.ContestationPeriodSpec
     Hydra.Plutus.GoldenSpec
-    Spec
 
   build-depends:
     , hspec
-    , hspec-golden
     , hydra-cardano-api
     , hydra-plutus
     , hydra-plutus:testlib
@@ -116,9 +111,10 @@ test-suite tests
     , hydra-test-utils
     , plutus-ledger-api
     , QuickCheck
+    , tasty
+    , tasty-golden
+    , tasty-hunit
     , typed-process
-
-  build-tool-depends: hspec-discover:hspec-discover
 
 executable inspect-script
   import:         project-config

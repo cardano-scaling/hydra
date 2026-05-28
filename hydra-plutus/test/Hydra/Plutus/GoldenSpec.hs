@@ -11,7 +11,6 @@
 module Hydra.Plutus.GoldenSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
 
 import Hydra.Cardano.Api (
   File (..),
@@ -29,51 +28,75 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (serialiseCompiledCode)
 import System.Process.Typed (runProcess_, shell)
-import Test.Hspec.Golden (Golden (..))
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.Golden.Advanced (goldenTest)
+import Test.Tasty.HUnit (assertFailure, testCase)
 
 aikenBuildCommand :: String
 aikenBuildCommand = "aiken build -t compact"
 
-spec :: Spec
-spec = do
-  it "Plutus blueprint is up-to-date" $ do
-    -- Running aiken -t compact should not change plutus.json
-    existing <- readFileBS "plutus.json"
-    runProcess_ $ shell aikenBuildCommand
-    actual <- readFileBS "plutus.json"
-    -- Undo any changes made by aiken
-    writeFileBS "plutus.json" existing
-    when (actual /= existing) $ do
-      putTextLn $ "Plutus blueprint in plutus.json is not up-to-date. Run " <> show aikenBuildCommand <> " to update it."
-    actual `shouldBe` existing
-
-  it "Head validator script" $
-    goldenScript "vHead" Head.validatorScript
-  it "Head minting policy script" $
-    goldenScript "mHead" (PlutusScriptSerialised $ serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
-  it "CRS script" $
-    goldenScript "vCRS" CRS.validatorScript
+tests :: TestTree
+tests =
+  testGroup
+    "Hydra.Plutus.Golden"
+    [ testCase "Plutus blueprint is up-to-date" $ do
+        -- Running aiken -t compact should not change plutus.json
+        existing <- readFileBS "plutus.json"
+        runProcess_ $ shell aikenBuildCommand
+        actual <- readFileBS "plutus.json"
+        -- Undo any changes made by aiken
+        writeFileBS "plutus.json" existing
+        when (actual /= existing) $
+          assertFailure $
+            "Plutus blueprint in plutus.json is not up-to-date. Run "
+              <> show aikenBuildCommand
+              <> " to update it."
+    , goldenScript "Head validator script" "vHead" Head.validatorScript
+    , goldenScript
+        "Head minting policy script"
+        "mHead"
+        (PlutusScriptSerialised $ serialiseCompiledCode HeadTokens.unappliedMintingPolicy)
+    , goldenScript "CRS script" "vCRS" CRS.validatorScript
+    ]
 
 -- | Write a golden script on first run and ensure it stays the same on
--- subsequent runs.
-goldenScript :: String -> PlutusScript -> Golden Script
-goldenScript name plutusScript =
-  Golden
-    { output = PlutusScript plutusScript
-    , encodePretty = show . hashScript
-    , writeToFile
-    , readFromFile
-    , goldenFile = "scripts/" <> name <> ".plutus"
-    , actualFile = Nothing
-    , failFirstTime = False
-    }
+-- subsequent runs. The on-disk representation is cardano-api's text-envelope
+-- JSON; comparison is by 'Script' equality (ignoring the description metadata,
+-- which embeds a git describe and would otherwise be unstable).
+goldenScript :: String -> String -> PlutusScript -> TestTree
+goldenScript testName name plutusScript =
+  goldenTest
+    testName
+    readGolden
+    (pure expected)
+    compareScripts
+    writeGolden
  where
+  expected :: Script
+  expected = PlutusScript plutusScript
+
+  goldenFile :: FilePath
+  goldenFile = "scripts/" <> name <> ".plutus"
+
+  fullScriptName :: String
   fullScriptName = "hydra-" <> name <> maybe "" ("-" <>) gitDescribe
 
-  writeToFile fp script =
-    void $ writeFileTextEnvelope (File fp) (Just $ fromString fullScriptName) script
+  readGolden :: IO Script
+  readGolden =
+    readFileTextEnvelope (File goldenFile)
+      >>= either (fail . show) pure
 
-  readFromFile :: FilePath -> IO Script
-  readFromFile fp =
-    either (die . show) pure
-      =<< readFileTextEnvelope (File fp)
+  writeGolden :: Script -> IO ()
+  writeGolden script =
+    writeFileTextEnvelope (File goldenFile) (Just $ fromString fullScriptName) script
+      >>= either (fail . show) pure
+
+  compareScripts :: Script -> Script -> IO (Maybe String)
+  compareScripts golden actual
+    | golden == actual = pure Nothing
+    | otherwise =
+        pure . Just $
+          "script hash mismatch:\n  golden: "
+            <> show (hashScript golden)
+            <> "\n  actual: "
+            <> show (hashScript actual)

@@ -53,7 +53,17 @@ jobs:
       if: ${{ matrix.package != 'hydra-tui' }}
       run: |
         cd ${{ matrix.package }} # To ensure the `./golden` files are available.
-        nix develop .#${{ matrix.package }}-tests --command tests
+        mkdir -p test-reports
+        # hydra-node's NetworkSpec spins etcd subprocesses; under tasty's
+        # default parallelism it wedges on these small CI runners (etcd
+        # loses quorum after the manual lease revoke and the suite hangs).
+        # Force the suite single-threaded here; other packages keep tasty's
+        # default parallelism, which they handle fine.
+        threads_flag=""
+        if [ "${{ matrix.package }}" = "hydra-node" ]; then
+          threads_flag="--num-threads=1"
+        fi
+        nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml $threads_flag
 
     # This one is special, as it requires a tty.
     - name: ❓ Test (TUI)
@@ -66,7 +76,16 @@ jobs:
         TERM: "xterm"
       run: |
         cd ${{ matrix.package  }}
-        nix develop .#${{ matrix.package }}-tests --command tests
+        mkdir -p test-reports
+        nix develop .#${{ matrix.package }}-tests --command tests --xml=test-reports/junit.xml
+
+    - name: 📊 Publish test report & upload JUnit XML
+      if: always()
+      uses: ./.github/actions/publish-test-report
+      with:
+        report-path: ${{ matrix.package }}/test-reports/junit.xml
+        check-name: tests / ${{ matrix.package }} (${{ matrix.os }})
+        artifact-name: junit-${{ matrix.package }}-${{ matrix.os }}
 
     # NOTE: This depends on the path used in hydra-cluster e2e tests
     - name: 💾 Upload logs

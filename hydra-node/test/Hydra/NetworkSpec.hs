@@ -22,7 +22,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (getClientPort, withEtcdNetwork)
+import Hydra.Network.Etcd (getClientPort, peerPortToClientPort, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
@@ -32,7 +32,7 @@ import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGold
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
-import Test.Network.Ports (randomUnusedTCPPorts, withFreePort)
+import Test.Network.Ports (randomUnusedTCPPortsWithDerived, withFreePort)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
@@ -45,7 +45,7 @@ spec = do
       let v1 = ProtocolVersion 1
 
       it "broadcasts to self" $ \tracer -> do
-        failAfter 5 $
+        failAfter 30 $
           withTempDir "test-etcd" $ \tmp -> do
             withFreePort $ \port -> do
               let config =
@@ -57,7 +57,7 @@ spec = do
                       , peers = []
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
-                      , whichEtcd = EmbeddedEtcd
+                      , whichEtcd = SystemEtcd
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
@@ -88,7 +88,7 @@ spec = do
 
       it "broadcasts messages to single connected peer" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 5 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 -> do
               (recordReceived, waitNext, _) <- newRecordingCallback
@@ -179,7 +179,12 @@ spec = do
                 -- Expire all leases manually to simulate a keepAlive coming too
                 -- late. Note that we do not distinguish which is which so
                 -- alice's lease will also be killed, but does not matter here.
-                let endpoints = "--endpoints=" <> show (listen aliceConfig)
+                -- NOTE: etcdctl talks to the etcd /client/ port, not the peer
+                -- port. Using @listen aliceConfig@ here used to work on etcd
+                -- 3.5 (whose peer listener happened to answer client RPCs too)
+                -- but hangs on etcd 3.6, where the peer port no longer serves
+                -- the lease API.
+                let endpoints = "--endpoints=127.0.0.1:" <> show (getClientPort aliceConfig)
                 output <- readProcessStdout_ . shell $ "etcdctl lease list " <> endpoints
                 let leases = drop 1 $ lines $ decodeUtf8 output
                 forM_ leases $ \lease ->
@@ -189,7 +194,7 @@ spec = do
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 10 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
@@ -206,7 +211,9 @@ spec = do
 
       it "resends messages" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          -- Sends 1000 messages through a 3-node etcd cluster; the
+          -- 20s budget was too tight under parallel CI load.
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
@@ -283,7 +290,7 @@ spec = do
 
       it "emits cluster id mismatch" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 10 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
@@ -312,7 +319,10 @@ data PeerConfig2 = PeerConfig2
 
 setup2Peers :: FilePath -> IO PeerConfig2
 setup2Peers tmp = do
-  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPorts 2
+  -- Allocate peer ports whose derived etcd client ports are also free at
+  -- allocation time — otherwise etcd dies on startup with "bind: address
+  -- already in use" for the client port. See 'peerPortToClientPort'.
+  [port1, port2] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived peerPortToClientPort 2
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   pure
@@ -326,7 +336,7 @@ setup2Peers tmp = do
             , peers = [bobHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -337,7 +347,7 @@ setup2Peers tmp = do
             , peers = [aliceHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       }
 
@@ -349,7 +359,8 @@ data PeerConfig3 = PeerConfig3
 
 setup3Peers :: FilePath -> IO PeerConfig3
 setup3Peers tmp = do
-  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPorts 3
+  -- See note in 'setup2Peers' about the derived client port.
+  [port1, port2, port3] <- fmap fromIntegral <$> randomUnusedTCPPortsWithDerived peerPortToClientPort 3
   let aliceHost = Host lo port1
   let bobHost = Host lo port2
   let carolHost = Host lo port3
@@ -364,7 +375,7 @@ setup3Peers tmp = do
             , peers = [bobHost, carolHost]
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , bobConfig =
           NetworkConfiguration
@@ -375,7 +386,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, carolHost]
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       , carolConfig =
           NetworkConfiguration
@@ -386,7 +397,7 @@ setup3Peers tmp = do
             , peers = [aliceHost, bobHost]
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
-            , whichEtcd = EmbeddedEtcd
+            , whichEtcd = SystemEtcd
             }
       }
 

@@ -100,7 +100,7 @@ import Network.Socket (PortNumber)
 import System.Directory (createDirectoryIfMissing, listDirectory, removeFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
-import System.IO.Error (isDoesNotExistError)
+import System.IO.Error (isDoesNotExistError, isEOFError)
 import System.Process (interruptProcessGroupOf)
 import System.Process.Typed (
   Process,
@@ -172,19 +172,33 @@ withEtcdNetwork tracer protocolVersion config callback action = do
  where
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr p NetworkCallback{onConnectivity} =
-    forever $ do
-      bs <- BS.hGetLine (getStderr p)
-      case Aeson.eitherDecodeStrict bs of
-        Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
-        Right v -> do
-          let expectedClusterMismatch = do
-                level' <- bs ^? Aeson.key "level" . Aeson.nonNull
-                msg' <- bs ^? Aeson.key "msg" . Aeson.nonNull
-                pure (level', msg')
-          case expectedClusterMismatch of
-            Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch") ->
-              onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers}
-            _ -> traceWith tracer $ EtcdLog{etcd = v}
+    let loop = do
+          bs <- BS.hGetLine (getStderr p)
+          case Aeson.eitherDecodeStrict bs of
+            Left err -> traceWith tracer FailedToDecodeLog{log = decodeUtf8 bs, reason = show err}
+            Right v -> do
+              let expectedClusterMismatch = do
+                    level' <- bs ^? Aeson.key "level" . Aeson.nonNull
+                    msg' <- bs ^? Aeson.key "msg" . Aeson.nonNull
+                    pure (level', msg')
+              case expectedClusterMismatch of
+                Just (Aeson.String "error", Aeson.String "request sent was ignored due to cluster ID mismatch") ->
+                  onConnectivity ClusterIDMismatch{clusterPeers = T.pack clusterPeers}
+                _ -> traceWith tracer $ EtcdLog{etcd = v}
+          loop
+     in -- When etcd's stderr pipe closes (because the etcd subprocess exited),
+        -- 'BS.hGetLine' raises 'hGetLine: end of file'. We don't want that
+        -- naked IOException racing the descriptive "Sub-process etcd exited
+        -- with: ExitFailure N" from 'etcd-waitExitCode' below — on slower
+        -- machines the EOF often wins, and the IOException then gets caught
+        -- by 'withAPIServer's IOException handler and re-thrown as
+        -- 'RunServerException', stripping every mention of etcd from the
+        -- final error. Block on EOF instead so 'etcd-waitExitCode' is always
+        -- the one that fires.
+        loop `catch` \e ->
+          if isEOFError e
+            then forever (threadDelay 60)
+            else throwIO e
 
   -- XXX: Could use TLS to secure peer connections
   -- XXX: Could use discovery to simplify configuration
@@ -262,7 +276,16 @@ grpcServer config =
 -- the listen address is offset by the default port 5001. This will result in
 -- the default client port 2379 be used by default still.
 getClientPort :: NetworkConfiguration -> PortNumber
-getClientPort NetworkConfiguration{listen} = 2379 + port listen - 5001
+getClientPort NetworkConfiguration{listen} = peerPortToClientPort (port listen)
+
+-- | Derive the etcd client port from a configured peer (listen) port.
+--
+-- Exposed separately from 'getClientPort' so test fixtures can pre-allocate
+-- both the peer and the derived client port without constructing a full
+-- 'NetworkConfiguration'. Keep this and 'getClientPort' in lockstep — any
+-- change to the offset must happen here, in one place.
+peerPortToClientPort :: PortNumber -> PortNumber
+peerPortToClientPort listenPort = 2379 + listenPort - 5001
 
 -- | Check and write version on etcd cluster. This will retry until we are on a
 -- majority cluster and succeed. If the version does not match a corresponding

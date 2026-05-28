@@ -74,7 +74,8 @@ initialChainTime :: UTCTime
 initialChainTime = posixSecondsToUTCTime 0
 
 data SyncedStatus = InSync | CatchingUp
-  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
 
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
@@ -89,7 +90,7 @@ data Deposit tx = Deposit
   , deadline :: UTCTime
   , status :: DepositStatus
   }
-  deriving (Generic)
+  deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Deposit tx)
 deriving stock instance IsTx tx => Show (Deposit tx)
@@ -97,7 +98,8 @@ deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
 deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
 
 data DepositStatus = Inactive | Active | Expired
-  deriving (Generic, Eq, Show, ToJSON, FromJSON)
+  deriving stock (Generic, Eq, Show)
+  deriving anyclass (ToJSON, FromJSON)
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

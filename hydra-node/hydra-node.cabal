@@ -345,9 +345,9 @@ benchmark logging
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
 test-suite tests
-  import:             project-config
-  ghc-options:        -threaded -rtsopts -with-rtsopts=-N
-  hs-source-dirs:     test
+  import:         project-config
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs: test
   other-modules:
     Hydra.API.ClientInputSpec
     Hydra.API.HTTPServerSpec
@@ -392,11 +392,10 @@ test-suite tests
     Hydra.PersistentQueueSpec
     Hydra.UtilsSpec
     Paths_hydra_node
-    Spec
     Test.Util
 
-  main-is:            Main.hs
-  type:               exitcode-stdio-1.0
+  main-is:        Main.hs
+  type:           exitcode-stdio-1.0
   build-depends:
     , aeson
     , amazonka
@@ -465,5 +464,4 @@ test-suite tests
     , typed-process
     , websockets
 
-  build-tool-depends: hspec-discover:hspec-discover
-  ghc-options:        -threaded -rtsopts
+  ghc-options:    -threaded -rtsopts

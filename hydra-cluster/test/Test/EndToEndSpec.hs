@@ -89,7 +89,7 @@ import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import HydraNode (getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNode, withUnsyncedHydraNode)
+import HydraNode (allocateHydraNodePortsFor, getMetrics, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
 import Network.HTTP.Conduit (parseUrlThrow)
 import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive)
@@ -131,7 +131,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   }
         let blockTime = 5
         -- Start a hydra-node in offline mode and submit a transaction from alice to bob
-        aliceToBob <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        aliceToBob <- withSoloHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] $ \node -> do
           let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
           let Right aliceToBob =
                 mkSimpleTx
@@ -144,7 +144,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
           pure aliceToBob
 
         -- Restart a hydra-node in offline mode expect we can reverse the transaction (it retains state)
-        withUnsyncedHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] [1] $ \node -> do
+        withUnsyncedSoloHydraNode (contramap FromHydraNode tracer) offlineConfig tmpDir 1 aliceSk [] $ \node -> do
           let
             bobTxOut = toCtxUTxOTxOut $ List.head (txOuts' aliceToBob)
             Right bobToAlice =
@@ -169,8 +169,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   , ledgerGenesisFile = Nothing
                   }
         let blockTime = 5
+        -- Share one port allocation across all three restarts so the
+        -- on-disk etcd state stays consistent (etcd cluster members are
+        -- identified by listen URL; if ports change between restarts etcd
+        -- refuses to start with the existing data dir).
+        nodePorts <- allocateHydraNodePortsFor [1]
         -- Start a hydra-node in offline mode and submit several self-txs
-        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \node -> do
+        withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] nodePorts $ \node -> do
           -- Offline mode needs to confirm deposit of initialUTxO first.
           waitMatch 20 node $ \v -> do
             guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -178,13 +183,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
         -- Measure restart time
         t0 <- getCurrentTime
-        diff1 <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] [] $ \_ -> do
+        diff1 <- withHydraNode (contramap FromHydraNode tracer) blockTime offlineConfig tmpDir 1 aliceSk [] nodePorts $ \_ -> do
           t1 <- getCurrentTime
           let diff = diffUTCTime t1 t0
           pure diff
 
         -- Measure restart after rotation
-        options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] [] id
+        options <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [] nodePorts id
         let options' = options{persistenceRotateAfter = Just (Positive 10)}
         t1 <- getCurrentTime
         diff2 <- withPreparedHydraNode (contramap FromHydraNode tracer) tmpDir 1 options' $ \n -> do
@@ -215,9 +220,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                   }
         let tr = contramap FromHydraNode tracer
         let blockTime = 5
+        nodePorts <- allocateHydraNodePortsFor [1, 2]
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
-        withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] [1, 2] $ \aliceNode -> do
-          withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] [1, 2] $ \bobNode -> do
+        withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] nodePorts $ \aliceNode -> do
+          withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] nodePorts $ \bobNode -> do
             waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
             let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
             let Right aliceToBob =
@@ -561,7 +567,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             aliceChainConfig <- chainConfigFor Alice tmp opts hydraScriptsTxId [] timing
             let nodeId = 1
             let hydraTracer = contramap FromHydraNode tracer
-            (tip, aliceHeadId) <- withHydraNode hydraTracer blockTime aliceChainConfig tmp nodeId aliceSk [] [1] $ \n1 -> do
+            (tip, aliceHeadId) <- withSoloHydraNode hydraTracer blockTime aliceChainConfig tmp nodeId aliceSk [] $ \n1 -> do
               seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
               tip <- runBackend opts queryTip
               send n1 $ input "Init" []
@@ -576,7 +582,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             removeDirectoryRecursive $ tmp </> "state-" <> show nodeId
 
             let aliceChainConfig' = aliceChainConfig & modifyConfig (\cfg -> cfg{startChainFrom = Just tip})
-            withUnsyncedHydraNode hydraTracer aliceChainConfig' tmp 1 aliceSk [] [1] $ \n1 -> do
+            withUnsyncedSoloHydraNode hydraTracer aliceChainConfig' tmp 1 aliceSk [] $ \n1 -> do
               headId' <- waitForAllMatch (10 * blockTime * 10) [n1] $ headIsOpenWith (Set.fromList [alice])
               headId' `shouldBe` aliceHeadId
 
@@ -629,8 +635,9 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
               aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [] timing
               bobChainConfig <- chainConfigFor Bob tmpDir opts hydraScriptsTxId [Alice] timing
               let hydraTracer = contramap FromHydraNode tracer
-              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] allNodeIds $ \n1 ->
-                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk] allNodeIds $ \n2 -> do
+              nodePorts <- allocateHydraNodePortsFor allNodeIds
+              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] nodePorts $ \n1 ->
+                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk] nodePorts $ \n2 -> do
                   -- Funds to be used as fuel by Hydra protocol transactions
                   seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                   seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
@@ -665,10 +672,11 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [Bob, Carol] timing
             bobChainConfig <- chainConfigFor Bob tmpDir opts hydraScriptsTxId [Alice, Carol] timing
             carolChainConfig <- chainConfigFor Carol tmpDir opts hydraScriptsTxId [Alice, Bob] timing
+            nodePorts <- allocateHydraNodePortsFor allNodeIds
             failAfter 20 $
-              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] allNodeIds $ \n1 ->
-                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] allNodeIds $ \n2 ->
-                  withHydraNode hydraTracer blockTime carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] allNodeIds $ \n3 -> do
+              withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [bobVk, carolVk] nodePorts $ \n1 ->
+                withHydraNode hydraTracer blockTime bobChainConfig tmpDir 2 bobSk [aliceVk, carolVk] nodePorts $ \n2 ->
+                  withHydraNode hydraTracer blockTime carolChainConfig tmpDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
                     -- Funds to be used as fuel by Hydra protocol transactions
                     seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
                     waitForNodesConnected hydraTracer 20 $ n1 :| [n2, n3]
@@ -697,7 +705,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
                               , nodeSocket = nodeSocket'
                               }
                       }
-            withHydraNode (contramap FromHydraNode tracer) blockTime chainConfig dir 1 aliceSk [] [1] (const $ pure ())
+            withSoloHydraNode (contramap FromHydraNode tracer) blockTime chainConfig dir 1 aliceSk [] (const $ pure ())
               `shouldThrow` \(e :: SomeException) ->
                 "hydra-node" `isInfixOf` show e
                   && "not-existing.sk" `isInfixOf` show e
@@ -711,7 +719,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             aliceChainConfig <- chainConfigFor Alice dir opts hydraScriptsTxId [] timing
 
             -- XXX: Need to do something in 'action' otherwise always green?
-            withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+            withSoloHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] $ \_ -> do
               threadDelay 0.1
 
       it "can be restarted" $ \tracer -> do
@@ -724,10 +732,10 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
 
             -- XXX: Need to do something in 'action' otherwise always green?
             failAfter 10 $
-              withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              withSoloHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] $ \_ -> do
                 threadDelay 0.1
             failAfter 10 $
-              withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \_ -> do
+              withSoloHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] $ \_ -> do
                 threadDelay 0.1
 
       it "logs to a logfile" $ \tracer -> do
@@ -738,7 +746,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             refuelIfNeeded tracer opts Alice 100_000_000
             let timing = mkTestTiming blockTime
             aliceChainConfig <- chainConfigFor Alice dir opts hydraScriptsTxId [] timing
-            withHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] [1] $ \n1 -> do
+            withSoloHydraNode hydraTracer blockTime aliceChainConfig dir 1 aliceSk [] $ \n1 -> do
               send n1 $ input "Init" []
 
             let logFilePath = dir </> "logs" </> "hydra-node-1.log"
@@ -753,7 +761,7 @@ timedTx tmpDir tracer opts hydraScriptsTxId = do
   let timing = mkTestTiming blockTime
   aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [] timing
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \n1 -> do
+  withSoloHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] $ \n1 -> do
     let lovelaceBalanceValue = 100_000_000
 
     -- Funds to be used as fuel by Hydra protocol transactions

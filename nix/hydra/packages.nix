@@ -174,6 +174,7 @@
               pkgs.cardano-cli
               pkgs.mithril-client-cli
               pkgs.check-jsonschema
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
         hydra-tui-tests = pkgs.mkShellNoCC {
@@ -184,6 +185,7 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
 
@@ -202,6 +204,7 @@
               hydra-node
               pkgs.cardano-node
               pkgs.cardano-cli
+              pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
             ];
         };
       } // staticPackages;

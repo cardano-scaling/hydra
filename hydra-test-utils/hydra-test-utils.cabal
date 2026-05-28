@@ -34,6 +34,7 @@ library
   hs-source-dirs:  src
   exposed-modules:
     Test.Hydra.Prelude
+    Test.Hydra.TastyMain
     Test.Network.Ports
 
   build-depends:
@@ -45,9 +46,13 @@ library
     , HUnit
     , hydra-prelude
     , network
-    , port-utils
     , process
     , QuickCheck
     , quickcheck-arbitrary-adt
     , relude
+    , tasty
+    , tasty-ant-xml
+    , tasty-hspec
+    , tasty-html
+    , tasty-rerun
     , temporary

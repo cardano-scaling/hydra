@@ -4,7 +4,6 @@ _: {
       {
         paths = [
           hsPkgs.hydra-prelude.components.library.doc
-          hsPkgs.hydra-cardano-api.components.library.doc
           hsPkgs.hydra-plutus.components.library.doc
           hsPkgs.hydra-node.components.library.doc
           hsPkgs.hydra-tx.components.library.doc

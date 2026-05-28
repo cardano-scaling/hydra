@@ -22,7 +22,7 @@ import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (chainConfigFor, keysFor, mkTestTiming)
 import Hydra.Logging (showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
-import HydraNode (input, output, send, waitFor, waitMatch, withHydraNode)
+import HydraNode (allocateHydraNodePortsFor, input, output, send, waitFor, waitMatch, withHydraNode)
 import System.IO.Error (isEOFError, isIllegalOperation)
 import System.Process (CreateProcess (std_out), StdStream (..), proc, withCreateProcess)
 import Test.Hydra.Tx.Fixture (aliceSk)
@@ -41,7 +41,8 @@ spec = do
             (aliceCardanoVk, _) <- keysFor Alice
             let timing = mkTestTiming blockTime
             aliceChainConfig <- chainConfigFor Alice tmpDir (Direct directOpts) hydraScriptsTxId [] timing
-            withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] [1] $ \hydraNode -> do
+            nodePorts <- allocateHydraNodePortsFor [1]
+            withHydraNode hydraTracer blockTime aliceChainConfig tmpDir 1 aliceSk [] nodePorts $ \hydraNode -> do
               withChainObserver directOpts $ \observer -> do
                 seedFromFaucet_ (Direct directOpts) aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
 

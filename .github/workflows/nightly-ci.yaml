@@ -39,10 +39,19 @@ jobs:
         if [[ "${{secrets.blockfrost_token}}" != '' ]]; then
           cd ${{ matrix.package }}
           echo "${{secrets.blockfrost_token}}" > blockfrost-project.txt
-          nix develop .#${{ matrix.package }}-tests --command tests -m "@requiresBlockfrost"
+          mkdir -p test-reports
+          nix develop .#${{ matrix.package }}-tests --command tests -p "/@requiresBlockfrost/" --xml=test-reports/junit.xml
         else
           echo "::warning file=blockfrost-project.txt,title=BLOCKFROST::Missing blockfrost project file."
         fi
+
+    - name: 📊 Publish test report & upload JUnit XML
+      if: always()
+      uses: ./.github/actions/publish-test-report
+      with:
+        report-path: ${{ matrix.package }}/test-reports/junit.xml
+        check-name: nightly blockfrost / ${{ matrix.package }}
+        artifact-name: junit-nightly-blockfrost-${{ matrix.package }}
 
 
   other-nightly-tests:
@@ -71,4 +80,13 @@ jobs:
     - name: Run tests
       run: |
         cd ${{ matrix.package }}
-        nix develop .#${{ matrix.package }}-tests --command tests -m "@nightly"
+        mkdir -p test-reports
+        nix develop .#${{ matrix.package }}-tests --command tests -p "/@nightly/" --xml=test-reports/junit.xml
+
+    - name: 📊 Publish test report & upload JUnit XML
+      if: always()
+      uses: ./.github/actions/publish-test-report
+      with:
+        report-path: ${{ matrix.package }}/test-reports/junit.xml
+        check-name: nightly / ${{ matrix.package }}
+        artifact-name: junit-nightly-${{ matrix.package }}

@@ -1,9 +1,13 @@
 module Main where
 
-import Prelude
+import Hydra.Prelude
 
-import Spec qualified
-import Test.Hspec (hspec)
+import Hydra.Plutus.Extras.TimeSpec qualified
+import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
 
 main :: IO ()
-main = hspec Spec.spec
+main =
+  defaultMainHydra
+    "hydra-plutus-extras"
+    [ testSpec "Plutus.Extras.Time" Hydra.Plutus.Extras.TimeSpec.spec
+    ]
