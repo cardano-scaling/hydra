@@ -59,6 +59,9 @@ test PKG="all" PATTERN="":
 
 # emit ./test-reports/index.html linking to per-suite HTML reports, with
 # pass/fail/error counts pulled from the per-suite JUnit XML.
+#
+# Note: This was written with Claude; so don't worry too much about the HTML
+# detail, or changing it.
 test-index:
   #!/usr/bin/env bash
   set -euo pipefail
@@ -99,8 +102,11 @@ test-index:
   } > index.html
   echo "wrote test-reports/index.html (${#xmls[@]} suites)"
 
-# build with -Werror and strict linting flags.
+# format, and build with -Werror and strict linting flags.
 lint PKG="all":
+  #!/usr/bin/env bash
+  set -euo pipefail
+  nix fmt
   cabal build {{PKG}} \
     --ghc-options="-Werror \
       -Wall \
