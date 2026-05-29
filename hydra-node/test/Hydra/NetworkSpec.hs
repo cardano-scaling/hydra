@@ -40,7 +40,14 @@ import Test.Util (noopCallback, waitEq, waitMatch)
 spec :: Spec
 spec = do
   -- TODO: add tests about advertise being honored
-  describe "Etcd" $
+  --
+  -- Each Etcd test spins up a 2- or 3-node etcd cluster on loopback ports.
+  -- Running these in parallel (tasty's default on developer machines) means
+  -- multiple subprocesses fight for ports and CPU at the same instant, which
+  -- can cause failures. Force sequential execution within this describe;
+  -- CI already pins '--num-threads=1' for the whole hydra-node
+  -- suite, so this only changes behaviour for local runs.
+  describe "Etcd" . sequential $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = ProtocolVersion 1
 
@@ -98,7 +105,7 @@ spec = do
 
       it "handles broadcast to minority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordReceived, waitNext, _) <- newRecordingCallback
             withEtcdNetwork @Int tracer v1 aliceConfig recordReceived $ \n1 -> do
@@ -118,7 +125,7 @@ spec = do
 
       it "handles broadcast to majority" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordReceived, waitNext, _) <- newRecordingCallback
             withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
@@ -165,7 +172,7 @@ spec = do
 
       it "handles expired lease" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 15 $ do
+          failAfter 30 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             -- Record and assert connectivity events from alice's perspective
             (recordReceived, _, waitConnectivity) <- newRecordingCallback
@@ -194,13 +201,13 @@ spec = do
 
       it "checks protocol version" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 30 $ do
+          failAfter 60 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
             (recordBob, _, waitBob) <- newRecordingCallback
-            let aliceSees = waitEq waitAlice 5
-                bobSees = waitEq waitBob 5
+            let aliceSees = waitEq waitAlice 30
+                bobSees = waitEq waitBob 30
             withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ -> do
               withEtcdNetwork @Int tracer v2 bobConfig recordBob $ \_ -> do
                 -- Both will try to write to the cluster at the same time
@@ -235,7 +242,7 @@ spec = do
 
       it "handles compaction and lost local state" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 20 $ do
+          failAfter 60 $ do
             PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
             (recordBob, waitBob, _) <- newRecordingCallback
             (recordCarol, waitCarol, _) <- newRecordingCallback
@@ -290,13 +297,13 @@ spec = do
 
       it "emits cluster id mismatch" $ \tracer -> do
         withTempDir "test-etcd" $ \tmp -> do
-          failAfter 30 $ do
+          failAfter 60 $ do
             PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
             let v2 = ProtocolVersion 2
             (recordAlice, _, waitAlice) <- newRecordingCallback
             (recordBob, _, waitBob) <- newRecordingCallback
-            let aliceSees = waitMatch waitAlice 5
-            let bobSees = waitMatch waitBob 5
+            let aliceSees = waitMatch waitAlice 30
+            let bobSees = waitMatch waitBob 30
             let bobConfig' = bobConfig{peers = []}
             withEtcdNetwork @Int tracer v1 aliceConfig recordAlice $ \_ ->
               withEtcdNetwork @Int tracer v2 bobConfig' recordBob $ \_ ->

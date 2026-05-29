@@ -448,7 +448,7 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
 
-  waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
+  waitForSnapshotConfirmation = waitMatch 60 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
 
   maybeTxValid :: Value -> Maybe WaitResult

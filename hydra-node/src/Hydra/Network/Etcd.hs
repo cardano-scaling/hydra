@@ -46,6 +46,7 @@ import Control.Concurrent.Class.MonadSTM (
   modifyTVar',
   peekTBQueue,
   readTBQueue,
+  readTVarIO,
   swapTVar,
   writeTBQueue,
   writeTVar,
@@ -347,6 +348,16 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
 --
 -- Retries on failure to 'putMessage' in case we are on a minority cluster or
 -- when the grpc call timeouts.
+--
+-- Idempotent under transient 'GrpcDeadlineExceeded': 'putMessage' uses an
+-- etcd transaction conditioned on the key's current 'mod_revision' matching
+-- the last revision we successfully wrote. If a deadline-exceeded retry
+-- arrives at etcd after the original request already committed, the compare
+-- fails server-side (the mod_revision has advanced), the failure branch's
+-- range tells us what the new revision is, and we move on without writing a
+-- second time. So a retry whose original committed creates zero extra etcd
+-- revisions and the watcher on each peer sees exactly one event per logical
+-- broadcast. Same key namespace as master ('msg-\<host\>'), no disk growth.
 broadcastMessages ::
   (ToCBOR msg, Eq msg) =>
   Tracer IO EtcdLog ->
@@ -355,38 +366,152 @@ broadcastMessages ::
   Host ->
   PersistentQueue IO msg ->
   IO ()
-broadcastMessages tracer config ourHost queue =
+broadcastMessages tracer config ourHost queue = do
+  -- Seed 'lastModRev' from etcd. With this in place the in-memory value
+  -- always matches the server's view of our key when the loop starts:
+  --
+  --   * fresh process + fresh etcd → key absent → @lastModRev = 0@;
+  --     'putMessage' compares against 0 (which etcd treats as "key does
+  --     not exist") and the success branch creates the key.
+  --   * fresh process + persisted etcd (e.g. Carol restart) → key
+  --     present with some non-zero @mod_revision@ → @lastModRev@ starts
+  --     at that revision; 'putMessage' compares against it and the
+  --     success branch advances.
+  --
+  -- The init query removes the ambiguity that the older code had on
+  -- @lastModRev == 0 + compare-fail@: with seeding, any compare-fail is
+  -- unambiguously this peer's own deadline-exceeded retry, so the
+  -- failure branch just adopts the new baseline and pops.
+  initialModRev <- retryInitQuery
+  lastModRevVar <- newLabelledTVarIO "etcd-broadcast-last-mod-rev" initialModRev
   withGrpcContext "broadcastMessages" . forever $ do
     msg <- peekPersistentQueue queue
-    (putMessage tracer config ourHost msg >> popPersistentQueue queue msg)
+    (putMessage tracer config ourHost lastModRevVar msg >> popPersistentQueue queue msg)
       `catch` \case
         GrpcException{grpcError, grpcErrorMessage}
           | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
               traceWith tracer $ BroadcastFailed{reason = fromMaybe "unknown" grpcErrorMessage}
               threadDelay 1
         e -> throwIO e
+ where
+  -- Same retry shape as the broadcast loop: keep trying through
+  -- transient connection errors so we can survive an etcd cluster that
+  -- is still electing or that we briefly cannot reach.
+  retryInitQuery =
+    queryInitialModRev tracer config ourHost
+      `catch` \case
+        GrpcException{grpcError, grpcErrorMessage}
+          | grpcError == GrpcUnavailable || grpcError == GrpcDeadlineExceeded -> do
+              traceWith tracer $ BroadcastFailed{reason = fromMaybe "init query failed" grpcErrorMessage}
+              threadDelay 1
+              retryInitQuery
+        e -> throwIO e
+
+-- | Query etcd for the current 'mod_revision' of this peer's broadcast key.
+-- Returns 0 if the key does not yet exist. Used by 'broadcastMessages' to
+-- seed its in-memory baseline so subsequent @compare mod_revision@ checks
+-- match etcd's reality from the very first 'putMessage'.
+queryInitialModRev ::
+  Tracer IO EtcdLog ->
+  NetworkConfiguration ->
+  Host ->
+  IO Int64
+queryInitialModRev tracer config ourHost =
+  withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
+    res <- nonStreaming conn (rpc @(Protobuf KV "range")) req
+    pure $ fromMaybe 0 (res ^? #kvs . traverse . #modRevision)
+ where
+  key = encodeUtf8 @Text $ "msg-" <> show ourHost
+  req = defMessage & #key .~ key
 
 -- | Broadcast a message to the etcd cluster.
+--
+-- Wraps the etcd @put@ in a @Txn@:
+--
+--   * compare: @mod_revision(key) == lastModRev@
+--   * success: @put(key, value)@
+--   * failure: @range(key)@ (so we can learn the actual @mod_revision@ if our
+--     compare failed, e.g. because a previous attempt of ours committed
+--     server-side after returning 'GrpcDeadlineExceeded' to the client)
+--
+-- 'lastModRevVar' is updated in both branches: from the response header on
+-- a successful put, from the range result on a compare failure. Retries of
+-- the same @msg@ after a deadline-exceeded converge to a single effective
+-- revision rather than producing duplicate deliveries. Because
+-- 'broadcastMessages' seeds 'lastModRev' from etcd at startup
+-- ('queryInitialModRev'), a compare failure unambiguously means "this
+-- peer's earlier attempt already wrote a later revision than we have
+-- recorded" — i.e. the message is already delivered and the caller can pop.
 putMessage ::
   ToCBOR msg =>
   Tracer IO EtcdLog ->
   NetworkConfiguration ->
   -- | Used to identify sender.
   Host ->
+  -- | The peer's last observed 'mod_revision' on its own broadcast key.
+  TVar IO Int64 ->
   msg ->
   IO ()
-putMessage tracer config ourHost msg = do
+putMessage tracer config ourHost lastModRevVar msg = do
+  lastModRev <- readTVarIO lastModRevVar
   -- XXX: Here we open a new connection _for every message_! This is
   -- effectively a work-around for https://github.com/cardano-scaling/hydra/issues/2167.
   withConnection (connParams tracer (Just . Timeout Second $ TimeoutValue 3)) (grpcServer config) $ \conn -> do
-    void $ nonStreaming conn (rpc @(Protobuf KV "put")) req
+    res <- nonStreaming conn (rpc @(Protobuf KV "txn")) (txnReq lastModRev)
+    if res ^. #succeeded
+      then
+        -- Our compare matched and the put ran. The new mod_revision on
+        -- our key equals the cluster revision returned in the response
+        -- header.
+        atomically $ writeTVar lastModRevVar (res ^. #header . #revision)
+      else case res ^? #responses . traverse . #responseRange . #kvs . traverse . #modRevision of
+        Just observedModRev -> do
+          -- Compare failed. Since 'broadcastMessages' seeded 'lastModRev'
+          -- from etcd at startup and we are the only writer to our key,
+          -- the only way 'mod_revision' moved past 'lastModRev' is an
+          -- earlier attempt of ours committing server-side despite a
+          -- 'GrpcDeadlineExceeded' to the client. The message has been
+          -- delivered; adopt the new baseline and let the outer loop pop.
+          traceWith tracer BroadcastDeduped{previousModRev = lastModRev, observedModRev}
+          atomically $ writeTVar lastModRevVar observedModRev
+        Nothing ->
+          -- Compare failed AND range came back empty: etcd has no record
+          -- of our key. Unreachable in normal operation (only we write to
+          -- our key; nothing deletes it). If we ever do hit this, the
+          -- safe move is to crash loudly — the surrounding race kills the
+          -- node and a fresh start re-runs 'queryInitialModRev' against
+          -- whatever state etcd actually has.
+          fail $
+            "putMessage: compare against mod_revision "
+              <> show lastModRev
+              <> " failed but our broadcast key has no current value in etcd"
  where
-  req =
-    defMessage
-      & #key .~ key
-      & #value .~ serialize' msg
-
   key = encodeUtf8 @Text $ "msg-" <> show ourHost
+
+  -- Compare: mod_revision(key) == lastModRev
+  modRevMatches lastModRev =
+    defMessage
+      & #result .~ Proto Compare'EQUAL
+      & #target .~ Proto Compare'MOD
+      & #key .~ key
+      & #modRevision .~ lastModRev
+
+  putReqOp =
+    defMessage
+      & #requestPut
+        .~ ( defMessage
+              & #key .~ key
+              & #value .~ serialize' msg
+           )
+
+  rangeReqOp =
+    defMessage & #requestRange .~ (defMessage & #key .~ key)
+
+  txnReq lastModRev =
+    defMessage
+      & #compare .~ [modRevMatches lastModRev]
+      & #success .~ [putReqOp]
+      & #failure .~ [rangeReqOp]
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
@@ -668,5 +793,10 @@ data EtcdLog
   | MatchingProtocolVersion {version :: ProtocolVersion}
   | WatchMessagesStartRevision {startRevision :: Int64}
   | WatchMessagesFallbackTo {compactRevision :: Int64}
+  | -- | The etcd transaction wrapping a broadcast 'put' found that our
+    -- key's @mod_revision@ had moved past what we last recorded — the
+    -- expected outcome when a 'GrpcDeadlineExceeded'-retried put already
+    -- committed server-side. No second put was issued.
+    BroadcastDeduped {previousModRev :: Int64, observedModRev :: Int64}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

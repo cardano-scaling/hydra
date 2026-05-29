@@ -29,6 +29,7 @@ import Hydra.Cluster.Util (Timing (..), readConfigFile)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
+import Hydra.Network.Etcd (peerPortToClientPort)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.Crypto (HydraKey)
@@ -375,11 +376,32 @@ allocateHydraNodePorts = do
 -- @--listen@ for one node ended up equal to @--monitoring-port@ for another
 -- and crashed etcd with @EADDRINUSE@ in the 'two heads on the same network'
 -- test.
+--
+-- Additionally, hydra-node derives its etcd client port from the listen
+-- port (see 'peerPortToClientPort'), and the derived port is /not/ in the
+-- batch we asked the OS for. We retry until the derived ports are also
+-- disjoint from every primary; otherwise an unlucky draw makes a node's
+-- etcd client port equal its own (or another node's) api/monitoring port,
+-- and the GRPC client ends up talking to Warp instead of etcd.
 allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
-allocateHydraNodePortsFor nodeIds = do
-  ports <- randomUnusedTCPPorts (3 * length nodeIds)
-  pure $ Map.fromList $ zip nodeIds (chunk3 ports)
+allocateHydraNodePortsFor nodeIds = go (20 :: Int)
  where
+  n = length nodeIds
+  go 0 =
+    Prelude.error
+      "allocateHydraNodePortsFor: ran out of retries trying to avoid a derived-etcd-client-port collision"
+  go remaining = do
+    ports <- randomUnusedTCPPorts (3 * n)
+    let assigned = chunk3 ports
+        derived =
+          [ fromIntegral (peerPortToClientPort (listenPort hp))
+          | hp <- assigned
+          ]
+        allClaims = ports <> derived
+    if length allClaims == length (List.nub allClaims)
+      then pure $ Map.fromList $ zip nodeIds assigned
+      else go (remaining - 1)
+
   chunk3 :: [Int] -> [HydraNodePorts]
   chunk3 = \case
     a : l : m : rest ->
