@@ -4,6 +4,7 @@
 /cabal.project.local
 /cabal.project.old
 /dist-newstyle/
+/dist-newstyle-lint/
 
 # Haskell
 *.eventlog
@@ -48,3 +49,6 @@ new-headers.txt
 
 # Blockfrost environment
 blockfrost-project.txt
+
+# Claude
+CLAUDE.local.md
