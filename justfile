@@ -10,18 +10,12 @@ default:
 ci:
   selfci check --print-output
 
-# run "nix-fast-build" to run the nix checks, then produce HTML test reports
-# under ./test-reports/ via the tasty-html ingredient wired into every Hydra
-# test-suite. Reports are written per package so they don't overwrite each other.
+# run "nix-fast-build" to run the nix checks
 check:
   nix-fast-build \
     --flake ".#checks.$(nix eval --impure --raw --expr builtins.currentSystem)" \
     --no-link \
     --skip-cached
-  # nix-fast-build writes per-suite XML/HTML into each test derivation's nix
-  # store path, not ./test-reports/. Only build a local index if some other
-  # invocation ('just test') has already populated test-reports/.
-  if ls test-reports/*.xml >/dev/null 2>&1; then just test-index; fi
 
 # run cabal tests, optionally with a tasty `--pattern`.
 # `--keep-going` so failures in one test-suite don't hide failures in others;
