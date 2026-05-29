@@ -16,7 +16,7 @@ import Data.ByteString qualified as BS
 import Graphics.Vty (
   DisplayContext (..),
   Event (EvKey),
-  Key (KChar, KEnter, KEsc),
+  Key (KChar, KEnter, KEsc, KFun, KLeft, KRight),
   Output (..),
   Vty (..),
   displayContext,
@@ -55,6 +55,7 @@ import HydraNode (
   withHydraNode,
   withPreparedHydraNode,
  )
+import System.Environment (setEnv, unsetEnv)
 import System.FilePath ((</>))
 import System.Posix (OpenMode (WriteOnly), defaultFileFlags, openFd, stdInput)
 import Test.QuickCheck (Positive (..))
@@ -159,6 +160,84 @@ spec = do
           sendInputEvent $ EvKey KEsc []
           threadDelay 1
           sendInputEvent $ EvKey (KChar 'q') []
+      it "switches tabs with 1/2/3 and arrow keys" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          -- MainTab is the default and renders the recent-events strip.
+          shouldRender "Recent events"
+          -- Press 2: FundsTab shows the L2 State / L1 Wallet labels.
+          sendInputEvent $ EvKey (KChar '2') []
+          threadDelay 1
+          shouldRender "L2 State"
+          shouldRender "L1 Wallet"
+          -- Press 3: EventHistoryTab shows the Event History panel and Detail
+          -- pane.
+          sendInputEvent $ EvKey (KChar '3') []
+          threadDelay 1
+          shouldRender "Event History"
+          shouldRender "Detail"
+          -- Press 1: back to MainTab.
+          sendInputEvent $ EvKey (KChar '1') []
+          threadDelay 1
+          shouldRender "Recent events"
+          -- Right arrow advances Main -> Funds.
+          sendInputEvent $ EvKey KRight []
+          threadDelay 1
+          shouldRender "L2 State"
+          -- Left arrow goes back to Main.
+          sendInputEvent $ EvKey KLeft []
+          threadDelay 1
+          shouldRender "Recent events"
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "toggles event-history filter with e" $
+        \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          sendInputEvent $ EvKey (KChar '3') []
+          threadDelay 1
+          shouldRender "Event History"
+          -- Default filter is ShowAll: the "errors only" qualifier in the
+          -- panel header should not be present.
+          shouldNotRender "errors only (e:show all)"
+          -- Press 'e' to switch to ErrorsOnly: the header label changes.
+          sendInputEvent $ EvKey (KChar 'e') []
+          threadDelay 1
+          shouldRender "errors only (e:show all)"
+          -- Press 'e' again to switch back.
+          sendInputEvent $ EvKey (KChar 'e') []
+          threadDelay 1
+          shouldNotRender "errors only (e:show all)"
+          sendInputEvent $ EvKey (KChar 'q') []
+      it "opens the recovery modal from a Closed head" $
+        \TUITest{sendInputEvent, shouldRender} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          shouldRender "Idle"
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 1
+          shouldRender "Open"
+          -- Make a pending deposit so there is something to recover.
+          sendInputEvent $ EvKey (KChar 'i') []
+          threadDelay 3
+          shouldRender "Increment"
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 8
+          shouldRender "Deposit recorded"
+          -- Close the head; recovery handler reads pendingIncrements off
+          -- activeLink, which is still populated in Closed.
+          sendInputEvent $ EvKey (KChar 'c') []
+          threadDelay 1
+          sendInputEvent $ EvKey KEnter []
+          threadDelay 1
+          shouldRender "Closed"
+          sendInputEvent $ EvKey (KChar 'r') []
+          threadDelay 1
+          shouldRender "Recover"
+          shouldRender "Selected deposit"
+          sendInputEvent $ EvKey KEsc []
+          threadDelay 1
+          sendInputEvent $ EvKey (KChar 'q') []
       it "supports the full Head life cycle" $
         \TUITest{sendInputEvent, shouldRender} -> do
           threadDelay 1
@@ -213,6 +292,24 @@ spec = do
           sendInputEvent $ EvKey (KChar 'i') []
           threadDelay 1
           shouldRender "Not enough Fuel. Please provide more to the internal wallet and try again."
+
+  context "theme persistence" $ do
+    around setupNodeAndTUIWithIsolatedXdg $ do
+      it "F3 toggles theme and writes the on-disk config" $
+        \IsolatedXdgTest{tuiTest = TUITest{sendInputEvent, shouldRender}, xdgConfigHome} -> do
+          threadDelay 1
+          shouldRender "Connected"
+          -- Default theme on first launch is dark, so the action bar shows
+          -- the dark indicator (sourced from 'drawActionBar' in Drawing.hs).
+          shouldRender "dark (toggle)"
+          sendInputEvent $ EvKey (KFun 3) []
+          threadDelay 1
+          shouldRender "light (toggle)"
+          -- The toggle handler also persists to $XDG_CONFIG_HOME/hydra/tui-config.yaml.
+          let configPath = xdgConfigHome </> "hydra" </> "tui-config.yaml"
+          contents <- readFileBS configPath
+          contents `shouldSatisfy` ("light" `BS.isInfixOf`)
+          sendInputEvent $ EvKey (KChar 'q') []
 
 setupRotatedStateTUI :: (TUIRotatedTest -> IO ()) -> IO ()
 setupRotatedStateTUI action = do
@@ -380,6 +477,29 @@ setupBadHostNodeAndTUI = setupNodeAndTUI' "example" 100_000_000
 
 setupNotEnoughFundsNodeAndTUI :: (TUITest -> IO ()) -> IO ()
 setupNotEnoughFundsNodeAndTUI = setupNodeAndTUI' "127.0.0.1" 2_000_000
+
+data IsolatedXdgTest = IsolatedXdgTest
+  { tuiTest :: TUITest
+  , xdgConfigHome :: FilePath
+  }
+
+-- | Run 'setupNodeAndTUI' with @XDG_CONFIG_HOME@ pointed at a fresh tmp dir,
+-- restoring the original value afterwards. Used so 'F3' theme persistence
+-- writes into a test-scoped path instead of the developer's real config.
+setupNodeAndTUIWithIsolatedXdg :: (IsolatedXdgTest -> IO ()) -> IO ()
+setupNodeAndTUIWithIsolatedXdg action =
+  withTempDir "tui-xdg" $ \xdgDir ->
+    bracket
+      ( do
+          orig <- lookupEnv "XDG_CONFIG_HOME"
+          setEnv "XDG_CONFIG_HOME" xdgDir
+          pure orig
+      )
+      (maybe (unsetEnv "XDG_CONFIG_HOME") (setEnv "XDG_CONFIG_HOME"))
+      ( \_ ->
+          setupNodeAndTUI $ \tuiTest ->
+            action IsolatedXdgTest{tuiTest, xdgConfigHome = xdgDir}
+      )
 
 data TUITest = TUITest
   { buildVty :: IO Vty

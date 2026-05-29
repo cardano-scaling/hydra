@@ -105,6 +105,7 @@ test-suite tests
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   build-depends:
+    , base
     , blaze-builder
     , bytestring
     , filepath
