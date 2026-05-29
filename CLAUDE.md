@@ -4,7 +4,7 @@
 
 # Testing
 
-- If making same-package changes, use the `cabal repl <package>:test:tests` to load the test package and run the tests through `:main -p  "<test name>"`
+- If making same-package changes, use the `cabal repl <package>:test:tests` to load the test package and run the tests through `:main -p  "/<test name>/"`
 - If making cross-package changes, you can use `just test <package> "<test name>"`; i.e. `just test hydra-tx "hashing"`
 
 # Finishing code changes
