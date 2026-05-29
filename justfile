@@ -97,11 +97,17 @@ test-index:
   echo "wrote test-reports/index.html (${#xmls[@]} suites)"
 
 # format, and build with -Werror and strict linting flags.
+#
+# Uses a dedicated --builddir so the strict -Werror / extra -W… flags here
+# don't invalidate the regular dist-newstyle artifacts used by 'just test',
+# cabal repl, etc. (cabal keys its build cache on ghc-options, so mixing the
+# two would force a full rebuild on every switch).
 lint PKG="all":
   #!/usr/bin/env bash
   set -euo pipefail
   nix fmt
   cabal build {{PKG}} \
+    --builddir=dist-newstyle-lint \
     --ghc-options="-Werror \
       -Wall \
       -Wcompat \

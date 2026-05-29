@@ -4,8 +4,9 @@
 
 # Testing
 
-- If making same-package changes, use the `cabal repl <package>:test:tests` to load the test package and run the tests through `:main -p  "/<test name>/"`
-- If making cross-package changes, you can use `just test <package> "<test name>"`; i.e. `just test hydra-tx "hashing"`
+- If making same-package changes, use `cabal repl <package>:test:tests` to load the test package and run the tests through `:main -p  "/<test name>/"`
+- If making cross-package changes, use `just test <package> "<test name>"`; i.e. `just test hydra-tx "hashing"`
+  - :reload won't pick up dep changes (it silently keeps the old compiled dep) so tests can falsely pass. Restart the repl, or use just test.
 
 # Finishing code changes
 
