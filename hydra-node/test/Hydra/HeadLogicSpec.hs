@@ -1276,6 +1276,103 @@ spec =
                 _ -> False
             _ -> False
 
+        it "re-posts IncrementTx after a PostTxError for an in-flight IncrementTx (issue #2623)" $ do
+          -- After 'CommitApproved' the node posts an 'IncrementTx'. If the L1
+          -- submission fails (e.g. transient 'BadInputsUTxO' against the local
+          -- cardano-node's UTxO view), the head logic currently only re-posts
+          -- on chain rollback. This leaves the head stuck until an external
+          -- event (a rollback, or — as the issue reporter found — posting an
+          -- unrelated transaction) nudges the chain. The fix is to re-post
+          -- when the PostTxError for that IncrementTx is re-ingested.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , contestationPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+          let depositTime = plusTime now
+              deadline = depositTime 600
+              depositTxId = 42 :: Integer
+              depositedUtxo = utxoRef depositTxId
+              deposit =
+                OnDepositTx
+                  { headId = testHeadId
+                  , depositTxId
+                  , deposited = depositedUtxo
+                  , created = depositTime 1
+                  , deadline
+                  }
+
+          -- Drive the head to 'CommitApproved' (single party flow).
+          s1 <- runHeadLogic aliceEnv' ledger (inOpenState singleParty) $ do
+            step (observeTxAtSlot 1 deposit)
+            getState
+
+          let chainTime = depositTime 2 `plusTime` toNominalDiffTime (depositPeriod aliceEnv')
+              tickInput = ChainInput $ Tick{chainTime, chainPoint = 2}
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step tickInput
+            getState
+
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step reqSnWithDeposit
+            getState
+
+          let snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUtxo
+                  , utxoToDecommit = Nothing
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+          s4 <- runHeadLogic aliceEnv' ledger s3 $ do
+            step ackSn
+            getState
+
+          -- Sanity-check we're in the post-CommitApproved state.
+          case headState s4 of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
+              currentDepositTxId `shouldBe` Just depositTxId
+            other -> expectationFailure $ "Expected Open state, got: " <> show other
+
+          -- Simulate the L1 submission failing — the chain layer re-ingests
+          -- the error as a 'PostTxError' input. This is the scenario from
+          -- issue #2623.
+          let parameters = HeadParameters aliceEnv'.contestationPeriod [alice]
+              failingIncrementTx =
+                IncrementTx
+                  { headSeed = testHeadSeed
+                  , headId = testHeadId
+                  , headParameters = parameters
+                  , incrementingSnapshot = ConfirmedSnapshot{snapshot = snapshot1, signatures = aggregate [sign aliceSk snapshot1]}
+                  , depositTxId
+                  }
+              postTxErrorInput =
+                ChainInput
+                  PostTxError
+                    { postChainTx = failingIncrementTx
+                    , postTxError = FailedToPostTx{failureReason = "BadInputsUTxO", failingTx = aValidTx 999}
+                    , failingTx = Just (aValidTx 999)
+                    }
+
+          let postTxErrorOutcome = update aliceEnv' ledger now s4 postTxErrorInput
+
+          -- After the failure is ingested we expect the node to re-post the
+          -- IncrementTx for the still-pending deposit (alongside surfacing the
+          -- failure to clients via PostTxOnChainFailed).
+          postTxErrorOutcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{depositTxId = retryTxId}} ->
+              retryTxId == depositTxId
+            _ -> False
+
         it "re-posts DecrementTx on chain rollback when decommit is pending" $ do
           -- After a snapshot is confirmed with a decommit (DecommitApproved + DecrementTx posted),
           -- if a chain rollback occurs, the node should re-post the DecrementTx because
@@ -1352,6 +1449,69 @@ spec =
               case postChainTx of
                 DecrementTx{} -> True
                 _ -> False
+            _ -> False
+
+        it "re-posts DecrementTx after a PostTxError for an in-flight DecrementTx (issue #2623)" $ do
+          -- Symmetric to the IncrementTx case in issue #2623: a failing L1
+          -- DecrementTx submission must not leave the head waiting for an
+          -- external nudge before 'DecommitFinalized'.
+          now <- getCurrentTime
+          let aliceEnv' =
+                aliceEnv
+                  { depositPeriod = 60
+                  , contestationPeriod = 60
+                  , otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+
+          let decommitTx' = aValidTx 3
+              s0 = inOpenState singleParty
+
+          s1 <- runHeadLogic aliceEnv' ledger s0 $ do
+            step $ receiveMessage ReqDec{transaction = decommitTx'}
+            getState
+
+          let reqSnWithDecommit = receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step reqSnWithDecommit
+            getState
+
+          let snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Nothing
+                  , utxoToDecommit = Just (utxoRef 3)
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step ackSn
+            getState
+
+          let parameters = HeadParameters aliceEnv'.contestationPeriod [alice]
+              failingDecrementTx =
+                DecrementTx
+                  { headSeed = testHeadSeed
+                  , headId = testHeadId
+                  , headParameters = parameters
+                  , decrementingSnapshot = ConfirmedSnapshot{snapshot = snapshot1, signatures = aggregate [sign aliceSk snapshot1]}
+                  }
+              postTxErrorInput =
+                ChainInput
+                  PostTxError
+                    { postChainTx = failingDecrementTx
+                    , postTxError = FailedToPostTx{failureReason = "BadInputsUTxO", failingTx = aValidTx 999}
+                    , failingTx = Just (aValidTx 999)
+                    }
+
+          let postTxErrorOutcome = update aliceEnv' ledger now s3 postTxErrorInput
+
+          postTxErrorOutcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = DecrementTx{}} -> True
             _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do

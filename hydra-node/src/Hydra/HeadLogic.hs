@@ -1779,6 +1779,33 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     -- was faster). The chain observation loop already emitted the correct next
     -- step, so this is safe to ignore.
     noop
+  ( Open
+      OpenState
+        { headSeed
+        , headId
+        , parameters
+        , coordinatedHeadState =
+          CoordinatedHeadState
+            { currentDepositTxId
+            , confirmedSnapshot
+            , decommitTx
+            }
+        }
+    , ChainInput PostTxError{postChainTx, postTxError}
+    ) ->
+      -- L1 submission of a head-protocol transaction failed. Surface the
+      -- error to clients and, for in-flight commit/decommit txs, re-post so
+      -- the head does not get stuck waiting for an external nudge (issue
+      -- #2623). The 'maybeRepost*' helpers are guarded by deposit/decommit
+      -- pending and confirmed snapshot, so they become a no-op once the
+      -- on-chain finalization is observed.
+      cause (ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError})
+        <> case postChainTx of
+          IncrementTx{} ->
+            maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) currentDepositTxId confirmedSnapshot
+          DecrementTx{} ->
+            maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot
+          _ -> noop
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
     cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   _ ->
