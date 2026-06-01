@@ -186,19 +186,20 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               slot <- either (\err -> throwIO (ContestationDeadlineOutsideTimeHorizon{failureReason = err} :: PostTxError Tx)) pure $ slotFromUTCTime deadline
               tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure $ headSeedToTxIn headSeed
               pure (slot, tin)
-            postFanoutWith seedTxIn mPreferred fullUTxO deadlineSlot =
-              findFittingFanoutTx wallet ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot
-                >>= finalizeTx wallet ctx spendableUTxO mempty
         vtx <- case tx of
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
-                mPreferred = either (const Nothing) Just $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot
-            postFanoutWith seedTxIn mPreferred fullUTxO deadlineSlot
+            findFittingFanoutTx wallet ctx spendableUTxO seedTxIn
+              (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot)
+              fullUTxO deadlineSlot
+              >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            let mPreferred = either (const Nothing) Just $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot
-            postFanoutWith seedTxIn mPreferred utxoToDistribute deadlineSlot
+            findFittingFanoutTx wallet ctx spendableUTxO seedTxIn
+              (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot)
+              utxoToDistribute deadlineSlot
+              >>= finalizeTx wallet ctx spendableUTxO mempty
           _ ->
             atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
               >>= finalizeTx wallet ctx spendableUTxO mempty
@@ -556,7 +557,7 @@ fitsTx withinSizeLimits evalCosts evalUTxO tx = do
 -- immediately throws 'StalePartialFanoutTx' since it would affect all chunk
 -- sizes equally.
 findFittingFanoutTx ::
-  forall m.
+  forall m e.
   MonadThrow m =>
   TinyWallet m ->
   ChainContext ->
@@ -564,23 +565,23 @@ findFittingFanoutTx ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); Nothing skips straight to the loop
-  Maybe Tx ->
+  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); Left skips straight to the loop
+  Either e Tx ->
   -- | Full UTxO for the partial-fanout fallback loop
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   m Tx
-findFittingFanoutTx TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot =
+findFittingFanoutTx TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
   findBest >>= maybe (throwIO (StalePartialFanoutTx @Tx)) pure
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
   -- fall back to the binary search if it doesn't fit.
-  findBest = case mPreferred of
-    Just tx -> do
+  findBest = case ePreferred of
+    Right tx -> do
       fits' <- fits tx
       if fits' then pure (Just tx) else findFallback
-    Nothing -> findFallback
+    Left _ -> findFallback
 
   findFallback =
     findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
