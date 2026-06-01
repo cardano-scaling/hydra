@@ -1645,7 +1645,31 @@ spec =
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
           HeadPartialFannedOut{remainingOutputs} ->
-            Set.size remainingOutputs == Set.size allItems - 7
+            Set.size remainingOutputs == Set.size allItems - Set.size distributed
+          _ -> False
+
+      it "partial fanout of non-prefix items tracks remaining by content, not by count" $ do
+        -- An adversary can submit a valid partial fanout of UTxOs that are NOT the
+        -- prefix of the full set. The remaining computation must use content-based
+        -- set-difference, not a count-based positional split.
+        let total = fanoutOutputThreshold + fanoutChunkSize + 1
+            allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral total]]
+            -- Adversarial distribution: the LAST fanoutChunkSize items, not the first.
+            attackedDistributed =
+              Set.fromList
+                [SimpleTxOut i | i <- [fromIntegral (total - fanoutChunkSize + 1) .. fromIntegral total]]
+            st = inClosedStateWithRemaining threeParties (Just allItems)
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let outcome =
+              update
+                bobEnv
+                ledger
+                now
+                st
+                (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = attackedDistributed})
+        outcome `hasStateChangedSatisfying` \case
+          HeadPartialFannedOut{remainingOutputs} ->
+            remainingOutputs == Set.difference allItems attackedDistributed
           _ -> False
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do

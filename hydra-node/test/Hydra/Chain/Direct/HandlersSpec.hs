@@ -29,13 +29,14 @@ import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
-import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostTxError (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
   ChainSyncHandler (..),
   GetTimeHandle,
   TimeConversionException (..),
   chainSyncHandler,
+  findFittingFanoutTx,
   findLargestFitting,
   fitsTx,
   getLatest,
@@ -45,6 +46,7 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
+  ClosedState (..),
   chainSlotFromPoint,
   ctxHeadParameters,
   ctxNetworkId,
@@ -54,6 +56,7 @@ import Hydra.Chain.Direct.State (
   initialize,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
+import Hydra.Chain.Direct.Wallet (TinyWallet (..))
 import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (mkSimpleBlueprintTx)
@@ -64,6 +67,7 @@ import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
   genChainStateWithTx,
+  genClosedStateForFanout,
   genHydraContext,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
@@ -81,6 +85,7 @@ import Test.QuickCheck (
   cover,
   elements,
   forAll,
+  generate,
   label,
   listOf,
   oneof,
@@ -474,6 +479,97 @@ spec = do
                     UTxO.size first' == expectedFirst
                       && UTxO.size rest == utxoSize - expectedFirst
                       && UTxO.toList (first' <> rest) == UTxO.toList (utxo :: UTxO)
+
+  describe "findFittingFanoutTx" $ do
+    prop "throws StalePartialFanoutTx when on-chain accumulator doesn't match remaining UTxO" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, _u0) ->
+          monadicIO $ do
+            -- A freshly generated UTxO won't match the commitment in the closed-head
+            -- datum → partialFanout returns Left StaleChainState → StalePartialFanoutTx
+            mismatchedUTxO <- run $ generate $ genUTxOAdaOnlyOfSize 5
+            let wallet =
+                  TinyWallet
+                    { getUTxO = pure mempty
+                    , getSeedInput = pure Nothing
+                    , sign = id
+                    , coverFee = \_ tx -> pure (Right tx)
+                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                    , isTxWithinSizeLimits = \_ -> pure True
+                    , reset = pure ()
+                    , update = \_ _ -> pure ()
+                    }
+            run $
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) mismatchedUTxO deadlineSlot
+                `shouldThrow` \(e :: PostTxError Tx) -> e == StalePartialFanoutTx
+
+    prop "throws FailedToConstructPartialFanoutTx on non-stale structural failure" $
+      forAll (genUTxOAdaOnlyOfSize 3) $ \fullUTxO -> monadicIO $ do
+        ctx <- run $ generate arbitrary
+        seedTxIn <- run $ generate genTxIn
+        -- Empty spendableUTxO → CannotFindHeadOutput on every chunk size, which is
+        -- a structural error (not a race condition) → FailedToConstructPartialFanoutTx
+        let wallet =
+              TinyWallet
+                { getUTxO = pure mempty
+                , getSeedInput = pure Nothing
+                , sign = id
+                , coverFee = \_ tx -> pure (Right tx)
+                , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                , isTxWithinSizeLimits = \_ -> pure True
+                , reset = pure ()
+                , update = \_ _ -> pure ()
+                }
+        run $
+          findFittingFanoutTx nullTracer wallet ctx mempty seedTxIn (Left ()) fullUTxO 1
+            `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
+
+    prop "throws FailedToConstructPartialFanoutTx when no chunk fits within budget" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) ->
+          monadicIO $ do
+            -- Wallet always rejects on size → fits always returns False for every chunk
+            -- → findLargestFitting returns Nothing → FailedToConstructPartialFanoutTx
+            let wallet =
+                  TinyWallet
+                    { getUTxO = pure mempty
+                    , getSeedInput = pure Nothing
+                    , sign = id
+                    , coverFee = \_ tx -> pure (Right tx)
+                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                    , isTxWithinSizeLimits = \_ -> pure False
+                    , reset = pure ()
+                    , update = \_ _ -> pure ()
+                    }
+            run $
+              findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Left ()) u0 deadlineSlot
+                `shouldThrow` \(e :: PostTxError Tx) -> e == FailedToConstructPartialFanoutTx
+
+    prop "falls back to partial fanout when preferred tx doesn't fit" $
+      forAll (genClosedStateForFanout 3) $
+        \(cctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlot, u0) ->
+          monadicIO $ do
+            dummyTx <- run $ generate arbitrary
+            -- First isTxWithinSizeLimits call (for the preferred tx) returns False;
+            -- all subsequent calls (for binary-search partial-fanout candidates) return True.
+            isFirst <- run $ newIORef True
+            let wallet =
+                  TinyWallet
+                    { getUTxO = pure mempty
+                    , getSeedInput = pure Nothing
+                    , sign = id
+                    , coverFee = \_ tx -> pure (Right tx)
+                    , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
+                    , isTxWithinSizeLimits = \_ -> do
+                        first' <- readIORef isFirst
+                        writeIORef isFirst False
+                        pure (not first')
+                    , reset = pure ()
+                    , update = \_ _ -> pure ()
+                    }
+            -- Any exception thrown here will fail the test automatically.
+            _ <- run $ findFittingFanoutTx nullTracer wallet cctx spendableUTxO seedTxIn (Right dummyTx) u0 deadlineSlot
+            assert True
 
 -- | Generate a byte-count limit that straddles the real serialised size of
 -- @tx@, giving roughly equal probability of the size check passing or failing.

@@ -59,6 +59,7 @@ import Hydra.Chain.ChainState (
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainStateAt (..),
+  PartialFanoutError (..),
   chainSlotFromPoint,
   close,
   contest,
@@ -190,15 +191,27 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
-            findFittingFanoutTx tracer wallet ctx spendableUTxO seedTxIn
+            findFittingFanoutTx
+              tracer
+              wallet
+              ctx
+              spendableUTxO
+              seedTxIn
               (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot)
-              fullUTxO deadlineSlot
+              fullUTxO
+              deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            findFittingFanoutTx tracer wallet ctx spendableUTxO seedTxIn
+            findFittingFanoutTx
+              tracer
+              wallet
+              ctx
+              spendableUTxO
+              seedTxIn
               (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot)
-              utxoToDistribute deadlineSlot
+              utxoToDistribute
+              deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           _ ->
             atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
@@ -552,10 +565,16 @@ fitsTx withinSizeLimits evalCosts evalUTxO tx = do
 -- | Try the preferred transaction first; if it doesn't fit within the script
 -- execution budget or exceeds the maximum transaction size, fall back to a
 -- binary search over partial fanout chunk sizes. Returns the largest chunk that
--- fits, minimising the number of fanout steps. Any structural failure from
--- 'partialFanout' (wrong datum, missing head output, accumulator mismatch)
--- immediately throws 'StalePartialFanoutTx' since it would affect all chunk
--- sizes equally.
+-- fits, minimising the number of fanout steps.
+--
+-- Error mapping:
+--   * 'StaleChainState' from 'partialFanout' → 'StalePartialFanoutTx' (race
+--     condition; HeadLogic silently ignores it and the chain observation loop
+--     triggers the correct next step).
+--   * Any other 'PartialFanoutError' → 'FailedToConstructPartialFanoutTx'
+--     (structural mismatch that will not resolve on retry).
+--   * No chunk fits within budget → 'FailedToConstructPartialFanoutTx'
+--     (budget exhaustion; also not a race condition).
 findFittingFanoutTx ::
   forall m e.
   MonadThrow m =>
@@ -574,7 +593,7 @@ findFittingFanoutTx ::
   SlotNo ->
   m Tx
 findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
-  findBest >>= maybe (throwIO (StalePartialFanoutTx @Tx)) pure
+  findBest >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
   -- fall back to the binary search if it doesn't fit.
@@ -587,12 +606,14 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
   findFallback =
     findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
 
-  -- Structural failures affect all chunk sizes, so log and throw immediately.
   mkTxM n =
     case partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot of
+      Left StaleChainState -> do
+        traceWith tracer $ PartialFanoutFailed{reason = show StaleChainState}
+        throwIO (StalePartialFanoutTx @Tx)
       Left err -> do
         traceWith tracer $ PartialFanoutFailed{reason = show err}
-        throwIO (StalePartialFanoutTx @Tx)
+        throwIO (FailedToConstructPartialFanoutTx @Tx)
       Right tx -> pure tx
 
   fits = fitsTx isTxWithinSizeLimits evaluateScriptCosts evalUTxO
