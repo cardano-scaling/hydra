@@ -445,7 +445,7 @@ spec = do
                 (pure :: Int -> (Sum Int, Int))
                 (const (Sum 1, True))
                 maxChunk
-            bound = ceiling (logBase 2 (fromIntegral maxChunk :: Double) :: Double) + 1
+            bound = (ceiling (logBase 2 (fromIntegral maxChunk :: Double) :: Double) :: Int) + 1
          in counterexample ("maxChunk=" <> show maxChunk <> ", evaluations=" <> show count <> ", bound=" <> show bound) $
               count <= bound
 

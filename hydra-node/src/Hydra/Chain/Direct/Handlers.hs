@@ -516,7 +516,7 @@ findLargestFitting ::
   -- | Upper bound of chunk sizes to search (inclusive)
   Int ->
   m (Maybe tx)
-findLargestFitting mkTx fitsCheck maxChunk = go Nothing 1 maxChunk
+findLargestFitting mkTx fitsCheck = go Nothing 1
  where
   -- 'best' accumulates the largest fitting tx found so far.
   go best lo hi

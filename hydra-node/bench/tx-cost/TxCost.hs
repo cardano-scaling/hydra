@@ -19,6 +19,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.TxOut (toPlutusTxOut)
+import Hydra.Chain.Direct.Handlers (findLargestFitting)
 import Hydra.Chain.Direct.State (
   ClosedState (..),
   OpenState (..),
@@ -249,14 +250,7 @@ computePartialFanOutNominalCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-        binarySearch lo hi best
-          | lo > hi = best
-          | otherwise =
-              let mid = (lo + hi) `div` 2
-               in case tryChunk mid of
-                    Nothing -> binarySearch lo (mid - 1) best
-                    Just r -> binarySearch (mid + 1) hi (Just r)
-    pure $ binarySearch 1 (totalUTxO - 1) Nothing
+    join <$> findLargestFitting (pure . tryChunk) (pure . isJust) (totalUTxO - 1)
 
 -- | Like 'computePartialFanOutNominalCost' but uses outputs carrying native
 -- tokens (all sharing one policy ID so the accumulated head value stays
@@ -297,14 +291,7 @@ computePartialFanOutMixedCost = do
            in fmap
                 (\(txSize, memUnit, cpuUnit, minFee) -> (NumUTxO totalUTxO, NumUTxO (totalUTxO - n), serializedSize utxoDistributed, txSize, memUnit, cpuUnit, minFee))
                 (checkSizeAndEvaluate tx spendableUTxO)
-        binarySearch lo hi best
-          | lo > hi = best
-          | otherwise =
-              let mid = (lo + hi) `div` 2
-               in case tryChunk mid of
-                    Nothing -> binarySearch lo (mid - 1) best
-                    Just r -> binarySearch (mid + 1) hi (Just r)
-    pure $ binarySearch 1 (totalUTxO - 1) Nothing
+    join <$> findLargestFitting (pure . tryChunk) (pure . isJust) (totalUTxO - 1)
 
 -- | Compute costs of the final partial fanout transaction (FanoutProgress → Final)
 -- with mixed UTxOs. This is the terminal step that burns all head tokens and
