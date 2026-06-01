@@ -10,10 +10,11 @@ import Codec.CBOR.Read (deserialiseFromBytes)
 import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
   readTQueue,
+  readTVarIO,
   writeTQueue,
  )
 import Hydra.Ledger.Simple (SimpleTx (..))
-import Hydra.Logging (showLogsOnFailure)
+import Hydra.Logging (Envelope (message), showLogsOnFailure, traceInTVar)
 import Hydra.Network (
   Connectivity (..),
   Host (..),
@@ -22,7 +23,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (getClientPort, peerPortToClientPort, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), getClientPort, peerPortToClientPort, putMessage, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import System.Directory (removeFile)
@@ -32,7 +33,7 @@ import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGold
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk)
-import Test.Network.Ports (randomUnusedTCPPortsWithDerived, withFreePort)
+import Test.Network.Ports (randomUnusedTCPPortsWithDerived, withFreePortAndDerived)
 import Test.QuickCheck (Property, (===))
 import Test.QuickCheck.Instances.ByteString ()
 import Test.Util (noopCallback, waitEq, waitMatch)
@@ -47,6 +48,13 @@ spec = do
   -- can cause failures. Force sequential execution within this describe;
   -- CI already pins '--num-threads=1' for the whole hydra-node
   -- suite, so this only changes behaviour for local runs.
+  --
+  -- Per-test 'failAfter' budgets in this block are deliberately generous
+  -- (60s). The previous 15–30s budgets fired too eagerly when an etcd
+  -- election or a gRPC reconnect happened to land on the same scheduler
+  -- tick as a CI slowdown. The 'network-test.yaml' workflow (pumba
+  -- packet loss) is the operating point this guards against; tighten
+  -- only if you've confirmed it still passes there.
   describe "Etcd" . sequential $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = ProtocolVersion 1
@@ -54,7 +62,7 @@ spec = do
       it "broadcasts to self" $ \tracer -> do
         failAfter 30 $
           withTempDir "test-etcd" $ \tmp -> do
-            withFreePort $ \port -> do
+            withFreePortAndDerived peerPortToClientPort $ \port -> do
               let config =
                     NetworkConfiguration
                       { listen = Host lo port
@@ -70,6 +78,60 @@ spec = do
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
                 broadcast n ("asdf" :: Text)
                 waitNext `shouldReturn` "asdf"
+
+      -- Exercises 'putMessage's compare-failure branch directly. The
+      -- scenario it mimics: a previous 'putMessage' committed
+      -- server-side but the gRPC client returned
+      -- 'GrpcDeadlineExceeded', so the in-memory 'lastModRev' is
+      -- stale on the retry. The Txn's compare(modRev == stale) must
+      -- fail, the range branch must observe the new revision, the
+      -- 'BroadcastDeduped' event must be traced, and most importantly
+      -- /no second write/ should land — so the receiver does not see
+      -- a duplicate.
+      it "putMessage dedups when lastModRev is stale" $ \tracer -> do
+        failAfter 30 $
+          withTempDir "test-etcd" $ \tmp -> do
+            withFreePortAndDerived peerPortToClientPort $ \port -> do
+              let host = Host lo port
+                  config =
+                    NetworkConfiguration
+                      { listen = host
+                      , advertise = host
+                      , signingKey = aliceSk
+                      , otherParties = []
+                      , peers = []
+                      , nodeId = "alice"
+                      , persistenceDir = tmp </> "alice"
+                      , whichEtcd = SystemEtcd
+                      }
+              (recordingCallback, waitNext, _) <- newRecordingCallback
+              withEtcdNetwork @Int tracer v1 config recordingCallback $ \n -> do
+                -- Real broadcast advances msg-<host>'s mod_revision.
+                broadcast n 1
+                waitNext `shouldReturn` 1
+                -- Capture EtcdLog events from a direct putMessage call.
+                traces <- newLabelledTVarIO "putMessage-dedup-traces" []
+                let captureTracer = traceInTVar traces "putMessageDedupSpec"
+                staleVar <- newLabelledTVarIO "stale-last-mod-rev" 0
+                -- Compare against 0 must fail (real modRev > 0); the
+                -- failure branch should adopt the observed revision
+                -- and trace BroadcastDeduped instead of writing.
+                putMessage @Int captureTracer config host staleVar 99
+                captured <- map message <$> readTVarIO traces
+                captured
+                  `shouldSatisfy` any
+                    ( \case
+                        BroadcastDeduped{} -> True
+                        _ -> False
+                    )
+                updatedModRev <- readTVarIO staleVar
+                updatedModRev `shouldSatisfy` (> 0)
+                -- Send a fresh marker. If 99 had actually been
+                -- written by the deduped call, the receiver would
+                -- see it before 2 (etcd revisions are monotonic and
+                -- the watch is in-order).
+                broadcast n 2
+                waitNext `shouldReturn` 2
 
       -- Note: This test is disabled as it takes took long; but it is
       -- important to keep around. Successfully completion of this test looks

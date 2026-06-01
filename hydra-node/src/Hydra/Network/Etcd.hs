@@ -442,6 +442,15 @@ queryInitialModRev tracer config ourHost =
 -- ('queryInitialModRev'), a compare failure unambiguously means "this
 -- peer's earlier attempt already wrote a later revision than we have
 -- recorded" — i.e. the message is already delivered and the caller can pop.
+--
+-- __Cluster-reset behaviour (intentionally fatal):__ if the compare fails
+-- and the @range@ branch returns no kvs, the etcd cluster has lost the
+-- key we wrote against — either the data dir was wiped or the cluster
+-- was replaced underneath us. We do not silently reseed: this is a
+-- node-level event that should surface, not be papered over. 'putMessage'
+-- calls 'fail', which kills the broadcast loop, propagates up to take
+-- down the node, and on restart 'queryInitialModRev' re-seeds
+-- 'lastModRev' from whatever state etcd actually has.
 putMessage ::
   ToCBOR msg =>
   Tracer IO EtcdLog ->

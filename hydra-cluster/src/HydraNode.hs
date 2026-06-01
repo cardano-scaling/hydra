@@ -55,7 +55,7 @@ import System.Process.Typed (
  )
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Prelude qualified as Prelude
-import Test.Network.Ports (randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPorts, randomUnusedTCPPortsWithDerived)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -369,49 +369,52 @@ allocateHydraNodePorts = do
 -- must be passed to every 'prepareHydraNode' / 'withHydraNode' call for
 -- nodes in this cluster so peers can be addressed correctly.
 --
--- All @3 * length nodeIds@ ports are requested in a single
--- 'randomUnusedTCPPorts' call so they're mutually unique. A per-node loop
--- would close each batch's sockets between calls, letting the kernel hand
--- back a just-released port to a later node — which is exactly how
--- @--listen@ for one node ended up equal to @--monitoring-port@ for another
--- and crashed etcd with @EADDRINUSE@ in the 'two heads on the same network'
--- test.
+-- Listen ports are taken via 'randomUnusedTCPPortsWithDerived' so each
+-- listen port's derived etcd /client/ port — 'peerPortToClientPort' — is
+-- actually held bound at allocation time. That defends against two
+-- failure modes: an unrelated process on the host occupying the derived
+-- port (which a plain 'randomUnusedTCPPorts' would not catch and which
+-- explodes as @EADDRINUSE@ the moment etcd starts), and an unlucky draw
+-- where the derived port lands on top of another node's api/monitoring
+-- port (which used to make the GRPC client talk to Warp instead of
+-- etcd).
 --
--- Additionally, hydra-node derives its etcd client port from the listen
--- port (see 'peerPortToClientPort'), and the derived port is /not/ in the
--- batch we asked the OS for. We retry until the derived ports are also
--- disjoint from every primary; otherwise an unlucky draw makes a node's
--- etcd client port equal its own (or another node's) api/monitoring port,
--- and the GRPC client ends up talking to Warp instead of etcd.
+-- Api and monitoring ports are then acquired in a second batch and
+-- checked to be disjoint from both the listen ports and the derived
+-- client ports; on collision we retry that second batch.
 allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
-allocateHydraNodePortsFor nodeIds = go (20 :: Int)
+allocateHydraNodePortsFor nodeIds = do
+  listenPorts <- randomUnusedTCPPortsWithDerived peerPortToClientPort n
+  let derivedClientPorts =
+        [ fromIntegral (peerPortToClientPort (fromIntegral p))
+        | p <- listenPorts
+        ]
+      reserved = listenPorts <> derivedClientPorts
+  apiAndMonPorts <- acquireDisjoint reserved (20 :: Int)
+  let apiPorts = take n apiAndMonPorts
+      monPorts = drop n apiAndMonPorts
+      assigned = Prelude.zipWith3 mkPorts apiPorts listenPorts monPorts
+  pure $ Map.fromList $ zip nodeIds assigned
  where
   n = length nodeIds
-  go 0 =
-    Prelude.error
-      "allocateHydraNodePortsFor: ran out of retries trying to avoid a derived-etcd-client-port collision"
-  go remaining = do
-    ports <- randomUnusedTCPPorts (3 * n)
-    let assigned = chunk3 ports
-        derived =
-          [ fromIntegral (peerPortToClientPort (listenPort hp))
-          | hp <- assigned
-          ]
-        allClaims = ports <> derived
-    if length allClaims == length (List.nub allClaims)
-      then pure $ Map.fromList $ zip nodeIds assigned
-      else go (remaining - 1)
 
-  chunk3 :: [Int] -> [HydraNodePorts]
-  chunk3 = \case
-    a : l : m : rest ->
-      HydraNodePorts
-        { apiPort = fromIntegral a
-        , listenPort = fromIntegral l
-        , monitoringPort = fromIntegral m
-        }
-        : chunk3 rest
-    _ -> []
+  acquireDisjoint :: [Int] -> Int -> IO [Int]
+  acquireDisjoint _ 0 =
+    fail
+      "allocateHydraNodePortsFor: ran out of retries trying to keep the api/monitoring ports disjoint from the derived etcd client ports"
+  acquireDisjoint reserved remaining = do
+    ps <- randomUnusedTCPPorts (2 * n)
+    if null (ps `List.intersect` reserved)
+      then pure ps
+      else acquireDisjoint reserved (remaining - 1)
+
+  mkPorts :: Int -> Int -> Int -> HydraNodePorts
+  mkPorts a l m =
+    HydraNodePorts
+      { apiPort = fromIntegral a
+      , listenPort = fromIntegral l
+      , monitoringPort = fromIntegral m
+      }
 
 -- | Process-global cache mapping each @(workDir, nodeId)@ to its allocated
 -- ports. The cache exists because restart-style tests (re-running
