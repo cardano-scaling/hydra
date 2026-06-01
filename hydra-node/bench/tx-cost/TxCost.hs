@@ -60,7 +60,7 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
-import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold)
+import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (oneof)
 

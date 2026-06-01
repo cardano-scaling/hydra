@@ -9,6 +9,10 @@ import Control.Tracer (nullTracer)
 import Hydra.Cardano.Api (
   BlockHeader (..),
   ChainPoint (..),
+  ExecutionUnits (..),
+  ScriptExecutionError (..),
+  ScriptWitnessIndex (..),
+  SerialiseAsCBOR (serialiseToCBOR),
   SlotNo (..),
   Tx,
   UTxO,
@@ -23,6 +27,8 @@ import Test.QuickCheck.Hedgehog (hedgehog)
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (IsValid (..), isValidTxL)
 import Control.Lens ((.~))
+import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as Map
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), currentState, initHistory, maximumNumberOfParties)
 import Hydra.Chain.ChainState (chainStateSlot)
 import Hydra.Chain.Direct.Handlers (
@@ -30,6 +36,8 @@ import Hydra.Chain.Direct.Handlers (
   GetTimeHandle,
   TimeConversionException (..),
   chainSyncHandler,
+  findLargestFitting,
+  fitsTx,
   getLatest,
   history,
   newLocalChainState,
@@ -46,10 +54,12 @@ import Hydra.Chain.Direct.State (
   initialize,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (slotToUTCTime), TimeHandleParams (..), mkTimeHandle)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx (mkSimpleBlueprintTx)
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.Observe (InitObservation (..), observeInitTx)
+import System.IO.Error (ioeGetErrorString, userError)
 import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (
   deriveChainContexts,
@@ -58,13 +68,19 @@ import Test.Hydra.Chain.Direct.State (
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
+  NonNegative (..),
+  Positive (..),
+  choose,
   chooseEnum,
   counterexample,
+  cover,
   elements,
+  forAll,
   label,
   oneof,
   suchThat,
@@ -287,6 +303,165 @@ spec = do
       UTxO.size (first' :: UTxO) `shouldBe` n
       UTxO.size rest `shouldBe` (UTxO.size utxo - n)
 
+  describe "fitsTx" $ do
+    -- Each test measures the real serialised byte size of a generated tx and
+    -- compares it against a randomly chosen limit so that both outcomes (fits /
+    -- does not fit) occur naturally rather than being hardcoded.  'cover'
+    -- assertions verify that QuickCheck actually exercises both branches.
+
+    prop "skips script evaluation and returns False when tx exceeds size limit" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              -- When size fails the short-circuit must prevent evalCosts from
+              -- being called at all; the throw proves it.
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts =
+                if sizeOk
+                  then \_ _ -> pure $ Right Map.empty
+                  else \_ _ -> throwIO $ userError "evalCosts must not be called when size check fails"
+          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          assert $ result == sizeOk
+
+    prop "returns False when script evaluation returns a budget error" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts _ _ =
+                pure $ Left $ TransactionBudgetOverspent (ExecutionUnits 100 100) (ExecutionUnits 50 50)
+          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          -- Fits only when size passes AND eval succeeds; budget error means eval fails.
+          assert $ not result
+
+    prop "returns False when report contains a script execution failure" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts _ _ =
+                pure $
+                  Right $
+                    Map.singleton (ScriptWitnessIndexTxIn 0) (Left ScriptErrorExecutionUnitsOverflow)
+          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          assert $ not result
+
+    prop "returns True when size passes and all scripts succeed" $
+      forAll arbitrary $ \tx ->
+        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
+          let txBytes :: Int
+              txBytes = BS.length (serialiseToCBOR tx)
+              sizeOk = txBytes <= limit
+          let sizeCheck :: Tx -> IO Bool
+              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+              evalCosts _ _ = pure $ Right Map.empty
+          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
+          monitor $ cover 40 sizeOk "size passes"
+          monitor $ cover 40 (not sizeOk) "size fails"
+          -- Empty report means all scripts pass; result tracks whether size passed.
+          assert $ result == sizeOk
+
+    prop "result matches real Cardano protocol size limit and evaluateTx" $
+      forAll arbitrary $ \tx -> monadicIO $ do
+        let txBytes = BS.length (serialiseToCBOR tx)
+            sizeOk = fromIntegral txBytes <= maxTxSize
+            sizeCheck :: Tx -> IO Bool
+            sizeCheck t = pure $ fromIntegral (BS.length (serialiseToCBOR t)) <= maxTxSize
+            evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+            evalCosts t u = pure $ evaluateTx t u
+            evalResult = evaluateTx tx mempty
+            evalOk = case evalResult of
+              Right report -> all isRight (Map.elems report)
+              Left _ -> False
+        result <- run $ fitsTx sizeCheck evalCosts mempty tx
+        monitor $
+          counterexample $
+            "txBytes="
+              <> show txBytes
+              <> ", maxTxSize="
+              <> show maxTxSize
+              <> ", sizeOk="
+              <> show sizeOk
+              <> ", evalOk="
+              <> show evalOk
+              <> ", result="
+              <> show result
+        monitor $ cover 50 sizeOk "within real protocol size limit"
+        assert $ result == (sizeOk && evalOk)
+
+  describe "findLargestFitting" $ do
+    it "returns Nothing when maxChunk is 0" $ do
+      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 0
+      result `shouldBe` Nothing
+
+    it "returns Nothing when predicate never holds" $ do
+      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure False) 10
+      result `shouldBe` Nothing
+
+    it "returns Just maxChunk when predicate always holds" $ do
+      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 10
+      result `shouldBe` Just 10
+
+    prop "returns the largest n where the predicate holds" $
+      \(Positive maxChunk) (NonNegative threshold) ->
+        -- k is the threshold in [0..maxChunk]: fits for [1..k], fails for [k+1..maxChunk]
+        let k = threshold `mod` (maxChunk + 1)
+         in monadicIO $ do
+              monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
+              result <- run $ findLargestFitting (pure :: Int -> IO Int) (\n -> pure (n <= k)) maxChunk
+              let expected = if k == 0 then Nothing else Just k
+              monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
+              assert $ result == expected
+
+    prop "uses at most ceil(log2 n) + 1 evaluations" $
+      \(Positive maxChunk) ->
+        -- (,) (Sum Int) is a Monad via the base Monoid-writer instance; each
+        -- fitsCheck call contributes Sum 1 so the fst accumulates the total.
+        let (Sum count, _) =
+              findLargestFitting
+                (pure :: Int -> (Sum Int, Int))
+                (const (Sum 1, True))
+                maxChunk
+            bound = ceiling (logBase 2 (fromIntegral maxChunk :: Double) :: Double) + 1
+         in counterexample ("maxChunk=" <> show maxChunk <> ", evaluations=" <> show count <> ", bound=" <> show bound) $
+              count <= bound
+
+    prop "throws immediately on construction failure without calling fitsCheck" $
+      \(Positive maxChunk) -> monadicIO $ do
+        let mkTx :: Int -> IO Int
+            mkTx _ = throwIO $ userError "structural failure"
+            -- If the short-circuit fails and fitsCheck is called, this throws a
+            -- different error, causing the shouldThrow predicate below to fail.
+            fitsCheck :: Int -> IO Bool
+            fitsCheck _ = throwIO $ userError "fitsCheck must not be called when mkTx throws"
+        monitor $ counterexample $ "maxChunk=" <> show maxChunk
+        run $
+          findLargestFitting mkTx fitsCheck maxChunk
+            `shouldThrow` \e -> ioeGetErrorString e == "structural failure"
+
     it "preserves all entries" $ do
       let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
           n = 2
@@ -309,6 +484,11 @@ spec = do
           (first', rest) = (UTxO.fromList (take 5 pairs), UTxO.fromList (drop 5 pairs))
       UTxO.size first' `shouldBe` 0
       UTxO.size rest `shouldBe` 0
+
+-- | Generate a byte-count limit that straddles the real serialised size of
+-- @tx@, giving roughly equal probability of the size check passing or failing.
+sizeLimit :: Tx -> Gen Int
+sizeLimit tx = choose (0, BS.length (serialiseToCBOR tx) * 2)
 
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])

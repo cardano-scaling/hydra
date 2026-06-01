@@ -78,6 +78,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
@@ -501,12 +502,59 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)
 
--- | Find the largest chunk size for which a partial fanout transaction evaluates
--- successfully within the node's script execution budget. Tries chunk sizes from
--- 'fanoutChunkSize' downward until evaluation succeeds or all sizes are exhausted.
--- | Try a preferred tx first; if it exceeds the execution budget, fall back to
--- 'PartialFanoutTx' with decreasing chunk sizes until one fits. Chunk sizes are
--- tried from @sizeUTxO fullUTxO - 1@ downward — no hardcoded limit.
+-- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
+-- 'mkTx' constructs a transaction and 'fitsCheck' returns 'True'. Assumes the
+-- predicate is monotone: if size @n@ fits, all sizes @< n@ also fit. Uses
+-- upper-mid so the search terminates correctly when @hi = lo + 1@. Returns
+-- 'Nothing' if no size fits. 'mkTx' may throw to abort the search early.
+findLargestFitting ::
+  Monad m =>
+  -- | Construct a transaction for a given chunk size; may throw on structural failure
+  (Int -> m tx) ->
+  -- | Check whether a transaction fits within budget and size limits
+  (tx -> m Bool) ->
+  -- | Upper bound of chunk sizes to search (inclusive)
+  Int ->
+  m (Maybe tx)
+findLargestFitting mkTx fitsCheck maxChunk = go Nothing 1 maxChunk
+ where
+  -- 'best' accumulates the largest fitting tx found so far.
+  go best lo hi
+    | lo > hi = pure best
+    | otherwise = do
+        tx <- mkTx mid
+        fitsCheck tx >>= bool (go best lo (mid - 1)) (go (Just tx) (mid + 1) hi)
+   where
+    -- Upper mid prevents infinite loop when hi = lo + 1.
+    mid = (lo + hi + 1) `div` 2
+
+-- | Check whether a transaction fits within protocol size and script execution
+-- limits. Size check is cheap so it short-circuits before the expensive UPLC
+-- evaluation.
+fitsTx ::
+  Monad m =>
+  (Tx -> m Bool) ->
+  (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) ->
+  UTxO ->
+  Tx ->
+  m Bool
+fitsTx withinSizeLimits evalCosts evalUTxO tx = do
+  withinSize <- withinSizeLimits tx
+  if withinSize
+    then do
+      result <- evalCosts tx evalUTxO
+      pure $ case result of
+        Right report -> all isRight (Map.elems report)
+        _ -> False
+    else pure False
+
+-- | Try the preferred transaction first; if it doesn't fit within the script
+-- execution budget or exceeds the maximum transaction size, fall back to a
+-- binary search over partial fanout chunk sizes. Returns the largest chunk that
+-- fits, minimising the number of fanout steps. Any structural failure from
+-- 'partialFanout' (wrong datum, missing head output, accumulator mismatch)
+-- immediately throws 'StalePartialFanoutTx' since it would affect all chunk
+-- sizes equally.
 findFittingFanoutTx ::
   forall m.
   MonadThrow m =>
@@ -523,28 +571,24 @@ findFittingFanoutTx ::
   -- | Contestation deadline as SlotNo
   SlotNo ->
   m Tx
-findFittingFanoutTx TinyWallet{evaluateScriptCosts} ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot =
-  findFirst candidates >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
+findFittingFanoutTx TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn mPreferred fullUTxO deadlineSlot =
+  findBest >>= maybe (throwIO (StalePartialFanoutTx @Tx)) pure
  where
-  candidates =
-    maybeToList mPreferred
-      <> mapMaybe mkFallback [UTxO.size fullUTxO - 1, UTxO.size fullUTxO - 2 .. 1]
+  -- Try the preferred tx (full fanout or final partial fanout) first; only
+  -- fall back to the binary search if it doesn't fit.
+  findBest = case mPreferred of
+    Just tx -> fits tx >>= bool findFallback (pure (Just tx))
+    Nothing -> findFallback
 
-  mkFallback n =
-    either (const Nothing) Just $
+  findFallback =
+    findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
+
+  -- Structural failures affect all chunk sizes, so throw immediately.
+  mkTxM n =
+    either (const $ throwIO (StalePartialFanoutTx @Tx)) pure $
       partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot
 
-  findFirst [] = pure Nothing
-  findFirst (tx : rest) =
-    fits tx >>= \case
-      True -> pure (Just tx)
-      False -> findFirst rest
-
-  fits tx = do
-    result <- evaluateScriptCosts tx evalUTxO
-    pure $ case result of
-      Right report -> all isRight (Map.elems report)
-      _ -> False
+  fits = fitsTx isTxWithinSizeLimits evaluateScriptCosts evalUTxO
 
   evalUTxO = spendableUTxO <> getKnownUTxO ctx
 
