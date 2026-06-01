@@ -82,6 +82,7 @@ import Test.QuickCheck (
   elements,
   forAll,
   label,
+  listOf,
   oneof,
   suchThat,
   (===),
@@ -350,22 +351,20 @@ spec = do
 
     prop "returns False when report contains a script execution failure" $
       forAll arbitrary $ \tx ->
-        forAll (sizeLimit tx) $ \limit -> monadicIO $ do
-          let txBytes :: Int
-              txBytes = BS.length (serialiseToCBOR tx)
-              sizeOk = txBytes <= limit
-          let sizeCheck :: Tx -> IO Bool
-              sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
-              evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
-              evalCosts _ _ =
-                pure $
-                  Right $
-                    Map.singleton (ScriptWitnessIndexTxIn 0) (Left ScriptErrorExecutionUnitsOverflow)
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
-          monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
-          monitor $ cover 40 sizeOk "size passes"
-          monitor $ cover 40 (not sizeOk) "size fails"
-          assert $ not result
+        forAll (sizeLimit tx) $ \limit ->
+          forAll genFailingReport $ \report -> monadicIO $ do
+            let txBytes :: Int
+                txBytes = BS.length (serialiseToCBOR tx)
+                sizeOk = txBytes <= limit
+            let sizeCheck :: Tx -> IO Bool
+                sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
+                evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
+                evalCosts _ _ = pure $ Right report
+            result <- run $ fitsTx sizeCheck evalCosts mempty tx
+            monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", report=" <> show report <> ", result=" <> show result
+            monitor $ cover 40 sizeOk "size passes"
+            monitor $ cover 40 (not sizeOk) "size fails"
+            assert $ not result
 
     prop "returns True when size passes and all scripts succeed" $
       forAll arbitrary $ \tx ->
@@ -462,33 +461,33 @@ spec = do
           findLargestFitting mkTx fitsCheck maxChunk
             `shouldThrow` \e -> ioeGetErrorString e == "structural failure"
 
-    it "preserves all entries" $ do
-      let utxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
-          n = 2
-          pairs = UTxO.toList utxo
-          (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
-      UTxO.toList (first' <> rest) `shouldBe` UTxO.toList (utxo :: UTxO)
-
-    it "handles n larger than UTxO size" $ do
-      let fullUtxo = generateWith (arbitrary `suchThat` \u -> UTxO.size u > 3) 42
-          utxo = UTxO.fromList $ take 3 (UTxO.toList (fullUtxo :: UTxO))
-          n = 100
-          pairs = UTxO.toList utxo
-          (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
-      UTxO.size first' `shouldBe` UTxO.size utxo
-      UTxO.size rest `shouldBe` 0
-
-    it "handles empty UTxO" $ do
-      let utxo = mempty
-          pairs = UTxO.toList (utxo :: UTxO)
-          (first', rest) = (UTxO.fromList (take 5 pairs), UTxO.fromList (drop 5 pairs))
-      UTxO.size first' `shouldBe` 0
-      UTxO.size rest `shouldBe` 0
+    prop "take and drop split preserves all entries and sizes" $
+      \(utxo :: UTxO) (NonNegative n) ->
+        let pairs = UTxO.toList utxo
+            (first', rest) = (UTxO.fromList (take n pairs), UTxO.fromList (drop n pairs))
+            expectedFirst = min n (UTxO.size utxo)
+            utxoSize = UTxO.size utxo
+         in counterexample ("n=" <> show n <> ", utxoSize=" <> show utxoSize) $
+              cover 20 (n < utxoSize && utxoSize > 0) "normal split" $
+                cover 20 (n >= utxoSize && utxoSize > 0) "n exceeds UTxO size" $
+                  cover 5 (utxoSize == 0) "empty UTxO" $
+                    UTxO.size first' == expectedFirst
+                      && UTxO.size rest == utxoSize - expectedFirst
+                      && UTxO.toList (first' <> rest) == UTxO.toList (utxo :: UTxO)
 
 -- | Generate a byte-count limit that straddles the real serialised size of
 -- @tx@, giving roughly equal probability of the size check passing or failing.
 sizeLimit :: Tx -> Gen Int
 sizeLimit tx = choose (0, BS.length (serialiseToCBOR tx) * 2)
+
+-- | Generate an 'EvaluationReport' that contains at least one script failure
+-- at an arbitrary witness index, optionally mixed with passing entries.
+genFailingReport :: Gen EvaluationReport
+genFailingReport = do
+  failIdx <- ScriptWitnessIndexTxIn <$> arbitrary
+  passingIdxs <- listOf (ScriptWitnessIndexTxIn <$> arbitrary)
+  let passing = Map.fromList [(i, Right (ExecutionUnits 100 100)) | i <- passingIdxs]
+  pure $ Map.insert failIdx (Left ScriptErrorExecutionUnitsOverflow) passing
 
 -- | Create a chain sync handler which records events as they are called back.
 recordEventsHandler :: ChainContext -> ChainStateAt -> GetTimeHandle IO -> IO (ChainSyncHandler IO, IO [ChainEvent Tx])
