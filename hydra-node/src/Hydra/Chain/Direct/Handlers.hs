@@ -190,13 +190,13 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
           FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
-            findFittingFanoutTx wallet ctx spendableUTxO seedTxIn
+            findFittingFanoutTx tracer wallet ctx spendableUTxO seedTxIn
               (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot)
               fullUTxO deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
           FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
-            findFittingFanoutTx wallet ctx spendableUTxO seedTxIn
+            findFittingFanoutTx tracer wallet ctx spendableUTxO seedTxIn
               (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot)
               utxoToDistribute deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
@@ -559,6 +559,7 @@ fitsTx withinSizeLimits evalCosts evalUTxO tx = do
 findFittingFanoutTx ::
   forall m e.
   MonadThrow m =>
+  Tracer m CardanoChainLog ->
   TinyWallet m ->
   ChainContext ->
   -- | Spendable UTxO containing head output
@@ -572,7 +573,7 @@ findFittingFanoutTx ::
   -- | Contestation deadline as SlotNo
   SlotNo ->
   m Tx
-findFittingFanoutTx TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
+findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
   findBest >>= maybe (throwIO (StalePartialFanoutTx @Tx)) pure
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
@@ -586,10 +587,13 @@ findFittingFanoutTx TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx sp
   findFallback =
     findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
 
-  -- Structural failures affect all chunk sizes, so throw immediately.
+  -- Structural failures affect all chunk sizes, so log and throw immediately.
   mkTxM n =
-    either (const $ throwIO (StalePartialFanoutTx @Tx)) pure $
-      partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot
+    case partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot of
+      Left err -> do
+        traceWith tracer $ PartialFanoutFailed{reason = show err}
+        throwIO (StalePartialFanoutTx @Tx)
+      Right tx -> pure tx
 
   fits = fitsTx isTxWithinSizeLimits evaluateScriptCosts evalUTxO
 
@@ -627,5 +631,6 @@ data CardanoChainLog
   | Wallet TinyWalletLog
   | StartingChainDecision StartingDecision
   | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
+  | PartialFanoutFailed {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
