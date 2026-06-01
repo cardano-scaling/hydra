@@ -412,7 +412,7 @@ spec = do
         assert $ result == (sizeOk && evalOk)
 
   describe "findLargestFitting" $ do
-    it "returns Nothing when maxChunk is 0" $ do
+    it "returns Nothing when upper bound is 0" $ do
       result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 0
       result `shouldBe` Nothing
 
@@ -420,7 +420,7 @@ spec = do
       result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure False) 10
       result `shouldBe` Nothing
 
-    it "returns Just maxChunk when predicate always holds" $ do
+    it "returns Just upper bound when predicate always holds" $ do
       result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 10
       result `shouldBe` Just 10
 

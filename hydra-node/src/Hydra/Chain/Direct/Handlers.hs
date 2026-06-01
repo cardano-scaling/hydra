@@ -518,15 +518,15 @@ findLargestFitting ::
   m (Maybe tx)
 findLargestFitting mkTx fitsCheck = go Nothing 1
  where
-  -- 'best' accumulates the largest fitting tx found so far.
   go best lo hi
     | lo > hi = pure best
     | otherwise = do
+        let mid = (lo + hi + 1) `div` 2 -- ceiling division: biases toward hi so we test the larger candidate first
         tx <- mkTx mid
-        fitsCheck tx >>= bool (go best lo (mid - 1)) (go (Just tx) (mid + 1) hi)
-   where
-    -- Upper mid prevents infinite loop when hi = lo + 1.
-    mid = (lo + hi + 1) `div` 2
+        fits <- fitsCheck tx
+        if fits
+          then go (Just tx) (mid + 1) hi
+          else go best lo (mid - 1)
 
 -- | Check whether a transaction fits within protocol size and script execution
 -- limits. Size check is cheap so it short-circuits before the expensive UPLC
@@ -577,7 +577,9 @@ findFittingFanoutTx TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx sp
   -- Try the preferred tx (full fanout or final partial fanout) first; only
   -- fall back to the binary search if it doesn't fit.
   findBest = case mPreferred of
-    Just tx -> fits tx >>= bool findFallback (pure (Just tx))
+    Just tx -> do
+      fits' <- fits tx
+      if fits' then pure (Just tx) else findFallback
     Nothing -> findFallback
 
   findFallback =
