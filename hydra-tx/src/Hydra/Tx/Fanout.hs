@@ -65,7 +65,8 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
   headRedeemer =
     toScriptData $
       Head.Fanout
-        { proof = fanoutProof
+        { numberOfFanoutOutputs = fromIntegral (UTxO.size utxo + maybe 0 UTxO.size utxoToCommit + maybe 0 UTxO.size utxoToDecommit)
+        , proof = fanoutProof
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
 

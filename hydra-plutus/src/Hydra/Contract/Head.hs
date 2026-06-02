@@ -99,8 +99,8 @@ headValidator crsHash oldState input ctx =
       checkClose ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
-    (Closed closedDatum, Fanout{proof, crsRef}) ->
-      headIsFinalizedWith crsHash ctx closedDatum proof crsRef
+    (Closed closedDatum, Fanout{numberOfFanoutOutputs, proof, crsRef}) ->
+      headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef
     (Closed closedDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
       checkPartialFanout crsHash ctx (progressFromClosed closedDatum) numberOfPartialOutputs crsRef
     (FanoutProgress progressDatum, PartialFanout{numberOfPartialOutputs, crsRef}) ->
@@ -522,12 +522,14 @@ headIsFinalizedWith ::
   ScriptContext ->
   -- | Closed state before the fanout
   ClosedDatum ->
+  -- | Number of distributed UTxO outputs (excludes change output)
+  Integer ->
   -- | Membership proof (quotient commitment G1 element)
   BuiltinBLS12_381_G1_Element ->
   -- | Reference input containing CRS
   TxOutRef ->
   Bool
-headIsFinalizedWith crsHash ctx closedDatum proof crsRef =
+headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
   mustBurnAllHeadTokens minted headId parties
     && afterContestationDeadline txInfo contestationDeadline
     && checkCRSAndMembership
@@ -541,8 +543,10 @@ headIsFinalizedWith crsHash ctx closedDatum proof crsRef =
 
   ClosedDatum{accumulatorCommitment, parties, headId, contestationDeadline} = closedDatum
 
+  fanoutOutputs = L.take numberOfFanoutOutputs txInfoOutputs
+
   subsetScalars :: [Integer]
-  subsetScalars = txOutsToSubsetScalars txInfoOutputs
+  subsetScalars = txOutsToSubsetScalars fanoutOutputs
 
   -- All outputs are verified as members of the accumulator in one combined proof.
   -- Output destinations are encoded in TxOut addresses.
@@ -555,7 +559,7 @@ headIsFinalizedWith crsHash ctx closedDatum proof crsRef =
   -- All head input value must be accounted for by distributed outputs and burned tokens.
   mustConserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue `geq` (F.foldMap txOutValue txInfoOutputs <> mintValueBurned minted)
+      headInValue `geq` (F.foldMap txOutValue fanoutOutputs <> mintValueBurned minted)
    where
     headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 {-# INLINEABLE headIsFinalizedWith #-}

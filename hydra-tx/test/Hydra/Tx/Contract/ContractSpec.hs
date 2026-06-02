@@ -43,7 +43,7 @@ import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
-import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx)
+import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
@@ -160,6 +160,8 @@ spec = parallel $ do
   describe "Fanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFanoutTx
+    prop "accepts trailing wallet change output" $
+      propTransactionEvaluates healthyFanoutTxWithWalletChange
     prop "does not survive random adversarial mutations" $
       propMutation healthyFanoutTx genFanoutMutation
   describe "PartialFanout" $ do
