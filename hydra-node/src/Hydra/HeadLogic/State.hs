@@ -202,7 +202,6 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
 -- | Smart constructor for 'SeenSnapshot' that computes and caches
 -- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
 mkSeenSnapshot ::
-  IsTx tx =>
   Snapshot tx ->
   Map Party (Signature (Snapshot tx)) ->
   SeenSnapshot tx

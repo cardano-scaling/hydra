@@ -74,7 +74,7 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 --
 -- The BLS accumulator commitment (bound via accumulatorHash) commits to the full UTxO set
 -- (utxo ∪ alpha ∪ omega).
-instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
+instance SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{headId, version, number, accumulator} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)

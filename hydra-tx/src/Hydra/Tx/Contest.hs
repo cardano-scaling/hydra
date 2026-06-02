@@ -66,7 +66,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
       & setTxValidityUpperBound (TxValidityUpperBound slotNo)
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "ContestTx")
  where
-  Snapshot{number, version, utxo, utxoToCommit, utxoToDecommit, accumulator} = snapshot
+  Snapshot{number, version, accumulator} = snapshot
 
   ClosedThreadOutput
     { closedThreadUTxO = (headInput, headOutputBefore)
