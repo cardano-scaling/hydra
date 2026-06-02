@@ -30,7 +30,7 @@ import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -65,6 +65,22 @@ healthyFanoutTx =
         testPolicyId
         (verificationKeyToOnChainId <$> healthyParticipants)
         (mkTxOutDatumInline healthyFanoutDatum)
+
+-- | Variant of 'healthyFanoutTx' with a trailing wallet change output appended,
+-- simulating a wallet-balanced transaction. The validator must still accept this
+-- because 'numberOfFanoutOutputs' excludes the trailing output from the KZG check.
+healthyFanoutTxWithWalletChange :: (Tx, UTxO)
+healthyFanoutTxWithWalletChange =
+  applyMutation (AppendOutput walletChangeOutput) healthyFanoutTx
+ where
+  walletChangeOutput :: TxOut CtxTx
+  walletChangeOutput =
+    TxOut
+      (mkVkAddress testNetworkId walletVk)
+      (lovelaceToValue 2_000_000)
+      TxOutDatumNone
+      ReferenceScriptNone
+  walletVk = generateWith genVerificationKey 99
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =

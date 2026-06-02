@@ -204,7 +204,8 @@ data Input
   | Close CloseRedeemer
   | Contest ContestRedeemer
   | Fanout
-      { proof :: BuiltinBLS12_381_G1_Element
+      { numberOfFanoutOutputs :: Integer
+      , proof :: BuiltinBLS12_381_G1_Element
       , crsRef :: TxOutRef
       }
   | PartialFanout
