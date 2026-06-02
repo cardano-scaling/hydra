@@ -1989,6 +1989,97 @@ spec =
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
 
+        it "recovered deposit must not appear in new snapshot utxo after sideload" $ do
+          -- Regression test for https://github.com/cardano-scaling/hydra/issues/2629
+          --
+          -- After a deposit snapshot is confirmed but IncrementTx never finalises
+          -- and the deposit is recovered on L1, sideloading that snapshot and then
+          -- triggering a new L2 snapshot must not reintroduce the recovered deposit
+          -- into the new snapshot's utxo.
+          now <- getCurrentTime
+          let plusTime = flip addUTCTime
+              depositTime = plusTime now
+              depositTxId = 42 :: Integer
+              depositedUTxO = utxoRef depositTxId
+              aliceEnv' =
+                aliceEnv
+                  { otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+              singleParty = [alice]
+              activeDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = depositTime 1
+                  , deadline = depositTime 600
+                  , status = Active
+                  }
+              depositSnapshot =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUTxO
+                  , utxoToDecommit = Nothing
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
+                  }
+              depositMultisig = aggregate [sign aliceSk depositSnapshot]
+          -- Start with deposit already active and tracked
+          let s0 =
+                ( inOpenState' singleParty $
+                    coordinatedHeadState{currentDepositTxId = Just depositTxId}
+                )
+                  { pendingDeposits = Map.singleton depositTxId activeDeposit
+                  }
+          -- Step 1: Confirm snapshot 1 including the deposit in utxoToCommit
+          s1 <- runHeadLogic aliceEnv' ledger s0 $ do
+            step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+            step $ receiveMessage $ AckSn (sign aliceSk depositSnapshot) 1
+            getState
+          -- Step 2: Recover the deposit (IncrementTx never finalized on-chain)
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step $
+              observeTxAtSlot 2 $
+                OnRecoverTx
+                  { headId = testHeadId
+                  , recoveredTxId = depositTxId
+                  , recoveredUTxO = depositedUTxO
+                  }
+            getState
+          Map.lookup depositTxId s2.pendingDeposits `shouldBe` Nothing
+          -- Step 3: Sideload snapshot 1 to unstick the head
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step $ ClientInput $ SideLoadSnapshot $ ConfirmedSnapshot depositSnapshot depositMultisig
+            getState
+          -- Step 4: Submit a new L2 transaction
+          let newTx = aValidTx 1
+          s4 <- runHeadLogic aliceEnv' ledger s3 $ do
+            step $ receiveMessage $ ReqTx newTx
+            getState
+          -- Step 5: Process the new snapshot request — the recovered deposit must not
+          -- appear in the new snapshot's utxo field
+          let reqSn2 = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing Nothing
+          outcome <- runHeadLogic aliceEnv' ledger s4 $ step reqSn2
+          -- Extract the new snapshot's utxo and show both sides of the invariant:
+          -- depositedUTxO is on L1 (it was recovered), and must not also be on L2.
+          case outcome of
+            Continue{stateChanges} -> do
+              let mSnapUtxo =
+                    listToMaybe
+                      [ utxo
+                      | SnapshotRequested{requestedSnapshot = Snapshot{utxo}} <- stateChanges
+                      ]
+              case mSnapUtxo of
+                Nothing -> expectationFailure "Expected SnapshotRequested state change"
+                Just snapUtxo ->
+                  -- The intersection of {recovered L1 deposit} and {new L2 snapshot utxo}
+                  -- must be empty — the same UTxO cannot exist on both layers.
+                  Set.intersection depositedUTxO snapUtxo `shouldBe` mempty
+            _ -> expectationFailure $ "Expected Continue outcome, got: " <> show outcome
+
     describe "Coordinated Head Protocol using real Tx" $ do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
       prop "on tick, picks the next active deposit in arrival when in Open state order for ReqSn" $ \now -> monadicIO $ do

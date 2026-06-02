@@ -500,7 +500,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
 
   confirmedUTxO = case confirmedSnapshot of
     InitialSnapshot{} -> mempty
-    ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit}} -> utxo <> fromMaybe mempty utxoToCommit
+    ConfirmedSnapshot{snapshot = Snapshot{utxo, utxoToCommit, version = snapshotVersion}} ->
+      if version > snapshotVersion
+        then utxo <> fromMaybe mempty utxoToCommit
+        else utxo
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version} = coordinatedHeadState
 
