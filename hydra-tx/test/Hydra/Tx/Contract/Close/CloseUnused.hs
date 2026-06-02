@@ -228,7 +228,7 @@ genCloseCurrentMutation (tx, _utxo) =
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature}
+        pure $ Head.Close Head.CloseUnusedDec{signature, accumulatorHash = healthyCurrentAccumulatorHash}
     , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyCurrentSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
@@ -292,6 +292,7 @@ genCloseCurrentMutation (tx, _utxo) =
                       ( Head.Close
                           Head.CloseUnusedDec
                             { signature = toPlutusSignatures $ healthySignature healthyCurrentSnapshot
+                            , accumulatorHash = healthyCurrentAccumulatorHash
                             }
                       )
                 )
@@ -307,10 +308,7 @@ genCloseCurrentMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (pure $ toErrorCode SignatureVerificationFailed) MutateCloseUTxOToDecommitHash . ChangeOutput 0 <$> do
-        mutatedHash <- arbitrary `suchThat` (/= (toBuiltin $ hashUTxO @Tx healthySplitUTxOToDecommit))
-        pure $ headTxOut & modifyInlineDatum (replaceOmegaUTxOHash mutatedHash)
-    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
         -- A wrong commitment changes the hash derived by the validator, so the
         -- signature check fails.
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])

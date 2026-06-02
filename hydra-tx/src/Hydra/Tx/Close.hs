@@ -123,12 +123,13 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
               NoThing ->
                 Head.CloseAny
                   { signature = toPlutusSignatures signatures
+                  , accumulatorHash = accHash
                   }
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator} = getSnapshot confirmedSnapshot
+  Snapshot{number, accumulator} = getSnapshot confirmedSnapshot
 
   headDatumAfter =
     mkTxOutDatumInline $

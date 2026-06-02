@@ -37,7 +37,7 @@ import Hydra.Contract.HeadState (
   State (..),
   progressFromClosed,
  )
-import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
+import Hydra.Contract.Util (hasST, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.Party (Party (vkey))
 import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
@@ -67,7 +67,7 @@ import PlutusLedgerApi.V3 (
   Value (Value),
   mintValueBurned,
  )
-import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
+import PlutusLedgerApi.V3.Contexts (findOwnInput)
 import PlutusTx (CompiledCode)
 import PlutusTx qualified
 import PlutusTx.AssocMap qualified as AssocMap
@@ -166,7 +166,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
       increment `L.elem` (txInInfoOutRef <$> txInfoInputs txInfo)
 
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, accumulatorHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash) signature
 
   mustIncreaseVersion =
     traceIfFalse $(errorCode VersionNotIncremented) $
@@ -215,7 +215,7 @@ checkDecrement ctx openBefore redeemer =
     && mustBeSignedByParticipant ctx prevHeadId
  where
   checkSnapshotSignature =
-    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, accumulatorHash) signature
+    verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash) signature
 
   mustDecreaseValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
@@ -225,7 +225,7 @@ checkDecrement ctx openBefore redeemer =
     traceIfFalse $(errorCode VersionNotIncremented) $
       nextVersion == prevVersion + 1
 
-  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs, accumulatorHash} = redeemer
+  DecrementRedeemer{signature, snapshotNumber, numberOfDecommitOutputs} = redeemer
 
   OpenDatum
     { parties = prevParties
@@ -282,6 +282,7 @@ checkClose ctx openBefore redeemer =
     && mustInitializeContesters
     && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
+    && mustBindAccumulatorCommitment
  where
   OpenDatum
     { parties
@@ -330,7 +331,7 @@ checkClose ctx openBefore redeemer =
               parties
               (headId, version, snapshotNumber', accumulatorHash)
               signature
-      CloseUnusedDec{signature} ->
+      CloseUnusedDec{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseUnusedDec) $
           verifySnapshotSignature
             parties
@@ -373,8 +374,16 @@ checkClose ctx openBefore redeemer =
     traceIfFalse $(errorCode ContestersNonEmpty) $
       L.null contesters'
 
-  closedAccumulatorHash =
-    Builtins.blake2b_256 (Builtins.bls12_381_G1_compress accumulatorCommitment')
+  mustBindAccumulatorCommitment =
+    case redeemer of
+      CloseInitial -> True
+      CloseAny{accumulatorHash} -> check' accumulatorHash
+      CloseUnusedDec{accumulatorHash} -> check' accumulatorHash
+      CloseUsedDec{accumulatorHash} -> check' accumulatorHash
+      CloseUnusedInc{accumulatorHash} -> check' accumulatorHash
+      CloseUsedInc{accumulatorHash} -> check' accumulatorHash
+   where
+    check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
 {-# INLINEABLE checkClose #-}

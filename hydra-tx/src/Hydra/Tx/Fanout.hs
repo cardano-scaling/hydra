@@ -74,7 +74,8 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
         crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount accumulator
      in bls12_381_G1_uncompress $
           toBuiltin $
-            Accumulator.createMembershipProofFromUTxO @Tx allUTxO accumulator crs
+            either error id $
+              Accumulator.createMembershipProofFromUTxO @Tx allUTxO accumulator crs
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)

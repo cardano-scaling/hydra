@@ -100,11 +100,15 @@ data CloseRedeemer
   | -- | Any snapshot which doesn't contain anything to inc/decrement but snapshot number is higher than zero.
     CloseAny
       { signature :: [Signature]
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
+      , accumulatorHash :: Hash
+      -- ^ Digest of the accumulator ηA
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedDec
