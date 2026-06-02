@@ -96,7 +96,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
          in case incrementalAction of
-              ToCommit _ ->
+              ToCommit ->
                 if version == openVersion
                   then
                     Head.CloseUnusedInc
@@ -108,7 +108,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
                       { signature = toPlutusSignatures signatures
                       , accumulatorHash = accHash
                       }
-              ToDecommit _ ->
+              ToDecommit ->
                 if version == openVersion
                   then
                     Head.CloseUnusedDec

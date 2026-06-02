@@ -87,7 +87,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
 
   contestRedeemer =
     case incrementalAction of
-      ToCommit _ ->
+      ToCommit ->
         if version == openVersion
           then
             Head.ContestUnusedInc
@@ -99,7 +99,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
               { signature = toPlutusSignatures sig
               , accumulatorHash = accHash
               }
-      ToDecommit _ ->
+      ToDecommit ->
         if version == openVersion
           then
             Head.ContestUnusedDec

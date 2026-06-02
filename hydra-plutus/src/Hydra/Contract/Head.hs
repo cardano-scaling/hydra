@@ -320,8 +320,7 @@ checkClose ctx openBefore redeemer =
             -- (getFinalPoly [] = [1], so getG1Commitment [G1] [1] = G1). Pin it
             -- so a closer cannot seed a degenerate commitment that would later
             -- be trusted by progressFromClosed and checkMembershipPairing.
-            && Builtins.bls12_381_G1_compress accumulatorCommitment'
-              == Builtins.bls12_381_G1_compressed_generator
+            && isG1Generator accumulatorCommitment'
       CloseAny{signature, accumulatorHash} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
@@ -552,9 +551,11 @@ headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       withCRSLookup crsHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
-          && Builtins.bls12_381_G1_compress proof == Builtins.bls12_381_G1_compressed_generator
+          && isG1Generator proof
 
   -- All head input value must be accounted for by distributed outputs and burned tokens.
+  -- geq rather than == because the head UTxO carries extra ADA (min-UTxO overhead
+  -- from initialization) not represented in the L2 UTxO set.
   mustConserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue `geq` (F.foldMap txOutValue fanoutOutputs <> mintValueBurned minted)
@@ -701,12 +702,16 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
           -- When all accumulator elements are distributed the quotient polynomial is 1,
           -- so the proof must equal the G1 generator. This prevents a valid subset proof
           -- from being used to leave UTxOs unaccounted.
-          && Builtins.bls12_381_G1_compress proof == Builtins.bls12_381_G1_compressed_generator
+          && isG1Generator proof
 {-# INLINEABLE checkFinalPartialFanout #-}
 
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+isG1Generator :: BuiltinBLS12_381_G1_Element -> Bool
+isG1Generator g = Builtins.bls12_381_G1_compress g == Builtins.bls12_381_G1_compressed_generator
+{-# INLINEABLE isG1Generator #-}
 
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 makeContestationDeadline cperiod ScriptContext{scriptContextTxInfo} =
