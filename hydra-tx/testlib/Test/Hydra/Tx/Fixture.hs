@@ -82,6 +82,19 @@ testHeadParameters =
 cperiod :: ContestationPeriod
 cperiod = 4
 
+-- * Fanout test constants
+
+-- | Typical number of outputs per partial fanout chunk. Used in tests and
+-- benchmarks to generate realistic scenarios.
+fanoutChunkSize :: Int
+fanoutChunkSize = 7
+
+-- | UTxO count at or below which a single regular fanout transaction is used
+-- as the preferred first attempt. Used in tests to produce scenarios that
+-- exercise both the single-tx and the partial-fanout paths.
+fanoutOutputThreshold :: Int
+fanoutOutputThreshold = 10
+
 -- * Cardano tx utilities
 
 testNetworkId :: NetworkId

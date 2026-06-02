@@ -35,12 +35,18 @@ changes.
   from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
   post-tx UTxO via pure arithmetic, no ledger needed.
 
- - Significantly revised hydra-tui [#2590](https://github.com/cardano-scaling/hydra/pull/2590):
-   - Pending-deposit recovery from both `Open` and `Closed`/`Final` head states (`r`).
-   - Dark/light theme toggle (`F3`) persisted to `$XDG_CONFIG_HOME/hydra/tui-config.yaml`.
-   - Event-history filter — show all messages or errors only (`e`).
-   - Tab navigation (`1`/`2`/`3` and ←/→) and event-detail toggle (`d`).
-   - Refactored rendering into per-tab modules and a dedicated message renderer.
+- Significantly revised hydra-tui [#2590](https://github.com/cardano-scaling/hydra/pull/2590):
+  - Pending-deposit recovery from both `Open` and `Closed`/`Final` head states (`r`).
+  - Dark/light theme toggle (`F3`) persisted to `$XDG_CONFIG_HOME/hydra/tui-config.yaml`.
+  - Event-history filter — show all messages or errors only (`e`).
+  - Tab navigation (`1`/`2`/`3` and ←/→) and event-detail toggle (`d`).
+  - Refactored rendering into per-tab modules and a dedicated message renderer.
+
+- The node now dynamically determines the largest chunk of UTxOs it can
+distribute in a single partial fanout step, replacing a hardcoded limit.
+`findFittingFanoutTx` uses binary search over all valid chunk sizes and tries the
+preferred transaction first, falling back to progressively smaller chunks until
+one fits within the script
 
 ## [2.1.0] - 2026.05.13
 

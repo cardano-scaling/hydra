@@ -53,8 +53,6 @@ module Hydra.Tx.KZGTrustedSetup (
   g2BuiltinPoints,
   maxAccumulatorSize,
   maxFanoutBatchSize,
-  fanoutChunkSize,
-  fanoutOutputThreshold,
 ) where
 
 import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
@@ -102,20 +100,6 @@ maxAccumulatorSize = 4095
 -- execution budget. In practice the execution budget is the binding constraint.
 maxFanoutBatchSize :: Int
 maxFanoutBatchSize = 64
-
--- | Number of outputs distributed per partial fanout transaction.
--- Both regular and partial fanout run the same on-chain G2 MSM pairing check.
--- Empirically validated: 7 ada-only outputs consume ~86% CPU / ~39% memory,
--- leaving headroom for UTxOs with tokens or complex datums.
-fanoutChunkSize :: Int
-fanoutChunkSize = 7
-
--- | Maximum outputs in a regular (full) fanout transaction before switching
--- to partial fanout. Empirically, 10 ada-only outputs consume ~91% CPU budget;
--- above this the transaction fails. Partial fanout uses 'fanoutChunkSize' per
--- step to maintain safe headroom.
-fanoutOutputThreshold :: Int
-fanoutOutputThreshold = 10
 
 -- | Expected SHA-256 of trusted_setup.json, from the EIP-4844 ceremony output.
 -- Verify independently with: sha256sum hydra-tx/trusted_setup.json

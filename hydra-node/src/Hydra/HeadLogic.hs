@@ -18,8 +18,6 @@ module Hydra.HeadLogic (
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
   module Hydra.HeadLogic.Outcome,
-  fanoutChunkSize,
-  fanoutOutputThreshold,
 ) where
 
 import Hydra.Prelude
@@ -103,7 +101,6 @@ import Hydra.Tx.Crypto (
   verifyMultiSignatureBytes,
  )
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
@@ -1332,14 +1329,17 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 -- | Client request to fanout leads to a fanout transaction on chain using the
 -- latest confirmed snapshot from 'ClosedState'.
 --
--- The node decides whether to use a full fanout or partial fanout based on
--- the number of UTxOs to distribute:
+-- The node decides the fanout tx TYPE based solely on the fanout phase:
 --
---  * If the UTxO count exceeds 'fanoutOutputThreshold', a 'PartialFanoutTx'
---    is emitted to distribute a chunk and stay in 'ClosedState'.
---  * Otherwise: 'FanoutTx' if no partial fanout was in progress ('FreshFanout'),
---    or 'FinalPartialFanoutTx' if partial fanouts have already been observed
---    on-chain ('FanoutInProgress').
+--  * 'FreshFanout' (no prior partial fanout observed): emit 'FanoutTx'. The
+--    chain layer evaluates it and falls back to 'PartialFanoutTx' if it
+--    exceeds the execution budget.
+--  * 'FanoutInProgress' (prior partial fanouts observed): emit
+--    'FinalPartialFanoutTx'. The chain layer similarly falls back to
+--    'PartialFanoutTx' if the remaining set is still too large.
+--
+-- The chunk-size decision is fully dynamic in the chain layer — no threshold
+-- constant is needed here.
 --
 -- If a partial fanout was already in progress (remainingFanoutUTxO is Just),
 -- we fan out from the remaining UTxOs instead of the full snapshot.
@@ -1379,9 +1379,9 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
 -- | Observe a partial fanout transaction on chain. This stays in 'ClosedState'
 -- with updated remaining UTxOs and automatically triggers the next fanout.
 --
--- The next step is decided based on the remaining UTxO count:
---  * If remaining > 'fanoutOutputThreshold': emit another 'PartialFanoutTx'
---  * Otherwise: emit 'FinalPartialFanoutTx' to finalize the head
+-- Automatically triggers the next fanout step: 'FinalPartialFanoutTx'. The
+-- chain layer falls back to another 'PartialFanoutTx' if remaining UTxOs do
+-- not fit in a single tx.
 --
 -- __Off-chain model__: 'ClosedState' → 'ClosedState' (the on-chain state transitions to FanoutProgress)
 onClosedChainPartialFanoutTx ::
@@ -1448,44 +1448,22 @@ resolveRemainingOutputs closedState@ClosedState{remainingFanoutOutputs} =
 data PartialFanoutPhase = FreshFanout | FanoutInProgress
   deriving stock (Show)
 
--- | Decide and emit the next on-chain effect for a given remaining output set.
--- When the phase is 'FanoutInProgress' the head output is already in
--- FanoutProgress state (at least one PartialFanout has been posted), so we
--- must use 'FinalPartialFanoutTx' for the last step instead of 'FanoutTx'.
+-- | Emit the appropriate on-chain effect based solely on the fanout phase.
+-- 'FreshFanout' → 'FanoutTx' (chain layer evaluates; may fall back to PartialFanoutTx).
+-- 'FanoutInProgress' → 'FinalPartialFanoutTx' (head output already in FanoutProgress state).
 emitNextFanoutStep ::
   IsTx tx =>
   PartialFanoutPhase ->
   Set (TxOutType tx) ->
   ClosedState tx ->
   Outcome tx
-emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestationDeadline} =
-  cause OnChainEffect{postChainTx}
- where
-  postChainTx
-    | Set.size remaining > fanoutOutputThreshold =
-        let (toDistribute, rest) = Set.splitAt fanoutChunkSize remaining
-            fullUTxO = computeFullFanoutUTxO closedState
-         in PartialFanoutTx
-              { utxoToDistribute = filterUTxOByOutputs fullUTxO toDistribute
-              , remainingUTxO = filterUTxOByOutputs fullUTxO rest
-              , headSeed
-              , contestationDeadline
-              }
-    | otherwise = case phase of
-        FanoutInProgress ->
-          let fullUTxO = computeFullFanoutUTxO closedState
-           in FinalPartialFanoutTx
-                { utxoToDistribute = filterUTxOByOutputs fullUTxO remaining
-                , headSeed
-                , contestationDeadline
-                }
-        FreshFanout ->
-          -- `remaining` was used only for the size check above. FanoutTx
-          -- needs the three-part decomposition (utxo, utxoToCommit,
-          -- utxoToDecommit) from the snapshot to verify hashes separately.
-          let ClosedState{confirmedSnapshot, version} = closedState
-              Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
-           in FanoutTx
+emitNextFanoutStep FreshFanout _ closedState =
+  let ClosedState{confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
+      Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+   in cause
+        OnChainEffect
+          { postChainTx =
+              FanoutTx
                 { utxo
                 , -- Include utxoToCommit only if the increment has been
                   -- applied on chain (version bumped). Otherwise it was
@@ -1504,6 +1482,17 @@ emitNextFanoutStep phase remaining closedState@ClosedState{headSeed, contestatio
                 , headSeed
                 , contestationDeadline
                 }
+          }
+emitNextFanoutStep FanoutInProgress remaining closedState@ClosedState{headSeed, contestationDeadline} =
+  cause
+    OnChainEffect
+      { postChainTx =
+          FinalPartialFanoutTx
+            { utxoToDistribute = filterUTxOByOutputs (computeFullFanoutUTxO closedState) remaining
+            , headSeed
+            , contestationDeadline
+            }
+      }
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.

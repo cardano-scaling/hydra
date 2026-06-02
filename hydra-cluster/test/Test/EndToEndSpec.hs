@@ -84,7 +84,6 @@ import Hydra.Cluster.SecurityScenarios (
   cannotStealLargerDepositDuringOwnIncrement,
  )
 import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig)
-import Hydra.HeadLogic (fanoutOutputThreshold)
 import Hydra.Ledger.Cardano (mkRangedTx, mkSimpleTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options
@@ -95,7 +94,7 @@ import Network.HTTP.Simple (getResponseBody, httpJSON)
 import System.Directory (removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import Test.Hydra.Tx.Fixture (fanoutOutputThreshold, testNetworkId)
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor)
 import Test.QuickCheck (Positive (..), generate)
 import Prelude qualified
@@ -525,10 +524,7 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         -- With partial fanout (see #1468), heads with more UTxOs than the
         -- per-transaction limit can still finalize by automatically sequencing
         -- multiple PartialFanout transactions followed by a FinalPartialFanout.
-        --
-        -- The node threshold is fanoutOutputThreshold outputs (HeadLogic).
-        -- Below the threshold: single Fanout transaction.
-        -- Above the threshold: PartialFanout* → FinalPartialFanout sequence.
+        -- Handlers dynamically determines the right chunk size via tx evaluation.
 
         it "can fanout UTxOs within single transaction limit" $ \tracer ->
           failAfter 60 $

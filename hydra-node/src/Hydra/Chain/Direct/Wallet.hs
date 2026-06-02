@@ -53,7 +53,7 @@ import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.Babbage.UTxO (getReferenceScripts)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (TxLevel (..))
+import Cardano.Ledger.Core (TxLevel (..), ppMaxTxSizeL)
 import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
@@ -63,6 +63,7 @@ import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
 import Control.Lens (view, (%~), (.~), (^.))
+import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -76,6 +77,7 @@ import Hydra.Cardano.Api (
   NetworkId,
   PaymentCredential (PaymentCredentialByKey),
   PaymentKey,
+  SerialiseAsCBOR (serialiseToCBOR),
   ShelleyAddr,
   SigningKey,
   StakeAddressReference (NoStakeAddress),
@@ -92,6 +94,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Ledger.Cardano ()
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport, evaluateTxWith)
 import Hydra.Logging (Tracer, traceWith)
 
 type Address = Ledger.Addr
@@ -117,6 +120,18 @@ data TinyWallet m = TinyWallet
       Api.UTxO ->
       Api.Tx ->
       m (Either ErrCoverFee Api.Tx)
+  , evaluateScriptCosts ::
+      Api.Tx ->
+      Api.UTxO ->
+      m (Either EvaluationError EvaluationReport)
+  -- ^ Evaluate script execution costs for a transaction using current protocol
+  -- parameters from the node. Returns Right if all scripts succeed within
+  -- budget, Left otherwise.
+  , isTxWithinSizeLimits ::
+      Api.Tx ->
+      m Bool
+  -- ^ Check whether the serialised transaction fits within the maximum
+  -- transaction size permitted by the current protocol parameters.
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -167,6 +182,15 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           pure $
             fromLedgerTx
               <$> coverFee_ pparams systemStart epochInfo ledgerLookupUTxO walletUTxO (toLedgerTx partialTx)
+      , evaluateScriptCosts = \tx lookupUTxO -> do
+          WalletInfoOnChain{systemStart} <- readTVarIO walletInfoVar
+          epochInfo <- queryEpochInfo
+          pparams <- querySomePParams
+          pure $ evaluateTxWith systemStart epochInfo pparams tx lookupUTxO
+      , isTxWithinSizeLimits = \tx -> do
+          pparams <- querySomePParams
+          let txBytes = fromIntegral $ BS.length $ serialiseToCBOR tx
+          pure $ txBytes <= pparams ^. ppMaxTxSizeL
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header

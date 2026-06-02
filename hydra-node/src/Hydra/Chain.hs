@@ -89,12 +89,6 @@ data PostChainTx tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
-  | PartialFanoutTx
-      { utxoToDistribute :: UTxOType tx
-      , remainingUTxO :: UTxOType tx
-      , headSeed :: HeadSeed
-      , contestationDeadline :: UTCTime
-      }
   | FinalPartialFanoutTx
       { utxoToDistribute :: UTxOType tx
       , headSeed :: HeadSeed
@@ -189,6 +183,7 @@ data PostTxError tx
   | -- | Another node already posted this partial fanout step; the chain
     -- observation loop will emit the correct next step automatically.
     StalePartialFanoutTx
+  | ContestationDeadlineOutsideTimeHorizon {failureReason :: Text}
   | InvalidTokenRequest [(PolicyId, PolicyAssets)]
   deriving stock (Generic)
 

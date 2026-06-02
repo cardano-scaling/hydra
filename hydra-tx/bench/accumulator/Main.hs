@@ -22,7 +22,7 @@ import Hydra.Tx.Accumulator (
   unHydraAccumulator,
  )
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize)
+import Test.Hydra.Tx.Fixture (fanoutChunkSize)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (generate)
 
@@ -70,7 +70,7 @@ main = do
 
   putTextLn "Pre-generated CRS"
 
-  -- Generate fanoutChunkSize subsets for membership proofs
+  -- Generate 7 subsets for membership proofs
   let !subsetChunk_from50 = generateSubset utxo50 fanoutChunkSize
   let !subsetChunk_from100 = generateSubset utxo100 fanoutChunkSize
   let !subsetChunk_from500 = generateSubset utxo500 fanoutChunkSize

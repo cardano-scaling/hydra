@@ -21,7 +21,6 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Data.List.NonEmpty qualified as NE
-import Data.Set qualified as Set
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
@@ -1357,8 +1356,6 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
-  PartialFanoutTx{utxoToDistribute} ->
-    OnPartialFanoutTx{headId = testHeadId, distributedOutputs = Set.fromList (outputsOfUTxO utxoToDistribute)}
   FinalPartialFanoutTx{utxoToDistribute} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
 
