@@ -59,11 +59,12 @@ healthyFanoutTx =
   headTokenScript = mkHeadTokenScript testSeedInput
 
   headOutput =
-    mkHeadOutput @CtxUTxO
-      testNetworkId
-      testPolicyId
-      (verificationKeyToOnChainId <$> healthyParticipants)
-      (mkTxOutDatumInline healthyFanoutDatum)
+    modifyTxOutValue (<> UTxO.totalValue healthyFanoutUTxO) $
+      mkHeadOutput @CtxUTxO
+        testNetworkId
+        testPolicyId
+        (verificationKeyToOnChainId <$> healthyParticipants)
+        (mkTxOutDatumInline healthyFanoutDatum)
 
 healthyFanoutUTxO :: UTxO
 healthyFanoutUTxO =
