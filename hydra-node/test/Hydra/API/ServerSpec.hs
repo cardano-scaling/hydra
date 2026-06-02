@@ -240,7 +240,7 @@ spec =
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
           -- Use a single headId throughout so the headId validation in
-          -- 'aggregate' does not drop events from a mismatched head.
+          -- 'aggregateNodeState' does not drop events from a mismatched head.
           headId <- generate arbitrary
 
           -- Prime some relevant server outputs already into event source to
