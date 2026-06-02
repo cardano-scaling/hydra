@@ -115,6 +115,7 @@
                                     "af4069c0c0d8e87e4d0f8c44c0a8b7b1e7fd78e2556fc9e5e6397bd4875fd1ab": "5e902df68635e58bf746203faf970d88221d4d4d1002f79b98a0a7aae6902f4217bceebd8d3c9427a9f6a6f54d5f98c13d565c94fc72996888025477e682b302"
                                 },
                                 "snapshot": {
+                                    "accumulator": "ffd3a12e82b30d363ba704842596f4eb3a1e01bf3c923f9d73ce68ff5e08f03d",
                                     "confirmed": [],
                                     "headId": "00000001000001000000000100000101",
                                     "number": 0,

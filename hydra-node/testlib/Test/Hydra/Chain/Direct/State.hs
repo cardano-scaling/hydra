@@ -412,7 +412,7 @@ genClosedStateForFanout numParties = do
   u0 <- genUTxOAdaOnlyOfSize n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
-  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
@@ -449,7 +449,7 @@ genClosedStateForFanoutWithComplexUTxO numParties = do
   u0 <- genUTxOSized n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
   let version = 0
-  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing (ctxHydraSigningKeys ctx)
+  confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp

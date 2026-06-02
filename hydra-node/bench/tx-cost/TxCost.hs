@@ -234,7 +234,7 @@ computePartialFanOutNominalCost = do
     utxo <- genUTxOAdaOnlyOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty []
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty Nothing []
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
@@ -275,7 +275,7 @@ computePartialFanOutMixedCost = do
     utxo <- genUTxOWithTokensOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty []
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty Nothing []
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp
@@ -318,7 +318,7 @@ computeFinalPartialFanOutCost = do
     utxo <- genUTxOWithTokensOfSize totalUTxO
     ctx <- genHydraContextFor numberOfParties
     (_committed, stOpen@OpenState{headId, seedTxIn}) <- genStOpen ctx
-    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty []
+    snapshot <- genConfirmedSnapshot headId 0 1 utxo mempty mempty Nothing []
     cctx <- pickChainContext ctx
     let cp = ctxContestationPeriod ctx
     (startSlot, closePoint) <- genValidityBoundsFromContestationPeriod cp

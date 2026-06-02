@@ -15,6 +15,7 @@ import Hydra.Ledger.Cardano.Builder (
   mintTokens,
   unsafeBuildTransaction,
  )
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol, headIdToPolicyId)
@@ -64,7 +65,7 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
       & addTxExtraKeyWits [verificationKeyHash vk]
       & setTxMetadata (TxMetadataInEra $ mkHydraHeadV2TxName "UpdateParametersTx")
  where
-  Snapshot{number, version, utxo} = snapshot
+  Snapshot{number, version, utxo, accumulator} = snapshot
   -- The new datum's 'utxoHash' is the hash of the current L2 state at
   -- the time the snapshot was signed. The 'UpdateParameters' validator
   -- uses this hash as the signature payload (see 'checkUpdateParameters'
@@ -72,6 +73,9 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
   -- across an 'UpdateParameters' transition the same way it does
   -- across 'Increment'/'Decrement'.
   utxoHash = toBuiltin $ hashUTxO @Tx utxo
+  -- UpdateParameters does not move UTxOs, so the on-chain accumulatorHash
+  -- carries the snapshot's accumulator unchanged.
+  accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
 
   HeadParameters{parties, contestationPeriod} = headParameters
 
@@ -129,6 +133,7 @@ updateParametersTx scriptRegistry vk (seedTxIn, headId) headParameters (headInpu
           { headSeed = toPlutusTxOutRef seedTxIn
           , Head.parties = partyToChain <$> newParties
           , utxoHash
+          , accumulatorHash
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1

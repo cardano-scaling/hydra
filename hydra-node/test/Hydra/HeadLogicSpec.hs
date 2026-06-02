@@ -145,7 +145,7 @@ spec =
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -1099,7 +1099,7 @@ spec =
 
       it "ignores valid AckSn if snapshot already confirmed" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1
 
@@ -1137,7 +1137,7 @@ spec =
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{allTxs = Map.fromList [(1, tx)]}
-            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st reqSn
           `shouldBe` Error (RequireFailed ReqSnUTxOSetTooLarge{utxoCount = bigCount, maxAllowed = Accumulator.maxAccumulatorSize})
@@ -1279,6 +1279,7 @@ spec =
                 , utxoToCommit = Nothing
                 , utxoToDecommit = utxoToDecommit
                 , accumulator = Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
+                , parameterUpdate = Nothing
                 }
             s0 =
               inOpenState'
@@ -1373,6 +1374,7 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , parameterUpdate = Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1495,6 +1497,7 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , parameterUpdate = Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1571,6 +1574,7 @@ spec =
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
+                  , parameterUpdate = Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
@@ -1761,32 +1765,35 @@ spec =
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, nodeState) -> do
           let input = connectivityChanged ttl connectivityMessage
+              -- 'isConnectivityChange' = any state change a connectivity
+              -- input is allowed to emit. Used for both Wait and Continue
+              -- outcomes (issue #1813: connectivity events flow through
+              -- even while a late-joining party is still in catch-up).
+              isConnectivityChange = \case
+                PeerConnected{} -> True
+                PeerDisconnected{} -> True
+                NetworkVersionMismatch{} -> True
+                NetworkClusterIDMismatch{} -> True
+                NetworkConnected{} -> True
+                NetworkDisconnected{} -> True
+                _ -> False
           case nodeState of
             NodeCatchingUp{} -> do
               now <- getCurrentTime
               let outcome = update bobEnv ledger now nodeState input
               outcome `shouldSatisfy` \case
                 Wait{reason = WaitOnNodeInSync{currentSlot}, stateChanges} ->
-                  null stateChanges && currentSlot == nodeState.chainPointTime.currentSlot
+                  all isConnectivityChange stateChanges
+                    && currentSlot == nodeState.chainPointTime.currentSlot
+                Continue{stateChanges, effects} ->
+                  null effects && all isConnectivityChange stateChanges
                 _ -> False
             NodeInSync{} -> do
               now <- nowFromSlot nodeState.chainPointTime.currentSlot
               let outcome = update bobEnv ledger now nodeState input
               outcome `shouldSatisfy` \case
                 Continue{stateChanges, effects} ->
-                  null effects
-                    && all
-                      ( \case
-                          -- NOTE: match only network related outcomes
-                          PeerConnected{} -> True
-                          PeerDisconnected{} -> True
-                          NetworkVersionMismatch{} -> True
-                          NetworkClusterIDMismatch{} -> True
-                          NetworkConnected{} -> True
-                          NetworkDisconnected{} -> True
-                          _ -> False
-                      )
-                      stateChanges
+                  null effects && all isConnectivityChange stateChanges
                 _ -> False
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
@@ -2159,7 +2166,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToDecom = Just utxoToDecommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2175,7 +2182,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToCom = Just utxoToCommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2241,6 +2248,7 @@ spec =
                   , utxoToCommit = Just depositedUTxO
                   , utxoToDecommit = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
+                  , parameterUpdate = Nothing
                   }
               depositMultisig = aggregate [sign aliceSk depositSnapshot]
           -- Start with deposit already active and tracked
@@ -2252,7 +2260,7 @@ spec =
                   }
           -- Step 1: Confirm snapshot 1 including the deposit in utxoToCommit
           s1 <- runHeadLogic aliceEnv' ledger s0 $ do
-            step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+            step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId) Nothing
             step $ receiveMessage $ AckSn (sign aliceSk depositSnapshot) 1
             getState
           -- Step 2: Recover the deposit (IncrementTx never finalized on-chain)
@@ -2277,7 +2285,7 @@ spec =
             getState
           -- Step 5: Process the new snapshot request — the recovered deposit must not
           -- appear in the new snapshot's utxo field
-          let reqSn2 = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing Nothing
+          let reqSn2 = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing Nothing Nothing
           outcome <- runHeadLogic aliceEnv' ledger s4 $ step reqSn2
           -- Extract the new snapshot's utxo and show both sides of the invariant:
           -- depositedUTxO is on L1 (it was recovered), and must not also be on L2.

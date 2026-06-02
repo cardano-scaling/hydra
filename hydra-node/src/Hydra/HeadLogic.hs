@@ -2515,6 +2515,11 @@ eventHeadId = \case
   HeadFannedOut{headId} -> Just headId
   TxInvalid{headId} -> Just headId
   HeadPartialFannedOut{headId} -> Just headId
+  LeaveRecorded{headId} -> Just headId
+  LeaveApproved{headId} -> Just headId
+  JoinRecorded{headId} -> Just headId
+  JoinApproved{headId} -> Just headId
+  ParametersChanged{headId} -> Just headId
   -- The headId in IgnoredHeadInitializing is the OTHER head's id (not ours),
   -- so it must not be used to filter against the current head state.
   IgnoredHeadInitializing{} -> Nothing

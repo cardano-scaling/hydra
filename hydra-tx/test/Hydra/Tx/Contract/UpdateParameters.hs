@@ -10,6 +10,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature (..), aggregate, sign)
 import Hydra.Tx.HeadId (mkHeadId)
@@ -129,6 +130,7 @@ healthySnapshot =
     , utxo = healthyUTxO
     , utxoToCommit = Nothing
     , utxoToDecommit = Nothing
+    , accumulator = healthyAccumulator
     , parameterUpdate = Just healthyParameterUpdate
     }
 
@@ -149,6 +151,12 @@ healthyContestationPeriod =
 
 healthyUTxO :: UTxO
 healthyUTxO = UTxO.map adaOnly $ generateWith (genUTxOSized 3) 42
+
+-- | Accumulator built over the snapshot UTxO. 'UpdateParameters' does not
+-- change the snapshotted UTxO set so this is reused on both sides of the
+-- transition for the on-chain 'accumulatorHash'.
+healthyAccumulator :: Accumulator.HydraAccumulator
+healthyAccumulator = Accumulator.buildFromSnapshotUTxOs healthyUTxO Nothing Nothing
 
 -- * Add-party healthy fixture
 
@@ -238,6 +246,7 @@ healthyAddSnapshot =
     , utxo = healthyUTxO
     , utxoToCommit = Nothing
     , utxoToDecommit = Nothing
+    , accumulator = healthyAccumulator
     , parameterUpdate = Just healthyAddParameterUpdate
     }
 
@@ -256,6 +265,7 @@ healthyAddDatumBefore =
       { headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash healthyAccumulator
       , parties = partyToChain <$> existingParties
       , contestationPeriod = toChain healthyContestationPeriod
       , version = toInteger healthySnapshotVersion
@@ -268,6 +278,7 @@ healthyDatum =
       { headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId
       , utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
+      , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash healthyAccumulator
       , parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
       , version = toInteger healthySnapshotVersion

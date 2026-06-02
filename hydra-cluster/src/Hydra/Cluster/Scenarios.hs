@@ -2022,8 +2022,13 @@ canJoinHead tracer workDir opts hydraScriptsTxId = do
         . setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] [1, 2] $ \n1 ->
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] [1, 2] $ \n2 -> do
+  -- Reserve ports for nodes 1..3 up front so Carol's node-id (3) gets a
+  -- pre-allocated 'HydraNodePorts' entry; alice/bob start with only [1,2]
+  -- in their peer list, but the port map is shared with carol who joins
+  -- later.
+  nodePorts <- allocateHydraNodePortsFor [1, 2, 3]
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] nodePorts $ \n1 ->
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] nodePorts $ \n2 -> do
       send n1 $ input "Init" []
       headId <- waitForAllMatch (10 * blockTime) [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
 
@@ -2071,7 +2076,7 @@ canJoinHead tracer workDir opts hydraScriptsTxId = do
       -- historical 'InitTx' / 'UpdateParametersTx' that admitted her into
       -- the head.
       carolOptions <- do
-        baseOpts <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] id
+        baseOpts <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts id
         pure baseOpts{joinExistingCluster = True}
       withPreparedHydraNode hydraTracer workDir 3 carolOptions $ \n3 -> do
         -- Wait for alice + bob to observe carol's etcd peer arrival
@@ -2164,9 +2169,10 @@ canLeaveHead tracer workDir opts hydraScriptsTxId = do
       <&> setNetworkId networkId
 
   let hydraTracer = contramap FromHydraNode tracer
-  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] [1, 2, 3] $ \n1 ->
-    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] [1, 2, 3] $ \n2 ->
-      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] [1, 2, 3] $ \n3 -> do
+  nodePorts <- allocateHydraNodePortsFor [1, 2, 3]
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] nodePorts $ \n1 ->
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] nodePorts $ \n2 ->
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
         send n1 $ input "Init" []
         headId <-
           waitForAllMatch (10 * blockTime) [n1, n2, n3] $

@@ -757,6 +757,7 @@ signedSnapshot ms =
       , utxoToCommit
       , utxoToDecommit
       , accumulator
+      , parameterUpdate = Nothing
       }
 
   signatures = aggregate [sign sk snapshot | sk <- [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk]]

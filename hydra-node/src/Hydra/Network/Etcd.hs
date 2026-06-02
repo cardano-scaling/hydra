@@ -510,7 +510,6 @@ putMessage tracer config ourHost lastModRevVar msg = do
  where
   key = encodeUtf8 @Text $ "msg-" <> show ourHost
 
-<<<<<<< HEAD
   -- Compare: mod_revision(key) == lastModRev
   modRevMatches lastModRev =
     defMessage
@@ -535,8 +534,7 @@ putMessage tracer config ourHost lastModRevVar msg = do
       & #compare .~ [modRevMatches lastModRev]
       & #success .~ [putReqOp]
       & #failure .~ [rangeReqOp]
-||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
-=======
+
 -- | Add a new member to the etcd cluster via the 'Cluster.MemberAdd' RPC.
 --
 -- This is a cluster-wide operation: the change is proposed via Raft and
@@ -580,7 +578,6 @@ etcdMemberAdd tracer config peerHostPort =
     "Peer URLs already exists" `T.isInfixOf` m
       || "member ID already exist" `T.isInfixOf` m
       || "Peer URL exists in cluster" `T.isInfixOf` m
->>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages ::
@@ -862,17 +859,13 @@ data EtcdLog
   | MatchingProtocolVersion {version :: ProtocolVersion}
   | WatchMessagesStartRevision {startRevision :: Int64}
   | WatchMessagesFallbackTo {compactRevision :: Int64}
-<<<<<<< HEAD
   | -- | The etcd transaction wrapping a broadcast 'put' found that our
     -- key's @mod_revision@ had moved past what we last recorded — the
     -- expected outcome when a 'GrpcDeadlineExceeded'-retried put already
     -- committed server-side. No second put was issued.
     BroadcastDeduped {previousModRev :: Int64, observedModRev :: Int64}
-||||||| parent of 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
-=======
   | -- | A 'Cluster.MemberAdd' RPC was issued for a peer URL that is already
     -- a member. Logged at info level (not an error); see 'etcdMemberAdd'.
     EtcdMemberAlreadyExists {peerUrl :: Text}
->>>>>>> 31ed1d367 (feat(node): chain + etcd + side-load + demo for dynamic-head-participants)
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
