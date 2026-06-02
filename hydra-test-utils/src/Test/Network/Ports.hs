@@ -34,6 +34,16 @@ getRandomPort = bracket bindFreshLoopback close socketPort
 withFreePort :: (PortNumber -> IO a) -> IO a
 withFreePort action = getRandomPort >>= action
 
+-- | Like 'withFreePort' but also reserves the derived companion port,
+-- in the same sense as 'randomUnusedTCPPortsWithDerived' — i.e. the
+-- companion is verified free at allocation time. Use this for tests
+-- that spin up a subprocess (such as etcd) which itself binds a port
+-- computed from the configured one.
+withFreePortAndDerived :: (PortNumber -> PortNumber) -> (PortNumber -> IO a) -> IO a
+withFreePortAndDerived derive action = do
+  [p] <- randomUnusedTCPPortsWithDerived derive 1
+  action (fromIntegral p)
+
 -- | Find the specified number of free ports.
 --
 -- The returned ports are guaranteed mutually unique: we bind all @count@
