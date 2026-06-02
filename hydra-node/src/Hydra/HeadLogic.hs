@@ -1976,7 +1976,31 @@ eventHeadId = \case
   HeadContested{headId} -> Just headId
   HeadFannedOut{headId} -> Just headId
   TxInvalid{headId} -> Just headId
-  _ -> Nothing
+  HeadPartialFannedOut{headId} -> Just headId
+  TransactionReceived{} -> Nothing
+  SnapshotRequestDecided{} -> Nothing
+  SnapshotRequested{} -> Nothing
+  PartySignedSnapshot{} -> Nothing
+  DepositRecorded{} -> Nothing
+  DepositExpired{} -> Nothing
+  DepositActivated{} -> Nothing
+  DepositRecovered{} -> Nothing
+  CommitApproved{} -> Nothing
+  CommitFinalized{} -> Nothing
+  DecommitApproved{} -> Nothing
+  DecommitInvalid{} -> Nothing
+  ChainRolledBack{} -> Nothing
+  TickObserved{} -> Nothing
+  IgnoredHeadInitializing{} -> Nothing
+  NetworkDisconnected -> Nothing
+  NetworkConnected -> Nothing
+  PeerConnected{} -> Nothing
+  PeerDisconnected{} -> Nothing
+  NetworkVersionMismatch{} -> Nothing
+  NetworkClusterIDMismatch{} -> Nothing
+  Checkpoint{} -> Nothing
+  NodeUnsynced{} -> Nothing
+  NodeSynced{} -> Nothing
 
 -- | Extract the 'HeadId' from the current 'HeadState', if any.
 headIdOf :: HeadState tx -> Maybe HeadId
@@ -1990,12 +2014,9 @@ headIdOf = \case
 -- ignored, preventing cross-head state contamination during event replay.
 -- Events without a 'HeadId' are always applied.
 aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
-aggregate st sc
-  | Just eid <- eventHeadId sc
-  , Just sid <- headIdOf st
-  , eid /= sid =
-      st
-  | otherwise = applyEvent st sc
+aggregate st sc = case (headIdOf st, eventHeadId sc) of
+  (Just sid, Just eid) | sid /= eid -> st
+  _ -> applyEvent st sc
 
 applyEvent :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 applyEvent st = \case
