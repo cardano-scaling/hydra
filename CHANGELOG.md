@@ -48,6 +48,9 @@ distribute in a single partial fanout step, replacing a hardcoded limit.
 preferred transaction first, falling back to progressively smaller chunks until
 one fits within the script
 
+- Fix a bug where replaying persisted events from a previous head could corrupt
+the state of a newly opened head.
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits
