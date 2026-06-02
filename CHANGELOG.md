@@ -51,6 +51,10 @@ one fits within the script
 - Fix a bug where replaying persisted events from a previous head could corrupt
 the state of a newly opened head.
 
+- Fix a bug where a recovered incremental-commit deposit could reappear in the
+  L2 UTxO after sideloading a snapshot, making the same UTxO spendable on both
+  L1 and L2 simultaneously [#2629](https://github.com/cardano-scaling/hydra/issues/2629).
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits
