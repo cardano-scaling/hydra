@@ -34,6 +34,12 @@
             cp -rL ${self'.packages.haddocks} static/haddocks
             chmod -R u+w static/haddocks
           '';
+          # yarn pack (used by buildYarnPackage's installPhase) excludes the
+          # build/ directory because it is listed in .gitignore. Copy it
+          # explicitly so the workflow can find result/build/*.
+          postInstall = ''
+            cp -r build "$out/build"
+          '';
         };
 
       docs-unstable = docs.overrideAttrs {
