@@ -234,8 +234,6 @@ data PartialFanoutMutation
   | -- | Continuing datum must carry the correct remaining accumulator commitment
     MutatePartialFanoutWrongAccumulator
   | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
-    -- Currently passes because withCRSLookup does not authenticate the reference script.
-    -- Expected to fail with InvalidCRSRefScript.
     MutatePartialFanoutFakeCRS
   deriving stock (Generic, Show, Enum, Bounded)
 

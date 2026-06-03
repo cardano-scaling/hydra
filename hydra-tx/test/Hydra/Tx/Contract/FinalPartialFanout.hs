@@ -124,8 +124,6 @@ data FinalPartialFanoutMutation
     -- uses a different scalar set, breaking the membership proof
     MutateFinalPartialFanoutOutputCount
   | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
-    -- Currently passes because withCRSLookup does not authenticate the reference script.
-    -- Expected to fail with InvalidCRSRefScript.
     MutateFinalPartialFanoutFakeCRS
   | -- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's value
     -- is left unaccounted.
