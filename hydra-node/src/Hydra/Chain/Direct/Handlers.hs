@@ -79,7 +79,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
-import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError (..), EvaluationReport, renderEvaluationReport)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
@@ -520,7 +520,7 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
 -- 'mkTx' constructs a transaction and 'fitsCheck' returns 'True'. Assumes the
 -- predicate is monotone: if size @n@ fits, all sizes @< n@ also fit. Uses
 -- upper-mid so the search terminates correctly when @hi = lo + 1@. Returns
--- 'Nothing' if no size fits. 'mkTx' may throw to abort the search early.
+-- 'Left ()' if no size fits. 'mkTx' may throw to abort the search early.
 findLargestFitting ::
   Monad m =>
   -- | Construct a transaction for a given chunk size; may throw on structural failure
@@ -529,8 +529,8 @@ findLargestFitting ::
   (tx -> m Bool) ->
   -- | Upper bound of chunk sizes to search (inclusive)
   Int ->
-  m (Maybe tx)
-findLargestFitting mkTx fitsCheck = go Nothing 1
+  m (Either () tx)
+findLargestFitting mkTx fitsCheck = go (Left ()) 1
  where
   go best lo hi
     | lo > hi = pure best
@@ -539,27 +539,35 @@ findLargestFitting mkTx fitsCheck = go Nothing 1
         tx <- mkTx mid
         fits <- fitsCheck tx
         if fits
-          then go (Just tx) (mid + 1) hi
+          then go (Right tx) (mid + 1) hi
           else go best lo (mid - 1)
 
 -- | Check whether a transaction fits within protocol size and script execution
 -- limits. Size check is cheap so it short-circuits before the expensive UPLC
--- evaluation.
+-- evaluation. Structural errors (script failures, protocol parameter conversion
+-- errors) are traced via the provided tracer; transient misses (size exceeded,
+-- budget overrun) are silent.
 fitsTx ::
   Monad m =>
+  Tracer m CardanoChainLog ->
   (Tx -> m Bool) ->
   (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) ->
   UTxO ->
   Tx ->
   m Bool
-fitsTx withinSizeLimits evalCosts evalUTxO tx = do
+fitsTx tracer withinSizeLimits evalCosts evalUTxO tx = do
   withinSize <- withinSizeLimits tx
   if withinSize
-    then do
-      result <- evalCosts tx evalUTxO
-      pure $ case result of
-        Right report -> all isRight (Map.elems report)
-        _ -> False
+    then
+      evalCosts tx evalUTxO >>= \case
+        Left TransactionBudgetOverspent{} -> pure False
+        Left (TransactionInvalid err) -> False <$ traceWith tracer PartialFanoutFailed{reason = show err}
+        Left (PParamsConversion err) -> False <$ traceWith tracer PartialFanoutFailed{reason = show err}
+        Right report ->
+          let failures = Map.filter isLeft report
+           in if Map.null failures
+                then pure True
+                else False <$ traceWith tracer PartialFanoutFailed{reason = renderEvaluationReport failures}
     else pure False
 
 -- | Try the preferred transaction first; if it doesn't fit within the script
@@ -593,30 +601,27 @@ findFittingFanoutTx ::
   SlotNo ->
   m Tx
 findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
-  findBest >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
+  findBest >>= either (const $ throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
   -- fall back to the binary search if it doesn't fit.
-  findBest = case ePreferred of
-    Right tx -> do
-      fits' <- fits tx
-      if fits' then pure (Just tx) else findFallback
-    Left _ -> findFallback
+  findBest = either (const findFallback) tryPreferred ePreferred
+   where
+    tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 
   findFallback =
     findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
 
   mkTxM n =
-    case partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot of
-      Left StaleChainState -> do
-        traceWith tracer $ PartialFanoutFailed{reason = show StaleChainState}
-        throwIO (StalePartialFanoutTx @Tx)
-      Left err -> do
-        traceWith tracer $ PartialFanoutFailed{reason = show err}
-        throwIO (FailedToConstructPartialFanoutTx @Tx)
-      Right tx -> pure tx
+    either handleErr pure $ partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot
+   where
+    handleErr err = do
+      traceWith tracer PartialFanoutFailed{reason = show err}
+      throwIO $ case err of
+        StaleChainState -> StalePartialFanoutTx @Tx
+        _ -> FailedToConstructPartialFanoutTx @Tx
 
-  fits = fitsTx isTxWithinSizeLimits evaluateScriptCosts evalUTxO
+  fits = fitsTx tracer isTxWithinSizeLimits evaluateScriptCosts evalUTxO
 
   evalUTxO = spendableUTxO <> getKnownUTxO ctx
 
