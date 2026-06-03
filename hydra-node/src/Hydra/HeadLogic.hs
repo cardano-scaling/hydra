@@ -549,6 +549,7 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
             --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
             requireVerifiedMultisignature multisig snapshotBytes $
               do
+                -- NOTE: Fix all the spec comments once specification is in place
                 -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
                 newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
