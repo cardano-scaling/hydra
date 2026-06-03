@@ -171,7 +171,7 @@ genFanoutMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode FanoutUTxOHashMismatch) MutateDecommitOutputValue <$> do
         let outs = txOuts' tx
         let noOfUtxoToOutputs = size $ UTxO.toMap (fst healthyFanoutSnapshotUTxO)
-        (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] outs)
+        (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] (drop noOfUtxoToOutputs outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
     , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do

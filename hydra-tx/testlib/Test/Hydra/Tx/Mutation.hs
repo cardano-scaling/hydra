@@ -777,24 +777,6 @@ replaceParties parties = \case
     Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
   otherState -> otherState
 
-replaceUTxOHash :: Head.Hash -> Head.State -> Head.State
-replaceUTxOHash utxoHash = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, headId, version, accumulatorHash} ->
-    Head.Open
-      Head.OpenDatum
-        { Head.headSeed = headSeed
-        , Head.contestationPeriod = contestationPeriod
-        , Head.parties = parties
-        , Head.utxoHash = utxoHash
-        , Head.headId = headId
-        , Head.version = version
-        , Head.accumulatorHash = accumulatorHash
-        }
-  otherState -> otherState
-
-replaceOmegaUTxOHash :: Head.Hash -> Head.State -> Head.State
-replaceOmegaUTxOHash _ = id
-
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
   Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->

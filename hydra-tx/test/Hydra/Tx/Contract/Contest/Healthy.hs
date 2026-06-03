@@ -20,7 +20,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod, fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO)
+
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (
@@ -29,7 +29,7 @@ import Hydra.Tx.Utils (
   splitUTxO,
   verificationKeyToOnChainId,
  )
-import PlutusLedgerApi.V2 (BuiltinByteString, toBuiltin)
+
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genForParty,
@@ -129,14 +129,6 @@ healthyClosedState =
       , version = toInteger healthyCloseSnapshotVersion
       , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
       }
-
-healthyContestUTxOHash :: BuiltinByteString
-healthyContestUTxOHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOInHead
-
-healthyContestUTxOToDecommitHash :: BuiltinByteString
-healthyContestUTxOToDecommitHash =
-  toBuiltin $ hashUTxO @Tx splitUTxOToDecommit
 
 healthyClosedSnapshotNumber :: SnapshotNumber
 healthyClosedSnapshotNumber = 3

@@ -72,8 +72,7 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- number = uint
 -- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the compressed G1 accumulator commitment
 --
--- The BLS accumulator commitment (bound via accumulatorHash) commits to the full UTxO set
--- (utxo ∪ alpha ∪ omega).
+-- The BLS accumulator commitment (bound via accumulatorHash) commits to the full UTxO set.
 instance SignableRepresentation (Snapshot tx) where
   getSignableRepresentation Snapshot{headId, version, number, accumulator} =
     LBS.toStrict $

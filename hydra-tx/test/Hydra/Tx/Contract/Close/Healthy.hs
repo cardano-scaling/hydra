@@ -14,7 +14,6 @@ import Hydra.Tx (
   Party,
   Snapshot,
   deriveParty,
-  hashUTxO,
   partyToChain,
  )
 import Hydra.Tx.Close (PointInTime)
@@ -22,7 +21,7 @@ import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
-import PlutusLedgerApi.V3 (BuiltinByteString, toBuiltin)
+
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 import Test.Hydra.Tx.Fixture qualified as Fixture
@@ -69,10 +68,6 @@ healthyContestationDeadline =
   addUTCTime
     (fromInteger healthyContestationPeriodSeconds)
     (snd healthyCloseUpperBoundPointInTime)
-
-healthyCloseUTxOHash :: BuiltinByteString
-healthyCloseUTxOHash =
-  toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
 
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyParticipants =
