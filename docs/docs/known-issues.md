@@ -11,7 +11,7 @@ Due to the limitations on transaction sizes and execution budgets on Cardano, th
 Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being deposited or created while the head is open:
 
 - Tokens that are minted and not burned within an open Hydra head will prevent the head from being _finalized_. Partial fanout can still distribute ADA-only outputs, but any UTxOs carrying unburned native tokens will remain stuck. See [#2334](https://github.com/cardano-scaling/hydra/issues/2334) for ongoing investigation into whether these funds can be recovered.
-- A single UTxO that is intrinsically too large to include in any Cardano transaction. For example, one carrying an unusually large inline datum cannot be fanned out regardless of how many steps are used. This is a Cardano-level transaction size constraint, not a Hydra limitation. If such a UTxO ends up inside a head, it will be permanently stuck.
+- A single UTxO that is intrinsically too large to include in any Cardano transaction. For example, one carrying an unusually large inline datum cannot be fanned out regardless of how many steps are used. This is a Cardano-level transaction size constraint, not a Hydra limitation. If such a UTxO is within a Hydra head when the head is closed, you will be unable to fan it out.
 
 ### Static topology
 
