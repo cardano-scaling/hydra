@@ -10,14 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
-- Heads with large UTxO sets (above the fanout output threshold) can now be
-  fanned out in multiple steps using `PartialFanoutTx` and `FinalPartialFanoutTx`
-  transactions. Each step distributes a fixed-size chunk of outputs and uses a
-  BLS accumulator membership proof to verify correctness on-chain. The final step
-  burns the head tokens and completes the fanout.
+- Heads with large UTxO sets can now be fanned out in multiple steps using
+  `PartialFanoutTx` and `FinalPartialFanoutTx` transactions [#2324](https://github.com/cardano-scaling/hydra/pull/2324).
+  Each step distributes as many outputs as fit in a single transaction (determined
+  dynamically via binary search [#2617](https://github.com/cardano-scaling/hydra/pull/2617)) and uses a BLS accumulator
+  membership proof to verify correctness on-chain. The final step burns the head
+  tokens and completes the fanout. This removes the previous limit of UTxOs per head.
 
 - **BREAKING** Several fields renamed or retype-changed across the API and
-  persisted state:
+  persisted state [#2324](https://github.com/cardano-scaling/hydra/pull/2324):
   - `HeadIsFinalized` server output: `utxo` renamed to `finalizedUTxO`; type
     changed from a UTxO map (object keyed by `TxIn`) to an array of `TxOut`
     values, since intermediate partial fanout outputs do not carry spending
@@ -41,12 +42,6 @@ changes.
   - Event-history filter — show all messages or errors only (`e`).
   - Tab navigation (`1`/`2`/`3` and ←/→) and event-detail toggle (`d`).
   - Refactored rendering into per-tab modules and a dedicated message renderer.
-
-- The node now dynamically determines the largest chunk of UTxOs it can
-distribute in a single partial fanout step, replacing a hardcoded limit.
-`findFittingFanoutTx` uses binary search over all valid chunk sizes and tries the
-preferred transaction first, falling back to progressively smaller chunks until
-one fits within the script
 
 - Fix a bug where replaying persisted events from a previous head could corrupt
 the state of a newly opened head.

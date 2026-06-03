@@ -25,7 +25,6 @@ Hydra node assumes that the blueprint transaction does not contain any stake poo
 :::warning Deposit restrictions
 The `/commit` endpoint enforces the following restrictions:
 - **Byron addresses are rejected.** UTxOs held at Byron-era addresses cannot be deposited.
-- **Mainnet ADA limit.** On mainnet, a single deposit may not exceed 100 ADA. See [known issues](/docs/known-issues#training-wheels) for details.
 - **Minimum ADA.** Each deposited output must meet the minimum ADA requirement for its size.
 - **Output value is capped at input value.** When using a blueprint transaction, the value deposited into the head is taken directly from what you provide in the `utxo` field. If the blueprint outputs request more value than the inputs supply, any excess is silently capped to zero on the change output — you will never receive more on L2 than what you deposited on L1.
 :::
