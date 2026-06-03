@@ -152,15 +152,6 @@
         ];
       };
 
-      # Shell for computing tx-cost-differences
-      costDifferencesShell = pkgs.mkShell {
-        name = "tx-cost-differences-shell";
-        buildInputs = [
-          pkgs.pandoc
-          (pkgs.python3.withPackages (ps: with ps; [ pandas html5lib beautifulsoup4 tabulate ]))
-        ];
-      };
-
       # If you want to modify `Python` code add `libtmux` and pyyaml to the
       # `buildInputs` then enter it and then run `Python` module directly so you
       # have fast devel cycle.
@@ -176,7 +167,6 @@
         exes = exeShell;
         demo = demoShell;
         ci = ciShell;
-        costDifferences = costDifferencesShell;
       };
     };
 }
