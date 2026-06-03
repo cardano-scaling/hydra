@@ -418,24 +418,24 @@ spec = do
 
   describe "findLargestFitting" $ do
     it "returns Left () when upper bound is 0" $ do
-      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 0
+      result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 0
       result `shouldBe` Left ()
 
-    it "returns Left () when predicate never holds" $ do
-      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure False) 10
+    it "returns Left () when tryTx never fits" $ do
+      result <- findLargestFitting (const $ pure Nothing :: Int -> IO (Maybe Int)) 10
       result `shouldBe` Left ()
 
-    it "returns Right upper bound when predicate always holds" $ do
-      result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 10
+    it "returns Right upper bound when tryTx always fits" $ do
+      result <- findLargestFitting (pure . Just :: Int -> IO (Maybe Int)) 10
       result `shouldBe` Right 10
 
-    prop "returns the largest n where the predicate holds" $
+    prop "returns the largest n where tryTx fits" $
       \(Positive maxChunk) (NonNegative threshold) ->
         -- k is the threshold in [0..maxChunk]: fits for [1..k], fails for [k+1..maxChunk]
         let k = threshold `mod` (maxChunk + 1)
          in monadicIO $ do
               monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
-              result <- run $ findLargestFitting (pure :: Int -> IO Int) (\n -> pure (n <= k)) maxChunk
+              result <- run $ findLargestFitting (\n -> pure $ if n <= k then Just n else Nothing) maxChunk
               let expected = if k == 0 then Left () else Right k
               monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
               assert $ result == expected
@@ -443,27 +443,22 @@ spec = do
     prop "uses at most ceil(log2 n) + 1 evaluations" $
       \(Positive maxChunk) ->
         -- (,) (Sum Int) is a Monad via the base Monoid-writer instance; each
-        -- fitsCheck call contributes Sum 1 so the fst accumulates the total.
+        -- tryTx call contributes Sum 1 so the fst accumulates the total.
         let (Sum count, _) =
               findLargestFitting
-                (pure :: Int -> (Sum Int, Int))
-                (const (Sum 1, True))
+                (\n -> (Sum 1, Just n))
                 maxChunk
             bound = (ceiling (logBase 2 (fromIntegral maxChunk :: Double) :: Double) :: Int) + 1
          in counterexample ("maxChunk=" <> show maxChunk <> ", evaluations=" <> show count <> ", bound=" <> show bound) $
               count <= bound
 
-    prop "throws immediately on construction failure without calling fitsCheck" $
+    prop "propagates exceptions thrown by tryTx" $
       \(Positive maxChunk) -> monadicIO $ do
-        let mkTx :: Int -> IO Int
-            mkTx _ = throwIO $ userError "structural failure"
-            -- If the short-circuit fails and fitsCheck is called, this throws a
-            -- different error, causing the shouldThrow predicate below to fail.
-            fitsCheck :: Int -> IO Bool
-            fitsCheck _ = throwIO $ userError "fitsCheck must not be called when mkTx throws"
+        let tryTx :: Int -> IO (Maybe Int)
+            tryTx _ = throwIO $ userError "structural failure"
         monitor $ counterexample $ "maxChunk=" <> show maxChunk
         run $
-          findLargestFitting mkTx fitsCheck maxChunk
+          findLargestFitting tryTx maxChunk
             `shouldThrow` \e -> ioeGetErrorString e == "structural failure"
 
     prop "take and drop split preserves all entries and sizes" $

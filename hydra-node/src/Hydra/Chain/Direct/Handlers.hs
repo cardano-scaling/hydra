@@ -517,30 +517,26 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
     pure (upperBoundSlot, upperBoundTime)
 
 -- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
--- 'mkTx' constructs a transaction and 'fitsCheck' returns 'True'. Assumes the
--- predicate is monotone: if size @n@ fits, all sizes @< n@ also fit. Uses
--- upper-mid so the search terminates correctly when @hi = lo + 1@. Returns
--- 'Left ()' if no size fits. 'mkTx' may throw to abort the search early.
+-- 'tryTx' returns 'Just'. Assumes the predicate is monotone: if size @n@ fits,
+-- all sizes @< n@ also fit. Uses upper-mid so the search terminates correctly
+-- when @hi = lo + 1@. Returns 'Left ()' if no size fits. 'tryTx' may throw to
+-- abort the search early.
 findLargestFitting ::
   Monad m =>
-  -- | Construct a transaction for a given chunk size; may throw on structural failure
-  (Int -> m tx) ->
-  -- | Check whether a transaction fits within budget and size limits
-  (tx -> m Bool) ->
+  -- | Construct and check a transaction; Just tx = fits, Nothing = doesn't fit; may throw on structural failure
+  (Int -> m (Maybe tx)) ->
   -- | Upper bound of chunk sizes to search (inclusive)
   Int ->
   m (Either () tx)
-findLargestFitting mkTx fitsCheck = go (Left ()) 1
+findLargestFitting tryTx = go (Left ()) 1
  where
   go best lo hi
     | lo > hi = pure best
     | otherwise = do
         let mid = (lo + hi + 1) `div` 2 -- ceiling division: biases toward hi so we test the larger candidate first
-        tx <- mkTx mid
-        fits <- fitsCheck tx
-        if fits
-          then go (Right tx) (mid + 1) hi
-          else go best lo (mid - 1)
+        tryTx mid >>= \case
+          Just tx -> go (Right tx) (mid + 1) hi
+          Nothing -> go best lo (mid - 1)
 
 -- | Check whether a transaction fits within protocol size and script execution
 -- limits. Size check is cheap so it short-circuits before the expensive UPLC
@@ -609,10 +605,11 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
    where
     tryPreferred tx = fits tx >>= bool findFallback (pure (Right tx))
 
-  findFallback =
-    findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
+  findFallback = findLargestFitting tryChunk (UTxO.size fullUTxO - 1)
+   where
+    tryChunk n = buildTx n >>= \tx -> bool Nothing (Just tx) <$> fits tx
 
-  mkTxM n =
+  buildTx n =
     either handleErr pure $ partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot
    where
     handleErr err = do
