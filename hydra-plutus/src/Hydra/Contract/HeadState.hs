@@ -103,29 +103,15 @@ data CloseRedeemer
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
       }
-  | -- | Closing snapshot refers to the current state version
-    CloseUnusedDec
+  | -- | Closing snapshot refers to the current state version (pending inc/dec not yet applied)
+    CloseUnused
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
       }
-  | -- | Closing snapshot refers to the previous state version
-    CloseUsedDec
-      { signature :: [Signature]
-      -- ^ Multi-signature of a snapshot ξ
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
-      }
-  | -- | Closing snapshot refers to the current state version
-    CloseUnusedInc
-      { signature :: [Signature]
-      -- ^ Multi-signature of a snapshot ξ
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
-      }
-  | -- | Closing snapshot refers to the previous state version
-    CloseUsedInc
+  | -- | Closing snapshot refers to the previous state version (pending inc/dec already applied)
+    CloseUsed
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
@@ -137,35 +123,15 @@ PlutusTx.unstableMakeIsData ''CloseRedeemer
 
 -- | Sub-type for contest transition with auxiliary data as needed.
 data ContestRedeemer
-  = -- | Contesting snapshot refers to the current state version
-    ContestCurrent
+  = -- | Contesting snapshot refers to the current state version (inc/dec not yet applied, or no pending action)
+    ContestUnused
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
       -- ^ Digest of the accumulator hash
       }
-  | -- | Contesting snapshot refers to the previous state version
-    ContestUsedDec
-      { signature :: [Signature]
-      -- ^ Multi-signature of a snapshot ξ
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
-      }
-  | -- | Redeemer to use when the decommit was not yet observed but we closed the Head.
-    ContestUnusedDec
-      { signature :: [Signature]
-      -- ^ Multi-signature of a snapshot ξ
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
-      }
-  | -- | Redeemer to use when the commit was not yet observed but we closed the Head.
-    ContestUnusedInc
-      { signature :: [Signature]
-      -- ^ Multi-signature of a snapshot ξ
-      , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator hash
-      }
-  | ContestUsedInc
+  | -- | Contesting snapshot refers to the previous state version (pending inc/dec already applied)
+    ContestUsed
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash

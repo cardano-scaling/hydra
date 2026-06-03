@@ -24,8 +24,6 @@ import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.Utils (
-  IncrementalAction (..),
-  setIncrementalActionMaybe,
   splitUTxO,
   verificationKeyToOnChainId,
  )
@@ -65,9 +63,6 @@ healthyContestTx =
       (healthySignature healthyContestSnapshotNumber)
       (healthySlotNo, slotNoToUTCTime systemStart slotLength healthySlotNo)
       closedThreadOutput
-      incrementalAction
-
-  incrementalAction = fromMaybe NoThing $ setIncrementalActionMaybe (utxoToCommit healthyContestSnapshot) (utxoToDecommit healthyContestSnapshot)
   scriptRegistry = genScriptRegistry `generateWith` 42
 
   closedThreadOutput =

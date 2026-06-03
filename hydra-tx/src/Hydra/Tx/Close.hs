@@ -95,36 +95,14 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
         Head.CloseInitial
       ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
+            sig = toPlutusSignatures signatures
          in case incrementalAction of
-              ToCommit ->
-                if version == openVersion
-                  then
-                    Head.CloseUnusedInc
-                      { signature = toPlutusSignatures signatures
-                      , accumulatorHash = accHash
-                      }
-                  else
-                    Head.CloseUsedInc
-                      { signature = toPlutusSignatures signatures
-                      , accumulatorHash = accHash
-                      }
-              ToDecommit ->
-                if version == openVersion
-                  then
-                    Head.CloseUnusedDec
-                      { signature = toPlutusSignatures signatures
-                      , accumulatorHash = accHash
-                      }
-                  else
-                    Head.CloseUsedDec
-                      { signature = toPlutusSignatures signatures
-                      , accumulatorHash = accHash
-                      }
               NoThing ->
-                Head.CloseAny
-                  { signature = toPlutusSignatures signatures
-                  , accumulatorHash = accHash
-                  }
+                Head.CloseAny{signature = sig, accumulatorHash = accHash}
+              _ ->
+                if version == openVersion
+                  then Head.CloseUnused{signature = sig, accumulatorHash = accHash}
+                  else Head.CloseUsed{signature = sig, accumulatorHash = accHash}
 
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore

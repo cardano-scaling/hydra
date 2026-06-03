@@ -387,8 +387,9 @@ genFanoutTx numParties = do
   openVersion <- elements [0, 1]
   version <- elements [0, 1]
   -- Only generate commit UTxO when version differs so the accumulator commitment
-  -- in the closed datum matches what fanoutTx builds. Size bounded for KZG budget.
-  n <- elements [1 .. 9]
+  -- in the closed datum matches what fanoutTx builds. Size bounded for KZG budget
+  -- with maximumNumberOfParties: u0 ≤ 5, commit ≤ 5, total ≤ 10 outputs.
+  n <- elements [1 .. 5]
   toCommit' <-
     if openVersion /= version
       then Just <$> genUTxOAdaOnlyOfSize n
