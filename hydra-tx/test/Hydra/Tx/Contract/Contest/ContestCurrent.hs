@@ -206,7 +206,7 @@ genContestMutation (tx, _utxo) =
         pure $ ChangeRequiredSigners [newSigner]
     , -- REVIEW: This is a bit confusing and not giving much value. Maybe we can remove this.
       -- This also seems to be covered by MutateRequiredSigner
-      SomeMutation (pure $ toErrorCode FailedContestCurrent) ContestFromDifferentHead <$> do
+      SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) ContestFromDifferentHead <$> do
         otherHeadId <- headPolicyId <$> arbitrary `suchThat` (/= healthyClosedHeadTxIn)
         pure $
           Changes

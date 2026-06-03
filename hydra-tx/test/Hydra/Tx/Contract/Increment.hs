@@ -229,7 +229,7 @@ genIncrementMutation (tx, utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) AlterRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
-    , SomeMutation (pure $ toErrorCode DepositInputNotFound) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode DepositNotSpent) IncrementDifferentClaimRedeemer . ChangeHeadRedeemer <$> do
         invalidDepositRef <- genTxIn
         pure $
           Head.Increment
