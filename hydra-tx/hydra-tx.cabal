@@ -171,6 +171,7 @@ test-suite tests
   hs-source-dirs: test
   main-is:        Main.hs
   other-modules:
+    Hydra.Tx.AccumulatorSpec
     Hydra.Tx.ContestationPeriodSpec
     Hydra.Tx.Contract.Close.CloseInitial
     Hydra.Tx.Contract.Close.CloseUnused
