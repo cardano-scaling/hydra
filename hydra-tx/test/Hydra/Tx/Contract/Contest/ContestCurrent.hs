@@ -171,11 +171,11 @@ genContestMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode FailedContestCurrent) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedContestUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
-            Head.ContestCurrent
+            Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
               }
@@ -194,7 +194,7 @@ genContestMutation (tx, _utxo) =
                 healthyClosedState & replaceSnapshotNumber mutatedSnapshotNumber
             , ChangeHeadRedeemer $
                 Head.Contest
-                  Head.ContestCurrent
+                  Head.ContestUnused
                     { signature =
                         toPlutusSignatures $
                           healthySignature (fromInteger mutatedSnapshotNumber)
@@ -217,7 +217,7 @@ genContestMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Contest
-                          Head.ContestCurrent
+                          Head.ContestUnused
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyContestSnapshotNumber

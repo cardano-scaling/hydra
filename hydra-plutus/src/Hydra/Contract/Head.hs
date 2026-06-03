@@ -327,26 +327,14 @@ checkClose ctx openBefore redeemer =
               parties
               (headId, version, snapshotNumber', accumulatorHash)
               signature
-      CloseUnusedDec{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedCloseUnusedDec) $
+      CloseUnused{signature, accumulatorHash} ->
+        traceIfFalse $(errorCode FailedCloseUnused) $
           verifySnapshotSignature
             parties
             (headId, version, snapshotNumber', accumulatorHash)
             signature
-      CloseUsedDec{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedCloseUsedDec) $
-          verifySnapshotSignature
-            parties
-            (headId, version - 1, snapshotNumber', accumulatorHash)
-            signature
-      CloseUnusedInc{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedCloseUnusedInc) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', accumulatorHash)
-            signature
-      CloseUsedInc{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedCloseUsedInc) $
+      CloseUsed{signature, accumulatorHash} ->
+        traceIfFalse $(errorCode FailedCloseUsed) $
           verifySnapshotSignature
             parties
             (headId, version - 1, snapshotNumber', accumulatorHash)
@@ -374,10 +362,8 @@ checkClose ctx openBefore redeemer =
     case redeemer of
       CloseInitial -> True
       CloseAny{accumulatorHash} -> check' accumulatorHash
-      CloseUnusedDec{accumulatorHash} -> check' accumulatorHash
-      CloseUsedDec{accumulatorHash} -> check' accumulatorHash
-      CloseUnusedInc{accumulatorHash} -> check' accumulatorHash
-      CloseUsedInc{accumulatorHash} -> check' accumulatorHash
+      CloseUnused{accumulatorHash} -> check' accumulatorHash
+      CloseUsed{accumulatorHash} -> check' accumulatorHash
    where
     check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
 
@@ -416,32 +402,14 @@ checkContest ctx closedDatum redeemer =
 
   mustBeValidSnapshot =
     case redeemer of
-      ContestCurrent{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedContestCurrent) $
+      ContestUnused{signature, accumulatorHash} ->
+        traceIfFalse $(errorCode FailedContestUnused) $
           verifySnapshotSignature
             parties
             (headId, version, snapshotNumber', accumulatorHash)
             signature
-      ContestUsedDec{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedContestUsedDec) $
-          verifySnapshotSignature
-            parties
-            (headId, version - 1, snapshotNumber', accumulatorHash)
-            signature
-      ContestUnusedDec{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedContestUnusedDec) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', accumulatorHash)
-            signature
-      ContestUnusedInc{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedContestUnusedInc) $
-          verifySnapshotSignature
-            parties
-            (headId, version, snapshotNumber', accumulatorHash)
-            signature
-      ContestUsedInc{signature, accumulatorHash} ->
-        traceIfFalse $(errorCode FailedContestUsedInc) $
+      ContestUsed{signature, accumulatorHash} ->
+        traceIfFalse $(errorCode FailedContestUsed) $
           verifySnapshotSignature
             parties
             (headId, version - 1, snapshotNumber', accumulatorHash)
@@ -501,11 +469,8 @@ checkContest ctx closedDatum redeemer =
 
   mustBindAccumulatorCommitment =
     case redeemer of
-      ContestCurrent{accumulatorHash} -> check' accumulatorHash
-      ContestUsedDec{accumulatorHash} -> check' accumulatorHash
-      ContestUnusedDec{accumulatorHash} -> check' accumulatorHash
-      ContestUnusedInc{accumulatorHash} -> check' accumulatorHash
-      ContestUsedInc{accumulatorHash} -> check' accumulatorHash
+      ContestUnused{accumulatorHash} -> check' accumulatorHash
+      ContestUsed{accumulatorHash} -> check' accumulatorHash
    where
     check' = mustMatchAccumulatorCommitmentHash accumulatorCommitment'
 {-# INLINEABLE checkContest #-}

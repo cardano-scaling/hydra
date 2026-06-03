@@ -134,24 +134,23 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseInitialTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseInitialTx genCloseInitialMutation
-  describe "CloseUnusedDec" $ do
+  describe "CloseUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseCurrentTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCurrentTx genCloseCurrentMutation
-  describe "CloseUsedDec" $ do
+  describe "CloseUsed" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
 
-  describe "ContestCurrent" $ do
+  describe "ContestUnused" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestMutation
-  -- TODO: Add CloseAny and ContestCurrent examples too
-  describe "ContestDec" $ do
+  describe "ContestUsed" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $

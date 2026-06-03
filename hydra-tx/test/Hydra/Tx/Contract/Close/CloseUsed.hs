@@ -250,17 +250,17 @@ genCloseOutdatedMutation (tx, _utxo) =
     [ SomeMutation (pure $ toErrorCode NotPayingToHead) NotContinueContract <$> do
         mutatedAddress <- genAddressInEra Fixture.testNetworkId
         pure $ ChangeOutput 0 (modifyTxOutAddress (const mutatedAddress) headTxOut)
-    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer <$> do
         signature <- toPlutusSignatures <$> (arbitrary :: Gen (MultiSignature (Snapshot Tx)))
-        pure $ Head.Close Head.CloseUnusedDec{signature, accumulatorHash = healthyOutdatedAccumulatorHash}
-    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateSnapshotNumberButNotSignature <$> do
+        pure $ Head.Close Head.CloseUnused{signature, accumulatorHash = healthyOutdatedAccumulatorHash}
+    , SomeMutation (pure $ toErrorCode FailedCloseUsed) MutateSnapshotNumberButNotSignature <$> do
         mutatedSnapshotNumber <- arbitrarySizedNatural `suchThat` (> healthyOutdatedSnapshotNumber)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
     , -- Last known open state version is recorded in closed state
       SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- arbitrarySizedNatural `suchThat` (/= healthyOpenStateVersion)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
-    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) SnapshotNotSignedByAllParties <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUsed) SnapshotNotSignedByAllParties <$> do
         mutatedParties <- arbitrary `suchThat` (/= healthyOnChainParties)
         pure . ChangeInputHeadDatum $ replaceParties mutatedParties healthyOutdatedOpenDatum
     , SomeMutation (pure $ toErrorCode ChangedParameters) MutatePartiesInOutput <$> do
@@ -317,7 +317,7 @@ genCloseOutdatedMutation (tx, _utxo) =
                 ( Just $
                     toScriptData
                       ( Head.Close
-                          Head.CloseUnusedDec
+                          Head.CloseUnused
                             { signature =
                                 toPlutusSignatures $
                                   healthySignature healthyOutdatedSnapshot
@@ -337,21 +337,21 @@ genCloseOutdatedMutation (tx, _utxo) =
       SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateValueInOutput <$> do
         newValue <- genValue
         pure $ ChangeOutput 0 (headTxOut{txOutValue = newValue})
-    , SomeMutation (pure $ toErrorCode FailedCloseUsedDec) MutateCloseSignatures . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUsed) MutateCloseSignatures . ChangeHeadRedeemer <$> do
         -- Close redeemer contains the signatures. If we change them should
         -- cause invalid signature error.
         signature <- toPlutusSignatures <$> (arbitrary `suchThat` (/= signatures healthyOutdatedConfirmedClosingSnapshot))
         pure $
           Head.Close
-            Head.CloseUsedDec
+            Head.CloseUsed
               { signature
               , accumulatorHash = healthyOutdatedAccumulatorHash
               }
-    , SomeMutation (pure $ toErrorCode FailedCloseUnusedDec) MutateCloseType . ChangeHeadRedeemer <$> do
+    , SomeMutation (pure $ toErrorCode FailedCloseUnused) MutateCloseType . ChangeHeadRedeemer <$> do
         -- Close redeemer claims whether the snapshot is valid against current
         -- or previous version. If we change it then it should cause invalid
         -- signature error.
-        pure $ Head.Close Head.CloseUnusedDec{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash}
+        pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash}
     ]
  where
   genOversizedTransactionValidity = do

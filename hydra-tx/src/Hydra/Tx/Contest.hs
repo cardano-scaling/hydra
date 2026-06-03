@@ -16,7 +16,7 @@ import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber)
-import Hydra.Tx.Utils (IncrementalAction (..), findStateToken, mkHydraHeadV2TxName)
+import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V1.Crypto qualified as Plutus
 import PlutusLedgerApi.V3 (toBuiltin)
 import PlutusLedgerApi.V3 qualified as Plutus
@@ -54,9 +54,8 @@ contestTx ::
   PointInTime ->
   -- | Everything needed to spend the Head state-machine output.
   ClosedThreadOutput ->
-  IncrementalAction ->
   Tx
-contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput incrementalAction =
+contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (slotNo, _) closedThreadOutput =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
@@ -86,36 +85,9 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
   accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
 
   contestRedeemer =
-    case incrementalAction of
-      ToCommit ->
-        if version == openVersion
-          then
-            Head.ContestUnusedInc
-              { signature = toPlutusSignatures sig
-              , accumulatorHash = accHash
-              }
-          else
-            Head.ContestUsedInc
-              { signature = toPlutusSignatures sig
-              , accumulatorHash = accHash
-              }
-      ToDecommit ->
-        if version == openVersion
-          then
-            Head.ContestUnusedDec
-              { signature = toPlutusSignatures sig
-              , accumulatorHash = accHash
-              }
-          else
-            Head.ContestUsedDec
-              { signature = toPlutusSignatures sig
-              , accumulatorHash = accHash
-              }
-      NoThing ->
-        Head.ContestCurrent
-          { signature = toPlutusSignatures sig
-          , accumulatorHash = accHash
-          }
+    if version == openVersion
+      then Head.ContestUnused{signature = toPlutusSignatures sig, accumulatorHash = accHash}
+      else Head.ContestUsed{signature = toPlutusSignatures sig, accumulatorHash = accHash}
 
   headRedeemer = toScriptData $ Head.Contest contestRedeemer
 

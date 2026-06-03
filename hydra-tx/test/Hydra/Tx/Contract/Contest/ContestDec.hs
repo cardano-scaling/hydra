@@ -48,7 +48,7 @@ genContestDecMutation (tx, _utxo) =
         mutatedSignature <- arbitrary :: Gen (MultiSignature (Snapshot Tx))
         pure $
           Head.Contest
-            Head.ContestUnusedDec
+            Head.ContestUnused
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
               }

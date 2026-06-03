@@ -407,7 +407,6 @@ data ContestTxError
   | MissingHeadRedeemerInContest
   | WrongDatumInContest
   | FailedToConvertFromScriptDataInContest
-  | BothCommitAndDecommitInContest
   deriving stock (Show)
 
 -- | Construct a contest transaction based on the 'ClosedState' and a confirmed
@@ -435,10 +434,8 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead pid spendableUTxO)
       ?> CannotFindHeadOutputToContest
   closedThreadOutput <- extractProgressDatum headUTxO
-  incrementalAction <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInContest
-  pure $ contestTx scriptRegistry ownVerificationKey headId contestationPeriod openVersion sn sigs pointInTime closedThreadOutput incrementalAction
+  pure $ contestTx scriptRegistry ownVerificationKey headId contestationPeriod openVersion sn sigs pointInTime closedThreadOutput
  where
-  Snapshot{utxoToCommit, utxoToDecommit} = sn
   extractProgressDatum headUTxO@(_, headOutput) = do
     headDatum <- txOutScriptData (fromCtxUTxOTxOut headOutput) ?> MissingHeadDatumInContest
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
