@@ -26,9 +26,10 @@ spec :: Spec
 spec = parallel $ do
   let g2BuiltinPts = either (error . show) id g2BuiltinPoints
 
+  -- checkMembershipPairing is the on-chain pairing check run by the partial
+  -- fanout validator to confirm a batch of UTxOs belongs to the full snapshot.
   describe "UTxO membership proofs" $ do
-    -- BLS pairing is expensive; keep UTxO sets small to avoid slow tests.
-    prop "membership proof satisfies pairing check for a UTxO subset" $
+    prop "membership proof for a UTxO subset satisfies the KZG pairing check" $
       forAll (resize 5 genUTxOWithSimplifiedAddresses `suchThat` (not . null . UTxO.toList)) $ \fullUTxO ->
         forAll (sublistOf (UTxO.toList fullUTxO) `suchThat` (not . null)) $ \subsetList ->
           let subsetUTxO = UTxO.fromList subsetList
@@ -44,9 +45,8 @@ spec = parallel $ do
                    in checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 (utxoScalars subsetUTxO)
                         === True
 
-    -- BLS pairing is expensive; keep UTxO sets small to avoid slow tests.
-    prop "proof for one subset does not verify for a disjoint subset" $
-      forAll (resize 10 genUTxOWithSimplifiedAddresses `suchThat` (\u -> length (UTxO.toList u) >= 2)) $ \fullUTxO ->
+    prop "membership proof for one UTxO subset does not verify for a different subset" $
+      forAll (resize 5 genUTxOWithSimplifiedAddresses `suchThat` (\u -> length (UTxO.toList u) >= 2)) $ \fullUTxO ->
         let pairs = UTxO.toList fullUTxO
             half = length pairs `div` 2
             subsetA = UTxO.fromList $ take half pairs
