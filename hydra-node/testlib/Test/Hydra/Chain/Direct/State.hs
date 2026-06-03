@@ -384,10 +384,15 @@ genFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genFanoutTx numParties = do
   ctx <- genHydraContextFor numParties
   (u0, stOpen@OpenState{headId}) <- genStOpen ctx
-  n <- elements [1 .. 10]
-  toCommit' <- Just <$> genUTxOAdaOnlyOfSize n
   openVersion <- elements [0, 1]
   version <- elements [0, 1]
+  -- Only generate commit UTxO when version differs so the accumulator commitment
+  -- in the closed datum matches what fanoutTx builds. Size bounded for KZG budget.
+  n <- elements [1 .. 9]
+  toCommit' <-
+    if openVersion /= version
+      then Just <$> genUTxOAdaOnlyOfSize n
+      else pure Nothing
   confirmed <- genConfirmedSnapshot headId version 1 u0 toCommit' Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
@@ -398,10 +403,11 @@ genFanoutTx numParties = do
   let toFanout = utxo $ getSnapshot confirmed
   let toCommit = utxoToCommit $ getSnapshot confirmed
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-  let spendableUTxO = getKnownUTxO stClosed
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
-  pure (cctx, stClosed, mempty, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
+  let commitValue = maybe mempty UTxO.totalValue finalToCommit
+  let spendableUTxO = UTxO.map (modifyTxOutValue (<> commitValue)) (getKnownUTxO stClosed)
+  pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
 
 genPartialFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genPartialFanoutTx numParties = do
@@ -522,7 +528,12 @@ genStOpen ctx = do
   txInit <- genInitTx ctx
   cctx <- pickChainContext ctx
   let stOpen = unsafeObserveInit cctx (ctxVerificationKeys ctx) txInit
-  pure (mempty, stOpen)
+  n <- elements [1 .. 5]
+  u0 <- genUTxOAdaOnlyOfSize n
+  -- Init head output carries only tokens (0 ADA); inflate it so fanout can cover u0 outputs.
+  let u0Value = UTxO.totalValue u0
+  let stOpen' = stOpen{openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) (openUTxO stOpen)}
+  pure (u0, stOpen')
 
 genStClosed ::
   HydraContext ->

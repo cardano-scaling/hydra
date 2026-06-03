@@ -534,8 +534,8 @@ forAllFanout ::
   Property
 forAllFanout action =
   -- TODO: The utxo to fanout should be more arbitrary to have better test coverage
-  forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, stClosed, _, tx) ->
-    let utxo = getKnownUTxO stClosed <> getKnownUTxO ctx
+  forAll (genFanoutTx maximumNumberOfParties) $ \(ctx, stClosed, spendableUTxO, tx) ->
+    let utxo = spendableUTxO <> getKnownUTxO ctx
      in action utxo tx
           & label ("Fanout size: " <> prettyLength (countAssets $ txOuts' tx))
  where
