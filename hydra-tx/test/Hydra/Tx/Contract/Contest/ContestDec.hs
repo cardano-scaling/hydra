@@ -35,8 +35,8 @@ healthyContestAccumulatorHash =
 
 data ContestDecMutation
   = ContestUnusedDecAlterRedeemerDecommitHash
-  | ContestUsedDecAlterDatumomegaUTxOHash
-  | ContestUnusedDecAlterDatumomegaUTxOHash
+  | ContestUsedDecAlterAccumulatorCommitment
+  | ContestUnusedDecAlterAccumulatorCommitment
   | ContestUsedDecMutateSnapshotVersion
   | ContestUnusedDecMutateSnapshotVersion
   deriving stock (Generic, Show, Enum, Bounded)
@@ -52,10 +52,10 @@ genContestDecMutation (tx, _utxo) =
               { signature = toPlutusSignatures mutatedSignature
               , accumulatorHash = healthyContestAccumulatorHash
               }
-    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUsedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUsedDecAlterAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
-    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedDecAlterDatumomegaUTxOHash . ChangeOutput 0 <$> do
+    , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) ContestUnusedDecAlterAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
     , SomeMutation (pure $ toErrorCode MustNotChangeVersion) ContestUsedDecMutateSnapshotVersion <$> do

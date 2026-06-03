@@ -36,7 +36,7 @@ data OpenDatum = OpenDatum
   , utxoHash :: Hash
   -- ^ Spec: η
   , accumulatorHash :: Hash
-  -- ^ Digest of the accumulator ηA for the last confirmed snapshot
+  -- ^ Digest of the accumulator hash for the last confirmed snapshot
   }
   deriving stock (Generic, Show)
 
@@ -59,7 +59,7 @@ data ClosedDatum = ClosedDatum
   , contestationDeadline :: POSIXTime
   -- ^ Spec: tfinal
   , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
-  -- ^ KZG commitment to the full UTxO set (utxo ∪ alpha ∪ omega).
+  -- ^ KZG commitment to the full UTxO set.
   }
   deriving stock (Generic, Show)
 
@@ -101,35 +101,35 @@ data CloseRedeemer
     CloseAny
       { signature :: [Signature]
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Closing snapshot refers to the current state version
     CloseUnusedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Closing snapshot refers to the previous state version
     CloseUsedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   deriving stock (Show, Generic)
 
@@ -142,34 +142,34 @@ data ContestRedeemer
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Contesting snapshot refers to the previous state version
     ContestUsedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Redeemer to use when the decommit was not yet observed but we closed the Head.
     ContestUnusedDec
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | -- | Redeemer to use when the commit was not yet observed but we closed the Head.
     ContestUnusedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   | ContestUsedInc
       { signature :: [Signature]
       -- ^ Multi-signature of a snapshot ξ
       , accumulatorHash :: Hash
-      -- ^ Digest of the accumulator ηA
+      -- ^ Digest of the accumulator hash
       }
   deriving stock (Show, Generic)
 

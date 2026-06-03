@@ -353,9 +353,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                               }
 
                       -- Spec: 𝜂 ← combine(𝑈)
-                      --       𝜂𝛼 ← combine(𝑈𝛼)
-                      --       𝜂𝜔 ← combine(outputs(tx𝜔 ))
-                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η‖η𝛼‖ηω))
+                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η))
                       let snapshotSignature = sign signingKey nextSnapshot
                       -- Spec: multicast (ackSn, ŝ, σᵢ)
                       (cause (NetworkEffect $ AckSn snapshotSignature sn) <>) $ do
@@ -548,20 +546,17 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
             -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
             let multisig = aggregateInOrder sigs' parties
             -- Spec: η ← combine(𝑈ˆ)
-            --       𝜂𝛼 ← combine(𝑈𝛼)
-            --       𝑈𝜔 ← outputs(tx𝜔 )
-            --       ηω ← combine(𝑈𝜔)
-            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η‖η𝛼‖ηω), σ̃)
+            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
             requireVerifiedMultisignature multisig snapshotBytes $
               do
                 -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
                 --       ̅S.σ ← ̃σ
                 newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
-                -- Spec: if η𝛼 ≠ ⊥
-                --         postTx (increment, v̂, ŝ, η, η𝛼, ηω)
+                -- Spec: if 𝑈𝛼 ≠ ⊥
+                --         postTx (increment, v̂, ŝ, η)
                 & maybePostIncrementTx snapshot multisig
                 -- Spec: if txω ≠ ⊥
-                --         postTx (decrement, v̂, ŝ, η, η𝛼, ηω)
+                --         postTx (decrement, v̂, ŝ, η)
                 & maybePostDecrementTx snapshot multisig
                 -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
                 -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
@@ -1135,10 +1130,8 @@ onOpenClientClose ::
   Outcome tx
 onOpenClientClose st =
   -- Spec: η ← combine(̅S.𝑈)
-  --       η𝛼 ← combine(S.𝑈𝛼)
-  --       ηω ← combine(S.𝑈ω)
   --       ξ ← ̅S.σ
-  --       postTx (close, ̅S.v, ̅S.s, η, η𝛼, ηω,ξ)
+  --       postTx (close, ̅S.v, ̅S.s, η, ξ)
   cause
     OnChainEffect
       { postChainTx =
@@ -1182,10 +1175,8 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
           -- that our last 'confirmedSnapshot' must match version or
           -- version-1. Assert this fact?
           -- Spec: η ← combine(̅S.𝑈)
-          --       η𝛼 ← combine(S.𝑈𝛼)
-          --       ηω ← combine(S.𝑈ω)
           --       ξ ← ̅S.σ
-          --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
+          --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
           <> cause
             OnChainEffect
               { postChainTx =
@@ -1305,10 +1296,8 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
         -- that our last 'confirmedSnapshot' must match version or
         -- version-1. Assert this fact?
         -- Spec: η ← combine(̅S.𝑈)
-        --       η𝛼 ← combine(S.𝑈𝛼)
-        --       ηω ← combine(S.𝑈ω)
         --       ξ ← ̅S.σ
-        --       postTx (contest, ̅S.v, ̅S.s, η, η𝛼, ηω, ξ)
+        --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
         newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
           <> cause
             OnChainEffect

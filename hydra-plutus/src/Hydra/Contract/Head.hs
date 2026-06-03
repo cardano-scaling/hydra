@@ -512,8 +512,7 @@ checkContest ctx closedDatum redeemer =
 {-# INLINEABLE checkContest #-}
 
 -- | Verify a fanout transaction using a KZG membership proof.
--- All distributed outputs (utxo ∪ alpha ∪ omega combined) are verified as members
--- of the closed accumulator in a single proof, replacing the previous hash-based checks.
+-- All distributed outputs are verified as members of the accumulator in a single proof.
 headIsFinalizedWith ::
   ScriptHash ->
   ScriptContext ->
