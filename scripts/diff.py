@@ -29,6 +29,9 @@ def utxo_and_parties(df):
 
   return df
 
+def distributed(df):
+  return df.set_index("Distributed")
+
 def compare(f, old, new):
   # New should be better, so we compare to that.
   df = f(new) - f(old)
@@ -74,6 +77,10 @@ diffs = [
   , (headers[5], compare( parties, base[6], branch[6]))
   # FanOut is different; it has parties _and_ UTxO
   , (headers[6], compare( utxo_and_parties, base[7], branch[7]))
+  # PartialFanOut (ada-only), PartialFanOut (with native tokens), FinalPartialFanOut — indexed by Distributed
+  , (headers[7], compare( distributed, base[8], branch[8]))
+  , (headers[8], compare( distributed, base[9], branch[9]))
+  , (headers[9], compare( distributed, base[10], branch[10]))
   ]
 
 # Check that ther was _some_ difference, at least.
