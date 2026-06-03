@@ -68,6 +68,8 @@ data HeadError
   | FinalPartialFanoutMembershipFailed
   | InvalidCRSRefScript
   | FinalPartialFanoutZeroOutputs
+  | PartialFanoutZeroOutputs
+  | PartialFanoutCannotBeLastBatch
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -141,3 +143,5 @@ instance ToErrorCode HeadError where
     FinalPartialFanoutMembershipFailed -> "H60"
     InvalidCRSRefScript -> "H61"
     FinalPartialFanoutZeroOutputs -> "H62"
+    PartialFanoutZeroOutputs -> "H63"
+    PartialFanoutCannotBeLastBatch -> "H64"

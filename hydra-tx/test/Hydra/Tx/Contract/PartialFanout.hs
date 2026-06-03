@@ -10,7 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline, PartialFanoutChangedParameters, PartialFanoutMembershipFailed))
+import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline, PartialFanoutCannotBeLastBatch, PartialFanoutChangedParameters, PartialFanoutMembershipFailed, PartialFanoutZeroOutputs))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
@@ -230,6 +230,12 @@ data PartialFanoutMutation
     MutatePartialFanoutWrongAccumulator
   | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
     MutatePartialFanoutFakeCRS
+  | -- | Redeemer claims zero distributed outputs. KZG degenerates to e(A,G2) = e(newAcc,G2),
+    -- passing trivially when newAcc = A. Must be rejected by mustHaveOutputs.
+    MutatePartialFanoutZeroOutputs
+  | -- | Output datum carries G1_generator as the new accumulator commitment, indicating
+    -- all elements were distributed. Must use FinalPartialFanout instead to burn tokens.
+    MutatePartialFanoutLastBatch
   deriving stock (Generic, Show, Enum, Bounded)
 
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -295,6 +301,20 @@ genPartialFanoutMutation (tx, _utxo) =
             [ AddReferenceInput fakeCRSIn fakeCRSOut
             , ChangeHeadRedeemer fakeRedeemer
             ]
+    , pure $
+        SomeMutation (pure $ toErrorCode PartialFanoutZeroOutputs) MutatePartialFanoutZeroOutputs $
+          let ScriptRegistry{crsReference} = scriptRegistry
+              crsRef = toPlutusTxOutRef (fst crsReference)
+           in ChangeHeadRedeemer
+                Head.PartialFanout
+                  { Head.numberOfPartialOutputs = 0
+                  , Head.crsRef = crsRef
+                  }
+    , pure $
+        SomeMutation (pure $ toErrorCode PartialFanoutCannotBeLastBatch) MutatePartialFanoutLastBatch $
+          let headOut = fromJust $ txOuts' tx !!? 0
+              g1Generator = Accumulator.getAccumulatorCommitment (Accumulator.buildFromUTxO @Tx mempty)
+           in ChangeOutput 0 $ modifyInlineDatum (replaceAccumulatorCommitment g1Generator) headOut
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)

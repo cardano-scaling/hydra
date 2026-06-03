@@ -119,7 +119,6 @@ depositDatum input = do
     Just (headId, _deadline, commits) ->
       Just (headId, commits)
     Nothing -> Nothing
-{-# INLINEABLE depositDatum #-}
 
 -- | Verify a increment transaction.
 checkIncrement ::
@@ -581,7 +580,9 @@ checkPartialFanout ::
   TxOutRef ->
   Bool
 checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progressDatum numberOfPartialOutputs crsRef =
-  mustNotMintOrBurn txInfo
+  mustHaveOutputs
+    && mustNotBeLastBatch
+    && mustNotMintOrBurn txInfo
     && afterContestationDeadline txInfo contestationDeadline
     && mustPreserveFanoutProgressState
     && mustConserveValue
@@ -601,6 +602,23 @@ checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progr
     , contestationDeadline = contestationDeadline'
     , accumulatorCommitment = newAccumulatorCommitment
     } = decodeHeadOutputFanoutProgressDatum ctx
+
+  -- Guard against numberOfPartialOutputs = 0: with an empty subset the KZG
+  -- check degenerates to e(A,G2) = e(newAcc,G2), passing trivially when
+  -- newAcc = A. The exact-equality value check (==) prevents fund theft, but
+  -- the zero-output path is semantically meaningless and wastes budget.
+  mustHaveOutputs =
+    traceIfFalse $(errorCode PartialFanoutZeroOutputs) $
+      numberOfPartialOutputs > 0
+
+  -- Prevent distributing ALL remaining elements via PartialFanout instead of
+  -- FinalPartialFanout. When newAccumulatorCommitment = G1_generator all
+  -- elements have been removed, so the next step MUST be FinalPartialFanout
+  -- (which burns tokens). Using PartialFanout for the last batch produces a
+  -- stuck FanoutProgress UTxO whose tokens can never be burned.
+  mustNotBeLastBatch =
+    traceIfFalse $(errorCode PartialFanoutCannotBeLastBatch) $
+      not (isG1Generator newAccumulatorCommitment)
 
   TxInfo{txInfoOutputs} = txInfo
 
