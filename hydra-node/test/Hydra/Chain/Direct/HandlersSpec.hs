@@ -368,7 +368,7 @@ spec = do
                 if sizeOk
                   then \_ _ -> pure $ Right Map.empty
                   else \_ _ -> throwIO $ userError "evalCosts must not be called when size check fails"
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
           monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
           monitor $ cover 40 sizeOk "size passes"
           monitor $ cover 40 (not sizeOk) "size fails"
@@ -385,11 +385,11 @@ spec = do
               evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
               evalCosts _ _ =
                 pure $ Left $ TransactionBudgetOverspent (ExecutionUnits 100 100) (ExecutionUnits 50 50)
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
           monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
           monitor $ cover 40 sizeOk "size passes"
           monitor $ cover 40 (not sizeOk) "size fails"
-          -- Fits only when size passes AND eval succeeds; budget error means eval fails.
+          -- Budget overrun is transient; always False regardless of size.
           assert $ not result
 
     prop "returns False when report contains a script execution failure" $
@@ -403,7 +403,7 @@ spec = do
                 sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
                 evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
                 evalCosts _ _ = pure $ Right report
-            result <- run $ fitsTx sizeCheck evalCosts mempty tx
+            result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
             monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", report=" <> show report <> ", result=" <> show result
             monitor $ cover 40 sizeOk "size passes"
             monitor $ cover 40 (not sizeOk) "size fails"
@@ -419,7 +419,7 @@ spec = do
               sizeCheck t = pure $ BS.length (serialiseToCBOR t) <= limit
               evalCosts :: Tx -> UTxO -> IO (Either EvaluationError EvaluationReport)
               evalCosts _ _ = pure $ Right Map.empty
-          result <- run $ fitsTx sizeCheck evalCosts mempty tx
+          result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
           monitor $ counterexample $ "txBytes=" <> show txBytes <> ", limit=" <> show limit <> ", result=" <> show result
           monitor $ cover 40 sizeOk "size passes"
           monitor $ cover 40 (not sizeOk) "size fails"
@@ -438,7 +438,7 @@ spec = do
             evalOk = case evalResult of
               Right report -> all isRight (Map.elems report)
               Left _ -> False
-        result <- run $ fitsTx sizeCheck evalCosts mempty tx
+        result <- run $ fitsTx nullTracer sizeCheck evalCosts mempty tx
         monitor $
           counterexample $
             "txBytes="
@@ -455,17 +455,17 @@ spec = do
         assert $ result == (sizeOk && evalOk)
 
   describe "findLargestFitting" $ do
-    it "returns Nothing when upper bound is 0" $ do
+    it "returns Left () when upper bound is 0" $ do
       result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 0
-      result `shouldBe` Nothing
+      result `shouldBe` Left ()
 
-    it "returns Nothing when predicate never holds" $ do
+    it "returns Left () when predicate never holds" $ do
       result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure False) 10
-      result `shouldBe` Nothing
+      result `shouldBe` Left ()
 
-    it "returns Just upper bound when predicate always holds" $ do
+    it "returns Right upper bound when predicate always holds" $ do
       result <- findLargestFitting (pure :: Int -> IO Int) (const $ pure True) 10
-      result `shouldBe` Just 10
+      result `shouldBe` Right 10
 
     prop "returns the largest n where the predicate holds" $
       \(Positive maxChunk) (NonNegative threshold) ->
@@ -474,7 +474,7 @@ spec = do
          in monadicIO $ do
               monitor $ counterexample $ "maxChunk=" <> show maxChunk <> ", k=" <> show k
               result <- run $ findLargestFitting (pure :: Int -> IO Int) (\n -> pure (n <= k)) maxChunk
-              let expected = if k == 0 then Nothing else Just k
+              let expected = if k == 0 then Left () else Right k
               monitor $ counterexample $ "expected=" <> show expected <> ", got=" <> show result
               assert $ result == expected
 
