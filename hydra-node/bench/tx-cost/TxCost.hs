@@ -169,7 +169,6 @@ computeFanOutCost = do
       <$> foldMapM
         (\(p, u) -> First <$> compute p u)
         -- Sparse descending search: find the largest UTxO count that still fits in a tx.
-        -- Regular fanout is bounded by tx size/budget, not by maxAccumulatorSize.
         [(p, u) | p <- [numberOfParties], u <- [2000, 1500, 1000, 500, 200, 100, 60, 50, 40, 30, 20, 15, 10]]
   pure $ interesting <> limit
  where
@@ -201,8 +200,14 @@ computeFanOutCost = do
     let closeTx = unsafeClose cctx (getKnownUTxO stOpen) headId (ctxHeadParameters ctx) 0 snapshot startSlot closePoint
         stClosed = snd . fromJust $ observeClose stOpen closeTx
         deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-        utxoToFanout = getKnownUTxO stClosed <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo mempty mempty deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
+        allFanoutValue =
+          UTxO.totalValue utxo
+            <> maybe mempty UTxO.totalValue utxoToCommit
+            <> maybe mempty UTxO.totalValue utxoToDecommit
+        utxoToFanout =
+          UTxO.map (modifyTxOutValue (<> allFanoutValue)) (getKnownUTxO stClosed)
+            <> getKnownUTxO cctx
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo, getKnownUTxO stClosed <> getKnownUTxO cctx)
 
 -- | Compute costs of partial fanout transactions across a range of per-step
 -- distribution sizes.
