@@ -1,0 +1,464 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-comment">-- | KZG trusted setup parameters for Hydra's accumulator-based partial fanout.</span><span>
+</span><span id="line-4"></span><span class="hs-comment">--</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- = Background</span><span>
+</span><span id="line-6"></span><span class="hs-comment">--</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- Hydra's partial fanout uses KZG polynomial commitments to prove on-chain that</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- a distributed batch of UTxOs is a genuine subset of the UTxOs committed in the</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- Closed head datum. The accumulator polynomial encodes all snapshot UTxOs as roots:</span><span>
+</span><span id="line-10"></span><span class="hs-comment">--</span><span>
+</span><span id="line-11"></span><span class="hs-comment">-- &gt; A(X) = &#8719; (X &#8722; s&#7522;)   where s&#7522; = hash(TxOut&#7522;)</span><span>
+</span><span id="line-12"></span><span class="hs-comment">--</span><span>
+</span><span id="line-13"></span><span class="hs-comment">-- The __accumulator commitment__ is @A(&#964;)&#183;G1@ &#8212; a single G1 point (48 bytes) stored</span><span>
+</span><span id="line-14"></span><span class="hs-comment">-- in the Closed datum. The __membership proof__ for a distributed subset @S@ is the</span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- quotient @Q(X) = A(X) / P_S(X)@ committed as @Q(&#964;)&#183;G1@. The on-chain validator</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- verifies the pairing identity:</span><span>
+</span><span id="line-17"></span><span class="hs-comment">--</span><span>
+</span><span id="line-18"></span><span class="hs-comment">-- &gt; e(A(&#964;)&#183;G1, G2) = e(Q(&#964;)&#183;G1, P_S(&#964;)&#183;G2)</span><span>
+</span><span id="line-19"></span><span class="hs-comment">--</span><span>
+</span><span id="line-20"></span><span class="hs-comment">-- where @P_S(&#964;)&#183;G2@ is computed on-chain via a G2 MSM using the on-chain G2 CRS.</span><span>
+</span><span id="line-21"></span><span class="hs-comment">--</span><span>
+</span><span id="line-22"></span><span class="hs-comment">-- = The Trusted Setup</span><span>
+</span><span id="line-23"></span><span class="hs-comment">--</span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- Computing @A(&#964;)&#183;G1@ and @Q(&#964;)&#183;G1@ off-chain, and @P_S(&#964;)&#183;G2@ on-chain, all</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- require the same secret @&#964;@ (powers of tau). We embed the __EIP-4844 KZG</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- trusted setup__ produced by the Ethereum KZG ceremony (2023):</span><span>
+</span><span id="line-27"></span><span class="hs-comment">--</span><span>
+</span><span id="line-28"></span><span class="hs-comment">--   * Source: &lt;https://github.com/ethereum/kzg-ceremony-verifier/tree/master/output_setups&gt;</span><span>
+</span><span id="line-29"></span><span class="hs-comment">--   * Ceremony: &lt;https://ceremony.ethereum.org/&gt;</span><span>
+</span><span id="line-30"></span><span class="hs-comment">--   * ~140,000 independent participants; secure as long as one destroyed their secret</span><span>
+</span><span id="line-31"></span><span class="hs-comment">--   * We use the @g1_monomial@ and @g2_monomial@ keys (not @g1_lagrange@, which is</span><span>
+</span><span id="line-32"></span><span class="hs-comment">--     for Ethereum blob commitments and is unsuitable here)</span><span>
+</span><span id="line-33"></span><span class="hs-comment">--</span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- The setup provides:</span><span>
+</span><span id="line-35"></span><span class="hs-comment">--</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--   * 4096 G1 points @[G1, &#964;&#183;G1, ..., &#964;^4095&#183;G1]@ &#8212; used off-chain to build the</span><span>
+</span><span id="line-37"></span><span class="hs-comment">--     accumulator commitment and membership proofs</span><span>
+</span><span id="line-38"></span><span class="hs-comment">--   * 65 G2 points  @[G2, &#964;&#183;G2, ..., &#964;^64&#183;G2]@   &#8212; used as the on-chain</span><span>
+</span><span id="line-39"></span><span class="hs-comment">--     verification CRS (G2 MSM to evaluate @P_S(&#964;)&#183;G2@)</span><span>
+</span><span id="line-40"></span><span class="hs-comment">--</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- = Accumulator size limit</span><span>
+</span><span id="line-42"></span><span class="hs-comment">--</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- The accumulator polynomial has degree n (one root per UTxO). Computing @A(&#964;)&#183;G1@</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- off-chain needs n+1 G1 points. EIP-4844 provides 4096 G1 points, so a head can</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- hold up to __4095 UTxOs__. This is enforced by 'maxAccumulatorSize'.</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- The on-chain G2 CRS only needs batch-size-many points per partial fanout step,</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- so the 65 G2 points do not constrain the accumulator size.</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.KZGTrustedSetup</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier">KZGSetupError</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g1Points"><span class="hs-identifier">g1Points</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g2Points"><span class="hs-identifier">g2Points</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g1BuiltinPoints"><span class="hs-identifier">g1BuiltinPoints</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g2BuiltinPoints"><span class="hs-identifier">g2BuiltinPoints</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#maxAccumulatorSize"><span class="hs-identifier">maxAccumulatorSize</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-55"></span><span>  </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#maxFanoutBatchSize"><span class="hs-identifier">maxFanoutBatchSize</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-56"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#filter"><span class="hs-identifier">filter</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldMap"><span class="hs-identifier">foldMap</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier">isJust</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier">map</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator">(&lt;$&gt;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator">(==)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Crypto.EllipticCurve.BLS12_381.Internal</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Point1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Point2</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">blsCompress</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">blsUncompress</span></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Crypto.Hash</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SHA256</span></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Crypto.Hash.Class</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HashAlgorithm</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">digest</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Aeson</span></span><span>
+</span><span id="line-64"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Aeson.Types</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Parser</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">parseEither</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withObject</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-operator">(.:)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.ByteString.Base16</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Base16</span></span><span>
+</span><span id="line-66"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.FileEmbed</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">embedFile</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">makeRelativeToProject</span></span><span class="hs-special">)</span><span>
+</span><span id="line-67"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">T</span></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Builtins</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">BuiltinBLS12_381_G1_Element</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">BuiltinBLS12_381_G2_Element</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">bls12_381_G1_uncompress</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">bls12_381_G2_uncompress</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- | Errors that can occur when loading the embedded KZG trusted setup.</span><span>
+</span><span id="line-71"></span><span class="hs-comment">--</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- In practice these should never occur &#8212; the trusted setup JSON is embedded at</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- compile time and its integrity is validated by the test suite. A 'Left' here</span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- would indicate binary tampering ('IntegrityCheckFailed') or a corrupted</span><span>
+</span><span id="line-75"></span><span class="hs-comment">-- build artefact.</span><span>
+</span><span id="line-76"></span><span class="hs-keyword">data</span><span> </span><span id="KZGSetupError"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-var">KZGSetupError</span></a></span></span><span>
+</span><span id="line-77"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-comment">-- | SHA-256 digest of the embedded file does not match the known-good value.</span></span><span>
+</span><span id="line-78"></span><span>    </span><span id="IntegrityCheckFailed"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#IntegrityCheckFailed"><span class="hs-identifier hs-var">IntegrityCheckFailed</span></a></span></span><span>
+</span><span id="line-79"></span><span>      </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AexpectedHash%3AIntegrityCheckFailed"><span class="annot"><span class="annottext">KZGSetupError -&gt; Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AexpectedHash%3AIntegrityCheckFailed"><span class="hs-identifier hs-var hs-var">expectedHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AactualHash%3AIntegrityCheckFailed"><span class="annot"><span class="annottext">KZGSetupError -&gt; Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AactualHash%3AIntegrityCheckFailed"><span class="hs-identifier hs-var hs-var">actualHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-81"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-82"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | The embedded bytes could not be decoded as JSON at all.</span></span><span>
+</span><span id="line-83"></span><span>    </span><span id="JsonDecodeFailed"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#JsonDecodeFailed"><span class="hs-identifier hs-var">JsonDecodeFailed</span></a></span></span><span>
+</span><span id="line-84"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | The JSON decoded but failed the structural parser (missing keys etc.).</span></span><span>
+</span><span id="line-85"></span><span>    </span><span id="JsonParseFailed"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#JsonParseFailed"><span class="hs-identifier hs-var">JsonParseFailed</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AparseError%3AIntegrityCheckFailed"><span class="annot"><span class="annottext">KZGSetupError -&gt; Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AparseError%3AIntegrityCheckFailed"><span class="hs-identifier hs-var hs-var">parseError</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">}</span><span>
+</span><span id="line-86"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | A G1 point hex string could not be hex-decoded or BLS-decompressed.</span></span><span>
+</span><span id="line-87"></span><span>    </span><span id="InvalidG1Point"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#InvalidG1Point"><span class="hs-identifier hs-var">InvalidG1Point</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AhexPoint%3AIntegrityCheckFailed"><span class="annot"><span class="annottext">KZGSetupError -&gt; Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AhexPoint%3AIntegrityCheckFailed"><span class="hs-identifier hs-var hs-var">hexPoint</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">}</span><span>
+</span><span id="line-88"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-comment">-- | A G2 point hex string could not be hex-decoded or BLS-decompressed.</span></span><span>
+</span><span id="line-89"></span><span>    </span><span id="InvalidG2Point"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#InvalidG2Point"><span class="hs-identifier hs-var">InvalidG2Point</span></a></span></span><span> </span><span class="hs-special">{</span><span id="%24sel%3AhexPoint%3AIntegrityCheckFailed"><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AhexPoint%3AIntegrityCheckFailed"><span class="hs-identifier hs-var">hexPoint</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">}</span><span>
+</span><span id="line-90"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679439319"><span id="local-6989586621679439332"><span id="local-6989586621679439336"><span class="annot"><span class="annottext">Int -&gt; KZGSetupError -&gt; ShowS
+[KZGSetupError] -&gt; ShowS
+KZGSetupError -&gt; String
+(Int -&gt; KZGSetupError -&gt; ShowS)
+-&gt; (KZGSetupError -&gt; String)
+-&gt; ([KZGSetupError] -&gt; ShowS)
+-&gt; Show KZGSetupError
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; KZGSetupError -&gt; ShowS
+showsPrec :: Int -&gt; KZGSetupError -&gt; ShowS
+$cshow :: KZGSetupError -&gt; String
+show :: KZGSetupError -&gt; String
+$cshowList :: [KZGSetupError] -&gt; ShowS
+showList :: [KZGSetupError] -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679439340"><span id="local-6989586621679439347"><span class="annot"><span class="annottext">KZGSetupError -&gt; KZGSetupError -&gt; Bool
+(KZGSetupError -&gt; KZGSetupError -&gt; Bool)
+-&gt; (KZGSetupError -&gt; KZGSetupError -&gt; Bool) -&gt; Eq KZGSetupError
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: KZGSetupError -&gt; KZGSetupError -&gt; Bool
+== :: KZGSetupError -&gt; KZGSetupError -&gt; Bool
+$c/= :: KZGSetupError -&gt; KZGSetupError -&gt; Bool
+/= :: KZGSetupError -&gt; KZGSetupError -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679439352"><span id="local-6989586621679439354"><span class="annot"><span class="annottext">(forall x. KZGSetupError -&gt; Rep KZGSetupError x)
+-&gt; (forall x. Rep KZGSetupError x -&gt; KZGSetupError)
+-&gt; Generic KZGSetupError
+forall x. Rep KZGSetupError x -&gt; KZGSetupError
+forall x. KZGSetupError -&gt; Rep KZGSetupError x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. KZGSetupError -&gt; Rep KZGSetupError x
+from :: forall x. KZGSetupError -&gt; Rep KZGSetupError x
+$cto :: forall x. Rep KZGSetupError x -&gt; KZGSetupError
+to :: forall x. Rep KZGSetupError x -&gt; KZGSetupError
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span class="hs-comment">-- | Maximum accumulator element count supported by the currently embedded G1 CRS.</span><span>
+</span><span id="line-93"></span><span class="hs-comment">-- The EIP-4844 setup provides exactly 4096 G1 monomial points [G1, &#964;&#183;G1, ..., &#964;^4095&#183;G1],</span><span>
+</span><span id="line-94"></span><span class="hs-comment">-- so the accumulator supports up to 4095 elements (n elements need n+1 G1 points).</span><span>
+</span><span id="line-95"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#maxAccumulatorSize"><span class="hs-identifier hs-type">maxAccumulatorSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-96"></span><span id="maxAccumulatorSize"><span class="annot"><span class="annottext">maxAccumulatorSize :: Int
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#maxAccumulatorSize"><span class="hs-identifier hs-var hs-var">maxAccumulatorSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">4095</span></span><span>
+</span><span id="line-97"></span><span>
+</span><span id="line-98"></span><span class="hs-comment">-- | Maximum number of UTxOs that can be fanned out in a single partial fanout transaction.</span><span>
+</span><span id="line-99"></span><span class="hs-comment">-- Constrained by the on-chain G2 CRS (65 points &#8594; 64-element batch) and by Cardano</span><span>
+</span><span id="line-100"></span><span class="hs-comment">-- execution budget. In practice the execution budget is the binding constraint.</span><span>
+</span><span id="line-101"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#maxFanoutBatchSize"><span class="hs-identifier hs-type">maxFanoutBatchSize</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-102"></span><span id="maxFanoutBatchSize"><span class="annot"><span class="annottext">maxFanoutBatchSize :: Int
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#maxFanoutBatchSize"><span class="hs-identifier hs-var hs-var">maxFanoutBatchSize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">64</span></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- | Expected SHA-256 of trusted_setup.json, from the EIP-4844 ceremony output.</span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- Verify independently with: sha256sum hydra-tx/trusted_setup.json</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- Source: https://github.com/ethereum/kzg-ceremony-verifier/tree/master/output_setups</span><span>
+</span><span id="line-107"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#trustedSetupExpectedSHA256"><span class="hs-identifier hs-type">trustedSetupExpectedSHA256</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-108"></span><span id="trustedSetupExpectedSHA256"><span class="annot"><span class="annottext">trustedSetupExpectedSHA256 :: Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#trustedSetupExpectedSHA256"><span class="hs-identifier hs-var hs-var">trustedSetupExpectedSHA256</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;9a8dcad9eaba191842f57d23d14674cbdea4b3cf7912fcc477821264dfe0c042&quot;</span></span><span>
+</span><span id="line-109"></span><span>
+</span><span id="line-110"></span><span class="hs-comment">-- We use @g1_monomial@ (not @g1_lagrange@): the monomial form @[G1, &#964;&#183;G1, ...]@ is required</span><span>
+</span><span id="line-111"></span><span class="hs-comment">-- for KZG polynomial commitments. The @g1_lagrange@ form (used by Ethereum clients for blob</span><span>
+</span><span id="line-112"></span><span class="hs-comment">-- commitments) is NOT suitable for the accumulator scheme here.</span><span>
+</span><span id="line-113"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#embeddedSetup"><span class="hs-identifier hs-type">embeddedSetup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span id="embeddedSetup"><span class="annot"><span class="annottext">embeddedSetup :: Either KZGSetupError ([Text], [Text])
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#embeddedSetup"><span class="hs-identifier hs-var hs-var">embeddedSetup</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-115"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679439359"><span class="annot"><span class="annottext">rawBytes :: ByteString
+</span><a href="#local-6989586621679439359"><span class="hs-identifier hs-var hs-var">rawBytes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">$</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">makeRelativeToProject</span></span><span> </span><span class="annot"><span class="hs-string">&quot;trusted_setup.json&quot;</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-type">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">embedFile</span></span><span class="hs-special">)</span><span>
+</span><span id="line-116"></span><span>      </span><span id="local-6989586621679439365"><span class="annot"><span class="annottext">actualHex :: Text
+</span><a href="#local-6989586621679439365"><span class="hs-identifier hs-var hs-var">actualHex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Text
+forall a b. ConvertUtf8 a b =&gt; b -&gt; a
+</span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Text) -&gt; ByteString -&gt; Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">Base16.encode</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString) -&gt; ByteString -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Proxy SHA256 -&gt; ByteString -&gt; ByteString
+forall h (proxy :: * -&gt; *).
+HashAlgorithm h =&gt;
+proxy h -&gt; ByteString -&gt; ByteString
+forall (proxy :: * -&gt; *). proxy SHA256 -&gt; ByteString -&gt; ByteString
+</span><span class="hs-identifier hs-var">digest</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall t. Proxy t
+forall {k} (t :: k). Proxy t
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Proxy.html#Proxy"><span class="hs-identifier hs-var">Proxy</span></a></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">SHA256</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679439359"><span class="hs-identifier hs-var">rawBytes</span></a></span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Either KZGSetupError () -&gt; Either KZGSetupError ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439365"><span class="hs-identifier hs-var">actualHex</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#trustedSetupExpectedSHA256"><span class="hs-identifier hs-var">trustedSetupExpectedSHA256</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either KZGSetupError () -&gt; Either KZGSetupError ())
+-&gt; Either KZGSetupError () -&gt; Either KZGSetupError ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="annot"><span class="annottext">KZGSetupError -&gt; Either KZGSetupError ()
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#IntegrityCheckFailed"><span class="hs-identifier hs-type">IntegrityCheckFailed</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:expectedHash:IntegrityCheckFailed :: Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AexpectedHash%3AIntegrityCheckFailed"><span class="hs-identifier hs-var">expectedHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#trustedSetupExpectedSHA256"><span class="hs-identifier hs-var">trustedSetupExpectedSHA256</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:actualHash:IntegrityCheckFailed :: Text
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#%24sel%3AactualHash%3AIntegrityCheckFailed"><span class="hs-identifier hs-var">actualHash</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439365"><span class="hs-identifier hs-var">actualHex</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-119"></span><span>  </span><span id="local-6989586621679439371"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679439371"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError Value
+-&gt; (Value -&gt; Either KZGSetupError Value)
+-&gt; Maybe Value
+-&gt; Either KZGSetupError Value
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KZGSetupError -&gt; Either KZGSetupError Value
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">KZGSetupError
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#JsonDecodeFailed"><span class="hs-identifier hs-var">JsonDecodeFailed</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Either KZGSetupError Value
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Maybe Value
+forall a. FromJSON a =&gt; ByteString -&gt; Maybe a
+</span><span class="hs-identifier hs-var">Aeson.decodeStrict</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679439359"><span class="hs-identifier hs-var">rawBytes</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="annottext">(String -&gt; KZGSetupError)
+-&gt; Either String ([Text], [Text])
+-&gt; Either KZGSetupError ([Text], [Text])
+forall a b c. (a -&gt; b) -&gt; Either a c -&gt; Either b c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#first"><span class="hs-identifier hs-var">first</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; KZGSetupError
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#JsonParseFailed"><span class="hs-identifier hs-var">JsonParseFailed</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; KZGSetupError)
+-&gt; (String -&gt; Text) -&gt; String -&gt; KZGSetupError
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Text
+forall a. ToText a =&gt; a -&gt; Text
+</span><span class="hs-identifier hs-var">toText</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either String ([Text], [Text])
+ -&gt; Either KZGSetupError ([Text], [Text]))
+-&gt; Either String ([Text], [Text])
+-&gt; Either KZGSetupError ([Text], [Text])
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="annot"><span class="annottext">(Value -&gt; Parser ([Text], [Text]))
+-&gt; Value -&gt; Either String ([Text], [Text])
+forall a b. (a -&gt; Parser b) -&gt; a -&gt; Either String b
+</span><span class="hs-identifier hs-var">parseEither</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+-&gt; (Object -&gt; Parser ([Text], [Text]))
+-&gt; Value
+-&gt; Parser ([Text], [Text])
+forall a. String -&gt; (Object -&gt; Parser a) -&gt; Value -&gt; Parser a
+</span><span class="hs-identifier hs-var">withObject</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;TrustedSetup&quot;</span></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Parser ([Text], [Text])
+</span><a href="#local-6989586621679439377"><span class="hs-identifier hs-var">parse</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679439371"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-122"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><a href="#local-6989586621679439377"><span class="hs-identifier hs-type">parse</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Aeson.Object</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Parser</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span>  </span><span id="local-6989586621679439377"><span class="annot"><span class="annottext">parse :: Object -&gt; Parser ([Text], [Text])
+</span><a href="#local-6989586621679439377"><span class="hs-identifier hs-var hs-var">parse</span></a></span></span><span> </span><span id="local-6989586621679439378"><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679439378"><span class="hs-identifier hs-var">obj</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; [Text] -&gt; ([Text], [Text]))
+-&gt; Parser [Text] -&gt; Parser ([Text] -&gt; ([Text], [Text]))
+forall a b. (a -&gt; b) -&gt; Parser a -&gt; Parser b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679439378"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser [Text]
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;g1_monomial&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Parser ([Text] -&gt; ([Text], [Text]))
+-&gt; Parser [Text] -&gt; Parser ([Text], [Text])
+forall a b. Parser (a -&gt; b) -&gt; Parser a -&gt; Parser b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Object
+</span><a href="#local-6989586621679439378"><span class="hs-identifier hs-var">obj</span></a></span><span> </span><span class="annot"><span class="annottext">Object -&gt; Key -&gt; Parser [Text]
+forall a. FromJSON a =&gt; Object -&gt; Key -&gt; Parser a
+</span><span class="hs-operator hs-var">.:</span></span><span> </span><span class="annot"><span class="annottext">Key
+</span><span class="hs-string">&quot;g2_monomial&quot;</span></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#decodeHexPoint"><span class="hs-identifier hs-type">decodeHexPoint</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span>
+</span><span id="line-127"></span><span id="decodeHexPoint"><span class="annot"><span class="annottext">decodeHexPoint :: Text -&gt; Either String ByteString
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#decodeHexPoint"><span class="hs-identifier hs-var hs-var">decodeHexPoint</span></a></span></span><span> </span><span id="local-6989586621679439380"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439380"><span class="hs-identifier hs-var">t</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either String ByteString
+</span><span class="hs-identifier hs-var">Base16.decode</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either String ByteString)
+-&gt; ByteString -&gt; Either String ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. ConvertUtf8 a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ByteString) -&gt; Text -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Text -&gt; Text
+forall a. a -&gt; Maybe a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromMaybe"><span class="hs-identifier hs-var">fromMaybe</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439380"><span class="hs-identifier hs-var">t</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Maybe Text
+</span><span class="hs-identifier hs-var">T.stripPrefix</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;0x&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439380"><span class="hs-identifier hs-var">t</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="hs-comment">-- | G1 powers of tau [G1, &#964;&#183;G1, ..., &#964;^4095&#183;G1] from the EIP-4844 ceremony (monomial form).</span><span>
+</span><span id="line-130"></span><span class="hs-comment">-- 4096 points; used off-chain to build accumulator commitments and membership proofs.</span><span>
+</span><span id="line-131"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g1Points"><span class="hs-identifier hs-type">g1Points</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Point1</span></span><span class="hs-special">]</span><span>
+</span><span id="line-132"></span><span id="g1Points"><span class="annot"><span class="annottext">g1Points :: Either KZGSetupError [Point1]
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#g1Points"><span class="hs-identifier hs-var hs-var">g1Points</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either KZGSetupError Point1)
+-&gt; [Text] -&gt; Either KZGSetupError [Point1]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; [a] -&gt; m [b]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#mapM"><span class="hs-identifier hs-var">mapM</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either KZGSetupError Point1
+</span><a href="#local-6989586621679439386"><span class="hs-identifier hs-var">parseG1</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Either KZGSetupError [Point1])
+-&gt; (([Text], [Text]) -&gt; [Text])
+-&gt; ([Text], [Text])
+-&gt; Either KZGSetupError [Point1]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">([Text], [Text]) -&gt; [Text]
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(([Text], [Text]) -&gt; Either KZGSetupError [Point1])
+-&gt; Either KZGSetupError ([Text], [Text])
+-&gt; Either KZGSetupError [Point1]
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3D%3C%3C"><span class="hs-operator hs-var">=&lt;&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError ([Text], [Text])
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#embeddedSetup"><span class="hs-identifier hs-var">embeddedSetup</span></a></span><span>
+</span><span id="line-133"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><a href="#local-6989586621679439386"><span class="hs-identifier hs-type">parseG1</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point1</span></span><span>
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621679439386"><span class="annot"><span class="annottext">parseG1 :: Text -&gt; Either KZGSetupError Point1
+</span><a href="#local-6989586621679439386"><span class="hs-identifier hs-var hs-var">parseG1</span></a></span></span><span> </span><span id="local-6989586621679439389"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439389"><span class="hs-identifier hs-var">hex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-136"></span><span>    </span><span id="local-6989586621679439390"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679439390"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(String -&gt; KZGSetupError)
+-&gt; Either String ByteString -&gt; Either KZGSetupError ByteString
+forall a b c. (a -&gt; b) -&gt; Either a c -&gt; Either b c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#first"><span class="hs-identifier hs-var">first</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KZGSetupError -&gt; String -&gt; KZGSetupError
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; KZGSetupError
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#InvalidG1Point"><span class="hs-identifier hs-var">InvalidG1Point</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439389"><span class="hs-identifier hs-var">hex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Either String ByteString
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#decodeHexPoint"><span class="hs-identifier hs-var">decodeHexPoint</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439389"><span class="hs-identifier hs-var">hex</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-137"></span><span>    </span><span class="annot"><span class="annottext">(BLSTError -&gt; KZGSetupError)
+-&gt; Either BLSTError Point1 -&gt; Either KZGSetupError Point1
+forall a b c. (a -&gt; b) -&gt; Either a c -&gt; Either b c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#first"><span class="hs-identifier hs-var">first</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KZGSetupError -&gt; BLSTError -&gt; KZGSetupError
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; KZGSetupError
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#InvalidG1Point"><span class="hs-identifier hs-var">InvalidG1Point</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439389"><span class="hs-identifier hs-var">hex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Either BLSTError Point1
+forall curve.
+BLS curve =&gt;
+ByteString -&gt; Either BLSTError (Point curve)
+</span><span class="hs-identifier hs-var">blsUncompress</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679439390"><span class="hs-identifier hs-var">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="hs-comment">-- | G2 powers of tau [G2, &#964;&#183;G2, ..., &#964;^64&#183;G2] from the EIP-4844 ceremony (monomial form).</span><span>
+</span><span id="line-140"></span><span class="hs-comment">-- 65 points; used as the on-chain verification CRS (G2 MSM to evaluate @P_S(&#964;)&#183;G2@).</span><span>
+</span><span id="line-141"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g2Points"><span class="hs-identifier hs-type">g2Points</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Point2</span></span><span class="hs-special">]</span><span>
+</span><span id="line-142"></span><span id="g2Points"><span class="annot"><span class="annottext">g2Points :: Either KZGSetupError [Point2]
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#g2Points"><span class="hs-identifier hs-var hs-var">g2Points</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Either KZGSetupError Point2)
+-&gt; [Text] -&gt; Either KZGSetupError [Point2]
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Traversable t, Monad m) =&gt;
+(a -&gt; m b) -&gt; t a -&gt; m (t b)
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; [a] -&gt; m [b]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#mapM"><span class="hs-identifier hs-var">mapM</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either KZGSetupError Point2
+</span><a href="#local-6989586621679439392"><span class="hs-identifier hs-var">parseG2</span></a></span><span> </span><span class="annot"><span class="annottext">([Text] -&gt; Either KZGSetupError [Point2])
+-&gt; (([Text], [Text]) -&gt; [Text])
+-&gt; ([Text], [Text])
+-&gt; Either KZGSetupError [Point2]
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">([Text], [Text]) -&gt; [Text]
+forall a b. (a, b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span> </span><span class="annot"><span class="annottext">(([Text], [Text]) -&gt; Either KZGSetupError [Point2])
+-&gt; Either KZGSetupError ([Text], [Text])
+-&gt; Either KZGSetupError [Point2]
+forall (m :: * -&gt; *) a b. Monad m =&gt; (a -&gt; m b) -&gt; m a -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3D%3C%3C"><span class="hs-operator hs-var">=&lt;&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError ([Text], [Text])
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#embeddedSetup"><span class="hs-identifier hs-var">embeddedSetup</span></a></span><span>
+</span><span id="line-143"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-144"></span><span>  </span><span class="annot"><a href="#local-6989586621679439392"><span class="hs-identifier hs-type">parseG2</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Point2</span></span><span>
+</span><span id="line-145"></span><span>  </span><span id="local-6989586621679439392"><span class="annot"><span class="annottext">parseG2 :: Text -&gt; Either KZGSetupError Point2
+</span><a href="#local-6989586621679439392"><span class="hs-identifier hs-var hs-var">parseG2</span></a></span></span><span> </span><span id="local-6989586621679439394"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439394"><span class="hs-identifier hs-var">hex</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-146"></span><span>    </span><span id="local-6989586621679439395"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679439395"><span class="hs-identifier hs-var">bs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(String -&gt; KZGSetupError)
+-&gt; Either String ByteString -&gt; Either KZGSetupError ByteString
+forall a b c. (a -&gt; b) -&gt; Either a c -&gt; Either b c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#first"><span class="hs-identifier hs-var">first</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KZGSetupError -&gt; String -&gt; KZGSetupError
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; KZGSetupError
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#InvalidG2Point"><span class="hs-identifier hs-var">InvalidG2Point</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439394"><span class="hs-identifier hs-var">hex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Either String ByteString
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#decodeHexPoint"><span class="hs-identifier hs-var">decodeHexPoint</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439394"><span class="hs-identifier hs-var">hex</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-147"></span><span>    </span><span class="annot"><span class="annottext">(BLSTError -&gt; KZGSetupError)
+-&gt; Either BLSTError Point2 -&gt; Either KZGSetupError Point2
+forall a b c. (a -&gt; b) -&gt; Either a c -&gt; Either b c
+forall (p :: * -&gt; * -&gt; *) a b c.
+Bifunctor p =&gt;
+(a -&gt; b) -&gt; p a c -&gt; p b c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#first"><span class="hs-identifier hs-var">first</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">KZGSetupError -&gt; BLSTError -&gt; KZGSetupError
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; KZGSetupError
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#InvalidG2Point"><span class="hs-identifier hs-var">InvalidG2Point</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679439394"><span class="hs-identifier hs-var">hex</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Either BLSTError Point2
+forall curve.
+BLS curve =&gt;
+ByteString -&gt; Either BLSTError (Point curve)
+</span><span class="hs-identifier hs-var">blsUncompress</span></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679439395"><span class="hs-identifier hs-var">bs</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>
+</span><span id="line-149"></span><span class="hs-comment">-- | G1 points as Plutus built-in type, for use in off-chain accumulator commitment.</span><span>
+</span><span id="line-150"></span><span class="hs-comment">-- Derived from 'g1Points' by re-compressing to bytes; shares the same parsed data.</span><span>
+</span><span id="line-151"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g1BuiltinPoints"><span class="hs-identifier hs-type">g1BuiltinPoints</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G1_Element</span></span><span class="hs-special">]</span><span>
+</span><span id="line-152"></span><span id="g1BuiltinPoints"><span class="annot"><span class="annottext">g1BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G1_Element]
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#g1BuiltinPoints"><span class="hs-identifier hs-var hs-var">g1BuiltinPoints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Point1] -&gt; [BuiltinBLS12_381_G1_Element])
+-&gt; Either KZGSetupError [Point1]
+-&gt; Either KZGSetupError [BuiltinBLS12_381_G1_Element]
+forall a b.
+(a -&gt; b) -&gt; Either KZGSetupError a -&gt; Either KZGSetupError b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Point1 -&gt; BuiltinBLS12_381_G1_Element)
+-&gt; [Point1] -&gt; [BuiltinBLS12_381_G1_Element]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element
+</span><span class="hs-identifier hs-var">bls12_381_G1_uncompress</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinBLS12_381_G1_Element)
+-&gt; (Point1 -&gt; BuiltinByteString)
+-&gt; Point1
+-&gt; BuiltinBLS12_381_G1_Element
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; BuiltinByteString
+ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; BuiltinByteString)
+-&gt; (Point1 -&gt; ByteString) -&gt; Point1 -&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Point1 -&gt; ByteString
+forall curve. BLS curve =&gt; Point curve -&gt; ByteString
+</span><span class="hs-identifier hs-var">blsCompress</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError [Point1]
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#g1Points"><span class="hs-identifier hs-var">g1Points</span></a></span><span>
+</span><span id="line-153"></span><span>
+</span><span id="line-154"></span><span class="hs-comment">-- | G2 points as Plutus built-in type, for use in on-chain verification CRS.</span><span>
+</span><span id="line-155"></span><span class="hs-comment">-- Derived from 'g2Points' by re-compressing to bytes; shares the same parsed data.</span><span>
+</span><span id="line-156"></span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#g2BuiltinPoints"><span class="hs-identifier hs-type">g2BuiltinPoints</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="Hydra.Tx.KZGTrustedSetup.html#KZGSetupError"><span class="hs-identifier hs-type">KZGSetupError</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G2_Element</span></span><span class="hs-special">]</span><span>
+</span><span id="line-157"></span><span id="g2BuiltinPoints"><span class="annot"><span class="annottext">g2BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G2_Element]
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#g2BuiltinPoints"><span class="hs-identifier hs-var hs-var">g2BuiltinPoints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([Point2] -&gt; [BuiltinBLS12_381_G2_Element])
+-&gt; Either KZGSetupError [Point2]
+-&gt; Either KZGSetupError [BuiltinBLS12_381_G2_Element]
+forall a b.
+(a -&gt; b) -&gt; Either KZGSetupError a -&gt; Either KZGSetupError b
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Point2 -&gt; BuiltinBLS12_381_G2_Element)
+-&gt; [Point2] -&gt; [BuiltinBLS12_381_G2_Element]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinByteString -&gt; BuiltinBLS12_381_G2_Element
+</span><span class="hs-identifier hs-var">bls12_381_G2_uncompress</span></span><span> </span><span class="annot"><span class="annottext">(BuiltinByteString -&gt; BuiltinBLS12_381_G2_Element)
+-&gt; (Point2 -&gt; BuiltinByteString)
+-&gt; Point2
+-&gt; BuiltinBLS12_381_G2_Element
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; BuiltinByteString
+ByteString -&gt; ToBuiltin ByteString
+forall a. HasToBuiltin a =&gt; a -&gt; ToBuiltin a
+</span><span class="hs-identifier hs-var">toBuiltin</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; BuiltinByteString)
+-&gt; (Point2 -&gt; ByteString) -&gt; Point2 -&gt; BuiltinByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Point2 -&gt; ByteString
+forall curve. BLS curve =&gt; Point curve -&gt; ByteString
+</span><span class="hs-identifier hs-var">blsCompress</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError [Point2]
+</span><a href="Hydra.Tx.KZGTrustedSetup.html#g2Points"><span class="hs-identifier hs-var">g2Points</span></a></span><span>
+</span><span id="line-158"></span></pre></body></html>

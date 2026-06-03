@@ -4,7 +4,7 @@
 
 -- | Hydra transaction library
 @package hydra-tx
-@version 2.0.0
+@version 2.1.0
 
 
 -- | Utilities to building transactions on top of the cardano-api.
@@ -340,7 +340,7 @@ module Hydra.Tx.IsTx
 --   interface of what the Head protocol needs from a transaction. This
 --   ensure the off-chain protocol stays fairly independent of a concrete
 --   transaction type.
-class (Eq tx, Show tx, Typeable tx, FromCBOR tx, ToCBOR tx, FromJSON tx, ToJSON tx, Eq (TxIdType tx), Ord (TxIdType tx), Show (TxIdType tx), Typeable (TxIdType tx), FromJSON (TxIdType tx), ToJSON (TxIdType tx), FromCBOR (TxIdType tx), ToCBOR (TxIdType tx), FromJSONKey (TxIdType tx), ToJSONKey (TxIdType tx), Eq (TxOutType tx), Show (TxOutType tx), ToJSON (TxOutType tx), FromJSON (TxOutType tx), Eq (UTxOType tx), Show (UTxOType tx), Monoid (UTxOType tx), FromJSON (UTxOType tx), ToJSON (UTxOType tx), FromCBOR (UTxOType tx), ToCBOR (UTxOType tx)) => IsTx tx where {
+class (Eq tx, Show tx, Typeable tx, FromCBOR tx, ToCBOR tx, FromJSON tx, ToJSON tx, Eq (TxIdType tx), Ord (TxIdType tx), Show (TxIdType tx), Typeable (TxIdType tx), FromJSON (TxIdType tx), ToJSON (TxIdType tx), FromCBOR (TxIdType tx), ToCBOR (TxIdType tx), FromJSONKey (TxIdType tx), ToJSONKey (TxIdType tx), Eq (TxOutType tx), Ord (TxOutType tx), Show (TxOutType tx), ToJSON (TxOutType tx), FromJSON (TxOutType tx), Eq (UTxOType tx), Show (UTxOType tx), Monoid (UTxOType tx), FromJSON (UTxOType tx), ToJSON (UTxOType tx), FromCBOR (UTxOType tx), ToCBOR (UTxOType tx)) => IsTx tx where {
     
     -- | Type which identifies a transaction
     type TxIdType tx;
@@ -370,9 +370,24 @@ outputsOfUTxO :: IsTx tx => UTxOType tx -> [TxOutType tx]
 
 -- | Return the left-hand side without the right-hand side.
 withoutUTxO :: IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx
+
+-- | Apply a transaction to a UTxO via pure UTxO arithmetic, returning the
+--   post-tx UTxO. Removes the tx's inputs from the given UTxO and adds the
+--   tx's outputs. Performs no ledger validation; the caller must ensure
+--   the tx is valid against the given UTxO.
+applyTxTo :: IsTx tx => tx -> UTxOType tx -> UTxOType tx
+
+-- | Filter a UTxO set keeping only entries whose output value is in the
+--   given set.
+filterUTxOByOutputs :: IsTx tx => UTxOType tx -> Set (TxOutType tx) -> UTxOType tx
+
+-- | Convert a TxOut to a ByteString element for the accumulator. This
+--   serializes the TxOut in the same way as the on-chain code does.
+utxoToElement :: IsTx tx => TxOutType tx -> ByteString
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Cardano.Api.Tx
 instance Hydra.Tx.IsTx.IsTx Hydra.Cardano.Api.Tx
 instance Cardano.Api.Era.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Tx.Internal.Sign.Tx era)
+instance GHC.Classes.Ord (Hydra.Cardano.Api.TxOut Cardano.Api.Tx.Internal.Output.CtxUTxO)
 instance Cardano.Api.Era.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Cardano.Binary.ToCBOR.ToCBOR (Cardano.Api.Tx.Internal.Sign.Tx era)
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Cardano.Api.Tx
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Cardano.Api.UTxO
@@ -392,6 +407,246 @@ CommitBlueprintTx :: UTxOType tx -> tx -> CommitBlueprintTx tx
 [$sel:lookupUTxO:CommitBlueprintTx] :: CommitBlueprintTx tx -> UTxOType tx
 [$sel:blueprintTx:CommitBlueprintTx] :: CommitBlueprintTx tx -> tx
 mkSimpleBlueprintTx :: IsTx tx => UTxOType tx -> CommitBlueprintTx tx
+
+
+-- | KZG trusted setup parameters for Hydra's accumulator-based partial
+--   fanout.
+--   
+--   <h1>Background</h1>
+--   
+--   Hydra's partial fanout uses KZG polynomial commitments to prove
+--   on-chain that a distributed batch of UTxOs is a genuine subset of the
+--   UTxOs committed in the Closed head datum. The accumulator polynomial
+--   encodes all snapshot UTxOs as roots:
+--   
+--   <pre>
+--   A(X) = ∏ (X − sᵢ)   where sᵢ = hash(TxOutᵢ)
+--   </pre>
+--   
+--   The <b>accumulator commitment</b> is <tt>A(τ)·G1</tt> — a single G1
+--   point (48 bytes) stored in the Closed datum. The <b>membership
+--   proof</b> for a distributed subset <tt>S</tt> is the quotient <tt>Q(X)
+--   = A(X) / P_S(X)</tt> committed as <tt>Q(τ)·G1</tt>. The on-chain
+--   validator verifies the pairing identity:
+--   
+--   <pre>
+--   e(A(τ)·G1, G2) = e(Q(τ)·G1, P_S(τ)·G2)
+--   </pre>
+--   
+--   where <tt>P_S(τ)·G2</tt> is computed on-chain via a G2 MSM using the
+--   on-chain G2 CRS.
+--   
+--   <h1>The Trusted Setup</h1>
+--   
+--   Computing <tt>A(τ)·G1</tt> and <tt>Q(τ)·G1</tt> off-chain, and
+--   <tt>P_S(τ)·G2</tt> on-chain, all require the same secret <tt>τ</tt>
+--   (powers of tau). We embed the __EIP-4844 KZG trusted setup__ produced
+--   by the Ethereum KZG ceremony (2023):
+--   
+--   <ul>
+--   <li>Source:
+--   <a>https://github.com/ethereum/kzg-ceremony-verifier/tree/master/output_setups</a></li>
+--   <li>Ceremony: <a>https://ceremony.ethereum.org/</a></li>
+--   <li>~140,000 independent participants; secure as long as one destroyed
+--   their secret</li>
+--   <li>We use the <tt>g1_monomial</tt> and <tt>g2_monomial</tt> keys (not
+--   <tt>g1_lagrange</tt>, which is for Ethereum blob commitments and is
+--   unsuitable here)</li>
+--   </ul>
+--   
+--   The setup provides:
+--   
+--   <ul>
+--   <li>4096 G1 points <tt>[G1, τ·G1, ..., τ^4095·G1]</tt> — used
+--   off-chain to build the accumulator commitment and membership
+--   proofs</li>
+--   <li>65 G2 points <tt>[G2, τ·G2, ..., τ^64·G2]</tt> — used as the
+--   on-chain verification CRS (G2 MSM to evaluate <tt>P_S(τ)·G2</tt>)</li>
+--   </ul>
+--   
+--   <h1>Accumulator size limit</h1>
+--   
+--   The accumulator polynomial has degree n (one root per UTxO). Computing
+--   <tt>A(τ)·G1</tt> off-chain needs n+1 G1 points. EIP-4844 provides 4096
+--   G1 points, so a head can hold up to <b>4095 UTxOs</b>. This is
+--   enforced by <a>maxAccumulatorSize</a>. The on-chain G2 CRS only needs
+--   batch-size-many points per partial fanout step, so the 65 G2 points do
+--   not constrain the accumulator size.
+module Hydra.Tx.KZGTrustedSetup
+
+-- | Errors that can occur when loading the embedded KZG trusted setup.
+--   
+--   In practice these should never occur — the trusted setup JSON is
+--   embedded at compile time and its integrity is validated by the test
+--   suite. A <a>Left</a> here would indicate binary tampering
+--   (<a>IntegrityCheckFailed</a>) or a corrupted build artefact.
+data KZGSetupError
+
+-- | SHA-256 digest of the embedded file does not match the known-good
+--   value.
+IntegrityCheckFailed :: Text -> Text -> KZGSetupError
+[$sel:expectedHash:IntegrityCheckFailed] :: KZGSetupError -> Text
+[$sel:actualHash:IntegrityCheckFailed] :: KZGSetupError -> Text
+
+-- | The embedded bytes could not be decoded as JSON at all.
+JsonDecodeFailed :: KZGSetupError
+
+-- | The JSON decoded but failed the structural parser (missing keys etc.).
+JsonParseFailed :: Text -> KZGSetupError
+[$sel:parseError:IntegrityCheckFailed] :: KZGSetupError -> Text
+
+-- | A G1 point hex string could not be hex-decoded or BLS-decompressed.
+InvalidG1Point :: Text -> KZGSetupError
+[$sel:hexPoint:IntegrityCheckFailed] :: KZGSetupError -> Text
+
+-- | A G2 point hex string could not be hex-decoded or BLS-decompressed.
+InvalidG2Point :: Text -> KZGSetupError
+[$sel:hexPoint:IntegrityCheckFailed] :: KZGSetupError -> Text
+
+-- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony
+--   (monomial form). 4096 points; used off-chain to build accumulator
+--   commitments and membership proofs.
+g1Points :: Either KZGSetupError [Point1]
+
+-- | G2 powers of tau [G2, τ·G2, ..., τ^64·G2] from the EIP-4844 ceremony
+--   (monomial form). 65 points; used as the on-chain verification CRS (G2
+--   MSM to evaluate <tt>P_S(τ)·G2</tt>).
+g2Points :: Either KZGSetupError [Point2]
+
+-- | G1 points as Plutus built-in type, for use in off-chain accumulator
+--   commitment. Derived from <a>g1Points</a> by re-compressing to bytes;
+--   shares the same parsed data.
+g1BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G1_Element]
+
+-- | G2 points as Plutus built-in type, for use in on-chain verification
+--   CRS. Derived from <a>g2Points</a> by re-compressing to bytes; shares
+--   the same parsed data.
+g2BuiltinPoints :: Either KZGSetupError [BuiltinBLS12_381_G2_Element]
+
+-- | Maximum accumulator element count supported by the currently embedded
+--   G1 CRS. The EIP-4844 setup provides exactly 4096 G1 monomial points
+--   [G1, τ·G1, ..., τ^4095·G1], so the accumulator supports up to 4095
+--   elements (n elements need n+1 G1 points).
+maxAccumulatorSize :: Int
+
+-- | Maximum number of UTxOs that can be fanned out in a single partial
+--   fanout transaction. Constrained by the on-chain G2 CRS (65 points →
+--   64-element batch) and by Cardano execution budget. In practice the
+--   execution budget is the binding constraint.
+maxFanoutBatchSize :: Int
+instance GHC.Generics.Generic Hydra.Tx.KZGTrustedSetup.KZGSetupError
+instance GHC.Classes.Eq Hydra.Tx.KZGTrustedSetup.KZGSetupError
+instance GHC.Show.Show Hydra.Tx.KZGTrustedSetup.KZGSetupError
+
+module Hydra.Tx.Accumulator
+newtype HydraAccumulator
+HydraAccumulator :: Accumulator -> HydraAccumulator
+[$sel:unHydraAccumulator:HydraAccumulator] :: HydraAccumulator -> Accumulator
+
+-- | Get a blake2b-256 hash of the accumulator commitment (compressed G1
+--   point).
+--   
+--   This is a pure function that returns a 32-byte deterministic hash of
+--   the compressed G1 accumulator commitment. It is what gets signed by
+--   all parties in the multi-signature and stored as
+--   <tt>accumulatorHash</tt> in on-chain datums.
+--   
+--   Hashing the compressed G1 point (rather than the serialized map) binds
+--   the signed hash to the exact G1 point stored in
+--   <a>accumulatorCommitment</a>, allowing the on-chain validator to
+--   verify their consistency.
+getAccumulatorHash :: HydraAccumulator -> ByteString
+getAccumulatorCommitment :: HydraAccumulator -> BuiltinBLS12_381_G1_Element
+
+-- | Number of UTxOs tracked by the accumulator.
+accumulatorSize :: HydraAccumulator -> Int
+
+-- | Maximum accumulator size, re-exported from <tt>KZGTrustedSetup</tt>
+--   for convenience.
+maxAccumulatorSize :: Int
+build :: [ByteString] -> HydraAccumulator
+
+-- | Build an accumulator from a UTxO by serializing each individual TxOut.
+--   
+--   This is the CORRECT way to build an accumulator for partial fanout
+--   proofs. Each TxOut becomes a separate element in the accumulator,
+--   allowing you to later prove that a subset of TxOuts was part of the
+--   original set.
+--   
+--   The serialization matches how <tt>hashTxOuts</tt> works on-chain: Each
+--   element = Builtins.serialiseData (toBuiltinData plutusTxOut)
+--   
+--   Example usage: &gt; -- Build accumulator from the full UTxO set &gt;
+--   let fullAcc = buildFromUTxO <tt>Tx utxo &gt; &gt; -- Later, prove a
+--   subset exists &gt; let crs = crsG1Points (requiredCRSPointCount
+--   fullAcc) &gt; result &lt;- createMembershipProofFromUTxO </tt>Tx
+--   subsetUTxO fullAcc crs
+--   
+--   This approach allows proving that 2 out of 5 UTxOs are part of the
+--   original set, which is essential for partial fanout functionality.
+buildFromUTxO :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator
+
+-- | Build an accumulator from snapshot UTxOs, including commit and
+--   decommit UTxOs.
+--   
+--   Combines all UTxOs that could potentially be fanned out — main
+--   snapshot, commit, and decommit — and delegates to <a>buildFromUTxO</a>
+--   on the merged set. Merging via UTxO union keeps the same canonical
+--   TxIn-sorted element order used by every other accumulator call site
+--   (<tt>computeFullFanoutUTxO</tt>, <tt>partialFanout</tt> staleness
+--   check, <tt>emitNextFanoutStep</tt>), so the commitment stored in the
+--   snapshot and all downstream proofs are built from the same element set
+--   by construction.
+--   
+--   Note: the underlying <a>HydraAccumulator</a> is a <a>Map</a> keyed by
+--   element bytes, so insertion order is irrelevant for the commitment
+--   value; the merge is done here for explicit consistency with the rest
+--   of the fanout code paths.
+buildFromSnapshotUTxOs :: forall tx. IsTx tx => UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HydraAccumulator
+
+-- | Returns the first <tt>n</tt> G2 powers of tau from the EIP-4844
+--   trusted setup. Used as the on-chain CRS for verifying membership
+--   proofs: <tt>[G2, τ·G2, ..., τ^(n-1)·G2]</tt>.
+crsG2Points :: Int -> [Point2]
+
+-- | Returns the first <tt>n</tt> G1 powers of tau from the EIP-4844
+--   trusted setup. Used as the off-chain CRS for building accumulator
+--   commitments and membership proofs: <tt>[G1, τ·G1, ...,
+--   τ^(n-1)·G1]</tt>.
+crsG1Points :: Int -> [Point1]
+
+-- | Returns the number of G1 CRS points required for this accumulator. An
+--   n-element accumulator polynomial has degree n, so needs n+1 G1 points
+--   <tt>[G1, τ·G1, ..., τⁿ·G1]</tt> to compute the commitment A(τ)·G1 and
+--   proofs. n is the total element count including duplicates (sum of all
+--   counts).
+requiredCRSPointCount :: HydraAccumulator -> Int
+defaultItems :: Int
+
+-- | Create a membership proof for a subset of UTxO elements.
+--   
+--   This function uses getPolyCommitOverG1 from haskell-accumulator's
+--   Bindings module:
+--   <a>https://github.com/cardano-scaling/haskell-accumulator/blob/main/haskell-accumulator/lib/Bindings.hs</a>
+--   
+--   Given a subset of elements and the full accumulator, it: 1. Removes
+--   the subset elements from the accumulator 2. Computes a polynomial
+--   commitment over G1 for the remaining elements 3. Returns the proof as
+--   a compressed G1 point
+createMembershipProof :: [Element] -> HydraAccumulator -> [Point1] -> Either Text ByteString
+
+-- | Create a membership proof from a UTxO subset.
+--   
+--   This function extracts individual TxOut elements from the subset UTxO
+--   and proves they exist in the full accumulator. The full accumulator
+--   must be built using <a>buildFromUTxO</a> for this to work correctly.
+--   
+--   The proof is verified on-chain via e(commitment_G1, G2) = e(proof_G1,
+--   P_S(τ)·G2).
+createMembershipProofFromUTxO :: forall tx. IsTx tx => UTxOType tx -> HydraAccumulator -> [Point1] -> Either Text ByteString
+createCRSG2Datum :: Int -> TxOutDatum ctx
+instance GHC.Show.Show Hydra.Tx.Accumulator.HydraAccumulator
+instance GHC.Classes.Eq Hydra.Tx.Accumulator.HydraAccumulator
 
 
 -- | Identifier or Head participants on-chain. That is, a participant in
@@ -471,9 +726,10 @@ instance GHC.Classes.Eq Hydra.Tx.HeadParameters.HeadParameters
 module Hydra.Tx.ScriptRegistry
 
 -- | Hydra scripts published as reference scripts at these UTxO.
-newtype ScriptRegistry
-ScriptRegistry :: (TxIn, TxOut CtxUTxO) -> ScriptRegistry
+data ScriptRegistry
+ScriptRegistry :: (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> ScriptRegistry
 [$sel:headReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
+[$sel:crsReference:ScriptRegistry] :: ScriptRegistry -> (TxIn, TxOut CtxUTxO)
 data NewScriptRegistryException
 MissingScript :: Text -> ScriptHash -> Set ScriptHash -> NewScriptRegistryException
 [$sel:scriptName:MissingScript] :: NewScriptRegistryException -> Text
@@ -506,7 +762,7 @@ newtype SnapshotVersion
 UnsafeSnapshotVersion :: Natural -> SnapshotVersion
 fromChainSnapshotVersion :: SnapshotVersion -> SnapshotVersion
 data Snapshot tx
-Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> Snapshot tx
+Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HydraAccumulator -> Snapshot tx
 [$sel:headId:Snapshot] :: Snapshot tx -> HeadId
 
 -- | Open state version this snapshot is based on. Spec: v
@@ -528,6 +784,9 @@ Snapshot :: HeadId -> SnapshotVersion -> SnapshotNumber -> [tx] -> UTxOType tx -
 -- | UTxO to be decommitted. Spec: Uω
 [$sel:utxoToDecommit:Snapshot] :: Snapshot tx -> Maybe (UTxOType tx)
 
+-- | The cryptographic accumulator built from UTxO hashes. Spec: A
+[$sel:accumulator:Snapshot] :: Snapshot tx -> HydraAccumulator
+
 -- | A snapshot that can be used to close a head with. Either the initial
 --   one, or when it was signed by all parties, i.e. it is confirmed.
 data ConfirmedSnapshot tx
@@ -544,7 +803,7 @@ ConfirmedSnapshot :: Snapshot tx -> MultiSignature (Snapshot tx) -> ConfirmedSna
 --   (and lead to unnoticed runtime errors) if we ever add a new branch to
 --   the sumtype. So, we explicitly define a getter which will force us
 --   into thinking about changing the signature properly if this happens.
-getSnapshot :: Monoid (UTxOType tx) => ConfirmedSnapshot tx -> Snapshot tx
+getSnapshot :: forall tx. IsTx tx => ConfirmedSnapshot tx -> Snapshot tx
 instance GHC.Real.Integral Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Enum.Enum Hydra.Tx.Snapshot.SnapshotNumber
 instance GHC.Num.Num Hydra.Tx.Snapshot.SnapshotNumber
@@ -643,7 +902,7 @@ findStateToken :: TxOut ctx -> Maybe HeadId
 -- | Create a transaction metadata entry to identify Hydra transactions
 --   (for informational purposes).
 mkHydraHeadV2TxName :: Text -> TxMetadata
-addMetadata :: TxMetadata -> Tx -> AlonzoTx ConwayEra -> AlonzoTx ConwayEra
+addMetadata :: TxMetadata -> Tx -> Tx TopTx LedgerEra -> Tx TopTx LedgerEra
 headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
 assetNameToOnChainId :: AssetName -> OnChainId
 
@@ -751,6 +1010,21 @@ module Hydra.Tx.Fanout
 --   accordingly. The head validator allows fanout only &gt; deadline, so
 --   we need to set the lower bound to be deadline + 1 slot.
 fanoutTx :: ScriptRegistry -> UTxO -> Maybe UTxO -> Maybe UTxO -> (TxIn, TxOut CtxUTxO) -> SlotNo -> PlutusScript -> Tx
+
+-- | Create a partial fanout transaction that distributes a subset of UTxOs
+--   and produces a <tt>FanoutProgress</tt> head output with an updated
+--   accumulator. Handles both Closed → FanoutProgress (first step) and
+--   FanoutProgress → FanoutProgress (subsequent steps).
+--   
+--   The continuing head output is the first output, followed by the
+--   distributed UTxOs. No tokens are burned (that happens on the final
+--   full fanout).
+partialFanoutTx :: ScriptRegistry -> UTxO -> (TxIn, TxOut CtxUTxO) -> SlotNo -> FanoutProgressDatum -> HydraAccumulator -> Tx
+
+-- | Create the final partial fanout transaction that distributes all
+--   remaining UTxOs and burns all head tokens. Transitions FanoutProgress
+--   → Final.
+finalPartialFanoutTx :: ScriptRegistry -> UTxO -> (TxIn, TxOut CtxUTxO) -> SlotNo -> PlutusScript -> Either Text Tx
 data FanoutObservation
 FanoutObservation :: HeadId -> UTxO -> FanoutObservation
 [$sel:headId:FanoutObservation] :: FanoutObservation -> HeadId
@@ -759,11 +1033,29 @@ FanoutObservation :: HeadId -> UTxO -> FanoutObservation
 -- | Identify a fanout tx by lookup up the input spending the Head output
 --   and decoding its redeemer.
 observeFanoutTx :: UTxO -> Tx -> Maybe FanoutObservation
+data PartialFanoutObservation
+PartialFanoutObservation :: HeadId -> Set (TxOut CtxUTxO) -> PartialFanoutObservation
+[$sel:headId:PartialFanoutObservation] :: PartialFanoutObservation -> HeadId
+[$sel:distributedOutputs:PartialFanoutObservation] :: PartialFanoutObservation -> Set (TxOut CtxUTxO)
+
+-- | Identify a partial fanout tx by looking up the input spending the Head
+--   output and decoding its redeemer as PartialFanout.
+observePartialFanoutTx :: UTxO -> Tx -> Maybe PartialFanoutObservation
+
+-- | Identify a final partial fanout tx by looking up the input spending
+--   the Head output and decoding its redeemer as FinalPartialFanout.
+--   Returns a FanoutObservation since this is the finalizing step.
+observeFinalPartialFanoutTx :: UTxO -> Tx -> Maybe FanoutObservation
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Fanout.FanoutObservation
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Fanout.FanoutObservation
 instance GHC.Generics.Generic Hydra.Tx.Fanout.FanoutObservation
 instance GHC.Show.Show Hydra.Tx.Fanout.FanoutObservation
 instance GHC.Classes.Eq Hydra.Tx.Fanout.FanoutObservation
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Tx.Fanout.PartialFanoutObservation
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Tx.Fanout.PartialFanoutObservation
+instance GHC.Generics.Generic Hydra.Tx.Fanout.PartialFanoutObservation
+instance GHC.Show.Show Hydra.Tx.Fanout.PartialFanoutObservation
+instance GHC.Classes.Eq Hydra.Tx.Fanout.PartialFanoutObservation
 
 module Hydra.Tx.Deposit
 
@@ -885,7 +1177,9 @@ Increment :: IncrementObservation -> HeadObservation
 Decrement :: DecrementObservation -> HeadObservation
 Close :: CloseObservation -> HeadObservation
 Contest :: ContestObservation -> HeadObservation
+PartialFanout :: PartialFanoutObservation -> HeadObservation
 Fanout :: FanoutObservation -> HeadObservation
+FinalPartialFanout :: FanoutObservation -> HeadObservation
 
 -- | Observe any Hydra head transaction.
 observeHeadTx :: NetworkId -> UTxO -> Tx -> HeadObservation
@@ -966,10 +1260,23 @@ data FanoutObservation
 FanoutObservation :: HeadId -> UTxO -> FanoutObservation
 [$sel:headId:FanoutObservation] :: FanoutObservation -> HeadId
 [$sel:fanoutUTxO:FanoutObservation] :: FanoutObservation -> UTxO
+data PartialFanoutObservation
+PartialFanoutObservation :: HeadId -> Set (TxOut CtxUTxO) -> PartialFanoutObservation
+[$sel:headId:PartialFanoutObservation] :: PartialFanoutObservation -> HeadId
+[$sel:distributedOutputs:PartialFanoutObservation] :: PartialFanoutObservation -> Set (TxOut CtxUTxO)
 
 -- | Identify a fanout tx by lookup up the input spending the Head output
 --   and decoding its redeemer.
 observeFanoutTx :: UTxO -> Tx -> Maybe FanoutObservation
+
+-- | Identify a final partial fanout tx by looking up the input spending
+--   the Head output and decoding its redeemer as FinalPartialFanout.
+--   Returns a FanoutObservation since this is the finalizing step.
+observeFinalPartialFanoutTx :: UTxO -> Tx -> Maybe FanoutObservation
+
+-- | Identify a partial fanout tx by looking up the input spending the Head
+--   output and decoding its redeemer as PartialFanout.
+observePartialFanoutTx :: UTxO -> Tx -> Maybe PartialFanoutObservation
 instance GHC.Generics.Generic Hydra.Tx.Observe.HeadObservation
 instance GHC.Show.Show Hydra.Tx.Observe.HeadObservation
 instance GHC.Classes.Eq Hydra.Tx.Observe.HeadObservation

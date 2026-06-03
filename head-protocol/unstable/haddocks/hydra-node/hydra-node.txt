@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node
-@version 2.0.0
+@version 2.1.0
 
 module Hydra.API.ClientInput
 data ClientInput tx
@@ -114,6 +114,10 @@ FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HeadSee
 [$sel:utxoToDecommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
+FinalPartialFanoutTx :: UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
+[$sel:utxoToDistribute:InitTx] :: PostChainTx tx -> UTxOType tx
+[$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
+[$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
 
 -- | Describes transactions as seen on chain. Holds as minimal information
 --   as possible to simplify observing the chain.
@@ -152,6 +156,9 @@ OnContestTx :: HeadId -> SnapshotNumber -> UTCTime -> OnChainTx tx
 OnFanoutTx :: HeadId -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:fanoutUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
+OnPartialFanoutTx :: HeadId -> Set (TxOutType tx) -> OnChainTx tx
+[$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
+[$sel:distributedOutputs:OnInitTx] :: OnChainTx tx -> Set (TxOutType tx)
 
 -- | Exceptions thrown by <a>$sel:postTx:Chain</a>.
 data PostTxError tx
@@ -207,6 +214,13 @@ FailedToConstructIncrementTx :: Text -> PostTxError tx
 FailedToConstructDecrementTx :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructFanoutTx :: PostTxError tx
+FailedToConstructPartialFanoutTx :: PostTxError tx
+
+-- | Another node already posted this partial fanout step; the chain
+--   observation loop will emit the correct next step automatically.
+StalePartialFanoutTx :: PostTxError tx
+ContestationDeadlineOutsideTimeHorizon :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 InvalidTokenRequest :: [(PolicyId, PolicyAssets)] -> PostTxError tx
 
 -- | A non empty sequence of chain states that can be rolled back. This is
@@ -722,7 +736,7 @@ isCollectingAcks :: SeenSnapshot tx -> Bool
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>$sel:contestationDeadline:ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Set (TxOutType tx)) -> Set (TxOutType tx) -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -734,6 +748,14 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headId:ClosedState] :: ClosedState tx -> HeadId
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
+
+-- | Tracks remaining TxOut values to fan out after partial fanouts.
+--   Nothing means no partial fanout has occurred yet.
+[$sel:remainingFanoutOutputs:ClosedState] :: ClosedState tx -> Maybe (Set (TxOutType tx))
+
+-- | Accumulates TxOut values distributed by partial fanout transactions.
+--   Used to reconstruct the full output set in <tt>HeadFannedOut</tt>.
+[$sel:distributedFanoutOutputs:ClosedState] :: ClosedState tx -> Set (TxOutType tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.IdleState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
@@ -834,7 +856,7 @@ mkSimpleTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> SigningKey Payme
 -- | Create a zero-fee, payment cardano transaction with validity range.
 mkRangedTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> SigningKey PaymentKey -> (Maybe TxValidityLowerBound, Maybe TxValidityUpperBound) -> Either TxBodyError Tx
 data () => ShelleyGenesis
-ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'Genesis) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> ShelleyGenesis
+ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'GenesisRole) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> ShelleyGenesis
 [sgSystemStart] :: ShelleyGenesis -> !UTCTime
 [sgNetworkMagic] :: ShelleyGenesis -> !Word32
 [sgNetworkId] :: ShelleyGenesis -> !Network
@@ -847,7 +869,7 @@ ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !N
 [sgUpdateQuorum] :: ShelleyGenesis -> !Word64
 [sgMaxLovelaceSupply] :: ShelleyGenesis -> !Word64
 [sgProtocolParams] :: ShelleyGenesis -> !PParams ShelleyEra
-[sgGenDelegs] :: ShelleyGenesis -> !Map (KeyHash 'Genesis) GenDelegPair
+[sgGenDelegs] :: ShelleyGenesis -> !Map (KeyHash 'GenesisRole) GenDelegPair
 [sgInitialFunds] :: ShelleyGenesis -> ListMap Addr Coin
 [sgStaking] :: ShelleyGenesis -> ShelleyGenesisStaking
 data () => Globals
@@ -993,6 +1015,46 @@ BothCommitAndDecommitInFanout :: FanoutTxError
 -- | Construct a fanout transaction based on the <a>ClosedState</a> and
 --   off-chain agreed <a>UTxO</a> set to fan out.
 fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
+
+-- | Errors that can occur when constructing partial or final-partial
+--   fanout transactions.
+data PartialFanoutError
+CannotFindHeadOutput :: PartialFanoutError
+MissingHeadDatum :: PartialFanoutError
+WrongDatum :: PartialFanoutError
+FailedToConvertFromScriptData :: PartialFanoutError
+
+-- | The on-chain accumulator no longer matches the UTxOs we want to
+--   distribute. This happens when another node already posted a partial
+--   fanout and the chain state moved forward.
+StaleChainState :: PartialFanoutError
+
+-- | Membership proof generation failed (e.g. subset element not in
+--   accumulator or CRS too short). Indicates a programming error in the
+--   caller.
+CannotCreateProof :: Text -> PartialFanoutError
+
+-- | Construct a partial fanout transaction that distributes a subset of
+--   UTxOs. Handles both first step (Closed → FanoutProgress) and
+--   intermediate steps (FanoutProgress → FanoutProgress) by detecting the
+--   current on-chain datum type. The first <tt>chunkSize</tt> UTxOs from
+--   <tt>remainingUTxO</tt> are distributed; the rest become the new
+--   remaining set.
+partialFanout :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+
+-- | Construct the final partial fanout transaction that distributes all
+--   remaining UTxOs and burns all head tokens. Reads FanoutProgressDatum
+--   from the head output.
+finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+
+-- | Read and decode the head state from a head script output.
+readHeadState :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutError State
+
+-- | Build an accumulator from the given UTxO and verify its commitment
+--   matches the one in the on-chain datum. Returns the accumulator for
+--   reuse by the caller. Fails with <a>StaleChainState</a> if the
+--   commitments differ.
+buildAndVerifyAccumulator :: FanoutProgressDatum -> UTxO -> Either PartialFanoutError HydraAccumulator
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
 
 -- | Observe an init transition using a <tt>InitialState</tt> and
@@ -1035,6 +1097,8 @@ unsafeClose :: HasCallStack => ChainContext -> UTxO -> HeadId -> HeadParameters 
 --   transaction fails to build.
 unsafeContest :: HasCallStack => ChainContext -> UTxO -> HeadId -> ContestationPeriod -> SnapshotVersion -> ConfirmedSnapshot Tx -> PointInTime -> Tx
 unsafeFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Tx
+unsafePartialFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> Int -> UTxO -> SlotNo -> Tx
+unsafeFinalPartialFanout :: HasCallStack => ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> Tx
 unsafeObserveInit :: HasCallStack => ChainContext -> [VerificationKey PaymentKey] -> Tx -> OpenState
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Chain.Direct.State.ChainStateAt
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.State.ChainStateAt
@@ -1059,6 +1123,8 @@ instance GHC.Show.Show Hydra.Chain.Direct.State.CloseTxError
 instance GHC.Show.Show Hydra.Chain.Direct.State.RecoverTxError
 instance GHC.Show.Show Hydra.Chain.Direct.State.ContestTxError
 instance GHC.Show.Show Hydra.Chain.Direct.State.FanoutTxError
+instance GHC.Show.Show Hydra.Chain.Direct.State.PartialFanoutError
+instance GHC.Classes.Eq Hydra.Chain.Direct.State.PartialFanoutError
 instance GHC.Show.Show Hydra.Chain.Direct.State.HydraContext
 instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.ChainState
 instance Hydra.Chain.Direct.State.HasKnownUTxO Hydra.Chain.Direct.State.ClosedState
@@ -1368,7 +1434,7 @@ type TxOut = TxOut LedgerEra
 --   <a>$sel:reset:TinyWallet</a>. Otherwise it can be fed blocks via
 --   <a>$sel:update:TinyWallet</a> as the chain rolls forward.
 data TinyWallet m
-TinyWallet :: STM m (Map TxIn TxOut) -> STM m (Maybe TxIn) -> (Tx -> Tx) -> (UTxO -> Tx -> m (Either ErrCoverFee Tx)) -> m () -> (BlockHeader -> [Tx] -> m ()) -> TinyWallet m
+TinyWallet :: STM m (Map TxIn TxOut) -> STM m (Maybe TxIn) -> (Tx -> Tx) -> (UTxO -> Tx -> m (Either ErrCoverFee Tx)) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> (Tx -> m Bool) -> m () -> (BlockHeader -> [Tx] -> m ()) -> TinyWallet m
 
 -- | Return all known UTxO addressed to this wallet.
 [$sel:getUTxO:TinyWallet] :: TinyWallet m -> STM m (Map TxIn TxOut)
@@ -1378,6 +1444,15 @@ TinyWallet :: STM m (Map TxIn TxOut) -> STM m (Maybe TxIn) -> (Tx -> Tx) -> (UTx
 [$sel:getSeedInput:TinyWallet] :: TinyWallet m -> STM m (Maybe TxIn)
 [$sel:sign:TinyWallet] :: TinyWallet m -> Tx -> Tx
 [$sel:coverFee:TinyWallet] :: TinyWallet m -> UTxO -> Tx -> m (Either ErrCoverFee Tx)
+
+-- | Evaluate script execution costs for a transaction using current
+--   protocol parameters from the node. Returns Right if all scripts
+--   succeed within budget, Left otherwise.
+[$sel:evaluateScriptCosts:TinyWallet] :: TinyWallet m -> Tx -> UTxO -> m (Either EvaluationError EvaluationReport)
+
+-- | Check whether the serialised transaction fits within the maximum
+--   transaction size permitted by the current protocol parameters.
+[$sel:isTxWithinSizeLimits:TinyWallet] :: TinyWallet m -> Tx -> m Bool
 
 -- | Re-initializ wallet against the latest tip of the node and start to
 --   ignore <a>$sel:update:TinyWallet</a> calls until reaching that tip.
@@ -1416,7 +1491,6 @@ ErrScriptExecutionFailed :: Text -> Text -> ErrCoverFee
 [$sel:redeemerPointer:ErrNotEnoughFunds] :: ErrCoverFee -> Text
 [$sel:scriptFailure:ErrNotEnoughFunds] :: ErrCoverFee -> Text
 ErrTranslationError :: ContextError LedgerEra -> ErrCoverFee
-ErrConwayUpgradeError :: TxUpgradeError ConwayEra -> ErrCoverFee
 ErrMissingScript :: Text -> Text -> ErrCoverFee
 [$sel:scriptHash:ErrNotEnoughFunds] :: ErrCoverFee -> Text
 [$sel:purpose:ErrNotEnoughFunds] :: ErrCoverFee -> Text
@@ -1431,14 +1505,15 @@ ChangeError :: Coin -> Coin -> ChangeError
 --   change back.
 --   
 --   XXX: All call sites of this function use cardano-api types
-coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era, BabbageEraTxBody era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx era -> Either ErrCoverFee (Tx era)
+coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era, BabbageEraTxBody era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
+computeScriptIntegrityHash :: AlonzoEraScript era => Redeemers era -> TxDats era -> Set LangDepView -> StrictMaybe ScriptIntegrityHash
 findLargestUTxO :: EraTxOut era => Map TxIn (TxOut era) -> Maybe (TxIn, TxOut era)
 
 -- | Estimate cost of script executions on the transaction. This is only an
 --   estimates because the transaction isn't sealed at this point and
 --   adding new elements to it like change outputs or script integrity hash
 --   may increase that cost a little.
-estimateScriptsCost :: forall era. (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Tx era -> Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
+estimateScriptsCost :: forall era. (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 data TinyWalletLog
 BeginInitialize :: TinyWalletLog
 EndInitialize :: UTxO -> ChainPoint -> TinyWalletLog
@@ -1815,6 +1890,9 @@ RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+ReqSnUTxOSetTooLarge :: Int -> Int -> RequirementFailure tx
+[$sel:utxoCount:ReqSnNumberInvalid] :: RequirementFailure tx -> Int
+[$sel:maxAllowed:ReqSnNumberInvalid] :: RequirementFailure tx -> Int
 data SideLoadRequirementFailure tx
 SideLoadInitialSnapshotMismatch :: SideLoadRequirementFailure tx
 SideLoadSnNumberInvalid :: SnapshotNumber -> SnapshotNumber -> SideLoadRequirementFailure tx
@@ -1961,6 +2039,15 @@ grpcServer :: NetworkConfiguration -> Server
 --   will result in the default client port 2379 be used by default still.
 getClientPort :: NetworkConfiguration -> PortNumber
 
+-- | Derive the etcd client port from a configured peer (listen) port.
+--   
+--   Exposed separately from <a>getClientPort</a> so test fixtures can
+--   pre-allocate both the peer and the derived client port without
+--   constructing a full <a>NetworkConfiguration</a>. Keep this and
+--   <a>getClientPort</a> in lockstep — any change to the offset must
+--   happen here, in one place.
+peerPortToClientPort :: PortNumber -> PortNumber
+
 -- | Check and write version on etcd cluster. This will retry until we are
 --   on a majority cluster and succeed. If the version does not match a
 --   corresponding <a>Connectivity</a> message is sent via
@@ -1971,10 +2058,60 @@ checkVersion :: Tracer IO EtcdLog -> Connection -> ProtocolVersion -> NetworkCal
 --   
 --   Retries on failure to <a>putMessage</a> in case we are on a minority
 --   cluster or when the grpc call timeouts.
+--   
+--   Idempotent under transient <a>GrpcDeadlineExceeded</a>:
+--   <a>putMessage</a> uses an etcd transaction conditioned on the key's
+--   current <tt>mod_revision</tt> matching the last revision we
+--   successfully wrote. If a deadline-exceeded retry arrives at etcd after
+--   the original request already committed, the compare fails server-side
+--   (the mod_revision has advanced), the failure branch's range tells us
+--   what the new revision is, and we move on without writing a second
+--   time. So a retry whose original committed creates zero extra etcd
+--   revisions and the watcher on each peer sees exactly one event per
+--   logical broadcast. Same key namespace as master ('msg-&lt;host&gt;'),
+--   no disk growth.
 broadcastMessages :: (ToCBOR msg, Eq msg) => Tracer IO EtcdLog -> NetworkConfiguration -> Host -> PersistentQueue IO msg -> IO ()
 
+-- | Query etcd for the current <tt>mod_revision</tt> of this peer's
+--   broadcast key. Returns 0 if the key does not yet exist. Used by
+--   <a>broadcastMessages</a> to seed its in-memory baseline so subsequent
+--   <tt>compare mod_revision</tt> checks match etcd's reality from the
+--   very first <a>putMessage</a>.
+queryInitialModRev :: Tracer IO EtcdLog -> NetworkConfiguration -> Host -> IO Int64
+
 -- | Broadcast a message to the etcd cluster.
-putMessage :: ToCBOR msg => Tracer IO EtcdLog -> NetworkConfiguration -> Host -> msg -> IO ()
+--   
+--   Wraps the etcd <tt>put</tt> in a <tt>Txn</tt>:
+--   
+--   <ul>
+--   <li>compare: <tt>mod_revision(key) == lastModRev</tt></li>
+--   <li>success: <tt>put(key, value)</tt></li>
+--   <li>failure: <tt>range(key)</tt> (so we can learn the actual
+--   <tt>mod_revision</tt> if our compare failed, e.g. because a previous
+--   attempt of ours committed server-side after returning
+--   <a>GrpcDeadlineExceeded</a> to the client)</li>
+--   </ul>
+--   
+--   <tt>lastModRevVar</tt> is updated in both branches: from the response
+--   header on a successful put, from the range result on a compare
+--   failure. Retries of the same <tt>msg</tt> after a deadline-exceeded
+--   converge to a single effective revision rather than producing
+--   duplicate deliveries. Because <a>broadcastMessages</a> seeds
+--   <tt>lastModRev</tt> from etcd at startup (<a>queryInitialModRev</a>),
+--   a compare failure unambiguously means "this peer's earlier attempt
+--   already wrote a later revision than we have recorded" — i.e. the
+--   message is already delivered and the caller can pop.
+--   
+--   <b>Cluster-reset behaviour (intentionally fatal):</b> if the compare
+--   fails and the <tt>range</tt> branch returns no kvs, the etcd cluster
+--   has lost the key we wrote against — either the data dir was wiped or
+--   the cluster was replaced underneath us. We do not silently reseed:
+--   this is a node-level event that should surface, not be papered over.
+--   <a>putMessage</a> calls <a>fail</a>, which kills the broadcast loop,
+--   propagates up to take down the node, and on restart
+--   <a>queryInitialModRev</a> re-seeds <tt>lastModRev</tt> from whatever
+--   state etcd actually has.
+putMessage :: ToCBOR msg => Tracer IO EtcdLog -> NetworkConfiguration -> Host -> TVar IO Int64 -> msg -> IO ()
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages :: FromCBOR msg => Tracer IO EtcdLog -> Connection -> FilePath -> NetworkCallback msg IO -> IO ()
@@ -2037,6 +2174,14 @@ WatchMessagesStartRevision :: Int64 -> EtcdLog
 [$sel:startRevision:EtcdLog] :: EtcdLog -> Int64
 WatchMessagesFallbackTo :: Int64 -> EtcdLog
 [$sel:compactRevision:EtcdLog] :: EtcdLog -> Int64
+
+-- | The etcd transaction wrapping a broadcast <a>put</a> found that our
+--   key's <tt>mod_revision</tt> had moved past what we last recorded — the
+--   expected outcome when a <a>GrpcDeadlineExceeded</a>-retried put
+--   already committed server-side. No second put was issued.
+BroadcastDeduped :: Int64 -> Int64 -> EtcdLog
+[$sel:previousModRev:EtcdLog] :: EtcdLog -> Int64
+[$sel:observedModRev:EtcdLog] :: EtcdLog -> Int64
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.Etcd.EtcdLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.Etcd.EtcdLog
 instance GHC.Generics.Generic Hydra.Network.Etcd.EtcdLog
@@ -2403,9 +2548,9 @@ HeadIsContested :: HeadId -> SnapshotNumber -> UTCTime -> ServerOutput tx
 [$sel:contestationDeadline:NetworkConnected] :: ServerOutput tx -> UTCTime
 ReadyToFanout :: HeadId -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-HeadIsFinalized :: HeadId -> UTxOType tx -> ServerOutput tx
+HeadIsFinalized :: HeadId -> Set (TxOutType tx) -> ServerOutput tx
 [$sel:headId:NetworkConnected] :: ServerOutput tx -> HeadId
-[$sel:utxo:NetworkConnected] :: ServerOutput tx -> UTxOType tx
+[$sel:finalizedUTxO:NetworkConnected] :: ServerOutput tx -> Set (TxOutType tx)
 
 -- | Given transaction has been seen as valid in the Head. It is expected
 --   to eventually be part of a <a>SnapshotConfirmed</a>.
@@ -2533,10 +2678,10 @@ NetworkInfo :: Bool -> Map Host Bool -> NetworkInfo
 [$sel:peersInfo:NetworkInfo] :: NetworkInfo -> Map Host Bool
 
 -- | Get latest confirmed snapshot UTxO from <a>HeadState</a>.
-getSnapshotUtxo :: Monoid (UTxOType tx) => HeadState tx -> Maybe (UTxOType tx)
+getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 
 -- | Get latest seen snapshot from <a>HeadState</a>.
-getSeenSnapshot :: Monoid (UTxOType tx) => HeadState tx -> SeenSnapshot tx
+getSeenSnapshot :: IsTx tx => HeadState tx -> SeenSnapshot tx
 
 -- | Get latest confirmed snapshot from <a>HeadState</a>.
 getConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
@@ -2633,19 +2778,13 @@ HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Part
 [$sel:parties:NetworkConnected] :: StateChanged tx -> [Party]
 TransactionReceived :: tx -> StateChanged tx
 [$sel:tx:NetworkConnected] :: StateChanged tx -> tx
-TransactionAppliedToLocalUTxO :: HeadId -> tx -> UTxOType tx -> StateChanged tx
+TransactionAppliedToLocalUTxO :: HeadId -> tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:tx:NetworkConnected] :: StateChanged tx -> tx
-[$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 SnapshotRequestDecided :: SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
-
--- | A snapshot was requested by some party. NOTE: We deliberately already
---   include an updated local ledger state to not need a ledger to
---   interpret this event.
-SnapshotRequested :: Snapshot tx -> UTxOType tx -> Seq tx -> Maybe (TxIdType tx) -> StateChanged tx
+SnapshotRequested :: Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> StateChanged tx
 [$sel:requestedSnapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
-[$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> Seq tx
 [$sel:newCurrentDepositTxId:NetworkConnected] :: StateChanged tx -> Maybe (TxIdType tx)
 PartySignedSnapshot :: SnapshotNumber -> Party -> Signature (Snapshot tx) -> StateChanged tx
@@ -2688,10 +2827,9 @@ CommitFinalized :: ChainStateType tx -> HeadId -> SnapshotVersion -> TxIdType tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:newVersion:NetworkConnected] :: StateChanged tx -> SnapshotVersion
 [$sel:depositTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
-DecommitRecorded :: HeadId -> tx -> UTxOType tx -> StateChanged tx
+DecommitRecorded :: HeadId -> tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTx:NetworkConnected] :: StateChanged tx -> tx
-[$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 DecommitApproved :: HeadId -> TxIdType tx -> UTxOType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
@@ -2717,9 +2855,14 @@ HeadContested :: HeadId -> ChainStateType tx -> UTCTime -> SnapshotNumber -> Sta
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 HeadIsReadyToFanout :: HeadId -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-HeadFannedOut :: HeadId -> UTxOType tx -> ChainStateType tx -> StateChanged tx
+HeadFannedOut :: HeadId -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:utxo:NetworkConnected] :: StateChanged tx -> UTxOType tx
+[$sel:finalizedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
+HeadPartialFannedOut :: HeadId -> Set (TxOutType tx) -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
+[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
+[$sel:distributedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:remainingOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
 ChainRolledBack :: ChainStateType tx -> StateChanged tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -2946,22 +3089,34 @@ instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.
 --   More specifically, the <a>update</a> will handle <a>Input</a>s (or
 --   rather "commands" in event sourcing speak) and convert that into a
 --   list of side-<a>Effect</a>s and <a>StateChanged</a> events, which in
---   turn are <a>aggregate</a>d into a single <a>HeadState</a>.
+--   turn are applied via <a>aggregateNodeState</a> into a single
+--   <a>NodeState</a>.
 --   
 --   As the specification is using a more imperative way of specifying the
 --   protocol behavior, one would find the decision logic in <a>update</a>
---   while state updates can be found in the corresponding <a>aggregate</a>
---   branch.
+--   while state updates can be found in the corresponding
+--   <a>applyEvent</a> branch.
 module Hydra.HeadLogic
+
+-- | Tracks whether a partial fanout has already been observed on-chain.
+--   Used to decide the final step: <a>FanoutInProgress</a> heads go to
+--   <a>FinalPartialFanoutTx</a>; <a>FreshFanout</a> heads can still use
+--   the direct <a>FanoutTx</a>.
+data PartialFanoutPhase
+FreshFanout :: PartialFanoutPhase
+FanoutInProgress :: PartialFanoutPhase
 
 -- | Handles inputs and converts them into <a>StateChanged</a> events along
 --   with <a>Effect</a>s, in case it is processed successfully. Later, the
---   Node will <a>aggregate</a> the events, resulting in a new
---   <a>HeadState</a>.
+--   Node will apply the events via <a>aggregateNodeState</a>, resulting in
+--   a new <a>NodeState</a>.
 update :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> NodeState tx -> Input tx -> Outcome tx
 
 -- | Reflect <a>StateChanged</a> events onto the <a>NodeState</a>
---   aggregateNodeState.
+--   aggregateNodeState. Events carrying a <a>HeadId</a> that does not
+--   match the current state are silently ignored, preventing cross-head
+--   state contamination during event replay. Events without a
+--   <a>HeadId</a> are always applied.
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 
 -- | Maximum number of transaction ids per snapshot. This effectively
@@ -2971,10 +3126,6 @@ aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> Node
 maxTxsPerSnapshot :: Int
 aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
 aggregateState :: IsChainState tx => NodeState tx -> Outcome tx -> NodeState tx
-
--- | Reflect <a>StateChanged</a> events onto the <a>HeadState</a>
---   aggregate.
-aggregate :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 
 -- | Client request to init the head. This leads to an init transaction on
@@ -3171,7 +3322,7 @@ onOpenClientClose :: OpenState tx -> Outcome tx
 --   schedule a notification for clients to fanout at the deadline.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>ClosedState</a>
-onOpenChainCloseTx :: Monoid (UTxOType tx) => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
+onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
 
 -- | Client request to side load confirmed snapshot.
 --   
@@ -3194,19 +3345,66 @@ onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx 
 --   transaction.
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
-onClosedChainContestTx :: Monoid (UTxOType tx) => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
+onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
 
 -- | Client request to fanout leads to a fanout transaction on chain using
 --   the latest confirmed snapshot from <a>ClosedState</a>.
 --   
---   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
-onClosedClientFanout :: Monoid (UTxOType tx) => ClosedState tx -> Outcome tx
+--   The node decides the fanout tx TYPE based solely on the fanout phase:
+--   
+--   <ul>
+--   <li><a>FreshFanout</a> (no prior partial fanout observed): emit
+--   <a>FanoutTx</a>. The chain layer evaluates it and falls back to
+--   <tt>PartialFanoutTx</tt> if it exceeds the execution budget.</li>
+--   <li><a>FanoutInProgress</a> (prior partial fanouts observed): emit
+--   <a>FinalPartialFanoutTx</a>. The chain layer similarly falls back to
+--   <tt>PartialFanoutTx</tt> if the remaining set is still too large.</li>
+--   </ul>
+--   
+--   The chunk-size decision is fully dynamic in the chain layer — no
+--   threshold constant is needed here.
+--   
+--   If a partial fanout was already in progress (remainingFanoutUTxO is
+--   Just), we fan out from the remaining UTxOs instead of the full
+--   snapshot.
+--   
+--   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a> (partial)
+--   or <a>ClosedState</a> → <a>IdleState</a> (full)
+onClosedClientFanout :: IsTx tx => ClosedState tx -> Outcome tx
+
+-- | Emit the appropriate on-chain effect based solely on the fanout phase.
+--   <a>FreshFanout</a> → <a>FanoutTx</a> (chain layer evaluates; may fall
+--   back to PartialFanoutTx). <a>FanoutInProgress</a> →
+--   <a>FinalPartialFanoutTx</a> (head output already in FanoutProgress
+--   state).
+emitNextFanoutStep :: IsTx tx => PartialFanoutPhase -> Set (TxOutType tx) -> ClosedState tx -> Outcome tx
+
+-- | Compute the full UTxO set to be fanned out, combining snapshot utxo
+--   with utxoToCommit/utxoToDecommit based on version.
+computeFullFanoutUTxO :: IsTx tx => ClosedState tx -> UTxOType tx
 
 -- | Observe a fanout transaction by finalize the head state and notifying
 --   clients about it.
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>IdleState</a>
-onClosedChainFanoutTx :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> Outcome tx
+onClosedChainFanoutTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> UTxOType tx -> Outcome tx
+
+-- | Observe a partial fanout transaction on chain. This stays in
+--   <a>ClosedState</a> with updated remaining UTxOs and automatically
+--   triggers the next fanout.
+--   
+--   Automatically triggers the next fanout step:
+--   <a>FinalPartialFanoutTx</a>. The chain layer falls back to another
+--   <tt>PartialFanoutTx</tt> if remaining UTxOs do not fit in a single tx.
+--   
+--   <b>Off-chain model</b>: <a>ClosedState</a> → <a>ClosedState</a> (the
+--   on-chain state transitions to FanoutProgress)
+onClosedChainPartialFanoutTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> Set (TxOutType tx) -> Outcome tx
+
+-- | Resolve the output set to fan out: the already-narrowed remaining set
+--   if a partial fanout is in progress, or the full snapshot outputs
+--   otherwise.
+resolveRemainingOutputs :: IsTx tx => ClosedState tx -> Set (TxOutType tx)
 
 -- | Detect our view of the chain going out of sync and issue a
 --   <a>NodeUnsynced</a> event when this is the case.
@@ -3223,6 +3421,15 @@ handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> Ch
 handleClientInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 handleNetworkInput :: IsChainState tx => Environment -> Ledger tx -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> Outcome tx
 onConnectionEvent :: Text -> Connectivity -> Outcome tx
+
+-- | Extract the <a>HeadId</a> from the current <a>HeadState</a>, if any.
+headIdOf :: HeadState tx -> Maybe HeadId
+
+-- | Extract the <a>HeadId</a> from a <a>StateChanged</a> event, if the
+--   event carries one. Events that do not carry a <a>HeadId</a> always
+--   pass through <a>aggregateNodeState</a> unchanged.
+eventHeadId :: StateChanged tx -> Maybe HeadId
+applyEvent :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
@@ -3308,6 +3515,9 @@ RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+ReqSnUTxOSetTooLarge :: Int -> Int -> RequirementFailure tx
+[$sel:utxoCount:ReqSnNumberInvalid] :: RequirementFailure tx -> Int
+[$sel:maxAllowed:ReqSnNumberInvalid] :: RequirementFailure tx -> Int
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
@@ -3404,7 +3614,7 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ByteString
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>$sel:contestationDeadline:ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Set (TxOutType tx)) -> Set (TxOutType tx) -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -3416,6 +3626,14 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headId:ClosedState] :: ClosedState tx -> HeadId
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
+
+-- | Tracks remaining TxOut values to fan out after partial fanouts.
+--   Nothing means no partial fanout has occurred yet.
+[$sel:remainingFanoutOutputs:ClosedState] :: ClosedState tx -> Maybe (Set (TxOutType tx))
+
+-- | Accumulates TxOut values distributed by partial fanout transactions.
+--   Used to reconstruct the full output set in <tt>HeadFannedOut</tt>.
+[$sel:distributedFanoutOutputs:ClosedState] :: ClosedState tx -> Set (TxOutType tx)
 
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
@@ -3506,19 +3724,13 @@ HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Part
 [$sel:parties:NetworkConnected] :: StateChanged tx -> [Party]
 TransactionReceived :: tx -> StateChanged tx
 [$sel:tx:NetworkConnected] :: StateChanged tx -> tx
-TransactionAppliedToLocalUTxO :: HeadId -> tx -> UTxOType tx -> StateChanged tx
+TransactionAppliedToLocalUTxO :: HeadId -> tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:tx:NetworkConnected] :: StateChanged tx -> tx
-[$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 SnapshotRequestDecided :: SnapshotNumber -> StateChanged tx
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
-
--- | A snapshot was requested by some party. NOTE: We deliberately already
---   include an updated local ledger state to not need a ledger to
---   interpret this event.
-SnapshotRequested :: Snapshot tx -> UTxOType tx -> Seq tx -> Maybe (TxIdType tx) -> StateChanged tx
+SnapshotRequested :: Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> StateChanged tx
 [$sel:requestedSnapshot:NetworkConnected] :: StateChanged tx -> Snapshot tx
-[$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 [$sel:newLocalTxs:NetworkConnected] :: StateChanged tx -> Seq tx
 [$sel:newCurrentDepositTxId:NetworkConnected] :: StateChanged tx -> Maybe (TxIdType tx)
 PartySignedSnapshot :: SnapshotNumber -> Party -> Signature (Snapshot tx) -> StateChanged tx
@@ -3561,10 +3773,9 @@ CommitFinalized :: ChainStateType tx -> HeadId -> SnapshotVersion -> TxIdType tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:newVersion:NetworkConnected] :: StateChanged tx -> SnapshotVersion
 [$sel:depositTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
-DecommitRecorded :: HeadId -> tx -> UTxOType tx -> StateChanged tx
+DecommitRecorded :: HeadId -> tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTx:NetworkConnected] :: StateChanged tx -> tx
-[$sel:newLocalUTxO:NetworkConnected] :: StateChanged tx -> UTxOType tx
 DecommitApproved :: HeadId -> TxIdType tx -> UTxOType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
 [$sel:decommitTxId:NetworkConnected] :: StateChanged tx -> TxIdType tx
@@ -3590,9 +3801,14 @@ HeadContested :: HeadId -> ChainStateType tx -> UTCTime -> SnapshotNumber -> Sta
 [$sel:snapshotNumber:NetworkConnected] :: StateChanged tx -> SnapshotNumber
 HeadIsReadyToFanout :: HeadId -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-HeadFannedOut :: HeadId -> UTxOType tx -> ChainStateType tx -> StateChanged tx
+HeadFannedOut :: HeadId -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
 [$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
-[$sel:utxo:NetworkConnected] :: StateChanged tx -> UTxOType tx
+[$sel:finalizedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
+HeadPartialFannedOut :: HeadId -> Set (TxOutType tx) -> Set (TxOutType tx) -> ChainStateType tx -> StateChanged tx
+[$sel:headId:NetworkConnected] :: StateChanged tx -> HeadId
+[$sel:distributedOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
+[$sel:remainingOutputs:NetworkConnected] :: StateChanged tx -> Set (TxOutType tx)
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
 ChainRolledBack :: ChainStateType tx -> StateChanged tx
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -3650,6 +3866,7 @@ changes :: [StateChanged tx] -> Outcome tx
 newState :: StateChanged tx -> Outcome tx
 noop :: Outcome tx
 wait :: WaitReason tx -> Outcome tx
+instance GHC.Show.Show Hydra.HeadLogic.PartialFanoutPhase
 
 module Hydra.Node.Util
 readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
@@ -3740,6 +3957,35 @@ chainSyncHandler :: forall m. (MonadSTM m, MonadThrow m) => Tracer m CardanoChai
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 prepareTxToPost :: forall m. (MonadSTM m, MonadThrow (STM m)) => TimeHandle -> TinyWallet m -> ChainContext -> UTxOType Tx -> PostChainTx Tx -> STM m Tx
 
+-- | Binary search for the largest chunk size in <tt>[1..maxChunk]</tt> for
+--   which <tt>mkTx</tt> constructs a transaction and <tt>fitsCheck</tt>
+--   returns <a>True</a>. Assumes the predicate is monotone: if size
+--   <tt>n</tt> fits, all sizes <tt>&lt; n</tt> also fit. Uses upper-mid so
+--   the search terminates correctly when <tt>hi = lo + 1</tt>. Returns
+--   <a>Nothing</a> if no size fits. <tt>mkTx</tt> may throw to abort the
+--   search early.
+findLargestFitting :: Monad m => (Int -> m tx) -> (tx -> m Bool) -> Int -> m (Maybe tx)
+
+-- | Check whether a transaction fits within protocol size and script
+--   execution limits. Size check is cheap so it short-circuits before the
+--   expensive UPLC evaluation.
+fitsTx :: Monad m => (Tx -> m Bool) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> UTxO -> Tx -> m Bool
+
+-- | Try the preferred transaction first; if it doesn't fit within the
+--   script execution budget or exceeds the maximum transaction size, fall
+--   back to a binary search over partial fanout chunk sizes. Returns the
+--   largest chunk that fits, minimising the number of fanout steps.
+--   
+--   Error mapping: * <a>StaleChainState</a> from <a>partialFanout</a> →
+--   <a>StalePartialFanoutTx</a> (race condition; HeadLogic silently
+--   ignores it and the chain observation loop triggers the correct next
+--   step). * Any other <a>PartialFanoutError</a> →
+--   <a>FailedToConstructPartialFanoutTx</a> (structural mismatch that will
+--   not resolve on retry). * No chunk fits within budget →
+--   <a>FailedToConstructPartialFanoutTx</a> (budget exhaustion; also not a
+--   race condition).
+findFittingFanoutTx :: forall m e. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> Either e Tx -> UTxO -> SlotNo -> m Tx
+
 -- | Maximum delay we put on the upper bound of transactions to fit into a
 --   block. NOTE: This is highly depending on the network. If the security
 --   parameter and epoch length result in a short horizon, this is
@@ -3774,6 +4020,8 @@ StartingChainDecision :: StartingDecision -> CardanoChainLog
 BlockfrostTransientError :: Text -> Int -> CardanoChainLog
 [$sel:reason:ToPost] :: CardanoChainLog -> Text
 [$sel:retryDelay:ToPost] :: CardanoChainLog -> Int
+PartialFanoutFailed :: Text -> CardanoChainLog
+[$sel:reason:ToPost] :: CardanoChainLog -> Text
 instance GHC.Exception.Type.Exception Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.TimeConversionException

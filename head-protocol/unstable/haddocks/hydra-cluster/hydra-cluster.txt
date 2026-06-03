@@ -5,7 +5,7 @@
 -- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 2.0.0
+@version 2.1.0
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.
@@ -499,11 +499,43 @@ instance GHC.Show.Show CardanoNode.ProcessHasExited
 
 module HydraNode
 data HydraClient
-HydraClient :: Int -> Host -> Connection -> Tracer IO HydraNodeLog -> HydraClient
+HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraNodeLog -> HydraClient
 [$sel:hydraNodeId:HydraClient] :: HydraClient -> Int
 [$sel:apiHost:HydraClient] :: HydraClient -> Host
+
+-- | Port the hydra-node exposes Prometheus metrics on, if enabled.
+[$sel:monitoringPort:HydraClient] :: HydraClient -> Maybe PortNumber
 [$sel:connection:HydraClient] :: HydraClient -> Connection
 [$sel:tracer:HydraClient] :: HydraClient -> Tracer IO HydraNodeLog
+
+-- | The three ports a hydra-node binds: API, peer-to-peer listen, and the
+--   optional Prometheus monitoring endpoint. Callers allocate these via
+--   <a>allocateHydraNodePorts</a> (or pre-allocate a full cluster) and
+--   thread them through <a>prepareHydraNode</a> / <a>withHydraNode</a>.
+data HydraNodePorts
+HydraNodePorts :: PortNumber -> PortNumber -> PortNumber -> HydraNodePorts
+[$sel:apiPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+[$sel:listenPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+[$sel:monitoringPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+
+-- | Allocate ports for every node in a cluster up front. The returned map
+--   must be passed to every <a>prepareHydraNode</a> / <a>withHydraNode</a>
+--   call for nodes in this cluster so peers can be addressed correctly.
+--   
+--   Listen ports are taken via <a>randomUnusedTCPPortsWithDerived</a> so
+--   each listen port's derived etcd <i>client</i> port —
+--   <a>peerPortToClientPort</a> — is actually held bound at allocation
+--   time. That defends against two failure modes: an unrelated process on
+--   the host occupying the derived port (which a plain
+--   <a>randomUnusedTCPPorts</a> would not catch and which explodes as
+--   <tt>EADDRINUSE</tt> the moment etcd starts), and an unlucky draw where
+--   the derived port lands on top of another node's api/monitoring port
+--   (which used to make the GRPC client talk to Warp instead of etcd).
+--   
+--   Api and monitoring ports are then acquired in a second batch and
+--   checked to be disjoint from both the listen ports and the derived
+--   client ports; on collision we retry that second batch.
+allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
 
 -- | Get the protocol-parameters from the hydra-node.
 getProtocolParameters :: HydraClient -> IO (PParams LedgerEra)
@@ -531,7 +563,12 @@ postDecommit :: HydraClient -> Tx -> IO ()
 
 -- | Prepare <a>RunOptions</a> to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
-prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (Value -> Value) -> IO RunOptions
+--   
+--   The <tt>nodePorts</tt> map must contain an entry for this
+--   <tt>hydraNodeId</tt> and for every peer this node should connect to.
+--   Use <a>allocateHydraNodePortsFor</a> to build it for a cluster, or
+--   <a>allocateHydraNodePorts</a> + a singleton map for a standalone node.
+prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (Value -> Value) -> IO RunOptions
 
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
@@ -560,19 +597,34 @@ withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath
 --   any action, observe a <tt>Greetings</tt> message with the node in sync
 --   first. NOTE that importantly, any messages seen BEFORE we observe this
 --   will be lost; i.e. unobservable by subsequent <a>waitFor</a>s.
-withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+--   
+--   See <a>prepareHydraNode</a> for how to build the port map.
+withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config and catching up with chain backend/.
-withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
+-- | Convenience: run a single hydra-node with no peers and freshly
+--   allocated dynamic ports. Equivalent to <a>withHydraNode</a> with a
+--   singleton port map.
+withSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+
+-- | Convenience: <a>withHydraNodeCatchingUp</a> for a single node with
+--   freshly allocated dynamic ports.
+withSoloHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config/, but, importantly, do NOT wait for the sync status to be
 --   reported.
-withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
+
+-- | Convenience: <a>withUnsyncedHydraNode</a> for a single node with
+--   freshly allocated dynamic ports.
+withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
 waitNext :: HasCallStack => HydraClient -> IO Value
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 
@@ -586,11 +638,27 @@ waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [Hydr
 waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO ()
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 
+-- | Allocate three unused TCP ports from the OS for a single hydra-node.
+allocateHydraNodePorts :: IO HydraNodePorts
+
+-- | Process-global cache mapping each <tt>(workDir, nodeId)</tt> to its
+--   allocated ports. The cache exists because restart-style tests
+--   (re-running <a>withSoloHydraNode</a> or similar against the same
+--   <tt>workDir</tt>) depend on etcd's persistent cluster state, which is
+--   keyed by the listen URL. If a restart picked fresh ports, etcd would
+--   refuse to start.
+soloHydraNodePortsCache :: IORef (Map (FilePath, Int) HydraNodePorts)
+
+-- | Allocate ports for a single hydra-node, memoizing the result for the
+--   given <tt>(workDir, nodeId)</tt> so that subsequent calls reuse the
+--   same ports.
+soloHydraNodePortsFor :: FilePath -> Int -> IO HydraNodePorts
+
 -- | Prepare protocol-parameters to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
 preparePParams :: ChainConfig -> FilePath -> (Value -> Value) -> IO FilePath
-withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> Maybe String -> (HydraClient -> IO a) -> IO a
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog
 [$sel:cmd:HydraNodeCommandSpec] :: HydraNodeLog -> Text
@@ -607,6 +675,8 @@ ReceivedMessage :: Int -> Value -> HydraNodeLog
 [$sel:message:HydraNodeCommandSpec] :: HydraNodeLog -> Value
 EndWaiting :: Int -> HydraNodeLog
 [$sel:nodeId:HydraNodeCommandSpec] :: HydraNodeLog -> Int
+instance GHC.Classes.Eq HydraNode.HydraNodePorts
+instance GHC.Show.Show HydraNode.HydraNodePorts
 
 module Hydra.Cluster.Scenarios
 oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
@@ -623,7 +693,9 @@ resumeFromLatestKnownPoint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendO
 restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
--- | Get the base URL for HTTP API calls to a hydra-node.
+-- | Get the base URL for HTTP API calls to a hydra-node, using the actual
+--   API port the node was started on (allocated dynamically by
+--   <tt>allocateHydraNodePorts</tt>).
 hydraNodeBaseUrl :: HydraClient -> String
 headIsFinalizedWith :: HeadId -> UTxO -> Value -> Maybe ()
 
@@ -631,6 +703,10 @@ headIsFinalizedWith :: HeadId -> UTxO -> Value -> Maybe ()
 --   participant. This scenario is also used by the smoke test run via the
 --   `hydra-cluster` executable.
 singlePartyHeadFullLifeCycle :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | An <a>Option</a> carrying a hydra-node's actual API port. Use to set
+--   the port in a <a>req</a> call.
+hydraApiPort :: HydraClient -> Option scheme
 
 -- | Open a Hydra Head with only a single participant but some arbitrary
 --   UTxO committed.
@@ -642,7 +718,7 @@ singlePartyUsesScriptOnL2 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOp
 
 -- | Compute the integrity hash of a transaction using a list of plutus
 --   languages.
-recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx txera -> Tx txera
+recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx TopTx txera -> Tx TopTx txera
 
 -- | Open a head and run a script using <tt>Rewarding</tt> script purpose
 --   and a zero lovelace withdrawal.
@@ -826,7 +902,7 @@ cannotRedirectExtraDepositDuringIncrement :: Tracer IO EndToEndLog -> FilePath -
 
 -- | Like <a>placeVictimDeposit</a> but does not wait for the hydra-node to
 --   emit <tt>CommitRecorded</tt>. The caller is expected to exit the
---   <a>withHydraNode</a> bracket promptly so the node cannot submit its
+--   <tt>withHydraNode</tt> bracket promptly so the node cannot submit its
 --   own honest Increment for the deposit.
 placeVictimDepositNoWait :: Tracer IO EndToEndLog -> ChainBackendOptions -> HydraClient -> Integer -> IO (VerificationKey PaymentKey, TxId)
 

@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node:tests
-@version 2.0.0
+@version 2.1.0
 
 module Hydra.API.ClientInputSpec
 spec :: Spec
@@ -35,9 +35,6 @@ waitMatch :: HasCallStack => Natural -> Connection -> (Value -> Maybe a) -> IO a
 shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
 genStateEventForApi :: Gen (StateEvent SimpleTx)
 
-module Hydra.AccumulatorSpec
-spec :: Spec
-
 module Hydra.Chain.BlockfrostSpec
 spec :: Spec
 
@@ -45,6 +42,16 @@ module Hydra.Chain.Direct.HandlersSpec
 genTimeHandleWithSlotInsideHorizon :: Gen (TimeHandle, SlotNo)
 genTimeHandleWithSlotPastHorizon :: Gen (TimeHandle, SlotNo)
 spec :: Spec
+
+-- | Generate a byte-count limit that straddles the real serialised size of
+--   <tt>tx</tt>, giving roughly equal probability of the size check
+--   passing or failing.
+sizeLimit :: Tx -> Gen Int
+
+-- | Generate an <a>EvaluationReport</a> that contains at least one script
+--   failure at an arbitrary witness index, optionally mixed with passing
+--   entries.
+genFailingReport :: Gen EvaluationReport
 
 -- | Create a chain sync handler which records events as they are called
 --   back.
@@ -104,6 +111,18 @@ forAllClose :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllContest :: Testable property => (UTxO -> Tx -> property) -> Property
 forAllFanout :: Testable property => (UTxO -> Tx -> property) -> Property
 
+-- | Use spendableUTxO (not 'getKnownUTxO stClosed'): the generator adds
+--   the full UTxO value to the head output so <tt>partialFanoutTx</tt> can
+--   subtract distributed values without going negative. The evaluation
+--   UTxO must match.
+forAllPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
+
+-- | The spendable UTxO for the final partial fanout is the FanoutProgress
+--   head output produced by the preceding partial fanout step, so we use
+--   the 3rd element from the generator rather than 'getKnownUTxO
+--   stClosed'.
+forAllFinalPartialFanout :: Testable property => (UTxO -> Tx -> property) -> Property
+
 module Hydra.Chain.Direct.TimeHandleSpec
 spec :: Spec
 
@@ -146,30 +165,30 @@ prop_reducesWhenNotOurs :: Property
 prop_seenInputsAreConsumed :: Property
 prop_setsMinUTxOValue :: Property
 prop_balanceTransaction :: Property
-hasLowFees :: PParams LedgerEra -> Tx LedgerEra -> Property
-isBalanced :: Map TxIn TxOut -> Tx LedgerEra -> Tx LedgerEra -> Property
+hasLowFees :: PParams LedgerEra -> Tx TopTx LedgerEra -> Property
+isBalanced :: Map TxIn TxOut -> Tx TopTx LedgerEra -> Tx TopTx LedgerEra -> Property
 prop_picksLargestUTxOToPayTheFees :: Property
 
 -- | Generate an arbitrary list of transactions from a UTXO set such that,
 --   transactions may *sometimes* consume given UTXO and produce new ones.
 --   The generator is geared towards certain use-cases,
-genTxsSpending :: Map TxIn TxOut -> Gen [Tx LedgerEra]
+genTxsSpending :: Map TxIn TxOut -> Gen [Tx TopTx LedgerEra]
 genUTxO :: Gen (Map TxIn TxOut)
-genOutputsForInputs :: Tx LedgerEra -> Gen (Map TxIn TxOut)
-genLedgerTx :: Gen (Tx LedgerEra)
-allTxIns :: [Tx LedgerEra] -> Set TxIn
-allTxOuts :: [Tx LedgerEra] -> [TxOut]
+genOutputsForInputs :: Tx TopTx LedgerEra -> Gen (Map TxIn TxOut)
+genLedgerTx :: Gen (Tx TopTx LedgerEra)
+allTxIns :: [Tx TopTx LedgerEra] -> Set TxIn
+allTxOuts :: [Tx TopTx LedgerEra] -> [TxOut]
 isOurs :: Map TxIn TxOut -> Address -> Bool
-ourDirectInputs :: Map TxIn TxOut -> [Tx LedgerEra] -> [TxIn]
-ourOutputs :: Map TxIn TxOut -> [Tx LedgerEra] -> [TxOut]
+ourDirectInputs :: Map TxIn TxOut -> [Tx TopTx LedgerEra] -> [TxIn]
+ourOutputs :: Map TxIn TxOut -> [Tx TopTx LedgerEra] -> [TxOut]
 getValue :: TxOut -> Value LedgerEra
 deltaValue :: Value LedgerEra -> Value LedgerEra -> Value LedgerEra
 
 -- | NOTE: This does not account for withdrawals
-knownInputBalance :: Map TxIn TxOut -> Tx LedgerEra -> Value LedgerEra
+knownInputBalance :: Map TxIn TxOut -> Tx TopTx LedgerEra -> Value LedgerEra
 
 -- | NOTE: This does not account for deposits
-outputBalance :: Tx LedgerEra -> Value LedgerEra
+outputBalance :: Tx TopTx LedgerEra -> Value LedgerEra
 
 -- | Test that coverFee detects missing script witnesses. Generates
 --   transactions that spend from script-locked UTxOs but omit the script
@@ -262,7 +281,8 @@ inOpenState :: [Party] -> NodeState SimpleTx
 inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
 inClosedState :: [Party] -> NodeState SimpleTx
 inClosedState' :: [Party] -> ConfirmedSnapshot SimpleTx -> NodeState SimpleTx
-getConfirmedSnapshot :: Monoid (UTxOType tx) => NodeState tx -> Maybe (Snapshot tx)
+inClosedStateWithRemaining :: [Party] -> Maybe (Set SimpleTxOut) -> NodeState SimpleTx
+getConfirmedSnapshot :: IsTx tx => NodeState tx -> Maybe (Snapshot tx)
 data StepState tx
 StepState :: NodeState tx -> Environment -> Ledger tx -> StepState tx
 [$sel:nodeState:StepState] :: StepState tx -> NodeState tx
@@ -282,7 +302,6 @@ hasEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect 
 hasNoEffectSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (Effect tx -> Bool) -> IO ()
 hasStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
 hasNoStateChangedSatisfying :: (HasCallStack, IsChainState tx) => Outcome tx -> (StateChanged tx -> Bool) -> IO ()
-testSnapshot :: Monoid (UTxOType tx) => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
 nowFromSlot :: (MonadFail m, MonadTime m) => ChainSlot -> m UTCTime
 
 -- | Create a <a>TimeHandle</a> for a given slot and current wall-clock
@@ -294,11 +313,13 @@ mkTimeHandleAt :: SlotNo -> UTCTime -> TimeHandle
 catchingUp :: IsTx tx => HeadState tx -> NodeState tx
 inSync :: IsTx tx => HeadState tx -> NodeState tx
 zeroChainPointTime :: ChainPointTime
+testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
 
 module Hydra.HeadLogicSnapshotSpec
 spec :: Spec
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_thereIsAlwaysALeader :: Property
+testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
 
 module Hydra.API.HTTPServerSpec
 spec :: Spec
@@ -358,6 +379,7 @@ instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Model.Payment.CardanoSigningKe
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Model.Payment.CardanoSigningKey
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Model.Payment.CardanoSigningKey
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Model.Payment.CardanoSigningKey
+instance GHC.Classes.Ord Cardano.Api.Value.Internal.Value
 instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Value.Internal.Value
 instance Cardano.Binary.ToCBOR.ToCBOR Cardano.Api.Value.Internal.Value
 instance Cardano.Binary.FromCBOR.FromCBOR Cardano.Api.Value.Internal.Value
@@ -567,6 +589,7 @@ shouldParseJSONAs :: forall a. (HasCallStack, FromJSON a) => LByteString -> Expe
 
 -- | Test that the <a>PParams</a> To/FromJSON instances to roundtrip.
 roundtripPParams :: PParams LedgerEra -> Property
+applyTransactionsEquivalence :: Property
 appliesValidTransaction :: Property
 appliesValidTransactionFromJSON :: Property
 
@@ -642,11 +665,12 @@ TestHydraClient :: (ClientInput tx -> m ()) -> m (ServerOutput tx) -> m (ClientM
 --   can also <a>$sel:rollbackAndForward:SimulatedChainNetwork</a> any
 --   number of these "transactions".
 data SimulatedChainNetwork tx m
-SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (Party -> m ()) -> SimulatedChainNetwork tx m
+SimulatedChainNetwork :: (DraftHydraNode tx m -> m (HydraNode tx m)) -> Async m () -> (Natural -> m ()) -> (HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)) -> (HeadId -> UTxOType tx -> m ()) -> (Party -> m ()) -> SimulatedChainNetwork tx m
 [$sel:connectNode:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> DraftHydraNode tx m -> m (HydraNode tx m)
 [$sel:tickThread:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Async m ()
 [$sel:rollbackAndForward:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Natural -> m ()
 [$sel:simulateDeposit:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> UTCTime -> m (TxIdType tx)
+[$sel:simulatePartialFanout:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> HeadId -> UTxOType tx -> m ()
 [$sel:closeWithInitialSnapshot:SimulatedChainNetwork] :: SimulatedChainNetwork tx m -> Party -> m ()
 dummySimulatedChainNetwork :: SimulatedChainNetwork tx m
 
@@ -882,7 +906,7 @@ sendsInput :: (MonadSTM m, MonadThrow m) => Party -> ClientInput Tx -> RunMonad 
 getActorNode :: (MonadSTM m, MonadThrow m) => Party -> RunMonad m (TestHydraClient Tx m)
 performInit :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadLabelledSTM m) => Party -> RunMonad m HeadId
 performClose :: (MonadThrow m, MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) => Party -> RunMonad m ()
-performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
+performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m (Set (TxOut CtxUTxO))
 performCloseWithInitialSnapshot :: (MonadThrow m, MonadTimer m, MonadDelay m, MonadAsync m, MonadLabelledSTM m) => WorldState -> Party -> RunMonad m ()
 performRollbackAndForward :: (MonadThrow m, MonadTimer m) => Natural -> RunMonad m ()
 stopTheWorld :: MonadAsync m => RunMonad m ()
@@ -1268,10 +1292,6 @@ instance Test.QuickCheck.StateModel.Variables.HasVariables Hydra.Chain.Direct.Tx
 instance Test.QuickCheck.StateModel.Variables.HasVariables (Test.QuickCheck.StateModel.Action Hydra.Chain.Direct.TxTraceSpec.Model a)
 instance GHC.Num.Num Hydra.Chain.Direct.TxTraceSpec.ModelSnapshot
 instance Test.QuickCheck.Arbitrary.Arbitrary Hydra.Chain.Direct.TxTraceSpec.SingleUTxO
-
-module Spec
-main :: IO ()
-spec :: Spec
 
 module Main
 main :: IO ()

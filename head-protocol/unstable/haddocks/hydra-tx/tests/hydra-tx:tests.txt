@@ -4,7 +4,12 @@
 
 -- | Hydra transaction library
 @package hydra-tx:tests
-@version 2.0.0
+@version 2.1.0
+
+module Hydra.Tx.AccumulatorSpec
+spec :: Spec
+utxoScalars :: UTxO -> [Integer]
+toInt :: ByteString -> Integer
 
 module Hydra.Tx.ContestationPeriodSpec
 spec :: Spec
@@ -43,6 +48,7 @@ healthyOutdatedOpenDatum :: State
 --   than the open state version.
 healthyOpenStateVersion :: SnapshotVersion
 healthyOutdatedConfirmedClosingSnapshot :: ConfirmedSnapshot Tx
+healthyOutdatedAccumulatorHash :: Hash
 healthyCloseOutdatedTx :: (Tx, UTxO)
 data CloseMutation
 
@@ -171,6 +177,7 @@ healthyCurrentSnapshotVersion :: SnapshotVersion
 --   after one or more snapshot have been agreed upon between the members.
 healthyCloseCurrentTx :: (Tx, UTxO)
 healthyCurrentSnapshot :: Snapshot Tx
+healthyCurrentAccumulatorHash :: Hash
 healthyCurrentOpenDatum :: State
 data CloseMutation
 
@@ -273,6 +280,12 @@ MutateValueInOutput :: CloseMutation
 
 -- | Invalidate the tx by changing the contestation period.
 MutateContestationPeriod :: CloseMutation
+
+-- | Invalidates the tx by writing a wrong accumulator commitment in the
+--   output datum. The validator derives the accumulator hash from this
+--   commitment and verifies the multi-signature against it, so a wrong
+--   commitment makes the signature check fail.
+MutateAccumulatorCommitment :: CloseMutation
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Generate not acceptable, but interesting deadlines.
@@ -337,6 +350,7 @@ healthySignature :: SnapshotNumber -> MultiSignature (Snapshot Tx)
 healthyContestationDeadline :: UTCTime
 
 module Hydra.Tx.Contract.Contest.ContestDec
+healthyContestAccumulatorHash :: Hash
 data ContestDecMutation
 ContestUsedDecAlterRedeemerDecommitHash :: ContestDecMutation
 ContestUnusedDecAlterRedeemerDecommitHash :: ContestDecMutation
@@ -351,6 +365,7 @@ instance GHC.Show.Show Hydra.Tx.Contract.Contest.ContestDec.ContestDecMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestDec.ContestDecMutation
 
 module Hydra.Tx.Contract.Contest.ContestCurrent
+healthyContestAccumulatorHash :: Hash
 data ContestMutation
 
 -- | Ensures collectCom does not allow any output address but νHead.
@@ -452,6 +467,14 @@ MutateHeadIdInOutput :: ContestMutation
 
 -- | Inject an unrelated v_deposit input into a healthy Contest.
 ContestAbsorbForeignDeposit :: ContestMutation
+
+-- | Invalidates the tx by writing a wrong accumulator commitment in the
+--   output datum while keeping a valid signed accumulatorHash in the
+--   redeemer.
+--   
+--   Ensures the on-chain validator binds the G2 commitment to the signed
+--   hash.
+MutateAccumulatorCommitment :: ContestMutation
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Contest.ContestCurrent.ContestMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Contest.ContestCurrent.ContestMutation
@@ -469,6 +492,8 @@ healthySignature :: MultiSignature (Snapshot Tx)
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotVersion :: SnapshotVersion
 healthySnapshot :: Snapshot Tx
+healthyAccumulator :: HydraAccumulator
+healthyAccumulatorHash :: ByteString
 splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
 healthyContestationPeriod :: ContestationPeriod
 healthyUTxO :: UTxO
@@ -547,6 +572,8 @@ healthyFanoutUTxO :: UTxO
 healthySlotNo :: SlotNo
 healthyContestationDeadline :: UTCTime
 healthyFanoutSnapshotUTxO :: (UTxO, UTxO)
+healthyFanoutSnapshotAccumulator :: HydraAccumulator
+crsSize :: Int
 healthyFanoutDatum :: State
 healthyParties :: [Party]
 healthyParticipants :: [VerificationKey PaymentKey]
@@ -568,6 +595,67 @@ instance GHC.Enum.Enum Hydra.Tx.Contract.FanOut.FanoutMutation
 instance GHC.Show.Show Hydra.Tx.Contract.FanOut.FanoutMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.FanOut.FanoutMutation
 
+module Hydra.Tx.Contract.FinalPartialFanout
+scriptRegistry :: ScriptRegistry
+
+-- | A healthy final partial fanout transaction. It distributes all
+--   remaining UTxOs (from a FanoutProgress state) and burns all head
+--   tokens.
+healthyFinalPartialFanoutTx :: (Tx, UTxO)
+
+-- | The UTxOs to distribute in the final partial fanout step. We use a
+--   small UTxO set (≤ fanoutChunkSize) representing the last batch.
+healthyDistributeUTxO :: UTxO
+
+-- | The accumulator covering exactly the UTxOs being distributed in this
+--   final step.
+healthyRemainingAccumulator :: HydraAccumulator
+crsSize :: Int
+healthySlotNo :: SlotNo
+healthyContestationDeadline :: UTCTime
+
+-- | The FanoutProgressDatum from which the final fanout step reads.
+--   accumulatorCommitment matches the remainingAccumulator.
+healthyProgressDatum :: FanoutProgressDatum
+healthyParties :: [Party]
+healthyParticipants :: [VerificationKey PaymentKey]
+data FinalPartialFanoutMutation
+MutateFinalPartialFanoutValidityBeforeDeadline :: FinalPartialFanoutMutation
+
+-- | Final fanout MUST burn all head tokens
+MutateFinalPartialFanoutBurnTokens :: FinalPartialFanoutMutation
+
+-- | Changing an output value breaks the membership proof
+MutateFinalPartialFanoutOutputValue :: FinalPartialFanoutMutation
+
+-- | Replacing the input datum's accumulator commitment invalidates the KZG
+--   membership proof
+MutateFinalPartialFanoutWrongAccumulator :: FinalPartialFanoutMutation
+
+-- | Claiming fewer outputs in the redeemer than are actually in the tx
+--   uses a different scalar set, breaking the membership proof
+MutateFinalPartialFanoutOutputCount :: FinalPartialFanoutMutation
+
+-- | Supplying a fake CRS UTxO (no CRS reference script) should be
+--   rejected.
+MutateFinalPartialFanoutFakeCRS :: FinalPartialFanoutMutation
+
+-- | Claim N-1 outputs in the redeemer with a valid proof; the N-th UTxO's
+--   value is left unaccounted.
+MutateFinalPartialFanoutStealAda :: FinalPartialFanoutMutation
+
+-- | Set numberOfPartialOutputs = 0 with proof = accumulatorCommitment.
+--   This is the fund-theft vector: empty subset makes e(A,G2)=e(proof,G2)
+--   trivially true when proof=A (public from datum), and geq lets excess
+--   ADA go anywhere. mustHaveOutputs should reject this with
+--   FinalPartialFanoutZeroOutputs.
+MutateFinalPartialFanoutZeroOutputs :: FinalPartialFanoutMutation
+genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
+instance GHC.Enum.Bounded Hydra.Tx.Contract.FinalPartialFanout.FinalPartialFanoutMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.FinalPartialFanout.FinalPartialFanoutMutation
+instance GHC.Show.Show Hydra.Tx.Contract.FinalPartialFanout.FinalPartialFanoutMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.FinalPartialFanout.FinalPartialFanoutMutation
+
 module Hydra.Tx.Contract.Increment
 healthyIncrementTx :: (Tx, UTxO)
 healthyDepositInput :: TxIn
@@ -581,6 +669,8 @@ healthySignature :: MultiSignature (Snapshot Tx)
 healthySnapshotNumber :: SnapshotNumber
 healthySnapshotVersion :: SnapshotVersion
 healthySnapshot :: Snapshot Tx
+healthyAccumulatorHash :: ByteString
+healthyAccumulator :: HydraAccumulator
 healthyContestationPeriod :: ContestationPeriod
 healthyUTxO :: UTxO
 healthyDatum :: State
@@ -652,6 +742,108 @@ instance GHC.Enum.Enum Hydra.Tx.Contract.Init.ObserveInitMutation
 instance GHC.Show.Show Hydra.Tx.Contract.Init.ObserveInitMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.Init.ObserveInitMutation
 
+module Hydra.Tx.Contract.PartialFanout
+scriptRegistry :: ScriptRegistry
+
+-- | Build a healthy partial fanout transaction with a given input head
+--   state. Used for both the Closed → FanoutProgress and FanoutProgress →
+--   FanoutProgress cases, which share identical transaction structure and
+--   only differ in the input datum type.
+healthyPartialFanoutTxWith :: State -> (Tx, UTxO)
+mkHealthyPartialFanoutTxWith :: ScriptRegistry -> UTxO -> UTxO -> FanoutProgressDatum -> HydraAccumulator -> State -> (Tx, UTxO)
+
+-- | Closed → FanoutProgress partial fanout.
+healthyPartialFanoutTx :: (Tx, UTxO)
+
+-- | FanoutProgress → FanoutProgress partial fanout.
+healthyIntermediatePartialFanoutTx :: (Tx, UTxO)
+
+-- | The full UTxO to be distributed. One more than
+--   <a>fanoutOutputThreshold</a> so this exercises the partial fanout
+--   path.
+healthyFullUTxO :: UTxO
+
+-- | The first chunk to distribute: the leading <a>fanoutChunkSize</a>
+--   entries.
+healthyDistributeUTxO :: UTxO
+
+-- | UTxOs left after distributing the first chunk; carried over to the
+--   next step.
+healthyRemainingUTxO :: UTxO
+healthySlotNo :: SlotNo
+healthyContestationDeadline :: UTCTime
+
+-- | Accumulator covering all UTxOs in the snapshot (used for the input
+--   commitment).
+fullAccumulator :: HydraAccumulator
+
+-- | Accumulator covering only the UTxOs that remain after distributing the
+--   first chunk. This is the commitment that the on-chain output must
+--   carry after a partial fanout step.
+remainingAccumulator :: HydraAccumulator
+crsSize :: Int
+
+-- | The ClosedDatum used for the first-step (Closed → FanoutProgress)
+--   test.
+healthyClosedDatum :: ClosedDatum
+
+-- | The FanoutProgressDatum used for both test cases, derived from
+--   <a>healthyClosedDatum</a>. Both the Closed-input and
+--   FanoutProgress-input tests use this as the datum passed to
+--   <a>partialFanoutTx</a> (and as the input datum for the intermediate
+--   case).
+healthyProgressDatum :: FanoutProgressDatum
+healthyParties :: [Party]
+healthyParticipants :: [VerificationKey PaymentKey]
+healthyHeadInput :: TxIn
+healthyParticipationTokens :: Value
+
+-- | A UTxO set where two entries share identical TxOut content (same
+--   address + value). This exposes the duplicate-element bug:
+--   buildFromUTxO deduplicates them in the off-chain accumulator, but
+--   on-chain txOutsToSubsetScalars sees two identical scalars.
+duplicateFullUTxO :: UTxO
+duplicateDistributeUTxO :: UTxO
+duplicateRemainingUTxO :: UTxO
+duplicateFullAccumulator :: HydraAccumulator
+duplicateRemainingAccumulator :: HydraAccumulator
+duplicateCRSSize :: Int
+duplicateScriptRegistry :: ScriptRegistry
+duplicateProgressDatum :: FanoutProgressDatum
+duplicateClosedDatum :: ClosedDatum
+
+-- | A partial fanout tx where two distributed UTxOs share identical TxOut
+--   content.
+healthyPartialFanoutTxWithDuplicates :: (Tx, UTxO)
+data PartialFanoutMutation
+MutatePartialFanoutValidityBeforeDeadline :: PartialFanoutMutation
+
+-- | Partial fanout must NOT burn tokens (unlike full fanout)
+MutatePartialFanoutBurnTokens :: PartialFanoutMutation
+MutatePartialFanoutOutputValue :: PartialFanoutMutation
+
+-- | Steal Ada by reducing the continuing head output and adding a personal
+--   output
+MutatePartialFanoutStealAda :: PartialFanoutMutation
+
+-- | Continuing FanoutProgressDatum must preserve headId, parties,
+--   contestationDeadline
+MutatePartialFanoutChangedParameters :: PartialFanoutMutation
+
+-- | Continuing datum must carry the correct remaining accumulator
+--   commitment
+MutatePartialFanoutWrongAccumulator :: PartialFanoutMutation
+
+-- | Supplying a fake CRS UTxO (no CRS reference script) should be
+--   rejected.
+MutatePartialFanoutFakeCRS :: PartialFanoutMutation
+genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
+genMutatedDeadline :: Gen POSIXTime
+instance GHC.Enum.Bounded Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
+instance GHC.Enum.Enum Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
+instance GHC.Show.Show Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
+instance GHC.Generics.Generic Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
+
 module Hydra.Tx.Contract.Recover
 healthyRecoverTx :: (Tx, UTxO)
 recoverSlotNo :: SlotNo
@@ -686,15 +878,15 @@ spec :: Spec
 
 module Hydra.Tx.IsTxSpec
 spec :: Spec
-genConwayCompatibleBabbageTx :: Gen (Tx BabbageEra)
+genConwayCompatibleBabbageTx :: Gen (Tx TopTx BabbageEra)
 roundtripTxId :: Tx -> Property
 roundtripTxId' :: Tx -> Property
 roundtripLedger :: Tx -> Property
 roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
 
-module Spec
-main :: IO ()
+module Hydra.Tx.KZGTrustedSetupSpec
 spec :: Spec
+toInt :: ByteString -> Integer
 
 module Main
 main :: IO ()
