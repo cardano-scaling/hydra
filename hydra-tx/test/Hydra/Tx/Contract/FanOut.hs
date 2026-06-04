@@ -10,6 +10,7 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
 import Hydra.Cardano.Api.Gen (genTxIn)
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Deposit (DepositRedeemer (Claim))
 import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (toErrorCode)
@@ -21,18 +22,23 @@ import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (mkHeadId, registryUTxO)
+import Hydra.Tx (ScriptRegistry (..), mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.Fanout (fanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
+import PlutusLedgerApi.V3 (toBuiltin)
+import PlutusTx.Builtins (bls12_381_G1_uncompress)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
-import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
+import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
+
+scriptRegistry :: ScriptRegistry
+scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
 healthyFanoutTx :: (Tx, UTxO)
 healthyFanoutTx =
@@ -52,8 +58,6 @@ healthyFanoutTx =
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
-
-  scriptRegistry = genScriptRegistryWithCRSSize crsSize `generateWith` 42
 
   headInput = generateWith arbitrary 42
 
@@ -145,6 +149,11 @@ data FanoutMutation
     FanoutAbsorbForeignDeposit
   | -- | Change headAdaOverhead in the input ClosedDatum, breaking value conservation.
     MutateHeadAdaOverhead
+  | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
+    MutateFanoutFakeCRS
+  | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
+    -- Exposes that withCRSLookup must also validate txOutAddress.
+    MutateFanoutWrongAddressCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -183,6 +192,42 @@ genFanoutMutation (tx, _utxo) =
         -- baseline, so the on-chain headInValue == outputs + overhead check fails.
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead healthyFanoutDatum)
+    , -- Fake CRS UTxO with no reference script — the script-hash check rejects it.
+      SomeMutation (pure $ toErrorCode InvalidCRSRefScript) MutateFanoutFakeCRS <$> do
+        let ScriptRegistry{crsReference = (_, legitCRSOut)} = scriptRegistry
+        fakeCRSIn <- arbitrary `suchThat` (/= fst (crsReference scriptRegistry))
+        someAddress <- genAddressInEra testNetworkId
+        let fakeCRSOut = TxOut someAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) ReferenceScriptNone
+            fakeRedeemer =
+              Head.Fanout
+                { Head.numberOfFanoutOutputs = fromIntegral (UTxO.size healthyFanoutUTxO)
+                , Head.proof = fanoutProof
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
+    , -- Fake CRS UTxO: correct reference script hash but UTxO at an attacker-controlled address.
+      -- The script-hash check passes because the reference script bytes are legitimate,
+      -- but the address check (once enforced) must reject it.
+      SomeMutation (pure $ toErrorCode InvalidCRSRefAddress) MutateFanoutWrongAddressCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        fakeCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        wrongAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress legitCRSOut)
+        let fakeCRSOut = TxOut wrongAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) (mkScriptRef CRS.validatorScript)
+            fakeRedeemer =
+              Head.Fanout
+                { Head.numberOfFanoutOutputs = fromIntegral (UTxO.size healthyFanoutUTxO)
+                , Head.proof = fanoutProof
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
     , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do
         extraIn <- genTxIn
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
@@ -222,3 +267,12 @@ genFanoutMutation (tx, _utxo) =
       v -> v
 
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
+
+  fanoutProof =
+    bls12_381_G1_uncompress $
+      toBuiltin $
+        either error id $
+          Accumulator.createMembershipProofFromUTxO @Tx
+            healthyFanoutUTxO
+            healthyFanoutSnapshotAccumulator
+            (Accumulator.crsG1Points crsSize)

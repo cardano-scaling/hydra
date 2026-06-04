@@ -9,8 +9,9 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import GHC.IsList (IsList (..))
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
+import Hydra.Contract.HeadError (HeadError (BurntTokenNumberMismatch, FinalPartialFanoutMembershipFailed, FinalPartialFanoutZeroOutputs, HeadValueIsNotPreserved, InvalidCRSRefAddress, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
@@ -136,6 +137,9 @@ data FinalPartialFanoutMutation
     MutateFinalPartialFanoutZeroOutputs
   | -- | Changing headAdaOverhead in the input FanoutProgressDatum breaks value conservation.
     MutateFinalPartialFanoutHeadAdaOverhead
+  | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
+    -- Exposes that withCRSLookup must also validate txOutAddress.
+    MutateFinalPartialFanoutWrongAddressCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFinalPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -226,6 +230,32 @@ genFinalPartialFanoutMutation (tx, _utxo) =
         -- the on-chain headInValue == outputs + overhead check fails.
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead (Head.FanoutProgress healthyProgressDatum))
+    , -- Fake CRS UTxO: correct reference script hash but UTxO at an attacker-controlled address.
+      -- The script-hash check passes because the reference script bytes are legitimate,
+      -- but the address check (once enforced) must reject it.
+      SomeMutation (pure $ toErrorCode InvalidCRSRefAddress) MutateFinalPartialFanoutWrongAddressCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        fakeCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        wrongAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress legitCRSOut)
+        let fakeCRSOut = TxOut wrongAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) (mkScriptRef CRS.validatorScript)
+            fakeRedeemer =
+              Head.FinalPartialFanout
+                { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
+                , Head.proof =
+                    bls12_381_G1_uncompress $
+                      toBuiltin $
+                        either error id $
+                          Accumulator.createMembershipProofFromUTxO @Tx
+                            healthyDistributeUTxO
+                            healthyRemainingAccumulator
+                            (Accumulator.crsG1Points crsSize)
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
     , -- Claim one fewer output than the tx actually distributes, with a recomputed
       -- valid proof for n-1 elements. The conservation check catches this: the sum of
       -- n-1 outputs is less than headInValue, so HeadValueIsNotPreserved fires before

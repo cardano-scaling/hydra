@@ -877,7 +877,10 @@ withCRSLookup expectedHash txInfo crsRef cont =
   let (resolved, crsData) = resolveCRS txInfo crsRef
    in if txOutReferenceScript resolved /= Just expectedHash
         then traceError $(errorCode InvalidCRSRefScript)
-        else cont crsData
+        else
+          if addressCredential (txOutAddress resolved) /= ScriptCredential expectedHash
+            then traceError $(errorCode InvalidCRSRefAddress)
+            else cont crsData
 {-# INLINEABLE withCRSLookup #-}
 
 -- | Compute the accumulator scalar for each output in the list.
