@@ -7,12 +7,13 @@ import Hydra.Prelude
 import Data.Fixed (Nano)
 import Data.List qualified as List
 import Data.Text (pack)
+import Data.Text qualified as T
 import Data.Time (nominalDiffTimeToSeconds)
 import Data.Vector (Vector, (!))
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Statistics.Quantile (def)
 import Statistics.Quantile qualified as Statistics
-import Test.HUnit.Lang (formatFailureReason)
+import Test.HUnit.Lang (FailureReason, formatFailureReason)
 import Test.Hydra.Prelude (HUnitFailure (..))
 import Text.Printf (printf)
 
@@ -47,9 +48,9 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , numberOfTxs = 0
     , numberOfInvalidTxs = 0
     , averageConfirmationTime = 0
-    , summaryTitle = maybe "Error Summary" ("Error Summary " <>) title
+    , summaryTitle = maybe "Failed scenario" (<> " (failed)") title
     , summaryDescription =
-        pack $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
+        "Benchmark failed " <> pack (formatLocation sourceLocation) <> ": " <> shortReason reason
     , quantiles = mempty
     , numberOfFanoutOutputs = 0
     , endToEndTps = 0
@@ -60,6 +61,16 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     }
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
+
+  -- Take only the first line of the reason. waitMatch failures dump every
+  -- "seen message" verbatim, which is hundreds of lines of JSON that mangle
+  -- the markdown when this summary lands in a PR comment.
+  shortReason :: FailureReason -> Text
+  shortReason r =
+    let full = pack (formatFailureReason r)
+     in case T.lines full of
+          [] -> "(no reason)"
+          (l : rest) -> l <> if null rest then "" else " (full output omitted)"
 
 makeQuantiles :: [NominalDiffTime] -> Vector Double
 -- makeQuantiles [] = mempty -- No confirmations, no quantiles.
@@ -145,44 +156,59 @@ markdownReport now summaries =
     ]
 
 formattedSummary :: (Summary, SystemStats) -> [Text]
-formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
-  [ ""
-  , "## " <> summaryTitle
-  , ""
-  , summaryDescription
-  , ""
-  , "| Number of nodes |  " <> show clusterSize <> " | "
-  , "| -- | -- |"
-  , "| _Number of txs_ | " <> show numberOfTxs <> " |"
-  , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
-  ]
-    ++ ( if length quantiles == 100
-          then
-            [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
-            , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
-            , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
-            ]
-          else []
-       )
-    ++ [ pack $ printf "| _End-to-end TPS_ | %.2f tx/s |" endToEndTps
-       , "| _Snapshots observed_ | " <> show numberOfSnapshots <> " |"
-       ]
-    ++ ( if length snapshotTpsQuantiles == 100
-          then
-            [ pack $ printf "| _Per-snapshot TPS P50_ | %.2f tx/s |" (snapshotTpsQuantiles ! 50)
-            , pack $ printf "| _Per-snapshot TPS P95_ | %.2f tx/s |" (snapshotTpsQuantiles ! 95)
-            , pack $ printf "| _Per-snapshot TPS max_ | %.2f tx/s |" (snapshotTpsQuantiles ! 99)
-            ]
-          else []
-       )
-    ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
-       ]
-    ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
-       ]
-    ++ markdownIncremental "Incremental commit" incrementalCommitTimes
-    ++ markdownIncremental "Incremental decommit" incrementalDecommitTimes
-    ++ ["      "]
-    ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
+formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats)
+  | numberOfTxs == 0 =
+      -- Failed cell: no confirmations, so all the latency / TPS rows would be
+      -- zeros or empty quantiles. Render a short failure block instead of the
+      -- full table to keep the matrix report readable.
+      [ ""
+      , "## " <> summaryTitle
+      , ""
+      , summaryDescription
+      , ""
+      , "| Number of nodes | " <> show clusterSize <> " |"
+      , "| -- | -- |"
+      , "| _Outcome_ | did not complete, no measurements |"
+      , "      "
+      ]
+  | otherwise =
+      [ ""
+      , "## " <> summaryTitle
+      , ""
+      , summaryDescription
+      , ""
+      , "| Number of nodes |  " <> show clusterSize <> " | "
+      , "| -- | -- |"
+      , "| _Number of txs_ | " <> show numberOfTxs <> " |"
+      , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
+      ]
+        ++ ( if length quantiles == 100
+              then
+                [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
+                , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
+                , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
+                ]
+              else []
+           )
+        ++ [ pack $ printf "| _End-to-end TPS_ | %.2f tx/s |" endToEndTps
+           , "| _Snapshots observed_ | " <> show numberOfSnapshots <> " |"
+           ]
+        ++ ( if length snapshotTpsQuantiles == 100
+              then
+                [ pack $ printf "| _Per-snapshot TPS P50_ | %.2f tx/s |" (snapshotTpsQuantiles ! 50)
+                , pack $ printf "| _Per-snapshot TPS P95_ | %.2f tx/s |" (snapshotTpsQuantiles ! 95)
+                , pack $ printf "| _Per-snapshot TPS max_ | %.2f tx/s |" (snapshotTpsQuantiles ! 99)
+                ]
+              else []
+           )
+        ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
+           ]
+        ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
+           ]
+        ++ markdownIncremental "Incremental commit" incrementalCommitTimes
+        ++ markdownIncremental "Incremental decommit" incrementalDecommitTimes
+        ++ ["      "]
+        ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
  where
   markdownIncremental :: Text -> [NominalDiffTime] -> [Text]
   markdownIncremental lbl = \case
@@ -243,33 +269,40 @@ comparisonTable summaries =
     <> [""]
  where
   row :: (Summary, SystemStats) -> Text
-  row (Summary{clusterSize, numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, snapshotTpsQuantiles}, _) =
-    let p95Conf = if length quantiles == 100 then show (quantiles ! 95) else "n/a"
-        p50Tps =
-          if length snapshotTpsQuantiles == 100
-            then pack $ printf "%.2f" (snapshotTpsQuantiles ! 50)
-            else "n/a"
-        wallClock =
-          if endToEndTps > 0
-            then pack $ printf "%.2f" (fromIntegral numberOfTxs / endToEndTps :: Double)
-            else "n/a"
-     in "| "
+  row (Summary{clusterSize, numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, snapshotTpsQuantiles}, _)
+    | numberOfTxs == 0 =
+        "| "
           <> summaryTitle
           <> " | "
           <> show clusterSize
-          <> " | "
-          <> show numberOfTxs
-          <> " | "
-          <> wallClock
-          <> " | "
-          <> pack (printf "%.2f" endToEndTps)
-          <> " | "
-          <> p50Tps
-          <> " | "
-          <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
-          <> " | "
-          <> p95Conf
-          <> " |"
+          <> " | 0 | n/a | n/a | n/a | n/a | n/a |"
+    | otherwise =
+        let p95Conf = if length quantiles == 100 then show (quantiles ! 95) else "n/a"
+            p50Tps =
+              if length snapshotTpsQuantiles == 100
+                then pack $ printf "%.2f" (snapshotTpsQuantiles ! 50)
+                else "n/a"
+            wallClock =
+              if endToEndTps > 0
+                then pack $ printf "%.2f" (fromIntegral numberOfTxs / endToEndTps :: Double)
+                else "n/a"
+         in "| "
+              <> summaryTitle
+              <> " | "
+              <> show clusterSize
+              <> " | "
+              <> show numberOfTxs
+              <> " | "
+              <> wallClock
+              <> " | "
+              <> pack (printf "%.2f" endToEndTps)
+              <> " | "
+              <> p50Tps
+              <> " | "
+              <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
+              <> " | "
+              <> p95Conf
+              <> " |"
 
 nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
 nominalDiffTimeToMilliseconds = fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds
