@@ -2,6 +2,7 @@ module Bench.Options where
 
 import Hydra.Prelude
 
+import Data.Text (splitOn)
 import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
 import Hydra.Network (Host, readHost)
@@ -11,6 +12,7 @@ import Options.Applicative (
   ParserInfo,
   auto,
   command,
+  flag,
   fullDesc,
   header,
   help,
@@ -29,7 +31,7 @@ import Options.Applicative (
  )
 import Options.Applicative.Builder (argument)
 
-data UTxOSize = Constant | Growing deriving stock (Eq, Show, Read)
+data UTxOSize = Constant | Growing | Mixed deriving stock (Eq, Show, Read)
 
 data Options
   = StandaloneOptions
@@ -37,6 +39,7 @@ data Options
       , outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
+      , incrementalOps :: Bool
       }
   | DatasetOptions
       { outputDirectory :: Maybe FilePath
@@ -45,6 +48,7 @@ data Options
       , numberOfTxs :: Int
       , clusterSize :: Word64
       , startingNodeId :: Int
+      , incrementalOps :: Bool
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -55,6 +59,15 @@ data Options
       , hydraClients :: [Host]
       , pumbaCommand :: Maybe String
       }
+  | MatrixOptions
+      { outputDirectory :: Maybe FilePath
+      , timeoutSeconds :: NominalDiffTime
+      , numberOfTxs :: Int
+      , startingNodeId :: Int
+      , clusterSizes :: [Word64]
+      , utxoShapes :: [UTxOSize]
+      , incrementalModes :: [Bool]
+      }
 
 benchOptionsParser :: ParserInfo Options
 benchOptionsParser =
@@ -63,6 +76,7 @@ benchOptionsParser =
         ( command "single" standaloneOptionsInfo
             <> command "datasets" datasetOptionsInfo
             <> command "demo" demoOptionsInfo
+            <> command "matrix" matrixOptionsInfo
         )
         <**> helper
     )
@@ -91,6 +105,7 @@ standaloneOptionsParser =
     <*> optional outputDirectoryParser
     <*> timeoutParser
     <*> startingNodeIdParser
+    <*> incrementalOpsParser
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
@@ -157,9 +172,10 @@ utxoSizeParser =
         <> value Constant
         <> metavar "UTxOSize"
         <> help
-          "Generated UTxO size. This can be 'Constant' where UTxO set has constant size \
-          \ depending on the number of generated txs or 'Growing' where each new generated \
-          \ transaction produces one extra output which makes the UTxO in the Head grow."
+          "Generated UTxO shape. 'Constant' keeps the head UTxO at a fixed size by \
+          \ submitting self-transfers. 'Growing' adds one extra output per tx so the \
+          \ head UTxO grows over the run. 'Mixed' grows for the first half of the run \
+          \ then contracts via 2-in 1-out merges for the second half."
     )
 
 demoOptionsInfo :: ParserInfo Options
@@ -226,6 +242,20 @@ datasetOptionsParser =
     <*> numberOfTxsParser
     <*> clusterSizeParser
     <*> startingNodeIdParser
+    <*> incrementalOpsParser
+
+incrementalOpsParser :: Parser Bool
+incrementalOpsParser =
+  flag
+    False
+    True
+    ( long "incremental-ops"
+        <> help
+          "If set, the bench will also exercise one incremental commit and \
+          \ one incremental decommit per client during the main transaction \
+          \ submission window, and report their finalisation times. Off by \
+          \ default."
+    )
 
 filepathParser :: Parser FilePath
 filepathParser =
@@ -234,3 +264,57 @@ filepathParser =
     ( metavar "FILE"
         <> help "Path to a JSON-formatted dataset descriptor file."
     )
+
+matrixOptionsInfo :: ParserInfo Options
+matrixOptionsInfo =
+  info
+    matrixOptionsParser
+    ( progDesc
+        "Run a scenario matrix over cluster sizes, UTxO shapes, and \
+        \ incremental-ops modes. Writes a single 'scenarios.md' to the output \
+        \ directory with a leading comparison table plus one section per cell."
+    )
+
+matrixOptionsParser :: Parser Options
+matrixOptionsParser =
+  MatrixOptions
+    <$> optional outputDirectoryParser
+    <*> timeoutParser
+    <*> numberOfTxsParser
+    <*> startingNodeIdParser
+    <*> clusterSizesParser
+    <*> utxoShapesParser
+    <*> incrementalModesParser
+
+clusterSizesParser :: Parser [Word64]
+clusterSizesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "cluster-sizes"
+        <> value [1, 2, 3]
+        <> metavar "LIST"
+        <> help "Comma-separated cluster sizes to iterate (default: 1,2,3)"
+    )
+
+utxoShapesParser :: Parser [UTxOSize]
+utxoShapesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "shapes"
+        <> value [Constant, Growing, Mixed]
+        <> metavar "LIST"
+        <> help "Comma-separated UTxO shapes to iterate. 'Constant' uses self-transfers so the head UTxO stays flat; 'Growing' adds outputs over time; 'Mixed' grows then contracts. (default: Constant,Growing,Mixed)"
+    )
+
+incrementalModesParser :: Parser [Bool]
+incrementalModesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "incremental-modes"
+        <> value [False, True]
+        <> metavar "LIST"
+        <> help "Comma-separated incremental-ops modes, e.g. False,True (default: False,True)"
+    )
+
+parseListOf :: Read a => String -> Maybe [a]
+parseListOf s = traverse (readMaybe . toString) (splitOn "," (toText s))

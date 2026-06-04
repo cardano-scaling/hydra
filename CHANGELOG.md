@@ -10,6 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
+- Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
+  per-snapshot quantiles), a new `Mixed` UTxO generator that grows then contracts
+  the head state, an opt-in interleaved incremental commit/decommit cycle
+  (`--incremental-ops`), and a new `matrix` sub-command that iterates over
+  cluster sizes, UTxO shapes, and incremental modes. CI publishes the matrix
+  output as a new
+  [scenario benchmarks](https://hydra.family/head-protocol/benchmarks/scenarios)
+  page.
+
 - Heads with large UTxO sets can now be fanned out in multiple steps using
   `PartialFanoutTx` and `FinalPartialFanoutTx` transactions [#2324](https://github.com/cardano-scaling/hydra/pull/2324).
   Each step distributes as many outputs as fit in a single transaction (determined

@@ -8,6 +8,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import CardanoClient (QueryPoint (QueryTip), localNodeConnectInfo, mkGenesisTx, queryUTxOFor)
 import Control.Monad (foldM)
 import Data.Aeson (object, withObject, (.:), (.=))
+import Data.List qualified as List
 import Hydra.Chain.Backend (buildTransaction)
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Cluster.Faucet (FaucetException (..))
@@ -152,6 +153,141 @@ generateGrowingUTxODataset faucetSk nClients nTxs = do
           Left err ->
             error $ "mkSimpleTx failed: " <> show err
           Right tx -> (utxoFromTx tx, tx : txs)
+
+-- | Generate a 'Dataset' that grows the head's UTxO set for the first half of
+-- the tx sequence and contracts it again for the second half. Phase 1 reuses
+-- the same per-tx pattern as 'generateGrowingUTxODataset' (1-in -> 2-out via
+-- 'mkSimpleTx' with reduced output value). Phase 2 issues 2-in -> 1-out
+-- merges that consume two previously created outputs and produce a single
+-- combined output. End-state has a single UTxO again.
+generateMixedUTxODataset ::
+  -- | Faucet signing key
+  SigningKey PaymentKey ->
+  -- | Number of clients
+  Int ->
+  -- | Number of transactions
+  Int ->
+  Gen Dataset
+generateMixedUTxODataset faucetSk nClients nTxs = do
+  hydraNodeKeys <- replicateM nClients genSigningKey
+  allPaymentKeys <- replicateM nClients genSigningKey
+  clientFunds <- genClientFunds allPaymentKeys availableInitialFunds
+  let fundingTransaction =
+        mkGenesisTx networkId faucetSk (Coin availableInitialFunds) clientFunds
+  clientDatasets <- forM allPaymentKeys (genClientDataset fundingTransaction)
+  pure
+    Dataset
+      { fundingTransaction
+      , hydraNodeKeys
+      , clientDatasets
+      , title = Just "Mixed UTxO Scenario"
+      , description =
+          Just
+            "Each client first grows its UTxO set (1-in to 2-out) for half of \
+            \its tx budget, then contracts it back (2-in to 1-out) for the \
+            \remainder."
+      }
+ where
+  growSteps = nTxs `div` 2
+  contractSteps = nTxs - growSteps
+
+  genClientDataset :: Tx -> SigningKey PaymentKey -> Gen ClientDataset
+  genClientDataset fundingTransaction paymentKey = do
+    let initialUTxO = withInitialUTxO paymentKey fundingTransaction
+    let vk = getVerificationKey paymentKey
+    let (afterGrow, growTxs) =
+          foldl' (genGrowTx paymentKey vk) (initialUTxO, []) [1 .. growSteps]
+    let (_, contractTxs) =
+          foldl' (genContractTx paymentKey vk) (afterGrow, []) [1 .. contractSteps]
+    pure
+      ClientDataset
+        { paymentKey
+        , initialUTxO
+        , txSequence = reverse growTxs ++ reverse contractTxs
+        }
+
+  -- Splits 4 ADA off the largest available UTxO so the change output is large
+  -- enough that subsequent iterations can spend it safely.
+  growChunk :: Coin
+  growChunk = Coin 4_000_000
+
+  -- The grow phase consumes the largest VK-owned UTxO each iteration. Picking
+  -- 'UTxO.find' instead would eventually land on one of the small change
+  -- outputs from earlier iterations, producing a negative-value txout when
+  -- 'growChunk' is subtracted.
+  genGrowTx ::
+    SigningKey PaymentKey ->
+    VerificationKey PaymentKey ->
+    (UTxO.UTxO Era, [Tx]) ->
+    Int ->
+    (UTxO.UTxO Era, [Tx])
+  genGrowTx sk vk (utxo, txs) _ =
+    case largestVkUTxO vk utxo of
+      Nothing -> error "mixed/grow: no utxo left to spend"
+      Just (txIn, txOut)
+        | selectLovelace (txOutValue txOut) <= growChunk ->
+            error $ "mixed/grow: largest VK utxo (" <> show (txOutValue txOut) <> ") is too small to split off " <> show growChunk
+        | otherwise ->
+            let chunkValue = lovelaceToValue growChunk
+             in case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, chunkValue) sk of
+                  Left err -> error $ "mixed/grow mkSimpleTx failed: " <> show err
+                  Right tx ->
+                    let remaining = UTxO.difference utxo (UTxO.singleton txIn txOut)
+                     in (remaining <> utxoFromTx tx, tx : txs)
+
+  genContractTx ::
+    SigningKey PaymentKey ->
+    VerificationKey PaymentKey ->
+    (UTxO.UTxO Era, [Tx]) ->
+    Int ->
+    (UTxO.UTxO Era, [Tx])
+  genContractTx sk vk (utxo, txs) _ =
+    case take 2 (UTxO.toList (UTxO.filter (isVkTxOut vk) utxo)) of
+      [(in1, out1), (in2, out2)] ->
+        case mkMergeTx networkId sk (in1, out1) (in2, out2) of
+          Left err -> error $ "mixed/contract mkMergeTx failed: " <> show err
+          Right tx ->
+            let spent = UTxO.fromList [(in1, out1), (in2, out2)]
+                remaining = UTxO.difference utxo spent
+             in (remaining <> utxoFromTx tx, tx : txs)
+      _ -> error "mixed/contract: need at least 2 utxos to merge"
+
+  largestVkUTxO :: VerificationKey PaymentKey -> UTxO.UTxO Era -> Maybe (TxIn, TxOut CtxUTxO)
+  largestVkUTxO vk =
+    let byLovelace :: (TxIn, TxOut CtxUTxO) -> Coin
+        byLovelace (_, o) = selectLovelace (txOutValue o)
+     in fmap (List.maximumBy (comparing byLovelace)) . nonEmpty . UTxO.toList . UTxO.filter (isVkTxOut vk)
+
+-- | Build a zero-fee 2-in 1-out transaction that merges two of a sender's own
+-- outputs into one. Used by the Mixed generator to contract the UTxO set.
+mkMergeTx ::
+  NetworkId ->
+  SigningKey PaymentKey ->
+  (TxIn, TxOut CtxUTxO) ->
+  (TxIn, TxOut CtxUTxO) ->
+  Either TxBodyError Tx
+mkMergeTx network sk (in1, out1) (in2, out2) = do
+  body <- createAndValidateTransactionBody bodyContent
+  let witnesses = [makeShelleyKeyWitness body (WitnessPaymentKey sk)]
+  pure $ makeSignedTransaction witnesses body
+ where
+  vk = getVerificationKey sk
+  combined = txOutValue out1 <> txOutValue out2
+  bodyContent =
+    defaultTxBodyContent
+      { txIns =
+          [ (in1, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+          , (in2, BuildTxWith $ KeyWitness KeyWitnessForSpending)
+          ]
+      , txOuts =
+          [ TxOut @CtxTx
+              (mkVkAddress network vk)
+              combined
+              TxOutDatumNone
+              ReferenceScriptNone
+          ]
+      , txFee = TxFeeExplicit (Coin 0)
+      }
 
 -- | Generate a 'Dataset' from an already running network by querying available
 -- funds of the well-known 'faucet.sk' and assuming the hydra-nodes we connect

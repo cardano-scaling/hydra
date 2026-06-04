@@ -5,6 +5,7 @@ module Bench.Summary where
 import Hydra.Prelude
 
 import Data.Fixed (Nano)
+import Data.List qualified as List
 import Data.Text (pack)
 import Data.Time (nominalDiffTimeToSeconds)
 import Data.Vector (Vector, (!))
@@ -30,6 +31,11 @@ data Summary = Summary
   , summaryDescription :: Text
   , quantiles :: Vector Double
   , numberOfFanoutOutputs :: Int
+  , endToEndTps :: Double
+  , snapshotTpsQuantiles :: Vector Double
+  , numberOfSnapshots :: Int
+  , incrementalCommitTimes :: [NominalDiffTime]
+  , incrementalDecommitTimes :: [NominalDiffTime]
   }
   deriving stock (Generic, Eq, Show)
 
@@ -46,6 +52,11 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
         pack $ "Benchmark failed " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason
     , quantiles = mempty
     , numberOfFanoutOutputs = 0
+    , endToEndTps = 0
+    , snapshotTpsQuantiles = mempty
+    , numberOfSnapshots = 0
+    , incrementalCommitTimes = []
+    , incrementalDecommitTimes = []
     }
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
@@ -55,8 +66,13 @@ makeQuantiles :: [NominalDiffTime] -> Vector Double
 makeQuantiles times =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList $ map (fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds) times)
 
+makeDoubleQuantiles :: [Double] -> Vector Double
+makeDoubleQuantiles [] = mempty
+makeDoubleQuantiles xs =
+  Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList xs)
+
 textReport :: (Summary, SystemStats) -> [Text]
-textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs}, systemStats) =
+textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
@@ -70,9 +86,32 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
                 ]
               else []
            )
+        ++ [pack $ printf "End-to-end TPS: %.2f tx/s" endToEndTps]
+        ++ [pack $ printf "Snapshots observed: %d" numberOfSnapshots]
+        ++ ( if length snapshotTpsQuantiles == 100
+              then
+                [ pack $ printf "Per-snapshot TPS P50: %.2f tx/s" (snapshotTpsQuantiles ! 50)
+                , pack $ printf "Per-snapshot TPS P95: %.2f tx/s" (snapshotTpsQuantiles ! 95)
+                , pack $ printf "Per-snapshot TPS max: %.2f tx/s" (snapshotTpsQuantiles ! 99)
+                ]
+              else []
+           )
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
         ++ ["Fanout outputs: " <> show numberOfFanoutOutputs]
+        ++ incrementalLines "Incremental commit" incrementalCommitTimes
+        ++ incrementalLines "Incremental decommit" incrementalDecommitTimes
         ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
+ where
+  incrementalLines :: Text -> [NominalDiffTime] -> [Text]
+  incrementalLines lbl = \case
+    [] -> []
+    ts ->
+      let xs = map nominalDiffTimeToMilliseconds ts
+          avg = sum xs / fromIntegral (length xs)
+       in [ lbl <> " count: " <> show (length ts)
+          , lbl <> " avg (ms): " <> show avg
+          , lbl <> " max (ms): " <> show (List.maximum xs)
+          ]
 
 markdownReport :: UTCTime -> [(Summary, SystemStats)] -> [Text]
 markdownReport now summaries =
@@ -105,32 +144,132 @@ markdownReport now summaries =
     , ""
     ]
 
-  formattedSummary :: (Summary, SystemStats) -> [Text]
-  formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs}, systemStats) =
-    [ ""
-    , "## " <> summaryTitle
+formattedSummary :: (Summary, SystemStats) -> [Text]
+formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, quantiles, summaryTitle, summaryDescription, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
+  [ ""
+  , "## " <> summaryTitle
+  , ""
+  , summaryDescription
+  , ""
+  , "| Number of nodes |  " <> show clusterSize <> " | "
+  , "| -- | -- |"
+  , "| _Number of txs_ | " <> show numberOfTxs <> " |"
+  , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
+  ]
+    ++ ( if length quantiles == 100
+          then
+            [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
+            , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
+            , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
+            ]
+          else []
+       )
+    ++ [ pack $ printf "| _End-to-end TPS_ | %.2f tx/s |" endToEndTps
+       , "| _Snapshots observed_ | " <> show numberOfSnapshots <> " |"
+       ]
+    ++ ( if length snapshotTpsQuantiles == 100
+          then
+            [ pack $ printf "| _Per-snapshot TPS P50_ | %.2f tx/s |" (snapshotTpsQuantiles ! 50)
+            , pack $ printf "| _Per-snapshot TPS P95_ | %.2f tx/s |" (snapshotTpsQuantiles ! 95)
+            , pack $ printf "| _Per-snapshot TPS max_ | %.2f tx/s |" (snapshotTpsQuantiles ! 99)
+            ]
+          else []
+       )
+    ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
+       ]
+    ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
+       ]
+    ++ markdownIncremental "Incremental commit" incrementalCommitTimes
+    ++ markdownIncremental "Incremental decommit" incrementalDecommitTimes
+    ++ ["      "]
+    ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
+ where
+  markdownIncremental :: Text -> [NominalDiffTime] -> [Text]
+  markdownIncremental lbl = \case
+    [] -> []
+    ts ->
+      let xs = map nominalDiffTimeToMilliseconds ts
+          avg = sum xs / fromIntegral (length xs)
+       in [ "| _" <> lbl <> " count_ | " <> show (length ts) <> " |"
+          , "| _" <> lbl <> " avg (ms)_ | " <> show avg <> " |"
+          , "| _" <> lbl <> " max (ms)_ | " <> show (List.maximum xs) <> " |"
+          ]
+
+-- | Markdown report for the matrix runner. Same per-scenario details as
+-- 'markdownReport' but with a 'scenarios.md'-flavoured page header and a
+-- leading comparison table summarising every cell in one view.
+matrixMarkdownReport :: UTCTime -> [(Summary, SystemStats)] -> [Text]
+matrixMarkdownReport now summaries =
+  pageHeader <> comparisonTable summaries <> concatMap formattedSummary summaries
+ where
+  pageHeader :: [Text]
+  pageHeader =
+    [ "--- "
+    , "sidebar_label: 'Scenario benchmarks' "
+    , "sidebar_position: 5 "
+    , "--- "
     , ""
-    , summaryDescription
+    , "# Scenario benchmark results "
     , ""
-    , "| Number of nodes |  " <> show clusterSize <> " | "
-    , "| -- | -- |"
-    , "| _Number of txs_ | " <> show numberOfTxs <> " |"
-    , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
+    , "This page collects results from the scenario matrix: every combination \
+      \ of cluster size, UTxO shape, and incremental-ops mode is exercised by \
+      \ CI from the latest `master` code and reported below."
+    , ""
+    , ":::caution"
+    , ""
+    , "Numbers are approximate. They come from cloud VMs rather than \
+      \ controlled hardware, so the useful signal is the relative change \
+      \ between cells and between commits, not the absolute throughput."
+    , ""
+    , ":::"
+    , ""
+    , "_Generated at_  " <> show now
+    , ""
     ]
-      ++ ( if length quantiles == 100
-            then
-              [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
-              , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
-              , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
-              ]
-            else []
-         )
-      ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
-         ]
-      ++ [ "| _Fanout outputs_        | " <> show numberOfFanoutOutputs <> " |"
-         ]
-      ++ ["      "]
-      ++ if null systemStats then [] else "\n### Memory data \n" : [unlines systemStats]
+
+comparisonTable :: [(Summary, SystemStats)] -> [Text]
+comparisonTable summaries =
+  [ ""
+  , "## Summary across cells"
+  , ""
+  , "TPS columns are rates (transactions per second); _Wall clock (s)_ is the \
+    \matching elapsed time, computed as `Txs / End-to-end TPS`, so a row with \
+    \50 txs and 50.58 tx/s ran in about 0.99 s."
+  , ""
+  , "| Scenario | Nodes | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Per-snapshot p50 TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
+  , "| -- | -- | -- | -- | -- | -- | -- | -- |"
+  ]
+    <> map row summaries
+    <> [""]
+ where
+  row :: (Summary, SystemStats) -> Text
+  row (Summary{clusterSize, numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, snapshotTpsQuantiles}, _) =
+    let p95Conf = if length quantiles == 100 then show (quantiles ! 95) else "n/a"
+        p50Tps =
+          if length snapshotTpsQuantiles == 100
+            then pack $ printf "%.2f" (snapshotTpsQuantiles ! 50)
+            else "n/a"
+        wallClock =
+          if endToEndTps > 0
+            then pack $ printf "%.2f" (fromIntegral numberOfTxs / endToEndTps :: Double)
+            else "n/a"
+     in "| "
+          <> summaryTitle
+          <> " | "
+          <> show clusterSize
+          <> " | "
+          <> show numberOfTxs
+          <> " | "
+          <> wallClock
+          <> " | "
+          <> pack (printf "%.2f" endToEndTps)
+          <> " | "
+          <> p50Tps
+          <> " | "
+          <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
+          <> " | "
+          <> p95Conf
+          <> " |"
 
 nominalDiffTimeToMilliseconds :: NominalDiffTime -> Nano
 nominalDiffTimeToMilliseconds = fromRational . (* 1000) . toRational . nominalDiffTimeToSeconds

@@ -104,13 +104,20 @@ jobs:
         include:
           - package: hydra-node
             bench: tx-cost
+            tag: tx-cost
             options: '--output-directory $(pwd)/../benchmarks'
           - package: hydra-node
             bench: micro
+            tag: micro
             options: '-o $(pwd)/../benchmarks/ledger-bench.html'
           - package: hydra-cluster
             bench: bench-e2e
+            tag: e2e
             options: 'single datasets/1-node.json datasets/3-nodes.json --output-directory $(pwd)/../benchmarks --timeout 1000s'
+          - package: hydra-cluster
+            bench: bench-e2e
+            tag: matrix
+            options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
@@ -130,7 +137,7 @@ jobs:
     - name: 💾 Upload build & test artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: benchmarks-${{matrix.package}}-${{matrix.bench}}
+        name: benchmarks-${{matrix.package}}-${{matrix.tag}}
         path: benchmarks
 
     # NOTE: This depends on the path used in hydra-cluster bench
@@ -159,8 +166,14 @@ jobs:
     - name: ⚙ Prepare comment body
       id: comment-body
       run: |
-        # Drop first 5 header lines and demote headlines one level
-        cat <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') | grep -v '^:::' > comment-body.md
+        # Drop first 5 header lines and demote headlines one level. Concatenate
+        # tx costs, the existing single end-to-end run, and the matrix
+        # scenarios so reviewers see every benchmark output in one PR comment.
+        cat \
+          <(cat artifact/transaction-cost.md | sed '1,5d;s/^#/##/') \
+          <(cat artifact/end-to-end-benchmarks.md | sed '1,5d;s/^#/##/') \
+          <(cat artifact/scenarios.md | sed '1,5d;s/^#/##/') \
+          | grep -v '^:::' > comment-body.md
 
     - name: 🔎 Find Comment
       uses: peter-evans/find-comment@v3

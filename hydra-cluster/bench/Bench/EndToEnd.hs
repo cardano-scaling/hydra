@@ -5,7 +5,7 @@ module Bench.EndToEnd where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.Summary (Summary (..), SystemStats, makeQuantiles)
+import Bench.Summary (Summary (..), SystemStats, makeDoubleQuantiles, makeQuantiles)
 import Cardano.Api.UTxO qualified as UTxO
 import CardanoNode (EndToEndLog (..), HydraNodeLog, findRunningCardanoNode', runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.Class.MonadSTM (
@@ -17,7 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
  )
 import Control.Lens (to, (^..), (^?))
-import Control.Monad.Class.MonadAsync (mapConcurrently)
+import Control.Monad.Class.MonadAsync (concurrently, mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
 import Data.Aeson.Lens (key, values, _JSON, _Number, _String)
 import Data.Aeson.Types (parseMaybe)
@@ -28,12 +28,14 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, getVerificationKey, lovelaceToValue, signTx)
+import Data.Vector (Vector)
+import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, getVerificationKey, lovelaceToValue, signTx, txOutAddress, txOutValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (Timing (..), depositTimeout)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
+import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Logging (
   Tracer,
   traceWith,
@@ -45,10 +47,12 @@ import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey)
 import HydraNode (
   HydraClient,
+  apiHost,
   getSnapshotUTxO,
   hydraNodeId,
   input,
   output,
+  postDecommit,
   requestCommitTx,
   send,
   waitFor,
@@ -63,8 +67,8 @@ import System.Process.Typed (shell, withProcessTerm)
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 
-bench :: Int -> NominalDiffTime -> FilePath -> Dataset -> IO (Summary, SystemStats)
-bench startingNodeId timeoutSeconds workDir dataset = do
+bench :: Int -> NominalDiffTime -> Bool -> FilePath -> Dataset -> IO (Summary, SystemStats)
+bench startingNodeId timeoutSeconds incrementalOpsEnabled workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -78,7 +82,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           let contestationPeriod = truncate $ 10 * blockTime
           let DirectOptions{nodeSocket = nodeSocket'} = directOpts
           putTextLn "Seeding network"
-          seedNetwork opts dataset (contramap FromFaucet tracer)
+          sideUTxOs <- seedNetwork opts dataset incrementalOpsEnabled (contramap FromFaucet tracer)
           putTextLn "Publishing hydra scripts"
           hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
@@ -87,7 +91,7 @@ bench startingNodeId timeoutSeconds workDir dataset = do
           putStrLn $ "Timing: " <> show timing
           withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
-            scenario hydraTracer timing opts workDir dataset clients Nothing
+            scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -97,10 +101,11 @@ benchDemo ::
   NominalDiffTime ->
   [Host] ->
   Maybe String ->
+  Bool ->
   FilePath ->
   Dataset ->
   IO (Summary, SystemStats)
-benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand workDir dataset@Dataset{clientDatasets} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incrementalOpsEnabled workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -113,7 +118,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand workDir 
           Just (blockTime, directOpts) -> do
             let opts = Direct directOpts
             putTextLn "Seeding network"
-            seedNetwork opts dataset (contramap FromFaucet tracer)
+            sideUTxOs <- seedNetwork opts dataset incrementalOpsEnabled (contramap FromFaucet tracer)
             (`finally` returnFaucetFunds tracer opts) $ do
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
@@ -122,7 +127,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand workDir 
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand
+                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand sideUTxOs
  where
   withHydraClientConnections ::
     Tracer IO HydraNodeLog ->
@@ -154,8 +159,11 @@ scenario ::
   Dataset ->
   NonEmpty HydraClient ->
   Maybe String ->
+  -- | Optional pre-seeded side UTxOs, one per client dataset, used for
+  -- interleaved incremental commit/decommit cycles. Empty list disables.
+  [UTxO] ->
   IO Summary
-scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand = do
+scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs = do
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients
       clients = toList nonEmptyClients
@@ -186,7 +194,12 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
   -- Note: We only run Pumba during normal transaction processing; this is
   -- acceptable because otherwise we do not retry the particular actions that
   -- may or may not be dropped.
-  processedTransactions <- withPumba pumbaCommand $ processTransactions clients clientDatasets
+  let incrementalCtx =
+        if null sideUTxOs
+          then Nothing
+          else Just IncrementalContext{ctxBackend = opts, ctxSideUTxOs = sideUTxOs, ctxHeadId = headId, ctxTracer = hydraTracer}
+  (processedTransactions, snapshotsSeen, incrementalCommitTimes, incrementalDecommitTimes) <-
+    withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
@@ -229,6 +242,8 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       quantiles = makeQuantiles confTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
+      (endToEndTps, snapshotTpsQuantiles, numberOfSnapshots) =
+        computeThroughput processedTransactions snapshotsSeen
 
   pure $
     Summary
@@ -241,6 +256,11 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       , summaryDescription
       , numberOfInvalidTxs
       , numberOfFanoutOutputs
+      , endToEndTps
+      , snapshotTpsQuantiles
+      , numberOfSnapshots
+      , incrementalCommitTimes
+      , incrementalDecommitTimes
       }
  where
   Timing{blockTime} = timing
@@ -294,11 +314,20 @@ movingAverage confirmations =
    in map average fiveSeconds
 
 -- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
--- dataset.
-seedNetwork :: ChainBackendOptions -> Dataset -> Tracer IO FaucetLog -> IO ()
-seedNetwork opts Dataset{fundingTransaction, hydraNodeKeys} tracer = do
+-- dataset. When 'incrementalOpsEnabled' is True, additionally seeds a small
+-- side UTxO (10 ADA) per client used later for interleaved incremental
+-- commit/decommit cycles. The returned list is parallel to
+-- 'clientDatasets' (empty when the flag is off).
+seedNetwork :: ChainBackendOptions -> Dataset -> Bool -> Tracer IO FaucetLog -> IO [UTxO]
+seedNetwork opts Dataset{fundingTransaction, hydraNodeKeys, clientDatasets} incrementalOpsEnabled tracer = do
   fundClients hydraNodeKeys
   forM_ hydraNodeKeys fuelWith100Ada
+  if incrementalOpsEnabled
+    then do
+      putTextLn "Funding side UTxOs for incremental ops"
+      forM clientDatasets $ \ClientDataset{paymentKey} ->
+        seedFromFaucet opts (getVerificationKey paymentKey) (lovelaceToValue 10_000_000) tracer
+    else pure []
  where
   fundClients hydraSKeys = do
     putTextLn "Fund scenario from faucet"
@@ -331,18 +360,54 @@ data Event = Event
   }
   deriving stock (Generic, Eq, Show)
 
-processTransactions :: [HydraClient] -> [ClientDataset] -> IO (Map.Map TxId Event)
-processTransactions clients clientDatasets = do
-  let processors = zip (zip clientDatasets (cycle clients)) [1 ..]
-  mconcat <$> mapConcurrently (uncurry clientProcessDataset) processors
+data IncrementalContext = IncrementalContext
+  { ctxBackend :: ChainBackendOptions
+  , ctxSideUTxOs :: [UTxO]
+  , ctxHeadId :: HeadId
+  , ctxTracer :: Tracer IO HydraNodeLog
+  }
+
+processTransactions ::
+  [HydraClient] ->
+  [ClientDataset] ->
+  Maybe IncrementalContext ->
+  IO (Map.Map TxId Event, Map.Map Scientific (UTCTime, Int), [NominalDiffTime], [NominalDiffTime])
+processTransactions clients clientDatasets incrementalCtx = do
+  -- Allocate per-client state up front so the optional incremental ops thread
+  -- can share access to the per-client registries.
+  perClient <- forM (zip clientDatasets (cycle clients)) $ \(cd@ClientDataset{txSequence}, client) -> do
+    let n = length txSequence
+    submissionQ <- newLabelledTBQueueIO "submission" (fromIntegral n)
+    registry <- newRegistry
+    atomically $ forM_ txSequence $ writeTBQueue submissionQ
+    pure (cd, client, submissionQ, registry, n)
+
+  let runIncremental = case incrementalCtx of
+        Nothing -> pure ([], [])
+        Just ctx -> runAllIncrementalOps ctx perClient
+
+  let perClientActions =
+        zipWith
+          ( \clientId (cd, client, submissionQ, registry, n) ->
+              clientProcessDataset cd client clientId submissionQ registry n
+          )
+          [1 ..]
+          perClient
+
+  (clientResults, (commitTimes, decommitTimes)) <-
+    concurrently
+      (mapConcurrently identity perClientActions)
+      runIncremental
+
+  let mergedTxs = Map.unions (map fst clientResults)
+      earlierObservation :: (UTCTime, Int) -> (UTCTime, Int) -> (UTCTime, Int)
+      earlierObservation (t1, c) (t2, _) = (min t1 t2, c)
+      mergedSnapshots = foldr (Map.unionWith earlierObservation . snd) Map.empty clientResults
+  pure (mergedTxs, mergedSnapshots, commitTimes, decommitTimes)
  where
   formatLocation = maybe "" (\loc -> "at " <> prettySrcLoc loc)
 
-  clientProcessDataset (ClientDataset{txSequence}, client) clientId = do
-    let numberOfTxs = length txSequence
-    submissionQ <- newLabelledTBQueueIO "submission" (fromIntegral numberOfTxs)
-    registry <- newRegistry
-    atomically $ forM_ txSequence $ writeTBQueue submissionQ
+  clientProcessDataset ClientDataset{txSequence} client clientId submissionQ registry numberOfTxs = do
     concurrentlyLabelled_
       ("submit-txs", submitTxs client registry submissionQ)
       ( "confirm-txs"
@@ -354,7 +419,81 @@ processTransactions clients clientDatasets = do
         putStrLn ("Something went wrong while waiting for all confirmations: " <> formatLocation sourceLocation <> ": " <> formatFailureReason reason)
           `catch` \(ex :: SomeException) ->
             putStrLn ("Something went wrong while waiting for all confirmations: " <> show ex)
-    readTVarIO (processedTxs registry)
+    (,) <$> readTVarIO (processedTxs registry) <*> readTVarIO (observedSnapshots registry)
+
+  runAllIncrementalOps :: IncrementalContext -> [(ClientDataset, HydraClient, TBQueue IO Tx, Registry Tx, Int)] -> IO ([NominalDiffTime], [NominalDiffTime])
+  runAllIncrementalOps IncrementalContext{ctxBackend, ctxSideUTxOs, ctxTracer} perClient = do
+    let pairs = zip ctxSideUTxOs perClient
+    results <-
+      mapConcurrently
+        ( \(sideUTxO, (ClientDataset{paymentKey}, client, submissionQ, _registry, numberOfTxs)) ->
+            try @_ @SomeException
+              (runOneIncrementalOp ctxTracer ctxBackend client paymentKey sideUTxO numberOfTxs submissionQ)
+        )
+        pairs
+    let collected = rights results
+        commits = mapMaybe fst collected
+        decommits = mapMaybe snd collected
+    forM_ results $ \case
+      Left ex -> putStrLn $ "Incremental op failed: " <> show ex
+      _ -> pure ()
+    pure (commits, decommits)
+
+  -- Opens a fresh API connection so the wait on CommitFinalized/DecommitFinalized
+  -- doesn't compete with the existing waitForAllConfirmations on the same WS.
+  runOneIncrementalOp ::
+    Tracer IO HydraNodeLog ->
+    ChainBackendOptions ->
+    HydraClient ->
+    SigningKey PaymentKey ->
+    UTxO ->
+    Int ->
+    TBQueue IO Tx ->
+    IO (Maybe NominalDiffTime, Maybe NominalDiffTime)
+  runOneIncrementalOp tracer backend client paymentKey sideUTxO numberOfTxs submissionQ = do
+    -- Wait until ~half this client's queue has drained.
+    atomically $ do
+      remaining <- lengthTBQueue submissionQ
+      let drained = fromIntegral numberOfTxs - fromIntegral remaining :: Double
+          target = fromIntegral numberOfTxs / 2 :: Double
+      check (drained >= target)
+
+    withConnectionToNodeHost tracer (hydraNodeId client) (apiHost client) Nothing (Just "/?history=no") $ \obs -> do
+      putTextLn "Incremental: requesting commit"
+      startCommit <- getCurrentTime
+      depositTx <- requestCommitTx client sideUTxO <&> signTx paymentKey
+      let depositTxId = txId depositTx
+      runBackend backend $ submitTransaction depositTx
+      _ <- waitMatch 180 obs $ \v -> do
+        guard (v ^? key "tag" == Just "CommitFinalized")
+        observed <- v ^? key "depositTxId" >>= parseMaybe parseJSON
+        guard (observed == depositTxId)
+        pure ()
+      commitFinalisedAt <- getCurrentTime
+      let commitTime = commitFinalisedAt `diffUTCTime` startCommit
+      putTextLn $ "Incremental: commit finalised in " <> show commitTime
+
+      case UTxO.toList sideUTxO of
+        [] -> pure (Just commitTime, Nothing)
+        ((i, o) : _) ->
+          case mkSimpleTx (i, o) (txOutAddress o, txOutValue o) paymentKey of
+            Left err -> do
+              putStrLn $ "Incremental: decommit tx build failed: " <> show err
+              pure (Just commitTime, Nothing)
+            Right decommitTx -> do
+              putTextLn "Incremental: posting decommit"
+              startDecommit <- getCurrentTime
+              postDecommit client decommitTx
+              let decommitTxId = txId decommitTx
+              _ <- waitMatch 180 obs $ \v -> do
+                guard (v ^? key "tag" == Just "DecommitFinalized")
+                observed <- v ^? key "decommitTxId" >>= parseMaybe parseJSON
+                guard (observed == decommitTxId)
+                pure ()
+              decommitFinalisedAt <- getCurrentTime
+              let decommitTime = decommitFinalisedAt `diffUTCTime` startDecommit
+              putTextLn $ "Incremental: decommit finalised in " <> show decommitTime
+              pure (Just commitTime, Just decommitTime)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
 progressReport nodeId clientId queueSize queue = do
@@ -396,15 +535,15 @@ data WaitResult
 
 data Registry tx = Registry
   { processedTxs :: TVar IO (Map.Map TxId Event)
-  , latestSnapshot :: TVar IO Scientific
+  , observedSnapshots :: TVar IO (Map.Map Scientific (UTCTime, Int))
   }
 
 newRegistry ::
   IO (Registry Tx)
 newRegistry = do
   processedTxs <- newLabelledTVarIO "registry-processed-txs" mempty
-  latestSnapshot <- newLabelledTVarIO "registry-latest-snapshot" 0
-  pure $ Registry{processedTxs, latestSnapshot}
+  observedSnapshots <- newLabelledTVarIO "registry-observed-snapshots" mempty
+  pure $ Registry{processedTxs, observedSnapshots}
 
 submitTxs ::
   HydraClient ->
@@ -430,7 +569,7 @@ waitForAllConfirmations ::
   Registry Tx ->
   Set TxId ->
   IO ()
-waitForAllConfirmations n1 Registry{processedTxs} allIds = do
+waitForAllConfirmations n1 Registry{processedTxs, observedSnapshots} allIds = do
   go allIds
  where
   go remainingIds
@@ -444,7 +583,11 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
           TxInvalid{transactionId} -> do
             invalidTx processedTxs transactionId
             go $ Set.delete transactionId remainingIds
-          SnapshotConfirmed{txIds} -> do
+          SnapshotConfirmed{txIds, number} -> do
+            now <- getCurrentTime
+            atomically $
+              modifyTVar observedSnapshots $
+                Map.insertWith (\_new old -> old) number (now, length txIds)
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
 
@@ -527,6 +670,46 @@ analyze = \case
   (_, Event{submittedAt, validAt = Just valid, confirmedAt = Just conf}) ->
     Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
+
+-- | End-to-end TPS over the run plus quantiles of per-snapshot TPS.
+--
+-- End-to-end TPS divides the count of confirmed txs by the wall-clock window
+-- from earliest submission to latest confirmation. Per-snapshot TPS is
+-- derived for snapshots that confirmed at least one tx by dividing the tx
+-- count by the gap to the previous observation (or the earliest submission
+-- time for the first snapshot).
+computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> (Double, Vector Double, Int)
+computeThroughput txs snapshots =
+  let submitted = mapMaybe submittedAtFor (Map.elems txs)
+      confirmed = mapMaybe confirmedAt (Map.elems txs)
+      numberOfTxs = length confirmed
+      e2eTps = case (submitted, confirmed) of
+        (s : _, _ : _) ->
+          let span_ = realToFrac (List.maximum confirmed `diffUTCTime` List.minimum (s : submitted)) :: Double
+           in if span_ > 0 then fromIntegral numberOfTxs / span_ else 0
+        _ -> 0
+      sortedSnapshots = sortOn fst (Map.toList snapshots)
+      anchor = case submitted of
+        [] -> Nothing
+        _ -> Just (List.minimum submitted)
+      perSnapshotRates = perSnapshotTps anchor sortedSnapshots
+   in (e2eTps, makeDoubleQuantiles perSnapshotRates, length sortedSnapshots)
+ where
+  submittedAtFor Event{submittedAt} = Just submittedAt
+  perSnapshotTps :: Maybe UTCTime -> [(Scientific, (UTCTime, Int))] -> [Double]
+  perSnapshotTps = go
+   where
+    go :: Maybe UTCTime -> [(Scientific, (UTCTime, Int))] -> [Double]
+    go _ [] = []
+    go prev ((_, (t, c)) : rest)
+      | c <= 0 = go (Just t) rest
+      | otherwise =
+          case prev of
+            Just p ->
+              let dt = realToFrac (t `diffUTCTime` p) :: Double
+                  rate = if dt > 0 then fromIntegral c / dt else 0
+               in rate : go (Just t) rest
+            Nothing -> go (Just t) rest
 
 writeResultsCsv :: FilePath -> [(UTCTime, NominalDiffTime, NominalDiffTime, Int)] -> IO ()
 writeResultsCsv fp res = do
