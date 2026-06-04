@@ -8,7 +8,7 @@ import Brick
 import Brick.Widgets.Border (borderWithLabel, hBorderWithLabel)
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Map qualified as Map
-import Hydra.Cardano.Api hiding (Active)
+import Hydra.Cardano.Api hiding (Active, getVerificationKey)
 import Hydra.Chain.CardanoClient (CardanoClient (..))
 import Hydra.Chain.Direct.State ()
 import Hydra.Client (Client (..))
@@ -29,6 +29,7 @@ import Hydra.TUI.Logging.Types (logMessagesL)
 import Hydra.TUI.Model
 import Hydra.TUI.Style
 import Hydra.Tx (Party (..))
+import Hydra.Tx.Crypto (getVerificationKey)
 import Lens.Micro ((^.))
 
 -- | Render the Main tab: connection/network/chain status, peers, head parties,

@@ -69,7 +69,6 @@ import Hydra.Cardano.Api (
   fromLedgerTx,
   getTxBody,
   getTxId,
-  getVerificationKey,
   lovelaceToValue,
   makeSignedTransaction,
   mkScriptAddress,
@@ -83,7 +82,6 @@ import Hydra.Cardano.Api (
   scriptWitnessInCtx,
   selectLovelace,
   setTxProtocolParams,
-  signTx,
   toLedgerData,
   toLedgerExUnits,
   toLedgerScript,
@@ -119,7 +117,9 @@ import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor, unsyncedPeriodToNomi
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), RunOptions (..), startChainFrom)
 import Hydra.Tx (HeadId (..), IsTx (balance), Party, txId)
 import Hydra.Tx.ContestationPeriod qualified as CP
+import Hydra.Tx.Crypto (getVerificationKey, signTx)
 import Hydra.Tx.Deposit (constructDepositUTxO)
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
@@ -548,7 +548,7 @@ singlePartyHeadFullLifeCycle tracer workDir opts hydraScriptsTxId =
         pure ()
 
       utxo <- getSnapshotUTxO n1
-      l2tx <- mkTransferTx networkId utxo walletSk aliceCardanoVk
+      l2tx <- mkTransferTx networkId utxo (mkSecret walletSk) aliceCardanoVk
       send n1 $ input "NewTx" ["transaction" .= l2tx]
       waitMatch (20 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -602,7 +602,7 @@ singlePartyOpenAHead ::
   [TxId] ->
   Maybe (Positive Natural) ->
   -- | Continuation called when the head is open
-  (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) ->
+  (HydraClient -> Secret (SigningKey PaymentKey) -> HeadId -> IO a) ->
   IO a
 singlePartyOpenAHead tracer workDir opts hydraScriptsTxId persistenceRotateAfter callback =
   (`finally` returnFundsToFaucet tracer opts Alice) $ do
@@ -637,7 +637,7 @@ singlePartyOpenAHead tracer workDir opts hydraScriptsTxId persistenceRotateAfter
       waitFor hydraTracer (depositTimeout timing) [n1] $
         output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
 
-      callback n1 walletSk headId
+      callback n1 (mkSecret walletSk) headId
 
 -- | Single hydra-node where the deposit is done using some wallet UTxO.
 canDeposit ::
@@ -1052,11 +1052,15 @@ canSubmitTransactionThroughAPI tracer workDir opts hydraScriptsTxId =
 -- transaction concurrently.
 threeNodesNoErrorsOnOpen :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 threeNodesNoErrorsOnOpen tracer tmpDir opts hydraScriptsTxId = do
-  aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-  bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-  carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+  (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+  (bobCardanoVk, bobCardanoSk) <- generate genKeyPair
+  (carolCardanoVk, carolCardanoSk) <- generate genKeyPair
 
-  let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+  let cardanoKeys =
+        [ (aliceCardanoVk, mkSecret aliceCardanoSk)
+        , (bobCardanoVk, mkSecret bobCardanoSk)
+        , (carolCardanoVk, mkSecret carolCardanoSk)
+        ]
       hydraKeys = [aliceSk, bobSk, carolSk]
 
   let contestationPeriod = 2
@@ -1662,7 +1666,7 @@ canDecommit tracer workDir opts hydraScriptsTxId =
       decommitTx <- do
         let (i, o) = List.head $ UTxO.toList commitUTxO
         either (failure . show) pure $
-          mkSimpleTx (i, o) (walletAddress, txOutValue o) walletSk
+          mkSimpleTx (i, o) (walletAddress, txOutValue o) (mkSecret walletSk)
 
       expectFailureOnUnsignedDecommitTx n1 headId decommitTx blockTime
       expectSuccessOnSignedDecommitTx n1 headId decommitTx
@@ -1993,7 +1997,7 @@ threeNodesWithMirrorParty tracer workDir opts hydraScriptsTxId = do
 
 -- | Respend all outputs owned by a given key in the head every 'delay' seconds,
 -- for 'numTimes' times.
-respendNTimes :: HasCallStack => HydraClient -> SigningKey PaymentKey -> DiffTime -> Int -> IO ()
+respendNTimes :: HasCallStack => HydraClient -> Secret (SigningKey PaymentKey) -> DiffTime -> Int -> IO ()
 respendNTimes client sk delay numTimes = do
   utxo <- getSnapshotUTxO client
   respend numTimes utxo

@@ -85,6 +85,7 @@ import Hydra.Tx.Observe (
  )
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Utils (setIncrementalActionMaybe, verificationKeyToOnChainId)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
@@ -714,7 +715,7 @@ observeClose st tx = do
 -- Do not use this in production code, but only for generating test data.
 data HydraContext = HydraContext
   { ctxVerificationKeys :: [VerificationKey PaymentKey]
-  , ctxHydraSigningKeys :: [SigningKey HydraKey]
+  , ctxHydraSigningKeys :: [Secret (SigningKey HydraKey)]
   , ctxNetworkId :: NetworkId
   , ctxContestationPeriod :: ContestationPeriod
   , ctxScriptRegistry :: ScriptRegistry

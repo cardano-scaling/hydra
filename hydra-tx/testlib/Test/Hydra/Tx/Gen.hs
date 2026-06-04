@@ -3,7 +3,7 @@
 
 module Test.Hydra.Tx.Gen where
 
-import Hydra.Cardano.Api hiding (generateSigningKey)
+import Hydra.Cardano.Api hiding (generateSigningKey, getVerificationKey)
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
@@ -39,6 +39,7 @@ import Hydra.Tx.Crypto
 import Hydra.Tx.Fanout (PartialFanoutObservation)
 import Hydra.Tx.Observe (ContestObservation, DecrementObservation, DepositObservation, FanoutObservation, HeadObservation, IncrementObservation, InitObservation, RecoverObservation)
 import Hydra.Tx.OnChainId
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, pparams, slotLength, systemStart)
@@ -464,14 +465,20 @@ propTransactionFailsEvaluation (tx, lookupUTxO) =
         & counterexample ("Redeemer report: " <> show redeemerReport)
         & counterexample "Phase-2 validation should have failed"
 
-instance Arbitrary (SigningKey HydraKey) where
+-- | Random 'Secret'-wrapped Hydra signing key. There is no @Arbitrary
+-- (SigningKey HydraKey)@ instance: every test generator that needs a
+-- Hydra signing key produces a 'Secret'-wrapped one. Tests that need a
+-- stable value (e.g. 'Greetings' JSON roundtrip) override the relevant
+-- 'Arbitrary' for the enclosing record to use the
+-- 'placeholderSigningKey' instead.
+instance Arbitrary (Secret (SigningKey HydraKey)) where
   arbitrary = generateSigningKey . BS.pack <$> vectorOf 32 arbitrary
 
 instance Arbitrary (VerificationKey HydraKey) where
-  arbitrary = getVerificationKey <$> arbitrary
+  arbitrary = getVerificationKey <$> (arbitrary :: Gen (Secret (SigningKey HydraKey)))
 
 instance (Arbitrary a, SignableRepresentation a) => Arbitrary (Signature a) where
-  arbitrary = sign <$> arbitrary <*> arbitrary
+  arbitrary = sign <$> (arbitrary :: Gen (Secret (SigningKey HydraKey))) <*> arbitrary
 
 instance (Arbitrary a, SignableRepresentation a) => Arbitrary (MultiSignature a) where
   arbitrary = HydraMultiSignature <$> arbitrary
@@ -550,7 +557,7 @@ genConfirmedSnapshot ::
   UTxOType tx ->
   Maybe (UTxOType tx) ->
   Maybe (UTxOType tx) ->
-  [SigningKey HydraKey] ->
+  [Secret (SigningKey HydraKey)] ->
   Gen (ConfirmedSnapshot tx)
 genConfirmedSnapshot headId version minSn utxo utxoToCommit utxoToDecommit sks
   | minSn > 0 = confirmedSnapshot

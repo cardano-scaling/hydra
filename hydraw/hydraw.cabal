@@ -37,6 +37,7 @@ library
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
+    , hydra-tx
     , text
     , websockets
 
