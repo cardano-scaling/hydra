@@ -18,8 +18,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.CRS (CRSDatum, checkMembershipPairing)
 import Hydra.Contract.CRS qualified as CRS
-import Hydra.Contract.Commit (Commit (..))
-import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Contract.HeadState (
   CloseRedeemer (..),
