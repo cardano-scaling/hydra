@@ -110,16 +110,6 @@ headValidator crsHash oldState input ctx =
     _ ->
       traceError $(errorCode InvalidHeadStateTransition)
 
--- | Try to find the deposit datum in the input and, if it is there,
--- return the head id the deposit was created for and the committed utxo.
-depositDatum :: TxOut -> Maybe (CurrencySymbol, [Commit])
-depositDatum input = do
-  let datum = getTxOutDatum input
-  case fromBuiltinData @Deposit.DepositDatum $ getDatum datum of
-    Just (headId, _deadline, commits) ->
-      Just (headId, commits)
-    Nothing -> Nothing
-
 -- | Verify a increment transaction.
 checkIncrement ::
   ScriptContext ->
@@ -886,7 +876,3 @@ txOutsToSubsetScalars outputs =
   let elementHash txOut = blake2b_224 (hashTxOuts [txOut])
    in fmap (Builtins.byteStringToInteger BigEndian . elementHash) outputs
 {-# INLINEABLE txOutsToSubsetScalars #-}
-
-emptyHash :: Hash
-emptyHash = hashTxOuts []
-{-# INLINEABLE emptyHash #-}
