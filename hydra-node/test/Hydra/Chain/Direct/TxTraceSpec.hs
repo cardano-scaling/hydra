@@ -925,6 +925,8 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
       -- Model world has no 'Maybe ModelUTxO', but real world does.
       fanoutCommit
       fanoutDecommit
+      -- Full snapshot UTxO for accumulator proof (no pre-settling in model world)
+      (fanoutUTxO <> fold fanoutCommit <> fold fanoutDecommit)
       deadline
  where
   fanoutUTxO = realWorldModelUTxO utxo

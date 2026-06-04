@@ -398,7 +398,11 @@ genFanoutTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let openUTxO = getKnownUTxO stOpen
+  -- When increment was applied (openVersion /= version), the head already holds the
+  -- committed UTxOs' value. Enrich the open UTxO before close so headAdaOverhead is
+  -- computed correctly as non-negative.
+  let commitEnrichment = if openVersion /= version then maybe mempty UTxO.totalValue toCommit' else mempty
+  let openUTxO = UTxO.map (modifyTxOutValue (<> commitEnrichment)) $ getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
   let stClosed@ClosedState{seedTxIn} = snd $ fromJust $ observeClose stOpen txClose
   let toFanout = utxo $ getSnapshot confirmed
@@ -406,9 +410,9 @@ genFanoutTx numParties = do
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   -- if local version is not matching the snapshot version we **should** fanout commit utxo
   let finalToCommit = if openVersion /= version then toCommit else Nothing
-  let commitValue = maybe mempty UTxO.totalValue finalToCommit
-  let spendableUTxO = UTxO.map (modifyTxOutValue (<> commitValue)) (getKnownUTxO stClosed)
-  pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing deadlineSlotNo)
+  let spendableUTxO = getKnownUTxO stClosed
+  let utxoForProof = toFanout <> fold toCommit
+  pure (cctx, stClosed, spendableUTxO, unsafeFanout cctx spendableUTxO seedTxIn toFanout finalToCommit Nothing utxoForProof deadlineSlotNo)
 
 genPartialFanoutTx :: Int -> Gen (ChainContext, ClosedState, UTxO, Tx)
 genPartialFanoutTx numParties = do
@@ -447,15 +451,15 @@ genClosedStateForFanout numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let openUTxO = getKnownUTxO stOpen
+  -- Enrich the open head output with u0Value BEFORE building the close tx so that
+  -- headAdaOverhead (= headLovelace - snapshotLovelace) is non-negative and correct.
+  -- genStOpen already inflated the head with a small u0; we add the snapshot u0 here.
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-  -- The init tx head output has only tokens (0 ADA). We add the full UTxO value
-  -- so the head output can cover all outputs distributed across fanout steps.
-  let u0Value = UTxO.totalValue u0
-  let spendableUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stClosed
-  pure (cctx, stClosed, spendableUTxO, deadlineSlotNo, u0)
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0)
 
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.
@@ -484,13 +488,12 @@ genClosedStateForFanoutWithComplexUTxO numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let openUTxO = getKnownUTxO stOpen
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
   let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
-  let u0Value = UTxO.totalValue u0
-  let spendableUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stClosed
-  pure (cctx, stClosed, spendableUTxO, deadlineSlotNo, u0)
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0)
 
 -- | Like 'genPartialFanoutTx' but uses complex UTxO with multi-asset tokens.
 -- Applies the dynamic chunk-size algorithm using a 90% safety budget, so the

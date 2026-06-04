@@ -188,7 +188,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure $ headSeedToTxIn headSeed
               pure (slot, tin)
         vtx <- case tx of
-          FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+          FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
             findFittingFanoutTx
@@ -197,7 +197,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot)
+              (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot)
               fullUTxO
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty

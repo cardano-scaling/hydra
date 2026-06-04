@@ -72,6 +72,7 @@ healthyContestTx =
           healthyOnChainParties
       , closedContestationDeadline = posixFromUTCTime healthyContestationDeadline
       , closedContesters = []
+      , closedHeadAdaOverhead = 0
       }
 
 healthyContestSnapshotNumber :: SnapshotNumber
@@ -123,6 +124,7 @@ healthyClosedState =
       , contesters = []
       , version = toInteger healthyCloseSnapshotVersion
       , accumulatorCommitment = Accumulator.getAccumulatorCommitment (Accumulator.buildFromSnapshotUTxOs splitUTxOInHead mempty (Just splitUTxOToDecommit))
+      , headAdaOverhead = 0
       }
 
 healthyClosedSnapshotNumber :: SnapshotNumber

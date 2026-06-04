@@ -5,6 +5,7 @@ module Hydra.Tx.Close where
 import Hydra.Cardano.Api hiding (utxo)
 import Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Data.ContestationPeriod (addContestationPeriod)
@@ -93,7 +94,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
     case confirmedSnapshot of
       InitialSnapshot{} ->
         Head.CloseInitial
-      ConfirmedSnapshot{signatures, snapshot = Snapshot{version}} ->
+      ConfirmedSnapshot{signatures} ->
         let accHash = toBuiltin $ Accumulator.getAccumulatorHash accumulator
             sig = toPlutusSignatures signatures
          in case incrementalAction of
@@ -107,7 +108,22 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
   headOutputAfter =
     modifyTxOutDatum (const headDatumAfter) headOutputBefore
 
-  Snapshot{number, accumulator} = getSnapshot confirmedSnapshot
+  Snapshot{number, utxo, utxoToCommit, utxoToDecommit, accumulator, version} = getSnapshot confirmedSnapshot
+
+  -- Lovelace in the head UTxO not attributable to any L2 UTxO value (the
+  -- min-UTxO overhead). Computed once at Close and propagated unchanged through
+  -- Contest and partial fanout steps so the on-chain conservation check can use
+  -- strict equality rather than >=.
+  headAdaOverhead =
+    let Coin headLovelace = selectLovelace (txOutValue headOutputBefore)
+        utxoInHead = case (incrementalAction, version == openVersion) of
+          (NoThing, _) -> utxo
+          (ToCommit, True) -> utxo -- commit pending: deposit not yet merged into head
+          (ToCommit, False) -> utxo <> fold utxoToCommit -- increment applied: commit is in head
+          (ToDecommit, True) -> utxo <> fold utxoToDecommit -- decommit pending: value still in head
+          (ToDecommit, False) -> utxo -- decrement applied: value left head
+        Coin utxoLovelace = selectLovelace (UTxO.totalValue utxoInHead)
+     in headLovelace - utxoLovelace
 
   headDatumAfter =
     mkTxOutDatumInline $
@@ -121,6 +137,7 @@ closeTx scriptRegistry vk headId openVersion confirmedSnapshot startSlotNo (endS
           , contesters = []
           , version = fromIntegral openVersion
           , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+          , headAdaOverhead
           }
 
   contestationDeadline =

@@ -65,6 +65,7 @@ data HeadError
   | FinalPartialFanoutZeroOutputs
   | PartialFanoutZeroOutputs
   | PartialFanoutCannotBeLastBatch
+  | ChangedHeadAdaOverhead
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -135,3 +136,4 @@ instance ToErrorCode HeadError where
     FinalPartialFanoutZeroOutputs -> "H62"
     PartialFanoutZeroOutputs -> "H63"
     PartialFanoutCannotBeLastBatch -> "H64"
+    ChangedHeadAdaOverhead -> "H65"

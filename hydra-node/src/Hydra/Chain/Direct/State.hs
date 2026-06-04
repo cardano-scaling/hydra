@@ -441,7 +441,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
     datum <- fromScriptData headDatum ?> FailedToConvertFromScriptDataInContest
 
     case datum of
-      Head.Closed Head.ClosedDatum{contesters, parties, contestationDeadline} -> do
+      Head.Closed Head.ClosedDatum{contesters, parties, contestationDeadline, headAdaOverhead} -> do
         let closedThreadUTxO = headUTxO
             closedParties = parties
             closedContestationDeadline = contestationDeadline
@@ -452,6 +452,7 @@ contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapsh
             , closedParties
             , closedContestationDeadline
             , closedContesters
+            , closedHeadAdaOverhead = headAdaOverhead
             }
       _ -> Left WrongDatumInContest
 
@@ -487,16 +488,18 @@ fanout ::
   Maybe UTxO ->
   -- | Snapshot UTxO to decommit to fanout
   Maybe UTxO ->
+  -- | Full snapshot UTxO for accumulator (matches closed datum)
+  UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Either FanoutTxError Tx
-fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo = do
+fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- extractProgressDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
-  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit closedThreadUTxO deadlineSlotNo headTokenScript
+  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof closedThreadUTxO deadlineSlotNo headTokenScript
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 
@@ -802,11 +805,13 @@ unsafeFanout ::
   Maybe UTxO ->
   -- | Snapshot decommit UTxO to fanout
   Maybe UTxO ->
+  -- | Full snapshot UTxO for accumulator (matches closed datum)
+  UTxO ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
   SlotNo ->
   Tx
-unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo =
-  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo
+unsafeFanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo =
+  either (error . show) id $ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo
 
 unsafePartialFanout ::
   HasCallStack =>

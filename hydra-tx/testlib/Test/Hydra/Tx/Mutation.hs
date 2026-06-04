@@ -718,7 +718,7 @@ replaceSnapshotVersion snapshotVersion = \case
         , Head.version = snapshotVersion
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -729,12 +729,13 @@ replaceSnapshotVersion snapshotVersion = \case
         , Head.contesters = contesters
         , Head.version = snapshotVersion
         , Head.accumulatorCommitment = accumulatorCommitment
+        , Head.headAdaOverhead = headAdaOverhead
         }
   otherState -> otherState
 
 replaceSnapshotNumber :: Head.SnapshotNumber -> Head.State -> Head.State
 replaceSnapshotNumber snapshotNumber = \case
-  Head.Closed Head.ClosedDatum{parties, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{parties, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -745,6 +746,7 @@ replaceSnapshotNumber snapshotNumber = \case
         , Head.contesters = contesters
         , Head.version = version
         , Head.accumulatorCommitment = accumulatorCommitment
+        , Head.headAdaOverhead = headAdaOverhead
         }
   otherState -> otherState
 
@@ -761,7 +763,7 @@ replaceParties parties = \case
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -772,14 +774,15 @@ replaceParties parties = \case
         , Head.contesters = contesters
         , Head.version = version
         , Head.accumulatorCommitment = accumulatorCommitment
+        , Head.headAdaOverhead = headAdaOverhead
         }
-  Head.FanoutProgress Head.FanoutProgressDatum{headId, contestationDeadline, accumulatorCommitment} ->
-    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, contestationDeadline, accumulatorCommitment, headAdaOverhead} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead}
   otherState -> otherState
 
 replaceContestationDeadline :: POSIXTime -> Head.State -> Head.State
 replaceContestationDeadline contestationDeadline = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
@@ -790,14 +793,15 @@ replaceContestationDeadline contestationDeadline = \case
         , contesters
         , version
         , accumulatorCommitment
+        , headAdaOverhead
         }
-  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, accumulatorCommitment} ->
-    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, accumulatorCommitment, headAdaOverhead} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead}
   otherState -> otherState
 
 replaceContestationPeriod :: ContestationPeriod -> Head.State -> Head.State
 replaceContestationPeriod contestationPeriod = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationDeadline, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, parties, headId, contesters, contestationDeadline, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { snapshotNumber
@@ -808,12 +812,13 @@ replaceContestationPeriod contestationPeriod = \case
         , contesters
         , version
         , accumulatorCommitment
+        , headAdaOverhead
         }
   otherState -> otherState
 
 replaceAccumulatorCommitment :: PlutusTx.BuiltinBLS12_381_G1_Element -> Head.State -> Head.State
 replaceAccumulatorCommitment newCommitment = \case
-  Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version} ->
+  Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -824,9 +829,10 @@ replaceAccumulatorCommitment newCommitment = \case
         , Head.contesters = contesters
         , Head.version = version
         , Head.accumulatorCommitment = newCommitment
+        , Head.headAdaOverhead = headAdaOverhead
         }
-  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline} ->
-    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = newCommitment}
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, headAdaOverhead} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment = newCommitment, headAdaOverhead}
   otherState -> otherState
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
@@ -842,7 +848,7 @@ replaceHeadId headId = \case
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
         }
-  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, contesters, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, contesters, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -853,14 +859,15 @@ replaceHeadId headId = \case
         , Head.contesters = contesters
         , Head.version = version
         , Head.accumulatorCommitment = accumulatorCommitment
+        , Head.headAdaOverhead = headAdaOverhead
         }
-  Head.FanoutProgress Head.FanoutProgressDatum{parties, contestationDeadline, accumulatorCommitment} ->
-    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
+  Head.FanoutProgress Head.FanoutProgressDatum{parties, contestationDeadline, accumulatorCommitment, headAdaOverhead} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead}
   otherState -> otherState
 
 replaceContesters :: [Plutus.PubKeyHash] -> Head.State -> Head.State
 replaceContesters contesters = \case
-  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, headId, contestationPeriod, version, accumulatorCommitment} ->
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, headId, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
       Head.ClosedDatum
         { Head.parties = parties
@@ -871,5 +878,25 @@ replaceContesters contesters = \case
         , Head.contesters = contesters
         , Head.version = version
         , Head.accumulatorCommitment = accumulatorCommitment
+        , Head.headAdaOverhead = headAdaOverhead
         }
+  otherState -> otherState
+
+replaceHeadAdaOverhead :: Integer -> Head.State -> Head.State
+replaceHeadAdaOverhead headAdaOverhead = \case
+  Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, headId, contestationPeriod, version, accumulatorCommitment, contesters} ->
+    Head.Closed
+      Head.ClosedDatum
+        { Head.parties = parties
+        , Head.snapshotNumber = snapshotNumber
+        , Head.contestationDeadline = contestationDeadline
+        , Head.contestationPeriod = contestationPeriod
+        , Head.headId = headId
+        , Head.contesters = contesters
+        , Head.version = version
+        , Head.accumulatorCommitment = accumulatorCommitment
+        , Head.headAdaOverhead = headAdaOverhead
+        }
+  Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment} ->
+    Head.FanoutProgress Head.FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead}
   otherState -> otherState

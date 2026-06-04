@@ -86,6 +86,7 @@ data PostChainTx tx
       { utxo :: UTxOType tx
       , utxoToCommit :: Maybe (UTxOType tx)
       , utxoToDecommit :: Maybe (UTxOType tx)
+      , utxoForProof :: UTxOType tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }

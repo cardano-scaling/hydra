@@ -30,7 +30,7 @@ import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (adaOnly, splitUTxO, verificationKeyToOnChainId)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genForParty, genOutputFor, genScriptRegistryWithCRSSize, genUTxOSized, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), applyMutation, changeMintedTokens, replaceHeadAdaOverhead)
 import Test.QuickCheck (choose, elements, oneof, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -48,6 +48,7 @@ healthyFanoutTx =
       (fst healthyFanoutSnapshotUTxO)
       Nothing
       (Just $ snd healthyFanoutSnapshotUTxO)
+      healthyFanoutUTxO
       (headInput, headOutput)
       healthySlotNo
       headTokenScript
@@ -117,6 +118,7 @@ healthyFanoutDatum =
       , version = 0
       , accumulatorCommitment =
           Accumulator.getAccumulatorCommitment healthyFanoutSnapshotAccumulator
+      , headAdaOverhead = 0
       }
  where
   healthyContestationPeriodSeconds = 10
@@ -141,6 +143,8 @@ data FanoutMutation
   | MutateDecommitOutputValue
   | -- | Inject an unrelated v_deposit input into a healthy Fanout.
     FanoutAbsorbForeignDeposit
+  | -- | Change headAdaOverhead in the input ClosedDatum, breaking value conservation.
+    MutateHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -174,6 +178,11 @@ genFanoutMutation (tx, _utxo) =
         (ix, out) <- elements (zip [noOfUtxoToOutputs .. length outs - 1] (drop noOfUtxoToOutputs outs))
         value' <- genValue `suchThat` (/= txOutValue out)
         pure $ ChangeOutput (fromIntegral ix) (modifyTxOutValue (const value') out)
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) MutateHeadAdaOverhead <$> do
+        -- Changing headAdaOverhead in the input datum shifts the expected conservation
+        -- baseline, so the on-chain headInValue == outputs + overhead check fails.
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ ChangeInputHeadDatum (replaceHeadAdaOverhead wrongOverhead healthyFanoutDatum)
     , SomeMutation (pure $ toErrorCode HeadRedeemerNotIncrement) FanoutAbsorbForeignDeposit <$> do
         extraIn <- genTxIn
         extraDeposited <- UTxO.map adaOnly <$> genUTxOSized 1
