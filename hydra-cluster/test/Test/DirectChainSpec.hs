@@ -145,6 +145,7 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
                   -- means we observed a commit so it needs to be fanned-out as well
                   utxoToCommit = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
                 , utxoToDecommit = Snapshot.utxoToDecommit snapshot
+                , utxoForProof = Snapshot.utxo snapshot <> fold (Snapshot.utxoToCommit snapshot) <> fold (Snapshot.utxoToDecommit snapshot)
                 , headSeed
                 , contestationDeadline = deadline
                 }

@@ -42,7 +42,7 @@ import Hydra.Plutus.Extras (ValidatorType, scriptValidatorHash, wrapValidator)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
-import PlutusLedgerApi.V1.Value (geq)
+import PlutusLedgerApi.V1.Value (adaSymbol, adaToken, singleton)
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
@@ -377,6 +377,7 @@ checkContest ctx closedDatum redeemer =
     && mustUpdateContesters
     && mustPushDeadline
     && mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPeriod) (headId', headId)
+    && mustPreserveHeadAdaOverhead headAdaOverhead headAdaOverhead'
     && mustPreserveHeadValue ctx
     && mustBindAccumulatorCommitment
  where
@@ -431,6 +432,7 @@ checkContest ctx closedDatum redeemer =
     , contesters
     , headId
     , version
+    , headAdaOverhead
     } = closedDatum
 
   ClosedDatum
@@ -442,6 +444,7 @@ checkContest ctx closedDatum redeemer =
     , contesters = contesters'
     , version = version'
     , accumulatorCommitment = accumulatorCommitment'
+    , headAdaOverhead = headAdaOverhead'
     } = decodeHeadOutputClosedDatum ctx
 
   ScriptContext{scriptContextTxInfo = txInfo} = ctx
@@ -489,27 +492,31 @@ headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
 
   TxInfo{txInfoOutputs} = txInfo
 
-  ClosedDatum{accumulatorCommitment, parties, headId, contestationDeadline} = closedDatum
+  ClosedDatum{accumulatorCommitment, parties, headId, contestationDeadline, headAdaOverhead} = closedDatum
 
   fanoutOutputs = L.take numberOfFanoutOutputs txInfoOutputs
 
   subsetScalars :: [Integer]
   subsetScalars = txOutsToSubsetScalars fanoutOutputs
 
-  -- All outputs are verified as members of the accumulator in one combined proof.
-  -- Output destinations are encoded in TxOut addresses.
+  -- Subset membership proof: all fanout outputs are members of the accumulator.
+  -- isG1Generator is intentionally omitted — pre-settled UTxOs (decommitted/deposited
+  -- before Close) remain in the accumulator but are not fanned out. Completeness is
+  -- enforced by mustConserveValue instead.
   checkCRSAndMembership =
     traceIfFalse $(errorCode FanoutUTxOHashMismatch) $
       withCRSLookup crsHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
-          && isG1Generator proof
 
-  -- All head input value must be accounted for by distributed outputs and burned tokens.
-  -- geq rather than == because the head UTxO carries extra ADA (min-UTxO overhead
-  -- from initialization) not represented in the L2 UTxO set.
+  -- Strict equality: fanout outputs + burned tokens + fixed overhead must equal the
+  -- full head input value. headAdaOverhead is the lovelace locked in the head UTxO
+  -- that is not part of any L2 UTxO (min-UTxO overhead set at CollectCom).
   mustConserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue `geq` (F.foldMap txOutValue fanoutOutputs <> mintValueBurned minted)
+      headInValue
+        == F.foldMap txOutValue fanoutOutputs
+        <> mintValueBurned minted
+        <> singleton adaSymbol adaToken headAdaOverhead
    where
     headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 {-# INLINEABLE headIsFinalizedWith #-}
@@ -544,6 +551,7 @@ checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progr
     , headId
     , contestationDeadline
     , accumulatorCommitment
+    , headAdaOverhead
     } = progressDatum
 
   -- Decode continuing output datum as FanoutProgressDatum (first output, at head address)
@@ -552,6 +560,7 @@ checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progr
     , headId = headId'
     , contestationDeadline = contestationDeadline'
     , accumulatorCommitment = newAccumulatorCommitment
+    , headAdaOverhead = headAdaOverhead'
     } = decodeHeadOutputFanoutProgressDatum ctx
 
   -- Guard against numberOfPartialOutputs = 0: with an empty subset the KZG
@@ -584,6 +593,7 @@ checkPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} progr
       parties' == parties
         && headId' == headId
         && contestationDeadline' == contestationDeadline
+        && headAdaOverhead' == headAdaOverhead
 
   -- The head input value must equal the continuing head output value plus the
   -- sum of all distributed outputs. This prevents stealing Ada by adding extra
@@ -637,7 +647,7 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
     && checkCRSAndMembership
     && mustConserveValue
  where
-  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment} = progressDatum
+  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead} = progressDatum
 
   minted = txInfoMint txInfo
 
@@ -653,12 +663,15 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
 
   distributedOutputs = L.take numberOfPartialOutputs txInfoOutputs
 
-  -- All head input value must be accounted by distributed outputs and burned tokens.
-  -- XXX: geq rather than == because the head UTxO carries extra ADA (min-UTxO overhead
-  -- from initialization) not represented in the L2 UTxO set.
+  -- Strict equality: distributed outputs + burned tokens + fixed overhead must equal
+  -- the full head input value. isG1Generator is omitted for the same reason as in
+  -- headIsFinalizedWith — pre-settled UTxOs may remain in the accumulator.
   mustConserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-      headInValue `geq` (F.foldMap txOutValue distributedOutputs <> mintValueBurned minted)
+      headInValue
+        == F.foldMap txOutValue distributedOutputs
+        <> mintValueBurned minted
+        <> singleton adaSymbol adaToken headAdaOverhead
    where
     headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
@@ -669,10 +682,6 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
     traceIfFalse $(errorCode FinalPartialFanoutMembershipFailed) $
       withCRSLookup crsHash txInfo crsRef $ \crsData ->
         checkMembershipPairing accumulatorCommitment proof crsData subsetScalars
-          -- When all accumulator elements are distributed the quotient polynomial is 1,
-          -- so the proof must equal the G1 generator. This prevents a valid subset proof
-          -- from being used to leave UTxOs unaccounted.
-          && isG1Generator proof
 {-# INLINEABLE checkFinalPartialFanout #-}
 
 --------------------------------------------------------------------------------
@@ -712,6 +721,12 @@ mustNotChangeParameters (parties', parties) (contestationPeriod', contestationPe
       && contestationPeriod' == contestationPeriod
       && headId' == headId
 {-# INLINEABLE mustNotChangeParameters #-}
+
+mustPreserveHeadAdaOverhead :: Integer -> Integer -> Bool
+mustPreserveHeadAdaOverhead overhead overhead' =
+  traceIfFalse $(errorCode ChangedHeadAdaOverhead) $
+    overhead' == overhead
+{-# INLINEABLE mustPreserveHeadAdaOverhead #-}
 
 -- XXX: We might not need to distinguish between the three cases here.
 mustBeSignedByParticipant ::

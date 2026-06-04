@@ -68,6 +68,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
@@ -163,6 +164,8 @@ data ContestMutation
     --
     -- Ensures the on-chain validator binds the G2 commitment to the signed hash.
     MutateAccumulatorCommitment
+  | -- | Changing headAdaOverhead in the output ClosedDatum must be rejected.
+    MutateHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -314,6 +317,9 @@ genContestMutation (tx, _utxo) =
         -- was derived from the healthy one, so this G2 point won't match.
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0

@@ -720,6 +720,7 @@ cannotAbsorbDepositDuringClose tracer workDir opts hydraScriptsTxId =
             , Head.contesters = []
             , Head.contestationDeadline = contestationDeadline
             , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty Nothing Nothing
+            , Head.headAdaOverhead = 0
             }
 
         headRedeemer = toScriptData (Close CloseInitial)

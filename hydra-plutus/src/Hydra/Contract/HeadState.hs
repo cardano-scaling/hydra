@@ -60,6 +60,9 @@ data ClosedDatum = ClosedDatum
   -- ^ Spec: tfinal
   , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
   -- ^ KZG commitment to the full UTxO set.
+  , headAdaOverhead :: Integer
+  -- ^ Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO overhead).
+  -- Propagated unchanged from OpenDatum via Close.
   }
   deriving stock (Generic, Show)
 
@@ -72,6 +75,8 @@ data FanoutProgressDatum = FanoutProgressDatum
   , parties :: [Party]
   , contestationDeadline :: POSIXTime
   , accumulatorCommitment :: BuiltinBLS12_381_G1_Element
+  , headAdaOverhead :: Integer
+  -- ^ Lovelace in the head UTxO not belonging to any L2 UTxO. Propagated from ClosedDatum.
   }
   deriving stock (Generic, Show)
 
@@ -80,8 +85,8 @@ PlutusTx.unstableMakeIsData ''FanoutProgressDatum
 -- | Extract the fields needed for partial fanout steps from a ClosedDatum.
 -- Called both on-chain (in the validator dispatch) and off-chain (in tx building).
 progressFromClosed :: ClosedDatum -> FanoutProgressDatum
-progressFromClosed ClosedDatum{headId, parties, contestationDeadline, accumulatorCommitment} =
-  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment}
+progressFromClosed ClosedDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead} =
+  FanoutProgressDatum{headId, parties, contestationDeadline, accumulatorCommitment, headAdaOverhead}
 {-# INLINEABLE progressFromClosed #-}
 
 data State

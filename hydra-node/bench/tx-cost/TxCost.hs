@@ -207,7 +207,8 @@ computeFanOutCost = do
         utxoToFanout =
           UTxO.map (modifyTxOutValue (<> allFanoutValue)) (getKnownUTxO stClosed)
             <> getKnownUTxO cctx
-    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlotNo, utxoToFanout)
+    let utxoForProof = utxo <> fold utxoToCommit <> fold utxoToDecommit
+    pure (utxo, unsafeFanout cctx utxoToFanout seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlotNo, utxoToFanout)
 
 -- | Compute costs of partial fanout transactions across a range of per-step
 -- distribution sizes.

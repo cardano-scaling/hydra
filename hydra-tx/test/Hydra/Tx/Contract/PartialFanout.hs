@@ -27,7 +27,7 @@ import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime)
 import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
-import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadId, replaceParties)
+import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadAdaOverhead, replaceHeadId, replaceParties)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 
@@ -136,6 +136,7 @@ healthyClosedDatum =
     , contesters = []
     , version = 0
     , accumulatorCommitment = Accumulator.getAccumulatorCommitment fullAccumulator
+    , headAdaOverhead = 0
     }
 
 -- | The FanoutProgressDatum used for both test cases, derived from 'healthyClosedDatum'.
@@ -236,6 +237,8 @@ data PartialFanoutMutation
   | -- | Output datum carries G1_generator as the new accumulator commitment, indicating
     -- all elements were distributed. Must use FinalPartialFanout instead to burn tokens.
     MutatePartialFanoutLastBatch
+  | -- | Changing headAdaOverhead in the continuing FanoutProgressDatum must be rejected.
+    MutatePartialFanoutHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -315,6 +318,10 @@ genPartialFanoutMutation (tx, _utxo) =
           let headOut = fromJust $ txOuts' tx !!? 0
               g1Generator = Accumulator.getAccumulatorCommitment (Accumulator.buildFromUTxO @Tx mempty)
            in ChangeOutput 0 $ modifyInlineDatum (replaceAccumulatorCommitment g1Generator) headOut
+    , SomeMutation (pure $ toErrorCode PartialFanoutChangedParameters) MutatePartialFanoutHeadAdaOverhead <$> do
+        let headOut = fromJust $ txOuts' tx !!? 0
+        wrongOverhead <- arbitrary `suchThat` (/= 0)
+        pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead) headOut
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)

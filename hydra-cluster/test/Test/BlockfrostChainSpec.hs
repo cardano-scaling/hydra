@@ -124,6 +124,7 @@ spec = around (onlyWithBlockfrostProjectFile . showLogsOnFailure "BlockfrostChai
               { utxo = Snapshot.utxo snapshot
               , utxoToCommit = Nothing
               , utxoToDecommit = Nothing
+              , utxoForProof = Snapshot.utxo snapshot <> fold (Snapshot.utxoToCommit snapshot) <> fold (Snapshot.utxoToDecommit snapshot)
               , headSeed
               , contestationDeadline = deadline
               }

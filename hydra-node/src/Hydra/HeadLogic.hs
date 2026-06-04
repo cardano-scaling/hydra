@@ -1472,6 +1472,9 @@ emitNextFanoutStep FreshFanout _ closedState =
                     if snapshotVersion == version
                       then utxoToDecommit
                       else Nothing
+                , -- Always use the snapshot's original (unfiltered) full UTxO set
+                  -- to rebuild the accumulator that matches the closed datum.
+                  utxoForProof = utxo <> fold utxoToCommit <> fold utxoToDecommit
                 , headSeed
                 , contestationDeadline
                 }

@@ -30,6 +30,7 @@ data ClosedThreadOutput = ClosedThreadOutput
   , closedParties :: [OnChain.Party]
   , closedContestationDeadline :: Plutus.POSIXTime
   , closedContesters :: [Plutus.PubKeyHash]
+  , closedHeadAdaOverhead :: Integer
   }
   deriving stock (Eq, Show, Generic)
 
@@ -72,6 +73,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
     , closedParties
     , closedContestationDeadline
     , closedContesters
+    , closedHeadAdaOverhead
     } = closedThreadOutput
 
   headWitness =
@@ -115,6 +117,7 @@ contestTx scriptRegistry vk headId contestationPeriod openVersion snapshot sig (
           , contesters = contester : closedContesters
           , version = toInteger openVersion
           , accumulatorCommitment = Accumulator.getAccumulatorCommitment accumulator
+          , headAdaOverhead = closedHeadAdaOverhead
           }
 
 -- * Observation

@@ -31,6 +31,10 @@ fanoutTx ::
   Maybe UTxO ->
   -- | Snapshotted decommit UTxO to fanout on layer 1
   Maybe UTxO ->
+  -- | Full snapshot UTxO (utxo <> commit <> decommit) used to rebuild the accumulator
+  -- matching the closed datum. May differ from the fanned-out outputs when an
+  -- incremental action was already applied on-chain before close.
+  UTxO ->
   -- | Everything needed to spend the Head state-machine output.
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -38,7 +42,7 @@ fanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Tx
-fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput) deadlineSlotNo headTokenScript =
+fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof (headInput, headOutput) deadlineSlotNo headTokenScript =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
@@ -60,7 +64,7 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
     fst (crsReference scriptRegistry)
 
   accumulator =
-    Accumulator.buildFromSnapshotUTxOs @Tx utxo utxoToCommit utxoToDecommit
+    Accumulator.buildFromUTxO @Tx utxoForProof
 
   headRedeemer =
     toScriptData $
@@ -71,12 +75,12 @@ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit (headInput, headOutput)
         }
 
   fanoutProof =
-    let allUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
+    let subsetUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
         crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount accumulator
      in bls12_381_G1_uncompress $
           toBuiltin $
             either error id $
-              Accumulator.createMembershipProofFromUTxO @Tx allUTxO accumulator crs
+              Accumulator.createMembershipProofFromUTxO @Tx subsetUTxO accumulator crs
 
   headTokens =
     headTokensFromValue headTokenScript (txOutValue headOutput)
@@ -156,6 +160,7 @@ partialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadline
     { Head.headId
     , Head.parties
     , Head.contestationDeadline
+    , Head.headAdaOverhead
     } = progressDatum
 
   headDatumAfter =
@@ -166,6 +171,7 @@ partialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadline
           , Head.parties
           , Head.contestationDeadline
           , Head.accumulatorCommitment = Accumulator.getAccumulatorCommitment remainingAccumulator
+          , Head.headAdaOverhead
           }
 
   orderedDistributedOutputs =
