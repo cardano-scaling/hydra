@@ -16,6 +16,8 @@ import Control.Concurrent.Class.MonadSTM (
   tryReadTBQueue,
   writeTBQueue,
  )
+import Control.Concurrent.MVar (MVar, newMVar, withMVar)
+import Control.Exception (SomeAsyncException)
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (concurrently, mapConcurrently)
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
@@ -52,7 +54,6 @@ import HydraNode (
   hydraNodeId,
   input,
   output,
-  postDecommit,
   requestCommitTx,
   send,
   waitFor,
@@ -64,6 +65,7 @@ import HydraNode (
  )
 import System.FilePath ((</>))
 import System.Process.Typed (shell, withProcessTerm)
+import System.Timeout qualified
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 
@@ -194,10 +196,20 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
   -- Note: We only run Pumba during normal transaction processing; this is
   -- acceptable because otherwise we do not retry the particular actions that
   -- may or may not be dropped.
-  let incrementalCtx =
-        if null sideUTxOs
-          then Nothing
-          else Just IncrementalContext{ctxBackend = opts, ctxSideUTxOs = sideUTxOs, ctxHeadId = headId, ctxTracer = hydraTracer}
+  incrementalCtx <-
+    if null sideUTxOs
+      then pure Nothing
+      else do
+        decommitLock <- newMVar ()
+        pure $
+          Just
+            IncrementalContext
+              { ctxBackend = opts
+              , ctxSideUTxOs = sideUTxOs
+              , ctxHeadId = headId
+              , ctxTracer = hydraTracer
+              , ctxDecommitLock = decommitLock
+              }
   (processedTransactions, snapshotsSeen, incrementalCommitTimes, incrementalDecommitTimes) <-
     withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx
 
@@ -365,6 +377,11 @@ data IncrementalContext = IncrementalContext
   , ctxSideUTxOs :: [UTxO]
   , ctxHeadId :: HeadId
   , ctxTracer :: Tracer IO HydraNodeLog
+  , ctxDecommitLock :: MVar ()
+  -- ^ Serialises the post-decommit + wait-for-finalized window across
+  -- clients. The Hydra protocol rejects a decommit with
+  -- 'DecommitAlreadyInFlight' if one is already pending, so cluster-size > 1
+  -- runs would race without this lock.
   }
 
 processTransactions ::
@@ -422,41 +439,69 @@ processTransactions clients clientDatasets incrementalCtx = do
     (,) <$> readTVarIO (processedTxs registry) <*> readTVarIO (observedSnapshots registry)
 
   runAllIncrementalOps :: IncrementalContext -> [(ClientDataset, HydraClient, TBQueue IO Tx, Registry Tx, Int)] -> IO ([NominalDiffTime], [NominalDiffTime])
-  runAllIncrementalOps IncrementalContext{ctxBackend, ctxSideUTxOs, ctxTracer} perClient = do
+  runAllIncrementalOps IncrementalContext{ctxBackend, ctxSideUTxOs, ctxTracer, ctxDecommitLock} perClient = do
     let pairs = zip ctxSideUTxOs perClient
+    -- Run incremental cycles sequentially across clients. Running them
+    -- concurrently causes two head-protocol races: concurrent deposits compete
+    -- for the chain observation window and can be marked DepositExpired with
+    -- cluster size >= 3, and concurrent decommits collide on the single
+    -- "decommit in flight" slot. Sequential keeps the bench measuring per-op
+    -- timings cleanly; client 1's cycle is still interleaved with the regular
+    -- tx flow.
+    -- Cap each cycle at 90s. The actual commit+decommit work has its own
+    -- 180s waits, but withConnectionToNodeHost's sendClose has been observed
+    -- to hang post-decommit on busy nodes. Capture timings into a shared
+    -- IORef written before the hung cleanup so the metrics survive even if
+    -- the timeout fires during connection teardown.
+    let cycleTimeoutMicros = 90 * 1_000_000
     results <-
-      mapConcurrently
-        ( \(sideUTxO, (ClientDataset{paymentKey}, client, submissionQ, _registry, numberOfTxs)) ->
-            try @_ @SomeException
-              (runOneIncrementalOp ctxTracer ctxBackend client paymentKey sideUTxO numberOfTxs submissionQ)
+      mapM
+        ( \(sideUTxO, (ClientDataset{paymentKey}, client, submissionQ, _registry, numberOfTxs)) -> do
+            putTextLn $ "Incremental: mapM dispatching node " <> show (hydraNodeId client)
+            cellRef <- newIORef (Nothing, Nothing)
+            outcome <-
+              System.Timeout.timeout cycleTimeoutMicros $
+                tryNonAsync
+                  (runOneIncrementalOp ctxTracer ctxBackend ctxDecommitLock client paymentKey sideUTxO numberOfTxs submissionQ cellRef)
+            captured <- readIORef cellRef
+            let note :: Text = case outcome of
+                  Nothing -> "cleanup timed out, captured: " <> show captured
+                  Just (Left ex) -> "failed: " <> show ex
+                  Just (Right _) -> "ok"
+            putTextLn $ "Incremental: mapM done with node " <> show (hydraNodeId client) <> " (" <> note <> ")"
+            pure captured
         )
         pairs
-    let collected = rights results
-        commits = mapMaybe fst collected
-        decommits = mapMaybe snd collected
-    forM_ results $ \case
-      Left ex -> putStrLn $ "Incremental op failed: " <> show ex
-      _ -> pure ()
+    let commits = mapMaybe fst results
+        decommits = mapMaybe snd results
     pure (commits, decommits)
 
   -- Opens a fresh API connection so the wait on CommitFinalized/DecommitFinalized
   -- doesn't compete with the existing waitForAllConfirmations on the same WS.
+  -- The decommit + wait window is serialised across clients via the supplied
+  -- lock because the Hydra protocol rejects a decommit if another is in flight.
+  -- Writes finalization times into 'cellRef' as soon as they're observed so
+  -- the caller can recover the measurements even if connection teardown hangs.
   runOneIncrementalOp ::
     Tracer IO HydraNodeLog ->
     ChainBackendOptions ->
+    MVar () ->
     HydraClient ->
     SigningKey PaymentKey ->
     UTxO ->
     Int ->
     TBQueue IO Tx ->
+    IORef (Maybe NominalDiffTime, Maybe NominalDiffTime) ->
     IO (Maybe NominalDiffTime, Maybe NominalDiffTime)
-  runOneIncrementalOp tracer backend client paymentKey sideUTxO numberOfTxs submissionQ = do
+  runOneIncrementalOp tracer backend decommitLock client paymentKey sideUTxO numberOfTxs submissionQ cellRef = do
+    putTextLn $ "Incremental: cycle entered for node " <> show (hydraNodeId client)
     -- Wait until ~half this client's queue has drained.
     atomically $ do
       remaining <- lengthTBQueue submissionQ
       let drained = fromIntegral numberOfTxs - fromIntegral remaining :: Double
           target = fromIntegral numberOfTxs / 2 :: Double
       check (drained >= target)
+    putTextLn $ "Incremental: queue drained, opening obs to node " <> show (hydraNodeId client)
 
     withConnectionToNodeHost tracer (hydraNodeId client) (apiHost client) Nothing (Just "/?history=no") $ \obs -> do
       putTextLn "Incremental: requesting commit"
@@ -471,6 +516,7 @@ processTransactions clients clientDatasets incrementalCtx = do
         pure ()
       commitFinalisedAt <- getCurrentTime
       let commitTime = commitFinalisedAt `diffUTCTime` startCommit
+      atomicWriteIORef cellRef (Just commitTime, Nothing)
       putTextLn $ "Incremental: commit finalised in " <> show commitTime
 
       case UTxO.toList sideUTxO of
@@ -480,20 +526,53 @@ processTransactions clients clientDatasets incrementalCtx = do
             Left err -> do
               putStrLn $ "Incremental: decommit tx build failed: " <> show err
               pure (Just commitTime, Nothing)
-            Right decommitTx -> do
-              putTextLn "Incremental: posting decommit"
-              startDecommit <- getCurrentTime
-              postDecommit client decommitTx
-              let decommitTxId = txId decommitTx
-              _ <- waitMatch 180 obs $ \v -> do
-                guard (v ^? key "tag" == Just "DecommitFinalized")
-                observed <- v ^? key "decommitTxId" >>= parseMaybe parseJSON
-                guard (observed == decommitTxId)
-                pure ()
-              decommitFinalisedAt <- getCurrentTime
-              let decommitTime = decommitFinalisedAt `diffUTCTime` startDecommit
-              putTextLn $ "Incremental: decommit finalised in " <> show decommitTime
-              pure (Just commitTime, Just decommitTime)
+            Right decommitTx ->
+              withMVar decommitLock $ \_ -> do
+                putTextLn "Incremental: posting decommit"
+                startDecommit <- getCurrentTime
+                -- Use the WebSocket Decommit input rather than the /decommit
+                -- HTTP endpoint: the HTTP handler blocks until DecommitFinalized
+                -- (or apiTransactionTimeout) which can exceed the http-client
+                -- default 30s response timeout and propagates as
+                -- ResponseTimeout. WS submission is fire-and-forget; we observe
+                -- the lifecycle events explicitly below.
+                send obs $ input "Decommit" ["decommitTx" .= toJSON decommitTx]
+                let decommitTxId = txId decommitTx
+                -- DecommitApproved carries decommitTxId so we can pick out our
+                -- own. DecommitFinalized has no txid; matching it by tag is
+                -- safe because the lock ensures no other decommit is in flight
+                -- between Approved and Finalized.
+                _ <- waitMatch 180 obs $ \v -> do
+                  guard (v ^? key "tag" == Just "DecommitApproved")
+                  observed <- v ^? key "decommitTxId" >>= parseMaybe parseJSON
+                  guard (observed == decommitTxId)
+                  pure ()
+                _ <- waitMatch 180 obs $ \v ->
+                  guard (v ^? key "tag" == Just "DecommitFinalized")
+                decommitFinalisedAt <- getCurrentTime
+                let decommitTime = decommitFinalisedAt `diffUTCTime` startDecommit
+                atomicWriteIORef cellRef (Just commitTime, Just decommitTime)
+                putTextLn $ "Incremental: decommit finalised in " <> show decommitTime
+                -- We only observed DecommitFinalized on one node's obs. Other
+                -- nodes may not yet have cleared their in-flight decommit state
+                -- after gossip propagation. Hold the lock for a short tail
+                -- before releasing so the next client's WS Decommit input is
+                -- not rejected with DecommitAlreadyInFlight.
+                threadDelay 2_000_000
+                pure (Just commitTime, Just decommitTime)
+
+-- | Like 'try' but rethrows async exceptions instead of swallowing them. Using
+-- a plain 'try @SomeException' around the incremental-ops body breaks the outer
+-- 'failAfter' timeout because 'timeout' delivers its signal via an async
+-- exception that 'try' would otherwise catch and discard.
+tryNonAsync :: IO a -> IO (Either SomeException a)
+tryNonAsync action = do
+  result <- try action
+  case result of
+    Left ex
+      | Just (_ :: SomeAsyncException) <- fromException ex -> throwIO ex
+      | otherwise -> pure (Left ex)
+    Right v -> pure (Right v)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
 progressReport nodeId clientId queueSize queue = do
