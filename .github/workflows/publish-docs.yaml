@@ -76,7 +76,8 @@ jobs:
           matrix \
           --output-directory $out/benchmarks \
           --number-of-txs 30 \
-          --timeout 3600s
+          --timeout 3600s \
+          --incremental-modes False
 
     - name: 👉 Create redirects
       run: |

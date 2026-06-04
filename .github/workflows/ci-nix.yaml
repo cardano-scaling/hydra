@@ -117,7 +117,10 @@ jobs:
           - package: hydra-cluster
             bench: bench-e2e
             tag: matrix
-            options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s'
+            # Skip the incremental-ops dimension in CI: per-cycle ~90s adds up
+            # across cells and the cost is known/bounded. Local runs can still
+            # opt in via `--incremental-modes False,True`.
+            options: 'matrix --output-directory $(pwd)/../benchmarks --number-of-txs 30 --timeout 3600s --incremental-modes False'
     steps:
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
