@@ -82,18 +82,22 @@ makeDoubleQuantiles [] = mempty
 makeDoubleQuantiles xs =
   Statistics.quantilesVec def (fromList [0 .. 99]) 100 (fromList xs)
 
+-- | Render a time value with at most one decimal place.
+oneDec :: Real a => a -> Text
+oneDec x = pack $ printf "%.1f" (realToFrac x :: Double)
+
 textReport :: (Summary, SystemStats) -> [Text]
 textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, numberOfInvalidTxs, numberOfFanoutOutputs, endToEndTps, snapshotTpsQuantiles, numberOfSnapshots, incrementalCommitTimes, incrementalDecommitTimes}, systemStats) =
   let frac :: Double
       frac = 100 * fromIntegral numberOfTxs / fromIntegral totalTxs
    in [ pack $ printf "Confirmed txs/Total expected txs: %d/%d (%.2f %%)" numberOfTxs totalTxs frac
-      , "Average confirmation time (ms): " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
+      , "Average confirmation time (ms): " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime)
       ]
         ++ ( if length quantiles == 100
               then
-                [ "P99: " <> show (quantiles ! 99) <> "ms"
-                , "P95: " <> show (quantiles ! 95) <> "ms"
-                , "P50: " <> show (quantiles ! 50) <> "ms"
+                [ "P99: " <> oneDec (quantiles ! 99) <> "ms"
+                , "P95: " <> oneDec (quantiles ! 95) <> "ms"
+                , "P50: " <> oneDec (quantiles ! 50) <> "ms"
                 ]
               else []
            )
@@ -120,8 +124,8 @@ textReport (Summary{totalTxs, numberOfTxs, averageConfirmationTime, quantiles, n
       let xs = map nominalDiffTimeToMilliseconds ts
           avg = sum xs / fromIntegral (length xs)
        in [ lbl <> " count: " <> show (length ts)
-          , lbl <> " avg (ms): " <> show avg
-          , lbl <> " max (ms): " <> show (List.maximum xs)
+          , lbl <> " avg (ms): " <> oneDec avg
+          , lbl <> " max (ms): " <> oneDec (List.maximum xs)
           ]
 
 markdownReport :: UTCTime -> [(Summary, SystemStats)] -> [Text]
@@ -180,13 +184,13 @@ formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, qua
       , "| Number of nodes |  " <> show clusterSize <> " | "
       , "| -- | -- |"
       , "| _Number of txs_ | " <> show numberOfTxs <> " |"
-      , "| _Avg. Confirmation Time (ms)_ | " <> show (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
+      , "| _Avg. Confirmation Time (ms)_ | " <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime) <> " |"
       ]
         ++ ( if length quantiles == 100
               then
-                [ "| _P99_ | " <> show (quantiles ! 99) <> "ms |"
-                , "| _P95_ | " <> show (quantiles ! 95) <> "ms |"
-                , "| _P50_ | " <> show (quantiles ! 50) <> "ms |"
+                [ "| _P99_ | " <> oneDec (quantiles ! 99) <> "ms |"
+                , "| _P95_ | " <> oneDec (quantiles ! 95) <> "ms |"
+                , "| _P50_ | " <> oneDec (quantiles ! 50) <> "ms |"
                 ]
               else []
            )
@@ -217,8 +221,8 @@ formattedSummary (Summary{clusterSize, numberOfTxs, averageConfirmationTime, qua
       let xs = map nominalDiffTimeToMilliseconds ts
           avg = sum xs / fromIntegral (length xs)
        in [ "| _" <> lbl <> " count_ | " <> show (length ts) <> " |"
-          , "| _" <> lbl <> " avg (ms)_ | " <> show avg <> " |"
-          , "| _" <> lbl <> " max (ms)_ | " <> show (List.maximum xs) <> " |"
+          , "| _" <> lbl <> " avg (ms)_ | " <> oneDec avg <> " |"
+          , "| _" <> lbl <> " max (ms)_ | " <> oneDec (List.maximum xs) <> " |"
           ]
 
 -- | Markdown report for the matrix runner. Same per-scenario details as
@@ -260,7 +264,7 @@ comparisonTable summaries =
   , ""
   , "TPS columns are rates (transactions per second); _Wall clock (s)_ is the \
     \matching elapsed time, computed as `Txs / End-to-end TPS`, so a row with \
-    \50 txs and 50.58 tx/s ran in about 0.99 s."
+    \50 txs and 50.58 tx/s ran in about 1.0 s. Times are rounded to one decimal."
   , ""
   , "| Scenario | Nodes | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Per-snapshot p50 TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
   , "| -- | -- | -- | -- | -- | -- | -- | -- |"
@@ -277,14 +281,14 @@ comparisonTable summaries =
           <> show clusterSize
           <> " | 0 | n/a | n/a | n/a | n/a | n/a |"
     | otherwise =
-        let p95Conf = if length quantiles == 100 then show (quantiles ! 95) else "n/a"
+        let p95Conf = if length quantiles == 100 then oneDec (quantiles ! 95) else "n/a"
             p50Tps =
               if length snapshotTpsQuantiles == 100
                 then pack $ printf "%.2f" (snapshotTpsQuantiles ! 50)
                 else "n/a"
             wallClock =
               if endToEndTps > 0
-                then pack $ printf "%.2f" (fromIntegral numberOfTxs / endToEndTps :: Double)
+                then oneDec (fromIntegral numberOfTxs / endToEndTps :: Double)
                 else "n/a"
          in "| "
               <> summaryTitle
@@ -299,7 +303,7 @@ comparisonTable summaries =
               <> " | "
               <> p50Tps
               <> " | "
-              <> show (nominalDiffTimeToMilliseconds averageConfirmationTime)
+              <> oneDec (nominalDiffTimeToMilliseconds averageConfirmationTime)
               <> " | "
               <> p95Conf
               <> " |"
