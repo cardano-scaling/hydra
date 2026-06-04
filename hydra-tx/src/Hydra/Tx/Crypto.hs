@@ -133,7 +133,7 @@ instance Key HydraKey where
   newtype SigningKey HydraKey
     = HydraSigningKey (SignKeyDSIGN Ed25519DSIGN)
     deriving stock (Eq, Ord)
-    deriving (Show, IsString) via UsingRawBytesHex (SigningKey HydraKey)
+    deriving (IsString) via UsingRawBytesHex (SigningKey HydraKey)
     deriving newtype (ToCBOR, FromCBOR)
     deriving anyclass (SerialiseAsCBOR)
 
@@ -205,17 +205,8 @@ instance HasTextEnvelope (VerificationKey HydraKey) where
     "HydraVerificationKey_"
       <> fromString (algorithmNameDSIGN (Proxy :: Proxy Ed25519DSIGN))
 
-instance ToJSON (SigningKey HydraKey) where
-  toJSON = toJSON . serialiseToRawBytesHexText
-
-instance FromJSON (SigningKey HydraKey) where
-  parseJSON = Aeson.withText "SigningKey" $ decodeBase16 >=> deserialiseKey
-   where
-    deserialiseKey =
-      maybe
-        (fail "unable to deserialize SigningKey, wrong length")
-        (pure . HydraSigningKey)
-        . rawDeserialiseSignKeyDSIGN
+instance Show (SigningKey HydraKey) where
+  show _ = "<HydraSigningKey>"
 
 -- | Create a new 'SigningKey' from a 'ByteString' seed. The created keys are
 -- not random and insecure, so don't use this in production code!

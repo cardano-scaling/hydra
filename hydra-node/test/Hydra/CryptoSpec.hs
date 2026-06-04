@@ -40,8 +40,6 @@ spec = do
 specSigningKey :: Spec
 specSigningKey =
   describe "SigningKey" $ do
-    it "show includes escaped hex" $
-      show (generateSigningKey "aaa") `shouldContain` "\"983487"
     it "can be generated when seed exceeds the max seed size for algorithm" $
       let exceedingSizeSeedA = Char8.pack $ replicate 32 'x' <> "a"
           exceedingSizeSeedB = Char8.pack $ replicate 32 'x' <> "b"
@@ -50,7 +48,6 @@ specSigningKey =
       (seedA /= seedB) ==>
         (generateSigningKey seedA =/= generateSigningKey seedB)
     propCollisionResistant "arbitrary @(SigningKey HydraKey)" (arbitrary @(SigningKey HydraKey))
-    roundtripAndGoldenSpecs (Proxy @(SigningKey HydraKey))
 
 specVerificationKey :: Spec
 specVerificationKey =
