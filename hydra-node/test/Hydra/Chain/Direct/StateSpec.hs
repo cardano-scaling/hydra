@@ -114,6 +114,7 @@ import Test.QuickCheck (
   forAllBlind,
   forAllShow,
   forAllShrink,
+  forAllShrinkBlind,
   label,
   tabulate,
   (.&&.),
@@ -432,7 +433,7 @@ forAllDeposit ::
   (UTxO -> Tx -> property) ->
   Property
 forAllDeposit action = do
-  forAllShrink (genDepositTx maximumNumberOfParties) shrink $ \(_ctx, st, utxoToDeposit, tx) ->
+  forAllShrinkBlind (genDepositTx maximumNumberOfParties) shrink $ \(_ctx, st, utxoToDeposit, tx) ->
     let utxo = getKnownUTxO st <> utxoToDeposit
      in action utxo tx
 
@@ -456,7 +457,7 @@ forAllIncrement' ::
   (UTxO -> Tx -> property) ->
   Property
 forAllIncrement' action = do
-  forAllShrink (genIncrementTx maximumNumberOfParties) shrink $ \(ctx, st, incrementUTxO, tx) ->
+  forAllShrinkBlind (genIncrementTx maximumNumberOfParties) shrink $ \(ctx, st, incrementUTxO, tx) ->
     forAllBlind (pickChainContext ctx) $ \cctx ->
       let utxo = getKnownUTxO st <> getKnownUTxO cctx <> incrementUTxO
        in action utxo tx

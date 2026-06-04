@@ -3183,7 +3183,9 @@ components:
     Environment:
       type: object
       description: |
-        Running context derived from hydra-node run options.
+        Running context derived from hydra-node run options. The node's own
+        signing key is deliberately omitted from this representation: it is a
+        secret and must not be sent to clients.
       required:
       - party
       - otherParties

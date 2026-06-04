@@ -28,7 +28,7 @@ import Data.Scientific (Scientific)
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Data.Time (UTCTime (UTCTime), utctDayTime)
-import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, getVerificationKey, lovelaceToValue, signTx)
+import Hydra.Cardano.Api (NetworkId, SocketPath, Tx, TxId, lovelaceToValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
@@ -42,7 +42,7 @@ import Hydra.Logging (
 import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
-import Hydra.Tx.Crypto (generateSigningKey)
+import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
 import HydraNode (
   HydraClient,
   getSnapshotUTxO,
@@ -70,7 +70,9 @@ bench startingNodeId timeoutSeconds workDir dataset = do
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
       failAfter timeoutSeconds $ do
         putTextLn "Starting benchmark"
-        let cardanoKeys = hydraNodeKeys dataset <&> \sk -> (getVerificationKey sk, sk)
+        let cardanoKeys =
+              hydraNodeKeys dataset
+                <&> \sk -> (getVerificationKey sk, sk)
         let hydraKeys = generateSigningKey . show <$> [1 .. toInteger (length cardanoKeys)]
         statsTvar <- newLabelledTVarIO "bench-stats" mempty
         scenarioData <- withCardanoNodeDevnet (contramap FromCardanoNode tracer) workDir $ \blockTime directOpts -> do

@@ -72,6 +72,7 @@ library
     Hydra.Tx.Party
     Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
+    Hydra.Tx.Secret
     Hydra.Tx.Snapshot
     Hydra.Tx.Utils
 
@@ -82,6 +83,7 @@ library
     , base16-bytestring
     , bytestring
     , cardano-api
+    , cardano-binary
     , cardano-crypto-class
     , cardano-ledger-alonzo
     , cardano-ledger-api
@@ -192,6 +194,8 @@ test-suite tests
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.IsTxSpec
     Hydra.Tx.KZGTrustedSetupSpec
+    Hydra.Tx.SecretNegativeSpec
+    Hydra.Tx.SecretSpec
 
   type:           exitcode-stdio-1.0
   build-depends:
@@ -206,6 +210,7 @@ test-suite tests
     , cardano-ledger-api
     , cardano-ledger-babbage
     , cardano-ledger-core
+    , deepseq
     , hedgehog-quickcheck
     , hspec
     , hspec-golden-aeson
@@ -223,6 +228,7 @@ test-suite tests
     , plutus-tx
     , QuickCheck
     , quickcheck-instances
+    , serialise
     , time
 
   ghc-options:    -threaded -rtsopts

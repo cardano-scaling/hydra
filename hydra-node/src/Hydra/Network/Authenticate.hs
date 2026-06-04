@@ -14,7 +14,8 @@ import Hydra.Logging (traceWith)
 import Hydra.Network (Network (Network, broadcast), NetworkCallback (..), NetworkComponent)
 import Hydra.Prelude
 import Hydra.Tx (Party (Party, vkey), deriveParty)
-import Hydra.Tx.Crypto (HydraKey, Key (SigningKey), Signature, sign, verify)
+import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, sign, verify)
+import Hydra.Tx.Secret (Secret)
 
 -- | Represents a signed message over the network.
 -- Becomes valid once its receivers verify it against its other peers
@@ -51,7 +52,7 @@ withAuthentication ::
   ) =>
   Tracer m AuthLog ->
   -- The party signing key
-  SigningKey HydraKey ->
+  Secret (SigningKey HydraKey) ->
   -- Other party members
   [Party] ->
   -- The underlying raw network.

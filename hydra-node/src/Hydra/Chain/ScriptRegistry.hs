@@ -9,7 +9,6 @@ import Data.List ((!!))
 import Hydra.Cardano.Api (
   Era,
   EraHistory,
-  Key (..),
   LedgerEra,
   NetworkId,
   PParams,
@@ -36,7 +35,6 @@ import Hydra.Cardano.Api (
   txOuts',
   pattern TxOutDatumNone,
  )
-import Hydra.Cardano.Api.Tx (signTx)
 import Hydra.Chain.Backend (ChainBackend (..), buildTransactionWithPParams')
 import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..))
 import Hydra.Chain.CardanoClient (
@@ -46,7 +44,9 @@ import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
 import Hydra.Tx (txId)
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.Crypto (getVerificationKey, signTx)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry (..), newScriptRegistry)
+import Hydra.Tx.Secret (Secret)
 
 -- | Query for 'TxIn's in the search for outputs containing all the reference
 -- scripts of the 'ScriptRegistry'.
@@ -70,7 +70,7 @@ queryScriptRegistry txIds = do
 publishHydraScripts ::
   (ChainBackend m, MonadIO m, MonadCatch m) =>
   -- | Keys assumed to hold funds to pay for the publishing transaction.
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   m [TxId]
 publishHydraScripts sk = do
   networkId <- queryNetworkId
@@ -125,7 +125,7 @@ buildScriptPublishingTxs ::
   -- | Outputs that can be spent by signing key.
   UTxO ->
   -- | Key owning funds to pay deposit and fees.
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   m [Tx]
 buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools availableUTxO sk = do
   go availableUTxO (scriptOutputs <> scriptOutputsWithDatum)

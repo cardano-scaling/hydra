@@ -15,14 +15,18 @@ import Hydra.Cardano.Api (
   Value,
   VerificationKey,
   filterValue,
-  getVerificationKey,
   readFileTextEnvelope,
  )
+import Hydra.Tx.Crypto (getVerificationKey)
+import Hydra.Tx.Secret (Secret, mkSecret)
 
-readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+-- | Read a 'SigningKey PaymentKey' from a text-envelope file and return it
+-- wrapped in 'Secret'. The verification key is the public projection so
+-- stays unwrapped.
+readKeyPair :: FilePath -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 readKeyPair keyPath = do
   sk <- readFileTextEnvelopeThrow keyPath
-  pure (getVerificationKey sk, sk)
+  pure (getVerificationKey sk, mkSecret sk)
 
 -- XXX: Should accept a 'File' path
 readFileTextEnvelopeThrow ::

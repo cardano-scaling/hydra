@@ -11,7 +11,7 @@ module CardanoClient (
 
 import Hydra.Prelude
 
-import Hydra.Cardano.Api hiding (Block)
+import Hydra.Cardano.Api hiding (Block, getVerificationKey)
 import Hydra.Chain.Backend (ChainBackend)
 import Hydra.Chain.Backend qualified as Backend
 import Hydra.Chain.CardanoClient
@@ -22,6 +22,8 @@ import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.CardanoClient qualified as CardanoClient
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Options (ChainBackendOptions (..))
+import Hydra.Tx.Crypto (getVerificationKey)
+import Hydra.Tx.Secret (Secret, withSecret)
 import System.IO.Error (userError)
 
 -- | Run a 'ChainBackend' action given 'ChainBackendOptions'.
@@ -41,11 +43,12 @@ buildAddress vKey networkId =
   makeShelleyAddress networkId (PaymentCredentialByKey $ verificationKeyHash vKey) NoStakeAddress
 
 -- | Sign a transaction body with given signing key.
-sign :: SigningKey PaymentKey -> TxBody -> Tx
+sign :: Secret (SigningKey PaymentKey) -> TxBody -> Tx
 sign signingKey body =
-  makeSignedTransaction
-    [makeShelleyKeyWitness body (WitnessPaymentKey signingKey)]
-    body
+  withSecret signingKey $ \rawSk ->
+    makeSignedTransaction
+      [makeShelleyKeyWitness body (WitnessPaymentKey rawSk)]
+      body
 
 -- | Wait until the specified Address has received payments, visible on-chain,
 -- for the specified Lovelace amount. Returns the UTxO set containing all payments
@@ -94,7 +97,7 @@ waitForUTxO opts utxo =
 mkGenesisTx ::
   NetworkId ->
   -- | Owner of the 'initialFund'.
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   -- | Amount of initialFunds
   Coin ->
   -- | Recipients and amounts to pay in this transaction.

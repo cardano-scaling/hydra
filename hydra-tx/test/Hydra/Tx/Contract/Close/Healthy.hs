@@ -20,6 +20,7 @@ import Hydra.Tx.Close (PointInTime)
 import Hydra.Tx.ContestationPeriod (fromChain)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, aggregate, sign)
 import Hydra.Tx.Init (mkHeadOutput)
+import Hydra.Tx.Secret (Secret)
 import Hydra.Tx.Utils (splitUTxO, verificationKeyToOnChainId)
 
 import Test.Hydra.Prelude
@@ -77,7 +78,7 @@ somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
   elements healthyParticipants `generateWith` healthySeed
 
-healthySigningKeys :: [SigningKey HydraKey]
+healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthySigningKeys = [aliceSk, bobSk, carolSk]
 
 healthyParties :: [Party]

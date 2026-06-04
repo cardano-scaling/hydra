@@ -17,7 +17,7 @@
 -- modelling more complex transactions schemes...
 module Hydra.Model where
 
-import Hydra.Cardano.Api hiding (utxoFromTx)
+import Hydra.Cardano.Api hiding (getVerificationKey, utxoFromTx)
 import Hydra.Prelude hiding (Any, label, lookup, toList)
 import Test.Hydra.Prelude
 
@@ -60,10 +60,11 @@ import Hydra.Node.DepositPeriod (DepositPeriod (..))
 import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
-import Hydra.Tx.Crypto (HydraKey)
+import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testNetworkId)
 import Test.Hydra.Tx.Gen (genSigningKey)
@@ -77,7 +78,7 @@ import Prelude qualified
 
 -- | State maintained by the model.
 data WorldState = WorldState
-  { hydraParties :: [(SigningKey HydraKey, CardanoSigningKey)]
+  { hydraParties :: [(Secret (SigningKey HydraKey), CardanoSigningKey)]
   -- ^ List of parties identified by both signing keys required to run protocol.
   -- This list must not contain any duplicated key.
   , hydraState :: GlobalState
@@ -139,7 +140,7 @@ instance StateModel WorldState where
   -- DL. Those observations would usually not be generated.
   data Action WorldState a where
     Seed ::
-      { seedKeys :: [(SigningKey HydraKey, CardanoSigningKey)]
+      { seedKeys :: [(Secret (SigningKey HydraKey), CardanoSigningKey)]
       , contestationPeriod :: ContestationPeriod
       , additionalUTxO :: UTxOType Payment
       } ->
@@ -259,7 +260,7 @@ instance StateModel WorldState where
        where
         idleState = Idle{idleParties, cardanoKeys, contestationPeriod}
         idleParties = map (deriveParty . fst) seedKeys
-        cardanoKeys = map (getVerificationKey . signingKey . snd) seedKeys
+        cardanoKeys = map (\(_, CardanoSigningKey sk) -> getVerificationKey sk) seedKeys
       Init{} ->
         s{hydraState = mkInitialState hydraState}
        where
@@ -375,7 +376,7 @@ genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod =
   chooseEnum (1, 200)
 
-genInit :: [(SigningKey HydraKey, b)] -> Gen (Action WorldState HeadId)
+genInit :: [(Secret (SigningKey HydraKey), b)] -> Gen (Action WorldState HeadId)
 genInit hydraParties = do
   key <- fst <$> elements hydraParties
   let party = deriveParty key
@@ -406,12 +407,12 @@ unsafeConstructorName = Prelude.head . Prelude.words . show
 
 -- | Generate a list of pairs of Hydra/Cardano signing keys.
 --  All the keys in this list are guaranteed to be unique.
-partyKeys :: Gen [(SigningKey HydraKey, CardanoSigningKey)]
+partyKeys :: Gen [(Secret (SigningKey HydraKey), CardanoSigningKey)]
 partyKeys =
   sized $ \len -> do
     numParties <- choose (1, len)
     hks <- nub <$> vectorOf numParties arbitrary
-    cks <- nub . fmap CardanoSigningKey <$> vectorOf numParties genSigningKey
+    cks <- nub . fmap (CardanoSigningKey . mkSecret) <$> vectorOf numParties genSigningKey
     pure $ zip hks cks
 
 -- * Running the model
@@ -562,7 +563,7 @@ seedWorld ::
   , MonadDelay m
   , MonadTime m
   ) =>
-  [(SigningKey HydraKey, CardanoSigningKey)] ->
+  [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   ContestationPeriod ->
   RunMonad m ()
 seedWorld seedKeys seedCP = do
@@ -643,7 +644,8 @@ performDecommit ::
   Payment ->
   RunMonad m ()
 performDecommit party tx = do
-  let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
+  let recipient = case to tx of
+        CardanoSigningKey sk -> mkVkAddress testNetworkId (getVerificationKey sk)
   nodes <- gets nodes
   let thisNode = nodes ! party
   waitForOpen thisNode
@@ -657,7 +659,7 @@ performDecommit party tx = do
         either
           (error . show)
           id
-          (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
+          (case from tx of CardanoSigningKey sk -> mkSimpleTx (i, o) (recipient, value tx) sk)
 
   party `sendsInput` Input.Decommit realTx
 
@@ -672,7 +674,8 @@ performNewTx ::
   Payment ->
   RunMonad m Payment
 performNewTx party tx = do
-  let recipient = mkVkAddress testNetworkId . getVerificationKey . signingKey $ to tx
+  let recipient = case to tx of
+        CardanoSigningKey sk -> mkVkAddress testNetworkId (getVerificationKey sk)
   nodes <- gets nodes
   let thisNode = nodes ! party
   waitForOpen thisNode
@@ -686,7 +689,7 @@ performNewTx party tx = do
         either
           (error . show)
           id
-          (mkSimpleTx (i, o) (recipient, value tx) (signingKey $ from tx))
+          (case from tx of CardanoSigningKey sk -> mkSimpleTx (i, o) (recipient, value tx) sk)
 
   party `sendsInput` Input.NewTx realTx
   lift . waitUntilMatch (elems nodes) $ \case

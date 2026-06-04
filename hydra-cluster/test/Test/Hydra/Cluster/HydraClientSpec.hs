@@ -38,6 +38,7 @@ import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx)
 import Hydra.Logging (Tracer, showLogsOnFailure)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), nodeSocket)
 import Hydra.Tx (HeadId, IsTx (..))
+import Hydra.Tx.Secret (Secret, mkSecret)
 import HydraNode (
   HydraClient (..),
   getSnapshotUTxO,
@@ -121,7 +122,7 @@ filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
       runScenario hydraTracer n1 (textAddrOf aliceExternalVk) $ \con -> do
         -- XXX: perform a new tx while the connection query by address is open.
         utxo <- getSnapshotUTxO n1
-        newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
+        newTx <- sendTransferTx nodes utxo (mkSecret bobExternalSk) bobExternalVk
         waitFor hydraTracer 10 (toList nodes) $
           output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId]
 
@@ -162,7 +163,7 @@ filterSnapshotConfirmedByAddressScenario tracer tmpDir = do
     runScenario hydraTracer n1 (textAddrOf bobExternalVk) $ \con -> do
       -- XXX: perform a new tx while the connection query by address is open.
       utxo <- getSnapshotUTxO n1
-      newTx <- sendTransferTx nodes utxo bobExternalSk bobExternalVk
+      newTx <- sendTransferTx nodes utxo (mkSecret bobExternalSk) bobExternalVk
       waitFor hydraTracer 10 (toList nodes) $
         output "TxValid" ["transactionId" .= txId newTx, "headId" .= headId]
 
@@ -246,11 +247,15 @@ scenarioSetup ::
 scenarioSetup tracer tmpDir action = do
   withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime directOpts -> do
     let nodeSocket' = nodeSocket directOpts
-    aliceKeys@(aliceCardanoVk, _) <- generate genKeyPair
-    bobKeys@(bobCardanoVk, _) <- generate genKeyPair
-    carolKeys@(carolCardanoVk, _) <- generate genKeyPair
+    (aliceCardanoVk, aliceCardanoSk) <- generate genKeyPair
+    (bobCardanoVk, bobCardanoSk) <- generate genKeyPair
+    (carolCardanoVk, carolCardanoSk) <- generate genKeyPair
 
-    let cardanoKeys = [aliceKeys, bobKeys, carolKeys]
+    let cardanoKeys =
+          [ (aliceCardanoVk, mkSecret aliceCardanoSk)
+          , (bobCardanoVk, mkSecret bobCardanoSk)
+          , (carolCardanoVk, mkSecret carolCardanoSk)
+          ]
         hydraKeys = [aliceSk, bobSk, carolSk]
 
     let opts = Direct directOpts
@@ -303,7 +308,7 @@ prepareScenario opts nodes tracer = do
       guard $ v ^? key "headId" == Just (toJSON headId)
 
   -- Create an arbitrary transaction using some input to have history.
-  tx <- sendTx nodes committedUTxOByAlice aliceExternalSk bobExternalVk paymentFromAliceToBob
+  tx <- sendTx nodes committedUTxOByAlice (mkSecret aliceExternalSk) bobExternalVk paymentFromAliceToBob
   waitFor hydraTracer 10 (toList nodes) $
     output "TxValid" ["transactionId" .= txId tx, "headId" .= headId]
 
@@ -317,7 +322,7 @@ prepareScenario opts nodes tracer = do
   pure (expectedSnapshotNumber, txId tx, headId, aliceKeys, bobKeys)
 
 -- NOTE: this is partial and will fail if we are not able to generate a payment
-sendTx :: NonEmpty HydraClient -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> Lovelace -> IO Tx
+sendTx :: NonEmpty HydraClient -> UTxO -> Secret (SigningKey PaymentKey) -> VerificationKey PaymentKey -> Lovelace -> IO Tx
 sendTx nodes senderUTxO sender receiver amount = do
   let utxo = Prelude.head $ UTxO.toList senderUTxO
   let Right tx =
@@ -328,7 +333,7 @@ sendTx nodes senderUTxO sender receiver amount = do
   send (head nodes) $ input "NewTx" ["transaction" .= tx]
   pure tx
 
-sendTransferTx :: NonEmpty HydraClient -> UTxO -> SigningKey PaymentKey -> VerificationKey PaymentKey -> IO Tx
+sendTransferTx :: NonEmpty HydraClient -> UTxO -> Secret (SigningKey PaymentKey) -> VerificationKey PaymentKey -> IO Tx
 sendTransferTx nodes utxo sender receiver = do
   tx <- mkTransferTx testNetworkId utxo sender receiver
   send (head nodes) $ input "NewTx" ["transaction" .= tx]

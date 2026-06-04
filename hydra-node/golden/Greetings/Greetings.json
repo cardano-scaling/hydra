@@ -1,0 +1,48 @@
+{
+    "samples": [
+        {
+            "chainSyncedStatus": "InSync",
+            "currentSlot": 1,
+            "env": {
+                "configuredPeers": "",
+                "contestationPeriod": 43200,
+                "depositPeriod": 78099,
+                "otherParties": [],
+                "participants": [],
+                "party": {
+                    "vkey": "5802383116b8d8cfad0561849f98fa19652316ba794b06a4e2f74ac3f8d570b8"
+                },
+                "unsyncedPeriod": 21600
+            },
+            "headStatus": "Open",
+            "hydraNodeVersion": "\u000c",
+            "me": {
+                "vkey": "23699ffa9cfbcb961b1b7bbcd3f0f60e0b561867855b63c5b17b6ee3dd2750a0"
+            },
+            "networkInfo": {
+                "networkConnected": false,
+                "peersInfo": {
+                    "0.0.0.0:1": false
+                }
+            },
+            "snapshotUtxo": {
+                "0100000001000101010001000001010101010101010100010101000001010100#84": {
+                    "address": "addr_test1qzyr3yghqvsuwt6l9yavuzc2fsn8u67s9y4h3p8mgpujxxypqq4pzycpvjrqjftvu66qa0f0ytu9d23rrk72tslcpdqqsztxzt",
+                    "datum": null,
+                    "datumhash": null,
+                    "inlineDatum": null,
+                    "inlineDatumRaw": null,
+                    "referenceScript": null,
+                    "value": {
+                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
+                            "38": 7649844765309965365
+                        },
+                        "lovelace": 45000000000000000
+                    }
+                }
+            },
+            "tag": "Greetings"
+        }
+    ],
+    "seed": -307089451
+}

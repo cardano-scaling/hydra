@@ -29,6 +29,7 @@ import Hydra.Options (
   defaultCardanoChainConfig,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.Secret (Secret, mkSecret)
 import Paths_hydra_cluster qualified as Pkg
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.Prelude (failure)
@@ -46,8 +47,9 @@ readConfigFile source = do
       >>= maybe (Pkg.getDataFileName ("config" </> source)) (pure . (</> source))
   BS.readFile filename
 
--- | Get the "well-known" keys for given actor.
-keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+-- | Get the "well-known" keys for given actor. The signing key is
+-- 'Secret'-wrapped so callers cannot accidentally log or serialise it.
+keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 keysFor actor = do
   bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
   let res =
@@ -56,15 +58,16 @@ keysFor actor = do
   case res of
     Left err ->
       fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
-    Right sk -> pure (getVerificationKey sk, sk)
+    Right sk -> pure (getVerificationKey sk, mkSecret sk)
 
--- | Create and save new signing key at the provided path.
+-- | Create and save new signing key at the provided path, returning the
+-- key 'Secret'-wrapped.
 -- NOTE: Uses 'TextEnvelope' format.
-createAndSaveSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+createAndSaveSigningKey :: FilePath -> IO (Secret (SigningKey PaymentKey))
 createAndSaveSigningKey path = do
   sk <- generate genSigningKey
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
-  pure sk
+  pure (mkSecret sk)
 
 -- | Expected time between blocks (on average)
 type BlockTime = NominalDiffTime
