@@ -193,4 +193,3 @@ jobs:
         edit-mode: replace
         issue-number: ${{ github.event.pull_request.number }}
         body-file: comment-body.md
-        reactions: rocket
