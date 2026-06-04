@@ -1,11 +1,14 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Hydra.Node.Environment where
 
 import Hydra.Prelude
 
+import Data.Aeson (object, withObject, (.:), (.=))
 import Hydra.Node.DepositPeriod (DepositPeriod)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
-import Hydra.Tx.Crypto (HydraKey, SigningKey)
+import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (HasParty (..), Party)
@@ -28,7 +31,30 @@ data Environment = Environment
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }
   deriving stock (Generic, Show, Eq)
-  deriving anyclass (ToJSON, FromJSON)
+
+instance ToJSON Environment where
+  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, unsyncedPeriod, configuredPeers} =
+    object
+      [ "party" .= party
+      , "otherParties" .= otherParties
+      , "participants" .= participants
+      , "contestationPeriod" .= contestationPeriod
+      , "depositPeriod" .= depositPeriod
+      , "unsyncedPeriod" .= unsyncedPeriod
+      , "configuredPeers" .= configuredPeers
+      ]
+
+instance FromJSON Environment where
+  parseJSON = withObject "Environment" $ \o -> do
+    party <- o .: "party"
+    otherParties <- o .: "otherParties"
+    participants <- o .: "participants"
+    contestationPeriod <- o .: "contestationPeriod"
+    depositPeriod <- o .: "depositPeriod"
+    unsyncedPeriod <- o .: "unsyncedPeriod"
+    configuredPeers <- o .: "configuredPeers"
+    let signingKey = generateSigningKey ""
+    pure Environment{..}
 
 instance HasParty Environment where
   getParty = party

@@ -8,6 +8,7 @@ module Hydra.Model.Payment where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (Any, label, toList)
 import Test.Hydra.Prelude
+import Text.Show qualified
 
 import Data.List qualified as List
 import Data.Set ((\\))
@@ -16,11 +17,12 @@ import GHC.IsList (IsList (..))
 import Hydra.Tx.IsTx (IsTx (..))
 import Test.Hydra.Tx.Gen (genKeyPair)
 import Test.QuickCheck (choose)
-import Prelude qualified
 
 -- NOTE: New type wrapper to add Ord and Eq instances to signing keys
 newtype CardanoSigningKey = CardanoSigningKey {signingKey :: SigningKey PaymentKey}
-  deriving stock (Show)
+
+instance Show CardanoSigningKey where
+  show (CardanoSigningKey sk) = "CardanoSigningKey " <> show (verificationKeyHash (getVerificationKey sk))
 
 instance Eq CardanoSigningKey where
   CardanoSigningKey ska == CardanoSigningKey skb =

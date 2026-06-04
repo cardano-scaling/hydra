@@ -3183,7 +3183,6 @@ components:
         Running context derived from hydra-node run options.
       required:
       - party
-      - signingKey
       - otherParties
       - participants
       - contestationPeriod
@@ -3194,8 +3193,6 @@ components:
       properties:
         party:
           $ref: "api.yaml#/components/schemas/Party"
-        signingKey:
-          $ref: "api.yaml#/components/schemas/Signature"
         otherParties:
           type: array
           items:
