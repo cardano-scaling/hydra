@@ -332,7 +332,11 @@ genScriptRegistryWithCRSSize crsSize = do
           )
       , crsReference =
           ( TxIn txId' (TxIx 3)
-          , txOut{txOutReferenceScript = mkScriptRef CRS.validatorScript, txOutDatum = createCRSG2Datum crsSize}
+          , TxOut
+              (mkScriptAddress Fixture.testNetworkId CRS.validatorScript)
+              (lovelaceToValue (Coin 2_000_000))
+              (createCRSG2Datum crsSize)
+              (mkScriptRef CRS.validatorScript)
           )
       }
 

@@ -137,7 +137,7 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
   scriptOutputsWithDatum =
     let crsDatum :: TxOutDatum ctx
         crsDatum = Accumulator.createCRSG2Datum Accumulator.defaultItems
-     in mkScriptTxOutUsingDatum crsDatum . mkScriptRef <$> [CRS.validatorScript]
+     in [mkTxOutAutoBalance pparams crsScriptAddress mempty crsDatum (mkScriptRef CRS.validatorScript)]
 
   -- Loop over all script outputs to create while re-spending the change output.
   -- Note that we spend the entire UTxO set to cover the deposit scripts, resulting in a squashed UTxO at the end.
@@ -153,13 +153,10 @@ buildScriptPublishingTxs pparams systemStart networkId eraHistory stakePools ava
 
   changeAddress = mkVkAddress networkId (getVerificationKey sk)
 
-  mkScriptTxOut = mkScriptTxOutUsingDatum TxOutDatumNone
-
-  mkScriptTxOutUsingDatum =
-    mkTxOutAutoBalance
-      pparams
-      unspendableScriptAddress
-      mempty
+  mkScriptTxOut = mkTxOutAutoBalance pparams unspendableScriptAddress mempty TxOutDatumNone
 
   unspendableScriptAddress =
     mkScriptAddress networkId $ examplePlutusScriptAlwaysFails WitCtxTxIn
+
+  crsScriptAddress =
+    mkScriptAddress networkId CRS.validatorScript

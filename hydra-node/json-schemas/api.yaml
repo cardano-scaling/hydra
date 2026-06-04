@@ -2511,6 +2511,7 @@ components:
           required:
             - tag
             - utxo
+            - utxoForProof
             - headSeed
             - contestationDeadline
           description: |
@@ -2529,6 +2530,8 @@ components:
              oneOf:
               - $ref: "api.yaml#/components/schemas/UTxO"
               - type: "null"
+            utxoForProof:
+              $ref: "api.yaml#/components/schemas/UTxO"
             headSeed:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:

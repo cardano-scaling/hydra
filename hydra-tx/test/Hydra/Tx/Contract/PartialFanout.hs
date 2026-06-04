@@ -9,8 +9,9 @@ import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Data.Maybe (fromJust)
+import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Error (toErrorCode)
-import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline, PartialFanoutCannotBeLastBatch, PartialFanoutChangedParameters, PartialFanoutMembershipFailed, PartialFanoutZeroOutputs))
+import Hydra.Contract.HeadError (HeadError (HeadValueIsNotPreserved, InvalidCRSRefAddress, InvalidCRSRefScript, LowerBoundBeforeContestationDeadline, PartialFanoutCannotBeLastBatch, PartialFanoutChangedParameters, PartialFanoutMembershipFailed, PartialFanoutZeroOutputs))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Data.ContestationPeriod qualified as OnChain
@@ -239,6 +240,9 @@ data PartialFanoutMutation
     MutatePartialFanoutLastBatch
   | -- | Changing headAdaOverhead in the continuing FanoutProgressDatum must be rejected.
     MutatePartialFanoutHeadAdaOverhead
+  | -- | Correct CRS reference script hash but UTxO at an attacker-controlled address.
+    -- Exposes that withCRSLookup must also validate txOutAddress.
+    MutatePartialFanoutWrongAddressCRS
   deriving stock (Generic, Show, Enum, Bounded)
 
 genPartialFanoutMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -322,6 +326,24 @@ genPartialFanoutMutation (tx, _utxo) =
         let headOut = fromJust $ txOuts' tx !!? 0
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead) headOut
+    , -- Fake CRS UTxO: correct reference script hash but UTxO at an attacker-controlled address.
+      -- The script-hash check passes because the reference script bytes are legitimate,
+      -- but the address check (once enforced) must reject it.
+      SomeMutation (pure $ toErrorCode InvalidCRSRefAddress) MutatePartialFanoutWrongAddressCRS <$> do
+        let ScriptRegistry{crsReference = (legitCRSIn, legitCRSOut)} = scriptRegistry
+        fakeCRSIn <- arbitrary `suchThat` (/= legitCRSIn)
+        wrongAddress <- genAddressInEra testNetworkId `suchThat` (/= txOutAddress legitCRSOut)
+        let fakeCRSOut = TxOut wrongAddress (txOutValue legitCRSOut) (txOutDatum legitCRSOut) (mkScriptRef CRS.validatorScript)
+            fakeRedeemer =
+              Head.PartialFanout
+                { Head.numberOfPartialOutputs = fromIntegral (UTxO.size healthyDistributeUTxO)
+                , Head.crsRef = toPlutusTxOutRef fakeCRSIn
+                }
+        pure $
+          Changes
+            [ AddReferenceInput fakeCRSIn fakeCRSOut
+            , ChangeHeadRedeemer fakeRedeemer
+            ]
     ]
  where
   genSlotBefore (SlotNo slot) = SlotNo <$> choose (0, slot)
