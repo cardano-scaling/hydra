@@ -467,6 +467,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
             , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Snapshot.parameterUpdate = Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
 
@@ -860,6 +861,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Snapshot.utxoToCommit = Just utxoToCommit
             , Snapshot.utxoToDecommit = Nothing
             , Snapshot.accumulator = Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Snapshot.parameterUpdate = Nothing
             }
         sigs = aggregate [sign aliceSk snapshot]
 

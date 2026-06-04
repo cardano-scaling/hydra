@@ -30,11 +30,13 @@ import Hydra.Contract.HeadState (
   Hash,
   IncrementRedeemer (..),
   Input (..),
+  OnChainParameterUpdate (..),
   OpenDatum (..),
   Signature,
   SnapshotNumber,
   SnapshotVersion,
   State (..),
+  UpdateParametersRedeemer (..),
   progressFromClosed,
  )
 import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBurnAllHeadTokens, mustNotMintOrBurn, mustPreserveHeadValue)
@@ -66,6 +68,7 @@ import PlutusLedgerApi.V3 (
   UpperBound (..),
   Value (Value),
   mintValueBurned,
+  mintValueToMap,
  )
 import PlutusLedgerApi.V3.Contexts (findOwnInput, findTxInByTxOutRef)
 import PlutusTx (CompiledCode)
@@ -97,6 +100,8 @@ headValidator crsHash oldState input ctx =
       checkDecrement ctx openDatum redeemer
     (Open openDatum, Close redeemer) ->
       checkClose ctx openDatum redeemer
+    (Open openDatum, UpdateParameters redeemer) ->
+      checkUpdateParameters ctx openDatum redeemer
     (Closed closedDatum, Contest redeemer) ->
       checkContest ctx closedDatum redeemer
     (Closed closedDatum, Fanout{numberOfFanoutOutputs, numberOfCommitOutputs, numberOfDecommitOutputs}) ->
@@ -277,6 +282,148 @@ mustMatchAccumulatorCommitmentHash commitment hash =
   traceIfFalse $(errorCode AccumulatorCommitmentHashMismatch) $
     Builtins.blake2b_256 (Builtins.bls12_381_G1_compress commitment) == hash
 {-# INLINEABLE mustMatchAccumulatorCommitmentHash #-}
+
+-- | Verify an UpdateParameters transaction (issue #1813,
+-- dynamic-head-participants). Stays in the open state but rewrites the
+-- 'parties' field of the head datum according to the multi-signed
+-- 'parameterUpdate', burns or mints the relevant participation token, and
+-- bumps the snapshot version. All other open-state datum fields ('headId',
+-- 'contestationPeriod', 'headSeed', 'utxoHash') must be preserved.
+--
+-- 'RemovePartyOC' burns the leaving party's PT and shrinks the head output
+-- value by exactly that token. 'AddPartyOC' mints a fresh PT and grows the
+-- head output value by exactly that token.
+checkUpdateParameters ::
+  ScriptContext ->
+  -- | Open state before the update
+  OpenDatum ->
+  UpdateParametersRedeemer ->
+  Bool
+checkUpdateParameters ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
+  mustOnlyChangeParties
+    && mustApplyUpdateToParties
+    && mustMintOrBurnParticipationToken
+    && mustIncreaseVersion
+    && mustPreserveHeadValueAdjustedForPT
+    && mustBeSignedByParticipant ctx prevHeadId
+    && checkSnapshotSignature
+ where
+  UpdateParametersRedeemer{signature, snapshotNumber, parameterUpdate} = redeemer
+
+  OpenDatum
+    { headSeed = prevHeadSeed
+    , parties = prevParties
+    , contestationPeriod = prevCperiod
+    , headId = prevHeadId
+    , version = prevVersion
+    , accumulatorHash = prevAccumulatorHash
+    } = openBefore
+
+  OpenDatum
+    { headSeed = nextHeadSeed
+    , parties = nextParties
+    , contestationPeriod = nextCperiod
+    , headId = nextHeadId
+    , version = nextVersion
+    , utxoHash = nextUtxoHash
+    , accumulatorHash = nextAccumulatorHash
+    } = decodeHeadOutputOpenDatum ctx
+
+  mustOnlyChangeParties =
+    traceIfFalse $(errorCode UpdateParametersChangedOtherFields) $
+      prevHeadSeed == nextHeadSeed
+        && prevCperiod == nextCperiod
+        && prevHeadId == nextHeadId
+        && prevAccumulatorHash == nextAccumulatorHash
+
+  mustApplyUpdateToParties =
+    traceIfFalse $(errorCode FailedUpdateParametersBadPartyChange) $
+      case parameterUpdate of
+        RemovePartyOC leavingParty _ ->
+          nextParties == removeFirst leavingParty prevParties
+        AddPartyOC joiningParty _ ->
+          -- New party is appended to the end, preserving order of existing
+          -- parties (matters for leader-rotation determinism off chain).
+          nextParties == prevParties L.++ [joiningParty]
+
+  -- Remove the first occurrence of x from the list, preserving order. Equivalent
+  -- in spirit to Data.List.delete but inlined for plutus-tx.
+  removeFirst :: Party -> [Party] -> [Party]
+  removeFirst x = go
+   where
+    go = \case
+      [] -> []
+      (y : ys)
+        | x == y -> ys
+        | otherwise -> y : go ys
+
+  mustMintOrBurnParticipationToken =
+    case parameterUpdate of
+      RemovePartyOC _ tokenName ->
+        traceIfFalse $(errorCode FailedUpdateParametersBadPTBurn) $
+          ptMintsForHead prevHeadId == [(tokenName, -1)]
+      AddPartyOC _ tokenName ->
+        traceIfFalse $(errorCode FailedUpdateParametersBadPTMint) $
+          ptMintsForHead prevHeadId == [(tokenName, 1)]
+
+  -- All participation-token mints/burns for the head's currency, as
+  -- (asset name, signed quantity) pairs.
+  ptMintsForHead headCurrency =
+    maybe
+      []
+      AssocMap.toList
+      (AssocMap.lookup headCurrency (mintValueToMap (txInfoMint txInfo)))
+
+  -- The output head value must preserve the input head value adjusted by
+  -- exactly the participation token that was minted (Add) or burned (Remove).
+  -- NOTE: We use 'geq' (not '==') for the lovelace component because the
+  -- wallet's 'ensureMinCoinTxOut' may inflate the head output's lovelace to
+  -- cover the higher min-utxo cost incurred by adding a new asset (a PT).
+  -- This mirrors 'mustPreserveHeadValue' in Hydra.Contract.Util.
+  mustPreserveHeadValueAdjustedForPT =
+    traceIfFalse $(errorCode HeadValueIsNotPreserved) $
+      case parameterUpdate of
+        RemovePartyOC _ tokenName ->
+          headInValue `geq` (headOutValue <> singletonPTValue prevHeadId tokenName)
+        AddPartyOC _ tokenName ->
+          headOutValue `geq` (headInValue <> singletonPTValue prevHeadId tokenName)
+
+  -- A 'Value' containing exactly one participation token of the given asset
+  -- name under the head's currency.
+  singletonPTValue currency tokenName =
+    Value $ AssocMap.singleton currency $ AssocMap.singleton tokenName 1
+
+  headInValue = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
+  headOutValue = txOutValue $ L.head $ txInfoOutputs txInfo
+
+  mustIncreaseVersion =
+    traceIfFalse $(errorCode VersionNotIncremented) $
+      nextVersion == prevVersion + 1
+
+  -- The signature payload uses the /new/ datum's 'utxoHash' (= the L2
+  -- state hash at the time the snapshot was signed; the tx builder
+  -- sets this to 'hashUTxO snapshot.utxo'). This matches what the
+  -- off-chain 'getSignableRepresentation' of a 'Snapshot' emits.
+  -- 'UpdateParameters' may therefore advance the on-chain 'utxoHash'
+  -- the same way 'Increment'/'Decrement' do — see also the
+  -- relaxation of 'mustOnlyChangeParties' above.
+  checkSnapshotSignature =
+    verifyParameterUpdateSignature
+      prevParties
+      (prevHeadId, prevVersion, snapshotNumber, nextUtxoHash, emptyHash, emptyHash, prevAccumulatorHash)
+      parameterUpdate
+      signature
+
+-- NOTE: We deliberately verify the signature against the *previous* parties
+-- list for both 'RemovePartyOC' and 'AddPartyOC'. For 'RemoveParty', this lets
+-- the leaving party sign their own departure (they are still in 'prevParties').
+-- For 'AddParty', the joining party does not need to multi-sign the on-chain
+-- transition itself — their consent is captured out-of-band when they start
+-- participating in the head; the multi-sig from existing parties is what
+-- authorizes the parameter change on chain. This keeps the off-chain
+-- 'ifAllMembersHaveSigned' check (which uses 'OpenState.parameters.parties'
+-- = previous parties) consistent with what the validator enforces.
+{-# INLINEABLE checkUpdateParameters #-}
 
 -- | Verify a close transaction.
 checkClose ::
@@ -835,6 +982,43 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToC
       <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
       <> Builtins.serialiseData (toBuiltinData accumulatorHash)
 {-# INLINEABLE verifyPartySignature #-}
+
+-- | Verify the multi-signature of a snapshot that carries a pending
+-- 'OnChainParameterUpdate'. Mirrors the off-chain
+-- 'SignableRepresentation Snapshot': the unconditional accumulator hash term
+-- (added when the on-chain accumulator was introduced) plus the CBOR encoding
+-- of the parameter update appended at the end.
+verifyParameterUpdateSignature ::
+  [Party] ->
+  (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash) ->
+  OnChainParameterUpdate ->
+  [Signature] ->
+  Bool
+verifyParameterUpdateSignature parties msg parameterUpdate sigs =
+  traceIfFalse $(errorCode SignatureVerificationFailed) $
+    L.length parties == L.length sigs
+      && L.all (uncurry $ verifyParameterUpdatePartySignature msg parameterUpdate) (L.zip parties sigs)
+{-# INLINEABLE verifyParameterUpdateSignature #-}
+
+verifyParameterUpdatePartySignature ::
+  (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash, Hash) ->
+  OnChainParameterUpdate ->
+  Party ->
+  Signature ->
+  Bool
+verifyParameterUpdatePartySignature (headId, snapshotVersion, snapshotNumber, utxoHash, utxoToCommitHash, utxoToDecommitHash, accumulatorHash) parameterUpdate party =
+  verifyEd25519Signature (vkey party) message
+ where
+  message =
+    Builtins.serialiseData (toBuiltinData headId)
+      <> Builtins.serialiseData (toBuiltinData snapshotVersion)
+      <> Builtins.serialiseData (toBuiltinData snapshotNumber)
+      <> Builtins.serialiseData (toBuiltinData utxoHash)
+      <> Builtins.serialiseData (toBuiltinData utxoToCommitHash)
+      <> Builtins.serialiseData (toBuiltinData utxoToDecommitHash)
+      <> Builtins.serialiseData (toBuiltinData accumulatorHash)
+      <> Builtins.serialiseData (toBuiltinData parameterUpdate)
+{-# INLINEABLE verifyParameterUpdatePartySignature #-}
 
 unappliedValidator :: CompiledCode (ScriptHash -> ValidatorType)
 unappliedValidator =

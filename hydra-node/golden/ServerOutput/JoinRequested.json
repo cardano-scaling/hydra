@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "headId": "01000100000000010101010001000101",
+            "joiningHost": "𡛠",
+            "joiningParty": {
+                "vkey": "dcd4e63a6639aa38feb226d24e0abb313b8af26a779179a3ce42b87ee7f3e9b3"
+            },
+            "tag": "JoinRequested"
+        }
+    ],
+    "seed": 1343560314
+}

@@ -71,6 +71,7 @@ import Hydra.Chain.Direct.State (
   initialize,
   partialFanout,
   recover,
+  updateParameters,
  )
 import Hydra.Chain.Direct.TimeHandle (TimeHandle (..))
 import Hydra.Chain.Direct.Wallet (
@@ -100,6 +101,7 @@ import Hydra.Tx.Observe (
   IncrementObservation (..),
   InitObservation (..),
   PartialFanoutObservation (..),
+  UpdateParametersObservation (..),
   observeHeadTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..))
@@ -451,6 +453,8 @@ convertObservation TimeHandle{slotToUTCTime} = \case
     pure OnFanoutTx{headId, fanoutUTxO}
   PartialFanout PartialFanoutObservation{headId, distributedOutputs} ->
     pure OnPartialFanoutTx{headId, distributedOutputs}
+  UpdateParameters UpdateParametersObservation{headId, newVersion, parameterUpdate} ->
+    pure OnUpdateParametersTx{headId, newVersion, parameterUpdate}
 
 prepareTxToPost ::
   forall m.
@@ -502,6 +506,10 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
     -- These are handled in mkChain.postTx before reaching this function.
     FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)
     FinalPartialFanoutTx{} -> throwSTM (FailedToConstructPartialFanoutTx :: PostTxError Tx)
+    UpdateParametersTx{headSeed, headId, headParameters, updateParametersSnapshot, parameterUpdate} ->
+      case updateParameters ctx spendableUTxO (headSeed, headId) headParameters updateParametersSnapshot parameterUpdate of
+        Left err -> throwIO (FailedToConstructUpdateParametersTx{failureReason = show err} :: PostTxError Tx)
+        Right updateParametersTx' -> pure updateParametersTx'
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a

@@ -106,6 +106,14 @@ channels:
           - $ref: "api.yaml#/components/messages/EventLogRotated"
           - $ref: "api.yaml#/components/messages/NodeUnsynced"
           - $ref: "api.yaml#/components/messages/NodeSynced"
+          - $ref: "api.yaml#/components/messages/LeaveRequested"
+          - $ref: "api.yaml#/components/messages/LeaveApproved"
+          - $ref: "api.yaml#/components/messages/LeaveFinalized"
+          - $ref: "api.yaml#/components/messages/LeaveInvalid"
+          - $ref: "api.yaml#/components/messages/JoinRequested"
+          - $ref: "api.yaml#/components/messages/JoinApproved"
+          - $ref: "api.yaml#/components/messages/JoinFinalized"
+          - $ref: "api.yaml#/components/messages/JoinInvalid"
     publish:
       summary: Commands sent to the Hydra node.
       operationId: clientInput
@@ -119,6 +127,8 @@ channels:
           - $ref: "api.yaml#/components/messages/Contest"
           - $ref: "api.yaml#/components/messages/Fanout"
           - $ref: "api.yaml#/components/messages/SideLoadSnapshot"
+          - $ref: "api.yaml#/components/messages/Leave"
+          - $ref: "api.yaml#/components/messages/AddParticipant"
 
   /head:
     servers:
@@ -345,6 +355,80 @@ channels:
           method: POST
           bindingVersion: '0.1.0'
 
+  /participants/me:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Request this node to leave the open head (dynamic-head-participants,
+        issue #1813). The node may only request its own departure; the request
+        is fulfilled once the remaining parties unanimously sign a snapshot
+        authorizing the leave and the resulting 'UpdateParameters' L1
+        transaction is observed.
+      operationId: leaveRequest
+      bindings:
+        http:
+          type: request
+          method: DELETE
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: leaveResponse
+      description: |
+        Possible responses of this endpoint are:
+          * String - 200 OK
+          * String - 202 accepted (timed out waiting for finalization)
+          * LeaveInvalidReason - 400 bad request
+          * String - 503 service unavailable
+      bindings:
+        http:
+          type: response
+          method: DELETE
+          bindingVersion: '0.1.0'
+
+  /participants:
+    servers:
+      - localhost-http
+    publish:
+      description: |
+        Propose a new party to join the open head (Phase 2 of
+        dynamic-head-participants, issue #1813). Sent by an existing party
+        (the inviter). The body carries the joining party's Hydra
+        verification key plus the on-chain participation-token asset name.
+        The request is fulfilled once all parties (existing + the joining
+        party) unanimously sign the snapshot authorizing the join and the
+        resulting 'UpdateParameters' L1 transaction is observed.
+      operationId: addParticipantRequest
+      message:
+        payload:
+          type: object
+          required:
+            - joiningParty
+            - joiningOnChainId
+          properties:
+            joiningParty:
+              $ref: "api.yaml#/components/schemas/Party"
+            joiningOnChainId:
+              type: string
+              description: Hex-encoded on-chain identifier of the joining party.
+      bindings:
+        http:
+          type: request
+          method: POST
+          bindingVersion: '0.1.0'
+    subscribe:
+      operationId: addParticipantResponse
+      description: |
+        Possible responses of this endpoint are:
+          * String - 200 OK
+          * String - 202 accepted (timed out waiting for finalization)
+          * JoinInvalidReason - 400 bad request
+          * String - 503 service unavailable
+      bindings:
+        http:
+          type: response
+          method: POST
+          bindingVersion: '0.1.0'
+
   /protocol-parameters:
     servers:
       - localhost-http
@@ -549,6 +633,45 @@ components:
             type: string
             enum: ["SideLoadSnapshot"]
 
+    Leave:
+      title: Leave
+      description: |
+        Request to leave the open head. The node may only request its own
+        departure. Triggers a 'ReqLeave' broadcast, which once unanimously
+        signed into a snapshot is finalized by an 'UpdateParameters' L1
+        transaction (issue #1813, dynamic-head-participants).
+      payload:
+        type: object
+        required:
+          - tag
+        properties:
+          tag:
+            type: string
+            enum: ["Leave"]
+
+    AddParticipant:
+      title: AddParticipant
+      description: |
+        Propose a new party (with their 'OnChainId') to join the open head.
+        Sent by one of the existing parties (the inviter). Triggers a
+        'ReqAddParty' broadcast, finalized by an 'UpdateParameters' L1
+        transaction (Phase 2 of issue #1813).
+      payload:
+        type: object
+        required:
+          - tag
+          - joiningParty
+          - joiningOnChainId
+        properties:
+          tag:
+            type: string
+            enum: ["AddParticipant"]
+          joiningParty:
+            $ref: "api.yaml#/components/schemas/Party"
+          joiningOnChainId:
+            type: string
+            description: Hex-encoded on-chain identifier of the joining party.
+
     # Server outputs
 
     Greetings:
@@ -749,6 +872,74 @@ components:
       payload:
         $ref: "api.yaml#/components/schemas/DecommitFinalized"
 
+    LeaveRequested:
+      title: LeaveRequested
+      description: |
+        A 'Leave' client input has been accepted; the parameter change is now
+        pending sign-off via a multi-signed snapshot. See issue #1813
+        (dynamic-head-participants).
+      payload:
+        $ref: "api.yaml#/components/schemas/LeaveRequested"
+
+    LeaveApproved:
+      title: LeaveApproved
+      description: |
+        All parties have signed the snapshot authorizing the leave; the head
+        node will post an 'UpdateParameters' L1 transaction to finalize the
+        parameter change.
+      payload:
+        $ref: "api.yaml#/components/schemas/LeaveApproved"
+
+    LeaveFinalized:
+      title: LeaveFinalized
+      description: |
+        The 'UpdateParameters' L1 transaction has been observed; the head's
+        parties list is now the supplied 'newParties' and the leaver is no
+        longer a member of the head.
+      payload:
+        $ref: "api.yaml#/components/schemas/LeaveFinalized"
+
+    LeaveInvalid:
+      title: LeaveInvalid
+      description: |
+        A 'Leave' client input could not be accepted (head closed, leaver
+        unknown, last party, or in-flight commit/decommit/parameter-update).
+      payload:
+        $ref: "api.yaml#/components/schemas/LeaveInvalid"
+
+    JoinRequested:
+      title: JoinRequested
+      description: |
+        An 'AddParticipant' client input has been accepted; the join is
+        pending sign-off via a multi-signed snapshot. Phase 2 of issue
+        #1813 (dynamic-head-participants).
+      payload:
+        $ref: "api.yaml#/components/schemas/JoinRequested"
+
+    JoinApproved:
+      title: JoinApproved
+      description: |
+        All parties (existing + the joining party) have signed the snapshot
+        authorizing the join; the head node will post an 'UpdateParameters'
+        L1 transaction to finalize.
+      payload:
+        $ref: "api.yaml#/components/schemas/JoinApproved"
+
+    JoinFinalized:
+      title: JoinFinalized
+      description: |
+        The 'UpdateParameters' L1 transaction has been observed; the head's
+        parties list now contains the joining party.
+      payload:
+        $ref: "api.yaml#/components/schemas/JoinFinalized"
+
+    JoinInvalid:
+      title: JoinInvalid
+      description: |
+        An 'AddParticipant' client input could not be accepted.
+      payload:
+        $ref: "api.yaml#/components/schemas/JoinInvalid"
+
     CommitRecorded:
       title: CommitRecorded
       description: |
@@ -854,6 +1045,8 @@ components:
         - $ref: "api.yaml#/components/schemas/Contest"
         - $ref: "api.yaml#/components/schemas/Fanout"
         - $ref: "api.yaml#/components/schemas/SideLoadSnapshot"
+        - $ref: "api.yaml#/components/schemas/Leave"
+        - $ref: "api.yaml#/components/schemas/AddParticipant"
 
     ServerOutput:
       oneOf:
@@ -887,6 +1080,14 @@ components:
         - $ref: "api.yaml#/components/schemas/EventLogRotated"
         - $ref: "api.yaml#/components/schemas/NodeUnsynced"
         - $ref: "api.yaml#/components/schemas/NodeSynced"
+        - $ref: "api.yaml#/components/schemas/LeaveRequested"
+        - $ref: "api.yaml#/components/schemas/LeaveApproved"
+        - $ref: "api.yaml#/components/schemas/LeaveFinalized"
+        - $ref: "api.yaml#/components/schemas/LeaveInvalid"
+        - $ref: "api.yaml#/components/schemas/JoinRequested"
+        - $ref: "api.yaml#/components/schemas/JoinApproved"
+        - $ref: "api.yaml#/components/schemas/JoinFinalized"
+        - $ref: "api.yaml#/components/schemas/JoinInvalid"
 
     ClientMessage:
       oneOf:
@@ -1036,6 +1237,37 @@ components:
           enum: ["SideLoadSnapshot"]
         snapshot:
           $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+
+    Leave:
+      title: Leave
+      type: object
+      required:
+        - tag
+      properties:
+        tag:
+          type: string
+          enum: ["Leave"]
+
+    AddParticipant:
+      title: AddParticipant
+      type: object
+      required:
+        - tag
+        - joiningParty
+        - joiningOnChainId
+        - joiningHost
+      properties:
+        tag:
+          type: string
+          enum: ["AddParticipant"]
+        joiningParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        joiningOnChainId:
+          type: string
+          description: Hex-encoded on-chain identifier of the joining party.
+        joiningHost:
+          type: string
+          description: Network host ('hostname:port') the joining party's hydra-node listens on. Used to extend the L2 etcd cluster via 'etcdctl member add'.
 
     # Server outputs
 
@@ -1387,6 +1619,8 @@ components:
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+            - $ref: "api.yaml#/components/messages/Leave/payload"
+            - $ref: "api.yaml#/components/messages/AddParticipant/payload"
         state:
           $ref: "api.yaml#/components/schemas/HeadState"
 
@@ -1411,6 +1645,8 @@ components:
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+            - $ref: "api.yaml#/components/messages/Leave/payload"
+            - $ref: "api.yaml#/components/messages/AddParticipant/payload"
         drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
 
@@ -1435,6 +1671,8 @@ components:
             - $ref: "api.yaml#/components/messages/Contest/payload"
             - $ref: "api.yaml#/components/messages/Fanout/payload"
             - $ref: "api.yaml#/components/messages/SideLoadSnapshot/payload"
+            - $ref: "api.yaml#/components/messages/Leave/payload"
+            - $ref: "api.yaml#/components/messages/AddParticipant/payload"
         requirementFailure:
           $ref: "api.yaml#/components/schemas/SideLoadRequirementFailure"
 
@@ -1718,6 +1956,225 @@ components:
           $ref: "api.yaml#/components/schemas/HeadId"
         distributedUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    LeaveRequested:
+      title: LeaveRequested
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - leavingParty
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["LeaveRequested"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        leavingParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    LeaveApproved:
+      title: LeaveApproved
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - leavingParty
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["LeaveApproved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        leavingParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    LeaveFinalized:
+      title: LeaveFinalized
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - leavingParty
+        - newParties
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["LeaveFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        leavingParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        newParties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    LeaveInvalid:
+      title: LeaveInvalid
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - leavingParty
+        - leaveReason
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["LeaveInvalid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        leavingParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        leaveReason:
+          type: string
+          enum:
+            - LeaveHeadNotOpen
+            - LeaveLeavingPartyNotInHead
+            - LeaveLastPartyCannotLeave
+            - LeaveParameterUpdateAlreadyInFlight
+            - LeaveIncompatibleWithDecommit
+            - LeaveIncompatibleWithCommit
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    JoinRequested:
+      title: JoinRequested
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - joiningParty
+        - joiningHost
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["JoinRequested"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        joiningParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        joiningHost:
+          type: string
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    JoinApproved:
+      title: JoinApproved
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - joiningParty
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["JoinApproved"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        joiningParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    JoinFinalized:
+      title: JoinFinalized
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - joiningParty
+        - joiningHost
+        - newParties
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["JoinFinalized"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        joiningParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        joiningHost:
+          type: string
+        newParties:
+          type: array
+          items:
+            $ref: "api.yaml#/components/schemas/Party"
+        seq:
+          $ref: "api.yaml#/components/schemas/SequenceNumber"
+        timestamp:
+          $ref: "api.yaml#/components/schemas/UTCTime"
+
+    JoinInvalid:
+      title: JoinInvalid
+      additionalProperties: false
+      type: object
+      required:
+        - tag
+        - headId
+        - joiningParty
+        - joinReason
+        - seq
+        - timestamp
+      properties:
+        tag:
+          type: string
+          enum: ["JoinInvalid"]
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        joiningParty:
+          $ref: "api.yaml#/components/schemas/Party"
+        joinReason:
+          type: string
+          enum:
+            - JoinHeadNotOpen
+            - JoinPartyAlreadyInHead
+            - JoinParameterUpdateAlreadyInFlight
+            - JoinIncompatibleWithDecommit
+            - JoinIncompatibleWithCommit
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -2578,6 +3035,33 @@ components:
               $ref: "api.yaml#/components/schemas/HeadSeed"
             contestationDeadline:
               $ref: "api.yaml#/components/schemas/UTCTime"
+        - title: UpdateParametersTx
+          type: object
+          additionalProperties: false
+          required:
+            - tag
+            - headSeed
+            - headId
+            - headParameters
+            - updateParametersSnapshot
+            - parameterUpdate
+          description: |
+            Apply a multi-signed parameter change (a party leaving in Phase 1)
+            to an open head. See issue #1813 (dynamic-head-participants).
+          properties:
+            tag:
+              type: string
+              enum: ["UpdateParametersTx"]
+            headSeed:
+              $ref: "api.yaml#/components/schemas/HeadSeed"
+            headId:
+              $ref: "api.yaml#/components/schemas/HeadId"
+            headParameters:
+              $ref: "api.yaml#/components/schemas/HeadParameters"
+            updateParametersSnapshot:
+              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+            parameterUpdate:
+              $ref: "api.yaml#/components/schemas/ParameterUpdate"
 
     PostTxError:
       description: |
@@ -2850,6 +3334,21 @@ components:
               enum: ["FailedToConstructDecrementTx"]
             failureReason:
               type: string
+        - title: FailedToConstructUpdateParametersTx
+          description: |
+            Raised if the user fails to submit an update-parameters tx
+            (issue #1813, dynamic-head-participants).
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["FailedToConstructUpdateParametersTx"]
+            failureReason:
+              type: string
         - title: FailedToConstructFanoutTx
           description: |
             Raised if the user fails to submit a fanout tx.
@@ -3010,6 +3509,13 @@ components:
         utxoToDecommit:
           oneOf:
             - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
+        parameterUpdate:
+          description: |
+            Pending change to head parameters multi-signed alongside this
+            snapshot. See 'ParameterUpdate'.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/ParameterUpdate"
             - type: "null"
 
     SnapshotNumber:
@@ -3191,6 +3697,7 @@ components:
       - depositPeriod
       - unsyncedPeriod
       - configuredPeers
+      - joinExistingCluster
       additionalProperties: false
       properties:
         party:
@@ -3213,6 +3720,12 @@ components:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
         configuredPeers:
           type: string
+        joinExistingCluster:
+          type: boolean
+          description: |
+            Whether this node is joining an existing L2 (etcd) cluster, rather
+            than bootstrapping a new one. Used for dynamic-head-participants
+            (issue #1813).
 
     NetworkInfo:
       type: object
@@ -3574,6 +4087,7 @@ components:
         - seenSnapshot
         - currentDepositTxId
         - decommitTx
+        - pendingParameterUpdate
         - version
       properties:
         localUTxO:
@@ -3600,8 +4114,56 @@ components:
           oneOf:
             - type: "null"
             - $ref: "api.yaml#/components/schemas/Transaction"
+        pendingParameterUpdate:
+          description: |
+            Pending change to 'HeadParameters' (e.g., a party leaving) waiting
+            to be signed into a snapshot and finalized via an
+            'UpdateParameters' L1 transaction. See issue #1813.
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/ParameterUpdate"
         version:
           $ref: "api.yaml#/components/schemas/SnapshotVersion"
+
+    ParameterUpdate:
+      description: |
+        A pending change to the head parameters. Supports 'RemoveParty' (a
+        party leaving an open head) and 'AddParty' (a new party joining).
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - tag
+            - leavingParty
+            - leavingOnChainId
+          properties:
+            tag:
+              type: string
+              enum: ["RemoveParty"]
+            leavingParty:
+              $ref: "api.yaml#/components/schemas/Party"
+            leavingOnChainId:
+              type: string
+              description: Hex-encoded on-chain identifier of the leaving party.
+        - type: object
+          additionalProperties: false
+          required:
+            - tag
+            - joiningParty
+            - joiningOnChainId
+            - joiningHost
+          properties:
+            tag:
+              type: string
+              enum: ["AddParty"]
+            joiningParty:
+              $ref: "api.yaml#/components/schemas/Party"
+            joiningOnChainId:
+              type: string
+              description: Hex-encoded on-chain identifier of the joining party.
+            joiningHost:
+              type: string
+              description: Network host ('hostname:port') the joining party's hydra-node listens on. Off-chain only; used to extend the L2 etcd cluster.
 
     Deposit:
       type: object

@@ -16,6 +16,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Tx.ParameterUpdate (ParameterUpdate, toOnChain)
 import PlutusLedgerApi.V3 (toBuiltin, toData)
 
 -- * SnapshotNumber and SnapshotVersion
@@ -58,15 +59,20 @@ data Snapshot tx = Snapshot
   -- ^ UTxO to be decommitted. Spec: Uω
   , accumulator :: Accumulator.HydraAccumulator
   -- ^ The cryptographic accumulator built from UTxO hashes. Spec: A
+  , parameterUpdate :: Maybe ParameterUpdate
+  -- ^ Pending update to 'HeadParameters' authorized by this snapshot's
+  -- multi-signature. Used by the dynamic-head-participants flow
+  -- (party leave/join). Spec: pω
   }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (Snapshot tx)
 deriving stock instance IsTx tx => Show (Snapshot tx)
 
--- | Binary representation of snapshot signatures. That is, concatenated CBOR for
--- 'headId', 'version', 'number', 'utxoHash', 'utxoToCommitHash', 'utxoToDecommitHash',
--- and 'accumulator' according to CDDL schemata:
+-- | Binary representation of snapshot signatures. Concatenated CBOR for
+-- 'headId', 'version', 'number', 'utxoHash', 'utxoToCommitHash',
+-- 'utxoToDecommitHash', the accumulator hash, and optionally the
+-- 'ParameterUpdate' on-chain encoding.
 --
 -- headId = bytes .size 16
 -- version = uint
@@ -78,8 +84,14 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 --
 -- The accumulator hash is derived from the HydraAccumulator built over all UTxOs
 -- and is what gets stored in the on-chain ClosedDatum for verification.
+--
+-- When the snapshot carries a 'parameterUpdate' the canonical CBOR encoding
+-- of the 'ParameterUpdate' is appended at the end. This keeps backward
+-- compatibility for ordinary L2 snapshots (no pending update => byte-for-byte
+-- identical with the pre-feature representation) while letting the
+-- 'UpdateParameters' L1 transition multi-sign over the pending update too.
 instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
-  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator} =
+  getSignableRepresentation Snapshot{headId, version, number, utxo, utxoToCommit, utxoToDecommit, accumulator, parameterUpdate} =
     LBS.toStrict $
       serialise (toData . toBuiltin $ serialiseToRawBytes headId)
         <> serialise (toData . toBuiltin $ toInteger version)
@@ -88,15 +100,17 @@ instance forall tx. IsTx tx => SignableRepresentation (Snapshot tx) where
         <> serialise (toData $ toBuiltin utxoToCommitHash)
         <> serialise (toData $ toBuiltin utxoToDecommitHash)
         <> serialise (toData $ toBuiltin accumulatorBytes)
+        <> case parameterUpdate of
+          Nothing -> mempty
+          Just up -> serialise (toData (toOnChain up))
    where
     utxoHash = hashUTxO utxo
     utxoToCommitHash = hashUTxO @tx $ fromMaybe mempty utxoToCommit
     utxoToDecommitHash = hashUTxO @tx $ fromMaybe mempty utxoToDecommit
-    -- Serialize the accumulator for signing
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
 
 instance IsTx tx => ToJSON (Snapshot tx) where
-  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator} =
+  toJSON Snapshot{headId, number, utxo, confirmed, utxoToCommit, utxoToDecommit, version, accumulator, parameterUpdate} =
     object
       [ "headId" .= headId
       , "version" .= version
@@ -106,6 +120,7 @@ instance IsTx tx => ToJSON (Snapshot tx) where
       , "utxoToCommit" .= utxoToCommit
       , "utxoToDecommit" .= utxoToDecommit
       , "accumulator" .= String (decodeUtf8 $ Base16.encode $ Accumulator.getAccumulatorHash accumulator)
+      , "parameterUpdate" .= parameterUpdate
       ]
 
 instance IsTx tx => FromJSON (Snapshot tx) where
@@ -123,11 +138,12 @@ instance IsTx tx => FromJSON (Snapshot tx) where
       obj .:? "utxoToDecommit" >>= \case
         Nothing -> pure mempty
         (Just utxoD) -> pure utxoD
+    parameterUpdate <- obj .:? "parameterUpdate"
     -- Reconstruct accumulator from all UTxOs (including commit/decommit).
     -- The "accumulator" JSON field stores only the hash (consistent with signing
     -- and on-chain datum), so we always rebuild the full accumulator from UTxOs.
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
-    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
+    pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator, parameterUpdate}
 
 -- * ConfirmedSnapshot
 
@@ -164,5 +180,6 @@ getSnapshot = \case
       , utxoToCommit = Nothing
       , utxoToDecommit = Nothing
       , accumulator = Accumulator.buildFromUTxO @tx mempty
+      , parameterUpdate = Nothing
       }
   ConfirmedSnapshot{snapshot} -> snapshot

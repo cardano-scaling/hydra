@@ -46,7 +46,7 @@ import Hydra.Network (IP, PortNumber)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState)
-import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
+import Hydra.Tx (IsTx (..), ParameterUpdate (..), Party, Snapshot, txId, utxoFromTx)
 import Network.HTTP.Types (status500)
 import Network.Wai (responseLBS)
 import Network.Wai.Handler.Warp (
@@ -257,6 +257,17 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.DecommitInvalid{..} -> Just DecommitInvalid{..}
     StateChanged.DecommitApproved{..} -> Just DecommitApproved{..}
     StateChanged.DecommitFinalized{..} -> Just DecommitFinalized{..}
+    StateChanged.LeaveRecorded{headId, leavingParty} -> Just LeaveRequested{headId, leavingParty}
+    StateChanged.LeaveApproved{headId, leavingParty} -> Just LeaveApproved{headId, leavingParty}
+    StateChanged.JoinRecorded{headId, joiningParty, joiningHost} ->
+      Just JoinRequested{headId, joiningParty, joiningHost}
+    StateChanged.JoinApproved{headId, joiningParty} -> Just JoinApproved{headId, joiningParty}
+    StateChanged.ParametersChanged{headId, newParties, parameterUpdate} ->
+      case parameterUpdate of
+        RemoveParty{leavingParty} ->
+          Just LeaveFinalized{headId, leavingParty, newParties}
+        AddParty{joiningParty, joiningHost} ->
+          Just JoinFinalized{headId, joiningParty, joiningHost, newParties}
     StateChanged.DepositRecorded{..} -> Just CommitRecorded{headId, utxoToCommit = deposited, pendingDeposit = depositTxId, deadline}
     StateChanged.DepositActivated{depositTxId, chainTime, deposit = Deposit{..}} -> Just DepositActivated{..}
     StateChanged.DepositExpired{depositTxId, chainTime, deposit = Deposit{..}} -> Just DepositExpired{..}

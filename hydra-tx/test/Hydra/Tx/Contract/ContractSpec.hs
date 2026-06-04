@@ -49,6 +49,7 @@ import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
+import Hydra.Tx.Contract.UpdateParameters (healthyAddPartyTx, healthyUpdateParametersTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Observe (observeDepositTx)
 import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
@@ -178,6 +179,14 @@ spec = parallel $ do
       propTransactionEvaluates healthyFinalPartialFanoutTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyFinalPartialFanoutTx genFinalPartialFanoutMutation
+
+  describe "UpdateParameters (RemoveParty)" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyUpdateParametersTx
+
+  describe "UpdateParameters (AddParty)" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyAddPartyTx
 
 --
 -- Properties

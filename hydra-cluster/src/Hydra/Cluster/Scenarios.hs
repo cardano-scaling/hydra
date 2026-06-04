@@ -1973,6 +1973,258 @@ threeNodesWithMirrorParty tracer workDir opts hydraScriptsTxId = do
         confirmed <- v ^? key "snapshot" . key "confirmed" . _JSON :: Maybe [Value]
         guard $ not (null confirmed)
 
+-- * Dynamic head participants (issue #1813)
+
+-- | End-to-end happy-path Join scenario for issue #1813.
+--
+-- Alice and Bob open a two-party head. Alice then issues
+-- 'POST /participants' (handled by 'handleAddParticipant') inviting Carol
+-- into the head. Both Alice and Bob multi-sign the snapshot carrying the
+-- 'AddParty Carol' parameter update; the leader posts the
+-- 'UpdateParametersTx' to L1; once observed both nodes emit
+-- 'JoinFinalized' with the grown parties list, /and/ both call the etcd
+-- 'Cluster.MemberAdd' RPC to admit carol's peer URL into the L2 mesh.
+--
+-- Then we start Carol's hydra-node with @--join-existing-cluster@. Her etcd
+-- discovers the existing cluster (alice + bob have already reserved a slot
+-- for her), and from that point any new snapshot requires all three
+-- signatures. To verify that contract is honoured, alice deposits some
+-- funds; the resulting 'CommitFinalized' (which requires a confirmed
+-- snapshot, which in turn requires a multi-sig from all three current
+-- parties) only fires after carol's node is running.
+canJoinHead :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canJoinHead tracer workDir opts hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+  (bobCardanoVk, _) <- keysFor Bob
+  (carolCardanoVk, _) <- keysFor Carol
+
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
+  let timing = mkTestTiming blockTime
+  aliceChainConfig <-
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob] timing
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice] timing
+      <&> setNetworkId networkId
+  -- For the moment Carol's node is not started; we still build her chain
+  -- config now so we have everything needed to start her later. Note her
+  -- peers are alice + bob, and she replays chain state from genesis so
+  -- her hydra-node observes the historical 'InitTx' (and subsequent
+  -- 'UpdateParametersTx') when she boots up.
+  carolChainConfig <-
+    chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
+      <&> modifyConfig (\cfg -> cfg{startChainFrom = Just CAPI.ChainPointAtGenesis})
+        . setNetworkId networkId
+
+  let hydraTracer = contramap FromHydraNode tracer
+  -- Reserve ports for nodes 1..3 up front so Carol's node-id (3) gets a
+  -- pre-allocated 'HydraNodePorts' entry; alice/bob start with only [1,2]
+  -- in their peer list, but the port map is shared with carol who joins
+  -- later.
+  nodePorts <- allocateHydraNodePortsFor [1, 2, 3]
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk] nodePorts $ \n1 ->
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk] nodePorts $ \n2 -> do
+      send n1 $ input "Init" []
+      headId <- waitForAllMatch (10 * blockTime) [n1, n2] $ headIsOpenWith (Set.fromList [alice, bob])
+
+      let carolOnChainId = verificationKeyToOnChainId carolCardanoVk
+          -- NOTE: 'carolHost' must match the @--advertise@ value carol's
+          -- hydra-node will use when she starts; otherwise etcd rejects her
+          -- with @unmatched member while checking PeerURLs@. The cluster
+          -- helpers default 'advertise' to the listen address, which is
+          -- '0.0.0.0:5003' (see 'prepareHydraNode').
+          carolHost = "0.0.0.0:5003" :: Text
+          body =
+            Aeson.object
+              [ "joiningParty" .= carol
+              , "joiningOnChainId" .= carolOnChainId
+              , "joiningHost" .= carolHost
+              ]
+
+      -- POST the invite from Alice. The request blocks until the L1
+      -- transaction is observed (returning "OK") or fails (returning a
+      -- non-200 status, which throws via 'parseUrlThrow').
+      respBody <-
+        parseUrlThrow ("POST " <> hydraNodeBaseUrl n1 <> "/participants")
+          <&> setRequestBodyJSON body
+            >>= httpJSON
+          <&> getResponseBody @String
+      respBody `shouldBe` "OK"
+
+      -- Both existing nodes must have emitted 'JoinFinalized' with the
+      -- grown parties list.
+      let isJoinFinalized v = do
+            guard $ v ^? key "tag" == Just "JoinFinalized"
+            guard $ v ^? key "headId" == Just (toJSON headId)
+            joiningParty <- v ^? key "joiningParty" >>= parseMaybe parseJSON
+            guard $ joiningParty == carol
+            newParties <- v ^? key "newParties" >>= parseMaybe parseJSON
+            pure (newParties :: [Party])
+      newPartiesA <- waitMatch (30 * blockTime) n1 isJoinFinalized
+      newPartiesB <- waitMatch (30 * blockTime) n2 isJoinFinalized
+      Set.fromList newPartiesA `shouldBe` Set.fromList [alice, bob, carol]
+      Set.fromList newPartiesB `shouldBe` Set.fromList [alice, bob, carol]
+
+      -- Start Carol's node with '--join-existing-cluster'. Her etcd joins
+      -- the cluster that alice/bob already extended via 'memberAdd', and
+      -- her chain handler replays from genesis so she observes the
+      -- historical 'InitTx' / 'UpdateParametersTx' that admitted her into
+      -- the head.
+      carolOptions <- do
+        baseOpts <- prepareHydraNode carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts id
+        pure baseOpts{joinExistingCluster = True}
+      withPreparedHydraNode hydraTracer workDir 3 carolOptions $ \n3 -> do
+        -- Wait for alice + bob to observe carol's etcd peer arrival
+        -- (proves 'etcdctl member add' succeeded for both).
+        let waitPeerConnected n =
+              waitMatch (60 * blockTime) n $ \v -> do
+                guard $ v ^? key "tag" == Just "PeerConnected"
+                port' <- v ^? key "peer" . key "port" >>= parseMaybe parseJSON
+                guard $ (port' :: Int) == 5003
+                pure ()
+        mapConcurrently_ waitPeerConnected [n1, n2]
+
+        -- New-party state sync (issue #1813): carol's local snapshot is
+        -- still the empty 'InitialSnapshot'. The next 'ReqSn' alice/bob
+        -- might emit will be at 'snapshotNumber = lastConfirmed + 1' on
+        -- their side — i.e. snapshot 2 — and carol's 'lastSeenSn = 0'
+        -- would refuse it with 'ReqSnNumberInvalid'. Fetch alice's
+        -- latest confirmed snapshot (the AddParty one) and inject it
+        -- into carol via the existing 'POST /snapshot' (SideLoadSnapshot)
+        -- endpoint. The side-load multi-sig verification was relaxed
+        -- to use the pre-update parties when 'parameterUpdate' is
+        -- 'AddParty', so the original two-of-two signature from
+        -- alice/bob verifies even though carol's local 'parties' now
+        -- has three members.
+        aliceConfirmed <- getSnapshotConfirmed n1
+        -- Use the WebSocket interface (same as the existing
+        -- 'canSideLoadSnapshot' test); the HTTP 'POST /snapshot'
+        -- endpoint expects the bare 'ConfirmedSnapshot' (newtype
+        -- deriving) which is awkward to encode by hand.
+        send n3 $ input "SideLoadSnapshot" ["snapshot" .= aliceConfirmed]
+        waitMatch (60 * blockTime) n3 $ \v -> do
+          guard $ v ^? key "tag" == Just "SnapshotSideLoaded"
+          pure ()
+
+        -- Deposit funds so the head has L2 UTxO, then submit a 'NewTx'
+        -- from alice. The resulting snapshot needs all three signatures
+        -- — including carol's. Watching for 'SnapshotConfirmed' with
+        -- three multi-signatures on all three nodes confirms the user's
+        -- success criterion ("a snapshot is only approved once all
+        -- members are connected").
+        (depositVk, depositSk) <- generate genKeyPair
+        depositUTxO <- seedFromFaucet opts depositVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+        depositTx <- requestCommitTx n1 depositUTxO <&> signTx depositSk
+        runBackend opts $ submitTransaction depositTx
+        waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+          output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
+
+        utxo <- getSnapshotUTxO n1
+        newTx <- mkTransferTx networkId utxo depositSk depositVk
+        send n1 $ input "NewTx" ["transaction" .= newTx]
+        let isThreeSigSnapshotWithTx v = do
+              guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+              let sigs = v ^.. key "signatures" . key "multiSignature" . values
+              guard $ length sigs == 3
+              let confirmed = v ^.. key "snapshot" . key "confirmed" . values
+              guard $ toJSON newTx `elem` confirmed
+              pure ()
+        mapConcurrently_
+          (\n -> waitMatch (60 * blockTime) n isThreeSigSnapshotWithTx)
+          [n1, n2, n3]
+
+-- | End-to-end happy-path Leave scenario for issue #1813.
+--
+-- Alice, Bob and Carol open a three-party head. Carol then issues
+-- 'DELETE /participants/me' (handled by 'handleLeave'). All three nodes
+-- multi-sign the snapshot carrying the 'RemoveParty Carol' parameter
+-- update; the leader posts the 'UpdateParametersTx' to L1; once observed
+-- all three nodes emit 'LeaveFinalized' with the shrunken parties list.
+canLeaveHead :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canLeaveHead tracer workDir opts hydraScriptsTxId = do
+  (aliceCardanoVk, _) <- keysFor Alice
+  (bobCardanoVk, _) <- keysFor Bob
+  (carolCardanoVk, _) <- keysFor Carol
+
+  seedFromFaucet_ opts aliceCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts bobCardanoVk 100_000_000 (contramap FromFaucet tracer)
+  seedFromFaucet_ opts carolCardanoVk 100_000_000 (contramap FromFaucet tracer)
+
+  networkId <- runBackend opts queryNetworkId
+  blockTime <- runBackend opts getBlockTime
+  let timing = mkTestTiming blockTime
+  aliceChainConfig <-
+    chainConfigFor Alice workDir opts hydraScriptsTxId [Bob, Carol] timing
+      <&> setNetworkId networkId
+  bobChainConfig <-
+    chainConfigFor Bob workDir opts hydraScriptsTxId [Alice, Carol] timing
+      <&> setNetworkId networkId
+  carolChainConfig <-
+    chainConfigFor Carol workDir opts hydraScriptsTxId [Alice, Bob] timing
+      <&> setNetworkId networkId
+
+  let hydraTracer = contramap FromHydraNode tracer
+  nodePorts <- allocateHydraNodePortsFor [1, 2, 3]
+  withHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [bobVk, carolVk] nodePorts $ \n1 ->
+    withHydraNode hydraTracer blockTime bobChainConfig workDir 2 bobSk [aliceVk, carolVk] nodePorts $ \n2 ->
+      withHydraNode hydraTracer blockTime carolChainConfig workDir 3 carolSk [aliceVk, bobVk] nodePorts $ \n3 -> do
+        send n1 $ input "Init" []
+        headId <-
+          waitForAllMatch (10 * blockTime) [n1, n2, n3] $
+            headIsOpenWith (Set.fromList [alice, bob, carol])
+
+        -- Deposit funds so the head has L2 UTxO to spend after carol
+        -- leaves.
+        (depositVk, depositSk) <- generate genKeyPair
+        depositUTxO <- seedFromFaucet opts depositVk (lovelaceToValue 5_000_000) (contramap FromFaucet tracer)
+        depositTx <- requestCommitTx n1 depositUTxO <&> signTx depositSk
+        runBackend opts $ submitTransaction depositTx
+        waitFor hydraTracer (depositTimeout timing) [n1, n2, n3] $
+          output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
+
+        -- Carol asks to leave. The request blocks until L1 is observed.
+        respBody <-
+          parseUrlThrow ("DELETE " <> hydraNodeBaseUrl n3 <> "/participants/me")
+            >>= httpJSON
+            <&> getResponseBody @String
+        respBody `shouldBe` "OK"
+
+        let isLeaveFinalized v = do
+              guard $ v ^? key "tag" == Just "LeaveFinalized"
+              guard $ v ^? key "headId" == Just (toJSON headId)
+              leavingParty <- v ^? key "leavingParty" >>= parseMaybe parseJSON
+              guard $ leavingParty == carol
+              newParties <- v ^? key "newParties" >>= parseMaybe parseJSON
+              pure (newParties :: [Party])
+        newPartiesA <- waitMatch (30 * blockTime) n1 isLeaveFinalized
+        newPartiesB <- waitMatch (30 * blockTime) n2 isLeaveFinalized
+        Set.fromList newPartiesA `shouldBe` Set.fromList [alice, bob]
+        Set.fromList newPartiesB `shouldBe` Set.fromList [alice, bob]
+
+        -- Now alice submits a 'NewTx' using the previously committed
+        -- UTxO. The resulting snapshot should be confirmed with /two/
+        -- multi-signatures (alice + bob) and /without/ waiting on
+        -- carol — proving she's been cleanly excluded from the
+        -- now-two-party head.
+        utxo <- getSnapshotUTxO n1
+        newTx <- mkTransferTx networkId utxo depositSk depositVk
+        send n1 $ input "NewTx" ["transaction" .= newTx]
+        let isTwoSigSnapshotWithTx v = do
+              guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+              let sigs = v ^.. key "signatures" . key "multiSignature" . values
+              guard $ length sigs == 2
+              let confirmed = v ^.. key "snapshot" . key "confirmed" . values
+              guard $ toJSON newTx `elem` confirmed
+              pure ()
+        mapConcurrently_
+          (\n -> waitMatch (60 * blockTime) n isTwoSigSnapshotWithTx)
+          [n1, n2]
+
 -- * L2 scenarios
 
 -- | Respend all outputs owned by a given key in the head every 'delay' seconds,

@@ -1,0 +1,18 @@
+{
+    "samples": [
+        {
+            "headId": "01000100000100010001010101000101",
+            "newVersion": 1,
+            "parameterUpdate": {
+                "joiningHost": "􇋀",
+                "joiningOnChainId": "01000101010000000001000101000101010101010100010000010101",
+                "joiningParty": {
+                    "vkey": "00248bd40fcbb250473abc73da0ebeed3b6fcc431a67d4afe5e5b2966768c89f"
+                },
+                "tag": "AddParty"
+            },
+            "tag": "UpdateParameters"
+        }
+    ],
+    "seed": -566642658
+}

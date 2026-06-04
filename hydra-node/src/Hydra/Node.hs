@@ -73,6 +73,7 @@ initEnvironment options = do
       , depositPeriod
       , unsyncedPeriod
       , configuredPeers
+      , joinExistingCluster
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -118,6 +119,7 @@ initEnvironment options = do
     , chainConfig
     , advertise
     , peers
+    , joinExistingCluster
     } = options
 
 -- | Checks that command line options match a given 'HeadState'. This function
@@ -392,6 +394,7 @@ processEffects node tracer inputId effects = do
     case effect of
       ClientEffect i -> sendMessage server i
       NetworkEffect msg -> broadcast hn msg
+      NetworkMemberAddEffect{joiningHost} -> memberAdd hn joiningHost
       OnChainEffect{postChainTx} ->
         postTx postChainTx
           `catch` \(postTxError :: PostTxError tx) ->

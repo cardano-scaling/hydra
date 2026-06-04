@@ -293,8 +293,18 @@ migrateFromFileBased _proxy tracer legacyFile conn reinitLastSeen = do
 
 -- | Current schema version. Bump this and add a migration step to
 -- 'applyMigrations' whenever the schema changes.
+--
+-- Schema versions:
+--   0 -> 1: initial table layout.
+--   1 -> 2: snapshot signable bytes changed for the dynamic-head-participants
+--           feature (issue #1813). Snapshots whose 'parameterUpdate' is
+--           'Nothing' still produce the same bytes as before, so event logs
+--           that never carried a parameter update can keep working — but new
+--           parameter-update snapshots are not interpretable by older
+--           binaries. Bumping the version lets a future binary reject older
+--           logs rather than silently misverify.
 nextVersion :: Int
-nextVersion = 1
+nextVersion = 2
 
 -- | Initialise connection pragmas, then create or migrate the schema to
 -- 'nextVersion' using SQLite's built-in @user_version@ pragma.
@@ -346,6 +356,12 @@ applyMigrations conn v
 migrateStep :: Connection -> Int -> IO ()
 migrateStep conn = \case
   0 -> createEventsTable conn
+  -- 1 -> 2: dynamic-head-participants (issue #1813). No table change; the
+  -- snapshot signable representation now optionally includes a
+  -- 'parameterUpdate' field. Existing rows remain interpretable as long as
+  -- they don't contain parameter-update snapshots (which couldn't have been
+  -- written by version-1 binaries anyway). The bump is purely a marker.
+  1 -> pure ()
   unknown ->
     error $ "Unknown schema version " <> show unknown <> ", cannot migrate"
 

@@ -52,6 +52,14 @@
               '';
               depends_on."cardano-node".condition = "process_log_ready";
             };
+            # NOTE: dynamic-head-participants demo (issue #1813, Phase 2).
+            # Only alice and bob run a hydra-node and peer with each other
+            # initially; carol is NOT a peer and her hydra-node is not
+            # started. Once the head is open between alice and bob, run
+            # 'bash demo/invite-carol.sh' (or call POST /participants
+            # directly) from another terminal to invite carol. Both
+            # remaining nodes will report 'JoinFinalized' and the head's
+            # parties list grows to three.
             hydra-node-alice = {
               log_location = "./devnet/alice-logs.txt";
               command = pkgs.writeShellApplication {
@@ -70,9 +78,6 @@
                     --peer 127.0.0.1:5002 \
                     --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
                     --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
-                    --peer 127.0.0.1:5003 \
-                    --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
-                    --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
                     --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
                     --ledger-protocol-parameters devnet/protocol-parameters.json \
                     --testnet-magic 42 \
@@ -104,48 +109,11 @@
                   --peer 127.0.0.1:5001 \
                   --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
                   --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
-                  --peer 127.0.0.1:5003 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.carol.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.vk}" \
                   --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
                   --ledger-protocol-parameters devnet/protocol-parameters.json \
                   --testnet-magic 42 \
                   --node-socket devnet/node.socket \
                   --persistence-dir devnet/persistence/bob \
-                  --contestation-period 3s \
-                  --deposit-period 10s
-                '';
-              };
-              working_dir = ".";
-              ready_log_line = "NodeIsLeader";
-              depends_on."seed-devnet".condition = "process_completed";
-            };
-            hydra-node-carol = {
-              log_location = "./devnet/carol-logs.txt";
-              command = pkgs.writeShellApplication {
-                name = "hydra-node-carol";
-                checkPhase = ""; # not shellcheck and choke on sourcing .env
-                text = ''
-                  # (Re-)Export all variables from .env
-                  set -a; [ -f .env ] && source .env; set +a
-                  ${self'.packages.hydra-node}/bin/hydra-node \
-                  --node-id 3 \
-                  --listen 127.0.0.1:5003 \
-                  --api-port 4003 \
-                  --monitoring-port 6003 \
-                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.carol.hydra.sk}" \
-                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.sk}" \
-                  --peer 127.0.0.1:5001 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
-                  --peer 127.0.0.1:5002 \
-                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
-                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
-                  --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
-                  --ledger-protocol-parameters devnet/protocol-parameters.json \
-                  --testnet-magic 42 \
-                  --node-socket devnet/node.socket \
-                  --persistence-dir devnet/persistence/carol \
                   --contestation-period 3s \
                   --deposit-period 10s
                 '';
@@ -184,10 +152,57 @@
               is_foreground = true;
               depends_on."hydra-node-bob".condition = "process_started";
             };
+            # NOTE: carol's hydra-node is fully wired up — keys, peers, ports,
+            # persistence — but starts in 'disabled' state so the demo opens
+            # the head as a 2-party (alice + bob). After running
+            # 'bash demo/invite-carol.sh' (which posts the L1 AddParty tx
+            # via alice's API), start carol's node with:
+            #
+            #   process-compose process start hydra-node-carol
+            #   process-compose process start hydra-tui-carol
+            #
+            # See the dynamic-head-participants section of demo/README.md.
+            hydra-node-carol = {
+              log_location = "./devnet/carol-logs.txt";
+              command = pkgs.writeShellApplication {
+                name = "hydra-node-carol";
+                checkPhase = ""; # not shellcheck and choke on sourcing .env
+                text = ''
+                  # (Re-)Export all variables from .env
+                  set -a; [ -f .env ] && source .env; set +a
+                  ${self'.packages.hydra-node}/bin/hydra-node \
+                  --node-id 3 \
+                  --listen 127.0.0.1:5003 \
+                  --api-port 4003 \
+                  --monitoring-port 6003 \
+                  --hydra-signing-key "${config.hydra.demo.fixtures.parties.carol.hydra.sk}" \
+                  --cardano-signing-key "${config.hydra.demo.fixtures.parties.carol.cardano.fuel.sk}" \
+                  --peer 127.0.0.1:5001 \
+                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.alice.hydra.vk}" \
+                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.alice.cardano.fuel.vk}" \
+                  --peer 127.0.0.1:5002 \
+                  --hydra-verification-key "${config.hydra.demo.fixtures.parties.bob.hydra.vk}" \
+                  --cardano-verification-key "${config.hydra.demo.fixtures.parties.bob.cardano.fuel.vk}" \
+                  --hydra-scripts-tx-id ''$HYDRA_SCRIPTS_TX_ID \
+                  --ledger-protocol-parameters devnet/protocol-parameters.json \
+                  --testnet-magic 42 \
+                  --node-socket devnet/node.socket \
+                  --persistence-dir devnet/persistence/carol \
+                  --contestation-period 3s \
+                  --deposit-period 10s \
+                  --start-chain-from 0 \
+                  --join-existing-cluster
+                '';
+              };
+              working_dir = ".";
+              ready_log_line = "NodeIsLeader";
+              disabled = true;
+              depends_on."seed-devnet".condition = "process_completed";
+            };
             hydra-tui-carol = {
               working_dir = "./demo";
               command = pkgs.writeShellApplication {
-                name = "carol";
+                name = "carol-tui";
                 text = ''
                   ${self'.packages.hydra-tui}/bin/hydra-tui \
                     --connect 0.0.0.0:4003 \
@@ -197,6 +212,7 @@
                 '';
               };
               is_foreground = true;
+              disabled = true;
               depends_on."hydra-node-carol".condition = "process_started";
             };
             prometheus = {
@@ -213,7 +229,6 @@
               depends_on = {
                 "hydra-node-alice".condition = "process_started";
                 "hydra-node-bob".condition = "process_started";
-                "hydra-node-carol".condition = "process_started";
               };
             };
             grafana = {

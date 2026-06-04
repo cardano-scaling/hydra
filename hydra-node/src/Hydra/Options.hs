@@ -74,6 +74,7 @@ import Options.Applicative (
   short,
   showDefault,
   strOption,
+  switch,
   value,
  )
 import Options.Applicative.Builder (str)
@@ -213,6 +214,7 @@ data RunOptions = RunOptions
   , chainConfig :: ChainConfig
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
+  , joinExistingCluster :: Bool
   , apiTransactionTimeout :: ApiTransactionTimeout
   }
   deriving stock (Eq, Show, Generic)
@@ -246,6 +248,7 @@ defaultRunOptions =
     , chainConfig = Cardano defaultCardanoChainConfig
     , ledgerConfig = defaultLedgerConfig
     , whichEtcd = EmbeddedEtcd
+    , joinExistingCluster = False
     , apiTransactionTimeout = 300
     }
  where
@@ -272,6 +275,7 @@ runOptionsParser =
     <*> chainConfigParser
     <*> ledgerConfigParser
     <*> whichEtcdParser
+    <*> joinExistingClusterParser
     <*> apiTransactionTimeoutParser
 
 whichEtcdParser :: Parser WhichEtcd
@@ -281,6 +285,18 @@ whichEtcdParser =
     SystemEtcd
     ( long "use-system-etcd"
         <> help "Use the `etcd` binary found on the path instead of the embedded one."
+    )
+
+-- | Whether this hydra-node is joining a pre-existing L2 (etcd) cluster
+-- rather than bootstrapping a new one. Used by parties joining an open Hydra
+-- head via the dynamic-head-participants flow (issue #1813): once an
+-- existing party calls 'etcdctl member add' for our peer URL, our etcd must
+-- start with @--initial-cluster-state existing@ to join, not 'new'.
+joinExistingClusterParser :: Parser Bool
+joinExistingClusterParser =
+  switch
+    ( long "join-existing-cluster"
+        <> help "Start as a new member of an existing L2 (etcd) cluster, rather than bootstrapping a fresh one. Use this on a node joining an already-open Hydra head."
     )
 
 chainConfigParser :: Parser ChainConfig
@@ -975,6 +991,7 @@ toArgs
     , chainConfig
     , ledgerConfig
     , whichEtcd
+    , joinExistingCluster
     , apiTransactionTimeout
     } =
     isVerbose verbosity
@@ -984,6 +1001,7 @@ toArgs
       <> ["--api-host", show apiHost]
       <> toArgApiPort apiPort
       <> toWhichEtcd whichEtcd
+      <> (["--join-existing-cluster" | joinExistingCluster])
       <> maybe [] (\cert -> ["--tls-cert", cert]) tlsCertPath
       <> maybe [] (\key -> ["--tls-key", key]) tlsKeyPath
       <> ["--hydra-signing-key", hydraSigningKey]
@@ -1012,7 +1030,9 @@ toArgs
 
     toArgStartChainFrom = \case
       Just ChainPointAtGenesis ->
-        error "ChainPointAtGenesis"
+        -- See 'startChainFromParser': the CLI parses "0" as
+        -- 'ChainPointAtGenesis'. Round-trip it on the way back out.
+        ["--start-chain-from", "0"]
       Just (ChainPoint (SlotNo slotNo) headerHash) ->
         let headerHashBase16 = toString (serialiseToRawBytesHexText headerHash)
          in ["--start-chain-from", show slotNo <> "." <> headerHashBase16]

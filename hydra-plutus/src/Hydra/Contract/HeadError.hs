@@ -68,6 +68,11 @@ data HeadError
   | FinalPartialFanoutMembershipFailed
   | InvalidCRSRefScript
   | FinalPartialFanoutZeroOutputs
+  | -- UpdateParameters (dynamic-head-participants)
+    FailedUpdateParametersBadPartyChange
+  | FailedUpdateParametersBadPTBurn
+  | FailedUpdateParametersBadPTMint
+  | UpdateParametersChangedOtherFields
 
 instance ToErrorCode HeadError where
   toErrorCode = \case
@@ -141,3 +146,8 @@ instance ToErrorCode HeadError where
     FinalPartialFanoutMembershipFailed -> "H60"
     InvalidCRSRefScript -> "H61"
     FinalPartialFanoutZeroOutputs -> "H62"
+    -- UpdateParameters (dynamic-head-participants)
+    FailedUpdateParametersBadPartyChange -> "H63"
+    FailedUpdateParametersBadPTBurn -> "H64"
+    UpdateParametersChangedOtherFields -> "H65"
+    FailedUpdateParametersBadPTMint -> "H66"

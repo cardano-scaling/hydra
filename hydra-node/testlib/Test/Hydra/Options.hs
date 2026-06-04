@@ -49,6 +49,7 @@ instance Arbitrary RunOptions where
     chainConfig <- arbitrary
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
+    joinExistingCluster <- arbitrary
     apiTransactionTimeout <- arbitrary
     pure $
       RunOptions
@@ -69,6 +70,7 @@ instance Arbitrary RunOptions where
         , chainConfig
         , ledgerConfig
         , whichEtcd
+        , joinExistingCluster
         , apiTransactionTimeout
         }
 

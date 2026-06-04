@@ -6,6 +6,7 @@ import Cardano.Ledger.BaseTypes (Globals (..), boundRational, mkActiveSlotCoeff,
 import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, computeStabilityWindow)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
+import Control.Concurrent.Class.MonadSTM (newTVarIO, writeTVar)
 import Control.Monad.Trans.Except (runExcept)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
@@ -19,10 +20,11 @@ import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
-import Hydra.Events (EventSink)
+import Hydra.Events (EventSink, mkEventSink)
 import Hydra.Events.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Hydra.Events.SQLiteBased (withSQLiteEventStore)
 import Hydra.HeadLogic (aggregateNodeState)
+import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -118,17 +120,43 @@ run opts = do
                       , peers
                       , nodeId
                       , whichEtcd
+                      , joinExistingCluster
                       }
+              -- The accepted-parties set and the speculatively-accepted
+              -- joining party are dynamic for the dynamic-head-participants
+              -- feature (issue #1813). We start from the static
+              -- 'Environment.otherParties' and a 'Nothing' joining party,
+              -- and update both via an event sink that watches
+              -- 'JoinRecorded' / 'ParametersChanged' / 'LeaveRecorded'
+              -- state events. Each inbound network message reads a fresh
+              -- snapshot of these 'TVar's in 'withAuthentication'.
+              livePartiesVar <- newTVarIO otherParties
+              joiningPartyVar <- newTVarIO Nothing
+              let dynamicPartiesSink :: EventSink (StateEvent Tx) IO
+                  dynamicPartiesSink = mkEventSink $ \StateEvent{stateChanged} ->
+                    atomically $ case stateChanged of
+                      StateChanged.JoinRecorded{joiningParty} ->
+                        writeTVar joiningPartyVar (Just joiningParty)
+                      StateChanged.ParametersChanged{newParties} -> do
+                        writeTVar livePartiesVar (filter (/= party) newParties)
+                        writeTVar joiningPartyVar Nothing
+                      StateChanged.LeaveRecorded{} ->
+                        -- Leaving is finalized via 'ParametersChanged'; nothing
+                        -- to do at the auth layer yet.
+                        pure ()
+                      _ -> pure ()
               withNetwork
                 (contramap Network tracer)
                 networkConfiguration
+                (readTVar livePartiesVar)
+                (readTVar joiningPartyVar)
                 (wireNetworkInput wetHydraNode)
                 $ \network -> do
                   traceWith tracer' NetworkStarted
                   -- Main loop
                   node <-
                     connect chain network server wetHydraNode
-                      <&> addEventSink apiSink
+                      <&> addEventSink dynamicPartiesSink . addEventSink apiSink
                   traceWith tracer' EnteringMainloop
                   runHydraNode node
  where
@@ -176,6 +204,7 @@ run opts = do
     , tlsCertPath
     , tlsKeyPath
     , whichEtcd
+    , joinExistingCluster
     , apiTransactionTimeout
     } = opts
 

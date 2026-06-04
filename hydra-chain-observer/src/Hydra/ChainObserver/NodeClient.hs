@@ -27,6 +27,7 @@ import Hydra.Tx.Observe (
   InitObservation (..),
   PartialFanoutObservation (..),
   RecoverObservation (..),
+  UpdateParametersObservation (..),
   observeHeadTx,
  )
 
@@ -62,6 +63,7 @@ data ChainObserverLog
   | HeadPartialFanoutTx {headId :: HeadId}
   | HeadAbortTx {headId :: HeadId}
   | HeadContestTx {headId :: HeadId}
+  | HeadUpdateParametersTx {headId :: HeadId}
   | Rollback {point :: ChainPoint}
   | RollForward {point :: ChainPoint, receivedTxIds :: [TxId]}
   deriving stock (Eq, Show, Generic)
@@ -80,6 +82,7 @@ logObservation = \case
   Fanout FanoutObservation{headId} -> Just HeadFanoutTx{headId}
   FinalPartialFanout FanoutObservation{headId} -> Just HeadFanoutTx{headId}
   PartialFanout PartialFanoutObservation{headId} -> Just HeadPartialFanoutTx{headId}
+  UpdateParameters UpdateParametersObservation{headId} -> Just HeadUpdateParametersTx{headId}
 
 observeTx :: NetworkId -> UTxO -> Tx -> (UTxO, Maybe HeadObservation)
 observeTx networkId utxo tx =

@@ -1,49 +1,52 @@
 {
     "samples": [
         {
-            "chainSyncedStatus": "InSync",
+            "chainSyncedStatus": "CatchingUp",
             "currentSlot": 1,
             "env": {
-                "configuredPeers": "",
-                "contestationPeriod": 43200,
-                "depositPeriod": 78099,
+                "configuredPeers": "u",
+                "contestationPeriod": 60452,
+                "depositPeriod": 27908,
+                "joinExistingCluster": true,
                 "otherParties": [],
-                "participants": [],
+                "participants": [
+                    "00010001000101010101000000010001010001010100010001010000"
+                ],
                 "party": {
-                    "vkey": "5802383116b8d8cfad0561849f98fa19652316ba794b06a4e2f74ac3f8d570b8"
+                    "vkey": "1703ad056fbfc890d77164bbbf0c10f908ac1191ae3d703522e650a2ce9f2910"
                 },
-                "signingKey": "9e018c699d771741dc68d7d877a67520b68eacc6a76725f8be4034d18cd285d6",
-                "unsyncedPeriod": 21600
+                "signingKey": "57c9ef8f9432569c3b6da431af531ba5e0a6e157fc63b7948857e21ef816d1fe",
+                "unsyncedPeriod": 7947
             },
-            "headStatus": "Open",
-            "hydraNodeVersion": "\u000c",
+            "headStatus": "FanoutPossible",
+            "hydraHeadId": "00000101010101000100000100010000",
+            "hydraNodeVersion": "",
             "me": {
-                "vkey": "23699ffa9cfbcb961b1b7bbcd3f0f60e0b561867855b63c5b17b6ee3dd2750a0"
+                "vkey": "f9f9fefeb029e74d80a38b06eff3c98e66ecb89114c6889e92be4c68d13d5093"
             },
             "networkInfo": {
                 "networkConnected": false,
                 "peersInfo": {
-                    "0.0.0.0:1": false
+                    "0.0.0.0:0": false
                 }
             },
             "snapshotUtxo": {
-                "0100000001000101010001000001010101010101010100010101000001010100#84": {
-                    "address": "addr_test1qzyr3yghqvsuwt6l9yavuzc2fsn8u67s9y4h3p8mgpujxxypqq4pzycpvjrqjftvu66qa0f0ytu9d23rrk72tslcpdqqsztxzt",
+                "0000000100000101000000010100000101000101000101000000010000000000#90": {
+                    "address": "addr_test1yqngd97lef8jtshe3yymspm0nt4v29s22qg6s5afv0hunuunmx5dpfxptner8c9nusreq9vscw6sapsg8m5mngsd284qf5hs9g",
                     "datum": null,
-                    "datumhash": null,
-                    "inlineDatum": null,
-                    "inlineDatumRaw": null,
+                    "inlineDatum": {
+                        "int": 4
+                    },
+                    "inlineDatumRaw": "04",
+                    "inlineDatumhash": "642206314f534b29ad297d82440a5f9f210e30ca5ced805a587ca402de927342",
                     "referenceScript": null,
                     "value": {
-                        "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
-                            "38": 7649844765309965365
-                        },
-                        "lovelace": 45000000000000000
+                        "lovelace": 1008540
                     }
                 }
             },
             "tag": "Greetings"
         }
     ],
-    "seed": -307089451
+    "seed": -1036889593
 }

@@ -334,6 +334,49 @@ renderServerOutput time output raw = case output of
       , fld "Drift" (show drift)
       ]
       raw
+  -- Dynamic-head-participants (issue #1813) outputs. Rendered as plain
+  -- info/error lines; the TUI does not have a dedicated tab for these.
+  LeaveRequested{leavingParty} ->
+    mk Info time "Leave requested" [fld "Leaving party" (show leavingParty)] raw
+  LeaveApproved{leavingParty} ->
+    mk Info time "Leave approved" [fld "Leaving party" (show leavingParty)] raw
+  LeaveFinalized{leavingParty, newParties} ->
+    mk
+      Success
+      time
+      "Leave finalized"
+      [fld "Leaving party" (show leavingParty), fld "New parties" (show newParties)]
+      raw
+  LeaveInvalid{leavingParty, leaveReason} ->
+    mk
+      Error
+      time
+      "Leave invalid"
+      [fld "Leaving party" (show leavingParty), fld "Reason" (show leaveReason)]
+      raw
+  JoinRequested{joiningParty, joiningHost} ->
+    mk
+      Info
+      time
+      "Join requested"
+      [fld "Joining party" (show joiningParty), fld "Host" joiningHost]
+      raw
+  JoinApproved{joiningParty} ->
+    mk Info time "Join approved" [fld "Joining party" (show joiningParty)] raw
+  JoinFinalized{joiningParty, newParties} ->
+    mk
+      Success
+      time
+      "Join finalized"
+      [fld "Joining party" (show joiningParty), fld "New parties" (show newParties)]
+      raw
+  JoinInvalid{joiningParty, joinReason} ->
+    mk
+      Error
+      time
+      "Join invalid"
+      [fld "Joining party" (show joiningParty), fld "Reason" (show joinReason)]
+      raw
 
 -- ---------------------------------------------------------------------------
 -- ClientMessage (5 constructors)

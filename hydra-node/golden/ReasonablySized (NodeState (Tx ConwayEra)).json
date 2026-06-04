@@ -114,6 +114,7 @@
                                 "confirmed": [],
                                 "headId": "00040303050500010105000102010107",
                                 "number": 3,
+                                "parameterUpdate": null,
                                 "utxo": {
                                     "0001010503010205060400070205020401060605020703020205050406060401#47": {
                                         "address": "addr_test1wrf9xj346ztdrzpvyctlfwjwczffjjehty9xnmfsqpkk72qskalhz",
@@ -629,6 +630,7 @@
                                 }
                             }
                         },
+                        "pendingParameterUpdate": null,
                         "seenSnapshot": {
                             "signatories": {
                                 "71a4822cac306f8d46e2093d83bf013065d70dbc71ceebb32cd4a527c0c5c942": "ff02bd924ddd0ca9209cdb33fea7cd13cad74ffe3a4f52b5b5d4b790e2e046300097dc462d5139a677d6ef096c36b97fc7d72b25e06abbc1d457ac385a189a00"
@@ -663,6 +665,7 @@
                                 ],
                                 "headId": "07030101070706050401060506080506",
                                 "number": 4,
+                                "parameterUpdate": null,
                                 "utxo": {
                                     "0206040407000605060003060301010104010506030508070103050505030308#7": {
                                         "address": "addr_test1yrssfryryygn7plu9e3tezr02nzs65k7a5mafhgu5w32qlfa7xgz59nx5p7pg6vh88mz3s628nckl004frsnvh0yvwmq3njmyh",
@@ -1577,6 +1580,7 @@
                             "confirmed": [],
                             "headId": "04030308000704040008060402070207",
                             "number": 6,
+                            "parameterUpdate": null,
                             "utxo": {
                                 "0003060108070800020204080707050802070504000106000508070800010801#15": {
                                     "address": "addr_test1xqay04uku2wg2n92z8u70ew8mh8e4438ztzqjp34j62cckfhlcjh0gl6thw9uercg75f3efyw68jan65pr2l9k8t2nrqt58qzt",
@@ -2871,6 +2875,7 @@
                                 "confirmed": [],
                                 "headId": "04080602050401040100010201020102",
                                 "number": 1,
+                                "parameterUpdate": null,
                                 "utxo": {
                                     "0102010307010104040304030404080601080704000607070401020808010308#10": {
                                         "address": "addr_test1yz79sqddrtlxaadh2qta3mr4v0ym2tyhc88q2xtw2uznfv6jl3gngr83ywsk6f5a34yhgcr3tzu8pqw42509fjqswfeqvuyh7c",
@@ -3144,6 +3149,7 @@
                                 }
                             }
                         },
+                        "pendingParameterUpdate": null,
                         "seenSnapshot": {
                             "lastSeen": 1,
                             "requested": 1,
@@ -3624,6 +3630,7 @@
                                 "confirmed": [],
                                 "headId": "04010005050600040303040707050702",
                                 "number": 4,
+                                "parameterUpdate": null,
                                 "utxo": {
                                     "0403060101030305080505010204030705080201010408050208040307050600#25": {
                                         "address": "addr_test1qqljwuk0vdahuqf58vq7vpjgmn92mku9xtw5xlq9mkfus9jtl2cs3jyhx42st5ppzqzjtlvfn0hmz9347np4akygenrstt4mdn",
@@ -4074,6 +4081,7 @@
                                 }
                             }
                         },
+                        "pendingParameterUpdate": null,
                         "seenSnapshot": {
                             "tag": "NoSeenSnapshot"
                         },

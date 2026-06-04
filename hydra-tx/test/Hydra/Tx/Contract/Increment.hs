@@ -135,6 +135,7 @@ healthySnapshot =
     , utxoToCommit = Just healthyDeposited
     , utxoToDecommit = Nothing
     , accumulator = healthyAccumulator
+    , parameterUpdate = Nothing
     }
 
 healthyAccumulatorHash :: ByteString

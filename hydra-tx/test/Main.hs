@@ -8,6 +8,7 @@ import Hydra.Tx.Contract.ContractSpec qualified
 import Hydra.Tx.HeadIdSpec qualified
 import Hydra.Tx.IsTxSpec qualified
 import Hydra.Tx.KZGTrustedSetupSpec qualified
+import Hydra.Tx.ParameterUpdateSpec qualified
 import Test.Hydra.TastyMain (defaultMainHydra, testSpec)
 
 main :: IO ()
@@ -20,4 +21,5 @@ main =
     , testSpec "HeadId" Hydra.Tx.HeadIdSpec.spec
     , testSpec "IsTx" Hydra.Tx.IsTxSpec.spec
     , testSpec "KZGTrustedSetup" Hydra.Tx.KZGTrustedSetupSpec.spec
+    , testSpec "ParameterUpdate" Hydra.Tx.ParameterUpdateSpec.spec
     ]

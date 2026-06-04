@@ -1,0 +1,12 @@
+{
+    "samples": [
+        {
+            "leavingOnChainId": "a70bced8012edf42e901068f3452416de99de8d15194307225b7ae44",
+            "leavingParty": {
+                "vkey": "23cb48712ff31c6e8544070519c4f93b49b9a7f619df7ff4b65b3699b2895e87"
+            },
+            "tag": "ReqLeave"
+        }
+    ],
+    "seed": -1723801115
+}

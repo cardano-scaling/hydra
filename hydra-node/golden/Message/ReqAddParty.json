@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "joiningHost": "𡟢.nP\u001c1.p]\u000b􎱏􄑏@\u001a\u0006",
+            "joiningOnChainId": "d61f54e3be831a76da26ff654351fe3d4d329665795823c065eb3fed",
+            "joiningParty": {
+                "vkey": "6f3175fe66a67c34a2c5db4998e11005f9fe66ab871891a775cf9ba6937066b1"
+            },
+            "tag": "ReqAddParty"
+        }
+    ],
+    "seed": -1860977533
+}

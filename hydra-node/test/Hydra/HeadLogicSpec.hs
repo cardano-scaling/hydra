@@ -22,7 +22,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Fanout, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (AddParticipant, Fanout, Leave, NewTx, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), fromLedgerTx, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -35,7 +35,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateNodeState, aggregateState, cause, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -50,7 +50,7 @@ import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Activ
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx (HeadId)
+import Hydra.Tx (HeadId, ParameterUpdate (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
@@ -91,6 +91,7 @@ spec =
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
         aliceEnv =
           Environment
@@ -102,6 +103,7 @@ spec =
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
 
     describe "Coordinated Head Protocol" $ do
@@ -116,6 +118,7 @@ spec =
               , seenSnapshot = NoSeenSnapshot
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
+              , pendingParameterUpdate = Nothing
               , version = 0
               }
 
@@ -142,7 +145,7 @@ spec =
 
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         snapshotInProgress <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
@@ -173,7 +176,7 @@ spec =
             step $ receiveMessage $ ReqTx tx1
             step $ receiveMessage $ ReqTx tx2
             step $ receiveMessage $ ReqTx tx3
-            step $ receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            step $ receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
             getState
 
           case headState s of
@@ -491,7 +494,7 @@ spec =
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let s1 = update aliceEnv ledger now s0 reqDecEvent
 
-          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing}
+          let reqSn = ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Just decommitTx', depositTxId = Nothing, parameterUpdate = Nothing}
           s1 `hasEffect` NetworkEffect reqSn
 
         it "does not get stuck when DecommitFinalized races with in-flight ReqSn" $ do
@@ -532,7 +535,7 @@ spec =
 
           -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
           let staleReqSn :: Input SimpleTx
-              staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
+              staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
           update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
             Error (RequireFailed ReqSvNumberInvalid{}) -> True
@@ -604,6 +607,7 @@ spec =
                     , confirmedSnapshot = confirmedSn
                     , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
                     , decommitTx = Nothing
+                    , pendingParameterUpdate = Nothing
                     }
 
           -- AckSn for snapshot 1 arrives late
@@ -754,6 +758,218 @@ spec =
               chs.seenSnapshot `shouldBe` LastSeenSnapshot{lastSeen = 0}
             _ -> fail "expected Open state"
 
+      describe "Leave (dynamic-head-participants)" $ do
+        it "broadcasts ReqLeave on Leave client input" $ do
+          -- The state-recording happens via the network loopback through
+          -- 'onOpenNetworkReqLeave'; here we only assert the broadcast.
+          -- See the symmetric 'onOpenClientDecommit' pattern.
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now s0 (ClientInput Leave)
+
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqLeave{leavingParty} -> leavingParty == alice
+            _ -> False
+
+        it "records LeaveRecorded when receiving ReqLeave from another party" $ do
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let reqLeave :: Input SimpleTx
+              reqLeave =
+                receiveMessageFrom bob $
+                  ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+          update aliceEnv ledger now s0 reqLeave
+            `hasStateChangedSatisfying` \case
+              LeaveRecorded{headId, leavingParty} -> headId == testHeadId && leavingParty == bob
+              _ -> False
+
+        it "emits ReqSn carrying the parameter update when leader receives ReqLeave" $ do
+          -- For seenSn = 0 the next snapshot leader is 'alice' in our
+          -- threeParties fixture. With alice as the recipient of a ReqLeave
+          -- targeting bob, alice should emit a ReqSn whose parameterUpdate
+          -- carries the RemoveParty record.
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let reqLeave :: Input SimpleTx
+              reqLeave =
+                receiveMessageFrom bob $
+                  ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+          update aliceEnv ledger now s0 reqLeave
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{parameterUpdate = Just (RemoveParty p _)} -> p == bob
+              _ -> False
+
+        it "rejects Leave when an in-flight decommit exists" $ do
+          let decommitTx' = SimpleTx 99 mempty (utxoRef 99)
+              s0 =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { decommitTx = Just decommitTx'
+                    }
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now s0 (ClientInput Leave)
+
+          outcome `hasEffectSatisfying` \case
+            ClientEffect CommandFailed{} -> True
+            _ -> False
+
+        it "is idempotent: ReqLeave for an already-pending leave is a no-op" $ do
+          let s0 = inOpenState threeParties
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          s1 <-
+            runHeadLogic aliceEnv ledger s0 $ do
+              step
+                ( receiveMessageFrom bob $
+                    ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+                )
+              getState
+          -- second receipt should produce no further state change or effect
+          let outcome2 =
+                update aliceEnv ledger now s1 $
+                  receiveMessageFrom bob $
+                    ReqLeave{leavingParty = bob, leavingOnChainId = deriveOnChainId bob}
+          outcome2 `shouldBe` noop
+
+        it "refuses further client inputs after the local party has been removed" $ do
+          let s0 = inOpenState threeParties
+              changed =
+                ParametersChanged
+                  { chainState = SimpleChainState 0
+                  , headId = testHeadId
+                  , newParties = [bob, carol]
+                  , newVersion = 1
+                  , parameterUpdate =
+                      RemoveParty alice (deriveOnChainId alice)
+                  }
+          -- aliceEnv's party is alice; after the change she is no longer in
+          -- the head, so her own NewTx should be refused via CommandFailed.
+          let sLeft = aggregateNodeState s0 changed
+          now <- nowFromSlot sLeft.chainPointTime.currentSlot
+          let outcome =
+                update
+                  aliceEnv
+                  ledger
+                  now
+                  sLeft
+                  (ClientInput (NewTx (aValidTx 99 :: SimpleTx)))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect CommandFailed{} -> True
+            _ -> False
+
+      describe "Join (dynamic-head-participants Phase 2)" $ do
+        it "broadcasts ReqAddParty on AddParticipant client input" $ do
+          let s0 = inOpenState [alice, bob]
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome =
+                update
+                  aliceEnv
+                  ledger
+                  now
+                  s0
+                  (ClientInput (AddParticipant carol (deriveOnChainId carol) "127.0.0.1:5003"))
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqAddParty{joiningParty} -> joiningParty == carol
+            _ -> False
+
+        it "records JoinRecorded when receiving ReqAddParty" $ do
+          let s0 = inOpenState [alice, bob]
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let reqAdd :: Input SimpleTx
+              reqAdd =
+                receiveMessageFrom bob $
+                  ReqAddParty
+                    { joiningParty = carol
+                    , joiningOnChainId = deriveOnChainId carol
+                    , joiningHost = "127.0.0.1:5003"
+                    }
+          update aliceEnv ledger now s0 reqAdd
+            `hasStateChangedSatisfying` \case
+              JoinRecorded{headId, joiningParty} ->
+                headId == testHeadId && joiningParty == carol
+              _ -> False
+
+        it "rejects AddParticipant when the proposed party is already a member" $ do
+          let s0 = inOpenState [alice, bob]
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome =
+                update
+                  aliceEnv
+                  ledger
+                  now
+                  s0
+                  (ClientInput (AddParticipant bob (deriveOnChainId bob) "127.0.0.1:5002"))
+          outcome `hasEffectSatisfying` \case
+            ClientEffect CommandFailed{} -> True
+            _ -> False
+
+        it "ParametersChanged aggregate adds joining party + clears pendingParameterUpdate" $ do
+          let s0 = inOpenState [alice, bob]
+              recorded, changed :: StateChanged SimpleTx
+              recorded =
+                JoinRecorded
+                  { headId = testHeadId
+                  , joiningParty = carol
+                  , joiningOnChainId = deriveOnChainId carol
+                  , joiningHost = "127.0.0.1:5003"
+                  }
+              changed =
+                ParametersChanged
+                  { chainState = SimpleChainState 0
+                  , headId = testHeadId
+                  , newParties = [alice, bob, carol]
+                  , newVersion = 1
+                  , parameterUpdate =
+                      AddParty carol (deriveOnChainId carol) "127.0.0.1:5003"
+                  }
+          let stRecorded = aggregateNodeState s0 recorded
+          case headState stRecorded of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingParameterUpdate = Just AddParty{}}} ->
+              pure ()
+            other ->
+              expectationFailure $
+                "expected pending AddParty, got: " <> show other
+
+          let stChanged = aggregateNodeState stRecorded changed
+          case headState stChanged of
+            Open OpenState{parameters, coordinatedHeadState = chs} -> do
+              parameters.parties `shouldBe` [alice, bob, carol]
+              chs.pendingParameterUpdate `shouldBe` Nothing
+              chs.version `shouldBe` 1
+            other ->
+              expectationFailure $
+                "expected open with appended party, got: " <> show other
+
+        it "ParametersChanged aggregate rewrites parties + clears pendingParameterUpdate" $ do
+          let s0 = inOpenState threeParties
+              theUpdate = RemoveParty bob (deriveOnChainId bob)
+              recorded, changed :: StateChanged SimpleTx
+              recorded =
+                LeaveRecorded
+                  { headId = testHeadId
+                  , leavingParty = bob
+                  , leavingOnChainId = deriveOnChainId bob
+                  }
+              changed =
+                ParametersChanged
+                  { chainState = SimpleChainState 0
+                  , headId = testHeadId
+                  , newParties = [alice, carol]
+                  , newVersion = 1
+                  , parameterUpdate = theUpdate
+                  }
+          let stRecorded = aggregateNodeState s0 recorded
+          case headState stRecorded of
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{pendingParameterUpdate = Just _}} -> pure ()
+            other -> expectationFailure $ "expected pending update, got: " <> show other
+
+          let stChanged = aggregateNodeState stRecorded changed
+          case headState stChanged of
+            Open OpenState{parameters, coordinatedHeadState = chs} -> do
+              parameters.parties `shouldBe` [alice, carol]
+              chs.pendingParameterUpdate `shouldBe` Nothing
+              chs.version `shouldBe` 1
+            other -> expectationFailure $ "expected open with rewritten parties, got: " <> show other
+
       describe "Tracks Transaction Ids" $ do
         it "keeps transactions in allTxs given it receives a ReqTx" $ do
           let s0 = inOpenState threeParties
@@ -770,7 +986,7 @@ spec =
         it "removes transactions in allTxs given it receives a ReqSn" $ do
           let s0 = inOpenState threeParties
               t1 = SimpleTx 1 mempty (utxoRef 1)
-              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
 
           s1 <- runHeadLogic bobEnv ledger s0 $ do
             step $ receiveMessage $ ReqTx t1
@@ -784,7 +1000,7 @@ spec =
         it "removes transactions from allTxs when included in a acked snapshot even when emitting a ReqSn" $ do
           let t1 = SimpleTx 1 mempty (utxoRef 1)
               pendingTransaction = SimpleTx 2 mempty (utxoRef 2)
-              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+              reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
               snapshot1 = testSnapshot 1 0 [t1] (utxoRefs [1])
               ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
 
@@ -805,7 +1021,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different snapshot" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             snapshot' = testSnapshot 2 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
@@ -825,7 +1041,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a different key" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot) 1
         waitingForLastAck <-
@@ -843,7 +1059,7 @@ spec =
 
       it "rejects last AckSn if one signature was from a completely different message" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom :: Crypto.SigningKey Crypto.HydraKey -> Party -> Input SimpleTx
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
@@ -866,7 +1082,7 @@ spec =
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
         waitingForAck <-
@@ -883,7 +1099,7 @@ spec =
 
       it "ignores valid AckSn if snapshot already confirmed" $ do
         let reqSn :: Input tx
-            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
             ackFrom sk = receiveMessageFrom (deriveParty sk) $ AckSn (sign sk snapshot1) 1
 
@@ -901,7 +1117,7 @@ spec =
       it "rejects snapshot request with transaction not applicable to previous snapshot" $ do
         let reqTx42 = receiveMessage $ ReqTx (SimpleTx 42 mempty (utxoRef 1))
             reqTx1 = receiveMessage $ ReqTx (SimpleTx 1 (utxoRef 1) (utxoRef 2))
-            input = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            input = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
             s0 = inOpenState threeParties
 
         s2 <- runHeadLogic bobEnv ledger s0 $ do
@@ -921,14 +1137,14 @@ spec =
             st =
               inOpenState' threeParties $
                 coordinatedHeadState{allTxs = Map.fromList [(1, tx)]}
-            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st reqSn
           `shouldBe` Error (RequireFailed ReqSnUTxOSetTooLarge{utxoCount = bigCount, maxAllowed = Accumulator.maxAccumulatorSize})
 
       it "waits if we receive a snapshot with unseen transactions" $ do
         let s0 = inOpenState threeParties
-            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing
+            reqSn = receiveMessage $ ReqSn 0 1 [1] Nothing Nothing Nothing
         now <- nowFromSlot s0.chainPointTime.currentSlot
         update bobEnv ledger now s0 reqSn
           `assertWait` WaitOnTxs [1]
@@ -947,16 +1163,16 @@ spec =
 
       it "rejects if we receive a too far future snapshot" $ do
         let input :: Input tx
-            input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
+            input = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing Nothing
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
 
       it "waits if we receive a future snapshot while collecting signatures" $ do
         let reqSn1 :: Input tx
-            reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            reqSn1 = receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing
             reqSn2 :: Input tx
-            reqSn2 = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
+            reqSn2 = receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing Nothing
         st <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn1
@@ -969,7 +1185,7 @@ spec =
       it "acks signed snapshot from the constant leader" $ do
         let leader = alice
             snapshot = testSnapshot 1 0 [] mempty
-            input = receiveMessageFrom leader $ ReqSn 0 (number snapshot) [] Nothing Nothing
+            input = receiveMessageFrom leader $ ReqSn 0 (number snapshot) [] Nothing Nothing Nothing
             sig = sign bobSk snapshot
             st = inOpenState threeParties
             ack = AckSn sig (number snapshot)
@@ -978,7 +1194,7 @@ spec =
 
       it "does not ack snapshots from non-leaders" $ do
         let input :: Input tx
-            input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing
+            input = receiveMessageFrom notTheLeader $ ReqSn 0 1 [] Nothing Nothing Nothing
             notTheLeader = bob
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
@@ -988,7 +1204,7 @@ spec =
 
       it "rejects too-old snapshots" $ do
         let input :: Input tx
-            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing Nothing
             theLeader = alice
             snapshot = testSnapshot 2 0 [] mempty
             st =
@@ -999,7 +1215,7 @@ spec =
 
       it "rejects too-old snapshots when collecting signatures" $ do
         let input :: Input tx
-            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn 0 2 [] Nothing Nothing Nothing
             theLeader = alice
             snapshot = testSnapshot 2 0 [] mempty
             st =
@@ -1013,7 +1229,7 @@ spec =
 
       it "rejects too-new snapshots from the leader" $ do
         let input :: Input tx
-            input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn 0 3 [] Nothing Nothing Nothing
             theLeader = carol
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
@@ -1022,7 +1238,7 @@ spec =
       it "rejects invalid snapshots version" $ do
         let validSnNumber = 0
             invalidSnVersion = 1
-            input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing Nothing
+            input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing Nothing Nothing
             theLeader = carol
             expectedSnVersion = 0
             st = inOpenState threeParties
@@ -1033,9 +1249,9 @@ spec =
         let theLeader = alice
             nextSN = 1
             firstReqTx = receiveMessage $ ReqTx (aValidTx 42)
-            firstReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [42] Nothing Nothing
+            firstReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [42] Nothing Nothing Nothing
             secondReqTx = receiveMessage $ ReqTx (aValidTx 51)
-            secondReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [51] Nothing Nothing
+            secondReqSn = receiveMessageFrom theLeader $ ReqSn 0 nextSN [51] Nothing Nothing Nothing
 
         s3 <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
           step firstReqTx
@@ -1063,6 +1279,7 @@ spec =
                 , utxoToCommit = Nothing
                 , utxoToDecommit = utxoToDecommit
                 , accumulator = Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
+                , parameterUpdate = Nothing
                 }
             s0 =
               inOpenState'
@@ -1072,8 +1289,8 @@ spec =
                   , seenSnapshot = LastSeenSnapshot 1
                   , localUTxO = activeUTxO
                   }
-            reqSn0 = receiveMessageFrom alice $ ReqSn 0 1 [] (Just decommitTx1) Nothing
-            reqSn1 = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx2) Nothing
+            reqSn0 = receiveMessageFrom alice $ ReqSn 0 1 [] (Just decommitTx1) Nothing Nothing
+            reqSn1 = receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx2) Nothing Nothing
 
         outcome <- runHeadLogic bobEnv ledger s0 $ do
           step reqSn0
@@ -1135,7 +1352,7 @@ spec =
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 3: Process ReqSn with the deposit (as if received from network)
-          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId) Nothing
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
             step reqSnWithDeposit
             getState
@@ -1157,6 +1374,7 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , parameterUpdate = Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1222,7 +1440,7 @@ spec =
             step reqTxInput
             getState
 
-          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId)
+          let staleReqSn = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing (Just depositTxId) Nothing
           let reqSnOutcome = update aliceEnv' ledger now s7 staleReqSn
           -- Fix bug: Error out instead of waiting for deposit to be observed forever
           reqSnOutcome `shouldBe` Error (RequireFailed $ RequestedDepositNotFoundLocally depositTxId)
@@ -1264,7 +1482,7 @@ spec =
             step tickInput
             getState
 
-          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          let reqSnWithDeposit = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId) Nothing
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
             step reqSnWithDeposit
             getState
@@ -1279,6 +1497,7 @@ spec =
                   , utxoToCommit = Just depositedUtxo
                   , utxoToDecommit = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  , parameterUpdate = Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s4 <- runHeadLogic aliceEnv' ledger s3 $ do
@@ -1334,7 +1553,7 @@ spec =
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
           -- Step 2: Process ReqSn with the decommit tx
-          let reqSnWithDecommit = receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing
+          let reqSnWithDecommit = receiveMessage $ ReqSn 0 1 [] (Just decommitTx') Nothing Nothing
           s2 <- runHeadLogic aliceEnv' ledger s1 $ do
             step reqSnWithDecommit
             getState
@@ -1355,6 +1574,7 @@ spec =
                   , utxoToCommit = Nothing
                   , utxoToDecommit = Just (utxoRef 3) -- outputs of decommit tx
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty Nothing (Just (utxoRef 3))
+                  , parameterUpdate = Nothing
                   }
               ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
           s3 <- runHeadLogic aliceEnv' ledger s2 $ do
@@ -1545,32 +1765,35 @@ spec =
       prop "connectivity messages passthrough without affecting the current state" $
         \(ttl, connectivityMessage, nodeState) -> do
           let input = connectivityChanged ttl connectivityMessage
+              -- 'isConnectivityChange' = any state change a connectivity
+              -- input is allowed to emit. Used for both Wait and Continue
+              -- outcomes (issue #1813: connectivity events flow through
+              -- even while a late-joining party is still in catch-up).
+              isConnectivityChange = \case
+                PeerConnected{} -> True
+                PeerDisconnected{} -> True
+                NetworkVersionMismatch{} -> True
+                NetworkClusterIDMismatch{} -> True
+                NetworkConnected{} -> True
+                NetworkDisconnected{} -> True
+                _ -> False
           case nodeState of
             NodeCatchingUp{} -> do
               now <- getCurrentTime
               let outcome = update bobEnv ledger now nodeState input
               outcome `shouldSatisfy` \case
                 Wait{reason = WaitOnNodeInSync{currentSlot}, stateChanges} ->
-                  null stateChanges && currentSlot == nodeState.chainPointTime.currentSlot
+                  all isConnectivityChange stateChanges
+                    && currentSlot == nodeState.chainPointTime.currentSlot
+                Continue{stateChanges, effects} ->
+                  null effects && all isConnectivityChange stateChanges
                 _ -> False
             NodeInSync{} -> do
               now <- nowFromSlot nodeState.chainPointTime.currentSlot
               let outcome = update bobEnv ledger now nodeState input
               outcome `shouldSatisfy` \case
                 Continue{stateChanges, effects} ->
-                  null effects
-                    && all
-                      ( \case
-                          -- NOTE: match only network related outcomes
-                          PeerConnected{} -> True
-                          PeerDisconnected{} -> True
-                          NetworkVersionMismatch{} -> True
-                          NetworkClusterIDMismatch{} -> True
-                          NetworkConnected{} -> True
-                          NetworkDisconnected{} -> True
-                          _ -> False
-                      )
-                      stateChanges
+                  null effects && all isConnectivityChange stateChanges
                 _ -> False
 
       prop "ignores decrementTx of another head" $ \otherHeadId -> do
@@ -1943,7 +2166,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToDecom = Just utxoToDecommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' Nothing utxoToDecom
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' Nothing utxoToDecom accumulator Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -1959,7 +2182,7 @@ spec =
           let utxo' = utxoRef 3
               utxoToCom = Just utxoToCommit
               accumulator = Accumulator.buildFromSnapshotUTxOs utxo' utxoToCom Nothing
-              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator
+              snapshot2 = Snapshot testHeadId 0 2 [tx2] utxo' utxoToCom Nothing accumulator Nothing
               multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot2]
 
           now <- nowFromSlot startingState.chainPointTime.currentSlot
@@ -2025,6 +2248,7 @@ spec =
                   , utxoToCommit = Just depositedUTxO
                   , utxoToDecommit = Nothing
                   , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
+                  , parameterUpdate = Nothing
                   }
               depositMultisig = aggregate [sign aliceSk depositSnapshot]
           -- Start with deposit already active and tracked
@@ -2036,7 +2260,7 @@ spec =
                   }
           -- Step 1: Confirm snapshot 1 including the deposit in utxoToCommit
           s1 <- runHeadLogic aliceEnv' ledger s0 $ do
-            step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+            step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId) Nothing
             step $ receiveMessage $ AckSn (sign aliceSk depositSnapshot) 1
             getState
           -- Step 2: Recover the deposit (IncrementTx never finalized on-chain)
@@ -2061,7 +2285,7 @@ spec =
             getState
           -- Step 5: Process the new snapshot request — the recovered deposit must not
           -- appear in the new snapshot's utxo field
-          let reqSn2 = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing Nothing
+          let reqSn2 = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing Nothing Nothing
           outcome <- runHeadLogic aliceEnv' ledger s4 $ step reqSn2
           -- Extract the new snapshot's utxo and show both sides of the invariant:
           -- depositedUTxO is on L1 (it was recovered), and must not also be on L2.
@@ -2115,6 +2339,7 @@ spec =
                           , seenSnapshot = NoSeenSnapshot
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
+                          , pendingParameterUpdate = Nothing
                           , version = 0
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
@@ -2210,6 +2435,7 @@ spec =
                               , seenSnapshot = NoSeenSnapshot
                               , currentDepositTxId = Nothing
                               , decommitTx = Nothing
+                              , pendingParameterUpdate = Nothing
                               , version = 0
                               }
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
@@ -2228,7 +2454,7 @@ spec =
         st <-
           run $
             runHeadLogic bobEnv ledger st0 $ do
-              step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+              step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing Nothing)
               getState
 
         assert $ case headState st of
@@ -2257,6 +2483,7 @@ spec =
                             , seenSnapshot = NoSeenSnapshot
                             , currentDepositTxId = Nothing
                             , decommitTx = Nothing
+                            , pendingParameterUpdate = Nothing
                             , version = 0
                             }
                       , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
@@ -2283,7 +2510,12 @@ spec =
 
 prop_ignoresUnrelatedOnInitTx :: Property
 prop_ignoresUnrelatedOnInitTx =
-  forAll arbitrary $ \env ->
+  -- NOTE: We disable the dynamic-head-participants "I'm a joining party"
+  -- branch here (issue #1813). That branch accepts an InitTx whose parties
+  -- list does not include us yet — but the whole point of this property
+  -- is that an unrelated init /must/ be ignored. Tested independently in
+  -- the "Join" / "Leave" describe blocks above.
+  forAll (arbitrary `suchThat` (not . joinExistingCluster)) $ \env ->
     forAll (genUnrelatedInit env) $ \unrelatedInit -> monadicIO $ do
       let idleSt = inIdleState
       now <- run getCurrentTime
@@ -2414,6 +2646,7 @@ inOpenState parties =
       , seenSnapshot = NoSeenSnapshot
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
+      , pendingParameterUpdate = Nothing
       , version = 0
       }
  where
@@ -2639,4 +2872,5 @@ testSnapshot number version confirmed utxo =
     , utxoToCommit = mempty
     , utxoToDecommit = mempty
     , accumulator = Accumulator.buildFromUTxO utxo
+    , parameterUpdate = Nothing
     }

@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "headId": "00010100000000010000010000010000",
+            "leaveReason": "LeaveIncompatibleWithCommit",
+            "leavingParty": {
+                "vkey": "706ac713e0a1bdac154d1546b64f98de5b798a91762c6f61ae69f64c1045a547"
+            },
+            "tag": "LeaveInvalid"
+        }
+    ],
+    "seed": 845085653
+}

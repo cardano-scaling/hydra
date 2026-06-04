@@ -45,6 +45,7 @@
                 ],
                 "headId": "01030403010002070808050500050200",
                 "number": 1,
+                "parameterUpdate": null,
                 "utxo": {
                     "0101060108050307050201000207000603040102010305010203030005060007#7": {
                         "address": "addr_test1yryzepnugw9jtyc2e99p7jhnt2hakyhpktud369rkzany4rl0n25gzz63wne2qa3ejxe5vt6yneg76pnpm6wykeazvjq8zvcar",
@@ -822,6 +823,7 @@
                 ],
                 "headId": "07060303030102000000070104010306",
                 "number": 4,
+                "parameterUpdate": null,
                 "utxo": {
                     "0102000401030100040307020504080501080102070104020808050806060102#96": {
                         "address": "addr_test1yzlr2xa507eqg80l9and8nfkrusty6jgkvzzcdgzaqc64jl9hzhyrdsu639vdlvc5td6hjw79nxvxkqhuexcuqq0pmvsqjhmrz",
@@ -1131,6 +1133,7 @@
                 ],
                 "headId": "02050501080608060400080708060607",
                 "number": 0,
+                "parameterUpdate": null,
                 "utxo": {
                     "0106030100050402050100000301010105010602080502010504060508030303#35": {
                         "address": "addr_test1xz3a8v3uegcwmzcdckv6nhaf4ns02u9dfq48t2p7kv9c2rfmfksw29k47wltv3sa3kcs02yq47x8045l9ndn25wt2aesdcvgj9",

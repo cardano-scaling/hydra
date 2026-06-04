@@ -280,26 +280,33 @@ handleHydraEventsConnection now = \case
           NodeState.InSync -> InSync
           NodeState.CatchingUp -> CatchingUp
 
-      if T.null configuredPeers
-        then
+      let parsedConfigured =
+            if T.null configuredPeers
+              then Right []
+              else
+                let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
+                    peerAddrs = map (takeWhile (/= '=')) peerStrs
+                 in traverse readHost peerAddrs
+      case parsedConfigured of
+        Left err -> do
+          liftIO $ putStrLn $ "Failed to parse configured peers: " <> err
           peersL .= mempty
-        else do
-          let peerStrs = map T.unpack (T.splitOn "," configuredPeers)
-              peerAddrs = map (takeWhile (/= '=')) peerStrs
-          case (traverse readHost peerAddrs :: Either String [Host]) of
-            Left _ -> do
-              peersL .= mempty
-            Right parsedPeers -> do
-              existing <- use peersL
-              let existingMap = Map.fromList existing
+        Right parsedPeers -> do
+          existing <- use peersL
+          let existingMap = Map.fromList existing
+              -- Dynamic peers from issue #1813 (parties admitted after node
+              -- start) are not in 'configuredPeers' but do appear in
+              -- 'peersInfo'. Include them so they don't vanish from the TUI
+              -- when Greetings replays.
+              allPeers = nub $ parsedPeers <> Map.keys peersInfo
 
-                  statusFor p =
-                    case Map.lookup p peersInfo of
-                      Just True -> PeerIsConnected
-                      Just False -> PeerIsDisconnected
-                      Nothing -> Map.findWithDefault PeerIsUnknown p existingMap
+              statusFor p =
+                case Map.lookup p peersInfo of
+                  Just True -> PeerIsConnected
+                  Just False -> PeerIsDisconnected
+                  Nothing -> Map.findWithDefault PeerIsUnknown p existingMap
 
-              peersL .= [(p, statusFor p) | p <- parsedPeers]
+          peersL .= [(p, statusFor p) | p <- allPeers]
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerConnected p}) ->
     peersL %= updatePeerStatus p PeerIsConnected
   Update (ApiTimedServerOutput TimedServerOutput{output = API.PeerDisconnected p}) ->

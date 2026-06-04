@@ -515,6 +515,8 @@ deriving stock instance Eq Head.IncrementRedeemer
 deriving stock instance Eq Head.DecrementRedeemer
 deriving stock instance Eq Head.CloseRedeemer
 deriving stock instance Eq Head.ContestRedeemer
+deriving stock instance Eq Head.UpdateParametersRedeemer
+deriving stock instance Eq Head.OnChainParameterUpdate
 
 -- * Helpers
 

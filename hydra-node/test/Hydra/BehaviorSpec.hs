@@ -77,6 +77,8 @@ import Test.Hydra.Tx.Fixture (
   aliceSk,
   bob,
   bobSk,
+  carol,
+  carolSk,
   deriveOnChainId,
   testHeadId,
   testHeadSeed,
@@ -990,6 +992,63 @@ spec = parallel $ do
                 HeadIsContested{snapshotNumber} -> guard $ snapshotNumber == 1
                 _ -> Nothing
 
+  describe "Three participant Head (dynamic-head-participants)" $ do
+    -- End-to-end behavior spec for the leave flow (issue #1813).
+    --
+    -- Three nodes open a head together; one of them ('carol') requests to
+    -- leave. The remaining two ('alice', 'bob') multi-sign the leave snapshot,
+    -- and after the simulated chain observes the UpdateParametersTx the
+    -- remaining parties keep producing snapshots over the new (two-party)
+    -- party set.
+    it "a party can leave an open three-party head" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob, carol] chain $ \n1 ->
+            withHydraNode bobSk [alice, carol] chain $ \n2 ->
+              withHydraNode carolSk [alice, bob] chain $ \n3 -> do
+                openHead3 n1 n2 n3
+                -- Carol requests to leave; we expect alice/bob to see
+                -- LeaveFinalized once the simulated chain observes the
+                -- UpdateParametersTx.
+                send n3 Leave
+                waitUntilMatch [n1, n2] $ \case
+                  LeaveFinalized{leavingParty, newParties} ->
+                    guard $
+                      leavingParty == carol
+                        && sortNub newParties == sortNub [alice, bob]
+                  _ -> Nothing
+
+    -- End-to-end behavior spec for the join flow (Phase 2 of issue #1813).
+    --
+    -- Two nodes open a head together; one of them ('alice') invites a third
+    -- party ('carol') to join via 'AddParticipant'. The existing parties
+    -- multi-sign the snapshot whose 'parameterUpdate' authorizes the join,
+    -- and after the simulated chain observes the 'UpdateParametersTx' both
+    -- existing parties report 'JoinFinalized' with the grown parties list.
+    --
+    -- NOTE: We deliberately spin up only the two existing-party nodes here.
+    -- The joining node's state-sync onto the existing head is an operational
+    -- step (the inviter hands over a JSON bundle, see the design notes);
+    -- this spec exercises the on-protocol-loop side. The contract spec
+    -- ('Hydra.Tx.Contract.UpdateParameters') validates the L1 transaction
+    -- with its full mint / value / signature checks.
+    it "a new party can join an open two-party head" $
+      shouldRunInSim $
+        withSimulatedChainAndNetwork $ \chain ->
+          withHydraNode aliceSk [bob] chain $ \n1 ->
+            withHydraNode bobSk [alice] chain $ \n2 -> do
+              send n1 Init
+              waitUntil [n1, n2] $ HeadIsOpen testHeadId (fromList [alice, bob])
+
+              -- Alice invites carol into the head.
+              send n1 $ AddParticipant carol (deriveOnChainId carol) "127.0.0.1:5003"
+              waitUntilMatch [n1, n2] $ \case
+                JoinFinalized{joiningParty, newParties} ->
+                  guard $
+                    joiningParty == carol
+                      && sortNub newParties == sortNub [alice, bob, carol]
+                _ -> Nothing
+
   describe "Hydra Node Logging" $ do
     it "traces processing of events" $ do
       let result = runSimTrace $ do
@@ -1306,7 +1365,7 @@ createMockNetworkWithDelay ::
   TVar m [HydraNode tx m] ->
   Network m (Message tx)
 createMockNetworkWithDelay networkDelay node nodes =
-  Network{broadcast}
+  Network{broadcast, memberAdd = \_ -> pure ()}
  where
   broadcast msg = do
     allNodes <- readTVarIO nodes
@@ -1358,6 +1417,14 @@ toOnChainTx now = \case
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
   FinalPartialFanoutTx{utxoToDistribute} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
+  UpdateParametersTx{headId, updateParametersSnapshot, parameterUpdate} ->
+    OnUpdateParametersTx
+      { headId
+      , newVersion = version + 1
+      , parameterUpdate
+      }
+   where
+    Snapshot{version} = getSnapshot updateParametersSnapshot
 
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 newDeadlineFarEnoughFromNow =
@@ -1496,6 +1563,7 @@ createHydraNode tracer ledger chainState signingKey otherParties outputs message
       , unsyncedPeriod = defaultUnsyncedPeriodFor cp
       , participants
       , configuredPeers = ""
+      , joinExistingCluster = False
       }
   party = deriveParty signingKey
 
@@ -1517,6 +1585,15 @@ openHead2 ::
 openHead2 n1 n2 = do
   send n1 Init
   waitUntil [n1, n2] $ HeadIsOpen{headId = testHeadId, parties = fromList [alice, bob]}
+
+openHead3 ::
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  TestHydraClient SimpleTx (IOSim s) ->
+  IOSim s ()
+openHead3 n1 n2 n3 = do
+  send n1 Init
+  waitUntil [n1, n2, n3] $ HeadIsOpen{headId = testHeadId, parties = fromList [alice, bob, carol]}
 
 depositHead ::
   SimulatedChainNetwork SimpleTx (IOSim s) ->

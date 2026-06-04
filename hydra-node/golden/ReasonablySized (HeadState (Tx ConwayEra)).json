@@ -302,6 +302,7 @@
                             "confirmed": [],
                             "headId": "05020008050304010702080103040701",
                             "number": 2,
+                            "parameterUpdate": null,
                             "utxo": {
                                 "0106010302050801060302050502080106040408070305030000080307060404#68": {
                                     "address": "addr_test1vpcqge08vhap9wtjkuv8csgjnt29vwxgvaamqt904taj9ms97tx97",
@@ -1367,6 +1368,7 @@
                             }
                         }
                     },
+                    "pendingParameterUpdate": null,
                     "seenSnapshot": {
                         "lastSeen": 4,
                         "tag": "LastSeenSnapshot"
@@ -1622,6 +1624,7 @@
                             "confirmed": [],
                             "headId": "07010302080505060201050304000507",
                             "number": 4,
+                            "parameterUpdate": null,
                             "utxo": {
                                 "0205020005010208080704030002070302080505010404050101030604020102#44": {
                                     "address": "addr_test1qz880lzsy9a70y96zynxyk52a7g9txkehtpvfg6r4cft46cw0kd5qjpqnuvn6f34hjnruxk3z9ntyxeh8l8wq6tkxrysccpytt",
@@ -2648,6 +2651,7 @@
                             }
                         }
                     },
+                    "pendingParameterUpdate": null,
                     "seenSnapshot": {
                         "lastSeen": 6,
                         "requested": 1,
@@ -2940,6 +2944,7 @@
                             "confirmed": [],
                             "headId": "04020205080805000108040807020302",
                             "number": 3,
+                            "parameterUpdate": null,
                             "utxo": {
                                 "0402020404010008080604070200040508000805070808000507070703070304#43": {
                                     "address": "addr_test1qq4qf9d7tu4e6pat2c3plzana9f4axlpwzlaulsj2h5vzfjf0eydx5y2ry9x4dl7uklaezxyewlg4jm8aqmdmdk0kayqqv3hwz",
@@ -3588,6 +3593,7 @@
                             }
                         }
                     },
+                    "pendingParameterUpdate": null,
                     "seenSnapshot": {
                         "lastSeen": 1,
                         "requested": 1,

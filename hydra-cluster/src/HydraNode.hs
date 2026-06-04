@@ -526,6 +526,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
         -- tempdirs and execve while another thread still holds the
         -- write-fd. The dev-shell and CI both provide etcd in $PATH.
         whichEtcd = SystemEtcd
+      , joinExistingCluster = False
       , ledgerConfig =
           CardanoLedgerConfig
             { cardanoLedgerProtocolParametersFile

@@ -34,6 +34,7 @@ import Hydra.Tx (
   HeadParameters (..),
   HeadSeed,
   IsTx (..),
+  ParameterUpdate,
   SnapshotNumber,
   SnapshotVersion,
   TxOutType,
@@ -94,6 +95,15 @@ data PostChainTx tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }
+  | -- | Apply a multi-signed parameter change (a party leaving in Phase 1) to
+    -- an open head. See 'Hydra.Tx.ParameterUpdate' and issue #1813.
+    UpdateParametersTx
+      { headSeed :: HeadSeed
+      , headId :: HeadId
+      , headParameters :: HeadParameters
+      , updateParametersSnapshot :: ConfirmedSnapshot tx
+      , parameterUpdate :: ParameterUpdate
+      }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (PostChainTx tx)
@@ -144,6 +154,13 @@ data OnChainTx tx
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
   | OnPartialFanoutTx {headId :: HeadId, distributedOutputs :: Set (TxOutType tx)}
+  | -- | Observation of an 'UpdateParametersTx' (issue #1813,
+    -- dynamic-head-participants).
+    OnUpdateParametersTx
+      { headId :: HeadId
+      , newVersion :: SnapshotVersion
+      , parameterUpdate :: ParameterUpdate
+      }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)
@@ -178,6 +195,7 @@ data PostTxError tx
   | FailedToConstructRecoverTx {failureReason :: Text}
   | FailedToConstructIncrementTx {failureReason :: Text}
   | FailedToConstructDecrementTx {failureReason :: Text}
+  | FailedToConstructUpdateParametersTx {failureReason :: Text}
   | FailedToConstructFanoutTx
   | FailedToConstructPartialFanoutTx
   | -- | Another node already posted this partial fanout step; the chain

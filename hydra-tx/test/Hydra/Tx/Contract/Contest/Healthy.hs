@@ -114,6 +114,7 @@ healthyContestSnapshot =
     , utxoToDecommit = Just splitUTxOToDecommit
     , version = healthyCloseSnapshotVersion
     , accumulator = Accumulator.buildFromSnapshotUTxOs splitUTxOInHead Nothing (Just splitUTxOToDecommit)
+    , parameterUpdate = Nothing
     }
 
 healthyClosedState :: Head.State

@@ -26,6 +26,12 @@ data Environment = Environment
   -- Beyond this period the node will refuse to process new transactions and signing snapshots.
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
+  , joinExistingCluster :: Bool
+  -- ^ When 'True', this node is joining an /existing/ open Hydra head via
+  -- the dynamic-head-participants flow (issue #1813). It causes
+  -- 'onIdleChainInitTx' to accept an 'InitTx' whose 'parties' list does not
+  -- yet include us, as long as that list is a non-empty subset of our
+  -- configured parties.
   }
   deriving stock (Generic, Show, Eq)
   deriving anyclass (ToJSON, FromJSON)

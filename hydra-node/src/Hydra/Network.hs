@@ -32,9 +32,16 @@ import Text.Show (Show (show))
 -- * Hydra network interface
 
 -- | Interface from the application to the network layer.
-newtype Network m msg = Network
+data Network m msg = Network
   { broadcast :: msg -> m ()
   -- ^ Send a `msg` to the whole configured hydra network including ourselves.
+  , memberAdd :: Text -> m ()
+  -- ^ Reconfigure the L2 network mesh to admit a new peer at the given
+  -- @hostname:port@. For the etcd-backed network this calls the etcd
+  -- 'Cluster.MemberAdd' RPC; implementations that don't model membership
+  -- (e.g. the in-memory simulated network used in tests) can use 'mempty'.
+  -- Must be safe to call multiple times: errors for "already a member"
+  -- are expected and ignored. See issue #1813 (dynamic-head-participants).
   }
 
 -- | Interface from network layer to the application.
@@ -78,6 +85,12 @@ data NetworkConfiguration = NetworkConfiguration
   -- ^ This node's id.
   , whichEtcd :: WhichEtcd
   -- ^ Whether to use the system etcd (on the path) or the embedded one.
+  , joinExistingCluster :: Bool
+  -- ^ When 'True', start etcd with @--initial-cluster-state existing@ instead
+  -- of @new@. Set this on a hydra-node that is joining an /existing/ Hydra
+  -- head's L2 network (e.g. a Phase-2 dynamic-head-participants join, after
+  -- an existing party has issued 'etcdctl member add' for this node's peer
+  -- URL). Defaults to 'False' (= bootstrap a new cluster).
   }
 
 -- ** IP (Orphans)

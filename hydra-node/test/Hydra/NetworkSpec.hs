@@ -73,6 +73,7 @@ spec = do
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
                       , whichEtcd = SystemEtcd
+                      , joinExistingCluster = False
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork tracer v1 config recordingCallback $ \n -> do
@@ -103,6 +104,7 @@ spec = do
                       , nodeId = "alice"
                       , persistenceDir = tmp </> "alice"
                       , whichEtcd = SystemEtcd
+                      , joinExistingCluster = False
                       }
               (recordingCallback, waitNext, _) <- newRecordingCallback
               withEtcdNetwork @Int tracer v1 config recordingCallback $ \n -> do
@@ -406,6 +408,7 @@ setup2Peers tmp = do
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
             , whichEtcd = SystemEtcd
+            , joinExistingCluster = False
             }
       , bobConfig =
           NetworkConfiguration
@@ -417,6 +420,7 @@ setup2Peers tmp = do
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
             , whichEtcd = SystemEtcd
+            , joinExistingCluster = False
             }
       }
 
@@ -445,6 +449,7 @@ setup3Peers tmp = do
             , nodeId = "alice"
             , persistenceDir = tmp </> "alice"
             , whichEtcd = SystemEtcd
+            , joinExistingCluster = False
             }
       , bobConfig =
           NetworkConfiguration
@@ -456,6 +461,7 @@ setup3Peers tmp = do
             , nodeId = "bob"
             , persistenceDir = tmp </> "bob"
             , whichEtcd = SystemEtcd
+            , joinExistingCluster = False
             }
       , carolConfig =
           NetworkConfiguration
@@ -467,6 +473,7 @@ setup3Peers tmp = do
             , nodeId = "carol"
             , persistenceDir = tmp </> "carol"
             , whichEtcd = SystemEtcd
+            , joinExistingCluster = False
             }
       }
 

@@ -208,7 +208,7 @@ spec = parallel $ do
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
             >>= recordNetwork
         runToCompletion node
-        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing]
+        getNetworkEvents `shouldReturn` [ReqSn 0 1 [1] Nothing Nothing Nothing]
 
     it "rotates snapshot leaders" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -216,7 +216,7 @@ spec = parallel $ do
             sn1 = testSnapshot 1 0 [] (utxoRefs [])
             inputs =
               inputsToOpenHead
-                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing}
+                <> [ receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = mempty, depositTxId = Nothing, decommitTx = Nothing, parameterUpdate = Nothing}
                    , receiveMessageFrom alice $ AckSn (sign aliceSk sn1) 1
                    , receiveMessageFrom bob $ AckSn (sign bobSk sn1) 1
                    , receiveMessageFrom carol $ AckSn (sign carolSk sn1) 1
@@ -228,7 +228,7 @@ spec = parallel $ do
             >>= recordNetwork
         runToCompletion node
 
-        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing]
+        getNetworkEvents `shouldReturn` [AckSn (sign bobSk sn1) 1, ReqSn 0 2 [1] Nothing Nothing Nothing]
 
     it "processes out-of-order AckSn" $ failAfter 5 $ do
       showLogsOnFailure "NodeSpec" $ \tracer -> do
@@ -238,7 +238,7 @@ spec = parallel $ do
             inputs =
               inputsToOpenHead
                 <> [ receiveMessageFrom bob AckSn{signed = sigBob, snapshotNumber = 1}
-                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+                   , receiveMessage ReqSn{snapshotVersion = 0, snapshotNumber = 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing, parameterUpdate = Nothing}
                    ]
         (node, getNetworkEvents) <-
           testHydraNode tracer aliceSk [bob, carol] cperiod inputs
@@ -288,6 +288,7 @@ spec = parallel $ do
                                 , transactionIds = [1, 2]
                                 , decommitTx = Nothing
                                 , depositTxId = Nothing
+                                , parameterUpdate = Nothing
                                 }
                           }
                      ]
@@ -313,6 +314,7 @@ spec = parallel $ do
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
+            , joinExistingCluster = False
             }
         nodeState = inOpenState [alice, bob]
 
@@ -380,7 +382,7 @@ mockServer =
 
 mockNetwork :: Monad m => Network m (Message tx)
 mockNetwork =
-  Network{broadcast = \_ -> pure ()}
+  Network{broadcast = \_ -> pure (), memberAdd = \_ -> pure ()}
 
 mockChain :: MonadThrow m => Chain tx m
 mockChain =
@@ -500,6 +502,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
       , participants
       , configuredPeers = ""
+      , joinExistingCluster = False
       }
 
   party = deriveParty signingKey
@@ -516,7 +519,7 @@ testTTL = 5
 recordNetwork :: HydraNode tx IO -> IO (HydraNode tx IO, IO [Message tx])
 recordNetwork node = do
   (record, query) <- messageRecorder
-  pure (node{hn = Network{broadcast = record}}, query)
+  pure (node{hn = Network{broadcast = record, memberAdd = \_ -> pure ()}}, query)
 
 recordServerOutputs :: IsChainState tx => HydraNode tx IO -> IO (HydraNode tx IO, IO [Either (ServerOutput tx) (ClientMessage tx)])
 recordServerOutputs node = do

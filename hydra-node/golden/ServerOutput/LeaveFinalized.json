@@ -1,0 +1,13 @@
+{
+    "samples": [
+        {
+            "headId": "00010001000001010100000100010001",
+            "leavingParty": {
+                "vkey": "91ddb6e28efac889bdb7a202a44ecb11d155679ab0be42cebea95043ec4b9dbd"
+            },
+            "newParties": [],
+            "tag": "LeaveFinalized"
+        }
+    ],
+    "seed": -316637204
+}

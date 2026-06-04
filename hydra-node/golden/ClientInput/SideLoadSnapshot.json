@@ -10,6 +10,7 @@
                     "confirmed": [],
                     "headId": "00000100010100010000000101010101",
                     "number": 1,
+                    "parameterUpdate": null,
                     "utxo": {
                         "0100000101010101000001010101000101000000000001010000010101000101#91": {
                             "address": "addr_test1zr47j84yq8nvfjjerw27kcxey8jjhp64j254epkkklekg07xrem7zvw4dy6mt709uhvr8d07f4g47qwamsp5lwq2rvkqep02lh",

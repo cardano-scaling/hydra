@@ -130,6 +130,7 @@ healthySnapshot =
         , utxoToCommit = Nothing
         , utxoToDecommit = Just utxoToDecommit'
         , accumulator = healthyAccumulator
+        , parameterUpdate = Nothing
         }
 
 healthyAccumulator :: Accumulator.HydraAccumulator
