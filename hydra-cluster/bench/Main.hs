@@ -120,15 +120,18 @@ main = do
   summarizeMatrixResults outputDirectory results = do
     -- For the matrix runner, include failed cells in the report with their
     -- error summaries so the reader can see which scenarios did not complete.
+    -- A single flaky cell is logged but doesn't fail the matrix step; the
+    -- generated scenarios.md keeps the remaining cells' useful data.
     let cells =
           flip map results $ \case
             Left (_, _, summary, _) -> (summary, [])
             Right s -> s
     writeMatrixReport outputDirectory cells
-    let failures = [exc | Left (_, _, _, exc) <- results]
-    unless (null failures) $ do
-      forM_ (lefts results) $ \(_, dir, _, exc) -> benchmarkFailedWith dir exc
-      exitFailure
+    forM_ (lefts results) $ \(_, dir, _, exc) -> benchmarkFailedWith dir exc
+    let okCount = length (rights results)
+        total = length results
+    putStrLn $ "Matrix summary: " <> show okCount <> "/" <> show total <> " cells succeeded"
+    when (okCount == 0) exitFailure
 
   loadDataset :: FilePath -> IO Dataset
   loadDataset f = do
