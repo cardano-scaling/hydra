@@ -838,21 +838,18 @@ module Hydra.Cluster.SecurityScenarios
 --   
 --   A third party submits a standalone tx that spends a pending deposit
 --   UTxO with the <tt>Claim</tt> redeemer, redirecting the value to their
---   own address. The tx has no Head input at all, so there is no Head
---   output either. The deposit validator's <tt>Claim</tt> branch requires
---   some transaction output to carry a Head state-token whose policy id
---   matches <tt>datum.head_id</tt>, so the standalone tx fails with
---   <tt>HeadOutputNotFound</tt> (D07).
+--   own address. The tx has no Head input at all, so the deposit
+--   validator's <tt>Claim</tt> branch fails on <tt>list.find</tt> with
+--   <tt>DepositHeadInputNotFound</tt> (D06).
 cannotStealDepositWithoutHeadInput :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | The attacker mints a counterfeit token of asset name
 --   <tt>HydraHeadV2</tt> under a permissive minting policy they control,
 --   locks it in their own wallet, and uses that UTxO as bait alongside a
---   victim deposit. The deposit validator's <tt>Claim</tt> branch requires
---   a transaction output carrying a Head state-token whose policy id
---   matches <tt>datum.head_id</tt>; a counterfeit <tt>HydraHeadV2</tt>
---   minted under any non-head policy is absent from the outputs, so the tx
---   is rejected with <tt>HeadOutputNotFound</tt> (D07).
+--   victim deposit. The deposit validator's <tt>Claim</tt> branch searches
+--   the inputs for a UTxO that carries the real head's policy id; the
+--   counterfeit token's policy id does not match, so the validator fails
+--   with <tt>DepositHeadInputNotFound</tt> (D06).
 cannotStealDepositWithCounterfeitHeadToken :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Place a deposit of <tt>amount</tt> lovelace from a fresh wallet into
@@ -862,7 +859,7 @@ placeVictimDeposit :: Tracer IO EndToEndLog -> ChainBackendOptions -> HydraClien
 
 -- | Encapsulates the moving parts of an attempted-steal transaction.
 data AttemptArgs
-AttemptArgs :: Tracer IO EndToEndLog -> ChainBackendOptions -> TxIn -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] -> TxIn -> [TxOut CtxTx] -> SigningKey PaymentKey -> AddressInEra -> UTxO -> AttemptArgs
+AttemptArgs :: Tracer IO EndToEndLog -> ChainBackendOptions -> TxIn -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] -> TxIn -> [TxOut CtxTx] -> SigningKey PaymentKey -> AddressInEra -> UTxO -> String -> AttemptArgs
 [$sel:tracer:AttemptArgs] :: AttemptArgs -> Tracer IO EndToEndLog
 [$sel:opts:AttemptArgs] :: AttemptArgs -> ChainBackendOptions
 
@@ -886,11 +883,17 @@ AttemptArgs :: Tracer IO EndToEndLog -> ChainBackendOptions -> TxIn -> [(TxIn, T
 [$sel:attackerAddr:AttemptArgs] :: AttemptArgs -> AddressInEra
 [$sel:spendable:AttemptArgs] :: AttemptArgs -> UTxO
 
--- | Build, (try to) submit a steal transaction, and assert it is rejected
---   by either the autobalancer's script-evaluation phase (a <a>Left</a>
---   from <a>buildTransactionWithBody</a> whose error trace mentions
---   <tt>HeadOutputNotFound</tt>/D07) or by the node's submission phase (a
---   thrown <tt>SubmitTransactionException</tt>).
+-- | Plutus error trace (e.g. <tt><a>D06</a></tt>) expected on the
+--   autobalancer's <a>Left</a>. The build error must contain this trace;
+--   any other <a>Left</a> (insufficient ada for fees, integrity-hash
+--   mismatch, era hiccup, ...) is treated as a test failure rather than
+--   success.
+[$sel:expectedTrace:AttemptArgs] :: AttemptArgs -> String
+
+-- | Build a steal transaction and assert the autobalancer rejects it
+--   specifically because the deposit validator failed with
+--   <a>expectedTrace</a>. Any other <a>Left</a> (insufficient ada,
+--   integrity hash mismatch, era issue, ...) is treated as a test failure.
 attemptStealAndAssertRejected :: AttemptArgs -> IO ()
 requireSingletonUTxO :: HasCallStack => String -> UTxO -> IO (TxIn, TxOut CtxUTxO)
 assertDepositStillLocked :: ChainBackendOptions -> TxId -> Value -> IO ()
