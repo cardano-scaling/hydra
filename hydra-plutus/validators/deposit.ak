@@ -109,7 +109,7 @@ fn expect_increment_redeemer(self: Transaction, head_id: PolicyId) -> Bool {
 // True if the redeemer spending the head input is the Increment variant of
 // the head validator's Input type.
 fn is_head_increment(d: Data) -> Bool {
-  builtin.un_constr_data(d).1st == 1 // In HeadState.hs "Increment" is the second constructor.
+  builtin.un_constr_data(d).1st == 0 // Matches the index pinned for `Increment` in HeadState.hs's `makeIsDataIndexed ''Input` list.
 }
 
 fn before_deadline(range: ValidityRange, dl) {

@@ -89,7 +89,7 @@ healthyContestAccumulatorHash =
 
 -- FIXME: Should try to mutate the 'closedAt' recorded time to something else
 data ContestMutation
-  = -- | Ensures collectCom does not allow any output address but νHead.
+  = -- | Ensures the contest transaction's continuing output is paid to νHead.
     NotContinueContract
   | -- | Invalidates the tx by changing the redeemer signature but not the
     -- snapshot number in resulting head output.

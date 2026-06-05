@@ -62,11 +62,9 @@
 -- @
 --
 -- The constructors should hopefully be self-explaining but for the last one. Some interesting mutations we want
--- to make require more than one "atomic" change to represent a possible validator failure. For example,
--- we wanted to check that the `Commit` validator, in the context of a `CollectCom` transaction, verifies the
--- state (`Input`) of the `Head` validator is correct. But to be interesting, this mutation needs to ensure the
--- /transition/ verified by the `Head` state machine is valid, which requires changing /both/ the datum and the
--- redeemer of the consumed head output.
+-- to make require more than one "atomic" change to represent a possible validator failure: for example, ensuring
+-- the /transition/ verified by the `Head` state machine remains valid, which requires changing /both/ the datum
+-- and the redeemer of the consumed head output.
 --
 -- == Transaction-specific Mutations
 --
@@ -75,34 +73,31 @@
 -- module has the following property check:
 --
 -- @
--- describe "CollectCom" $ do
+-- describe "Close" $ do
 --   prop "does not survive random adversarial mutations" $
---     propMutation healthyCollectComTx genCollectComMutation
+--     propMutation healthyCloseCurrentTx genCloseCurrentMutation
 -- @
 --
--- The interesting part is the `genCollectComMutation` (details of the `Mutation` generators are omitted):
+-- The interesting part is the `genCloseCurrentMutation` (details of the `Mutation` generators are omitted):
 --
 -- @
--- genCollectComMutation :: (Tx, Utxo) -> Gen SomeMutation
--- genCollectComMutation (tx, utxo) =
+-- genCloseCurrentMutation :: (Tx, Utxo) -> Gen SomeMutation
+-- genCloseCurrentMutation (tx, _utxo) =
 --   oneof
---     [ SomeMutation Nothing MutateOpenOutputValue . ChangeOutput ...
---     , SomeMutation Nothing MutateOpenUtxoHash . ChangeOutput ...
---     , SomeMutation Nothing MutateHeadTransition <$> do
---         changeRedeemer <- ChangeHeadRedeemer <$> ...
---         changeDatum <- ChangeInputHeadDatum <$> ...
---         pure $ Changes [changeRedeemer, changeDatum]
+--     [ SomeMutation ... NotContinueContract . ChangeOutput ...
+--     , SomeMutation ... MutateSignatureButNotSnapshotNumber . ChangeHeadRedeemer ...
+--     , SomeMutation ... SnapshotNotSignedByAllParties . ChangeInputHeadDatum ...
+--     , SomeMutation ... MutateRequiredSigner . ChangeRequiredSigners ...
 --     ]
 -- @
 --
--- Here we have defined four different type of mutations that are interesting for the "CollectCom" transaction
--- and represent possible /attack vectors/:
+-- Here we have defined several types of mutations that are interesting for the "Close" transaction and represent
+-- possible /attack vectors/:
 --
---   * Changing the `Head` output's value, which would imply some of the committed funds could be "stolen"
---     by the party posting the transaction,
---   * Tampering with the content of the UTxO committed to the Head,
---   * Trying to collect commits without running the `Head` validator,
---   * Trying to collect commits in another Head state machine transition.
+--   * Pointing the head thread output at an address other than the head validator,
+--   * Submitting a snapshot with a forged signature or a forged snapshot number,
+--   * Lying about the set of participating parties recorded in the head datum,
+--   * Closing without being signed by one of the head participants.
 --
 -- == Running Properties
 --
@@ -111,16 +106,16 @@
 --
 -- @
 -- Hydra.Chain.Direct.Contract
---   CollectCom
+--   Close
 --     does not survive random adversarial mutations
 --       +++ OK, passed 200 tests.
 --
---       CollectComMutation (100 in total):
---       23% MutateNumberOfParties
---       22% MutateHeadTransition
---       21% MutateHeadId
---       19% MutateOpenUTxOHash
+--       CloseMutation (100 in total):
+--       18% MutateSignatureButNotSnapshotNumber
+--       17% SnapshotNotSignedByAllParties
+--       16% NotContinueContract
 --       15% MutateRequiredSigner
+--       ...
 --
 -- Finished in 18.1146 seconds
 -- @
