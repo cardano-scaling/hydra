@@ -123,6 +123,7 @@ import Hydra.Tx.Deposit (constructDepositUTxO)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import HydraNode (
   HydraClient (..),
+  HydraNodeLog,
   HydraNodePorts (..),
   allocateHydraNodePortsFor,
   getProtocolParameters,
@@ -140,6 +141,7 @@ import HydraNode (
   waitForNodesDisconnected,
   waitForNodesSynced,
   waitMatch,
+  withConnectionToNode,
   withHydraCluster,
   withHydraNode,
   withHydraNodeCatchingUp,
@@ -297,27 +299,41 @@ resumeFromLatestKnownPoint tracer workDir opts hydraScriptsTxId = do
 
   chainSlot :: ChainSlot <-
     withSoloHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
-      chainSlot <- waitMatch 20 n1 $ \v -> do
+      -- See note in the second run below; same race applies on the first
+      -- websocket the node ever serves. Use a fresh connection after a
+      -- short settle so both runs sample 'currentSlot' the same way.
+      void $ waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
-        guard $ v ^? key "headStatus" == Just (toJSON Idle)
-        slot <- v ^? key "currentSlot"
-        parseMaybe parseJSON slot
-
-      -- wait for some ticks to be observed
+        v ^? key "chainSyncedStatus" . _String
       threadDelay 1
-      pure chainSlot
+      readGreetingsSlot hydraTracer n1
 
   chainSlot' <-
     withSoloHydraNodeCatchingUp hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
-      waitMatch 20 n1 $ \v -> do
+      -- The initial Greetings on this websocket can be sent before the
+      -- chain backend has populated 'currentSlot' from the just-resumed
+      -- state, so its value races between 0 and the live tip. Drain that
+      -- initial Greetings, wait a beat, then open a fresh websocket: the
+      -- 'Greetings' emitted by that new connection is built from the
+      -- node state at send time and reliably reflects the current slot.
+      void $ waitMatch 20 n1 $ \v -> do
         guard $ v ^? key "tag" == Just "Greetings"
-        guard $ v ^? key "headStatus" == Just (toJSON Idle)
-        slot <- v ^? key "currentSlot"
-        parseMaybe parseJSON slot
+        v ^? key "chainSyncedStatus" . _String
+      threadDelay 1
+      readGreetingsSlot hydraTracer n1
 
   chainSlot `shouldSatisfy` (< chainSlot')
  where
   hydraTracer = contramap FromHydraNode tracer
+
+  readGreetingsSlot :: Tracer IO HydraNodeLog -> HydraClient -> IO ChainSlot
+  readGreetingsSlot tr HydraClient{hydraNodeId, apiHost, monitoringPort} =
+    withConnectionToNode tr hydraNodeId apiHost monitoringPort $ \n ->
+      waitMatch 20 n $ \v -> do
+        guard $ v ^? key "tag" == Just "Greetings"
+        guard $ v ^? key "headStatus" == Just (toJSON Idle)
+        slot <- v ^? key "currentSlot"
+        parseMaybe parseJSON slot
 
 restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
