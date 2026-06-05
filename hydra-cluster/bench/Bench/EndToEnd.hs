@@ -69,8 +69,8 @@ import System.Timeout qualified
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 
-bench :: Int -> NominalDiffTime -> Bool -> FilePath -> Dataset -> IO (Summary, SystemStats)
-bench startingNodeId timeoutSeconds incrementalOpsEnabled workDir dataset = do
+bench :: Int -> NominalDiffTime -> Bool -> Bool -> FilePath -> Dataset -> IO (Summary, SystemStats)
+bench startingNodeId timeoutSeconds incrementalOpsEnabled waitForTxValidEnabled workDir dataset = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -93,7 +93,7 @@ bench startingNodeId timeoutSeconds incrementalOpsEnabled workDir dataset = do
           putStrLn $ "Timing: " <> show timing
           withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
-            scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs
+            scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs waitForTxValidEnabled
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -104,10 +104,11 @@ benchDemo ::
   [Host] ->
   Maybe String ->
   Bool ->
+  Bool ->
   FilePath ->
   Dataset ->
   IO (Summary, SystemStats)
-benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incrementalOpsEnabled workDir dataset@Dataset{clientDatasets} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incrementalOpsEnabled waitForTxValidEnabled workDir dataset@Dataset{clientDatasets} = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -129,7 +130,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incremen
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand sideUTxOs
+                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand sideUTxOs waitForTxValidEnabled
  where
   withHydraClientConnections ::
     Tracer IO HydraNodeLog ->
@@ -164,8 +165,12 @@ scenario ::
   -- | Optional pre-seeded side UTxOs, one per client dataset, used for
   -- interleaved incremental commit/decommit cycles. Empty list disables.
   [UTxO] ->
+  -- | When True, the submitter waits for each tx to confirm before posting
+  -- the next (one in-flight tx per client). When False, the submitter fires
+  -- all txs as fast as the queue can be drained.
+  Bool ->
   IO Summary
-scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs = do
+scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs waitForTxValidEnabled = do
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients
       clients = toList nonEmptyClients
@@ -211,7 +216,7 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
               , ctxDecommitLock = decommitLock
               }
   (processedTransactions, snapshotsSeen, incrementalCommitTimes, incrementalDecommitTimes) <-
-    withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx
+    withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
@@ -388,8 +393,9 @@ processTransactions ::
   [HydraClient] ->
   [ClientDataset] ->
   Maybe IncrementalContext ->
+  Bool ->
   IO (Map.Map TxId Event, Map.Map Scientific (UTCTime, Int), [NominalDiffTime], [NominalDiffTime])
-processTransactions clients clientDatasets incrementalCtx = do
+processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled = do
   -- Allocate per-client state up front so the optional incremental ops thread
   -- can share access to the per-client registries.
   perClient <- forM (zip clientDatasets (cycle clients)) $ \(cd@ClientDataset{txSequence}, client) -> do
@@ -426,7 +432,7 @@ processTransactions clients clientDatasets incrementalCtx = do
 
   clientProcessDataset ClientDataset{txSequence} client clientId submissionQ registry numberOfTxs = do
     concurrentlyLabelled_
-      ("submit-txs", submitTxs client registry submissionQ)
+      ("submit-txs", submitTxs waitForTxValidEnabled client registry submissionQ)
       ( "confirm-txs"
       , concurrentlyLabelled_
           ("wait-for-all-confirmations", waitForAllConfirmations client registry (Set.fromList $ map txId txSequence))
@@ -625,17 +631,21 @@ newRegistry = do
   pure $ Registry{processedTxs, observedSnapshots}
 
 submitTxs ::
+  -- | When True, wait for each tx to confirm before sending the next; one
+  -- in-flight tx per client. When False, drain the queue as fast as possible
+  -- and rely on 'waitForAllConfirmations' to gate the bench's completion.
+  Bool ->
   HydraClient ->
   Registry Tx ->
   TBQueue IO Tx ->
   IO ()
-submitTxs client registry@Registry{processedTxs} submissionQ = do
+submitTxs waitForTxValidEnabled client registry@Registry{processedTxs} submissionQ = do
   txToSubmit <- atomically $ tryReadTBQueue submissionQ
   case txToSubmit of
     Just tx -> do
       newTx processedTxs client tx
-      waitTxIsConfirmed (txId tx)
-      submitTxs client registry submissionQ
+      when waitForTxValidEnabled $ waitTxIsConfirmed (txId tx)
+      submitTxs waitForTxValidEnabled client registry submissionQ
     Nothing -> pure ()
  where
   waitTxIsConfirmed txid =

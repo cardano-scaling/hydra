@@ -25,10 +25,10 @@ main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
   execParser benchOptionsParser >>= \case
-    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles, incrementalOps} -> do
+    StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles, incrementalOps, waitForTxValid} -> do
       datasets <- forM datasetFiles loadDataset
       putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
-      let action = bench startingNodeId timeoutSeconds incrementalOps
+      let action = bench startingNodeId timeoutSeconds incrementalOps waitForTxValid
       results <- forM datasets $ \dataset ->
         withTempDir "bench-dataset" $ \dir -> do
           threadDelay 10
@@ -40,13 +40,13 @@ main = do
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
         runSingle dataset workDir $
-          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand False
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand False False
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
-    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps} -> do
+    DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
-      let action = bench startingNodeId timeoutSeconds incrementalOps
+      let action = bench startingNodeId timeoutSeconds incrementalOps waitForTxValid
       dataset <- generate $ case datasetUTxO of
         Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
         Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
@@ -58,33 +58,40 @@ main = do
         threadDelay 10
         runSingle dataset workDir action
       summarizeResults outputDirectory [results]
-    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes} -> do
+    MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-matrix") checkEmpty outputDirectory
-      let cells = [(cs, sh, im) | cs <- clusterSizes, sh <- utxoShapes, im <- incrementalModes]
+      let cells =
+            [ (cs, sh, im, wt)
+            | cs <- clusterSizes
+            , sh <- utxoShapes
+            , im <- incrementalModes
+            , wt <- waitForTxValidModes
+            ]
       putStrLn $ "Running matrix with " <> show (length cells) <> " cells"
-      results <- forM (zip [0 :: Int ..] cells) $ \(i, (cs, sh, im)) -> do
+      results <- forM (zip [0 :: Int ..] cells) $ \(i, (cs, sh, im, wt)) -> do
         let cellDir = workDir </> ("cell-" <> show i)
         createDirectoryIfMissing True cellDir
         dataset <- generate $ case sh of
           Constant -> generateConstantUTxODataset faucetSk (fromIntegral cs) numberOfTxs
           Growing -> generateGrowingUTxODataset faucetSk (fromIntegral cs) numberOfTxs
           Mixed -> generateMixedUTxODataset faucetSk (fromIntegral cs) numberOfTxs
-        let labelled = dataset{title = Just (matrixCellTitle cs sh im)}
+        let labelled = dataset{title = Just (matrixCellTitle cs sh im wt)}
         saveDataset (cellDir </> "dataset.json") labelled
         threadDelay 10
         let nodeIdOffset = startingNodeId + i * fromIntegral (List.maximum clusterSizes)
-        let action = bench nodeIdOffset timeoutSeconds im
+        let action = bench nodeIdOffset timeoutSeconds im wt
         runSingle labelled cellDir action
       summarizeMatrixResults outputDirectory results
  where
-  matrixCellTitle :: Word64 -> UTxOSize -> Bool -> Text
-  matrixCellTitle cs sh im =
+  matrixCellTitle :: Word64 -> UTxOSize -> Bool -> Bool -> Text
+  matrixCellTitle cs sh im wt =
     "Cluster "
       <> T.pack (show cs)
       <> ", "
       <> T.pack (show sh)
       <> (if im then ", incremental ops on" else ", incremental ops off")
+      <> (if wt then ", wait for tx valid" else ", fire and forget")
   checkEmpty fp = do
     createDirectoryIfMissing True fp
     listDirectory fp >>= \case

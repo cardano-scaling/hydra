@@ -40,6 +40,7 @@ data Options
       , timeoutSeconds :: NominalDiffTime
       , startingNodeId :: Int
       , incrementalOps :: Bool
+      , waitForTxValid :: Bool
       }
   | DatasetOptions
       { outputDirectory :: Maybe FilePath
@@ -49,6 +50,7 @@ data Options
       , clusterSize :: Word64
       , startingNodeId :: Int
       , incrementalOps :: Bool
+      , waitForTxValid :: Bool
       }
   | DemoOptions
       { outputDirectory :: Maybe FilePath
@@ -67,6 +69,7 @@ data Options
       , clusterSizes :: [Word64]
       , utxoShapes :: [UTxOSize]
       , incrementalModes :: [Bool]
+      , waitForTxValidModes :: [Bool]
       }
 
 benchOptionsParser :: ParserInfo Options
@@ -106,6 +109,7 @@ standaloneOptionsParser =
     <*> timeoutParser
     <*> startingNodeIdParser
     <*> incrementalOpsParser
+    <*> waitForTxValidParser
 
 outputDirectoryParser :: Parser FilePath
 outputDirectoryParser =
@@ -243,6 +247,7 @@ datasetOptionsParser =
     <*> clusterSizeParser
     <*> startingNodeIdParser
     <*> incrementalOpsParser
+    <*> waitForTxValidParser
 
 incrementalOpsParser :: Parser Bool
 incrementalOpsParser =
@@ -255,6 +260,19 @@ incrementalOpsParser =
           \ one incremental decommit per client during the main transaction \
           \ submission window, and report their finalisation times. Off by \
           \ default."
+    )
+
+waitForTxValidParser :: Parser Bool
+waitForTxValidParser =
+  flag
+    False
+    True
+    ( long "wait-for-tx-valid"
+        <> help
+          "If set, the submitter waits for each tx's confirmation before \
+          \ posting the next one (one in-flight tx per client). If unset, \
+          \ txs are fired as fast as the queue drains so the head's \
+          \ saturation throughput is exercised. Off by default."
     )
 
 filepathParser :: Parser FilePath
@@ -285,6 +303,7 @@ matrixOptionsParser =
     <*> clusterSizesParser
     <*> utxoShapesParser
     <*> incrementalModesParser
+    <*> waitForTxValidModesParser
 
 clusterSizesParser :: Parser [Word64]
 clusterSizesParser =
@@ -314,6 +333,19 @@ incrementalModesParser =
         <> value [False, True]
         <> metavar "LIST"
         <> help "Comma-separated incremental-ops modes, e.g. False,True (default: False,True)"
+    )
+
+waitForTxValidModesParser :: Parser [Bool]
+waitForTxValidModesParser =
+  option
+    (maybeReader parseListOf)
+    ( long "wait-modes"
+        <> value [False, True]
+        <> metavar "LIST"
+        <> help
+          "Comma-separated wait-for-tx-valid modes. True keeps one in-flight \
+          \ tx per client (round-trip-bound throughput); False fires all txs \
+          \ as fast as possible (saturation throughput). Default: False,True"
     )
 
 parseListOf :: Read a => String -> Maybe [a]
