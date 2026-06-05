@@ -175,6 +175,8 @@ spec = do
             Observation{observedTx} -> do
               case observedTx of
                 OnInitTx{} -> transition `shouldBe` Transition.Init
+                OnDepositTx{} -> transition `shouldBe` Transition.Deposit
+                OnRecoverTx{} -> transition `shouldBe` Transition.Recover
                 OnDecrementTx{} -> transition `shouldBe` Transition.Decrement
                 OnIncrementTx{} -> transition `shouldBe` Transition.Increment
                 OnCloseTx{} -> transition `shouldBe` Transition.Close
@@ -182,8 +184,6 @@ spec = do
                 OnPartialFanoutTx{} -> transition `shouldBe` Transition.PartialFanout
                 -- FinalPartialFanout is observed as OnFanoutTx (same terminal effect)
                 OnFanoutTx{} -> transition `shouldSatisfy` (`elem` [Transition.Fanout, Transition.FinalPartialFanout])
-                OnDepositTx{} -> failure "OnDepositTx not expected"
-                OnRecoverTx{} -> failure "OnRecoverTx not expected"
 
       let handler =
             chainSyncHandler
