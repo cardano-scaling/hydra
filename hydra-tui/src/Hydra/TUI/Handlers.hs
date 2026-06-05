@@ -69,7 +69,13 @@ handleEvent cardanoClient client chan = \case
     case e of
       Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitRecorded{}}) ->
         triggerL1Query cardanoClient client chan
+      Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitFinalized{}}) ->
+        triggerL1Query cardanoClient client chan
+      Update (ApiTimedServerOutput TimedServerOutput{output = API.CommitRecovered{}}) ->
+        triggerL1Query cardanoClient client chan
       Update (ApiTimedServerOutput TimedServerOutput{output = API.DecommitFinalized{}}) ->
+        triggerL1Query cardanoClient client chan
+      Update (ApiTimedServerOutput TimedServerOutput{output = API.HeadIsFinalized{}}) ->
         triggerL1Query cardanoClient client chan
       ClientDisconnected -> do
         recoveryFormL .= Nothing
@@ -480,7 +486,7 @@ handleVtyEventsOpen cardanoClient hydraClient chan utxo pendingIncrements e =
         EvKey KEnter [] -> do
           let utxoSelected = formState i
           let commitUTxO = uncurry UTxO.singleton utxoSelected
-          liftIO $ externalCommit hydraClient commitUTxO
+          liftIO $ externalCommitAsync hydraClient chan commitUTxO
           put OpenHome
         _ -> zoom selectingUTxOToIncrementFormL $ handleFormEvent (VtyEvent e)
     EnteringAmount utxoSelected i ->
@@ -767,6 +773,11 @@ recoverCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> TxId -> IO ()
 recoverCommitAsync client chan depositTxId =
   forkWithErrorReport chan "Recovery request failed" [] $
     recoverCommit client depositTxId
+
+externalCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> IO ()
+externalCommitAsync client chan commitUTxO =
+  forkWithErrorReport chan "Increment request failed" [] $
+    externalCommit client commitUTxO
 
 triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1Query cardanoClient client chan = do
