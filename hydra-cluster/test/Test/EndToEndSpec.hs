@@ -15,6 +15,7 @@ import Control.Lens ((^..), (^?))
 import Data.Aeson (Result (..), Value (Null, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
+import Data.Aeson.Types (parseMaybe)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -987,13 +988,17 @@ fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
           loop (n - 1 :: Integer) utxo' (Just tx)
 
     Just lastTx <- loop (numOutputs - 1) (Prelude.head $ UTxO.toList committedUTxOByAlice) Nothing
-    waitMatch 10 node $ \v -> do
+    expectedUTxO <- waitMatch 10 node $ \v -> do
       guard $ v ^? key "tag" == Just "SnapshotConfirmed"
       guard $ v ^? key "headId" == Just (toJSON headId)
       snapshot <- v ^? key "snapshot"
       let
         txIds = snapshot ^.. key "confirmed" . values . key "txId" . _JSON
       guard $ txId lastTx `elem` (txIds :: [TxId])
+      snapshot ^? key "utxo" >>= parseMaybe parseJSON
+
+    -- Sanity check: the in-head UTxO set has exactly numOutputs entries.
+    UTxO.size expectedUTxO `shouldBe` fromInteger numOutputs
 
     send node $ input "Close" []
     waitFor hydraTracer 10 [node] $
@@ -1003,10 +1008,10 @@ fanoutWithNOutputs numOutputs tmpDir tracer hydraScriptsTxId opts = do
 
     -- With partial fanout, the head should finalize regardless of UTxO count.
     -- For large UTxO sets, the node automatically sequences PartialFanout
-    -- transactions before a final FinalPartialFanout.
-    waitMatch 30 node $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsFinalized"
-      guard $ v ^? key "headId" == Just (toJSON headId)
+    -- transactions before a final FinalPartialFanout. Assert that the full
+    -- expected UTxO set is finalized and appears on L1.
+    waitForAllMatch 30 [node] $ headIsFinalizedWith headId expectedUTxO
+    failAfter 30 $ waitForUTxO opts expectedUTxO
 
 -- * Fixtures
 

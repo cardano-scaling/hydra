@@ -312,8 +312,8 @@ prop_observeAnyTx =
               False & counterexample ("observeHeadTx ignored transaction: " <> renderTxWithUTxO utxo tx)
             -- NOTE: we don't have the generated headId easily accessible in the initial state
             Init{} -> transition === Transition.Init
-            Deposit DepositObservation{} -> property False
-            Recover RecoverObservation{} -> property False
+            Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
+            Recover RecoverObservation{headId} -> transition === Transition.Recover .&&. Just headId === expectedHeadId
             Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
             Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId

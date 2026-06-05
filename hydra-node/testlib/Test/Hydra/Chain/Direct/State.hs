@@ -107,6 +107,8 @@ instance Arbitrary OpenState where
 -- bounded to be used as labels for checking coverage.
 data ChainTransition
   = Init
+  | Deposit
+  | Recover
   | Increment
   | Decrement
   | Close
@@ -122,6 +124,8 @@ genChainStateWithTx :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
 genChainStateWithTx =
   oneof
     [ genInitWithState
+    , genDepositWithState
+    , genRecoverWithState
     , genIncrementWithState
     , genDecrementWithState
     , genCloseWithState
@@ -138,6 +142,26 @@ genChainStateWithTx =
     seedInput <- genTxIn
     let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
     pure (cctx, Idle, mempty, tx, Init)
+
+  genDepositWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
+  genDepositWithState = do
+    (ctx, st, utxoToDeposit, tx) <- genDepositTx maxGenParties
+    cctx <- pickChainContext ctx
+    pure (cctx, Open st, utxoToDeposit, tx, Deposit)
+
+  genRecoverWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
+  genRecoverWithState = do
+    -- Inlined from genRecoverTx so we can keep the OpenState whose headId
+    -- matches the recovered deposit; tests that join on headId need them
+    -- to agree.
+    (ctx, st, _, txDeposit) <- genDepositTx maxGenParties
+    let DepositObservation{deposited, deadline} =
+          fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
+    let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
+    slotAfterDeadline <- chooseEnum (deadlineSlot, deadlineSlot + 86400)
+    let tx = recoverTx (getTxId $ getTxBody txDeposit) deposited slotAfterDeadline
+    cctx <- pickChainContext ctx
+    pure (cctx, Open st, utxoFromTx txDeposit, tx, Recover)
 
   genIncrementWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
   genIncrementWithState = do
