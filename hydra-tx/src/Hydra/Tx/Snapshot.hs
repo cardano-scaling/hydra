@@ -67,7 +67,7 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 -- | Binary representation of snapshot signatures. That is, concatenated CBOR for
 -- 'headId', 'version', 'number', and 'accumulatorHash' according to CDDL schemata:
 --
--- headId = bytes .size 16
+-- headId = bytes .size 28
 -- version = uint
 -- number = uint
 -- accumulatorHash = bytes .size 32  ; blake2b-256 hash of the compressed G1 accumulator commitment
