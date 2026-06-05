@@ -2184,7 +2184,6 @@ components:
         - Open
         - Closed
         - FanoutPossible
-        - Final
 
     MultiSignature:
       type: object

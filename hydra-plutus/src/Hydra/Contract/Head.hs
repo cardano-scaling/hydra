@@ -334,6 +334,12 @@ checkClose ctx openBefore redeemer =
           version == 0
             && snapshotNumber' == 0
             && utxoHash' == initialUtxoHash
+            -- The empty-accumulator commitment is the G1 generator
+            -- (getFinalPoly [] = [1], so getG1Commitment [G1] [1] = G1). Pin it
+            -- so a closer cannot seed a degenerate commitment that would later
+            -- be trusted by progressFromClosed and checkMembershipPairing.
+            && Builtins.bls12_381_G1_compress accumulatorCommitment'
+              == Builtins.bls12_381_G1_compressed_generator
       CloseAny{signature} ->
         traceIfFalse $(errorCode FailedCloseAny) $
           snapshotNumber' > 0
