@@ -527,6 +527,7 @@ forkWithErrorReport :: BChan (TUIEvent Tx) -> Text -> [TUIEvent Tx] -> IO () -> 
 --   with the real cause.
 queryL1UTxOAsync :: CardanoClient -> Address ShelleyAddr -> BChan (TUIEvent Tx) -> (Map TxIn (TxOut CtxUTxO) -> TUIEvent Tx) -> Text -> IO ()
 recoverCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> TxId -> IO ()
+externalCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> IO ()
 triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
 cycleTab :: ActiveTab -> ActiveTab
