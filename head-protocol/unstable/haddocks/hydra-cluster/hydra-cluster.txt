@@ -347,6 +347,9 @@ MsgSynchronizing :: Centi -> NominalDiffTime -> NominalDiffTime -> NominalDiffTi
 [$sel:targetTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
 MsgQueryGenesisParametersFailed :: Text -> NodeLog
 [$sel:err:MsgNodeCmdSpec] :: NodeLog -> Text
+MsgPortBindRetry :: Port -> Int -> NodeLog
+[$sel:failedPort:MsgNodeCmdSpec] :: NodeLog -> Port
+[$sel:remainingAttempts:MsgNodeCmdSpec] :: NodeLog -> Int
 type Port = Int
 newtype NodeId
 NodeId :: Int -> NodeId
@@ -412,7 +415,16 @@ runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, Mona
 --   credentials from config<i>credentials</i>. Only the <tt>Faucet</tt>
 --   actor will receive "initialFunds". Use <tt>seedFromFaucet</tt> to
 --   distribute funds other wallets.
+--   
+--   <tt>randomUnusedTCPPorts</tt> must close its sentinel socket before
+--   returning the port, leaving a small window in which another process
+--   can grab the same ephemeral port before cardano-node binds it (see the
+--   NOTE in <a>Ports</a>). When that happens cardano-node dies on startup
+--   with <tt>bind: Address already in use</tt>. Detect that one specific
+--   failure and retry with a freshly allocated port; everything else is
+--   rethrown unchanged.
 withCardanoNodeDevnet :: Tracer IO NodeLog -> FilePath -> (NominalDiffTime -> DirectOptions -> IO a) -> IO a
+portBindMaxAttempts :: Int
 withBlockfrostBackend :: Tracer IO EndToEndLog -> FilePath -> (NominalDiffTime -> ChainBackendOptions -> IO a) -> IO a
 
 -- | Find the given file in the current directory or its parents.
@@ -591,6 +603,7 @@ waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 -- | Wait up to some time for an API server output to match the given
 --   predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
 withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node just like <a>withHydraNode</a>; but before running
@@ -657,7 +670,6 @@ soloHydraNodePortsFor :: FilePath -> Int -> IO HydraNodePorts
 -- | Prepare protocol-parameters to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
 preparePParams :: ChainConfig -> FilePath -> (Value -> Value) -> IO FilePath
-withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
 withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> Maybe String -> (HydraClient -> IO a) -> IO a
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog
