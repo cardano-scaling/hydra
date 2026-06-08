@@ -45,7 +45,7 @@
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3AaccumulatorHash%3AOpenDatum"><span class="hs-identifier hs-var hs-var">accumulatorHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
 </span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Digest of the accumulator &#951;A for the last confirmed snapshot</span></span><span>
 </span><span id="line-40"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-41"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531186"><span id="local-6989586621679531188"><span class="annot"><span class="annottext">(forall x. OpenDatum -&gt; Rep OpenDatum x)
+</span><span id="line-41"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531303"><span id="local-6989586621679531305"><span class="annot"><span class="annottext">(forall x. OpenDatum -&gt; Rep OpenDatum x)
 -&gt; (forall x. Rep OpenDatum x -&gt; OpenDatum) -&gt; Generic OpenDatum
 forall x. Rep OpenDatum x -&gt; OpenDatum
 forall x. OpenDatum -&gt; Rep OpenDatum x
@@ -55,7 +55,7 @@ $cfrom :: forall x. OpenDatum -&gt; Rep OpenDatum x
 from :: forall x. OpenDatum -&gt; Rep OpenDatum x
 $cto :: forall x. Rep OpenDatum x -&gt; OpenDatum
 to :: forall x. Rep OpenDatum x -&gt; OpenDatum
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531192"><span id="local-6989586621679531210"><span id="local-6989586621679531214"><span class="annot"><span class="annottext">Int -&gt; OpenDatum -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531309"><span id="local-6989586621679531327"><span id="local-6989586621679531331"><span class="annot"><span class="annottext">Int -&gt; OpenDatum -&gt; ShowS
 [OpenDatum] -&gt; ShowS
 OpenDatum -&gt; String
 (Int -&gt; OpenDatum -&gt; ShowS)
@@ -72,7 +72,7 @@ $cshowList :: [OpenDatum] -&gt; ShowS
 showList :: [OpenDatum] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-42"></span><span>
-</span><span id="line-43"></span><span id="local-6989586621679531219"><span id="local-6989586621679531235"><span id="local-6989586621679531237"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">OpenDatum</span></span></span></span><span>
+</span><span id="line-43"></span><span id="local-6989586621679531336"><span id="local-6989586621679531352"><span id="local-6989586621679531354"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">OpenDatum</span></span></span></span><span>
 </span><span id="line-44"></span><span>
 </span><span id="line-45"></span><span class="annot"><span class="hs-comment">-- | Sub-type for the closed state-machine state.</span></span><span>
 </span><span id="line-46"></span><span class="hs-keyword">data</span><span> </span><span id="ClosedDatum"><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-var">ClosedDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ClosedDatum"><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-var">ClosedDatum</span></a></span></span><span>
@@ -108,7 +108,7 @@ showList :: [OpenDatum] -&gt; ShowS
 </span><span id="line-66"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AaccumulatorCommitment%3AClosedDatum"><span class="annot"><span class="annottext">ClosedDatum -&gt; BuiltinBLS12_381_G1_Element
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3AaccumulatorCommitment%3AClosedDatum"><span class="hs-identifier hs-var hs-var">accumulatorCommitment</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G1_Element</span></span><span>
 </span><span id="line-67"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-68"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531337"><span id="local-6989586621679531339"><span class="annot"><span class="annottext">(forall x. ClosedDatum -&gt; Rep ClosedDatum x)
+</span><span id="line-68"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531454"><span id="local-6989586621679531456"><span class="annot"><span class="annottext">(forall x. ClosedDatum -&gt; Rep ClosedDatum x)
 -&gt; (forall x. Rep ClosedDatum x -&gt; ClosedDatum)
 -&gt; Generic ClosedDatum
 forall x. Rep ClosedDatum x -&gt; ClosedDatum
@@ -119,7 +119,7 @@ $cfrom :: forall x. ClosedDatum -&gt; Rep ClosedDatum x
 from :: forall x. ClosedDatum -&gt; Rep ClosedDatum x
 $cto :: forall x. Rep ClosedDatum x -&gt; ClosedDatum
 to :: forall x. Rep ClosedDatum x -&gt; ClosedDatum
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531342"><span id="local-6989586621679531360"><span id="local-6989586621679531364"><span class="annot"><span class="annottext">Int -&gt; ClosedDatum -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531459"><span id="local-6989586621679531477"><span id="local-6989586621679531481"><span class="annot"><span class="annottext">Int -&gt; ClosedDatum -&gt; ShowS
 [ClosedDatum] -&gt; ShowS
 ClosedDatum -&gt; String
 (Int -&gt; ClosedDatum -&gt; ShowS)
@@ -136,7 +136,7 @@ $cshowList :: [ClosedDatum] -&gt; ShowS
 showList :: [ClosedDatum] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-69"></span><span>
-</span><span id="line-70"></span><span id="local-6989586621679531368"><span id="local-6989586621679531385"><span id="local-6989586621679531387"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ClosedDatum</span></span></span></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679531485"><span id="local-6989586621679531502"><span id="local-6989586621679531504"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ClosedDatum</span></span></span></span><span>
 </span><span id="line-71"></span><span>
 </span><span id="line-72"></span><span class="hs-comment">-- | Sub-type for intermediate partial fanout state. Carries only the fields</span><span>
 </span><span id="line-73"></span><span class="hs-comment">-- needed for subsequent partial fanout steps, dropping the snapshot-specific</span><span>
@@ -151,7 +151,7 @@ showList :: [ClosedDatum] -&gt; ShowS
 </span><span id="line-79"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AaccumulatorCommitment%3AFanoutProgressDatum"><span class="annot"><span class="annottext">FanoutProgressDatum -&gt; BuiltinBLS12_381_G1_Element
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3AaccumulatorCommitment%3AFanoutProgressDatum"><span class="hs-identifier hs-var hs-var">accumulatorCommitment</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G1_Element</span></span><span>
 </span><span id="line-80"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-81"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531471"><span id="local-6989586621679531473"><span class="annot"><span class="annottext">(forall x. FanoutProgressDatum -&gt; Rep FanoutProgressDatum x)
+</span><span id="line-81"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531588"><span id="local-6989586621679531590"><span class="annot"><span class="annottext">(forall x. FanoutProgressDatum -&gt; Rep FanoutProgressDatum x)
 -&gt; (forall x. Rep FanoutProgressDatum x -&gt; FanoutProgressDatum)
 -&gt; Generic FanoutProgressDatum
 forall x. Rep FanoutProgressDatum x -&gt; FanoutProgressDatum
@@ -162,7 +162,7 @@ $cfrom :: forall x. FanoutProgressDatum -&gt; Rep FanoutProgressDatum x
 from :: forall x. FanoutProgressDatum -&gt; Rep FanoutProgressDatum x
 $cto :: forall x. Rep FanoutProgressDatum x -&gt; FanoutProgressDatum
 to :: forall x. Rep FanoutProgressDatum x -&gt; FanoutProgressDatum
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531476"><span id="local-6989586621679531484"><span id="local-6989586621679531488"><span class="annot"><span class="annottext">Int -&gt; FanoutProgressDatum -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531593"><span id="local-6989586621679531601"><span id="local-6989586621679531605"><span class="annot"><span class="annottext">Int -&gt; FanoutProgressDatum -&gt; ShowS
 [FanoutProgressDatum] -&gt; ShowS
 FanoutProgressDatum -&gt; String
 (Int -&gt; FanoutProgressDatum -&gt; ShowS)
@@ -179,22 +179,22 @@ $cshowList :: [FanoutProgressDatum] -&gt; ShowS
 showList :: [FanoutProgressDatum] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-82"></span><span>
-</span><span id="line-83"></span><span id="local-6989586621679531491"><span id="local-6989586621679531498"><span id="local-6989586621679531500"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">FanoutProgressDatum</span></span></span></span><span>
+</span><span id="line-83"></span><span id="local-6989586621679531608"><span id="local-6989586621679531615"><span id="local-6989586621679531617"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">FanoutProgressDatum</span></span></span></span><span>
 </span><span id="line-84"></span><span>
 </span><span id="line-85"></span><span class="hs-comment">-- | Extract the fields needed for partial fanout steps from a ClosedDatum.</span><span>
 </span><span id="line-86"></span><span class="hs-comment">-- Called both on-chain (in the validator dispatch) and off-chain (in tx building).</span><span>
 </span><span id="line-87"></span><span class="annot"><a href="Hydra.Contract.HeadState.html#progressFromClosed"><span class="hs-identifier hs-type">progressFromClosed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-type">ClosedDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#FanoutProgressDatum"><span class="hs-identifier hs-type">FanoutProgressDatum</span></a></span><span>
 </span><span id="line-88"></span><span id="progressFromClosed"><span class="annot"><span class="annottext">progressFromClosed :: ClosedDatum -&gt; FanoutProgressDatum
-</span><a href="Hydra.Contract.HeadState.html#progressFromClosed"><span class="hs-identifier hs-var hs-var">progressFromClosed</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-type">ClosedDatum</span></a></span><span class="hs-special">{</span><span id="local-6989586621679531535"><span class="annot"><span class="annottext">CurrencySymbol
+</span><a href="Hydra.Contract.HeadState.html#progressFromClosed"><span class="hs-identifier hs-var hs-var">progressFromClosed</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-type">ClosedDatum</span></a></span><span class="hs-special">{</span><span id="local-6989586621679531652"><span class="annot"><span class="annottext">CurrencySymbol
 $sel:headId:ClosedDatum :: ClosedDatum -&gt; CurrencySymbol
 headId :: CurrencySymbol
-</span><a href="Hydra.Contract.HeadState.html#%24sel%3AheadId%3AClosedDatum"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531536"><span class="annot"><span class="annottext">[Party]
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AheadId%3AClosedDatum"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531653"><span class="annot"><span class="annottext">[Party]
 $sel:parties:ClosedDatum :: ClosedDatum -&gt; [Party]
 parties :: [Party]
-</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aparties%3AClosedDatum"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531537"><span class="annot"><span class="annottext">POSIXTime
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3Aparties%3AClosedDatum"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531654"><span class="annot"><span class="annottext">POSIXTime
 $sel:contestationDeadline:ClosedDatum :: ClosedDatum -&gt; POSIXTime
 contestationDeadline :: POSIXTime
-</span><a href="Hydra.Contract.HeadState.html#%24sel%3AcontestationDeadline%3AClosedDatum"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531538"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="Hydra.Contract.HeadState.html#%24sel%3AcontestationDeadline%3AClosedDatum"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531655"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
 $sel:accumulatorCommitment:ClosedDatum :: ClosedDatum -&gt; BuiltinBLS12_381_G1_Element
 accumulatorCommitment :: BuiltinBLS12_381_G1_Element
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3AaccumulatorCommitment%3AClosedDatum"><span class="hs-identifier hs-var hs-var">accumulatorCommitment</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -218,7 +218,7 @@ accumulatorCommitment :: BuiltinBLS12_381_G1_Element
 </span><span id="line-94"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Closed"><span class="annot"><a href="Hydra.Contract.HeadState.html#Closed"><span class="hs-identifier hs-var">Closed</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#ClosedDatum"><span class="hs-identifier hs-type">ClosedDatum</span></a></span><span>
 </span><span id="line-95"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Final"><span class="annot"><a href="Hydra.Contract.HeadState.html#Final"><span class="hs-identifier hs-var">Final</span></a></span></span><span>
 </span><span id="line-96"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="FanoutProgress"><span class="annot"><a href="Hydra.Contract.HeadState.html#FanoutProgress"><span class="hs-identifier hs-var">FanoutProgress</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#FanoutProgressDatum"><span class="hs-identifier hs-type">FanoutProgressDatum</span></a></span><span>
-</span><span id="line-97"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531544"><span id="local-6989586621679531546"><span class="annot"><span class="annottext">(forall x. State -&gt; Rep State x)
+</span><span id="line-97"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531661"><span id="local-6989586621679531663"><span class="annot"><span class="annottext">(forall x. State -&gt; Rep State x)
 -&gt; (forall x. Rep State x -&gt; State) -&gt; Generic State
 forall x. Rep State x -&gt; State
 forall x. State -&gt; Rep State x
@@ -228,7 +228,7 @@ $cfrom :: forall x. State -&gt; Rep State x
 from :: forall x. State -&gt; Rep State x
 $cto :: forall x. Rep State x -&gt; State
 to :: forall x. Rep State x -&gt; State
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531549"><span id="local-6989586621679531557"><span id="local-6989586621679531561"><span class="annot"><span class="annottext">Int -&gt; State -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531666"><span id="local-6989586621679531674"><span id="local-6989586621679531678"><span class="annot"><span class="annottext">Int -&gt; State -&gt; ShowS
 [State] -&gt; ShowS
 State -&gt; String
 (Int -&gt; State -&gt; ShowS)
@@ -243,7 +243,7 @@ $cshowList :: [State] -&gt; ShowS
 showList :: [State] -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-98"></span><span>
-</span><span id="line-99"></span><span id="local-6989586621679531564"><span id="local-6989586621679531569"><span id="local-6989586621679531571"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">State</span></span></span></span><span>
+</span><span id="line-99"></span><span id="local-6989586621679531681"><span id="local-6989586621679531686"><span id="local-6989586621679531688"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">State</span></span></span></span><span>
 </span><span id="line-100"></span><span>
 </span><span id="line-101"></span><span class="annot"><span class="hs-comment">-- | Sub-type for close transition with auxiliary data as needed.</span></span><span>
 </span><span id="line-102"></span><span class="hs-keyword">data</span><span> </span><span id="CloseRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#CloseRedeemer"><span class="hs-identifier hs-var">CloseRedeemer</span></a></span></span><span>
@@ -282,7 +282,7 @@ showList :: [State] -&gt; ShowS
 </span><span id="line-132"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AalreadyCommittedUTxOHash%3ACloseInitial"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3AalreadyCommittedUTxOHash%3ACloseInitial"><span class="hs-identifier hs-var">alreadyCommittedUTxOHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
 </span><span id="line-133"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ UTxO which was already committed &#951;&#945;</span></span><span>
 </span><span id="line-134"></span><span>      </span><span class="hs-special">}</span><span>
-</span><span id="line-135"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531611"><span id="local-6989586621679531627"><span id="local-6989586621679531631"><span class="annot"><span class="annottext">Int -&gt; CloseRedeemer -&gt; ShowS
+</span><span id="line-135"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531728"><span id="local-6989586621679531744"><span id="local-6989586621679531748"><span class="annot"><span class="annottext">Int -&gt; CloseRedeemer -&gt; ShowS
 [CloseRedeemer] -&gt; ShowS
 CloseRedeemer -&gt; String
 (Int -&gt; CloseRedeemer -&gt; ShowS)
@@ -297,7 +297,7 @@ $cshow :: CloseRedeemer -&gt; String
 show :: CloseRedeemer -&gt; String
 $cshowList :: [CloseRedeemer] -&gt; ShowS
 showList :: [CloseRedeemer] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531634"><span id="local-6989586621679531636"><span class="annot"><span class="annottext">(forall x. CloseRedeemer -&gt; Rep CloseRedeemer x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531751"><span id="local-6989586621679531753"><span class="annot"><span class="annottext">(forall x. CloseRedeemer -&gt; Rep CloseRedeemer x)
 -&gt; (forall x. Rep CloseRedeemer x -&gt; CloseRedeemer)
 -&gt; Generic CloseRedeemer
 forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
@@ -310,7 +310,7 @@ $cto :: forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
 to :: forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-136"></span><span>
-</span><span id="line-137"></span><span id="local-6989586621679531639"><span id="local-6989586621679531650"><span id="local-6989586621679531652"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">CloseRedeemer</span></span></span></span><span>
+</span><span id="line-137"></span><span id="local-6989586621679531756"><span id="local-6989586621679531767"><span id="local-6989586621679531769"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">CloseRedeemer</span></span></span></span><span>
 </span><span id="line-138"></span><span>
 </span><span id="line-139"></span><span class="annot"><span class="hs-comment">-- | Sub-type for contest transition with auxiliary data as needed.</span></span><span>
 </span><span id="line-140"></span><span class="hs-keyword">data</span><span> </span><span id="ContestRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#ContestRedeemer"><span class="hs-identifier hs-var">ContestRedeemer</span></a></span></span><span>
@@ -356,7 +356,7 @@ to :: forall x. Rep CloseRedeemer x -&gt; CloseRedeemer
 </span><span id="line-176"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AaccumulatorHash%3AContestCurrent"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3AaccumulatorHash%3AContestCurrent"><span class="hs-identifier hs-var">accumulatorHash</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#Hash"><span class="hs-identifier hs-type">Hash</span></a></span><span>
 </span><span id="line-177"></span><span>      </span><span class="annot"><span class="hs-comment">-- ^ Digest of the accumulator &#951;A</span></span><span>
 </span><span id="line-178"></span><span>      </span><span class="hs-special">}</span><span>
-</span><span id="line-179"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531721"><span id="local-6989586621679531741"><span id="local-6989586621679531745"><span class="annot"><span class="annottext">Int -&gt; ContestRedeemer -&gt; ShowS
+</span><span id="line-179"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531838"><span id="local-6989586621679531858"><span id="local-6989586621679531862"><span class="annot"><span class="annottext">Int -&gt; ContestRedeemer -&gt; ShowS
 [ContestRedeemer] -&gt; ShowS
 ContestRedeemer -&gt; String
 (Int -&gt; ContestRedeemer -&gt; ShowS)
@@ -371,7 +371,7 @@ $cshow :: ContestRedeemer -&gt; String
 show :: ContestRedeemer -&gt; String
 $cshowList :: [ContestRedeemer] -&gt; ShowS
 showList :: [ContestRedeemer] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531748"><span id="local-6989586621679531750"><span class="annot"><span class="annottext">(forall x. ContestRedeemer -&gt; Rep ContestRedeemer x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531865"><span id="local-6989586621679531867"><span class="annot"><span class="annottext">(forall x. ContestRedeemer -&gt; Rep ContestRedeemer x)
 -&gt; (forall x. Rep ContestRedeemer x -&gt; ContestRedeemer)
 -&gt; Generic ContestRedeemer
 forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
@@ -384,7 +384,7 @@ $cto :: forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
 to :: forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-180"></span><span>
-</span><span id="line-181"></span><span id="local-6989586621679531753"><span id="local-6989586621679531768"><span id="local-6989586621679531770"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ContestRedeemer</span></span></span></span><span>
+</span><span id="line-181"></span><span id="local-6989586621679531870"><span id="local-6989586621679531885"><span id="local-6989586621679531887"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">ContestRedeemer</span></span></span></span><span>
 </span><span id="line-182"></span><span>
 </span><span id="line-183"></span><span class="annot"><span class="hs-comment">-- | Sub-type for increment transition</span></span><span>
 </span><span id="line-184"></span><span class="hs-keyword">data</span><span> </span><span id="IncrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#IncrementRedeemer"><span class="hs-identifier hs-var">IncrementRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="IncrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#IncrementRedeemer"><span class="hs-identifier hs-var">IncrementRedeemer</span></a></span></span><span>
@@ -395,7 +395,7 @@ to :: forall x. Rep ContestRedeemer x -&gt; ContestRedeemer
 </span><span id="line-187"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aincrement%3AIncrementRedeemer"><span class="annot"><span class="annottext">IncrementRedeemer -&gt; TxOutRef
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3Aincrement%3AIncrementRedeemer"><span class="hs-identifier hs-var hs-var">increment</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span>
 </span><span id="line-188"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-189"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531853"><span id="local-6989586621679531860"><span id="local-6989586621679531864"><span class="annot"><span class="annottext">Int -&gt; IncrementRedeemer -&gt; ShowS
+</span><span id="line-189"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531970"><span id="local-6989586621679531977"><span id="local-6989586621679531981"><span class="annot"><span class="annottext">Int -&gt; IncrementRedeemer -&gt; ShowS
 [IncrementRedeemer] -&gt; ShowS
 IncrementRedeemer -&gt; String
 (Int -&gt; IncrementRedeemer -&gt; ShowS)
@@ -410,7 +410,7 @@ $cshow :: IncrementRedeemer -&gt; String
 show :: IncrementRedeemer -&gt; String
 $cshowList :: [IncrementRedeemer] -&gt; ShowS
 showList :: [IncrementRedeemer] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531867"><span id="local-6989586621679531869"><span class="annot"><span class="annottext">(forall x. IncrementRedeemer -&gt; Rep IncrementRedeemer x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531984"><span id="local-6989586621679531986"><span class="annot"><span class="annottext">(forall x. IncrementRedeemer -&gt; Rep IncrementRedeemer x)
 -&gt; (forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer)
 -&gt; Generic IncrementRedeemer
 forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
@@ -423,7 +423,7 @@ $cto :: forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
 to :: forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-190"></span><span>
-</span><span id="line-191"></span><span id="local-6989586621679531872"><span id="local-6989586621679531878"><span id="local-6989586621679531880"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">IncrementRedeemer</span></span></span></span><span>
+</span><span id="line-191"></span><span id="local-6989586621679531989"><span id="local-6989586621679531995"><span id="local-6989586621679531997"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">IncrementRedeemer</span></span></span></span><span>
 </span><span id="line-192"></span><span>
 </span><span id="line-193"></span><span class="annot"><span class="hs-comment">-- | Sub-type for decrement transition with auxiliary data as needed.</span></span><span>
 </span><span id="line-194"></span><span class="hs-keyword">data</span><span> </span><span id="DecrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#DecrementRedeemer"><span class="hs-identifier hs-var">DecrementRedeemer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="DecrementRedeemer"><span class="annot"><a href="Hydra.Contract.HeadState.html#DecrementRedeemer"><span class="hs-identifier hs-var">DecrementRedeemer</span></a></span></span><span>
@@ -437,7 +437,7 @@ to :: forall x. Rep IncrementRedeemer x -&gt; IncrementRedeemer
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3AnumberOfDecommitOutputs%3ADecrementRedeemer"><span class="hs-identifier hs-var hs-var">numberOfDecommitOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span>
 </span><span id="line-200"></span><span>  </span><span class="annot"><span class="hs-comment">-- ^ Spec: m</span></span><span>
 </span><span id="line-201"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-202"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531914"><span id="local-6989586621679531921"><span id="local-6989586621679531925"><span class="annot"><span class="annottext">Int -&gt; DecrementRedeemer -&gt; ShowS
+</span><span id="line-202"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679532031"><span id="local-6989586621679532038"><span id="local-6989586621679532042"><span class="annot"><span class="annottext">Int -&gt; DecrementRedeemer -&gt; ShowS
 [DecrementRedeemer] -&gt; ShowS
 DecrementRedeemer -&gt; String
 (Int -&gt; DecrementRedeemer -&gt; ShowS)
@@ -452,7 +452,7 @@ $cshow :: DecrementRedeemer -&gt; String
 show :: DecrementRedeemer -&gt; String
 $cshowList :: [DecrementRedeemer] -&gt; ShowS
 showList :: [DecrementRedeemer] -&gt; ShowS
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531928"><span id="local-6989586621679531930"><span class="annot"><span class="annottext">(forall x. DecrementRedeemer -&gt; Rep DecrementRedeemer x)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679532045"><span id="local-6989586621679532047"><span class="annot"><span class="annottext">(forall x. DecrementRedeemer -&gt; Rep DecrementRedeemer x)
 -&gt; (forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer)
 -&gt; Generic DecrementRedeemer
 forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
@@ -465,7 +465,7 @@ $cto :: forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
 to :: forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
 </span><span id="line-203"></span><span>
-</span><span id="line-204"></span><span id="local-6989586621679531933"><span id="local-6989586621679531939"><span id="local-6989586621679531941"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">DecrementRedeemer</span></span></span></span><span>
+</span><span id="line-204"></span><span id="local-6989586621679532050"><span id="local-6989586621679532056"><span id="local-6989586621679532058"><span class="hs-identifier">PlutusTx.unstableMakeIsData</span><span> </span><span class="hs-special">''</span><span class="hs-identifier">DecrementRedeemer</span></span></span></span><span>
 </span><span id="line-205"></span><span>
 </span><span id="line-206"></span><span class="hs-keyword">data</span><span> </span><span id="Input"><span class="annot"><a href="Hydra.Contract.HeadState.html#Input"><span class="hs-identifier hs-var">Input</span></a></span></span><span>
 </span><span id="line-207"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="Increment"><span class="annot"><a href="Hydra.Contract.HeadState.html#Increment"><span class="hs-identifier hs-var">Increment</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Contract.HeadState.html#IncrementRedeemer"><span class="hs-identifier hs-type">IncrementRedeemer</span></a></span><span>
@@ -492,7 +492,7 @@ to :: forall x. Rep DecrementRedeemer x -&gt; DecrementRedeemer
 </span><a href="Hydra.Contract.HeadState.html#%24sel%3Aproof%3AIncrement"><span class="hs-identifier hs-var hs-var">proof</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G1_Element</span></span><span>
 </span><span id="line-223"></span><span>      </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcrsRef%3AIncrement"><span class="annot"><a href="Hydra.Contract.HeadState.html#%24sel%3AcrsRef%3AIncrement"><span class="hs-identifier hs-var">crsRef</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOutRef</span></span><span>
 </span><span id="line-224"></span><span>      </span><span class="hs-special">}</span><span>
-</span><span id="line-225"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679531984"><span id="local-6989586621679531986"><span class="annot"><span class="annottext">(forall x. Input -&gt; Rep Input x)
+</span><span id="line-225"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679532101"><span id="local-6989586621679532103"><span class="annot"><span class="annottext">(forall x. Input -&gt; Rep Input x)
 -&gt; (forall x. Rep Input x -&gt; Input) -&gt; Generic Input
 forall x. Rep Input x -&gt; Input
 forall x. Input -&gt; Rep Input x
@@ -502,7 +502,7 @@ $cfrom :: forall x. Input -&gt; Rep Input x
 from :: forall x. Input -&gt; Rep Input x
 $cto :: forall x. Rep Input x -&gt; Input
 to :: forall x. Rep Input x -&gt; Input
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679531989"><span id="local-6989586621679532010"><span id="local-6989586621679532014"><span class="annot"><span class="annottext">Int -&gt; Input -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679532106"><span id="local-6989586621679532127"><span id="local-6989586621679532131"><span class="annot"><span class="annottext">Int -&gt; Input -&gt; ShowS
 [Input] -&gt; ShowS
 Input -&gt; String
 (Int -&gt; Input -&gt; ShowS)
@@ -522,7 +522,7 @@ showList :: [Input] -&gt; ShowS
 </span><span id="line-229"></span><span class="hs-comment">-- @builtin.un_constr_data@ to check that the head input is being spent with</span><span>
 </span><span id="line-230"></span><span class="hs-comment">-- the @Increment@ redeemer. Keep this list and @validators/deposit.ak@ in</span><span>
 </span><span id="line-231"></span><span class="hs-comment">-- sync.</span><span>
-</span><span id="line-232"></span><span id="local-6989586621679532017"><span id="local-6989586621679532031"><span id="local-6989586621679532033"><span class="hs-identifier">PlutusTx.makeIsDataIndexed</span><span>
+</span><span id="line-232"></span><span id="local-6989586621679532134"><span id="local-6989586621679532148"><span id="local-6989586621679532150"><span class="hs-identifier">PlutusTx.makeIsDataIndexed</span><span>
 </span><span id="line-233"></span><span>  </span><span class="hs-special">''</span><span class="hs-identifier">Input</span><span>
 </span><span id="line-234"></span><span>  </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="hs-identifier">Increment</span><span class="hs-special">,</span><span> </span><span class="hs-number">0</span><span class="hs-special">)</span><span>
 </span><span id="line-235"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">'</span><span class="hs-identifier">Decrement</span><span class="hs-special">,</span><span> </span><span class="hs-number">1</span><span class="hs-special">)</span><span>
