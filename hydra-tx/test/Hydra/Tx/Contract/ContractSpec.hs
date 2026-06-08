@@ -12,19 +12,34 @@ import Cardano.Crypto.Util (SignableRepresentation (getSignableRepresentation))
 import Cardano.Ledger.Alonzo.Plutus.TxInfo (TxOutSource (TxOutFromOutput))
 import Cardano.Ledger.Babbage.TxInfo (transTxOutV2)
 import Cardano.Ledger.BaseTypes qualified as Ledger
+import Data.ByteString qualified as BS
 import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
+import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
+  AssetId (AdaAssetId),
+  CtxTx,
   Tx,
+  TxOutDatum,
   UTxO,
+  filterValue,
+  minUTxOValue,
+  mkTxOutDatumInline,
+  modifyTxOutDatum,
+  modifyTxOutValue,
+  selectLovelace,
   serialiseToRawBytesHexText,
   toLedgerTxOut,
+  toPlutusCurrencySymbol,
   toPlutusTxOut,
   toShelleyNetwork,
+  txOutValue,
+  txOuts',
  )
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Head (verifySnapshotSignature)
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.Util qualified as OnChain
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -35,6 +50,7 @@ import Hydra.Tx (
   partyToChain,
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
+import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
@@ -46,13 +62,14 @@ import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
 import Hydra.Tx.Contract.FanOut (genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyIncrementTx)
-import Hydra.Tx.Contract.Init (genInitMutation, healthyInitTx)
+import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Observe (observeDepositTx)
-import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin)
-import Test.Hydra.Tx.Fixture (testNetworkId)
+import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
+import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
@@ -94,6 +111,34 @@ spec = parallel $ do
       propTransactionEvaluates healthyInitTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyInitTx genInitMutation
+    it "head output ADA covers worst-case min-UTxO through all contest rounds" $ do
+      let (tx, _) = healthyInitTx
+          headOut = fromJust $ txOuts' tx !!? 0
+          n = length healthyParticipants
+          HeadParameters{parties, contestationPeriod} = healthyHeadParameters
+          worstCaseDatum :: TxOutDatum CtxTx
+          worstCaseDatum =
+            mkTxOutDatumInline $
+              Head.Closed
+                Head.ClosedDatum
+                  { headId = toPlutusCurrencySymbol testPolicyId
+                  , parties = map partyToChain parties
+                  , contestationPeriod = toChain contestationPeriod
+                  , version = 0
+                  , snapshotNumber = 0
+                  , contesters = replicate (n - 1) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
+                  , contestationDeadline = 2_000_000_000_000
+                  , accumulatorCommitment =
+                      Accumulator.getAccumulatorCommitment $
+                        Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+                  , headAdaOverhead = 0
+                  }
+          -- minUTxOValue adds maxWord64 internally, so the base must have 0 lovelace
+          zeroAdaHead = modifyTxOutValue (filterValue (/= AdaAssetId)) headOut
+          worstCaseOut = modifyTxOutDatum (const worstCaseDatum) zeroAdaHead
+          worstCaseMinCoin = selectLovelace $ minUTxOValue defaultPParams worstCaseOut
+          headCoin = selectLovelace (txOutValue headOut)
+      headCoin `shouldSatisfy` (>= worstCaseMinCoin)
 
   describe "Increment" $ do
     prop "is healthy" $

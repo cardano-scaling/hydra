@@ -134,6 +134,8 @@ data TinyWallet m = TinyWallet
       m Bool
   -- ^ Check whether the serialised transaction fits within the maximum
   -- transaction size permitted by the current protocol parameters.
+  , getPParams :: m (PParams LedgerEra)
+  -- ^ Query current protocol parameters.
   , reset :: m ()
   -- ^ Re-initializ wallet against the latest tip of the node and start to
   -- ignore 'update' calls until reaching that tip.
@@ -194,6 +196,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
           pparams <- querySomePParams
           let txBytes = fromIntegral $ BS.length $ serialiseToCBOR tx
           pure $ txBytes <= pparams ^. ppMaxTxSizeL
+      , getPParams = querySomePParams
       , reset = initialize >>= atomically . writeTVar walletInfoVar
       , update = \header txs -> do
           let point = getChainPoint header

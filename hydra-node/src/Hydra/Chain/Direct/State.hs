@@ -10,6 +10,7 @@ module Hydra.Chain.Direct.State where
 import Hydra.Prelude hiding (init)
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Api (PParams)
 import Data.Maybe (fromJust)
 import GHC.IsList qualified as IsList
 import Hydra.Cardano.Api (
@@ -17,6 +18,7 @@ import Hydra.Cardano.Api (
   ChainPoint (..),
   CtxUTxO,
   Key (SigningKey, VerificationKey),
+  LedgerEra,
   NetworkId,
   PaymentKey,
   PolicyId,
@@ -192,6 +194,7 @@ instance HasKnownUTxO ClosedState where
 -- 'HeadParameters' and a seed 'TxIn' which will be spent.
 initialize ::
   ChainContext ->
+  PParams LedgerEra ->
   -- | Seed input.
   TxIn ->
   -- | Verification key hashes of all participants.

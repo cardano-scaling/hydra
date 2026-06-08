@@ -3,6 +3,7 @@ module Hydra.Tx.Init where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
+import Data.ByteString qualified as BS
 import GHC.IsList (toList)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
@@ -18,6 +19,7 @@ import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV2AssetName, mkHydraHeadV2TxName, onChainIdToAssetName)
 import PlutusLedgerApi.Common (FromData, toBuiltin)
+import PlutusLedgerApi.V3 (PubKeyHash (..))
 
 -- * Construction
 
@@ -25,13 +27,15 @@ import PlutusLedgerApi.Common (FromData, toBuiltin)
 -- which will be used as unique parameter for minting NFTs.
 initTx ::
   NetworkId ->
+  -- | Current protocol parameters, used to compute worst-case min-UTxO.
+  PParams LedgerEra ->
   -- | Seed input.
   TxIn ->
   -- | Verification key hashes of all participants.
   [OnChainId] ->
   HeadParameters ->
   Tx
-initTx networkId seedTxIn participants parameters =
+initTx networkId pparams seedTxIn participants parameters =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxInsSpending [seedTxIn]
@@ -42,7 +46,34 @@ initTx networkId seedTxIn participants parameters =
   participationTokens =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
 
-  openHeadOutput = mkHeadOutput networkId tokenPolicyId participants openHeadDatum
+  -- Set head output ADA to cover the worst-case min-UTxO: a ClosedDatum with
+  -- N-1 contesters (the maximum the datum can grow through contest rounds).
+  -- This ensures the wallet never needs to bump the head value at Close or
+  -- Contest time, which would violate the strict equality check on-chain.
+  openHeadOutput =
+    modifyTxOutValue (worstCaseMinLovelace <>) $
+      mkHeadOutput networkId tokenPolicyId participants openHeadDatum
+
+  worstCaseMinLovelace =
+    minUTxOValue pparams $
+      mkHeadOutput networkId tokenPolicyId participants worstCaseClosedDatum
+
+  worstCaseClosedDatum =
+    mkTxOutDatumInline $
+      Head.Closed
+        Head.ClosedDatum
+          { headId = toPlutusCurrencySymbol tokenPolicyId
+          , parties = map partyToChain parties
+          , contestationPeriod = toChain contestationPeriod
+          , version = 0
+          , snapshotNumber = 0
+          , contesters = replicate (length participants - 1) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
+          , contestationDeadline = 2_000_000_000_000
+          , accumulatorCommitment =
+              Accumulator.getAccumulatorCommitment $
+                Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+          , headAdaOverhead = 0
+          }
 
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
 

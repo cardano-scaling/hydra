@@ -140,7 +140,7 @@ genChainStateWithTx =
     ctx <- genHydraContext maxGenParties
     cctx <- pickChainContext ctx
     seedInput <- genTxIn
-    let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+    let tx = initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
     pure (cctx, Idle, mempty, tx, Init)
 
   genDepositWithState :: Gen (ChainContext, ChainState, UTxO, Tx, ChainTransition)
@@ -263,7 +263,7 @@ genInitTx ::
 genInitTx ctx = do
   cctx <- pickChainContext ctx
   seedInput <- genTxIn
-  pure $ initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+  pure $ initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
 
 genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)
 genDepositTx numParties = do

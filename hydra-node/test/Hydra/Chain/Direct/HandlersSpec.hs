@@ -75,6 +75,7 @@ import Test.Hydra.Chain.Direct.TimeHandle (genTimeParams)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Prelude
+import Test.Hydra.Tx.Fixture (defaultPParams)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
 import Test.QuickCheck (
   NonNegative (..),
@@ -529,6 +530,7 @@ spec = do
                     , coverFee = \_ tx -> pure (Right tx)
                     , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
                     , isTxWithinSizeLimits = \_ -> pure True
+                    , getPParams = pure defaultPParams
                     , reset = pure ()
                     , update = \_ _ -> pure ()
                     }
@@ -550,6 +552,7 @@ spec = do
                 , coverFee = \_ tx -> pure (Right tx)
                 , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
                 , isTxWithinSizeLimits = \_ -> pure True
+                , getPParams = pure defaultPParams
                 , reset = pure ()
                 , update = \_ _ -> pure ()
                 }
@@ -571,6 +574,7 @@ spec = do
                     , coverFee = \_ tx -> pure (Right tx)
                     , evaluateScriptCosts = \_ _ -> pure $ Right Map.empty
                     , isTxWithinSizeLimits = \_ -> pure False
+                    , getPParams = pure defaultPParams
                     , reset = pure ()
                     , update = \_ _ -> pure ()
                     }
@@ -597,6 +601,7 @@ spec = do
                         first' <- readIORef isFirst
                         writeIORef isFirst False
                         pure (not first')
+                    , getPParams = pure defaultPParams
                     , reset = pure ()
                     , update = \_ _ -> pure ()
                     }
@@ -714,7 +719,7 @@ genSequenceOfObservableBlocks = do
 
   stepInit ctx participants params = do
     seedTxIn <- lift genTxIn
-    let tx = initialize ctx seedTxIn participants params
+    let tx = initialize ctx defaultPParams seedTxIn participants params
     tx <$ putNextBlock tx
 
   stepDeposit networkId headId = do

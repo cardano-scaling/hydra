@@ -397,6 +397,7 @@ createMockChain tracer ctx submitTx timeHandle seedInput chainState =
           , coverFee = \_ tx -> pure (Right tx)
           , evaluateScriptCosts = \tx utxo -> pure $ evaluateTx tx utxo
           , isTxWithinSizeLimits = \_ -> pure True
+          , getPParams = pure defaultPParams
           , reset = pure ()
           , update = \_ _ -> pure ()
           }

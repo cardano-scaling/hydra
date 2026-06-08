@@ -94,7 +94,7 @@ import Test.Hydra.Chain.Direct.State (
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
+import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
@@ -148,7 +148,7 @@ spec = parallel $ do
         vk <- pickBlind arbitrary
         seedTxOut <- pickBlind $ genTxOutAdaOnly vk
 
-        let tx = initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
+        let tx = initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx)
         (mutation, cex, expected) <- pickBlind $ genInitTxMutation seedInput tx
         let utxo = UTxO.singleton seedInput seedTxOut
         let (tx', utxo') = applyMutation mutation (tx, utxo)
@@ -418,7 +418,7 @@ forAllInit action =
   forAllBlind (genHydraContext maximumNumberOfParties) $ \ctx ->
     forAll (pickChainContext ctx) $ \cctx -> do
       forAll ((,) <$> genTxIn <*> genOutputFor (ownVerificationKey cctx)) $ \(seedIn, seedOut) -> do
-        let tx = initialize cctx seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
+        let tx = initialize cctx defaultPParams seedIn (ctxParticipants ctx) (ctxHeadParameters ctx)
             utxo = UTxO.singleton seedIn seedOut <> getKnownUTxO cctx
          in action utxo tx
               & classify

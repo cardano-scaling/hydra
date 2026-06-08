@@ -60,7 +60,7 @@ import Test.Hydra.Ledger.Cardano.Fixtures (
   slotLength,
   systemStart,
  )
-import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
+import Test.Hydra.Tx.Fixture (defaultPParams, fanoutOutputThreshold)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genUTxOAdaOnlyOfSize, genUTxOWithTokensOfSize, genValidityBoundsFromContestationPeriod)
 
 computeInitCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
@@ -84,7 +84,7 @@ computeInitCost = do
     seedInput <- genTxIn
     seedOutput <- genOutputFor =<< arbitrary
     let utxo = UTxO.singleton seedInput seedOutput
-    pure (initialize cctx seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
+    pure (initialize cctx defaultPParams seedInput (ctxParticipants ctx) (ctxHeadParameters ctx), utxo)
 
 computeIncrementCost :: Gen [(NumParties, TxSize, MemUnit, CpuUnit, Coin)]
 computeIncrementCost = do

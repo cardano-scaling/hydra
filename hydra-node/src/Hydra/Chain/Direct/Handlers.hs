@@ -213,8 +213,15 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               utxoToDistribute
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
+          InitTx{participants, headParameters} -> do
+            seedInput <-
+              atomically $
+                getSeedInput wallet >>= maybe (throwSTM (NoSeedInput @Tx)) pure
+            pparams <- getPParams wallet
+            finalizeTx wallet ctx spendableUTxO mempty $
+              initialize ctx pparams seedInput participants headParameters
           _ ->
-            atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
+            atomically (prepareTxToPost timeHandle ctx spendableUTxO tx)
               >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , draftDepositTx = \headId pparams commitBlueprintTx deadline changeAddress -> do
@@ -457,20 +464,15 @@ prepareTxToPost ::
   forall m.
   (MonadSTM m, MonadThrow (STM m)) =>
   TimeHandle ->
-  TinyWallet m ->
   ChainContext ->
   -- | Spendable UTxO
   UTxOType Tx ->
   PostChainTx Tx ->
   STM m Tx
-prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
+prepareTxToPost timeHandle ctx spendableUTxO tx =
   case tx of
-    InitTx{participants, headParameters} ->
-      getSeedInput wallet >>= \case
-        Just seedInput ->
-          pure $ initialize ctx seedInput participants headParameters
-        Nothing ->
-          throwIO (NoSeedInput @Tx)
+    -- InitTx is handled in mkChain.postTx before reaching this function.
+    InitTx{} -> throwSTM (NoSeedInput @Tx)
     IncrementTx{headSeed, headId, headParameters, incrementingSnapshot, depositTxId} -> do
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
