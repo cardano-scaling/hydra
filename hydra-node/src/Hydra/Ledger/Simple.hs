@@ -118,7 +118,9 @@ instance IsChainState SimpleTx where
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
-  Ledger{applyTransactions}
+  -- NOTE: SimpleTx has no scripts or signatures, so re-application is identical
+  -- to application; there is no static check to skip.
+  Ledger{applyTransactions, reapplyTransactions = applyTransactions}
  where
   -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
   applyTransactions :: Foldable t => p -> Set SimpleTxOut -> t SimpleTx -> Either (SimpleTx, ValidationError) (Set SimpleTxOut)

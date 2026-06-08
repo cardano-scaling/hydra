@@ -51,15 +51,34 @@ import System.IO.Unsafe (unsafeDupablePerformIO)
 -- | Use the cardano-ledger as an in-hydra 'Ledger'.
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
-  Ledger{applyTransactions}
+  Ledger{applyTransactions, reapplyTransactions}
  where
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.
-  applyTransactions slot utxo = \case
-    [] -> Right utxo
-    (tx : txs) -> do
-      utxo' <- applyTx slot utxo tx
-      applyTransactions slot utxo' txs
+  applyTransactions = foldTxs applyTx
+
+  -- Re-apply transactions that were already accepted by 'applyTransactions'
+  -- earlier. This skips the static checks (Plutus script evaluation and witness
+  -- cryptography) which dominate the per-tx cost, while still running the
+  -- state-dependent ledger checks so it fails exactly like 'applyTransactions'
+  -- when a transaction no longer applies to the given UTxO.
+  reapplyTransactions = foldTxs reapplyTx
+
+  -- Left-fold a single-transaction step over a list, threading the UTxO forward
+  -- and short-circuiting on the first validation failure.
+  foldTxs ::
+    (ChainSlot -> UTxO -> Tx -> Either (Tx, ValidationError) UTxO) ->
+    ChainSlot ->
+    UTxO ->
+    [Tx] ->
+    Either (Tx, ValidationError) UTxO
+  foldTxs step slot = go
+   where
+    go utxo = \case
+      [] -> Right utxo
+      (tx : txs) -> do
+        utxo' <- step slot utxo tx
+        go utxo' txs
 
   -- TODO(SN): Pre-validate transactions to get less confusing errors on
   -- transactions which are not expected to work on a layer-2
@@ -71,28 +90,30 @@ cardanoLedger globals ledgerEnv =
   -- got confused why a sequence of transactions worked but sequentially applying
   -- single transactions didn't. This was because of this not-keeping the'DPState'
   -- as described above.
-  applyTx (ChainSlot slot) utxo tx =
-    case Ledger.applyTx globals env' memPoolState (toLedgerTx tx) of
-      Left err ->
-        Left (tx, toValidationError err)
-      Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-        Right . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
-   where
-    -- As we use applyTx we only expect one ledger rule to run and one tx to
-    -- fail validation, hence using the heads of non empty lists is fine.
-    toValidationError :: ApplyTxError LedgerEra -> ValidationError
-    toValidationError (ConwayApplyTxError (e :| _)) = case e of
-      (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
-        ValidationError $
-          "Plutus validation failed: "
-            <> msg
-            <> "Debug info: "
-            -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
-            -- action. It only re-evaluates the script and does not have any
-            -- side-effects.
-            <> show (unsafeDupablePerformIO $ debugPlutus (T.unpack $ Text.decodeUtf8 ctx) maxBound defaultPlutusDebugOverrides)
-      _ -> ValidationError $ show e
+  applyTx slot utxo tx =
+    withLedgerState slot utxo tx $ \env' memPoolState ->
+      case Ledger.applyTx globals env' memPoolState (toLedgerTx tx) of
+        Left err ->
+          Left (tx, toValidationError err)
+        Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
+          Right . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
 
+  -- NOTE: 'unsafeMakeValidated' asserts that the transaction has previously
+  -- passed full validation; this holds because callers only re-apply
+  -- transactions already accepted by 'applyTx'. 'Ledger.reapplyTx' then runs
+  -- every ledger check except the static ones.
+  reapplyTx slot utxo tx =
+    withLedgerState slot utxo tx $ \env' memPoolState ->
+      case Ledger.reapplyTx globals env' memPoolState (Ledger.unsafeMakeValidated (toLedgerTx tx)) of
+        Left err ->
+          Left (tx, toValidationError err)
+        Right Ledger.LedgerState{Ledger.lsUTxOState = us} ->
+          Right . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
+
+  -- Build the ledger env and mempool state for a single transaction and hand
+  -- them to the given continuation. Shared by 'applyTx' and 'reapplyTx'.
+  withLedgerState (ChainSlot slot) utxo tx cont = cont env' memPoolState
+   where
     env' = ledgerEnv{Ledger.ledgerSlotNo = fromIntegral slot}
 
     memPoolState =
@@ -115,6 +136,21 @@ cardanoLedger globals ledgerEnv =
         & Map.filter (== Coin 0)
         & Map.keysSet
         & Set.map (unAccountId . aaId)
+
+  -- As we use applyTx we only expect one ledger rule to run and one tx to
+  -- fail validation, hence using the heads of non empty lists is fine.
+  toValidationError :: ApplyTxError LedgerEra -> ValidationError
+  toValidationError (ConwayApplyTxError (e :| _)) = case e of
+    (ConwayUtxowFailure (UtxoFailure (UtxosFailure (ValidationTagMismatch _ (FailedUnexpectedly (PlutusFailure msg ctx :| _)))))) ->
+      ValidationError $
+        "Plutus validation failed: "
+          <> msg
+          <> "Debug info: "
+          -- NOTE: There is not a clear reason why 'debugPlutus' is an IO
+          -- action. It only re-evaluates the script and does not have any
+          -- side-effects.
+          <> show (unsafeDupablePerformIO $ debugPlutus (T.unpack $ Text.decodeUtf8 ctx) maxBound defaultPlutusDebugOverrides)
+    _ -> ValidationError $ show e
 
 -- * LedgerEnv
 

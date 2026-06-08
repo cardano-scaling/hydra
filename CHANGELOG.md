@@ -10,6 +10,16 @@ changes.
 
 ## [UNRELEASED]
 
+- Snapshot processing no longer re-evaluates Plutus scripts for transactions it
+  already validated on receipt. When applying the requested transactions while
+  constructing a snapshot (and when pruning the local transaction set), the node
+  now re-applies them via the ledger's `reapplyTx`, which skips the static checks
+  (script evaluation and witness cryptography) while still running the
+  state-dependent checks. This removes redundant script execution from the hot
+  path and noticeably increases sustained in-head throughput for script-heavy
+  workloads. The node falls back to full application when a commit or decommit
+  reshapes the active UTxO. No protocol or API change.
+
 - Heads with large UTxO sets (above the fanout output threshold) can now be
   fanned out in multiple steps using `PartialFanoutTx` and `FinalPartialFanoutTx`
   transactions. Each step distributes a fixed-size chunk of outputs and uses a

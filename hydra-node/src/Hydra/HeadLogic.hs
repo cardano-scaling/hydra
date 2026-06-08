@@ -76,7 +76,7 @@ import Hydra.HeadLogic.State (
   setChainState,
   snapshotInFlight,
  )
-import Hydra.Ledger (Ledger (..), applyTransactions)
+import Hydra.Ledger (Ledger (..), applyTransactions, reapplyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.DepositPeriod (DepositPeriod (..))
@@ -454,10 +454,20 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   -- snapshot's UTxO set, eg. it's illegal for a snapshot leader to request a snapshot
   -- containing transactions that do not apply cleanly.
   requireApplyTxs utxo requestedTxs cont =
-    case applyTransactions ledger currentSlot utxo requestedTxs of
+    case reapplyOrApply ledger currentSlot utxo requestedTxs of
       Left (tx, err) ->
         Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
       Right u -> cont u
+
+  -- The requested transactions were already validated on receipt ('ReqTx'), so
+  -- re-applying them to the confirmed UTxO only needs the state-dependent ledger
+  -- checks (inputs present, value preserved) and can skip the expensive Plutus
+  -- script re-evaluation. When a commit or decommit reshapes the active UTxO we
+  -- conservatively fall back to full application, since the script context may
+  -- then differ from what was validated.
+  reapplyOrApply
+    | isNothing mDecommitTx && isNothing mDepositTxId = reapplyTransactions
+    | otherwise = applyTransactions
 
   requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
   requireValidAccumulatorSize accumulator continue
@@ -482,7 +492,10 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
       -- here when a tx becomes invalid.
-      case applyTransactions ledger currentSlot u [tx] of
+      -- These txs are part of 'localTxs' and were already validated on receipt,
+      -- so we re-apply (skipping Plutus re-evaluation); the state-dependent
+      -- checks still run and prune txs that no longer apply.
+      case reapplyOrApply ledger currentSlot u [tx] of
         Left _ -> go u rest
         Right u' -> tx Seq.<| go u' rest
   confSn = case confirmedSnapshot of
