@@ -204,12 +204,10 @@ data DecrementRedeemer = DecrementRedeemer
 PlutusTx.unstableMakeIsData ''DecrementRedeemer
 
 data Input
-  = CollectCom
-  | Increment IncrementRedeemer
+  = Increment IncrementRedeemer
   | Decrement DecrementRedeemer
   | Close CloseRedeemer
   | Contest ContestRedeemer
-  | Abort
   | Fanout
       { numberOfFanoutOutputs :: Integer
       , numberOfCommitOutputs :: Integer
@@ -226,4 +224,18 @@ data Input
       }
   deriving stock (Generic, Show)
 
-PlutusTx.unstableMakeIsData ''Input
+-- NOTE: The constructor indices here are load-bearing: the @deposit.ak@
+-- validator reads the @Input@ redeemer's constructor index directly via
+-- @builtin.un_constr_data@ to check that the head input is being spent with
+-- the @Increment@ redeemer. Keep this list and @validators/deposit.ak@ in
+-- sync.
+PlutusTx.makeIsDataIndexed
+  ''Input
+  [ ('Increment, 0)
+  , ('Decrement, 1)
+  , ('Close, 2)
+  , ('Contest, 3)
+  , ('Fanout, 4)
+  , ('PartialFanout, 5)
+  , ('FinalPartialFanout, 6)
+  ]

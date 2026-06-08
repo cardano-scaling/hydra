@@ -1044,9 +1044,9 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
             waitUntil [n1] $ HeadIsOpen testHeadId (fromList [alice])
-            -- We expect one Commit AND the CollectCom to be rolled back and
-            -- forward again
-            rollbackAndForward chain 2
+            -- We expect the Init (which now opens the head directly) to be
+            -- rolled back and forward again
+            rollbackAndForward chain 1
             -- We expect the node to still work and let us post L2 transactions
             send n1 (NewTx (aValidTx 42))
             waitUntil [n1] $ TxValid testHeadId 42
