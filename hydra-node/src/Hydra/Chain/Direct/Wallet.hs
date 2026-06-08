@@ -232,9 +232,7 @@ applyTxs txs isOurs utxo =
       let txId = Ledger.txIdTx tx
       modify (`Map.withoutKeys` view (bodyTxL . inputsTxBodyL) tx)
       let indexedOutputs =
-            let outs = toList $ view (bodyTxL . outputsTxBodyL) tx
-                maxIx = fromIntegral $ length outs
-             in zip [Ledger.TxIx ix | ix <- [0 .. maxIx]] outs
+            zip [Ledger.TxIx 0 ..] (toList $ view (bodyTxL . outputsTxBodyL) tx)
       forM_ indexedOutputs $ \(ix, out@(Babbage.BabbageTxOut addr _ _ _)) ->
         when (isOurs addr) $ modify (Map.insert (Ledger.TxIn txId ix) out)
 

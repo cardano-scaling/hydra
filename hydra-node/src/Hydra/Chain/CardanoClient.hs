@@ -102,14 +102,15 @@ awaitTransaction ::
   -- | The transaction to watch / await
   Tx ->
   IO UTxO
-awaitTransaction connectInfo tx =
-  go
+awaitTransaction connectInfo tx = do
+  pollInterval <- realToFrac <$> queryBlockTime connectInfo QueryTip
+  go pollInterval
  where
   ins = keys (UTxO.toMap $ utxoFromTx tx)
-  go = do
+  go pollInterval = do
     utxo <- queryUTxOByTxIn connectInfo QueryTip ins
     if UTxO.null utxo
-      then go
+      then threadDelay pollInterval >> go pollInterval
       else pure utxo
 
 -- * Local state query
@@ -173,6 +174,22 @@ queryGenesisParameters ::
 queryGenesisParameters connectInfo queryPoint =
   runQueryExpr connectInfo queryPoint $ do
     queryForCurrentEraInShelleyBasedEraExpr (`queryInShelleyBasedEraExpr` QueryGenesisParameters)
+
+-- | Query the chain's average block time, derived from genesis parameters as
+-- 'protocolParamSlotLength' / 'protocolParamActiveSlotsCoefficient'.
+--
+-- Throws at least 'QueryException' if query fails.
+queryBlockTime :: LocalNodeConnectInfo -> QueryPoint -> IO NominalDiffTime
+queryBlockTime connectInfo queryPoint = do
+  GenesisParameters{protocolParamActiveSlotsCoefficient, protocolParamSlotLength} <-
+    Hydra.Chain.CardanoClient.queryGenesisParameters connectInfo queryPoint
+  pure $ computeBlockTime protocolParamSlotLength protocolParamActiveSlotsCoefficient
+
+-- | Compute the block time (expected time between blocks) given a slot length
+-- and active slot coefficient.
+computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
+computeBlockTime slotLength activeSlotsCoeff =
+  slotLength / realToFrac activeSlotsCoeff
 
 -- | Query UTxO for all given addresses at given point.
 --

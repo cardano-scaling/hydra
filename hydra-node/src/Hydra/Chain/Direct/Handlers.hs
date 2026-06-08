@@ -413,6 +413,7 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         Nothing -> pure ()
         Just event -> callback event
 
+
   maybeObserveSomeTx timeHandle point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest
     let observation = observeHeadTx networkId spendableUTxO tx

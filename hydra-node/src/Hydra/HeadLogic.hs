@@ -625,22 +625,28 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    -- TODO: check status (again)?
-    case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
-      Just (depositTxId, Deposit{deposited}) ->
-        outcome
-          <> newState CommitApproved{headId, utxoToCommit = deposited}
-          <> cause
-            OnChainEffect
-              { postChainTx =
-                  IncrementTx
-                    { headSeed
-                    , headId
-                    , headParameters = parameters
-                    , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                    , depositTxId
-                    }
-              }
+    -- NOTE: gate on both 'currentDepositTxId' and 'snapshot.utxoToCommit'.
+    -- 'DepositActivated' can set 'currentDepositTxId' during the ack flow of a
+    -- non-commit snapshot, so we'd otherwise post an Increment for a snapshot
+    -- that has no 'utxoToCommit'.
+    case (currentDepositTxId, utxoToCommit) of
+      (Just depositTxId, Just _) ->
+        case Map.lookup depositTxId pendingDeposits of
+          Just Deposit{deposited} ->
+            outcome
+              <> newState CommitApproved{headId, utxoToCommit = deposited}
+              <> cause
+                OnChainEffect
+                  { postChainTx =
+                      IncrementTx
+                        { headSeed
+                        , headId
+                        , headParameters = parameters
+                        , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                        , depositTxId
+                        }
+                  }
+          Nothing -> outcome
       _ -> outcome
 
   maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
@@ -1075,10 +1081,13 @@ maybeRepostIncrementTx ::
   ConfirmedSnapshot tx ->
   Outcome tx
 maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
+  -- NOTE: gate on 'utxoToCommit = Just _' alongside the deposit txid lookup
+  -- in case 'DepositActivated' set 'currentDepositTxId' after a non-commit
+  -- snapshot was confirmed.
   case (mDepositTxId, confirmedSnapshot) of
-    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit}, signatures}) ->
-      case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
-        Just (_, Deposit{}) ->
+    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit = Just _}, signatures}) ->
+      case Map.lookup depositTxId pendingDeposits of
+        Just Deposit{} ->
           cause
             OnChainEffect
               { postChainTx =
@@ -1090,7 +1099,7 @@ maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId c
                     , depositTxId
                     }
               }
-        _ -> noop
+        Nothing -> noop
     _ -> noop
 
 -- | On rollback, re-post the DecrementTx if there is a pending decommit whose
