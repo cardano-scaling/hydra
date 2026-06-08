@@ -166,6 +166,11 @@ data ContestMutation
     MutateAccumulatorCommitment
   | -- | Changing headAdaOverhead in the output ClosedDatum must be rejected.
     MutateHeadAdaOverhead
+  | -- | Adding extra ADA to the head output must be rejected.
+    --
+    -- Ensures a malicious contester cannot inflate the head value, which would
+    -- cause the strict-equality fanout check to fail (stuck head).
+    ContestIncreaseHeadValue
   deriving stock (Generic, Show, Enum, Bounded)
 
 genContestMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -320,6 +325,9 @@ genContestMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateHeadAdaOverhead . ChangeOutput 0 <$> do
         wrongOverhead <- arbitrary `suchThat` (/= 0)
         pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
+    , SomeMutation (pure $ toErrorCode HeadValueIsNotPreserved) ContestIncreaseHeadValue <$> do
+        extraLovelace <- lovelaceToValue . Coin <$> choose (1, 10_000_000)
+        pure $ ChangeOutput 0 (modifyTxOutValue (<> extraLovelace) headTxOut)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
