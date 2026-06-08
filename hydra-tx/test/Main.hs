@@ -4,6 +4,7 @@ import Hydra.Prelude
 
 import Hydra.Tx.AccumulatorSpec qualified
 import Hydra.Tx.ContestationPeriodSpec qualified
+import Hydra.Tx.Contract.Close.CloseAdaOverheadSpec qualified
 import Hydra.Tx.Contract.ContractSpec qualified
 import Hydra.Tx.HeadIdSpec qualified
 import Hydra.Tx.IsTxSpec qualified
@@ -17,6 +18,7 @@ main =
   defaultMainHydra
     "hydra-tx"
     [ testSpec "Accumulator" Hydra.Tx.AccumulatorSpec.spec
+    , testSpec "CloseAdaOverhead" Hydra.Tx.Contract.Close.CloseAdaOverheadSpec.spec
     , testSpec "ContestationPeriod" Hydra.Tx.ContestationPeriodSpec.spec
     , testSpec "Contract" Hydra.Tx.Contract.ContractSpec.spec
     , testSpec "HeadId" Hydra.Tx.HeadIdSpec.spec
