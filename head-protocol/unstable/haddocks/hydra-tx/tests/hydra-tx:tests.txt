@@ -52,7 +52,7 @@ healthyOutdatedAccumulatorHash :: Hash
 healthyCloseOutdatedTx :: (Tx, UTxO)
 data CloseMutation
 
--- | Ensures collectCom does not allow any output address but νHead.
+-- | Ensures the close transaction's continuing output is paid to νHead.
 NotContinueContract :: CloseMutation
 
 -- | Ensures the snapshot signature is multisigned by all valid Head
@@ -181,7 +181,7 @@ healthyCurrentAccumulatorHash :: Hash
 healthyCurrentOpenDatum :: State
 data CloseMutation
 
--- | Ensures collectCom does not allow any output address but νHead.
+-- | Ensures the close transaction's continuing output is paid to νHead.
 NotContinueContract :: CloseMutation
 
 -- | Ensures the snapshot signature is multisigned by all valid Head
@@ -368,7 +368,7 @@ module Hydra.Tx.Contract.Contest.ContestCurrent
 healthyContestAccumulatorHash :: Hash
 data ContestMutation
 
--- | Ensures collectCom does not allow any output address but νHead.
+-- | Ensures the contest transaction's continuing output is paid to νHead.
 NotContinueContract :: ContestMutation
 
 -- | Invalidates the tx by changing the redeemer signature but not the

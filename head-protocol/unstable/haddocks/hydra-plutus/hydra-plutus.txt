@@ -561,23 +561,21 @@ DecrementRedeemer :: [Signature] -> SnapshotNumber -> Integer -> DecrementRedeem
 -- | Spec: m
 [$sel:numberOfDecommitOutputs:DecrementRedeemer] :: DecrementRedeemer -> Integer
 data Input
-CollectCom :: Input
 Increment :: IncrementRedeemer -> Input
 Decrement :: DecrementRedeemer -> Input
 Close :: CloseRedeemer -> Input
 Contest :: ContestRedeemer -> Input
-Abort :: Input
 Fanout :: Integer -> Integer -> Integer -> Input
-[$sel:numberOfFanoutOutputs:CollectCom] :: Input -> Integer
-[$sel:numberOfCommitOutputs:CollectCom] :: Input -> Integer
-[$sel:numberOfDecommitOutputs:CollectCom] :: Input -> Integer
+[$sel:numberOfFanoutOutputs:Increment] :: Input -> Integer
+[$sel:numberOfCommitOutputs:Increment] :: Input -> Integer
+[$sel:numberOfDecommitOutputs:Increment] :: Input -> Integer
 PartialFanout :: Integer -> TxOutRef -> Input
-[$sel:numberOfPartialOutputs:CollectCom] :: Input -> Integer
-[$sel:crsRef:CollectCom] :: Input -> TxOutRef
+[$sel:numberOfPartialOutputs:Increment] :: Input -> Integer
+[$sel:crsRef:Increment] :: Input -> TxOutRef
 FinalPartialFanout :: Integer -> BuiltinBLS12_381_G1_Element -> TxOutRef -> Input
-[$sel:numberOfPartialOutputs:CollectCom] :: Input -> Integer
-[$sel:proof:CollectCom] :: Input -> BuiltinBLS12_381_G1_Element
-[$sel:crsRef:CollectCom] :: Input -> TxOutRef
+[$sel:numberOfPartialOutputs:Increment] :: Input -> Integer
+[$sel:proof:Increment] :: Input -> BuiltinBLS12_381_G1_Element
+[$sel:crsRef:Increment] :: Input -> TxOutRef
 instance PlutusTx.IsData.Class.ToData Hydra.Contract.HeadState.Input
 instance PlutusTx.IsData.Class.FromData Hydra.Contract.HeadState.Input
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.HeadState.Input

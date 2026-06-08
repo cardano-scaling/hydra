@@ -1108,7 +1108,8 @@ instance GHC.Show.Show Hydra.Tx.Decrement.DecrementObservation
 module Hydra.Tx.Close
 type PointInTime = (SlotNo, UTCTime)
 
--- | Representation of the Head output after a CollectCom transaction.
+-- | Representation of the head thread UTxO while the head is in the Open
+--   state.
 data OpenThreadOutput
 OpenThreadOutput :: (TxIn, TxOut CtxUTxO) -> ContestationPeriod -> [Party] -> OpenThreadOutput
 [$sel:openThreadUTxO:OpenThreadOutput] :: OpenThreadOutput -> (TxIn, TxOut CtxUTxO)
