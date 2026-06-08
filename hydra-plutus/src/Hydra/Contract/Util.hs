@@ -8,7 +8,7 @@ import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
 import Hydra.Data.Party (Party)
 import Hydra.Prelude (Show)
-import PlutusLedgerApi.V1.Value (geq, isZero)
+import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V3 (
   Address (..),
   Credential (..),
@@ -69,13 +69,11 @@ mustNotMintOrBurn TxInfo{txInfoMint} =
     isZero (mintValueMinted txInfoMint) && isZero (mintValueBurned txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
 
--- | Check whether own input and first output preserve value.
+-- | Check whether own input and first output preserve value exactly.
 mustPreserveHeadValue :: ScriptContext -> Bool
 mustPreserveHeadValue ctx =
   traceIfFalse $(errorCode HeadValueIsNotPreserved) $
-    -- XXX: The spec says == but in the real world the datum may grow between
-    -- states, which requires more ADA to cover "min utxo".
-    val' `geq` val
+    val' == val
  where
   val = maybe mempty (txOutValue . txInInfoResolved) $ findOwnInput ctx
 
