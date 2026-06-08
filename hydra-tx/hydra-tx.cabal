@@ -175,6 +175,7 @@ test-suite tests
   other-modules:
     Hydra.Tx.AccumulatorSpec
     Hydra.Tx.ContestationPeriodSpec
+    Hydra.Tx.Contract.Close.CloseAdaOverheadSpec
     Hydra.Tx.Contract.Close.CloseInitial
     Hydra.Tx.Contract.Close.CloseUnused
     Hydra.Tx.Contract.Close.CloseUsed
