@@ -331,7 +331,9 @@ fixedTimeHandleIndefiniteHorizon = do
 scriptLedger ::
   Ledger Tx
 scriptLedger =
-  Ledger{applyTransactions}
+  -- NOTE: This mock only validates scripts, so re-application reuses the same
+  -- logic.
+  Ledger{applyTransactions, reapplyTransactions = applyTransactions}
  where
   -- XXX: We could easily add 'slot' validation here and this would already
   -- emulate the dropping of outdated transactions from the cardano-node

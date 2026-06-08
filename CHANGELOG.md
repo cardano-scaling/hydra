@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Snapshot processing no longer re-evaluates Plutus scripts for transactions it
+  already validated on receipt.  This removes redundant script execution from the hot
+  path and noticeably increases sustained in-head throughput for script-heavy
+  workloads. [2717](https://github.com/cardano-scaling/hydra/pull/2717)
+
 ## [2.2.0] - 2026.06.12
 
 - Extend the end-to-end benchmark with real-world TPS metrics (end-to-end and
