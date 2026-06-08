@@ -2184,7 +2184,6 @@ components:
         - Open
         - Closed
         - FanoutPossible
-        - Final
 
     MultiSignature:
       type: object
@@ -2884,6 +2883,21 @@ components:
             tag:
               type: string
               enum: ["StalePartialFanoutTx"]
+        - title: ContestationDeadlineOutsideTimeHorizon
+          description: |
+            Raised when the contestation deadline falls outside the ledger's
+            time horizon and a contest transaction cannot be submitted.
+          type: object
+          additionalProperties: false
+          required:
+          - tag
+          - failureReason
+          properties:
+            tag:
+              type: string
+              enum: ["ContestationDeadlineOutsideTimeHorizon"]
+            failureReason:
+              type: string
         - title: DepositTooLow
           description: |
             Raised if the user requests a deposit using too small UTxO.

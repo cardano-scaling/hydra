@@ -534,20 +534,22 @@ data PartialFanoutError
 -- | Construct a partial fanout transaction that distributes a subset of UTxOs.
 -- Handles both first step (Closed → FanoutProgress) and intermediate steps
 -- (FanoutProgress → FanoutProgress) by detecting the current on-chain datum type.
+-- The first 'chunkSize' UTxOs from 'remainingUTxO' are distributed; the rest become
+-- the new remaining set.
 partialFanout ::
   ChainContext ->
   -- | Spendable UTxO containing head output
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Subset of UTxOs to distribute
-  UTxO ->
-  -- | Remaining UTxOs (after removing the distributed subset)
+  -- | Number of UTxOs to distribute in this step
+  Int ->
+  -- | Full remaining UTxOs (will be split into distribute + new remaining)
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   Either PartialFanoutError Tx
-partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo = do
+partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -556,9 +558,12 @@ partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadline
     Head.Closed closedDatum -> pure (Head.progressFromClosed closedDatum)
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  -- Guard against stale chain state: on-chain commitment must match distribute ∪ remaining.
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> remainingUTxO)
-  let remainingAccumulator = Accumulator.buildFromUTxO @Tx remainingUTxO
+  -- Guard against stale chain state: on-chain commitment must match remainingUTxO.
+  _fullAccumulator <- buildAndVerifyAccumulator progressDatum remainingUTxO
+  let allPairs = UTxO.toList remainingUTxO
+      utxoToDistribute = UTxO.fromList (take chunkSize allPairs)
+      rest = UTxO.fromList (drop chunkSize allPairs)
+  let remainingAccumulator = Accumulator.buildFromUTxO @Tx rest
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
   ChainContext{scriptRegistry} = ctx
@@ -581,9 +586,10 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = 
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
   headState <- readHeadState headUTxO
-  case headState of
-    Head.FanoutProgress{} -> pure ()
+  progressDatum <- case headState of
+    Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
+  _fullAccumulator <- buildAndVerifyAccumulator progressDatum utxoToDistribute
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
@@ -811,15 +817,15 @@ unsafePartialFanout ::
   UTxO ->
   -- | Seed TxIn
   TxIn ->
-  -- | Subset of UTxOs to distribute in this partial fanout
-  UTxO ->
-  -- | Remaining UTxOs after this partial fanout
+  -- | Number of UTxOs to distribute in this step
+  Int ->
+  -- | Full remaining UTxOs (will be split into distribute + new remaining)
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   Tx
-unsafePartialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo =
-  either (error . show) id $ partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlotNo
+unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo =
+  either (error . show) id $ partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo
 
 unsafeFinalPartialFanout ::
   HasCallStack =>

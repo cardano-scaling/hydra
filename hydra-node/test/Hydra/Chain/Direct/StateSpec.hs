@@ -10,7 +10,9 @@ import Test.Hydra.Prelude hiding (HydraTestnet (..))
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
 import Data.ByteString.Lazy qualified as LBS
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
+  ExecutionUnits (..),
   SlotNo,
   Tx,
   TxIn,
@@ -40,13 +42,16 @@ import Hydra.Chain.Direct.State (
   PartialFanoutError (..),
   ctxHeadParameters,
   ctxParticipants,
+  finalPartialFanout,
   getKnownUTxO,
   initialize,
   partialFanout,
   unsafeIncrement,
+  unsafePartialFanout,
  )
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (txInToHeadSeed)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
@@ -82,12 +87,13 @@ import Test.Hydra.Chain.Direct.State (
   genHydraContext,
   genIncrementTx,
   genPartialFanoutTx,
+  genPartialFanoutTxWithComplexUTxO,
   genRecoverTx,
   maxGenParties,
   pickChainContext,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
-import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, maxTxSize)
+import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize)
 import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genTxOutAdaOnly, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
@@ -228,16 +234,42 @@ spec = parallel $ do
   describe "partialFanout" $ do
     propBelowSizeLimit maxTxSize forAllPartialFanout
     propIsValid forAllPartialFanout
+    prop "validates within 90% of maxTxExecutionUnits for complex UTxO" $
+      forAll (genPartialFanoutTxWithComplexUTxO maximumNumberOfParties) $ \(ctx, _, spendableUTxO, tx) ->
+        let utxo = spendableUTxO <> getKnownUTxO ctx
+            safeUnits =
+              ExecutionUnits
+                { executionMemory = maxMem * 9 `div` 10
+                , executionSteps = maxCpu * 9 `div` 10
+                }
+         in case evaluateTx' safeUnits tx utxo of
+              Right report ->
+                all isRight (Map.elems report)
+                  & counterexample ("Redeemer report:\n  " <> toString (renderEvaluationReport report))
+              Left err ->
+                property False
+                  & counterexample ("Evaluation failed within 90% budget: " <> show err)
     prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
-        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, _utxoToDistribute, _remainingUTxO) ->
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, _u0) ->
           -- Pass empty UTxO so the accumulator commitment won't match
-          partialFanout ctx spendableUTxO seedTxIn mempty mempty deadlineSlotNo
+          partialFanout ctx spendableUTxO seedTxIn 1 mempty deadlineSlotNo
             === Left StaleChainState
 
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
     propIsValid forAllFinalPartialFanout
+    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
+      -- Use genClosedStateForFanout and build the fanoutProgressUTxO manually to
+      -- avoid eagerly evaluating the (potentially crashing) final fanout tx from
+      -- genFinalPartialFanoutTx.
+      forAll (genClosedStateForFanout maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
+          let fanoutProgressUTxO = utxoFromTx $ unsafePartialFanout ctx spendableUTxO seedTxIn 1 u0 deadlineSlotNo
+           in -- Pass empty UTxO so the accumulator commitment won't match
+              case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty deadlineSlotNo of
+                Left StaleChainState -> property True
+                other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
@@ -280,8 +312,8 @@ prop_observeAnyTx =
               False & counterexample ("observeHeadTx ignored transaction: " <> renderTxWithUTxO utxo tx)
             -- NOTE: we don't have the generated headId easily accessible in the initial state
             Init{} -> transition === Transition.Init
-            Deposit DepositObservation{} -> property False
-            Recover RecoverObservation{} -> property False
+            Deposit DepositObservation{headId} -> transition === Transition.Deposit .&&. Just headId === expectedHeadId
+            Recover RecoverObservation{headId} -> transition === Transition.Recover .&&. Just headId === expectedHeadId
             Increment IncrementObservation{headId} -> transition === Transition.Increment .&&. Just headId === expectedHeadId
             Decrement DecrementObservation{headId} -> transition === Transition.Decrement .&&. Just headId === expectedHeadId
             Close CloseObservation{headId} -> transition === Transition.Close .&&. Just headId === expectedHeadId

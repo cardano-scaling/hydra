@@ -21,7 +21,6 @@ import Control.Monad.IOSim (IOSim, runSimTrace, selectTraceEventsDynamic)
 import Data.List ((!!))
 import Data.List qualified as List
 import Data.List.NonEmpty qualified as NE
-import Data.Set qualified as Set
 import Hydra.API.ClientInput
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..))
@@ -1045,9 +1044,9 @@ spec = parallel $ do
           withHydraNode aliceSk [] chain $ \n1 -> do
             send n1 Init
             waitUntil [n1] $ HeadIsOpen testHeadId (fromList [alice])
-            -- We expect one Commit AND the CollectCom to be rolled back and
-            -- forward again
-            rollbackAndForward chain 2
+            -- We expect the Init (which now opens the head directly) to be
+            -- rolled back and forward again
+            rollbackAndForward chain 1
             -- We expect the node to still work and let us post L2 transactions
             send n1 (NewTx (aValidTx 42))
             waitUntil [n1] $ TxValid testHeadId 42
@@ -1357,8 +1356,6 @@ toOnChainTx now = \case
       }
   FanoutTx{utxo, utxoToCommit, utxoToDecommit} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxo <> fromMaybe mempty utxoToCommit <> fromMaybe mempty utxoToDecommit}
-  PartialFanoutTx{utxoToDistribute} ->
-    OnPartialFanoutTx{headId = testHeadId, distributedOutputs = Set.fromList (outputsOfUTxO utxoToDistribute)}
   FinalPartialFanoutTx{utxoToDistribute} ->
     OnFanoutTx{headId = testHeadId, fanoutUTxO = utxoToDistribute}
 

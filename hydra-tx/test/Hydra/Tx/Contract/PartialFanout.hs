@@ -23,11 +23,10 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.IsTx (IsTx (hashUTxO))
-import Hydra.Tx.KZGTrustedSetup (fanoutChunkSize, fanoutOutputThreshold)
 import Hydra.Tx.Party (Party, partyToChain, vkey)
 import Hydra.Tx.Utils (adaOnly, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
-import Test.Hydra.Tx.Fixture (slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
+import Test.Hydra.Tx.Fixture (fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (genAddressInEra, genForParty, genScriptRegistryWithCRSSize, genUTxOWithSimplifiedAddresses, genValue, genVerificationKey)
 import Test.Hydra.Tx.Mutation (Mutation (..), SomeMutation (..), changeMintedTokens, modifyInlineDatum, replaceAccumulatorCommitment, replaceContestationDeadline, replaceHeadId, replaceParties)
 import Test.QuickCheck (choose, elements, oneof, resize, suchThat)
@@ -235,8 +234,6 @@ data PartialFanoutMutation
   | -- | Continuing datum must carry the correct remaining accumulator commitment
     MutatePartialFanoutWrongAccumulator
   | -- | Supplying a fake CRS UTxO (no CRS reference script) should be rejected.
-    -- Currently passes because withCRSLookup does not authenticate the reference script.
-    -- Expected to fail with InvalidCRSRefScript.
     MutatePartialFanoutFakeCRS
   deriving stock (Generic, Show, Enum, Bounded)
 

@@ -448,7 +448,11 @@ waitForAllConfirmations n1 Registry{processedTxs} allIds = do
             confirmedIds <- mapM (confirmTx processedTxs) txIds
             go $ remainingIds \\ Set.fromList confirmedIds
 
-  waitForSnapshotConfirmation = waitMatch 20 n1 $ \v ->
+  -- 60s (was 20s) so the pumba network-loss benchmark
+  -- ('.github/workflows/network-test.yaml', up to 90% packet loss) has
+  -- enough headroom for snapshot confirmation under repeated gRPC
+  -- retries. Tighten only after re-running that workflow.
+  waitForSnapshotConfirmation = waitMatch 60 n1 $ \v ->
     maybeTxValid v <|> maybeTxInvalid v <|> maybeSnapshotConfirmed v
 
   maybeTxValid :: Value -> Maybe WaitResult

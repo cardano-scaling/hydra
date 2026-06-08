@@ -163,7 +163,7 @@ healthyCloseOutdatedTx =
       }
 
 data CloseMutation
-  = -- | Ensures collectCom does not allow any output address but νHead.
+  = -- | Ensures the close transaction's continuing output is paid to νHead.
     NotContinueContract
   | -- | Ensures the snapshot signature is multisigned by all valid Head
     -- participants.

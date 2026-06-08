@@ -29,6 +29,7 @@ import Hydra.Cluster.Util (Timing (..), readConfigFile)
 import Hydra.Logging (Tracer, Verbosity (..), traceWith)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
+import Hydra.Network.Etcd (peerPortToClientPort)
 import Hydra.Options (BlockfrostOptions (..), CardanoChainConfig (..), ChainBackendOptions (..), ChainConfig (..), DirectOptions (..), LedgerConfig (..), RunOptions (..), defaultBFQueryTimeout, defaultCardanoChainConfig, defaultDirectOptions, nodeSocket, toArgs)
 import Hydra.Tx (ConfirmedSnapshot)
 import Hydra.Tx.Crypto (HydraKey)
@@ -54,7 +55,7 @@ import System.Process.Typed (
  )
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Prelude qualified as Prelude
-import Test.Network.Ports (randomUnusedTCPPorts)
+import Test.Network.Ports (randomUnusedTCPPorts, randomUnusedTCPPortsWithDerived)
 import Prelude qualified
 
 -- * Client to interact with a hydra-node
@@ -368,28 +369,52 @@ allocateHydraNodePorts = do
 -- must be passed to every 'prepareHydraNode' / 'withHydraNode' call for
 -- nodes in this cluster so peers can be addressed correctly.
 --
--- All @3 * length nodeIds@ ports are requested in a single
--- 'randomUnusedTCPPorts' call so they're mutually unique. A per-node loop
--- would close each batch's sockets between calls, letting the kernel hand
--- back a just-released port to a later node — which is exactly how
--- @--listen@ for one node ended up equal to @--monitoring-port@ for another
--- and crashed etcd with @EADDRINUSE@ in the 'two heads on the same network'
--- test.
+-- Listen ports are taken via 'randomUnusedTCPPortsWithDerived' so each
+-- listen port's derived etcd /client/ port — 'peerPortToClientPort' — is
+-- actually held bound at allocation time. That defends against two
+-- failure modes: an unrelated process on the host occupying the derived
+-- port (which a plain 'randomUnusedTCPPorts' would not catch and which
+-- explodes as @EADDRINUSE@ the moment etcd starts), and an unlucky draw
+-- where the derived port lands on top of another node's api/monitoring
+-- port (which used to make the GRPC client talk to Warp instead of
+-- etcd).
+--
+-- Api and monitoring ports are then acquired in a second batch and
+-- checked to be disjoint from both the listen ports and the derived
+-- client ports; on collision we retry that second batch.
 allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
 allocateHydraNodePortsFor nodeIds = do
-  ports <- randomUnusedTCPPorts (3 * length nodeIds)
-  pure $ Map.fromList $ zip nodeIds (chunk3 ports)
+  listenPorts <- randomUnusedTCPPortsWithDerived peerPortToClientPort n
+  let derivedClientPorts =
+        [ fromIntegral (peerPortToClientPort (fromIntegral p))
+        | p <- listenPorts
+        ]
+      reserved = listenPorts <> derivedClientPorts
+  apiAndMonPorts <- acquireDisjoint reserved (20 :: Int)
+  let apiPorts = take n apiAndMonPorts
+      monPorts = drop n apiAndMonPorts
+      assigned = Prelude.zipWith3 mkPorts apiPorts listenPorts monPorts
+  pure $ Map.fromList $ zip nodeIds assigned
  where
-  chunk3 :: [Int] -> [HydraNodePorts]
-  chunk3 = \case
-    a : l : m : rest ->
-      HydraNodePorts
-        { apiPort = fromIntegral a
-        , listenPort = fromIntegral l
-        , monitoringPort = fromIntegral m
-        }
-        : chunk3 rest
-    _ -> []
+  n = length nodeIds
+
+  acquireDisjoint :: [Int] -> Int -> IO [Int]
+  acquireDisjoint _ 0 =
+    fail
+      "allocateHydraNodePortsFor: ran out of retries trying to keep the api/monitoring ports disjoint from the derived etcd client ports"
+  acquireDisjoint reserved remaining = do
+    ps <- randomUnusedTCPPorts (2 * n)
+    if null (ps `List.intersect` reserved)
+      then pure ps
+      else acquireDisjoint reserved (remaining - 1)
+
+  mkPorts :: Int -> Int -> Int -> HydraNodePorts
+  mkPorts a l m =
+    HydraNodePorts
+      { apiPort = fromIntegral a
+      , listenPort = fromIntegral l
+      , monitoringPort = fromIntegral m
+      }
 
 -- | Process-global cache mapping each @(workDir, nodeId)@ to its allocated
 -- ports. The cache exists because restart-style tests (re-running

@@ -75,6 +75,7 @@ import Hydra.Cluster.Scenarios (
 import Hydra.Cluster.Util (Timing, chainConfigFor, depositTimeout, keysFor, mkTestTiming, setNetworkId)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
+import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head qualified as Head
@@ -118,10 +119,8 @@ import Test.QuickCheck (generate)
 --
 -- A third party submits a standalone tx that spends a pending deposit UTxO
 -- with the @Claim@ redeemer, redirecting the value to their own address.
--- The tx has no Head input at all, so there is no Head output either. The
--- deposit validator's @Claim@ branch requires some transaction output to
--- carry a Head state-token whose policy id matches @datum.head_id@, so the
--- standalone tx fails with @HeadOutputNotFound@ (D07).
+-- The tx has no Head input at all, so the deposit validator's @Claim@
+-- branch fails on @list.find@ with @DepositHeadInputNotFound@ (D06).
 cannotStealDepositWithoutHeadInput ::
   Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 cannotStealDepositWithoutHeadInput tracer workDir opts hydraScriptsTxId =
@@ -169,6 +168,9 @@ cannotStealDepositWithoutHeadInput tracer workDir opts hydraScriptsTxId =
           , attackerSk = kateSk
           , attackerAddr = kateAddr
           , spendable = depositUTxO <> kateFundsUTxO
+          , -- No head input is consumed at all, so the deposit's Claim
+            -- branch fails on @list.find@ with @DepositHeadInputNotFound@.
+            expectedTrace = toString (toErrorCode DepositHeadInputNotFound)
           }
 
       assertDepositStillLocked opts depositTxId' stolenValue
@@ -180,10 +182,10 @@ cannotStealDepositWithoutHeadInput tracer workDir opts hydraScriptsTxId =
 -- | The attacker mints a counterfeit token of asset name @HydraHeadV2@
 -- under a permissive minting policy they control, locks it in their own
 -- wallet, and uses that UTxO as bait alongside a victim deposit. The
--- deposit validator's @Claim@ branch requires a transaction output carrying
--- a Head state-token whose policy id matches @datum.head_id@; a counterfeit
--- @HydraHeadV2@ minted under any non-head policy is absent from the outputs,
--- so the tx is rejected with @HeadOutputNotFound@ (D07).
+-- deposit validator's @Claim@ branch searches the inputs for a UTxO that
+-- carries the real head's policy id; the counterfeit token's policy id
+-- does not match, so the validator fails with
+-- @DepositHeadInputNotFound@ (D06).
 cannotStealDepositWithCounterfeitHeadToken ::
   Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 cannotStealDepositWithCounterfeitHeadToken tracer workDir opts hydraScriptsTxId =
@@ -244,6 +246,10 @@ cannotStealDepositWithCounterfeitHeadToken tracer workDir opts hydraScriptsTxId 
           , attackerSk = kateSk
           , attackerAddr = kateAddr
           , spendable = depositUTxO <> kateUTxO
+          , -- The counterfeit token's policy id does not match the real
+            -- head's policy id, so @list.find@ in the deposit Claim branch
+            -- fails to identify any head input.
+            expectedTrace = toString (toErrorCode DepositHeadInputNotFound)
           }
 
       assertDepositStillLocked opts depositTxId' stolenValue
@@ -294,13 +300,17 @@ data AttemptArgs = AttemptArgs
   , attackerSk :: CAPI.SigningKey CAPI.PaymentKey
   , attackerAddr :: CAPI.AddressInEra
   , spendable :: CAPI.UTxO
+  , expectedTrace :: String
+  -- ^ Plutus error trace (e.g. @"D06"@) expected on the autobalancer's
+  -- 'Left'. The build error must contain this trace; any other 'Left'
+  -- (insufficient ada for fees, integrity-hash mismatch, era hiccup, ...)
+  -- is treated as a test failure rather than success.
   }
 
--- | Build, (try to) submit a steal transaction, and assert it is rejected
--- by either the autobalancer's script-evaluation phase (a 'Left' from
--- 'buildTransactionWithBody' whose error trace mentions
--- 'HeadOutputNotFound'/D07) or by the node's submission phase (a thrown
--- 'SubmitTransactionException').
+-- | Build a steal transaction and assert the autobalancer rejects it
+-- specifically because the deposit validator failed with
+-- 'AttemptArgs.expectedTrace'. Any other 'Left' (insufficient ada,
+-- integrity hash mismatch, era issue, ...) is treated as a test failure.
 attemptStealAndAssertRejected :: AttemptArgs -> IO ()
 attemptStealAndAssertRejected
   AttemptArgs
@@ -312,6 +322,7 @@ attemptStealAndAssertRejected
     , attackerSk = _
     , attackerAddr
     , spendable
+    , expectedTrace
     } = do
     let claimRedeemer = toScriptData $ Deposit.redeemer Deposit.Claim
         depositWitness =
@@ -343,7 +354,7 @@ attemptStealAndAssertRejected
             & setTxProtocolParams (BuildTxWith $ Just $ LedgerProtocolParameters pparams)
 
     case buildTransactionWithBody pparams systemStart eraHistory stakePools attackerAddr body spendable of
-      Left _ -> pure ()
+      Left e -> show e `shouldContain` expectedTrace
       Right _ ->
         error "expected script evaluation to reject the steal tx, but the build succeeded"
 

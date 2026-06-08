@@ -35,7 +35,7 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, safeZone, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, fanoutChunkSize, fanoutOutputThreshold, newState, noop, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), RequirementFailure (..), SideLoadRequirementFailure (..), StateChanged (..), TTL, WaitReason (..), aggregateState, cause, newState, noop, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkRangedTx, mkSimpleTx)
@@ -70,7 +70,7 @@ import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
-import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId, testHeadSeed)
+import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
 import Test.QuickCheck (Property, counterexample, elements, forAll, forAllShrink, oneof, shuffle, suchThat)
 import Test.QuickCheck.Gen (generate)
@@ -356,6 +356,35 @@ spec =
               chs.version `shouldBe` 3
               chs.localUTxO `shouldBe` ownUTxO
             _ -> fail "expected Open state"
+
+        it "HeadClosed from another head does not transition Open to Closed during replay" $ do
+          otherHeadId :: HeadId <- generate arbitrary
+          let s0 = inOpenState threeParties
+              closedEvent =
+                HeadClosed
+                  { headId = otherHeadId
+                  , snapshotNumber = 0
+                  , chainState = 0
+                  , contestationDeadline = arbitrary `generateWith` 42
+                  }
+          let s1 = aggregateState s0 $ Continue [closedEvent] []
+          case s1 of
+            NodeInSync{headState = Open _} -> pure ()
+            other -> fail $ "expected Open state, got: " <> show other
+
+        it "HeadFannedOut from another head does not transition Closed to Idle during replay" $ do
+          otherHeadId :: HeadId <- generate arbitrary
+          let s0 = inClosedState threeParties
+              fanoutEvent =
+                HeadFannedOut
+                  { headId = otherHeadId
+                  , finalizedOutputs = mempty
+                  , chainState = 0
+                  }
+          let s1 = aggregateState s0 $ Continue [fanoutEvent] []
+          case s1 of
+            NodeInSync{headState = Closed _} -> pure ()
+            other -> fail $ "expected Closed state, got: " <> show other
 
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
@@ -1618,23 +1647,22 @@ spec =
               HeadPartialFannedOut{} -> True
               _ -> False
           -- Should also trigger the next fanout automatically. After observing a
-          -- PartialFanout the phase is always FanoutInProgress, so FanoutTx is
-          -- never emitted here — only PartialFanoutTx (more chunks) or
-          -- FinalPartialFanoutTx (last chunk).
+          -- PartialFanout the phase is always FanoutInProgress, so HeadLogic
+          -- always emits FinalPartialFanoutTx (Handlers decides whether to
+          -- actually do a partial chunk or finalize based on tx evaluation).
           run $
             outcome `hasEffectSatisfying` \case
-              OnChainEffect{postChainTx = PartialFanoutTx{}} -> True
               OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
               _ -> False
 
-      it "partial fanout with large remaining triggers another PartialFanoutTx" $ do
+      it "partial fanout with large remaining triggers FinalPartialFanoutTx" $ do
         let bigRemaining = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
             st = inClosedStateWithRemaining threeParties (Just bigRemaining)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = mempty})
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
-            Set.size utxoToDistribute == fanoutChunkSize
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} ->
+            Set.size utxoToDistribute == Set.size bigRemaining
           _ -> False
 
       it "partial fanout reduces remainingUTxO by distributedUTxO" $ do
@@ -1646,14 +1674,13 @@ spec =
         let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
         outcome `hasStateChangedSatisfying` \case
           HeadPartialFannedOut{remainingOutputs} ->
-            Set.size remainingOutputs == Set.size allItems - fanoutChunkSize
+            Set.size remainingOutputs == Set.size allItems - Set.size distributed
           _ -> False
 
       it "partial fanout of non-prefix items tracks remaining by content, not by count" $ do
-        -- This test demonstrates the robustness requirement: an adversary can
-        -- submit a valid partial fanout of UTxOs that are NOT the prefix of the
-        -- full set in internal sort order. The remaining computation must use
-        -- content-based set-difference, not a count-based positional split.
+        -- An adversary can submit a valid partial fanout of UTxOs that are NOT the
+        -- prefix of the full set. The remaining computation must use content-based
+        -- set-difference, not a count-based positional split.
         let total = fanoutOutputThreshold + fanoutChunkSize + 1
             allItems = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral total]]
             -- Adversarial distribution: the LAST fanoutChunkSize items, not the first.
@@ -1669,7 +1696,6 @@ spec =
                 now
                 st
                 (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = attackedDistributed})
-        -- remainingOutputs must equal allItems minus the actually-distributed items.
         outcome `hasStateChangedSatisfying` \case
           HeadPartialFannedOut{remainingOutputs} ->
             remainingOutputs == Set.difference allItems attackedDistributed
@@ -1701,32 +1727,19 @@ spec =
           OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == mempty
           _ -> False
 
-      it "client fanout triggers PartialFanoutTx when snapshot UTxO exceeds threshold" $ do
-        -- fanoutOutputThreshold + 1 UTxOs must produce PartialFanoutTx
+      it "client fanout always triggers FanoutTx for FreshFanout phase" $ do
         let bigUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold + 1]]
             snap = testSnapshot 1 0 [] bigUTxO
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let outcome = update bobEnv ledger now st (ClientInput Fanout)
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
-            Set.size utxoToDistribute == fanoutChunkSize
-          _ -> False
-
-      it "client fanout uses FanoutTx when snapshot UTxO is exactly at threshold" $ do
-        -- exactly fanoutOutputThreshold UTxOs must produce FanoutTx
-        let thresholdUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral fanoutOutputThreshold]]
-            snap = testSnapshot 1 0 [] thresholdUTxO
-            st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now st (ClientInput Fanout)
-        outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == thresholdUTxO
+          OnChainEffect{postChainTx = FanoutTx{utxo}} -> utxo == bigUTxO
           _ -> False
 
       it "client fanout resumes from remaining UTxOs when prior step posting failed due to insufficient funds" $ do
         -- Build a snapshot large enough to require at least two partial fanout steps:
-        -- first step distributes fanoutChunkSize, leaving fanoutOutputThreshold + 1 → another PartialFanoutTx.
+        -- first step distributes fanoutChunkSize, leaving fanoutOutputThreshold + 1 → FinalPartialFanoutTx.
         let totalCount = fanoutOutputThreshold + fanoutChunkSize + 1
             allUTxO = Set.fromList [SimpleTxOut i | i <- [1 .. fromIntegral totalCount]]
             snap = testSnapshot 1 0 [] allUTxO
@@ -1757,7 +1770,7 @@ spec =
         -- If fanout restarted from scratch it would re-distribute distributed1,
         -- making Set.disjoint fail.
         outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} ->
+          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} ->
             Set.isSubsetOf utxoToDistribute remaining1
               && Set.disjoint utxoToDistribute distributed1
           _ -> False
@@ -1769,7 +1782,7 @@ spec =
         -- as an error to the API client.
         let st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let postTxError = ChainInput PostTxError{postChainTx = PartialFanoutTx{utxoToDistribute = mempty, remainingUTxO = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
+        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
             outcome = update bobEnv ledger now st postTxError
         outcome `hasNoEffectSatisfying` \case
           ClientEffect{} -> True
@@ -1975,6 +1988,97 @@ spec =
           now <- nowFromSlot startingState.chainPointTime.currentSlot
           update bobEnv ledger now startingState (ClientInput (SideLoadSnapshot confirmedSnapshotOtherHead))
             `shouldBe` Error (NotOurHead{ourHeadId = testHeadId, otherHeadId})
+
+        it "recovered deposit must not appear in new snapshot utxo after sideload" $ do
+          -- Regression test for https://github.com/cardano-scaling/hydra/issues/2629
+          --
+          -- After a deposit snapshot is confirmed but IncrementTx never finalises
+          -- and the deposit is recovered on L1, sideloading that snapshot and then
+          -- triggering a new L2 snapshot must not reintroduce the recovered deposit
+          -- into the new snapshot's utxo.
+          now <- getCurrentTime
+          let plusTime = flip addUTCTime
+              depositTime = plusTime now
+              depositTxId = 42 :: Integer
+              depositedUTxO = utxoRef depositTxId
+              aliceEnv' =
+                aliceEnv
+                  { otherParties = []
+                  , participants = deriveOnChainId <$> [alice]
+                  }
+              singleParty = [alice]
+              activeDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = depositTime 1
+                  , deadline = depositTime 600
+                  , status = Active
+                  }
+              depositSnapshot =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUTxO
+                  , utxoToDecommit = Nothing
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUTxO) Nothing
+                  }
+              depositMultisig = aggregate [sign aliceSk depositSnapshot]
+          -- Start with deposit already active and tracked
+          let s0 =
+                ( inOpenState' singleParty $
+                    coordinatedHeadState{currentDepositTxId = Just depositTxId}
+                )
+                  { pendingDeposits = Map.singleton depositTxId activeDeposit
+                  }
+          -- Step 1: Confirm snapshot 1 including the deposit in utxoToCommit
+          s1 <- runHeadLogic aliceEnv' ledger s0 $ do
+            step $ receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId)
+            step $ receiveMessage $ AckSn (sign aliceSk depositSnapshot) 1
+            getState
+          -- Step 2: Recover the deposit (IncrementTx never finalized on-chain)
+          s2 <- runHeadLogic aliceEnv' ledger s1 $ do
+            step $
+              observeTxAtSlot 2 $
+                OnRecoverTx
+                  { headId = testHeadId
+                  , recoveredTxId = depositTxId
+                  , recoveredUTxO = depositedUTxO
+                  }
+            getState
+          Map.lookup depositTxId s2.pendingDeposits `shouldBe` Nothing
+          -- Step 3: Sideload snapshot 1 to unstick the head
+          s3 <- runHeadLogic aliceEnv' ledger s2 $ do
+            step $ ClientInput $ SideLoadSnapshot $ ConfirmedSnapshot depositSnapshot depositMultisig
+            getState
+          -- Step 4: Submit a new L2 transaction
+          let newTx = aValidTx 1
+          s4 <- runHeadLogic aliceEnv' ledger s3 $ do
+            step $ receiveMessage $ ReqTx newTx
+            getState
+          -- Step 5: Process the new snapshot request — the recovered deposit must not
+          -- appear in the new snapshot's utxo field
+          let reqSn2 = receiveMessage $ ReqSn 0 2 [txId newTx] Nothing Nothing
+          outcome <- runHeadLogic aliceEnv' ledger s4 $ step reqSn2
+          -- Extract the new snapshot's utxo and show both sides of the invariant:
+          -- depositedUTxO is on L1 (it was recovered), and must not also be on L2.
+          case outcome of
+            Continue{stateChanges} -> do
+              let mSnapUtxo =
+                    listToMaybe
+                      [ utxo
+                      | SnapshotRequested{requestedSnapshot = Snapshot{utxo}} <- stateChanges
+                      ]
+              case mSnapUtxo of
+                Nothing -> expectationFailure "Expected SnapshotRequested state change"
+                Just snapUtxo ->
+                  -- The intersection of {recovered L1 deposit} and {new L2 snapshot utxo}
+                  -- must be empty — the same UTxO cannot exist on both layers.
+                  Set.intersection depositedUTxO snapUtxo `shouldBe` mempty
+            _ -> expectationFailure $ "Expected Continue outcome, got: " <> show outcome
 
     describe "Coordinated Head Protocol using real Tx" $ do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv

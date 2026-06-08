@@ -10,24 +10,15 @@ changes.
 
 ## [UNRELEASED]
 
-- Snapshot processing no longer re-evaluates Plutus scripts for transactions it
-  already validated on receipt. When applying the requested transactions while
-  constructing a snapshot (and when pruning the local transaction set), the node
-  now re-applies them via the ledger's `reapplyTx`, which skips the static checks
-  (script evaluation and witness cryptography) while still running the
-  state-dependent checks. This removes redundant script execution from the hot
-  path and noticeably increases sustained in-head throughput for script-heavy
-  workloads. The node falls back to full application when a commit or decommit
-  reshapes the active UTxO. No protocol or API change.
-
-- Heads with large UTxO sets (above the fanout output threshold) can now be
-  fanned out in multiple steps using `PartialFanoutTx` and `FinalPartialFanoutTx`
-  transactions. Each step distributes a fixed-size chunk of outputs and uses a
-  BLS accumulator membership proof to verify correctness on-chain. The final step
-  burns the head tokens and completes the fanout.
+- Heads with large UTxO sets can now be fanned out in multiple steps using
+  `PartialFanoutTx` and `FinalPartialFanoutTx` transactions [#2324](https://github.com/cardano-scaling/hydra/pull/2324).
+  Each step distributes as many outputs as fit in a single transaction (determined
+  dynamically via binary search [#2617](https://github.com/cardano-scaling/hydra/pull/2617)) and uses a BLS accumulator
+  membership proof to verify correctness on-chain. The final step burns the head
+  tokens and completes the fanout. This removes the previous limit of UTxOs per head.
 
 - **BREAKING** Several fields renamed or retype-changed across the API and
-  persisted state:
+  persisted state [#2324](https://github.com/cardano-scaling/hydra/pull/2324):
   - `HeadIsFinalized` server output: `utxo` renamed to `finalizedUTxO`; type
     changed from a UTxO map (object keyed by `TxIn`) to an array of `TxOut`
     values, since intermediate partial fanout outputs do not carry spending
@@ -44,6 +35,20 @@ changes.
 - Reduce on-disk event-store growth by removing redundant `newLocalUTxO` fields
   from per-tx and per-snapshot `StateChanged` events; aggregate recomputes the
   post-tx UTxO via pure arithmetic, no ledger needed.
+
+- Significantly revised hydra-tui [#2590](https://github.com/cardano-scaling/hydra/pull/2590):
+  - Pending-deposit recovery from both `Open` and `Closed`/`Final` head states (`r`).
+  - Dark/light theme toggle (`F3`) persisted to `$XDG_CONFIG_HOME/hydra/tui-config.yaml`.
+  - Event-history filter — show all messages or errors only (`e`).
+  - Tab navigation (`1`/`2`/`3` and ←/→) and event-detail toggle (`d`).
+  - Refactored rendering into per-tab modules and a dedicated message renderer.
+
+- Fix a bug where replaying persisted events from a previous head could corrupt
+the state of a newly opened head.
+
+- Fix a bug where a recovered incremental-commit deposit could reappear in the
+  L2 UTxO after sideloading a snapshot, making the same UTxO spendable on both
+  L1 and L2 simultaneously [#2629](https://github.com/cardano-scaling/hydra/issues/2629).
 
 ## [2.1.0] - 2026.05.13
 

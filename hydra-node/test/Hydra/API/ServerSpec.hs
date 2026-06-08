@@ -239,37 +239,32 @@ spec =
     it "displays correctly headStatus and snapshotUtxo in a Greeting message" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
+          -- Use a single headId throughout so the headId validation in
+          -- 'aggregateNodeState' does not drop events from a mismatched head.
+          headId <- generate arbitrary
+
           -- Prime some relevant server outputs already into event source to
           -- check whether the latest headStatus is loaded correctly.
           existingStateChanges <-
             generate $
               mapM
                 (>>= genStateEvent)
-                [ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
-                , Outcome.HeadFannedOut <$> arbitrary <*> arbitrary <*> arbitrary
+                [ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
                 ]
           let eventSource = mockSource existingStateChanges
 
           withTestAPIServer port alice eventSource tracer $ \(EventSink{putEvent}, _) -> do
             let generateSnapshot =
-                  Outcome.SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
+                  (Outcome.SnapshotConfirmed headId . Just <$> arbitrary) <*> arbitrary
 
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (Aeson.Array mempty)
 
-            (headId, headIsOpenMsg) <- generate $ do
-              headId <- arbitrary
-              output <-
-                genStateEvent
-                  =<< ( Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> pure headId <*> arbitrary <*> arbitrary
-                      )
-              pure (headId, output)
-
             snapShotConfirmedMsg@StateEvent{stateChanged = Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo, utxoToCommit}}} <-
               generate $ genStateEvent =<< generateSnapshot
 
-            mapM_ putEvent [headIsOpenMsg, snapShotConfirmedMsg]
+            putEvent snapShotConfirmedMsg
             waitForValue port $ \v -> do
               guard $ v ^? key "headStatus" == Just (Aeson.String "Open")
               guard $ v ^? key "snapshotUtxo" == Just (toJSON $ utxo <> fromMaybe mempty utxoToCommit)
@@ -279,10 +274,11 @@ spec =
                 Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo = utxo', utxoToCommit = utxoToCommit'}}
               } <-
               generate $ genStateEvent =<< generateSnapshot
-            headClosedMsg <- generate $ do
-              genStateEvent
-                =<< ( Outcome.HeadClosed headId <$> arbitrary <*> arbitrary <*> arbitrary
-                    )
+            headClosedMsg <-
+              generate $
+                genStateEvent
+                  =<< ( Outcome.HeadClosed headId <$> arbitrary <*> arbitrary <*> arbitrary
+                      )
             readyToFanoutMsg <- generate $ genStateEvent Outcome.HeadIsReadyToFanout{headId}
 
             mapM_ putEvent [snapShotConfirmedMsg', headClosedMsg, readyToFanoutMsg]
@@ -293,9 +289,9 @@ spec =
     it "greets with correct head status and snapshot utxo after restart" $
       showLogsOnFailure "ServerSpec" $ \tracer ->
         withFreePort $ \port -> do
-          headIsOpenMsg <- generate $ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+          headIsOpenMsg@Outcome.HeadOpened{headId = openedHeadId} <- generate $ Outcome.HeadOpened <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
-          let generateSnapshot = generate $ Outcome.SnapshotConfirmed <$> arbitrary <*> (Just <$> arbitrary) <*> arbitrary
+          let generateSnapshot = generate $ (Outcome.SnapshotConfirmed openedHeadId . Just <$> arbitrary) <*> arbitrary
           snapShotConfirmedMsg@Outcome.SnapshotConfirmed{snapshot = Just Snapshot{utxo, utxoToCommit}} <- generateSnapshot
 
           stateEvents :: [StateEvent SimpleTx] <- generate $ mapM genStateEvent [headIsOpenMsg, snapShotConfirmedMsg]

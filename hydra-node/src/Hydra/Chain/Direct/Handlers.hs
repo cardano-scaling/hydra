@@ -15,6 +15,7 @@ import Cardano.Slotting.Slot (SlotNo (..))
 import Control.Concurrent.Class.MonadSTM (modifyTVar, writeTVar)
 import Control.Monad.Class.MonadSTM (throwSTM)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
   Address,
   BlockHeader,
@@ -23,6 +24,7 @@ import Hydra.Cardano.Api (
   LedgerEra,
   Tx,
   TxId,
+  TxIn,
   TxOut,
   UTxO,
   calculateMinimumUTxO,
@@ -77,6 +79,7 @@ import Hydra.Chain.Direct.Wallet (
   TinyWalletLog,
  )
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
+import Hydra.Ledger.Cardano.Evaluate (EvaluationError, EvaluationReport)
 import Hydra.Logging (Tracer, traceWith)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Tx (
@@ -179,9 +182,40 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
         ChainStateAt{spendableUTxO} <- atomically getLatest
         traceWith tracer $ ToPost{toPost = tx}
         timeHandle <- queryTimeHandle
-        vtx <-
-          atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
-            >>= finalizeTx wallet ctx spendableUTxO mempty
+        let TimeHandle{slotFromUTCTime} = timeHandle
+            resolveHeadInfo headSeed deadline = do
+              slot <- either (\err -> throwIO (ContestationDeadlineOutsideTimeHorizon{failureReason = err} :: PostTxError Tx)) pure $ slotFromUTCTime deadline
+              tin <- maybe (throwIO (InvalidSeed{headSeed} :: PostTxError Tx)) pure $ headSeedToTxIn headSeed
+              pure (slot, tin)
+        vtx <- case tx of
+          FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+            let fullUTxO = utxo <> fold utxoToCommit <> fold utxoToDecommit
+            findFittingFanoutTx
+              tracer
+              wallet
+              ctx
+              spendableUTxO
+              seedTxIn
+              (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot)
+              fullUTxO
+              deadlineSlot
+              >>= finalizeTx wallet ctx spendableUTxO mempty
+          FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
+            (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
+            findFittingFanoutTx
+              tracer
+              wallet
+              ctx
+              spendableUTxO
+              seedTxIn
+              (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot)
+              utxoToDistribute
+              deadlineSlot
+              >>= finalizeTx wallet ctx spendableUTxO mempty
+          _ ->
+            atomically (prepareTxToPost timeHandle wallet ctx spendableUTxO tx)
+              >>= finalizeTx wallet ctx spendableUTxO mempty
         submitTx vtx
     , draftDepositTx = \headId pparams commitBlueprintTx deadline changeAddress -> do
         let CommitBlueprintTx{lookupUTxO} = commitBlueprintTx
@@ -465,35 +499,9 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
       case contest ctx spendableUTxO headId contestationPeriod openVersion contestingSnapshot upperBound of
         Left _ -> throwIO (FailedToConstructContestTx @Tx)
         Right contestTx -> pure contestTx
-    FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
-      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      case headSeedToTxIn headSeed of
-        Nothing ->
-          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
-        Just seedTxIn ->
-          case fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit deadlineSlot of
-            Left _ -> throwIO (FailedToConstructFanoutTx @Tx)
-            Right fanoutTx' -> pure fanoutTx'
-    PartialFanoutTx{utxoToDistribute, remainingUTxO, headSeed, contestationDeadline} -> do
-      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      case headSeedToTxIn headSeed of
-        Nothing ->
-          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
-        Just seedTxIn ->
-          case partialFanout ctx spendableUTxO seedTxIn utxoToDistribute remainingUTxO deadlineSlot of
-            Left StaleChainState -> throwIO (StalePartialFanoutTx @Tx)
-            Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
-            Right partialFanoutTx' -> pure partialFanoutTx'
-    FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
-      deadlineSlot <- throwLeft $ slotFromUTCTime contestationDeadline
-      case headSeedToTxIn headSeed of
-        Nothing ->
-          throwIO (InvalidSeed{headSeed} :: PostTxError Tx)
-        Just seedTxIn ->
-          case finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot of
-            Left StaleChainState -> throwIO (StalePartialFanoutTx @Tx)
-            Left _ -> throwIO (FailedToConstructPartialFanoutTx @Tx)
-            Right fanoutTx' -> pure fanoutTx'
+    -- These are handled in mkChain.postTx before reaching this function.
+    FanoutTx{} -> throwSTM (FailedToConstructFanoutTx :: PostTxError Tx)
+    FinalPartialFanoutTx{} -> throwSTM (FailedToConstructPartialFanoutTx :: PostTxError Tx)
  where
   -- XXX: Might want a dedicated exception type here
   throwLeft :: Either Text a -> STM m a
@@ -507,6 +515,110 @@ prepareTxToPost timeHandle wallet ctx spendableUTxO tx =
     let upperBoundTime = addUTCTime effectiveDelay currentTime
     upperBoundSlot <- throwLeft $ slotFromUTCTime upperBoundTime
     pure (upperBoundSlot, upperBoundTime)
+
+-- | Binary search for the largest chunk size in @[1..maxChunk]@ for which
+-- 'mkTx' constructs a transaction and 'fitsCheck' returns 'True'. Assumes the
+-- predicate is monotone: if size @n@ fits, all sizes @< n@ also fit. Uses
+-- upper-mid so the search terminates correctly when @hi = lo + 1@. Returns
+-- 'Nothing' if no size fits. 'mkTx' may throw to abort the search early.
+findLargestFitting ::
+  Monad m =>
+  -- | Construct a transaction for a given chunk size; may throw on structural failure
+  (Int -> m tx) ->
+  -- | Check whether a transaction fits within budget and size limits
+  (tx -> m Bool) ->
+  -- | Upper bound of chunk sizes to search (inclusive)
+  Int ->
+  m (Maybe tx)
+findLargestFitting mkTx fitsCheck = go Nothing 1
+ where
+  go best lo hi
+    | lo > hi = pure best
+    | otherwise = do
+        let mid = (lo + hi + 1) `div` 2 -- ceiling division: biases toward hi so we test the larger candidate first
+        tx <- mkTx mid
+        fits <- fitsCheck tx
+        if fits
+          then go (Just tx) (mid + 1) hi
+          else go best lo (mid - 1)
+
+-- | Check whether a transaction fits within protocol size and script execution
+-- limits. Size check is cheap so it short-circuits before the expensive UPLC
+-- evaluation.
+fitsTx ::
+  Monad m =>
+  (Tx -> m Bool) ->
+  (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) ->
+  UTxO ->
+  Tx ->
+  m Bool
+fitsTx withinSizeLimits evalCosts evalUTxO tx = do
+  withinSize <- withinSizeLimits tx
+  if withinSize
+    then do
+      result <- evalCosts tx evalUTxO
+      pure $ case result of
+        Right report -> all isRight (Map.elems report)
+        _ -> False
+    else pure False
+
+-- | Try the preferred transaction first; if it doesn't fit within the script
+-- execution budget or exceeds the maximum transaction size, fall back to a
+-- binary search over partial fanout chunk sizes. Returns the largest chunk that
+-- fits, minimising the number of fanout steps.
+--
+-- Error mapping:
+--   * 'StaleChainState' from 'partialFanout' → 'StalePartialFanoutTx' (race
+--     condition; HeadLogic silently ignores it and the chain observation loop
+--     triggers the correct next step).
+--   * Any other 'PartialFanoutError' → 'FailedToConstructPartialFanoutTx'
+--     (structural mismatch that will not resolve on retry).
+--   * No chunk fits within budget → 'FailedToConstructPartialFanoutTx'
+--     (budget exhaustion; also not a race condition).
+findFittingFanoutTx ::
+  forall m e.
+  MonadThrow m =>
+  Tracer m CardanoChainLog ->
+  TinyWallet m ->
+  ChainContext ->
+  -- | Spendable UTxO containing head output
+  UTxO ->
+  -- | Seed TxIn
+  TxIn ->
+  -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); Left skips straight to the loop
+  Either e Tx ->
+  -- | Full UTxO for the partial-fanout fallback loop
+  UTxO ->
+  -- | Contestation deadline as SlotNo
+  SlotNo ->
+  m Tx
+findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
+  findBest >>= maybe (throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
+ where
+  -- Try the preferred tx (full fanout or final partial fanout) first; only
+  -- fall back to the binary search if it doesn't fit.
+  findBest = case ePreferred of
+    Right tx -> do
+      fits' <- fits tx
+      if fits' then pure (Just tx) else findFallback
+    Left _ -> findFallback
+
+  findFallback =
+    findLargestFitting mkTxM fits (UTxO.size fullUTxO - 1)
+
+  mkTxM n =
+    case partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot of
+      Left StaleChainState -> do
+        traceWith tracer $ PartialFanoutFailed{reason = show StaleChainState}
+        throwIO (StalePartialFanoutTx @Tx)
+      Left err -> do
+        traceWith tracer $ PartialFanoutFailed{reason = show err}
+        throwIO (FailedToConstructPartialFanoutTx @Tx)
+      Right tx -> pure tx
+
+  fits = fitsTx isTxWithinSizeLimits evaluateScriptCosts evalUTxO
+
+  evalUTxO = spendableUTxO <> getKnownUTxO ctx
 
 -- | Maximum delay we put on the upper bound of transactions to fit into a block.
 -- NOTE: This is highly depending on the network. If the security parameter and
@@ -540,5 +652,6 @@ data CardanoChainLog
   | Wallet TinyWalletLog
   | StartingChainDecision StartingDecision
   | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
+  | PartialFanoutFailed {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)

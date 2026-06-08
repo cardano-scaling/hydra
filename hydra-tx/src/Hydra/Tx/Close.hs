@@ -34,7 +34,7 @@ import PlutusLedgerApi.V3 (toBuiltin)
 
 type PointInTime = (SlotNo, UTCTime)
 
--- | Representation of the Head output after a CollectCom transaction.
+-- | Representation of the head thread UTxO while the head is in the Open state.
 data OpenThreadOutput = OpenThreadOutput
   { openThreadUTxO :: (TxIn, TxOut CtxUTxO)
   , openContestationPeriod :: OnChain.ContestationPeriod

@@ -42,6 +42,8 @@ spec =
               let utxo = getKnownUTxO st <> utxoFromTx tx <> additionalUTxO
                in case snd $ observeTx testNetworkId utxo tx of
                     Just (Init{}) -> transition === Transition.Init
+                    Just (Deposit{}) -> transition === Transition.Deposit
+                    Just (Recover{}) -> transition === Transition.Recover
                     Just (Increment{}) -> transition === Transition.Increment
                     Just (Decrement{}) -> transition === Transition.Decrement
                     Just (Close{}) -> transition === Transition.Close

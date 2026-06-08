@@ -281,6 +281,8 @@ spec =
                  in case observeHeadTx testNetworkId utxo tx of
                       NoHeadTx -> property False
                       Init{} -> transition === Transition.Init
+                      Deposit{} -> transition === Transition.Deposit
+                      Recover{} -> transition === Transition.Recover
                       Increment{} -> transition === Transition.Increment
                       Decrement{} -> transition === Transition.Decrement
                       Close{} -> transition === Transition.Close
@@ -288,9 +290,6 @@ spec =
                       PartialFanout{} -> transition === Transition.PartialFanout
                       Fanout{} -> transition === Transition.Fanout
                       FinalPartialFanout{} -> transition === Transition.FinalPartialFanout
-                      -- NOTE: deposit and recover are not generated in these tests
-                      Deposit{} -> property False
-                      Recover{} -> property False
 
     describe "depositTx" $ do
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx

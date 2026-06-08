@@ -8,7 +8,6 @@ module Hydra.TUI.Forms where
 import Hydra.Prelude hiding (Down, State)
 
 import Hydra.Cardano.Api
-import Hydra.Cardano.Api.Pretty (renderUTxO)
 
 import Brick (BrickEvent (..), vBox, withDefAttr)
 import Brick.Forms (
@@ -28,7 +27,20 @@ import Data.Text qualified as Text
 import Graphics.Vty (Event (..), Key (..))
 import Hydra.Chain.Direct.State ()
 import Lens.Micro (Lens', (^.))
-import Prelude qualified
+
+-- | Render a UTxO entry as "txin#ix ↦ ₳ X.XXXXXX" for form labels.
+-- The TxIn is shortened to the last 10 characters of the hash plus its
+-- '#index' suffix.
+renderUTxOAsAda :: (TxIn, TxOut CtxUTxO) -> Text
+renderUTxOAsAda (txin, TxOut _ val _ _) =
+  let Coin l = selectLovelace val
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
+      sign = if l < 0 then "-" else ""
+      (hashHex, idxPart) = Text.breakOn "#" (renderTxIn txin)
+      shortened = Text.takeEnd 10 hashHex <> idxPart
+   in shortened <> " ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 utxoRadioField ::
   forall s e n.
@@ -36,38 +48,72 @@ utxoRadioField ::
   , n ~ Text
   ) =>
   Map TxIn (TxOut CtxUTxO) ->
-  Form s e n
-utxoRadioField u =
-  newForm
-    [ radioField
-        id
-        [ (i, show i, renderUTxO i)
-        | i <- Map.toList u
+  Maybe (Form s e n)
+utxoRadioField u = case Map.toList u of
+  [] -> Nothing
+  (x : _) ->
+    Just $
+      newForm
+        [ radioField
+            id
+            [ (i, show i, renderUTxOAsAda i)
+            | i <- Map.toList u
+            ]
         ]
-    ]
-    (Prelude.head $ Map.toList u)
+        x
 
+-- | Build a radio form for selecting one pending deposit (by 'TxId') to
+-- recover. The form yields just the 'TxId' — the full UTxO breakdown is
+-- rendered separately in the recover detail panel (see
+-- 'Hydra.TUI.Drawing.FundsTab.drawRecoverDetail').
 depositIdRadioField ::
   forall s e n.
-  ( s ~ (TxId, TxIn, TxOut CtxUTxO)
+  ( s ~ TxId
   , n ~ Text
   ) =>
   [(TxId, UTxO)] ->
-  Form s e n
-depositIdRadioField txIdUTxO =
-  newForm
-    [ radioField
-        id
-        [ ((txid, i, o), show txid, renderUTxO (i, o))
-        | (txid, i, o) <- flattened txIdUTxO
-        ]
-    ]
-    (Prelude.head $ flattened txIdUTxO)
- where
-  flattened :: [(TxId, UTxO)] -> [(TxId, TxIn, TxOut CtxUTxO)]
-  flattened =
-    concatMap
-      (\(a, u) -> (\(i, o) -> (a, i, o)) <$> Map.toList (UTxO.toMap u))
+  Maybe (Form s e n)
+depositIdRadioField = depositIdRadioFieldWith Nothing
+
+-- | Like 'depositIdRadioField', but use 'desired' as the initial selection
+-- if it is still present in the list (otherwise fall back to the first
+-- entry). Used when rebuilding the recovery form after the underlying
+-- 'pendingIncrements' has changed.
+depositIdRadioFieldWith ::
+  forall s e n.
+  ( s ~ TxId
+  , n ~ Text
+  ) =>
+  Maybe TxId ->
+  [(TxId, UTxO)] ->
+  Maybe (Form s e n)
+depositIdRadioFieldWith desired txIdUTxO = case txIdUTxO of
+  [] -> Nothing
+  ((firstTxId, _) : _) ->
+    let initial = case desired of
+          Just d | any ((== d) . fst) txIdUTxO -> d
+          _ -> firstTxId
+     in Just $
+          newForm
+            [ radioField
+                id
+                [ (txid, show txid, renderDepositSummary txid u)
+                | (txid, u) <- txIdUTxO
+                ]
+            ]
+            initial
+
+-- | One-line summary of a pending deposit: shortened TxId plus the total
+-- lovelace across all its outputs.
+renderDepositSummary :: TxId -> UTxO -> Text
+renderDepositSummary txid u =
+  let Coin l = foldMap (\(TxOut _ v _ _) -> selectLovelace v) (UTxO.txOutputs u)
+      (ada, frac) = abs l `divMod` 1_000_000
+      fracStr = show frac
+      padded = Text.replicate (6 - length fracStr) "0" <> Text.pack fracStr
+      sign = if l < 0 then "-" else ""
+      shortId = Text.take 12 (serialiseToRawBytesHexText txid) <> "…"
+   in shortId <> "  ↦ ₳ " <> sign <> Text.pack (show ada) <> "." <> padded
 
 confirmRadioField ::
   forall s e n.
@@ -86,8 +132,6 @@ confirmRadioField =
     True
  where
   options = [("yes", True), ("no", False)]
-
-  radioFields = radioField id [(opt, fst opt, show $ fst opt) | opt <- options]
 
 type LeftBracketChar = Char
 type CheckmarkChar = Char
