@@ -494,7 +494,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
   env =
     Environment
       { party
-      , signingKey = signingKey
+      , signingKey
       , otherParties
       , contestationPeriod
       , depositPeriod = defaultDepositPeriod

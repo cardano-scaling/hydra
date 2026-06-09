@@ -192,6 +192,21 @@ crsG1Points n = take n $ fromKZGSetup KZG.g1Points
 crsG2Points :: Int -> [Point2]
 crsG2Points n = take n $ fromKZGSetup KZG.g2Points
 
+-- | Number of G2 points published in the on-chain CRS UTxO datum.
+--
+-- This is the __deployed__ G2 CRS length. It directly caps the largest
+-- subset that can be verified in a single fanout / partial-fanout pairing
+-- check: a subset of N elements yields a polynomial of degree N (one
+-- @(X - sᵢ)@ factor per element), and the on-chain MSM to evaluate
+-- @P_S(τ)·G2@ needs N+1 G2 points. With @defaultItems = 30@ the deployed
+-- batch limit is therefore __29__.
+--
+-- The trusted-setup file embeds 65 G2 points (see
+-- 'KZGTrustedSetup.maxFanoutBatchSize'); only the first 'defaultItems'
+-- are written into the CRS UTxO at script-registry publication time
+-- (see 'Hydra.Chain.ScriptRegistry.buildScriptPublishingTxs'). Raising
+-- 'defaultItems' requires re-publishing the CRS UTxO and is bounded
+-- above by @KZGTrustedSetup.maxFanoutBatchSize + 1@.
 defaultItems :: Int
 defaultItems = 30
 

@@ -18,7 +18,7 @@ import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens (headPolicyId)
-import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
+import Hydra.Contract.UtilError (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party (partyFromVerificationKeyBytes)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)

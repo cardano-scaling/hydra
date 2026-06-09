@@ -4,10 +4,9 @@
 module Hydra.Contract.Util where
 
 import Hydra.Contract.Commit
-import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..), errorCode)
+import Hydra.Contract.UtilError (UtilError (..))
 import Hydra.Data.Party (Party)
-import Hydra.Prelude (Show)
 import PlutusLedgerApi.V1.Value (isZero)
 import PlutusLedgerApi.V3 (
   Address (..),
@@ -65,7 +64,7 @@ mustBurnAllHeadTokens mintValue headCurrencySymbol parties =
 
 mustNotMintOrBurn :: TxInfo -> Bool
 mustNotMintOrBurn TxInfo{txInfoMint} =
-  traceIfFalse "U01" $
+  traceIfFalse $(errorCode MintingOrBurningIsForbidden) $
     isZero (mintValueMinted txInfoMint) && isZero (mintValueBurned txInfoMint)
 {-# INLINEABLE mustNotMintOrBurn #-}
 
@@ -113,16 +112,6 @@ TxOutRef{txOutRefId, txOutRefIdx} `compareRef` TxOutRef{txOutRefId = id', txOutR
     EQ -> compare txOutRefIdx idx'
     ord -> ord
 {-# INLINEABLE compareRef #-}
-
--- * Errors
-
-data UtilError
-  = MintingOrBurningIsForbidden
-  deriving stock (Show)
-
-instance ToErrorCode UtilError where
-  toErrorCode = \case
-    MintingOrBurningIsForbidden -> "U01"
 
 -- | Get the list of 'TxOut' outputs of the pending transaction at
 -- a given script address.

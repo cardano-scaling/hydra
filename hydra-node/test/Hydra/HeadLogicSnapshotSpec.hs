@@ -44,7 +44,7 @@ spec = do
               otherParties = List.delete party threeParties
            in Environment
                 { party
-                , signingKey = signingKey
+                , signingKey
                 , otherParties
                 , contestationPeriod = defaultContestationPeriod
                 , depositPeriod = defaultDepositPeriod
