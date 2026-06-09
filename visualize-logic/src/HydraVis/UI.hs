@@ -25,6 +25,7 @@ import Control.Concurrent (forkIO)
 import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Lazy qualified as BSL
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
@@ -41,10 +42,13 @@ import Hydra.HeadLogic.State qualified as HS
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment)
+import Hydra.Node.Environment qualified as Env
 import Hydra.Node.State (NodeState (..), initialChainTime)
-import Hydra.Tx.IsTx (IsTx)
+import Hydra.Tx.HeadParameters qualified as HP
+import Hydra.Tx.IsTx (IsTx, UTxOType)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
+import Hydra.Tx.Snapshot qualified as Snap
 import HydraVis.History (HistoryStep (..), buildHistory, extendHistory, loadEventsAfter)
 import Miso (App (..), Effect, Sub, View, defaultEvents, noEff)
 import Miso.Html (
@@ -418,6 +422,7 @@ viewModel m =
     [ h1_ [] [text "hydra-vis"]
     , viewToolbar m
     , viewFlow m
+    , viewPeers m
     , viewSnapshot m
     , viewAuthoring m
     , viewEvent m
@@ -516,10 +521,11 @@ snapshotBody = \case
     italic "head is Idle; no snapshot yet."
   HS.Open HS.OpenState{HS.coordinatedHeadState = chs} ->
     let HS.CoordinatedHeadState{HS.seenSnapshot = seen, HS.confirmedSnapshot = cs} = chs
-        confirmedNum = number (getSnapshot @tx cs)
+        snap = getSnapshot @tx cs
      in div_
           []
-          [ row "confirmed snapshot #" (showT confirmedNum)
+          [ row "confirmed snapshot #" (showT (number snap))
+          , headBalance snap
           , seenSnapshotRows seen
           ]
   HS.Closed HS.ClosedState{HS.confirmedSnapshot = cs} ->
@@ -528,10 +534,16 @@ snapshotBody = \case
           []
           [ row "confirmed snapshot #" (showT (number snap))
           , row "confirmed txs" (showT (length (confirmed snap)))
+          , headBalance snap
           ]
  where
   showT :: Show a => a -> Text
   showT = show
+  -- The lovelace held in the head and to whom it is allocated, plus any
+  -- pending deposit/decommit, derived from the confirmed snapshot's UTxO.
+  headBalance :: Snapshot tx -> View (Action tx)
+  headBalance snap =
+    utxoSummaryView @tx (Snap.utxo snap) (Snap.utxoToCommit snap) (Snap.utxoToDecommit snap)
 
 seenSnapshotRows :: IsTx tx => HS.SeenSnapshot tx -> View (Action tx)
 seenSnapshotRows = \case
@@ -559,8 +571,7 @@ seenSnapshotRows = \case
   sigSummary :: Map.Map Party a -> Text
   sigSummary m =
     let n = Map.size m
-        shortP p = T.take 8 (T.drop (T.length "Party {vkey = \"") (show p))
-        names = T.intercalate ", " (shortP <$> Map.keys m)
+        names = T.intercalate ", " (shortParty <$> Map.keys m)
      in show n <> "  [" <> names <> "]"
 
 row :: MisoString -> Text -> View (Action tx)
@@ -573,6 +584,196 @@ row k v =
 
 italic :: MisoString -> View (Action tx)
 italic t = div_ [styleInline_ "color: #777; font-style: italic;"] [text t]
+
+-- * Peers
+
+-- | Surface who is in the head: the parties from the head parameters (plus
+-- the head id and contestation period), marking our own party when we know it
+-- from an 'Environment'. Before the head opens there are no parties on-chain,
+-- so we fall back to whatever the 'Environment' configured.
+viewPeers :: Model tx -> View (Action tx)
+viewPeers m = case currentStep m of
+  Nothing -> div_ [] []
+  Just step ->
+    div_
+      [styleInline_ panelStyle]
+      [ h2_ [] [text "peers"]
+      , peersBody (ctx m) (headState (stateAfter step))
+      ]
+
+peersBody :: Maybe (AuthoringCtx tx) -> HS.HeadState tx -> View (Action tx)
+peersBody mctx = \case
+  HS.Idle _ -> case mctx of
+    Nothing -> italic "participants are known once the head opens."
+    Just c -> fromEnv (ctxEnvironment c)
+  HS.Open HS.OpenState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
+  HS.Closed HS.ClosedState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
+ where
+  me = Env.party . ctxEnvironment <$> mctx
+
+  openClosed ps hid =
+    div_
+      []
+      [ row "head id" (shortText (jsonStringy hid))
+      , row "contestation period" (show (HP.contestationPeriod ps))
+      , row "parties" (show (length (HP.parties ps)))
+      , partyList me (HP.parties ps)
+      ]
+
+  fromEnv env =
+    div_
+      []
+      [ row "configured peers" (Env.configuredPeers env)
+      , row "parties" (show (1 + length (Env.otherParties env)))
+      , partyList (Just (Env.party env)) (Env.party env : Env.otherParties env)
+      ]
+
+partyList :: Maybe Party -> [Party] -> View (Action tx)
+partyList me parties =
+  div_
+    [styleInline_ "margin-top: 0.25rem;"]
+    (map partyRow parties)
+ where
+  partyRow p =
+    div_
+      [styleInline_ "display: flex; gap: 0.5rem; margin: 0.1rem 0 0.1rem 1rem; font-family: ui-monospace, monospace;"]
+      ( span_ [] [text (ms (shortParty p))]
+          : [span_ [styleInline_ "color: #06c;"] [text "(you)"] | Just p == me]
+      )
+
+shortParty :: Party -> Text
+shortParty p = T.take 16 (T.drop (T.length ("Party {vkey = \"" :: Text)) (show p))
+
+-- * Head balance
+
+-- | A breakdown of a snapshot UTxO. Derived by walking the UTxO's JSON so it
+-- works for any tx type without a concrete-type constraint: Cardano UTxOs
+-- serialize to an object keyed by input with per-output @address@ and
+-- @value.lovelace@; value-less ledgers (e.g. SimpleTx) serialize to an array,
+-- in which case 'usValued' is False and we only know the entry count.
+data UtxoSummary = UtxoSummary
+  { usEntries :: Int
+  , usValued :: Bool
+  , usTotalLovelace :: Integer
+  , usByAddress :: [(Text, Integer)]
+  }
+
+summariseUtxo :: forall tx. ToJSON (UTxOType tx) => UTxOType tx -> UtxoSummary
+summariseUtxo u = case Aeson.toJSON u of
+  Aeson.Object o ->
+    let perAddr = [pair | v <- KM.elems o, Just pair <- [entryAddrLovelace v]]
+        byAddr = Map.toList (Map.fromListWith (+) perAddr)
+     in UtxoSummary
+          { usEntries = KM.size o
+          , usValued = True
+          , usTotalLovelace = sum (snd <$> perAddr)
+          , usByAddress = sortOn (negate . snd) byAddr
+          }
+  Aeson.Array a ->
+    UtxoSummary{usEntries = length a, usValued = False, usTotalLovelace = 0, usByAddress = []}
+  _ -> UtxoSummary{usEntries = 0, usValued = False, usTotalLovelace = 0, usByAddress = []}
+ where
+  entryAddrLovelace = \case
+    Aeson.Object eo -> do
+      addr <- KM.lookup "address" eo >>= asText
+      let lov = fromMaybe 0 (KM.lookup "value" eo >>= asObject >>= KM.lookup "lovelace" >>= asInteger)
+      pure (addr, lov)
+    _ -> Nothing
+  asText = \case Aeson.String t -> Just t; _ -> Nothing
+  asObject = \case Aeson.Object o -> Just o; _ -> Nothing
+  asInteger = \case Aeson.Number n -> Just (round n); _ -> Nothing
+
+utxoSummaryView ::
+  forall tx.
+  ToJSON (UTxOType tx) =>
+  UTxOType tx ->
+  Maybe (UTxOType tx) ->
+  Maybe (UTxOType tx) ->
+  View (Action tx)
+utxoSummaryView u toCommit toDecommit =
+  let s = summariseUtxo @tx u
+   in div_
+        [styleInline_ "margin-top: 0.4rem;"]
+        ( [ row "outputs in head" (show (usEntries s))
+          ]
+            <> ( if usValued s
+                  then
+                    [ row "total in head" (lovelaceText (usTotalLovelace s))
+                    , allocationBlock (usByAddress s)
+                    ]
+                  else [italic "value-less ledger (SimpleTx); no lovelace to show."]
+               )
+            <> pendingRow "pending deposit (in)" toCommit
+            <> pendingRow "pending decommit (out)" toDecommit
+        )
+ where
+  pendingRow lbl = \case
+    Nothing -> []
+    Just pu ->
+      let ps = summariseUtxo @tx pu
+          detail =
+            show (usEntries ps)
+              <> " outputs"
+              <> (if usValued ps then ", " <> lovelaceText (usTotalLovelace ps) else "")
+       in [row lbl detail]
+
+allocationBlock :: [(Text, Integer)] -> View (Action tx)
+allocationBlock [] = div_ [] []
+allocationBlock xs =
+  div_
+    [styleInline_ "margin-top: 0.25rem;"]
+    ( span_ [styleInline_ "color: #666;"] [text "allocation"]
+        : map addrRow xs
+    )
+ where
+  addrRow (addr, lov) =
+    div_
+      [styleInline_ "display: flex; gap: 0.75rem; margin: 0.1rem 0 0.1rem 1rem;"]
+      [ span_
+          [styleInline_ "min-width: 22rem; color: #444; font-family: ui-monospace, monospace;"]
+          [text (ms (shortAddr addr))]
+      , span_
+          [styleInline_ "font-family: ui-monospace, monospace;"]
+          [text (ms (lovelaceText lov))]
+      ]
+
+-- | Render lovelace with thousands separators alongside the ADA value.
+lovelaceText :: Integer -> Text
+lovelaceText n = commas n <> " lovelace (" <> adaText n <> " ADA)"
+
+adaText :: Integer -> Text
+adaText n =
+  let (q, r) = abs n `divMod` 1_000_000
+      frac = T.dropWhileEnd (== '0') (T.justifyRight 6 '0' (show r))
+      frac' = if T.null frac then "0" else frac
+   in (if n < 0 then "-" else "") <> commas q <> "." <> frac'
+
+commas :: Integer -> Text
+commas n =
+  let digits = show (abs n) :: Text
+      chunks = map T.reverse (chunk3 (T.reverse digits))
+   in (if n < 0 then "-" else "") <> T.intercalate "," (reverse chunks)
+ where
+  chunk3 t
+    | T.null t = []
+    | otherwise = T.take 3 t : chunk3 (T.drop 3 t)
+
+shortAddr :: Text -> Text
+shortAddr a
+  | T.length a <= 24 = a
+  | otherwise = T.take 14 a <> "..." <> T.takeEnd 6 a
+
+shortText :: Text -> Text
+shortText t
+  | T.length t <= 28 = t
+  | otherwise = T.take 24 t <> "..."
+
+-- | Render a value whose JSON is a plain string (e.g. 'HeadId', which @show@s
+-- as raw escaped bytes) via that string. Falls back to compact JSON otherwise.
+jsonStringy :: ToJSON a => a -> Text
+jsonStringy x = case Aeson.toJSON x of
+  Aeson.String t -> t
+  other -> TE.decodeUtf8 (BSL.toStrict (Aeson.encode other))
 
 viewState :: ToJSON (NodeState tx) => Model tx -> View (Action tx)
 viewState m = case currentStep m of
@@ -756,6 +957,12 @@ viewFlow m =
   let visible = V.take (cursor m + 1) (visibleHistory m)
       ws = walkHistory visible
       counts = wsCounts ws
+      -- Walking-state /before/ the cursor's own event: used to decide which
+      -- partial-fanout bucket the cursor's event lands in (and therefore
+      -- which arrow to highlight).
+      priorInPartial = wsInPartial (walkHistory (V.take (cursor m) (visibleHistory m)))
+      active = activeEdgeFor (currentStep m) priorInPartial
+      isE e = active == Just e
       currentNode :: Maybe StateKind
       currentNode = case currentStep m of
         Nothing -> Nothing
@@ -777,20 +984,24 @@ viewFlow m =
                 : [ -- generic self-loops above the main row
                     selfLoop 90 200 (idleSelf counts)
                   , selfLoop 270 200 (openSelf counts)
-                  , selfLoopWithLabel 460 200 "contest" (closedContest counts) "#777"
+                  , selfLoopWithLabel 460 200 "contest" (closedContest counts) "#777" (isE EContest)
                   , -- horizontal transitions across the main row
-                    arrow 135 200 225 200 (idleToOpen counts) "init"
-                  , arrow 315 200 415 200 (openToClosed counts) "close"
-                  , arrow 505 200 755 200 (closedToFinal counts) "fanout"
+                    arrow 135 200 225 200 (idleToOpen counts) "init" (isE EInit)
+                  , arrow 315 200 415 200 (openToClosed counts) "close" (isE EClose)
+                  , arrow 505 200 755 200 (closedToFinal counts) "fanout" (isE EFanout)
                   , -- Open side-loops for increment / decrement
-                    sideLoopOnOpen 270 OnLeft "decrement" (openDecrement counts) "#c66"
-                  , sideLoopOnOpen 270 OnRight "increment" (openIncrement counts) "#393"
-                  , -- partial fanout: Closed -> fanoutProgress (diagonal down)
-                    diagArrow 490 240 565 305 (closedToFanoutProgress counts) "partial fanout" "#a37" False
+                    sideLoopOnOpen 270 OnLeft "decrement" (openDecrement counts) "#c66" (isE EDecrement)
+                  , sideLoopOnOpen 270 OnRight "increment" (openIncrement counts) "#393" (isE EIncrement)
+                  , -- partial fanout: Closed -> fanoutProgress (diagonal down).
+                    -- Endpoints sit on the Closed circle (r=45) and the
+                    -- fanoutProgress ellipse (rx=75, ry=32) along the
+                    -- centre-to-centre line so the arrowhead touches both
+                    -- nodes cleanly.
+                    diagArrow 494 230 587 311 (closedToFanoutProgress counts) "partial fanout" "#a37" False (isE EClosedToFanoutProgress)
                   , -- partial fanout: fanoutProgress self-loop (more partials)
-                    fanoutProgressSelfLoop 620 (fanoutProgressSelf counts)
+                    fanoutProgressSelfLoop 620 (fanoutProgressSelf counts) (isE EFanoutProgressSelf)
                   , -- finalPartialFanout: fanoutProgress -> Final (diagonal up)
-                    diagArrow 675 305 750 240 (fanoutProgressToFinal counts) "final partial fanout" "#c83" True
+                    diagArrow 656 312 765 228 (fanoutProgressToFinal counts) "final partial fanout" "#c83" True (isE EFinalPartialFanout)
                   , -- nodes
                     stateNode 90 200 "Idle" (is SIdle)
                   , stateNode 270 200 "Open" (is SOpen)
@@ -803,6 +1014,52 @@ viewFlow m =
         ]
 
 data Side = OnLeft | OnRight
+
+-- | Which animatable edge (if any) the cursor's event is currently taking.
+data ActiveEdge
+  = EInit
+  | EClose
+  | EContest
+  | EIncrement
+  | EDecrement
+  | EClosedToFanoutProgress
+  | EFanoutProgressSelf
+  | EFinalPartialFanout
+  | EFanout
+  deriving stock (Eq, Show)
+
+-- | Decide which edge the event at the cursor is taking. The @priorInPartial@
+-- argument is the walking-state's @wsInPartial@ flag BEFORE this event, used
+-- to distinguish the first partial fanout (Closed -> fanoutProgress) from
+-- subsequent partials (fanoutProgress self-loop), and similarly fresh fanout
+-- (Closed -> Final) from the closing step of a partial sequence
+-- (fanoutProgress -> Final).
+activeEdgeFor :: Maybe (HistoryStep tx) -> Bool -> Maybe ActiveEdge
+activeEdgeFor Nothing _ = Nothing
+activeEdgeFor (Just step) priorInPartial = case stateChanged (event step) of
+  HeadOpened{} -> Just EInit
+  HeadClosed{} -> Just EClose
+  HeadContested{} -> Just EContest
+  CommitFinalized{} -> Just EIncrement
+  DecommitFinalized{} -> Just EDecrement
+  HeadPartialFannedOut{}
+    | priorInPartial -> Just EFanoutProgressSelf
+    | otherwise -> Just EClosedToFanoutProgress
+  HeadFannedOut{}
+    | priorInPartial -> Just EFinalPartialFanout
+    | otherwise -> Just EFanout
+  _ -> Nothing
+
+-- | Edge stroke colour: bright blue when this edge is the one the cursor's
+-- event is currently traversing, otherwise the caller's chosen colour.
+activeStroke :: MisoString -> Bool -> MisoString
+activeStroke _ True = "#06c"
+activeStroke c False = c
+
+-- | Edge stroke width: thicker when active.
+activeWidth :: MisoString -> Bool -> MisoString
+activeWidth _ True = "3.5"
+activeWidth w False = w
 
 markerDefs :: View (Action tx)
 markerDefs =
@@ -849,17 +1106,17 @@ stateNode cx cy nodeLabel isCurrent =
         [text nodeLabel]
     ]
 
-arrow :: Int -> Int -> Int -> Int -> Int -> MisoString -> View (Action tx)
-arrow x1 y1 x2 y2 n lbl =
+arrow :: Int -> Int -> Int -> Int -> Int -> MisoString -> Bool -> View (Action tx)
+arrow x1 y1 x2 y2 n lbl isActive =
   Svg.g_
     []
     [ Svg.line_
         [ SvgA.x1_ (mInt x1)
         , SvgA.y1_ (mInt y1)
-        , SvgA.x2_ (mInt (x2 - 8))
+        , SvgA.x2_ (mInt x2)
         , SvgA.y2_ (mInt y2)
-        , SvgA.stroke_ "#444"
-        , SvgA.strokeWidth_ "2"
+        , SvgA.stroke_ (activeStroke "#444" isActive)
+        , SvgA.strokeWidth_ (activeWidth "2" isActive)
         , SvgA.markerEnd_ "url(#arrowhead)"
         ]
         []
@@ -877,8 +1134,8 @@ arrow x1 y1 x2 y2 n lbl =
 
 -- | A straight diagonal arrow with a label and count badge. Used for the
 -- Closed -> fanoutProgress and fanoutProgress -> Final edges.
-diagArrow :: Int -> Int -> Int -> Int -> Int -> MisoString -> MisoString -> Bool -> View (Action tx)
-diagArrow x1 y1 x2 y2 n lbl color dashed =
+diagArrow :: Int -> Int -> Int -> Int -> Int -> MisoString -> MisoString -> Bool -> Bool -> View (Action tx)
+diagArrow x1 y1 x2 y2 n lbl color dashed isActive =
   let mx = (x1 + x2) `div` 2
       my = (y1 + y2) `div` 2
       lineAttrs =
@@ -886,11 +1143,11 @@ diagArrow x1 y1 x2 y2 n lbl color dashed =
         , SvgA.y1_ (mInt y1)
         , SvgA.x2_ (mInt x2)
         , SvgA.y2_ (mInt y2)
-        , SvgA.stroke_ color
-        , SvgA.strokeWidth_ "1.8"
+        , SvgA.stroke_ (activeStroke color isActive)
+        , SvgA.strokeWidth_ (activeWidth "1.8" isActive)
         , SvgA.markerEnd_ "url(#arrowhead)"
         ]
-          <> [SvgA.strokeDasharray_ "5 4" | dashed]
+          <> [SvgA.strokeDasharray_ "5 4" | dashed && not isActive]
    in Svg.g_
         []
         [ Svg.line_ lineAttrs []
@@ -908,8 +1165,8 @@ diagArrow x1 y1 x2 y2 n lbl color dashed =
 
 -- | Self-loop drawn below the fanoutProgress ellipse for the @partialFanout@
 -- transitions that keep the head in fanoutProgress.
-fanoutProgressSelfLoop :: Int -> Int -> View (Action tx)
-fanoutProgressSelfLoop cx n =
+fanoutProgressSelfLoop :: Int -> Int -> Bool -> View (Action tx)
+fanoutProgressSelfLoop cx n isActive =
   Svg.g_
     []
     [ Svg.path_
@@ -925,8 +1182,8 @@ fanoutProgressSelfLoop cx n =
                 <> " 372"
             )
         , SvgA.fill_ "none"
-        , SvgA.stroke_ "#a37"
-        , SvgA.strokeWidth_ "1.8"
+        , SvgA.stroke_ (activeStroke "#a37" isActive)
+        , SvgA.strokeWidth_ (activeWidth "1.8" isActive)
         , SvgA.markerEnd_ "url(#arrowhead)"
         ]
         []
@@ -974,20 +1231,24 @@ fanoutProgressNode cx cy isCurrent =
 -- arrows. Used for the increment ('CommitFinalized') and decommit
 -- ('DecommitFinalized') self-transitions, which keep the head in Open but
 -- represent real protocol events worth surfacing distinctly.
-sideLoopOnOpen :: Int -> Side -> MisoString -> Int -> MisoString -> View (Action tx)
-sideLoopOnOpen cx side lbl n color =
+-- | A self-loop drawn below the Open node, jutting out to one side. Used
+-- for the increment and decrement edges. Anchors at ~45deg below the node
+-- centre so the arc starts/ends on the node boundary, not floating off it.
+sideLoopOnOpen :: Int -> Side -> MisoString -> Int -> MisoString -> Bool -> View (Action tx)
+sideLoopOnOpen cx side lbl n color isActive =
   let sign :: Int
       sign = case side of OnRight -> 1; OnLeft -> -1
-      -- The node now sits at (cx, 200) with radius 45. Anchor below center,
-      -- curve out to ~70px sideways and ~50px down.
-      x0 = cx + sign * 20
-      y0 = 244
+      -- Open node is at (cx, 200) with radius 45. Anchor the arc start and
+      -- end on the bottom arc of the node (~30deg apart) so both ends touch
+      -- the boundary cleanly. Curve out to ~70px sideways and ~50px down.
+      x0 = cx + sign * 22
+      y0 = 240
       x1 = cx + sign * 70
       y1 = 270
       x2 = cx + sign * 70
       y2 = 290
-      x3 = cx + sign * 30
-      y3 = 244
+      x3 = cx + sign * 40
+      y3 = 222
       d =
         "M "
           <> mInt x0
@@ -1012,8 +1273,8 @@ sideLoopOnOpen cx side lbl n color =
         [ Svg.path_
             [ SvgA.d_ d
             , SvgA.fill_ "none"
-            , SvgA.stroke_ color
-            , SvgA.strokeWidth_ "1.8"
+            , SvgA.stroke_ (activeStroke color isActive)
+            , SvgA.strokeWidth_ (activeWidth "1.8" isActive)
             , SvgA.markerEnd_ "url(#arrowhead)"
             ]
             []
@@ -1034,11 +1295,13 @@ selfLoop cx cy n =
   Svg.g_
     []
     [ Svg.path_
-        [ SvgA.d_
+        [ -- Anchors are at ~45 degrees on the top arc of a radius-45 circle
+          -- (so the start/end lie on the node edge, not floating outside).
+          SvgA.d_
             ( "M "
-                <> mInt (cx - 20)
+                <> mInt (cx - 32)
                 <> " "
-                <> mInt (cy - 45)
+                <> mInt (cy - 32)
                 <> " C "
                 <> mInt (cx - 60)
                 <> " "
@@ -1048,9 +1311,9 @@ selfLoop cx cy n =
                 <> " "
                 <> mInt (cy - 100)
                 <> " "
-                <> mInt (cx + 20)
+                <> mInt (cx + 32)
                 <> " "
-                <> mInt (cy - 45)
+                <> mInt (cy - 32)
             )
         , SvgA.fill_ "none"
         , SvgA.stroke_ "#888"
@@ -1064,16 +1327,16 @@ selfLoop cx cy n =
 
 -- | Like 'selfLoop' but with a coloured text label sitting next to the
 -- count, used for the 'contest' self-loop on Closed.
-selfLoopWithLabel :: Int -> Int -> MisoString -> Int -> MisoString -> View (Action tx)
-selfLoopWithLabel cx cy lbl n color =
+selfLoopWithLabel :: Int -> Int -> MisoString -> Int -> MisoString -> Bool -> View (Action tx)
+selfLoopWithLabel cx cy lbl n color isActive =
   Svg.g_
     []
     [ Svg.path_
         [ SvgA.d_
             ( "M "
-                <> mInt (cx - 20)
+                <> mInt (cx - 32)
                 <> " "
-                <> mInt (cy - 45)
+                <> mInt (cy - 32)
                 <> " C "
                 <> mInt (cx - 60)
                 <> " "
@@ -1083,13 +1346,13 @@ selfLoopWithLabel cx cy lbl n color =
                 <> " "
                 <> mInt (cy - 100)
                 <> " "
-                <> mInt (cx + 20)
+                <> mInt (cx + 32)
                 <> " "
-                <> mInt (cy - 45)
+                <> mInt (cy - 32)
             )
         , SvgA.fill_ "none"
-        , SvgA.stroke_ color
-        , SvgA.strokeWidth_ "1.5"
+        , SvgA.stroke_ (activeStroke color isActive)
+        , SvgA.strokeWidth_ (activeWidth "1.5" isActive)
         , SvgA.markerEnd_ "url(#arrowhead)"
         ]
         []
