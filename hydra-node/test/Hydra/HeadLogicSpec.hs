@@ -609,12 +609,16 @@ spec =
               chs.decommitTx `shouldBe` Nothing
             _ -> fail "expected Open state"
 
-          -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
+          -- 2. The stale ReqSn(v=3) arrives. The receiver's version is now 4,
+          --    so it cannot be processed; we wait (and TTL eventually drops it)
+          --    rather than erroring, since the symmetric race where a follower
+          --    is briefly behind a leader's bumped version must recover via
+          --    retry.
           let staleReqSn :: Input SimpleTx
               staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
           update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
-            Error (RequireFailed ReqSvNumberInvalid{}) -> True
+            Wait WaitOnSnapshotVersion{waitingForVersion = 3} _ -> True
             _ -> False
 
           -- 3. A new ReqTx arrives — alice (leader for sn=2) can request a new
@@ -1098,15 +1102,19 @@ spec =
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
-      it "rejects invalid snapshots version" $ do
-        let validSnNumber = 0
+      it "waits on out-of-sync snapshot version" $ do
+        -- A ReqSn whose version does not match our local version is parked as
+        -- a Wait so the TTL/retry machinery can recover when a follower is
+        -- briefly behind the leader after an in-flight OnIncrement/OnDecrement.
+        let validSnNumber = 1
             invalidSnVersion = 1
             input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing Nothing
-            theLeader = carol
-            expectedSnVersion = 0
+            theLeader = alice
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSvNumberInvalid invalidSnVersion expectedSnVersion)
+        update bobEnv ledger now st input `shouldSatisfy` \case
+          Wait WaitOnSnapshotVersion{waitingForVersion = 1} _ -> True
+          _ -> False
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice

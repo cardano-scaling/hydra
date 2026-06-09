@@ -322,8 +322,12 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- TODO: is this really needed?
       -- Spec: wait v = v̂
+      -- NOTE: must be a Wait, not a require: a follower can receive ReqSn for
+      -- the bumped version before its own chain handler has processed the
+      -- triggering OnIncrementTx/OnDecrementTx. Erroring here would drop the
+      -- message permanently (Error outcomes are not re-enqueued), leaving the
+      -- head stuck until the deposit expires.
       waitOnSnapshotVersion $
         -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
         -- Require any pending utxo to decommit to be consistent
@@ -375,8 +379,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                             }
  where
   requireReqSn continue
-    | sv /= version =
-        Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -973,8 +975,9 @@ onOpenChainTick env chainTime pendingDeposits st =
 --     the next one with the bumped version. Firing here would use stale
 --     'localTxs' and cause 'BadInputsUTxO' on other parties.
 --   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
---     and will be rejected with 'ReqSvNumberInvalid', so we must re-request
---     immediately with the new version to avoid a permanently stuck head.
+--     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
+--     re-request immediately with the new version to make progress without
+--     waiting for the stale request's retries to exhaust.
 --
 -- The optional 'depositTxId' argument is forwarded into 'ReqSn': commit
 -- finalisation passes 'Nothing' (deposit already included), while decommit
