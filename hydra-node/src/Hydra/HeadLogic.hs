@@ -322,8 +322,12 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
   requireReqSn $
     -- Spec: wait ŝ = ̅S.s
     waitNoSnapshotInFlight $
-      -- TODO: is this really needed?
       -- Spec: wait v = v̂
+      -- NOTE: must be a Wait, not a require: a follower can receive ReqSn for
+      -- the bumped version before its own chain handler has processed the
+      -- triggering OnIncrementTx/OnDecrementTx. Erroring here would drop the
+      -- message permanently (Error outcomes are not re-enqueued), leaving the
+      -- head stuck until the deposit expires.
       waitOnSnapshotVersion $
         -- TODO: this is missing!? Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
         -- Require any pending utxo to decommit to be consistent
@@ -375,8 +379,6 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                             }
  where
   requireReqSn continue
-    | sv /= version =
-        Error $ RequireFailed $ ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -625,22 +627,28 @@ onOpenNetworkAckSn Environment{party} pendingDeposits openState otherParty snaps
       else outcome
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit} signatures outcome =
-    -- TODO: check status (again)?
-    case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
-      Just (depositTxId, Deposit{deposited}) ->
-        outcome
-          <> newState CommitApproved{headId, utxoToCommit = deposited}
-          <> cause
-            OnChainEffect
-              { postChainTx =
-                  IncrementTx
-                    { headSeed
-                    , headId
-                    , headParameters = parameters
-                    , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
-                    , depositTxId
-                    }
-              }
+    -- NOTE: gate on both 'currentDepositTxId' and 'snapshot.utxoToCommit'.
+    -- 'DepositActivated' can set 'currentDepositTxId' during the ack flow of a
+    -- non-commit snapshot, so we'd otherwise post an Increment for a snapshot
+    -- that has no 'utxoToCommit'.
+    case (currentDepositTxId, utxoToCommit) of
+      (Just depositTxId, Just _) ->
+        case Map.lookup depositTxId pendingDeposits of
+          Just Deposit{deposited} ->
+            outcome
+              <> newState CommitApproved{headId, utxoToCommit = deposited}
+              <> cause
+                OnChainEffect
+                  { postChainTx =
+                      IncrementTx
+                        { headSeed
+                        , headId
+                        , headParameters = parameters
+                        , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                        , depositTxId
+                        }
+                  }
+          Nothing -> outcome
       _ -> outcome
 
   maybePostDecrementTx snapshot@Snapshot{utxoToDecommit} signatures outcome =
@@ -967,8 +975,9 @@ onOpenChainTick env chainTime pendingDeposits st =
 --     the next one with the bumped version. Firing here would use stale
 --     'localTxs' and cause 'BadInputsUTxO' on other parties.
 --   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
---     and will be rejected with 'ReqSvNumberInvalid', so we must re-request
---     immediately with the new version to avoid a permanently stuck head.
+--     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
+--     re-request immediately with the new version to make progress without
+--     waiting for the stale request's retries to exhaust.
 --
 -- The optional 'depositTxId' argument is forwarded into 'ReqSn': commit
 -- finalisation passes 'Nothing' (deposit already included), while decommit
@@ -1075,10 +1084,13 @@ maybeRepostIncrementTx ::
   ConfirmedSnapshot tx ->
   Outcome tx
 maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId confirmedSnapshot =
+  -- NOTE: gate on 'utxoToCommit = Just _' alongside the deposit txid lookup
+  -- in case 'DepositActivated' set 'currentDepositTxId' after a non-commit
+  -- snapshot was confirmed.
   case (mDepositTxId, confirmedSnapshot) of
-    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit}, signatures}) ->
-      case find (\(_, Deposit{deposited}) -> Just deposited == utxoToCommit) $ Map.toList pendingDeposits of
-        Just (_, Deposit{}) ->
+    (Just depositTxId, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToCommit = Just _}, signatures}) ->
+      case Map.lookup depositTxId pendingDeposits of
+        Just Deposit{} ->
           cause
             OnChainEffect
               { postChainTx =
@@ -1090,7 +1102,7 @@ maybeRepostIncrementTx headSeed headId parameters pendingDeposits mDepositTxId c
                     , depositTxId
                     }
               }
-        _ -> noop
+        Nothing -> noop
     _ -> noop
 
 -- | On rollback, re-post the DecrementTx if there is a pending decommit whose

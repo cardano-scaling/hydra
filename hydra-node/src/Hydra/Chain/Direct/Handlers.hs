@@ -399,6 +399,12 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
         }
 
     timeHandle <- getTimeHandle
+
+    forM_ receivedTxs $
+      maybeObserveSomeTx timeHandle point >=> \case
+        Nothing -> pure ()
+        Just event -> callback event
+
     case chainPointToSlotNo point of
       Nothing -> pure ()
       Just slotNo -> do
@@ -407,11 +413,6 @@ chainSyncHandler tracer callback getTimeHandle ctx localChainState =
             throwIO TimeConversionException{slotNo, reason}
           Right utcTime -> do
             callback (Tick{chainTime = utcTime, chainPoint = point})
-
-    forM_ receivedTxs $
-      maybeObserveSomeTx timeHandle point >=> \case
-        Nothing -> pure ()
-        Just event -> callback event
 
   maybeObserveSomeTx timeHandle point tx = atomically $ do
     ChainStateAt{spendableUTxO} <- getLatest

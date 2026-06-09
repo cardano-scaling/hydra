@@ -386,6 +386,85 @@ spec =
             NodeInSync{headState = Closed _} -> pure ()
             other -> fail $ "expected Closed state, got: " <> show other
 
+        it "posts IncrementTx using the snapshot's deposit txid, not by content match" $ do
+          -- Regression for #2681: with two pending deposits sharing 'deposited'
+          -- content but differing in txid, the old code did 'find' by content
+          -- and could pick the wrong one. The fix keys off 'currentDepositTxId'.
+          now <- getCurrentTime
+          let depositTime = flip addUTCTime now
+              deadline = depositTime 600
+              depositedUtxo = utxoRef 50
+              txid1 = 41 :: Integer
+              txid2 = 42 :: Integer
+              mkDeposit ts =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUtxo
+                  , created = depositTime ts
+                  , deadline
+                  , status = Active
+                  }
+              snapshot1 =
+                Snapshot
+                  { headId = testHeadId
+                  , version = 0
+                  , number = 1
+                  , confirmed = []
+                  , utxo = mempty
+                  , utxoToCommit = Just depositedUtxo
+                  , utxoToDecommit = Nothing
+                  , accumulator = Accumulator.buildFromSnapshotUTxOs mempty (Just depositedUtxo) Nothing
+                  }
+              s0 =
+                ( inOpenState'
+                    [alice]
+                    coordinatedHeadState
+                      { seenSnapshot = mkSeenSnapshot snapshot1 Map.empty
+                      , currentDepositTxId = Just txid2
+                      }
+                )
+                  { pendingDeposits = Map.fromList [(txid1, mkDeposit 1), (txid2, mkDeposit 2)]
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+              outcome = update aliceEnv ledger now s0 ackSn
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{depositTxId}} -> depositTxId == txid2
+            _ -> False
+
+        it "does not post IncrementTx when DepositActivated fires for a non-commit snapshot mid-ack" $ do
+          -- Regression: 'DepositActivated' can set 'currentDepositTxId' via
+          -- '<|>' while a snapshot with no 'utxoToCommit' is in-flight. The
+          -- gate on 'snapshot.utxoToCommit = Just _' prevents posting a
+          -- malformed IncrementTx in that case.
+          now <- getCurrentTime
+          let depositTime = flip addUTCTime now
+              deadline = depositTime 600
+              depositTxId' = 99 :: Integer
+              deposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = utxoRef 99
+                  , created = depositTime 1
+                  , deadline
+                  , status = Active
+                  }
+              snapshot1 = testSnapshot 1 0 [] mempty
+              s0 =
+                ( inOpenState'
+                    [alice]
+                    coordinatedHeadState
+                      { seenSnapshot = mkSeenSnapshot snapshot1 Map.empty
+                      , currentDepositTxId = Just depositTxId'
+                      }
+                )
+                  { pendingDeposits = Map.singleton depositTxId' deposit
+                  }
+              ackSn = receiveMessage $ AckSn (sign aliceSk snapshot1) 1
+              outcome = update aliceEnv ledger now s0 ackSn
+          outcome `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
+
       describe "Decommit" $ do
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
@@ -530,12 +609,16 @@ spec =
               chs.decommitTx `shouldBe` Nothing
             _ -> fail "expected Open state"
 
-          -- 2. The stale ReqSn(v=3) arrives and is rejected (version mismatch)
+          -- 2. The stale ReqSn(v=3) arrives. The receiver's version is now 4,
+          --    so it cannot be processed; we wait (and TTL eventually drops it)
+          --    rather than erroring, since the symmetric race where a follower
+          --    is briefly behind a leader's bumped version must recover via
+          --    retry.
           let staleReqSn :: Input SimpleTx
               staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
           update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
-            Error (RequireFailed ReqSvNumberInvalid{}) -> True
+            Wait WaitOnSnapshotVersion{waitingForVersion = 3} _ -> True
             _ -> False
 
           -- 3. A new ReqTx arrives — alice (leader for sn=2) can request a new
@@ -1019,15 +1102,19 @@ spec =
         now <- nowFromSlot st.chainPointTime.currentSlot
         update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 3 0)
 
-      it "rejects invalid snapshots version" $ do
-        let validSnNumber = 0
+      it "waits on out-of-sync snapshot version" $ do
+        -- A ReqSn whose version does not match our local version is parked as
+        -- a Wait so the TTL/retry machinery can recover when a follower is
+        -- briefly behind the leader after an in-flight OnIncrement/OnDecrement.
+        let validSnNumber = 1
             invalidSnVersion = 1
             input = receiveMessageFrom theLeader $ ReqSn invalidSnVersion validSnNumber [] Nothing Nothing
-            theLeader = carol
-            expectedSnVersion = 0
+            theLeader = alice
             st = inOpenState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        update bobEnv ledger now st input `shouldBe` Error (RequireFailed $ ReqSvNumberInvalid invalidSnVersion expectedSnVersion)
+        update bobEnv ledger now st input `shouldSatisfy` \case
+          Wait WaitOnSnapshotVersion{waitingForVersion = 1} _ -> True
+          _ -> False
 
       it "rejects overlapping snapshot requests from the leader" $ do
         let theLeader = alice

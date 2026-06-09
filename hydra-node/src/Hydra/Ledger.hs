@@ -32,9 +32,9 @@ newtype Ledger tx = Ledger
 -- 'applyTransactions', this functions continues on validation errors.
 collectTransactions :: Ledger tx -> ChainSlot -> UTxOType tx -> [tx] -> ([tx], UTxOType tx)
 collectTransactions Ledger{applyTransactions} slot utxo =
-  foldr go ([], utxo)
+  foldl' go ([], utxo)
  where
-  go tx (applicableTxs, u) =
+  go (applicableTxs, u) tx =
     case applyTransactions slot u [tx] of
       Left _ -> (applicableTxs, u)
       Right u' -> (applicableTxs <> [tx], u')

@@ -159,6 +159,44 @@ spec = do
           onRollForward handler header txs
             `shouldThrow` \TimeConversionException{slotNo} -> slotNo == slot
 
+    prop "emits observations before Tick within the same block" . monadicIO $ do
+      -- Ordering matters: 'onOpenChainTick' in HeadLogic uses the post-observation
+      -- state to decide whether to broadcast the next 'ReqSn'. If Tick fired
+      -- before the in-block observation (e.g. 'OnIncrementTx' that bumps the
+      -- snapshot version), followers would receive a 'ReqSn' carrying the new
+      -- version while their local version is still stale, causing
+      -- 'ReqSvNumberInvalid'.
+      (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
+      let utxo = getKnownUTxO st <> utxo'
+      TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]
+      timeHandle <- pickBlind arbitrary
+      monitor (label $ show transition)
+
+      (handler, getEvents) <-
+        run $
+          recordEventsHandler
+            ctx
+            ChainStateAt{spendableUTxO = utxo, recordedAt = Nothing}
+            (pure timeHandle)
+
+      run $ onRollForward handler header txs
+
+      events <- run getEvents
+      monitor $ counterexample ("events (insertion-order reversed): " <> show events)
+
+      let tag :: ChainEvent Tx -> String
+          tag = \case
+            Observation{} -> "obs"
+            Tick{} -> "tick"
+            Rollback{} -> "roll"
+            PostTxError{} -> "err"
+          callOrder = reverse events
+          pattern' = intercalate "," (map tag callOrder)
+      -- 'genChainStateWithTx' does not always produce an observable tx; in those
+      -- cases we just see a single "tick". When an observation does occur, it
+      -- must precede the Tick: pattern shape is "obs*,tick".
+      void . stop $ pattern' `shouldSatisfy` (`elem` ["tick", "obs,tick"])
+
     prop "observes valid transactions onRollForward" . monadicIO $ do
       -- Generate a state and related transaction and a block containing it
       (ctx, st, utxo', tx, transition) <- pick genChainStateWithTx
