@@ -8,14 +8,14 @@
 </span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/template-haskell-2.20.0.0/src/System.FilePath.html"><span class="hs-identifier">System.FilePath</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#takeDirectory"><span class="hs-identifier">takeDirectory</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator">(&lt;/&gt;)</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-9"></span><span>
 </span><span id="line-10"></span><span class="hs-keyword">data</span><span> </span><span id="Theme"><span class="annot"><a href="Hydra.TUI.Config.html#Theme"><span class="hs-identifier hs-var">Theme</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="DarkTheme"><span class="annot"><a href="Hydra.TUI.Config.html#DarkTheme"><span class="hs-identifier hs-var">DarkTheme</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="LightTheme"><span class="annot"><a href="Hydra.TUI.Config.html#LightTheme"><span class="hs-identifier hs-var">LightTheme</span></a></span></span><span>
-</span><span id="line-11"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490713"><span id="local-6989586621679490715"><span class="annot"><span class="annottext">Theme -&gt; Theme -&gt; Bool
+</span><span id="line-11"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490720"><span id="local-6989586621679490722"><span class="annot"><span class="annottext">Theme -&gt; Theme -&gt; Bool
 (Theme -&gt; Theme -&gt; Bool) -&gt; (Theme -&gt; Theme -&gt; Bool) -&gt; Eq Theme
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
 $c== :: Theme -&gt; Theme -&gt; Bool
 == :: Theme -&gt; Theme -&gt; Bool
 $c/= :: Theme -&gt; Theme -&gt; Bool
 /= :: Theme -&gt; Theme -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490720"><span id="local-6989586621679490722"><span id="local-6989586621679490726"><span class="annot"><span class="annottext">Int -&gt; Theme -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490727"><span id="local-6989586621679490729"><span id="local-6989586621679490733"><span class="annot"><span class="annottext">Int -&gt; Theme -&gt; ShowS
 [Theme] -&gt; ShowS
 Theme -&gt; String
 (Int -&gt; Theme -&gt; ShowS)
@@ -34,7 +34,7 @@ showList :: [Theme] -&gt; ShowS
 </span><span id="line-14"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="theme"><span class="annot"><span class="annottext">TuiConfig -&gt; Theme
 </span><a href="Hydra.TUI.Config.html#theme"><span class="hs-identifier hs-var hs-var">theme</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#Theme"><span class="hs-identifier hs-type">Theme</span></a></span><span>
 </span><span id="line-15"></span><span>  </span><span class="hs-special">}</span><span>
-</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490732"><span id="local-6989586621679490735"><span class="annot"><span class="annottext">TuiConfig -&gt; TuiConfig -&gt; Bool
+</span><span id="line-16"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679490739"><span id="local-6989586621679490742"><span class="annot"><span class="annottext">TuiConfig -&gt; TuiConfig -&gt; Bool
 (TuiConfig -&gt; TuiConfig -&gt; Bool)
 -&gt; (TuiConfig -&gt; TuiConfig -&gt; Bool) -&gt; Eq TuiConfig
 forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
@@ -42,7 +42,7 @@ $c== :: TuiConfig -&gt; TuiConfig -&gt; Bool
 == :: TuiConfig -&gt; TuiConfig -&gt; Bool
 $c/= :: TuiConfig -&gt; TuiConfig -&gt; Bool
 /= :: TuiConfig -&gt; TuiConfig -&gt; Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490739"><span id="local-6989586621679490744"><span id="local-6989586621679490748"><span class="annot"><span class="annottext">Int -&gt; TuiConfig -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679490746"><span id="local-6989586621679490751"><span id="local-6989586621679490755"><span class="annot"><span class="annottext">Int -&gt; TuiConfig -&gt; ShowS
 [TuiConfig] -&gt; ShowS
 TuiConfig -&gt; String
 (Int -&gt; TuiConfig -&gt; ShowS)
@@ -80,8 +80,8 @@ showList :: [TuiConfig] -&gt; ShowS
 </span><span id="line-28"></span><span class="annot"><a href="Hydra.TUI.Config.html#configFilePath"><span class="hs-identifier hs-type">configFilePath</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.html#FilePath"><span class="hs-identifier hs-type">FilePath</span></a></span><span>
 </span><span id="line-29"></span><span id="configFilePath"><span class="annot"><span class="annottext">configFilePath :: IO String
 </span><a href="Hydra.TUI.Config.html#configFilePath"><span class="hs-identifier hs-var hs-var">configFilePath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-30"></span><span>  </span><span id="local-6989586621679490754"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490754"><span class="hs-identifier hs-var">xdgConfig</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">XdgDirectory -&gt; String -&gt; IO String
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679490761"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679490761"><span class="hs-identifier hs-var">xdgConfig</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">XdgDirectory -&gt; String -&gt; IO String
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/directory-1.3.8.5/src/System.Directory.html#getXdgDirectory"><span class="hs-identifier hs-var">getXdgDirectory</span></a></span><span> </span><span class="annot"><span class="annottext">XdgDirectory
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/directory-1.3.8.5/src/System.Directory.Internal.Common.html#XdgConfig"><span class="hs-identifier hs-var">XdgConfig</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;hydra&quot;</span></span><span>
@@ -91,7 +91,7 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; IO String) -&gt; String -&gt; IO String
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490754"><span class="hs-identifier hs-var">xdgConfig</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
+</span><a href="#local-6989586621679490761"><span class="hs-identifier hs-var">xdgConfig</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;tui-config.yaml&quot;</span></span><span>
 </span><span id="line-32"></span><span>
@@ -100,11 +100,11 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-35"></span><span class="annot"><a href="Hydra.TUI.Config.html#readConfig"><span class="hs-identifier hs-type">readConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span>
 </span><span id="line-36"></span><span id="readConfig"><span class="annot"><span class="annottext">readConfig :: IO TuiConfig
 </span><a href="Hydra.TUI.Config.html#readConfig"><span class="hs-identifier hs-var hs-var">readConfig</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-37"></span><span>  </span><span id="local-6989586621679490757"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490757"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO String
+</span><span id="line-37"></span><span>  </span><span id="local-6989586621679490764"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679490764"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO String
 </span><a href="Hydra.TUI.Config.html#configFilePath"><span class="hs-identifier hs-var">configFilePath</span></a></span><span>
-</span><span id="line-38"></span><span>  </span><span id="local-6989586621679490758"><span class="annot"><span class="annottext">Either IOException ByteString
-</span><a href="#local-6989586621679490758"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO (Either IOException ByteString)
+</span><span id="line-38"></span><span>  </span><span id="local-6989586621679490765"><span class="annot"><span class="annottext">Either IOException ByteString
+</span><a href="#local-6989586621679490765"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO (Either IOException ByteString)
 forall e a. Exception e =&gt; IO a -&gt; IO (Either e a)
 forall (m :: * -&gt; *) e a.
 (MonadCatch m, Exception e) =&gt;
@@ -112,35 +112,35 @@ m a -&gt; m (Either e a)
 </span><span class="hs-identifier hs-var">try</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO ByteString
 forall (m :: * -&gt; *). MonadIO m =&gt; String -&gt; m ByteString
 </span><span class="hs-identifier hs-var">readFileBS</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490757"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490764"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-39"></span><span>  </span><span class="annot"><span class="annottext">TuiConfig -&gt; IO TuiConfig
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(TuiConfig -&gt; IO TuiConfig) -&gt; TuiConfig -&gt; IO TuiConfig
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either IOException ByteString
-</span><a href="#local-6989586621679490758"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679490765"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-40"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IOException
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier hs-type">IOException</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TuiConfig
 </span><a href="Hydra.TUI.Config.html#defaultConfig"><span class="hs-identifier hs-var">defaultConfig</span></a></span><span>
-</span><span id="line-41"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679490761"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679490761"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; TuiConfig
+</span><span id="line-41"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621679490768"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679490768"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; TuiConfig
 </span><a href="Hydra.TUI.Config.html#parseConfig"><span class="hs-identifier hs-var">parseConfig</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ByteString -&gt; Text
 forall a b. ConvertUtf8 a b =&gt; b -&gt; a
 </span><span class="hs-identifier hs-var">decodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679490761"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490768"><span class="hs-identifier hs-var">bytes</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-42"></span><span>
 </span><span id="line-43"></span><span class="hs-comment">-- | Persist the config to disk, creating the directory if necessary. Silently</span><span>
 </span><span id="line-44"></span><span class="hs-comment">-- swallows IO errors so an unwritable config path never crashes the TUI.</span><span>
 </span><span id="line-45"></span><span class="annot"><a href="Hydra.TUI.Config.html#writeConfig"><span class="hs-identifier hs-type">writeConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-46"></span><span id="writeConfig"><span class="annot"><span class="annottext">writeConfig :: TuiConfig -&gt; IO ()
-</span><a href="Hydra.TUI.Config.html#writeConfig"><span class="hs-identifier hs-var hs-var">writeConfig</span></a></span></span><span> </span><span id="local-6989586621679490765"><span class="annot"><span class="annottext">TuiConfig
-</span><a href="#local-6989586621679490765"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-47"></span><span>  </span><span id="local-6989586621679490766"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490766"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO String
+</span><a href="Hydra.TUI.Config.html#writeConfig"><span class="hs-identifier hs-var hs-var">writeConfig</span></a></span></span><span> </span><span id="local-6989586621679490772"><span class="annot"><span class="annottext">TuiConfig
+</span><a href="#local-6989586621679490772"><span class="hs-identifier hs-var">cfg</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>  </span><span id="local-6989586621679490773"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679490773"><span class="hs-identifier hs-var">path</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO String
 </span><a href="Hydra.TUI.Config.html#configFilePath"><span class="hs-identifier hs-var">configFilePath</span></a></span><span>
-</span><span id="line-48"></span><span>  </span><span id="local-6989586621679490767"><span class="annot"><span class="annottext">Either IOException ()
-</span><a href="#local-6989586621679490767"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO (Either IOException ())
+</span><span id="line-48"></span><span>  </span><span id="local-6989586621679490774"><span class="annot"><span class="annottext">Either IOException ()
+</span><a href="#local-6989586621679490774"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO (Either IOException ())
 forall e a. Exception e =&gt; IO a -&gt; IO (Either e a)
 forall (m :: * -&gt; *) e a.
 (MonadCatch m, Exception e) =&gt;
@@ -153,15 +153,15 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/directory-1.3.8.5/src/System.Directory.html#createDirectoryIfMissing"><span class="hs-identifier hs-var">createDirectoryIfMissing</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ShowS
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#takeDirectory"><span class="hs-identifier hs-var">takeDirectory</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490766"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490773"><span class="hs-identifier hs-var">path</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Text -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; String -&gt; Text -&gt; m ()
 </span><span class="hs-identifier hs-var">writeFileText</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679490766"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TuiConfig -&gt; Text
+</span><a href="#local-6989586621679490773"><span class="hs-identifier hs-var">path</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TuiConfig -&gt; Text
 </span><a href="Hydra.TUI.Config.html#encodeConfig"><span class="hs-identifier hs-var">encodeConfig</span></a></span><span> </span><span class="annot"><span class="annottext">TuiConfig
-</span><a href="#local-6989586621679490765"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679490772"><span class="hs-identifier hs-var">cfg</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-51"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either IOException ()
-</span><a href="#local-6989586621679490767"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679490774"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-52"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IOException
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Exception.html#IOException"><span class="hs-identifier hs-type">IOException</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
 forall a. a -&gt; IO a
@@ -179,52 +179,52 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><span id="line-59"></span><span class="annot"><span class="hs-comment">-- | Parse the on-disk config text. Unrecognised content falls back to 'defaultConfig'.</span></span><span>
 </span><span id="line-60"></span><span class="annot"><a href="Hydra.TUI.Config.html#parseConfig"><span class="hs-identifier hs-type">parseConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span>
 </span><span id="line-61"></span><span id="parseConfig"><span class="annot"><span class="annottext">parseConfig :: Text -&gt; TuiConfig
-</span><a href="Hydra.TUI.Config.html#parseConfig"><span class="hs-identifier hs-var hs-var">parseConfig</span></a></span></span><span> </span><span id="local-6989586621679490770"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490770"><span class="hs-identifier hs-var">content</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.TUI.Config.html#parseConfig"><span class="hs-identifier hs-var hs-var">parseConfig</span></a></span></span><span> </span><span id="local-6989586621679490777"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679490777"><span class="hs-identifier hs-var">content</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-62"></span><span>  </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">theme :: Theme
 </span><a href="Hydra.TUI.Config.html#theme"><span class="hs-identifier hs-var">theme</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Theme -&gt; Maybe Theme -&gt; Theme
 forall a. a -&gt; Maybe a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromMaybe"><span class="hs-identifier hs-var">fromMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TuiConfig -&gt; Theme
 </span><a href="Hydra.TUI.Config.html#theme"><span class="hs-identifier hs-var">theme</span></a></span><span> </span><span class="annot"><span class="annottext">TuiConfig
 </span><a href="Hydra.TUI.Config.html#defaultConfig"><span class="hs-identifier hs-var">defaultConfig</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Theme
-</span><a href="#local-6989586621679490772"><span class="hs-identifier hs-var">parsedTheme</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621679490779"><span class="hs-identifier hs-var">parsedTheme</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-63"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-64"></span><span>  </span><span id="local-6989586621679490772"><span class="annot"><span class="annottext">parsedTheme :: Maybe Theme
-</span><a href="#local-6989586621679490772"><span class="hs-identifier hs-var hs-var">parsedTheme</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-64"></span><span>  </span><span id="local-6989586621679490779"><span class="annot"><span class="annottext">parsedTheme :: Maybe Theme
+</span><a href="#local-6989586621679490779"><span class="hs-identifier hs-var hs-var">parsedTheme</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-65"></span><span>    </span><span class="annot"><span class="annottext">[Theme] -&gt; Maybe Theme
 forall a. [a] -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#listToMaybe"><span class="hs-identifier hs-var">listToMaybe</span></a></span><span>
 </span><span id="line-66"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Theme
-</span><a href="#local-6989586621679490774"><span class="hs-identifier hs-var">themeFromText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490775"><span class="hs-identifier hs-var">v</span></a></span><span>
-</span><span id="line-67"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679490776"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490776"><span class="hs-identifier hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text]
+</span><a href="#local-6989586621679490781"><span class="hs-identifier hs-var">themeFromText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679490782"><span class="hs-identifier hs-var">v</span></a></span><span>
+</span><span id="line-67"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679490783"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679490783"><span class="hs-identifier hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Text]
 </span><span class="hs-identifier hs-var">T.lines</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490770"><span class="hs-identifier hs-var">content</span></a></span><span>
-</span><span id="line-68"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679490778"><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490778"><span class="hs-identifier hs-var">rest</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Maybe Text
+</span><a href="#local-6989586621679490777"><span class="hs-identifier hs-var">content</span></a></span><span>
+</span><span id="line-68"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679490785"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679490785"><span class="hs-identifier hs-var">rest</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Maybe Text
 </span><span class="hs-identifier hs-var">T.stripPrefix</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;theme: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490776"><span class="hs-identifier hs-var">line</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-69"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490775"><span class="annot"><span class="annottext">v :: Text
-</span><a href="#local-6989586621679490775"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><a href="#local-6989586621679490783"><span class="hs-identifier hs-var">line</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-69"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679490782"><span class="annot"><span class="annottext">v :: Text
+</span><a href="#local-6989586621679490782"><span class="hs-identifier hs-var hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
 </span><span class="hs-identifier hs-var">T.strip</span></span><span> </span><span class="annot"><span class="annottext">Text
-</span><a href="#local-6989586621679490778"><span class="hs-identifier hs-var">rest</span></a></span><span>
+</span><a href="#local-6989586621679490785"><span class="hs-identifier hs-var">rest</span></a></span><span>
 </span><span id="line-70"></span><span>      </span><span class="hs-special">]</span><span>
 </span><span id="line-71"></span><span>
-</span><span id="line-72"></span><span>  </span><span class="annot"><a href="#local-6989586621679490774"><span class="hs-identifier hs-type">themeFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#Theme"><span class="hs-identifier hs-type">Theme</span></a></span><span>
-</span><span id="line-73"></span><span>  </span><span id="local-6989586621679490774"><span class="annot"><span class="annottext">themeFromText :: Text -&gt; Theme
-</span><a href="#local-6989586621679490774"><span class="hs-identifier hs-var hs-var">themeFromText</span></a></span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span id="line-72"></span><span>  </span><span class="annot"><a href="#local-6989586621679490781"><span class="hs-identifier hs-type">themeFromText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#Theme"><span class="hs-identifier hs-type">Theme</span></a></span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679490781"><span class="annot"><span class="annottext">themeFromText :: Text -&gt; Theme
+</span><a href="#local-6989586621679490781"><span class="hs-identifier hs-var hs-var">themeFromText</span></a></span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;light&quot;</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Theme
 </span><a href="Hydra.TUI.Config.html#LightTheme"><span class="hs-identifier hs-var">LightTheme</span></a></span><span>
-</span><span id="line-74"></span><span>  </span><span class="annot"><a href="#local-6989586621679490774"><span class="hs-identifier hs-var">themeFromText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span id="line-74"></span><span>  </span><span class="annot"><a href="#local-6989586621679490781"><span class="hs-identifier hs-var">themeFromText</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Theme
 </span><a href="Hydra.TUI.Config.html#DarkTheme"><span class="hs-identifier hs-var">DarkTheme</span></a></span><span>
 </span><span id="line-75"></span><span>
 </span><span id="line-76"></span><span class="annot"><span class="hs-comment">-- | Serialise the config to its on-disk text form.</span></span><span>
 </span><span id="line-77"></span><span class="annot"><a href="Hydra.TUI.Config.html#encodeConfig"><span class="hs-identifier hs-type">encodeConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
 </span><span id="line-78"></span><span id="encodeConfig"><span class="annot"><span class="annottext">encodeConfig :: TuiConfig -&gt; Text
-</span><a href="Hydra.TUI.Config.html#encodeConfig"><span class="hs-identifier hs-var hs-var">encodeConfig</span></a></span></span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621679490781"><span class="annot"><span class="annottext">Theme
+</span><a href="Hydra.TUI.Config.html#encodeConfig"><span class="hs-identifier hs-var hs-var">encodeConfig</span></a></span></span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#TuiConfig"><span class="hs-identifier hs-type">TuiConfig</span></a></span><span class="hs-special">{</span><span id="local-6989586621679490788"><span class="annot"><span class="annottext">Theme
 theme :: TuiConfig -&gt; Theme
 theme :: Theme
 </span><a href="Hydra.TUI.Config.html#theme"><span class="hs-identifier hs-var hs-var">theme</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
@@ -232,18 +232,18 @@ theme :: Theme
 </span><span class="hs-string">&quot;theme: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Theme -&gt; Text
-</span><a href="#local-6989586621679490782"><span class="hs-identifier hs-var">themeToText</span></a></span><span> </span><span class="annot"><span class="annottext">Theme
-</span><a href="#local-6989586621679490781"><span class="hs-identifier hs-var">theme</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+</span><a href="#local-6989586621679490789"><span class="hs-identifier hs-var">themeToText</span></a></span><span> </span><span class="annot"><span class="annottext">Theme
+</span><a href="#local-6989586621679490788"><span class="hs-identifier hs-var">theme</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;\n&quot;</span></span><span>
 </span><span id="line-80"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-81"></span><span>  </span><span class="annot"><a href="#local-6989586621679490782"><span class="hs-identifier hs-type">themeToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#Theme"><span class="hs-identifier hs-type">Theme</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621679490782"><span class="annot"><span class="annottext">themeToText :: Theme -&gt; Text
-</span><a href="#local-6989586621679490782"><span class="hs-identifier hs-var hs-var">themeToText</span></a></span></span><span> </span><span class="annot"><span class="annottext">Theme
+</span><span id="line-81"></span><span>  </span><span class="annot"><a href="#local-6989586621679490789"><span class="hs-identifier hs-type">themeToText</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Config.html#Theme"><span class="hs-identifier hs-type">Theme</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679490789"><span class="annot"><span class="annottext">themeToText :: Theme -&gt; Text
+</span><a href="#local-6989586621679490789"><span class="hs-identifier hs-var hs-var">themeToText</span></a></span></span><span> </span><span class="annot"><span class="annottext">Theme
 </span><a href="Hydra.TUI.Config.html#DarkTheme"><span class="hs-identifier hs-var">DarkTheme</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;dark&quot;</span></span><span>
-</span><span id="line-83"></span><span>  </span><span class="annot"><a href="#local-6989586621679490782"><span class="hs-identifier hs-var">themeToText</span></a></span><span> </span><span class="annot"><span class="annottext">Theme
+</span><span id="line-83"></span><span>  </span><span class="annot"><a href="#local-6989586621679490789"><span class="hs-identifier hs-var">themeToText</span></a></span><span> </span><span class="annot"><span class="annottext">Theme
 </span><a href="Hydra.TUI.Config.html#LightTheme"><span class="hs-identifier hs-var">LightTheme</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;light&quot;</span></span><span>
 </span><span id="line-84"></span></pre></body></html>

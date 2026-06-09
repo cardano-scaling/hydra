@@ -452,10 +452,6 @@ setupCardanoDevnet :: FilePath -> IO CardanoNodeArgs
 withCardanoNode :: Tracer IO NodeLog -> FilePath -> CardanoNodeArgs -> (NominalDiffTime -> DirectOptions -> IO a) -> IO a
 getShelleyGenesisBlockTime :: Value -> NominalDiffTime
 
--- | Compute the block time (expected time between blocks) given a slot
---   length as diff time and active slot coefficient.
-computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
-
 -- | Wait until the node is fully caught up with the network. This can take
 --   a while!
 waitForFullySynchronized :: Tracer IO NodeLog -> ChainBackendOptions -> IO ()

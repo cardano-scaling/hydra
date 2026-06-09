@@ -424,6 +424,17 @@ queryProtocolParameters :: LocalNodeConnectInfo -> QueryPoint -> IO (PParams Led
 --   Throws at least <a>QueryException</a> if query fails.
 queryGenesisParameters :: LocalNodeConnectInfo -> QueryPoint -> IO (GenesisParameters ShelleyEra)
 
+-- | Query the chain's average block time, derived from genesis parameters
+--   as <a>protocolParamSlotLength</a> /
+--   <a>protocolParamActiveSlotsCoefficient</a>.
+--   
+--   Throws at least <a>QueryException</a> if query fails.
+queryBlockTime :: LocalNodeConnectInfo -> QueryPoint -> IO NominalDiffTime
+
+-- | Compute the block time (expected time between blocks) given a slot
+--   length and active slot coefficient.
+computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
+
 -- | Query UTxO for all given addresses at given point.
 --   
 --   Throws at least <a>QueryException</a> if query fails.
@@ -2124,6 +2135,18 @@ putLastKnownRevision :: MonadIO m => FilePath -> Natural -> m ()
 --   to read/write to the cluster.
 pollConnectivity :: Tracer IO EtcdLog -> Connection -> Host -> NetworkCallback msg IO -> IO ()
 
+-- | Predicate for gRPC errors that we treat as transient — connection
+--   blips or etcd-side disruption from which a retry is expected to
+--   recover. Anything outside this set is escalated by re-throwing.
+--   
+--   <a>GrpcNotFound</a> is included specifically for lease loss: when
+--   etcd's RAFT leader changes under network stress, in-flight leases are
+--   revoked, and the next operation referencing one
+--   ('pollConnectivity.writeAlive') comes back with NOT_FOUND. The
+--   recovery is to mark the network as disconnected and let the outer loop
+--   recreate the lease, not crash the node.
+isTransientGrpcError :: GrpcError -> Bool
+
 -- | Add context to the <a>grpcErrorMessage</a> of any <a>GrpcException</a>
 --   raised.
 withGrpcContext :: MonadCatch m => Text -> m a -> m a
@@ -3251,9 +3274,9 @@ onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> Op
 --   <a>$sel:localTxs:CoordinatedHeadState</a> and cause
 --   <tt>BadInputsUTxO</tt> on other parties. * Allows
 --   <a>RequestedSnapshot</a>: the in-flight ReqSn carries the old version
---   and will be rejected with <a>ReqSvNumberInvalid</a>, so we must
---   re-request immediately with the new version to avoid a permanently
---   stuck head.
+--   and will be parked by <tt>waitOnSnapshotVersion</tt> until TTL drops
+--   it, so we re-request immediately with the new version to make progress
+--   without waiting for the stale request's retries to exhaust.
 --   
 --   The optional <a>StateChanged</a> argument is forwarded into
 --   <a>ReqSn</a>: commit finalisation passes <a>Nothing</a> (deposit
@@ -4551,7 +4574,7 @@ runDirectBackend :: DirectOptions -> DirectBackend a -> IO a
 withDirectChain :: DirectOptions -> Tracer IO CardanoChainLog -> CardanoChainConfig -> ChainContext -> TinyWallet IO -> ChainStateHistory Tx -> ChainComponent Tx IO a
 chainSyncClient :: forall m. (MonadSTM m, MonadThrow m) => ChainSyncHandler m -> TinyWallet m -> NonEmpty ChainPoint -> ChainSyncClient BlockType ChainPoint ChainTip m ()
 withNodeConn :: (LocalNodeConnectInfo -> IO a) -> DirectBackend a
-txSubmissionClient :: forall m. (MonadSTM m, MonadDelay m) => Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> LocalTxSubmissionClient TxInMode TxValidationErrorInCardanoMode m ()
+txSubmissionClient :: forall m. (MonadSTM m, MonadDelay m) => Tracer m CardanoChainLog -> m NominalDiffTime -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> LocalTxSubmissionClient TxInMode TxValidationErrorInCardanoMode m ()
 instance Control.Monad.Class.MonadThrow.MonadCatch Hydra.Chain.Direct.DirectBackend
 instance Control.Monad.Class.MonadThrow.MonadThrow Hydra.Chain.Direct.DirectBackend
 instance Control.Monad.IO.Class.MonadIO Hydra.Chain.Direct.DirectBackend
@@ -4575,10 +4598,10 @@ withBlockfrostChain :: BlockfrostOptions -> Tracer IO CardanoChainLog -> Cardano
 newtype BlockfrostConnectException
 BlockfrostConnectException :: IOException -> BlockfrostConnectException
 [$sel:ioException:BlockfrostConnectException] :: BlockfrostConnectException -> IOException
-blockfrostChain :: (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m, MonadMask m) => Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
+blockfrostChain :: (MonadIO m, MonadFail m, MonadCatch m, MonadAsync m, MonadDelay m, MonadLabelledSTM m, MonadMask m) => Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m NominalDiffTime -> m ()
 blockfrostChainFollow :: forall m. (MonadIO m, MonadFail m, MonadCatch m, MonadDelay m, MonadLabelledSTM m, MonadMask m) => Tracer m CardanoChainLog -> Project -> NonEmpty ChainPoint -> ChainSyncHandler m -> TinyWallet m -> m ()
 rollForward :: (MonadIO m, MonadThrow m) => Tracer m CardanoChainLog -> Project -> ChainSyncHandler m -> TinyWallet m -> Integer -> BlockHash -> m BlockHash
-blockfrostSubmissionClient :: forall m. (MonadIO m, MonadDelay m, MonadSTM m) => Project -> Tracer m CardanoChainLog -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> m ()
+blockfrostSubmissionClient :: forall m. (MonadIO m, MonadDelay m, MonadSTM m) => Project -> Tracer m CardanoChainLog -> m NominalDiffTime -> TQueue m (Tx, TMVar m (Maybe (PostTxError Tx))) -> m ()
 toChainPoint :: Block -> ChainPoint
 
 -- | Maximum number of retries for transient Blockfrost errors.

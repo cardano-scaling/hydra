@@ -26,10 +26,10 @@
 </span><span id="line-26"></span><span class="hs-comment">-- and action bar.</span><span>
 </span><span id="line-27"></span><span class="annot"><a href="Hydra.TUI.Drawing.html#draw"><span class="hs-identifier hs-type">draw</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#Name"><span class="hs-identifier hs-type">Name</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-28"></span><span id="draw"><span class="annot"><span class="annottext">draw :: CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; [Widget Name]
-</span><a href="Hydra.TUI.Drawing.html#draw"><span class="hs-identifier hs-var hs-var">draw</span></a></span></span><span> </span><span id="local-6989586621679497337"><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679497337"><span class="hs-identifier hs-var">cardanoClient</span></a></span></span><span> </span><span id="local-6989586621679497338"><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679497338"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span id="local-6989586621679497339"><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.TUI.Drawing.html#draw"><span class="hs-identifier hs-var hs-var">draw</span></a></span></span><span> </span><span id="local-6989586621679497344"><span class="annot"><span class="annottext">CardanoClient
+</span><a href="#local-6989586621679497344"><span class="hs-identifier hs-var">cardanoClient</span></a></span></span><span> </span><span id="local-6989586621679497345"><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679497345"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span id="local-6989586621679497346"><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-29"></span><span>  </span><span class="annot"><span class="annottext">Widget Name -&gt; [Widget Name]
 forall a. a -&gt; [a]
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -53,19 +53,19 @@ forall n. [Widget n] -&gt; Widget n
 </span><span id="line-33"></span><span>          </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">ActiveTab -&gt; Name -&gt; Name -&gt; Widget Name
 forall n. ActiveTab -&gt; Name -&gt; Name -&gt; Widget n
 </span><a href="Hydra.TUI.Drawing.html#drawTabBar"><span class="hs-identifier hs-var">drawTabBar</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting ActiveTab RootState ActiveTab
 Lens' RootState ActiveTab
 </span><a href="Hydra.TUI.Model.html#activeTabL"><span class="hs-identifier hs-var">activeTabL</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState -&gt; Name
 </span><a href="Hydra.TUI.Drawing.html#modalTabLabel"><span class="hs-identifier hs-var">modalTabLabel</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">fundsLabel</span></a></span><span>
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497353"><span class="hs-identifier hs-var">fundsLabel</span></a></span><span>
 </span><span id="line-34"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.html#drawTabContent"><span class="hs-identifier hs-var">drawTabContent</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679497337"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679497338"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679497344"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679497345"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-35"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Widget Name -&gt; Widget Name
 forall n. Int -&gt; Widget n -&gt; Widget n
 </span><span class="hs-identifier hs-var">vLimit</span></span><span> </span><span class="annot"><span class="annottext">Int
@@ -80,7 +80,7 @@ forall n. Padding -&gt; Widget n -&gt; Widget n
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-37"></span><span>                </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting (Maybe Name) RootState (Maybe Name) -&gt; Maybe Name
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting (Maybe Name) RootState (Maybe Name)
@@ -91,14 +91,14 @@ Lens' RootState (Maybe Name)
 forall n. Char -&gt; Widget n
 </span><span class="hs-identifier hs-var">fill</span></span><span> </span><span class="annot"><span class="annottext">Char
 </span><span class="hs-char">' '</span></span><span>
-</span><span id="line-39"></span><span>                  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679497353"><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497353"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Name -&gt; Widget Name
+</span><span id="line-39"></span><span>                  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679497360"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497360"><span class="hs-identifier hs-var">msg</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Name -&gt; Widget Name
 forall n. AttrName -&gt; Widget n -&gt; Widget n
 </span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
 </span><a href="Hydra.TUI.Style.html#pendingA"><span class="hs-identifier hs-var">pendingA</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Widget Name
 forall n. Name -&gt; Widget n
 </span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497353"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Widget Name -&gt; Widget Name -&gt; Widget Name
+</span><a href="#local-6989586621679497360"><span class="hs-identifier hs-var">msg</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Widget Name -&gt; Widget Name -&gt; Widget Name
 forall n. Widget n -&gt; Widget n -&gt; Widget n
 </span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Char -&gt; Widget Name
 forall n. Char -&gt; Widget n
@@ -112,14 +112,14 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Widget Name
 forall n. RootState -&gt; Widget n
 </span><a href="Hydra.TUI.Drawing.html#drawActionBar"><span class="hs-identifier hs-var">drawActionBar</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-41"></span><span>          </span><span class="hs-special">]</span><span>
 </span><span id="line-42"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-43"></span><span>  </span><span id="local-6989586621679497346"><span class="annot"><span class="annottext">fundsLabel :: Name
-</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var hs-var">fundsLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
-</span><span id="line-44"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497360"><span class="annot"><span class="annottext">hasPendingCommit :: Bool
-</span><a href="#local-6989586621679497360"><span class="hs-identifier hs-var hs-var">hasPendingCommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><span id="line-43"></span><span>  </span><span id="local-6989586621679497353"><span class="annot"><span class="annottext">fundsLabel :: Name
+</span><a href="#local-6989586621679497353"><span class="hs-identifier hs-var hs-var">fundsLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497367"><span class="annot"><span class="annottext">hasPendingCommit :: Bool
+</span><a href="#local-6989586621679497367"><span class="hs-identifier hs-var hs-var">hasPendingCommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting (First [PendingIncrement]) RootState [PendingIncrement]
 -&gt; Maybe [PendingIncrement]
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
@@ -188,9 +188,9 @@ Lens' ActiveLink [PendingIncrement]
 </span><span id="line-46"></span><span>          </span><span class="annot"><span class="annottext">Maybe [PendingIncrement]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-47"></span><span>        </span><span id="local-6989586621679497367"><span class="annot"><span class="annottext">hasPendingDecommit :: Bool
-</span><a href="#local-6989586621679497367"><span class="hs-identifier hs-var hs-var">hasPendingDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497339"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting (First UTxO) RootState UTxO -&gt; Maybe UTxO
+</span><span id="line-47"></span><span>        </span><span id="local-6989586621679497374"><span class="annot"><span class="annottext">hasPendingDecommit :: Bool
+</span><a href="#local-6989586621679497374"><span class="hs-identifier hs-var hs-var">hasPendingDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497346"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting (First UTxO) RootState UTxO -&gt; Maybe UTxO
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">(ConnectedState -&gt; Const (First UTxO) ConnectedState)
 -&gt; RootState -&gt; Const (First UTxO) RootState
@@ -238,9 +238,9 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 -&gt; ActiveLink -&gt; Const (First UTxO) ActiveLink
 Lens' ActiveLink UTxO
 </span><a href="Hydra.TUI.Model.html#pendingUTxOToDecommitL"><span class="hs-identifier hs-var">pendingUTxOToDecommitL</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-48"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679497369"><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679497369"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679497369"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; Bool
+</span><span id="line-48"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679497376"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679497376"><span class="hs-identifier hs-var">u</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679497376"><span class="hs-identifier hs-var">u</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
 forall a. Monoid a =&gt; a
@@ -249,31 +249,31 @@ forall a. Monoid a =&gt; a
 </span><span id="line-49"></span><span>          </span><span class="annot"><span class="annottext">Maybe UTxO
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-50"></span><span>        </span><span id="local-6989586621679497371"><span class="annot"><span class="annottext">arrows :: Name
-</span><a href="#local-6989586621679497371"><span class="hs-identifier hs-var hs-var">arrows</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679497360"><span class="hs-identifier hs-var">hasPendingCommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Name
+</span><span id="line-50"></span><span>        </span><span id="local-6989586621679497378"><span class="annot"><span class="annottext">arrows :: Name
+</span><a href="#local-6989586621679497378"><span class="hs-identifier hs-var hs-var">arrows</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679497367"><span class="hs-identifier hs-var">hasPendingCommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;&#8593;&quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679497367"><span class="hs-identifier hs-var">hasPendingDecommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497374"><span class="hs-identifier hs-var">hasPendingDecommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;&#8595;&quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-51"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Bool
 </span><span class="hs-identifier hs-var">T.null</span></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497371"><span class="hs-identifier hs-var">arrows</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497378"><span class="hs-identifier hs-var">arrows</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Funds&quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Funds &quot;</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497371"><span class="hs-identifier hs-var">arrows</span></a></span><span>
+</span><a href="#local-6989586621679497378"><span class="hs-identifier hs-var">arrows</span></a></span><span>
 </span><span id="line-52"></span><span>
-</span><span id="line-53"></span><span id="local-6989586621679497193"><span class="annot"><a href="Hydra.TUI.Drawing.html#drawTabBar"><span class="hs-identifier hs-type">drawTabBar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveTab"><span class="hs-identifier hs-type">ActiveTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497193"><span class="hs-identifier hs-type">n</span></a></span></span><span>
+</span><span id="line-53"></span><span id="local-6989586621679497200"><span class="annot"><a href="Hydra.TUI.Drawing.html#drawTabBar"><span class="hs-identifier hs-type">drawTabBar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveTab"><span class="hs-identifier hs-type">ActiveTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497200"><span class="hs-identifier hs-type">n</span></a></span></span><span>
 </span><span id="line-54"></span><span id="drawTabBar"><span class="annot"><span class="annottext">drawTabBar :: forall n. ActiveTab -&gt; Name -&gt; Name -&gt; Widget n
-</span><a href="Hydra.TUI.Drawing.html#drawTabBar"><span class="hs-identifier hs-var hs-var">drawTabBar</span></a></span></span><span> </span><span id="local-6989586621679497379"><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497379"><span class="hs-identifier hs-var">active</span></a></span></span><span> </span><span id="local-6989586621679497380"><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497380"><span class="hs-identifier hs-var">modalTabName</span></a></span></span><span> </span><span id="local-6989586621679497381"><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497381"><span class="hs-identifier hs-var">fundsLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.TUI.Drawing.html#drawTabBar"><span class="hs-identifier hs-var hs-var">drawTabBar</span></a></span></span><span> </span><span id="local-6989586621679497386"><span class="annot"><span class="annottext">ActiveTab
+</span><a href="#local-6989586621679497386"><span class="hs-identifier hs-var">active</span></a></span></span><span> </span><span id="local-6989586621679497387"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497387"><span class="hs-identifier hs-var">modalTabName</span></a></span></span><span> </span><span id="local-6989586621679497388"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497388"><span class="hs-identifier hs-var">fundsLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-55"></span><span>  </span><span class="annot"><span class="annottext">Padding -&gt; Widget n -&gt; Widget n
 forall n. Padding -&gt; Widget n -&gt; Widget n
 </span><span class="hs-identifier hs-var">padLeft</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Padding
@@ -291,7 +291,7 @@ forall n. ActiveTab -&gt; Name -&gt; ActiveTab -&gt; Widget n
 </span><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-var">drawTab</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#MainTab"><span class="hs-identifier hs-var">MainTab</span></a></span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Main&quot;</span></span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497379"><span class="hs-identifier hs-var">active</span></a></span><span>
+</span><a href="#local-6989586621679497386"><span class="hs-identifier hs-var">active</span></a></span><span>
 </span><span id="line-58"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Widget n
 forall n. Name -&gt; Widget n
 </span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Name
@@ -300,8 +300,8 @@ forall n. Name -&gt; Widget n
 forall n. ActiveTab -&gt; Name -&gt; ActiveTab -&gt; Widget n
 </span><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-var">drawTab</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#FundsTab"><span class="hs-identifier hs-var">FundsTab</span></a></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497381"><span class="hs-identifier hs-var">fundsLabel</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497379"><span class="hs-identifier hs-var">active</span></a></span><span>
+</span><a href="#local-6989586621679497388"><span class="hs-identifier hs-var">fundsLabel</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
+</span><a href="#local-6989586621679497386"><span class="hs-identifier hs-var">active</span></a></span><span>
 </span><span id="line-60"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name -&gt; Widget n
 forall n. Name -&gt; Widget n
 </span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Name
@@ -311,12 +311,12 @@ forall n. ActiveTab -&gt; Name -&gt; ActiveTab -&gt; Widget n
 </span><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-var">drawTab</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#EventHistoryTab"><span class="hs-identifier hs-var">EventHistoryTab</span></a></span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Event History&quot;</span></span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497379"><span class="hs-identifier hs-var">active</span></a></span><span>
+</span><a href="#local-6989586621679497386"><span class="hs-identifier hs-var">active</span></a></span><span>
 </span><span id="line-62"></span><span>      </span><span class="hs-special">]</span><span>
 </span><span id="line-63"></span><span>        </span><span class="annot"><span class="annottext">[Widget n] -&gt; [Widget n] -&gt; [Widget n]
 forall a. [a] -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%2B%2B"><span class="hs-operator hs-var">++</span></a></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497379"><span class="hs-identifier hs-var">active</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679497386"><span class="hs-identifier hs-var">active</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-64"></span><span>          </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#ModalTab"><span class="hs-identifier hs-var">ModalTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Name -&gt; Widget n
 forall n. Name -&gt; Widget n
@@ -325,19 +325,19 @@ forall n. Name -&gt; Widget n
 forall n. ActiveTab -&gt; Name -&gt; ActiveTab -&gt; Widget n
 </span><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-var">drawTab</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#ModalTab"><span class="hs-identifier hs-var">ModalTab</span></a></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497380"><span class="hs-identifier hs-var">modalTabName</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497379"><span class="hs-identifier hs-var">active</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679497387"><span class="hs-identifier hs-var">modalTabName</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
+</span><a href="#local-6989586621679497386"><span class="hs-identifier hs-var">active</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-65"></span><span>          </span><span class="annot"><span class="annottext">ActiveTab
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-66"></span><span>
 </span><span id="line-67"></span><span class="annot"><a href="Hydra.TUI.Drawing.html#modalTabLabel"><span class="hs-identifier hs-type">modalTabLabel</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
 </span><span id="line-68"></span><span id="modalTabLabel"><span class="annot"><span class="annottext">modalTabLabel :: RootState -&gt; Name
-</span><a href="Hydra.TUI.Drawing.html#modalTabLabel"><span class="hs-identifier hs-var hs-var">modalTabLabel</span></a></span></span><span> </span><span id="local-6989586621679497388"><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497388"><span class="hs-identifier hs-var">s</span></a></span></span><span>
+</span><a href="Hydra.TUI.Drawing.html#modalTabLabel"><span class="hs-identifier hs-var hs-var">modalTabLabel</span></a></span></span><span> </span><span id="local-6989586621679497395"><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497395"><span class="hs-identifier hs-var">s</span></a></span></span><span>
 </span><span id="line-69"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name) -&gt; Bool
 forall a. Maybe a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier hs-var">isJust</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497388"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497395"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting
      (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
      RootState
@@ -353,7 +353,7 @@ Lens' RootState (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
 </span><span class="hs-string">&quot;Recover&quot;</span></span><span>
 </span><span id="line-70"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497388"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497395"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting (First OpenScreen) RootState OpenScreen
 -&gt; Maybe OpenScreen
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
@@ -439,17 +439,17 @@ Traversal' ActiveHeadState OpenScreen
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Action&quot;</span></span><span>
 </span><span id="line-80"></span><span>
-</span><span id="line-81"></span><span id="local-6989586621679497220"><span class="annot"><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-type">drawTab</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveTab"><span class="hs-identifier hs-type">ActiveTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveTab"><span class="hs-identifier hs-type">ActiveTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497220"><span class="hs-identifier hs-type">n</span></a></span></span><span>
+</span><span id="line-81"></span><span id="local-6989586621679497227"><span class="annot"><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-type">drawTab</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveTab"><span class="hs-identifier hs-type">ActiveTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveTab"><span class="hs-identifier hs-type">ActiveTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497227"><span class="hs-identifier hs-type">n</span></a></span></span><span>
 </span><span id="line-82"></span><span id="drawTab"><span class="annot"><span class="annottext">drawTab :: forall n. ActiveTab -&gt; Name -&gt; ActiveTab -&gt; Widget n
-</span><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-var hs-var">drawTab</span></a></span></span><span> </span><span id="local-6989586621679497407"><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497407"><span class="hs-identifier hs-var">tab</span></a></span></span><span> </span><span id="local-6989586621679497408"><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497408"><span class="hs-identifier hs-var">tabLabel</span></a></span></span><span> </span><span id="local-6989586621679497409"><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497409"><span class="hs-identifier hs-var">current</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.TUI.Drawing.html#drawTab"><span class="hs-identifier hs-var hs-var">drawTab</span></a></span></span><span> </span><span id="local-6989586621679497414"><span class="annot"><span class="annottext">ActiveTab
+</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">tab</span></a></span></span><span> </span><span id="local-6989586621679497415"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497415"><span class="hs-identifier hs-var">tabLabel</span></a></span></span><span> </span><span id="local-6989586621679497416"><span class="annot"><span class="annottext">ActiveTab
+</span><a href="#local-6989586621679497416"><span class="hs-identifier hs-var">current</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-83"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497407"><span class="hs-identifier hs-var">tab</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab -&gt; ActiveTab -&gt; Bool
+</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">tab</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab -&gt; ActiveTab -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="#local-6989586621679497409"><span class="hs-identifier hs-var">current</span></a></span><span>
+</span><a href="#local-6989586621679497416"><span class="hs-identifier hs-var">current</span></a></span><span>
 </span><span id="line-84"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget n -&gt; Widget n
 forall n. AttrName -&gt; Widget n -&gt; Widget n
 </span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
@@ -461,7 +461,7 @@ forall n. Name -&gt; Widget n
 </span><span class="hs-string">&quot; &quot;</span></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497408"><span class="hs-identifier hs-var">tabLabel</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
+</span><a href="#local-6989586621679497415"><span class="hs-identifier hs-var">tabLabel</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot; &quot;</span></span><span class="hs-special">)</span><span>
@@ -473,16 +473,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Widget n
 forall n. Name -&gt; Widget n
 </span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497408"><span class="hs-identifier hs-var">tabLabel</span></a></span><span>
+</span><a href="#local-6989586621679497415"><span class="hs-identifier hs-var">tabLabel</span></a></span><span>
 </span><span id="line-86"></span><span>
 </span><span id="line-87"></span><span class="annot"><a href="Hydra.TUI.Drawing.html#drawTabContent"><span class="hs-identifier hs-type">drawTabContent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#Name"><span class="hs-identifier hs-type">Name</span></a></span><span>
 </span><span id="line-88"></span><span id="drawTabContent"><span class="annot"><span class="annottext">drawTabContent :: CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; Widget Name
-</span><a href="Hydra.TUI.Drawing.html#drawTabContent"><span class="hs-identifier hs-var hs-var">drawTabContent</span></a></span></span><span> </span><span id="local-6989586621679497412"><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679497412"><span class="hs-identifier hs-var">cardanoClient</span></a></span></span><span> </span><span id="local-6989586621679497413"><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679497413"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span id="local-6989586621679497414"><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.TUI.Drawing.html#drawTabContent"><span class="hs-identifier hs-var hs-var">drawTabContent</span></a></span></span><span> </span><span id="local-6989586621679497419"><span class="annot"><span class="annottext">CardanoClient
+</span><a href="#local-6989586621679497419"><span class="hs-identifier hs-var">cardanoClient</span></a></span></span><span> </span><span id="local-6989586621679497420"><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var">hydraClient</span></a></span></span><span> </span><span id="local-6989586621679497421"><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497421"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-89"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
+</span><a href="#local-6989586621679497421"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting ActiveTab RootState ActiveTab
 Lens' RootState ActiveTab
@@ -490,36 +490,36 @@ Lens' RootState ActiveTab
 </span><span id="line-90"></span><span>    </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#MainTab"><span class="hs-identifier hs-var">MainTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.MainTab.html#drawMainTab"><span class="hs-identifier hs-var">drawMainTab</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679497412"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679497413"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679497419"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497421"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-91"></span><span>    </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#FundsTab"><span class="hs-identifier hs-var">FundsTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.FundsTab.html#drawFundsTab"><span class="hs-identifier hs-var">drawFundsTab</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679497412"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679497413"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679497419"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497421"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-92"></span><span>    </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#EventHistoryTab"><span class="hs-identifier hs-var">EventHistoryTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventHistoryTab"><span class="hs-identifier hs-var">drawEventHistoryTab</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679497421"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#ModalTab"><span class="hs-identifier hs-var">ModalTab</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.html#drawModalTab"><span class="hs-identifier hs-var">drawModalTab</span></a></span><span> </span><span class="annot"><span class="annottext">CardanoClient
-</span><a href="#local-6989586621679497412"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
-</span><a href="#local-6989586621679497413"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497414"><span class="hs-identifier hs-var">s</span></a></span><span>
+</span><a href="#local-6989586621679497419"><span class="hs-identifier hs-var">cardanoClient</span></a></span><span> </span><span class="annot"><span class="annottext">Client Tx IO
+</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var">hydraClient</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497421"><span class="hs-identifier hs-var">s</span></a></span><span>
 </span><span id="line-94"></span><span>
 </span><span id="line-95"></span><span class="annot"><a href="Hydra.TUI.Drawing.html#drawModalTab"><span class="hs-identifier hs-type">drawModalTab</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#Name"><span class="hs-identifier hs-type">Name</span></a></span><span>
 </span><span id="line-96"></span><span id="drawModalTab"><span class="annot"><span class="annottext">drawModalTab :: CardanoClient -&gt; Client Tx IO -&gt; RootState -&gt; Widget Name
-</span><a href="Hydra.TUI.Drawing.html#drawModalTab"><span class="hs-identifier hs-var hs-var">drawModalTab</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span class="hs-special">{</span><span id="local-6989586621679497417"><span class="annot"><span class="annottext">NetworkId
+</span><a href="Hydra.TUI.Drawing.html#drawModalTab"><span class="hs-identifier hs-var hs-var">drawModalTab</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CardanoClient</span></span><span class="hs-special">{</span><span id="local-6989586621679497424"><span class="annot"><span class="annottext">NetworkId
 networkId :: NetworkId
 $sel:networkId:CardanoClient :: CardanoClient -&gt; NetworkId
-</span><a href="#local-6989586621679497417"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span class="hs-special">{</span><span id="local-6989586621679497420"><span class="annot"><span class="annottext">SigningKey PaymentKey
+</span><a href="#local-6989586621679497424"><span class="hs-identifier hs-var hs-var">networkId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="annot"><a href="Hydra.Client.html#Client"><span class="hs-identifier hs-type">Client</span></a></span><span class="hs-special">{</span><span id="local-6989586621679497427"><span class="annot"><span class="annottext">SigningKey PaymentKey
 sk :: SigningKey PaymentKey
 sk :: forall tx (m :: * -&gt; *). Client tx m -&gt; SigningKey PaymentKey
-</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var hs-var">sk</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679497422"><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679497427"><span class="hs-identifier hs-var hs-var">sk</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679497429"><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">Widget Name -&gt; Widget Name -&gt; Widget Name
 forall n. Widget n -&gt; Widget n -&gt; Widget n
 </span><span class="hs-identifier hs-var">borderWithLabel</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName -&gt; Widget Name -&gt; Widget Name
@@ -534,7 +534,7 @@ forall n. Name -&gt; Widget n
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Name
 </span><a href="Hydra.TUI.Drawing.html#modalTabLabel"><span class="hs-identifier hs-var">modalTabLabel</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">Name -&gt; Name -&gt; Name
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot; &quot;</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Widget Name -&gt; Widget Name) -&gt; Widget Name -&gt; Widget Name
@@ -547,7 +547,7 @@ forall n. Int -&gt; Widget n -&gt; Widget n
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-99"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting
      (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
      RootState
@@ -560,21 +560,21 @@ forall s a. s -&gt; Getting a s a -&gt; a
   (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
 Lens' RootState (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
 </span><a href="Hydra.TUI.Model.html#recoveryFormL"><span class="hs-identifier hs-var">recoveryFormL</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-100"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679497423"><span class="annot"><span class="annottext">TxIdRadioFieldForm (HydraEvent Tx) Name
-</span><a href="#local-6989586621679497423"><span class="hs-identifier hs-var">form</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-101"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497424"><span class="annot"><span class="annottext">ownAddress :: AddressInEra Era
-</span><a href="#local-6989586621679497424"><span class="hs-identifier hs-var hs-var">ownAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall era.
+</span><span id="line-100"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621679497430"><span class="annot"><span class="annottext">TxIdRadioFieldForm (HydraEvent Tx) Name
+</span><a href="#local-6989586621679497430"><span class="hs-identifier hs-var">form</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-101"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679497431"><span class="annot"><span class="annottext">ownAddress :: AddressInEra Era
+</span><a href="#local-6989586621679497431"><span class="hs-identifier hs-var hs-var">ownAddress</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall era.
 IsShelleyBasedEra era =&gt;
 NetworkId -&gt; VerificationKey PaymentKey -&gt; AddressInEra era
 </span><span class="hs-identifier hs-var">mkVkAddress</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Era</span></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679497417"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+</span><a href="#local-6989586621679497424"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
 forall keyrole.
 (Key keyrole, HasTypeProxy keyrole) =&gt;
 SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-102"></span><span>              </span><span id="local-6989586621679497427"><span class="annot"><span class="annottext">pendingIncrements :: [PendingIncrement]
-</span><a href="#local-6989586621679497427"><span class="hs-identifier hs-var hs-var">pendingIncrements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679497427"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>              </span><span id="local-6989586621679497434"><span class="annot"><span class="annottext">pendingIncrements :: [PendingIncrement]
+</span><a href="#local-6989586621679497434"><span class="hs-identifier hs-var hs-var">pendingIncrements</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-103"></span><span>                </span><span class="annot"><span class="annottext">[PendingIncrement]
 -&gt; Maybe [PendingIncrement] -&gt; [PendingIncrement]
 forall a. a -&gt; Maybe a -&gt; a
@@ -583,7 +583,7 @@ forall a. a -&gt; Maybe a -&gt; a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-104"></span><span>                  </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting (First [PendingIncrement]) RootState [PendingIncrement]
 -&gt; Maybe [PendingIncrement]
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
@@ -654,17 +654,17 @@ forall e.
 AddressInEra Era
 -&gt; Form TxId e Name -&gt; [PendingIncrement] -&gt; UTCTime -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.FundsTab.html#drawRecoverFormWithDetail"><span class="hs-identifier hs-var">drawRecoverFormWithDetail</span></a></span><span> </span><span class="annot"><span class="annottext">AddressInEra Era
-</span><a href="#local-6989586621679497424"><span class="hs-identifier hs-var">ownAddress</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdRadioFieldForm (HydraEvent Tx) Name
-</span><a href="#local-6989586621679497423"><span class="hs-identifier hs-var">form</span></a></span><span> </span><span class="annot"><span class="annottext">[PendingIncrement]
-</span><a href="#local-6989586621679497427"><span class="hs-identifier hs-var">pendingIncrements</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting UTCTime RootState UTCTime -&gt; UTCTime
+</span><a href="#local-6989586621679497431"><span class="hs-identifier hs-var">ownAddress</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdRadioFieldForm (HydraEvent Tx) Name
+</span><a href="#local-6989586621679497430"><span class="hs-identifier hs-var">form</span></a></span><span> </span><span class="annot"><span class="annottext">[PendingIncrement]
+</span><a href="#local-6989586621679497434"><span class="hs-identifier hs-var">pendingIncrements</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting UTCTime RootState UTCTime -&gt; UTCTime
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting UTCTime RootState UTCTime
 Lens' RootState UTCTime
 </span><a href="Hydra.TUI.Model.html#nowL"><span class="hs-identifier hs-var">nowL</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-106"></span><span>        </span><span class="annot"><span class="annottext">Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting ConnectedState RootState ConnectedState
 -&gt; ConnectedState
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -675,30 +675,30 @@ Lens' RootState ConnectedState
 </span><a href="Hydra.TUI.Model.html#Disconnected"><span class="hs-identifier hs-var">Disconnected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Widget Name
 forall n. Widget n
 </span><span class="hs-identifier hs-var">emptyWidget</span></span><span>
-</span><span id="line-108"></span><span>          </span><span class="annot"><a href="Hydra.TUI.Model.html#Connected"><span class="hs-identifier hs-type">Connected</span></a></span><span> </span><span id="local-6989586621679497433"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679497433"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId
+</span><span id="line-108"></span><span>          </span><span class="annot"><a href="Hydra.TUI.Model.html#Connected"><span class="hs-identifier hs-type">Connected</span></a></span><span> </span><span id="local-6989586621679497440"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679497440"><span class="hs-identifier hs-var">k</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NetworkId
 -&gt; VerificationKey PaymentKey
 -&gt; UTCTime
 -&gt; Connection
 -&gt; Widget Name
 </span><a href="Hydra.TUI.Drawing.FundsTab.html#drawFocusPanel"><span class="hs-identifier hs-var">drawFocusPanel</span></a></span><span> </span><span class="annot"><span class="annottext">NetworkId
-</span><a href="#local-6989586621679497417"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
+</span><a href="#local-6989586621679497424"><span class="hs-identifier hs-var">networkId</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SigningKey PaymentKey -&gt; VerificationKey PaymentKey
 forall keyrole.
 (Key keyrole, HasTypeProxy keyrole) =&gt;
 SigningKey keyrole -&gt; VerificationKey keyrole
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">SigningKey PaymentKey
-</span><a href="#local-6989586621679497420"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497422"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting UTCTime RootState UTCTime -&gt; UTCTime
+</span><a href="#local-6989586621679497427"><span class="hs-identifier hs-var">sk</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497429"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting UTCTime RootState UTCTime -&gt; UTCTime
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting UTCTime RootState UTCTime
 Lens' RootState UTCTime
 </span><a href="Hydra.TUI.Model.html#nowL"><span class="hs-identifier hs-var">nowL</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679497433"><span class="hs-identifier hs-var">k</span></a></span><span>
+</span><a href="#local-6989586621679497440"><span class="hs-identifier hs-var">k</span></a></span><span>
 </span><span id="line-109"></span><span>
-</span><span id="line-110"></span><span id="local-6989586621679497206"><span class="annot"><a href="Hydra.TUI.Drawing.html#drawActionBar"><span class="hs-identifier hs-type">drawActionBar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497206"><span class="hs-identifier hs-type">n</span></a></span></span><span>
+</span><span id="line-110"></span><span id="local-6989586621679497213"><span class="annot"><a href="Hydra.TUI.Drawing.html#drawActionBar"><span class="hs-identifier hs-type">drawActionBar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497213"><span class="hs-identifier hs-type">n</span></a></span></span><span>
 </span><span id="line-111"></span><span id="drawActionBar"><span class="annot"><span class="annottext">drawActionBar :: forall n. RootState -&gt; Widget n
-</span><a href="Hydra.TUI.Drawing.html#drawActionBar"><span class="hs-identifier hs-var hs-var">drawActionBar</span></a></span></span><span> </span><span id="local-6989586621679497571"><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.TUI.Drawing.html#drawActionBar"><span class="hs-identifier hs-var hs-var">drawActionBar</span></a></span></span><span> </span><span id="local-6989586621679497578"><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-112"></span><span>  </span><span class="annot"><span class="annottext">[Widget n] -&gt; Widget n
 forall n. [Widget n] -&gt; Widget n
 </span><span class="hs-identifier hs-var">hBox</span></span><span> </span><span class="annot"><span class="annottext">([Widget n] -&gt; Widget n)
@@ -715,16 +715,16 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier hs-var">map</span></a></span><span> </span><span class="annot"><span class="annottext">(Name, Name) -&gt; Widget n
 forall n. (Name, Name) -&gt; Widget n
-</span><a href="#local-6989586621679497573"><span class="hs-identifier hs-var">drawAction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497574"><span class="hs-identifier hs-var">actions</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497580"><span class="hs-identifier hs-var">drawAction</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[(Name, Name)]
+</span><a href="#local-6989586621679497581"><span class="hs-identifier hs-var">actions</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;F3&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497575"><span class="hs-identifier hs-var">themeLabel</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679497582"><span class="hs-identifier hs-var">themeLabel</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-113"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-114"></span><span>  </span><span id="local-6989586621679497576"><span class="annot"><span class="annottext">isModal :: Bool
-</span><a href="#local-6989586621679497576"><span class="hs-identifier hs-var hs-var">isModal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
+</span><span id="line-114"></span><span>  </span><span id="local-6989586621679497583"><span class="annot"><span class="annottext">isModal :: Bool
+</span><a href="#local-6989586621679497583"><span class="hs-identifier hs-var hs-var">isModal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting ActiveTab RootState ActiveTab
 Lens' RootState ActiveTab
@@ -732,9 +732,9 @@ Lens' RootState ActiveTab
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#ModalTab"><span class="hs-identifier hs-var">ModalTab</span></a></span><span>
-</span><span id="line-115"></span><span>  </span><span id="local-6989586621679497575"><span class="annot"><span class="annottext">themeLabel :: Name
-</span><a href="#local-6989586621679497575"><span class="hs-identifier hs-var hs-var">themeLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting Theme RootState Theme -&gt; Theme
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621679497582"><span class="annot"><span class="annottext">themeLabel :: Name
+</span><a href="#local-6989586621679497582"><span class="hs-identifier hs-var hs-var">themeLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting Theme RootState Theme -&gt; Theme
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting Theme RootState Theme
 Lens' RootState Theme
@@ -745,9 +745,9 @@ Lens' RootState Theme
 </span><span id="line-117"></span><span>    </span><span class="annot"><span class="annottext">Theme
 </span><a href="Hydra.TUI.Config.html#LightTheme"><span class="hs-identifier hs-var">LightTheme</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot; &#9728; light (toggle)&quot;</span></span><span>
-</span><span id="line-118"></span><span>  </span><span id="local-6989586621679497574"><span class="annot"><span class="annottext">actions :: [(Name, Name)]
-</span><a href="#local-6989586621679497574"><span class="hs-identifier hs-var hs-var">actions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><span id="line-118"></span><span>  </span><span id="local-6989586621679497581"><span class="annot"><span class="annottext">actions :: [(Name, Name)]
+</span><a href="#local-6989586621679497581"><span class="hs-identifier hs-var hs-var">actions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting ConnectedState RootState ConnectedState
 -&gt; ConnectedState
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -758,9 +758,9 @@ Lens' RootState ConnectedState
 </span><a href="Hydra.TUI.Model.html#Disconnected"><span class="hs-identifier hs-var">Disconnected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-120"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Connected"><span class="hs-identifier hs-type">Connected</span></a></span><span> </span><span id="local-6989586621679497580"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679497580"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679497580"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; Getting HeadState Connection HeadState -&gt; HeadState
+</span><span id="line-120"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Connected"><span class="hs-identifier hs-type">Connected</span></a></span><span> </span><span id="local-6989586621679497587"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679497587"><span class="hs-identifier hs-var">c</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679497587"><span class="hs-identifier hs-var">c</span></a></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; Getting HeadState Connection HeadState -&gt; HeadState
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting HeadState Connection HeadState
 Lens' Connection HeadState
@@ -771,14 +771,14 @@ Lens' Connection HeadState
 </span><span class="hs-string">&quot;nit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-122"></span><span>      </span><span class="annot"><a href="Hydra.TUI.Model.html#Active"><span class="hs-identifier hs-type">Active</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveLink"><span class="hs-identifier hs-type">ActiveLink</span></a></span><span class="hs-special">{</span><span id="local-6989586621679497584"><span class="annot"><span class="annottext">ActiveHeadState
+</span><span id="line-122"></span><span>      </span><span class="annot"><a href="Hydra.TUI.Model.html#Active"><span class="hs-identifier hs-type">Active</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Model.html#ActiveLink"><span class="hs-identifier hs-type">ActiveLink</span></a></span><span class="hs-special">{</span><span id="local-6989586621679497591"><span class="annot"><span class="annottext">ActiveHeadState
 activeHeadState :: ActiveHeadState
 $sel:activeHeadState:ActiveLink :: ActiveLink -&gt; ActiveHeadState
-</span><a href="#local-6989586621679497584"><span class="hs-identifier hs-var hs-var">activeHeadState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679497591"><span class="hs-identifier hs-var hs-var">activeHeadState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-123"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679497576"><span class="hs-identifier hs-var">isModal</span></a></span><span>
+</span><a href="#local-6989586621679497583"><span class="hs-identifier hs-var">isModal</span></a></span><span>
 </span><span id="line-124"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting
      (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
      RootState
@@ -803,12 +803,12 @@ Lens' RootState (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
 </span><span class="hs-string">&quot; cancel&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-128"></span><span>            </span><span class="annot"><span class="annottext">Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
-</span><a href="#local-6989586621679497584"><span class="hs-identifier hs-var">activeHeadState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-129"></span><span>              </span><span class="annot"><a href="Hydra.TUI.Model.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span class="hs-special">{</span><span id="local-6989586621679497587"><span class="annot"><span class="annottext">OpenScreen
+</span><a href="#local-6989586621679497591"><span class="hs-identifier hs-var">activeHeadState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-129"></span><span>              </span><span class="annot"><a href="Hydra.TUI.Model.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span class="hs-special">{</span><span id="local-6989586621679497594"><span class="annot"><span class="annottext">OpenScreen
 openState :: OpenScreen
 $sel:openState:Open :: ActiveHeadState -&gt; OpenScreen
-</span><a href="#local-6989586621679497587"><span class="hs-identifier hs-var hs-var">openState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">OpenScreen
-</span><a href="#local-6989586621679497587"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var hs-var">openState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">OpenScreen
+</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-130"></span><span>                </span><span class="annot"><a href="Hydra.TUI.Model.html#SelectingUTxOToIncrement"><span class="hs-identifier hs-type">SelectingUTxOToIncrement</span></a></span><span> </span><span class="annot"><span class="annottext">UTxORadioFieldForm (HydraEvent Tx) Name
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;&#8593;&#8595;/Space&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -867,34 +867,34 @@ $sel:openState:Open :: ActiveHeadState -&gt; OpenScreen
 </span><span class="hs-string">&quot;Esc/C&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot; close&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-139"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting ActiveTab RootState ActiveTab -&gt; ActiveTab
 forall s a. s -&gt; Getting a s a -&gt; a
 </span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting ActiveTab RootState ActiveTab
 Lens' RootState ActiveTab
 </span><a href="Hydra.TUI.Model.html#activeTabL"><span class="hs-identifier hs-var">activeTabL</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
-</span><a href="#local-6989586621679497584"><span class="hs-identifier hs-var">activeHeadState</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679497591"><span class="hs-identifier hs-var">activeHeadState</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-140"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ActiveTab
 </span><a href="Hydra.TUI.Model.html#EventHistoryTab"><span class="hs-identifier hs-var">EventHistoryTab</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;d&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot; raw/summary&quot;</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">(Name, Name)
-</span><a href="#local-6989586621679497589"><span class="hs-identifier hs-var">eventFilterAction</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497596"><span class="hs-identifier hs-var">eventFilterAction</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-141"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ActiveTab
-</span><a href="Hydra.TUI.Model.html#FundsTab"><span class="hs-identifier hs-var">FundsTab</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497590"><span class="annot"><span class="annottext">ActiveHeadState
-</span><a href="#local-6989586621679497590"><span class="hs-identifier hs-var">hs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState -&gt; [(Name, Name)]
-</span><a href="#local-6989586621679497591"><span class="hs-identifier hs-var">fundsTabActions</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
-</span><a href="#local-6989586621679497590"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><a href="Hydra.TUI.Model.html#FundsTab"><span class="hs-identifier hs-var">FundsTab</span></a></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497597"><span class="annot"><span class="annottext">ActiveHeadState
+</span><a href="#local-6989586621679497597"><span class="hs-identifier hs-var">hs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497598"><span class="hs-identifier hs-var">fundsTabActions</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
+</span><a href="#local-6989586621679497597"><span class="hs-identifier hs-var">hs</span></a></span><span>
 </span><span id="line-142"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ActiveTab
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497592"><span class="annot"><span class="annottext">ActiveHeadState
-</span><a href="#local-6989586621679497592"><span class="hs-identifier hs-var">hs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState -&gt; [(Name, Name)]
-</span><a href="#local-6989586621679497593"><span class="hs-identifier hs-var">mainTabActions</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
-</span><a href="#local-6989586621679497592"><span class="hs-identifier hs-var">hs</span></a></span><span>
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497599"><span class="annot"><span class="annottext">ActiveHeadState
+</span><a href="#local-6989586621679497599"><span class="hs-identifier hs-var">hs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ActiveHeadState -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497600"><span class="hs-identifier hs-var">mainTabActions</span></a></span><span> </span><span class="annot"><span class="annottext">ActiveHeadState
+</span><a href="#local-6989586621679497599"><span class="hs-identifier hs-var">hs</span></a></span><span>
 </span><span id="line-143"></span><span>  </span><span class="hs-comment">-- Per-state actions on the Funds tab. `U`pdate refreshes the L1 wallet</span><span>
 </span><span id="line-144"></span><span>  </span><span class="hs-comment">-- view, so we always offer it after the head-specific actions.</span><span>
-</span><span id="line-145"></span><span>  </span><span id="local-6989586621679497591"><span class="annot"><span class="annottext">fundsTabActions :: ActiveHeadState -&gt; [(Name, Name)]
-</span><a href="#local-6989586621679497591"><span class="hs-identifier hs-var hs-var">fundsTabActions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-145"></span><span>  </span><span id="local-6989586621679497598"><span class="annot"><span class="annottext">fundsTabActions :: ActiveHeadState -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497598"><span class="hs-identifier hs-var hs-var">fundsTabActions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-146"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;I&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;ncrement&quot;</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
@@ -902,7 +902,7 @@ Lens' RootState ActiveTab
 </span><span class="hs-string">&quot;ecommit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;U&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -910,7 +910,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-147"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;U&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -918,7 +918,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-148"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#FanoutPossible"><span class="hs-identifier hs-type">FanoutPossible</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;F&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -928,7 +928,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-149"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Final"><span class="hs-identifier hs-type">Final</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;I&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -938,8 +938,8 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-150"></span><span>  </span><span class="hs-comment">-- Per-state actions on every other (non-Funds, non-EventHistory) tab.</span><span>
-</span><span id="line-151"></span><span>  </span><span id="local-6989586621679497593"><span class="annot"><span class="annottext">mainTabActions :: ActiveHeadState -&gt; [(Name, Name)]
-</span><a href="#local-6989586621679497593"><span class="hs-identifier hs-var hs-var">mainTabActions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-151"></span><span>  </span><span id="local-6989586621679497600"><span class="annot"><span class="annottext">mainTabActions :: ActiveHeadState -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497600"><span class="hs-identifier hs-var hs-var">mainTabActions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-152"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;N&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;ew Tx&quot;</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
@@ -949,7 +949,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;ncrement&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;C&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -957,13 +957,13 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-153"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-154"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#FanoutPossible"><span class="hs-identifier hs-type">FanoutPossible</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;F&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
@@ -971,16 +971,16 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-155"></span><span>    </span><span class="annot"><a href="Hydra.TUI.Model.html#Final"><span class="hs-identifier hs-type">Final</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">recoverIf</span></a></span><span> </span><span class="annot"><span class="annottext">[(Name, Name)] -&gt; [(Name, Name)] -&gt; [(Name, Name)]
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;I&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;nit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;Q&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot;uit&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
-</span><span id="line-156"></span><span>  </span><span id="local-6989586621679497594"><span class="annot"><span class="annottext">recoverIf :: [(Name, Name)]
-</span><a href="#local-6989586621679497594"><span class="hs-identifier hs-var hs-var">recoverIf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><span id="line-156"></span><span>  </span><span id="local-6989586621679497601"><span class="annot"><span class="annottext">recoverIf :: [(Name, Name)]
+</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var hs-var">recoverIf</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting (First [PendingIncrement]) RootState [PendingIncrement]
 -&gt; Maybe [PendingIncrement]
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
@@ -1049,9 +1049,9 @@ Lens' ActiveLink [PendingIncrement]
 </span><span class="hs-string">&quot;ecover&quot;</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
 </span><span id="line-158"></span><span>    </span><span class="annot"><span class="annottext">Maybe [PendingIncrement]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-159"></span><span>  </span><span id="local-6989586621679497589"><span class="annot"><span class="annottext">eventFilterAction :: (Name, Name)
-</span><a href="#local-6989586621679497589"><span class="hs-identifier hs-var hs-var">eventFilterAction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
-</span><a href="#local-6989586621679497571"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+</span><span id="line-159"></span><span>  </span><span id="local-6989586621679497596"><span class="annot"><span class="annottext">eventFilterAction :: (Name, Name)
+</span><a href="#local-6989586621679497596"><span class="hs-identifier hs-var hs-var">eventFilterAction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679497578"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
 -&gt; Getting EventHistoryFilter RootState EventHistoryFilter
 -&gt; EventHistoryFilter
 forall s a. s -&gt; Getting a s a -&gt; a
@@ -1067,17 +1067,17 @@ Lens' RootState EventHistoryFilter
 </span><span class="hs-string">&quot;e&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Name
 </span><span class="hs-string">&quot; show all&quot;</span></span><span class="hs-special">)</span><span>
 </span><span id="line-162"></span><span>
-</span><span id="line-163"></span><span>  </span><span id="local-6989586621679497248"><span class="annot"><a href="#local-6989586621679497573"><span class="hs-identifier hs-type">drawAction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497248"><span class="hs-identifier hs-type">n</span></a></span></span><span>
-</span><span id="line-164"></span><span>  </span><span id="local-6989586621679497573"><span class="annot"><span class="annottext">drawAction :: forall n. (Name, Name) -&gt; Widget n
-</span><a href="#local-6989586621679497573"><span class="hs-identifier hs-var hs-var">drawAction</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679497601"><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">key</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497602"><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497602"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget n -&gt; Widget n
+</span><span id="line-163"></span><span>  </span><span id="local-6989586621679497255"><span class="annot"><a href="#local-6989586621679497580"><span class="hs-identifier hs-type">drawAction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="#local-6989586621679497255"><span class="hs-identifier hs-type">n</span></a></span></span><span>
+</span><span id="line-164"></span><span>  </span><span id="local-6989586621679497580"><span class="annot"><span class="annottext">drawAction :: forall n. (Name, Name) -&gt; Widget n
+</span><a href="#local-6989586621679497580"><span class="hs-identifier hs-var hs-var">drawAction</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679497608"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497608"><span class="hs-identifier hs-var">key</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679497609"><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679497609"><span class="hs-identifier hs-var">rest</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget n -&gt; Widget n
 forall n. AttrName -&gt; Widget n -&gt; Widget n
 </span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
 </span><a href="Hydra.TUI.Style.html#keyA"><span class="hs-identifier hs-var">keyA</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Widget n
 forall n. Name -&gt; Widget n
 </span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497601"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Widget n -&gt; Widget n -&gt; Widget n
+</span><a href="#local-6989586621679497608"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Widget n -&gt; Widget n -&gt; Widget n
 forall n. Widget n -&gt; Widget n -&gt; Widget n
 </span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget n -&gt; Widget n
 forall n. AttrName -&gt; Widget n -&gt; Widget n
@@ -1085,5 +1085,5 @@ forall n. AttrName -&gt; Widget n -&gt; Widget n
 </span><a href="Hydra.TUI.Style.html#actionDescA"><span class="hs-identifier hs-var">actionDescA</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Widget n
 forall n. Name -&gt; Widget n
 </span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Name
-</span><a href="#local-6989586621679497602"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679497609"><span class="hs-identifier hs-var">rest</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-165"></span></pre></body></html>
