@@ -85,11 +85,6 @@
             "hydra-chain-observer"
             paddedRevision;
 
-          visualize-logs-static = embedRevision
-            musl64Pkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
-            paddedRevision;
-
           hydra-tui-static = embedRevision
             musl64Pkgs.hydra-tui.components.exes.hydra-tui
             "hydra-tui"
@@ -114,12 +109,6 @@
           embedRevision
             nativePkgs.hydra-chain-observer.components.exes.hydra-chain-observer
             "hydra-chain-observer"
-            paddedRevision;
-
-        visualize-logs =
-          embedRevision
-            nativePkgs.visualize-logs.components.exes.visualize-logs
-            "visualize-logs"
             paddedRevision;
 
         hydra-cluster = pkgs.writers.writeBashBin "hydra-cluster" ''
