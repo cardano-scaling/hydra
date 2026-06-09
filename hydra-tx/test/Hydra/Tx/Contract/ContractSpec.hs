@@ -320,7 +320,7 @@ prop_hashingCaresAboutOrderingOfTxOuts =
 prop_verifySnapshotSignatures :: Property
 prop_verifySnapshotSignatures =
   forAll arbitrary $ \(snapshot@Snapshot{headId, number, version, accumulator} :: Snapshot Tx) ->
-    forAllBlind (resize 3 arbitrary) $ \sks ->
+    forAll (resize 3 arbitrary) $ \sks ->
       let parties = deriveParty <$> sks
           onChainParties = partyToChain <$> parties
           signatures = toPlutusSignatures $ aggregate [sign sk snapshot | sk <- sks]

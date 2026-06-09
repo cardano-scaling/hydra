@@ -22,7 +22,6 @@ import Test.QuickCheck (
   counterexample,
   elements,
   forAll,
-  forAllBlind,
   shuffle,
   sublistOf,
   (=/=),
@@ -76,12 +75,12 @@ specSignature =
         `shouldEndWith` "0a0a0a\""
 
     prop "can sign arbitrary messages" $ \(msgA :: ByteString) (msgB :: ByteString) ->
-      forAllBlind arbitrary $ \(sk :: Secret (SigningKey HydraKey)) ->
+      forAll arbitrary $ \(sk :: Secret (SigningKey HydraKey)) ->
         (msgA /= msgB) ==>
           (sign sk msgA =/= sign sk msgB)
 
     prop "sign/verify roundtrip" $ \(msg :: ByteString) ->
-      forAllBlind arbitrary $ \(sk :: Secret (SigningKey HydraKey)) ->
+      forAll arbitrary $ \(sk :: Secret (SigningKey HydraKey)) ->
         let sig = sign sk msg
          in verify (getVerificationKey sk) sig msg
               & counterexample (show sig)
@@ -96,14 +95,14 @@ specMultiSignature =
               (aggregate sigs =/= aggregate shuffled)
 
     prop "aggregate/verifyMultiSignature roundtrip" $ \(msg :: ByteString) ->
-      forAllBlind arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
+      forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
         let sigs = map (`sign` msg) sks
             msig = aggregate sigs
             vks = map getVerificationKey sks
          in verifyMultiSignature vks msig msg === Verified
 
     prop "aggregateInOrder/verifyMultiSignature roundtrip" $ \(msg :: ByteString) ->
-      forAllBlind arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
+      forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
         let sigs = Map.fromList $ map (\sk -> (deriveParty sk, sign sk msg)) sks
          in forAll (shuffle $ Map.keys sigs) $ \shuffled ->
               not (null shuffled) ==>
@@ -111,9 +110,9 @@ specMultiSignature =
                   === Verified
 
     prop "verifyMultiSignature fails when signature is missing" $ \(msg :: ByteString) dummySig ->
-      forAllBlind arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
+      forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
         (length sks > 2) ==>
-          forAllBlind (elements sks) $
+          forAll (elements sks) $
             \missingKeySig ->
               let sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
                   vks = map getVerificationKey sks
@@ -121,8 +120,8 @@ specMultiSignature =
                     =/= Verified
 
     prop "does not validate multisig if less keys given" $ \(msg :: ByteString) -> do
-      forAllBlind arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
-        forAllBlind (sublistOf sks) $ \prefix ->
+      forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
+        forAll (sublistOf sks) $ \prefix ->
           (length prefix < length sks) ==>
             let sigs = aggregate $ map (`sign` msg) (toList sks)
                 vks = map getVerificationKey prefix
