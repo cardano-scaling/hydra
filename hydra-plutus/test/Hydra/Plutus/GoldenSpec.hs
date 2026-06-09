@@ -12,6 +12,7 @@ module Hydra.Plutus.GoldenSpec where
 
 import Hydra.Prelude
 
+import Data.ByteString qualified as BS
 import Hydra.Cardano.Api (
   File (..),
   PlutusScript,
@@ -29,7 +30,6 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
 import PlutusLedgerApi.V3 (Data (..), TxId (..), TxOutRef (..), serialiseCompiledCode, toData)
 import PlutusTx.Builtins (toBuiltin)
-import Data.ByteString qualified as BS
 import System.Process.Typed (runProcess_, shell)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Golden.Advanced (goldenTest)
