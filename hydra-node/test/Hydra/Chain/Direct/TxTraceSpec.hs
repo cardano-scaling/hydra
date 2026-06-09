@@ -57,7 +57,7 @@ import Hydra.Tx.Crypto (MultiSignature, aggregate, sign)
 import Hydra.Tx.Deposit (depositTx)
 import Hydra.Tx.HeadId (headIdToCurrencySymbol, mkHeadId, txInToHeadSeed)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (hashUTxO, utxoFromTx)
+import Hydra.Tx.IsTx (utxoFromTx)
 import Hydra.Tx.Observe (HeadObservation (NoHeadTx), observeHeadTx)
 import Hydra.Tx.Observe qualified as Tx
 import Hydra.Tx.Party (partyToChain)
@@ -810,7 +810,6 @@ openHeadUTxO =
       Head.Open
         Head.OpenDatum
           { parties = partyToChain <$> [Fixture.alice, Fixture.bob, Fixture.carol]
-          , utxoHash = toBuiltin $ hashUTxO inHeadUTxO
           , contestationPeriod = CP.toChain Fixture.cperiod
           , headSeed = toPlutusTxOutRef Fixture.testSeedInput
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId

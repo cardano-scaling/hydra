@@ -39,7 +39,7 @@ import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO, withoutUTxO))
+import Hydra.Tx.IsTx (IsTx (withoutUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
@@ -161,17 +161,15 @@ healthyUTxO = UTxO.map adaOnly $ generateWith (genUTxOSized 3) 42
 
 healthyDatum :: Head.State
 healthyDatum =
-  let (_utxoToDecommit', utxo) = splitDecommitUTxO healthyUTxO
-   in Head.Open
-        Head.OpenDatum
-          { headSeed = toPlutusTxOutRef testSeedInput
-          , headId = toPlutusCurrencySymbol testPolicyId
-          , utxoHash = toBuiltin $ hashUTxO @Tx utxo
-          , parties = healthyOnChainParties
-          , contestationPeriod = toChain healthyContestationPeriod
-          , version = toInteger healthySnapshotVersion
-          , accumulatorHash = toBuiltin healthyAccumulatorHash
-          }
+  Head.Open
+    Head.OpenDatum
+      { headSeed = toPlutusTxOutRef testSeedInput
+      , headId = toPlutusCurrencySymbol testPolicyId
+      , parties = healthyOnChainParties
+      , contestationPeriod = toChain healthyContestationPeriod
+      , version = toInteger healthySnapshotVersion
+      , accumulatorHash = toBuiltin healthyAccumulatorHash
+      }
 
 data DecrementMutation
   = -- | Ensures parties do not change between head input datum and head output

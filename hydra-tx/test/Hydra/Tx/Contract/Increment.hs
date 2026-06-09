@@ -30,7 +30,6 @@ import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Increment (incrementTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (hashUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
@@ -157,8 +156,7 @@ healthyDatum :: Head.State
 healthyDatum =
   Head.Open
     Head.OpenDatum
-      { utxoHash = toBuiltin $ hashUTxO @Tx healthyUTxO
-      , parties = healthyOnChainParties
+      { parties = healthyOnChainParties
       , contestationPeriod = toChain healthyContestationPeriod
       , headSeed = toPlutusTxOutRef testSeedInput
       , headId = toPlutusCurrencySymbol testPolicyId

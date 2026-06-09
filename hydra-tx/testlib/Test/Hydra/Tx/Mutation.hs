@@ -707,12 +707,11 @@ replacePolicyInValue original replacement =
 
 replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
 replaceSnapshotVersion snapshotVersion = \case
-  Head.Open Head.OpenDatum{headSeed, parties, utxoHash, headId, contestationPeriod, accumulatorHash} ->
+  Head.Open Head.OpenDatum{headSeed, parties, headId, contestationPeriod, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
         , Head.parties = parties
-        , Head.utxoHash = utxoHash
         , Head.contestationPeriod = contestationPeriod
         , Head.headId = headId
         , Head.version = snapshotVersion
@@ -752,13 +751,12 @@ replaceSnapshotNumber snapshotNumber = \case
 
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, headId, version, accumulatorHash} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, headId, version, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
         , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
-        , Head.utxoHash = utxoHash
         , Head.headId = headId
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
@@ -837,13 +835,12 @@ replaceAccumulatorCommitment newCommitment = \case
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
 replaceHeadId headId = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, utxoHash, parties, version, accumulatorHash} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, version, accumulatorHash} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
         , Head.contestationPeriod = contestationPeriod
         , Head.parties = parties
-        , Head.utxoHash = utxoHash
         , Head.headId = headId
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash

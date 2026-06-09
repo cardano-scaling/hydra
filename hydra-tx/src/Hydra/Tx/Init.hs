@@ -10,7 +10,6 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Contract.MintAction (MintAction (..))
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, mintTokens, unsafeBuildTransaction)
-import Hydra.Tx (hashUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (fromChain, toChain)
 import Hydra.Tx.HeadId (HeadId, HeadSeed, mkHeadId, txInToHeadSeed)
@@ -86,7 +85,6 @@ initTx networkId pparams seedTxIn participants parameters =
           , parties = map partyToChain parties
           , contestationPeriod = toChain contestationPeriod
           , version = 0
-          , utxoHash = toBuiltin $ hashUTxO @Tx mempty
           , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
           }
 

@@ -33,8 +33,6 @@ data OpenDatum = OpenDatum
   -- ^ Spec: T
   , version :: SnapshotVersion
   -- ^ Spec: v
-  , utxoHash :: Hash
-  -- ^ Spec: η
   , accumulatorHash :: Hash
   -- ^ Digest of the accumulator hash for the last confirmed snapshot
   }

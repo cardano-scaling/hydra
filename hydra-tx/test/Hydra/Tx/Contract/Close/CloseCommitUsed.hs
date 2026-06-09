@@ -23,7 +23,6 @@ import Hydra.Tx (
   SnapshotNumber,
   SnapshotVersion,
   getSnapshot,
-  hashUTxO,
   mkHeadId,
   registryUTxO,
   signatures,
@@ -117,7 +116,6 @@ healthyCommitAppliedOpenDatum =
   Head.Open
     Head.OpenDatum
       { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
       , contestationPeriod = healthyContestationPeriod
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId

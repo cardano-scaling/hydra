@@ -18,7 +18,6 @@ import Hydra.Tx.ContestationPeriod (toChain)
 import Hydra.Tx.Crypto (MultiSignature (..), toPlutusSignatures)
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotVersion, fromChainSnapshotVersion)
@@ -80,8 +79,6 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
-  utxoHash = toBuiltin $ hashUTxO @Tx utxo
-
   incrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
 
   headDatumAfter =
@@ -90,7 +87,6 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
         Head.OpenDatum
           { headSeed = toPlutusTxOutRef seedTxIn
           , Head.parties = partyToChain <$> parties
-          , utxoHash
           , contestationPeriod = toChain contestationPeriod
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
@@ -109,7 +105,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxo, utxoToCommit, version, number, accumulator} = snapshot
+  Snapshot{utxoToCommit, version, number, accumulator} = snapshot
 
 -- * Observation
 

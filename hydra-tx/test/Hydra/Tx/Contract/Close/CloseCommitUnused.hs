@@ -17,7 +17,7 @@ import Hydra.Contract.HeadTokens (headPolicyId)
 import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Plutus.Extras (posixFromUTCTime)
 import Hydra.Plutus.Orphans ()
-import Hydra.Tx (Snapshot (..), hashUTxO, mkHeadId, registryUTxO)
+import Hydra.Tx (Snapshot (..), mkHeadId, registryUTxO)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (OpenThreadOutput (..), closeTx)
 import Hydra.Tx.Contract.Close.Healthy (
@@ -102,7 +102,6 @@ healthyCommitPendingOpenDatum =
   Head.Open
     Head.OpenDatum
       { parties = healthyOnChainParties
-      , utxoHash = toBuiltin $ hashUTxO @Tx healthySplitUTxOInHead
       , contestationPeriod = healthyContestationPeriod
       , headSeed = toPlutusTxOutRef Fixture.testSeedInput
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId

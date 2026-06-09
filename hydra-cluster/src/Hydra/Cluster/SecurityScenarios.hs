@@ -97,7 +97,6 @@ import Hydra.Plutus.Extras.Time (posixFromUTCTime)
 import Hydra.Tx (HeadId, IsTx (balance), headIdToCurrencySymbol, headIdToPolicyId, txId)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
-import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Snapshot (Snapshot (Snapshot))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (hydraHeadV2AssetName)
@@ -515,7 +514,6 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
-            , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
             , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         headOut' =
@@ -905,7 +903,6 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Head.parties = prevParties
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
-            , Head.utxoHash = toBuiltin $ hashUTxO @CAPI.Tx (mempty :: CAPI.UTxO)
             , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
             }
         -- Head value grows by ONLY the leader's small deposit; the
