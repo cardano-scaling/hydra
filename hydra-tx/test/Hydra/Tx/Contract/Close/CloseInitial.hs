@@ -196,7 +196,7 @@ genCloseInitialMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode FailedCloseInitial) MutateSnapshotNumber <$> do
         mutatedSnapshotNumber <- (arbitrarySizedNatural :: Gen Int) `suchThat` (> 0)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotNumber $ toInteger mutatedSnapshotNumber) headTxOut
-    , SomeMutation (pure $ toErrorCode FailedCloseInitial) MutateSnapshotVersion <$> do
+    , SomeMutation (pure $ toErrorCode MustNotChangeVersion) MutateSnapshotVersion <$> do
         mutatedSnapshotVersion <- (arbitrarySizedNatural :: Gen Int) `suchThat` (> 0)
         pure $ ChangeOutput 0 $ modifyInlineDatum (replaceSnapshotVersion $ toInteger mutatedSnapshotVersion) headTxOut
     , SomeMutation (pure $ toErrorCode FailedCloseInitial) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
