@@ -46,7 +46,7 @@ initTx networkId pparams seedTxIn participants parameters =
     [(onChainIdToAssetName oid, 1) | oid <- participants]
 
   -- Set head output ADA to cover the worst-case min-UTxO: a ClosedDatum with
-  -- N-1 contesters (the maximum the datum can grow through contest rounds).
+  -- N contesters (all parties contest, the maximum the datum can grow to).
   -- This ensures the wallet never needs to bump the head value at Close or
   -- Contest time, which would violate the strict equality check on-chain.
   openHeadOutput =
@@ -66,7 +66,7 @@ initTx networkId pparams seedTxIn participants parameters =
           , contestationPeriod = toChain contestationPeriod
           , version = 0
           , snapshotNumber = 0
-          , contesters = replicate (length participants - 1) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
+          , contesters = replicate (length participants) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
           , contestationDeadline = 2_000_000_000_000
           , accumulatorCommitment =
               Accumulator.getAccumulatorCommitment $
