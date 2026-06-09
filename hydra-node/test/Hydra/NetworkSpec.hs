@@ -23,9 +23,10 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (EtcdLog (..), getClientPort, peerPortToClientPort, putMessage, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), getClientPort, isTransientGrpcError, peerPortToClientPort, putMessage, withEtcdNetwork)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
+import Network.GRPC.Common (GrpcError (..))
 import System.Directory (removeFile)
 import System.FilePath ((</>))
 import System.Process.Typed (readProcessStdout_, runProcess_, shell)
@@ -55,6 +56,22 @@ spec = do
   -- tick as a CI slowdown. The 'network-test.yaml' workflow (pumba
   -- packet loss) is the operating point this guards against; tighten
   -- only if you've confirmed it still passes there.
+  describe "isTransientGrpcError" $ do
+    -- The loss-90 CI failure traced back to 'pollConnectivity.writeAlive'
+    -- raising 'GrpcNotFound' when etcd's RAFT leader changed and the lease
+    -- was revoked. The error must be classified as transient so the outer
+    -- loop can recreate the lease instead of letting the exception escape
+    -- and crash the hydra-node process.
+    it "treats GrpcNotFound as transient (lease loss during leader change)" $
+      isTransientGrpcError GrpcNotFound `shouldBe` True
+    it "still treats the original transient errors as transient" $ do
+      isTransientGrpcError GrpcUnavailable `shouldBe` True
+      isTransientGrpcError GrpcDeadlineExceeded `shouldBe` True
+      isTransientGrpcError GrpcCancelled `shouldBe` True
+    it "does not treat unrelated errors as transient" $ do
+      isTransientGrpcError GrpcInvalidArgument `shouldBe` False
+      isTransientGrpcError GrpcPermissionDenied `shouldBe` False
+
   describe "Etcd" . sequential $
     around (showLogsOnFailure "NetworkSpec") $ do
       let v1 = ProtocolVersion 1
