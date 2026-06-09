@@ -51,6 +51,7 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.Contract.Close.CloseAny (genCloseAnyMutation, healthyCloseAnyTx)
 import Hydra.Tx.Contract.Close.CloseCommitUnused (genCloseCommitUnusedMutation, healthyCloseCommitPendingTx)
 import Hydra.Tx.Contract.Close.CloseCommitUsed (genCloseCommitUsedMutation, healthyCloseCommitAppliedTx)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
@@ -58,6 +59,7 @@ import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyClos
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
 import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation)
+import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
@@ -201,6 +203,11 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseCommitAppliedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseCommitAppliedTx genCloseCommitUsedMutation
+  describe "CloseAny" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseAnyTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseAnyTx genCloseAnyMutation
 
   describe "ContestUnused" $ do
     prop "is healthy" $
@@ -212,6 +219,11 @@ spec = parallel $ do
       propTransactionEvaluates healthyContestTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyContestTx genContestDecMutation
+  describe "ContestCommit" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyContestIncTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyContestIncTx genContestIncMutation
 
   describe "Fanout" $ do
     prop "is healthy" $

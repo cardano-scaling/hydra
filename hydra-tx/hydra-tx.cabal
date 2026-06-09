@@ -175,6 +175,7 @@ test-suite tests
   other-modules:
     Hydra.Tx.AccumulatorSpec
     Hydra.Tx.ContestationPeriodSpec
+    Hydra.Tx.Contract.Close.CloseAny
     Hydra.Tx.Contract.Close.CloseCommitUnused
     Hydra.Tx.Contract.Close.CloseCommitUsed
     Hydra.Tx.Contract.Close.CloseInitial
@@ -183,6 +184,7 @@ test-suite tests
     Hydra.Tx.Contract.Close.Healthy
     Hydra.Tx.Contract.Contest.ContestCurrent
     Hydra.Tx.Contract.Contest.ContestDec
+    Hydra.Tx.Contract.Contest.ContestInc
     Hydra.Tx.Contract.Contest.Healthy
     Hydra.Tx.Contract.ContractSpec
     Hydra.Tx.Contract.Decrement
