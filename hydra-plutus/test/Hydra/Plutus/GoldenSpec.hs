@@ -24,13 +24,16 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Contract.CRS qualified as CRS
 import Hydra.Contract.Head qualified as Head
+import Hydra.Contract.HeadState qualified as HeadState
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Version (gitDescribe)
-import PlutusLedgerApi.V3 (serialiseCompiledCode)
+import PlutusLedgerApi.V3 (Data (..), TxId (..), TxOutRef (..), serialiseCompiledCode, toData)
+import PlutusTx.Builtins (toBuiltin)
+import Data.ByteString qualified as BS
 import System.Process.Typed (runProcess_, shell)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Golden.Advanced (goldenTest)
-import Test.Tasty.HUnit (assertFailure, testCase)
+import Test.Tasty.HUnit (assertFailure, testCase, (@?=))
 
 aikenBuildCommand :: String
 aikenBuildCommand = "aiken build -t compact"
@@ -51,6 +54,22 @@ tests =
             "Plutus blueprint in plutus.json is not up-to-date. Run "
               <> show aikenBuildCommand
               <> " to update it."
+    , testCase "Increment redeemer has constructor index 0 (deposit.ak invariant)" $ do
+        -- deposit.ak checks the head redeemer constructor index directly:
+        --   builtin.un_constr_data(redeemer).1st == 0
+        -- If 'Increment' ever shifts away from index 0, deposits become permanently
+        -- locked. This test catches that before it reaches the chain.
+        let someRef = TxOutRef (TxId . toBuiltin $ BS.replicate 32 0) 0
+            incrementInput =
+              HeadState.Increment
+                HeadState.IncrementRedeemer
+                  { HeadState.signature = []
+                  , HeadState.snapshotNumber = 0
+                  , HeadState.increment = someRef
+                  }
+        case toData incrementInput of
+          Constr n _ -> n @?= 0
+          _ -> assertFailure "Increment redeemer did not serialise to a Constr"
     , goldenScript "Head validator script" "vHead" Head.validatorScript
     , goldenScript
         "Head minting policy script"
