@@ -51,6 +51,8 @@ import Hydra.Tx (
  )
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (toChain)
+import Hydra.Tx.Contract.Close.CloseCommitUnused (genCloseCommitUnusedMutation, healthyCloseCommitPendingTx)
+import Hydra.Tx.Contract.Close.CloseCommitUsed (genCloseCommitUsedMutation, healthyCloseCommitAppliedTx)
 import Hydra.Tx.Contract.Close.CloseInitial (genCloseInitialMutation, healthyCloseInitialTx)
 import Hydra.Tx.Contract.Close.CloseUnused (genCloseCurrentMutation, healthyCloseCurrentTx)
 import Hydra.Tx.Contract.Close.CloseUsed (genCloseOutdatedMutation, healthyCloseOutdatedTx)
@@ -189,6 +191,16 @@ spec = parallel $ do
       propTransactionEvaluates healthyCloseOutdatedTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyCloseOutdatedTx genCloseOutdatedMutation
+  describe "CloseCommitUnused" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseCommitPendingTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseCommitPendingTx genCloseCommitUnusedMutation
+  describe "CloseCommitUsed" $ do
+    prop "is healthy" $
+      propTransactionEvaluates healthyCloseCommitAppliedTx
+    prop "does not survive random adversarial mutations" $
+      propMutation healthyCloseCommitAppliedTx genCloseCommitUsedMutation
 
   describe "ContestUnused" $ do
     prop "is healthy" $
