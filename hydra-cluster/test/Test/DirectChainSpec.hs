@@ -138,24 +138,22 @@ spec = around (showLogsOnFailure "DirectChainSpec") $ do
             waitMatch aliceChain $ \case
               Tick t _ | t > deadline -> Just ()
               _ -> Nothing
+            let utxo' = Snapshot.utxo snapshot
+                -- if snapshotVersion is not the same as local version, it
+                -- means we observed a commit so it needs to be fanned-out as well
+                utxoToCommit' = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
+                utxoToDecommit' = Snapshot.utxoToDecommit snapshot
             postTx $
               FanoutTx
-                { utxo = Snapshot.utxo snapshot
-                , -- if snapshotVersion is not the same as local version, it
-                  -- means we observed a commit so it needs to be fanned-out as well
-                  utxoToCommit = if snapshotVersion /= v then Snapshot.utxoToCommit snapshot else Nothing
-                , utxoToDecommit = Snapshot.utxoToDecommit snapshot
-                , utxoForProof = Snapshot.utxo snapshot <> fold (Snapshot.utxoToCommit snapshot) <> fold (Snapshot.utxoToDecommit snapshot)
+                { utxo = utxo'
+                , utxoToCommit = utxoToCommit'
+                , utxoToDecommit = utxoToDecommit'
+                , utxoForProof = utxo' <> fold utxoToCommit' <> fold utxoToDecommit'
                 , headSeed
                 , contestationDeadline = deadline
                 }
             let expectedUTxO =
-                  ( Snapshot.utxo snapshot
-                      <> if snapshotVersion /= v
-                        then fromMaybe mempty (Snapshot.utxoToCommit snapshot)
-                        else mempty
-                  )
-                    `withoutUTxO` fromMaybe mempty (Snapshot.utxoToDecommit snapshot)
+                  (utxo' <> fold utxoToCommit') `withoutUTxO` fold utxoToDecommit'
             aliceChain `observesInTimeSatisfying` \case
               OnFanoutTx _ finalUTxO ->
                 if UTxO.containsOutputs finalUTxO (UTxO.txOutputs expectedUTxO)

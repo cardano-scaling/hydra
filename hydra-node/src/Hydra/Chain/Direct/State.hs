@@ -476,6 +476,7 @@ data FanoutTxError
   | WrongDatumInFanout
   | FailedToConvertFromScriptDataInFanout
   | BothCommitAndDecommitInFanout
+  | FailedToCreateFanoutProof Text
   deriving stock (Show)
 
 -- | Construct a fanout transaction based on the 'ClosedState' and off-chain
@@ -503,7 +504,8 @@ fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof 
       ?> CannotFindHeadOutputToFanout
   closedThreadUTxO <- extractProgressDatum headUTxO
   _ <- setIncrementalActionMaybe utxoToCommit utxoToDecommit ?> BothCommitAndDecommitInFanout
-  pure $ fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof closedThreadUTxO deadlineSlotNo headTokenScript
+  fanoutTx scriptRegistry utxo utxoToCommit utxoToDecommit utxoForProof closedThreadUTxO deadlineSlotNo headTokenScript
+    & first FailedToCreateFanoutProof
  where
   headTokenScript = mkHeadTokenScript seedTxIn
 

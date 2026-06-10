@@ -131,7 +131,7 @@ data ContestObservation = ContestObservation
   deriving stock (Show, Eq, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
--- | Identify a close tx by lookup up the input spending the Head output and
+-- | Identify a contest tx by lookup up the input spending the Head output and
 -- decoding its redeemer.
 observeContestTx ::
   -- | A UTxO set to lookup tx inputs

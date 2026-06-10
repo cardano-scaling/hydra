@@ -521,7 +521,7 @@ headIsFinalizedWith crsHash ctx closedDatum numberOfFanoutOutputs proof crsRef =
 
   -- Strict equality: fanout outputs + burned tokens + fixed overhead must equal the
   -- full head input value. headAdaOverhead is the lovelace locked in the head UTxO
-  -- that is not part of any L2 UTxO (min-UTxO overhead set at CollectCom).
+  -- that is not part of any L2 UTxO (min-UTxO overhead set at Init).
   mustConserveValue =
     traceIfFalse $(errorCode HeadValueIsNotPreserved) $
       headInValue
@@ -667,7 +667,7 @@ checkFinalPartialFanout crsHash ctx@ScriptContext{scriptContextTxInfo = txInfo} 
   -- Guard against numberOfPartialOutputs = 0: with an empty subset the KZG check
   -- degenerates to e(A,G2) = e(proof,G2), which passes whenever proof = A. Since A
   -- is public (from the datum), any third party could satisfy the check with zero
-  -- distributed outputs and route all head ADA to themselves under the geq value check.
+  -- distributed outputs and route all head ADA to themselves under the strict equality value check.
   mustHaveOutputs =
     traceIfFalse $(errorCode FinalPartialFanoutZeroOutputs) $
       numberOfPartialOutputs > 0

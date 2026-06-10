@@ -49,15 +49,16 @@ healthyFanoutTx =
       <> registryUTxO scriptRegistry
 
   tx =
-    fanoutTx
-      scriptRegistry
-      (fst healthyFanoutSnapshotUTxO)
-      Nothing
-      (Just $ snd healthyFanoutSnapshotUTxO)
-      healthyFanoutUTxO
-      (headInput, headOutput)
-      healthySlotNo
-      headTokenScript
+    fromRight (error "FanOut healthy fixture: proof creation failed") $
+      fanoutTx
+        scriptRegistry
+        (fst healthyFanoutSnapshotUTxO)
+        Nothing
+        (Just $ snd healthyFanoutSnapshotUTxO)
+        healthyFanoutUTxO
+        (headInput, headOutput)
+        healthySlotNo
+        headTokenScript
 
   headInput = generateWith arbitrary 42
 

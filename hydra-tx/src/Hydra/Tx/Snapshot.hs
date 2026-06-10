@@ -117,6 +117,11 @@ instance IsTx tx => FromJSON (Snapshot tx) where
     let accumulator = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
     pure $ Snapshot{headId, version, number, confirmed, utxo, utxoToCommit, utxoToDecommit, accumulator}
 
+-- | All UTxOs represented by this snapshot: settled plus any pending commit/decommit.
+snapshotUTxO :: IsTx tx => Snapshot tx -> UTxOType tx
+snapshotUTxO Snapshot{utxo, utxoToCommit, utxoToDecommit} =
+  utxo <> fold utxoToCommit <> fold utxoToDecommit
+
 -- * ConfirmedSnapshot
 
 -- | A snapshot that can be used to close a head with. Either the initial one,

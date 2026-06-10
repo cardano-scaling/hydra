@@ -103,7 +103,7 @@ import Hydra.Tx.Crypto (
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot, snapshotUTxO)
 
 -- * The Coordinated Head protocol
 
@@ -339,8 +339,8 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
               -- Spec: require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
               requireApplyTxs activeUTxO requestedTxs $ \u ->
-                let snapshotUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
-                    accumulator = Accumulator.buildFromSnapshotUTxOs snapshotUTxO mUtxoToCommit mUtxoToDecommit
+                let nextUTxO = u `withoutUTxO` fromMaybe mempty mUtxoToCommit
+                    accumulator = Accumulator.buildFromSnapshotUTxOs nextUTxO mUtxoToCommit mUtxoToDecommit
                  in requireValidAccumulatorSize accumulator $ do
                       -- Spec: ŝ ← ̅S.s + 1
                       -- NOTE: confSn == seenSn == sn here
@@ -350,7 +350,7 @@ onOpenNetworkReqSn env ledger pendingDeposits currentSlot st otherParty sv sn re
                               , version = version
                               , number = sn
                               , confirmed = requestedTxs
-                              , utxo = snapshotUTxO
+                              , utxo = nextUTxO
                               , utxoToCommit = mUtxoToCommit
                               , utxoToDecommit = mUtxoToDecommit
                               , accumulator
@@ -1486,7 +1486,7 @@ emitNextFanoutStep FreshFanout _ closedState =
                       else Nothing
                 , -- Always use the snapshot's original (unfiltered) full UTxO set
                   -- to rebuild the accumulator that matches the closed datum.
-                  utxoForProof = utxo <> fold utxoToCommit <> fold utxoToDecommit
+                  utxoForProof = snapshotUTxO (getSnapshot confirmedSnapshot)
                 , headSeed
                 , contestationDeadline
                 }
