@@ -43,6 +43,14 @@ library
     HydraVis.Smoke
     HydraVis.UI
 
+  other-modules:
+    HydraVis.UI.Flow
+    HydraVis.UI.Model
+    HydraVis.UI.Panels
+    HydraVis.UI.Timeline
+    HydraVis.UI.Update
+    HydraVis.UI.Widgets
+
   build-depends:
     , aeson
     , base
