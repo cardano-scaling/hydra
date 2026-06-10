@@ -455,6 +455,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
           , Head.version = prevVersion
+          , Head.headAdaOverhead = prevHeadAdaOverhead
           } = prevOpenDatum
 
     -- Decode D1's commits so we can build a snapshot whose
@@ -515,6 +516,7 @@ cannotRedirectExtraDepositDuringIncrement tracer workDir opts hydraScriptsTxId =
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
             , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Head.headAdaOverhead = prevHeadAdaOverhead
             }
         headOut' =
           fromCtxUTxOTxOut headOut
@@ -844,6 +846,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
           , Head.parties = prevParties
           , Head.contestationPeriod = prevPeriod
           , Head.version = prevVersion
+          , Head.headAdaOverhead = prevHeadAdaOverhead
           } = prevOpenDatum
 
     -- Snapshot covers ONLY the leader's own (small) deposit. This is
@@ -904,6 +907,7 @@ cannotStealLargerDepositDuringOwnIncrement tracer workDir opts hydraScriptsTxId 
             , Head.contestationPeriod = prevPeriod
             , Head.version = prevVersion + 1
             , Head.accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @CAPI.Tx mempty (Just utxoToCommit) Nothing
+            , Head.headAdaOverhead = prevHeadAdaOverhead
             }
         -- Head value grows by ONLY the leader's small deposit; the
         -- victim's value is siphoned to lootAddr.

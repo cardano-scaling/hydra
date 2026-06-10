@@ -169,6 +169,7 @@ healthyDatum =
       , contestationPeriod = toChain healthyContestationPeriod
       , version = toInteger healthySnapshotVersion
       , accumulatorHash = toBuiltin healthyAccumulatorHash
+      , headAdaOverhead = 0
       }
 
 data DecrementMutation

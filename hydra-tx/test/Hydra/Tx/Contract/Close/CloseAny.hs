@@ -27,6 +27,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyContestationDeadline,
   healthyContestationPeriod,
   healthyContestationPeriodSeconds,
+  healthyHeadAdaOverhead,
   healthyOnChainParties,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
@@ -57,6 +58,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
@@ -101,6 +103,7 @@ healthyCloseAnyOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCloseAnySnapshotVersion
       , accumulatorHash = healthyCloseAnyAccumulatorHash
+      , headAdaOverhead = healthyHeadAdaOverhead
       }
 
 -- | Healthy close transaction for the plain case: no incremental action, confirmed
@@ -164,6 +167,7 @@ data CloseMutation
   | MutateValueInOutput
   | MutateContestationPeriod
   | MutateAccumulatorCommitment
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseAnyMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -252,6 +256,9 @@ genCloseAnyMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= healthyHeadAdaOverhead)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

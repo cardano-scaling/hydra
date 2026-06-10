@@ -58,6 +58,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replaceSnapshotNumber,
@@ -86,6 +87,7 @@ data CloseInitialMutation
   | MutateContesters
   | MutateValueInOutput
   | MutateRequiredSigner
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 healthyCloseSnapshotVersion :: SnapshotVersion
@@ -148,6 +150,7 @@ healthyInitialOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = 0
       , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+      , headAdaOverhead = 0
       }
 
 --- | Mutations for the specific case of closing with the initial state.
@@ -233,6 +236,9 @@ genCloseInitialMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode SignerIsNotAParticipant) MutateRequiredSigner <$> do
         newSigner <- verificationKeyHash <$> genVerificationKey `suchThat` (/= somePartyCardanoVerificationKey)
         pure $ ChangeRequiredSigners [newSigner]
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= (0 :: Integer))
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

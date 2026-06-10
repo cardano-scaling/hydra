@@ -123,6 +123,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     && mustBeSignedByParticipant ctx prevHeadId
     && checkSnapshotSignature
     && claimedDepositIsSpent
+    && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   inputs = txInfoInputs txInfo
 
@@ -174,6 +175,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     , contestationPeriod = prevCperiod
     , headId = prevHeadId
     , version = prevVersion
+    , headAdaOverhead = prevHeadAdaOverhead
     } = openBefore
 
   OpenDatum
@@ -182,6 +184,7 @@ checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeem
     , headId = nextHeadId
     , version = nextVersion
     , accumulatorHash = nextAccumulatorHash
+    , headAdaOverhead = nextHeadAdaOverhead
     } = decodeHeadOutputOpenDatum ctx
 {-# INLINEABLE checkIncrement #-}
 
@@ -200,6 +203,7 @@ checkDecrement ctx openBefore redeemer =
     -- && mustPreserveValue
     && mustDecreaseValue
     && mustBeSignedByParticipant ctx prevHeadId
+    && mustPreserveHeadAdaOverhead prevHeadAdaOverhead nextHeadAdaOverhead
  where
   checkSnapshotSignature =
     verifySnapshotSignature nextParties (nextHeadId, prevVersion, snapshotNumber, nextAccumulatorHash) signature
@@ -219,6 +223,7 @@ checkDecrement ctx openBefore redeemer =
     , contestationPeriod = prevCperiod
     , headId = prevHeadId
     , version = prevVersion
+    , headAdaOverhead = prevHeadAdaOverhead
     } = openBefore
 
   OpenDatum
@@ -227,6 +232,7 @@ checkDecrement ctx openBefore redeemer =
     , headId = nextHeadId
     , version = nextVersion
     , accumulatorHash = nextAccumulatorHash
+    , headAdaOverhead = nextHeadAdaOverhead
     } = decodeHeadOutputOpenDatum ctx
 
   -- NOTE: head output + whatever is decommitted needs to be equal to the head input.
@@ -270,12 +276,14 @@ checkClose ctx openBefore redeemer =
     && mustPreserveHeadValue ctx
     && mustNotChangeParameters (parties', parties) (cperiod', cperiod) (headId', headId)
     && mustBindAccumulatorCommitment
+    && mustPreserveHeadAdaOverhead headAdaOverhead headAdaOverhead'
  where
   OpenDatum
     { parties
     , contestationPeriod = cperiod
     , headId
     , version
+    , headAdaOverhead
     } = openBefore
 
   hasBoundedValidity =
@@ -291,6 +299,7 @@ checkClose ctx openBefore redeemer =
     , contesters = contesters'
     , version = version'
     , accumulatorCommitment = accumulatorCommitment'
+    , headAdaOverhead = headAdaOverhead'
     } = decodeHeadOutputClosedDatum ctx
 
   mustNotChangeVersion =

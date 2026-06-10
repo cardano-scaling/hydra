@@ -815,6 +815,7 @@ openHeadUTxO =
           , headId = headIdToCurrencySymbol $ mkHeadId Fixture.testPolicyId
           , version = 0
           , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs inHeadUTxO Nothing Nothing
+          , headAdaOverhead = 0
           }
 
   inHeadUTxO = realWorldModelUTxO (utxoInHead initialState)

@@ -36,6 +36,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyContestationDeadline,
   healthyContestationPeriod,
   healthyContestationPeriodSeconds,
+  healthyHeadAdaOverhead,
   healthyOnChainParties,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
@@ -66,6 +67,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
@@ -106,6 +108,7 @@ healthyOutdatedOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyOpenStateVersion
       , accumulatorHash = healthyOutdatedAccumulatorHash
+      , headAdaOverhead = healthyHeadAdaOverhead
       }
 
 -- | In the outdated case, the used snapshot version is exactly one lower than the open state version.
@@ -240,6 +243,7 @@ data CloseMutation
     MutateValueInOutput
   | -- | Invalidate the tx by changing the contestation period.
     MutateContestationPeriod
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseOutdatedMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -350,6 +354,9 @@ genCloseOutdatedMutation (tx, _utxo) =
         -- or previous version. If we change it then it should cause invalid
         -- signature error.
         pure $ Head.Close Head.CloseUnused{signature = toPlutusSignatures $ signatures healthyOutdatedConfirmedClosingSnapshot, accumulatorHash = healthyOutdatedAccumulatorHash}
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= healthyHeadAdaOverhead)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

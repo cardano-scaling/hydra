@@ -707,7 +707,7 @@ replacePolicyInValue original replacement =
 
 replaceSnapshotVersion :: Head.SnapshotVersion -> Head.State -> Head.State
 replaceSnapshotVersion snapshotVersion = \case
-  Head.Open Head.OpenDatum{headSeed, parties, headId, contestationPeriod, accumulatorHash} ->
+  Head.Open Head.OpenDatum{headSeed, parties, headId, contestationPeriod, accumulatorHash, headAdaOverhead} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -716,6 +716,7 @@ replaceSnapshotVersion snapshotVersion = \case
         , Head.headId = headId
         , Head.version = snapshotVersion
         , Head.accumulatorHash = accumulatorHash
+        , Head.headAdaOverhead = headAdaOverhead
         }
   Head.Closed Head.ClosedDatum{parties, snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
@@ -751,7 +752,7 @@ replaceSnapshotNumber snapshotNumber = \case
 
 replaceParties :: [Data.Party] -> Head.State -> Head.State
 replaceParties parties = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, headId, version, accumulatorHash} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, headId, version, accumulatorHash, headAdaOverhead} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -760,6 +761,7 @@ replaceParties parties = \case
         , Head.headId = headId
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
+        , Head.headAdaOverhead = headAdaOverhead
         }
   Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, headId, contesters, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed
@@ -835,7 +837,7 @@ replaceAccumulatorCommitment newCommitment = \case
 
 replaceHeadId :: CurrencySymbol -> Head.State -> Head.State
 replaceHeadId headId = \case
-  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, version, accumulatorHash} ->
+  Head.Open Head.OpenDatum{headSeed, contestationPeriod, parties, version, accumulatorHash, headAdaOverhead} ->
     Head.Open
       Head.OpenDatum
         { Head.headSeed = headSeed
@@ -844,6 +846,7 @@ replaceHeadId headId = \case
         , Head.headId = headId
         , Head.version = version
         , Head.accumulatorHash = accumulatorHash
+        , Head.headAdaOverhead = headAdaOverhead
         }
   Head.Closed Head.ClosedDatum{snapshotNumber, contestationDeadline, parties, contesters, contestationPeriod, version, accumulatorCommitment, headAdaOverhead} ->
     Head.Closed

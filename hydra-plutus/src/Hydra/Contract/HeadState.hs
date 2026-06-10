@@ -35,6 +35,9 @@ data OpenDatum = OpenDatum
   -- ^ Spec: v
   , accumulatorHash :: Hash
   -- ^ Digest of the accumulator hash for the last confirmed snapshot
+  , headAdaOverhead :: Integer
+  -- ^ Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO overhead).
+  -- Set once at init time and invariant for the head's lifetime.
   }
   deriving stock (Generic, Show)
 

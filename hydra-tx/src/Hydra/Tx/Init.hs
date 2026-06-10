@@ -18,7 +18,7 @@ import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (partyFromChain, partyToChain)
 import Hydra.Tx.Utils (assetNameToOnChainId, findFirst, hydraHeadV2AssetName, mkHydraHeadV2TxName, onChainIdToAssetName)
 import PlutusLedgerApi.Common (FromData, toBuiltin)
-import PlutusLedgerApi.V3 (PubKeyHash (..))
+import PlutusLedgerApi.V3 (POSIXTime (..), PubKeyHash (..))
 
 -- * Construction
 
@@ -64,14 +64,14 @@ initTx networkId pparams seedTxIn participants parameters =
           { headId = toPlutusCurrencySymbol tokenPolicyId
           , parties = map partyToChain parties
           , contestationPeriod = toChain contestationPeriod
-          , version = 0
-          , snapshotNumber = 0
+          , version = toInteger (maxBound @Word64)
+          , snapshotNumber = toInteger (maxBound @Word64)
           , contesters = replicate (length participants) (PubKeyHash $ toBuiltin $ BS.replicate 28 0)
-          , contestationDeadline = 2_000_000_000_000
+          , contestationDeadline = POSIXTime (toInteger (maxBound @Word64))
           , accumulatorCommitment =
               Accumulator.getAccumulatorCommitment $
                 Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
-          , headAdaOverhead = 0
+          , headAdaOverhead = toInteger (maxBound @Word64)
           }
 
   tokenPolicyId = HeadTokens.headPolicyId seedTxIn
@@ -86,6 +86,7 @@ initTx networkId pparams seedTxIn participants parameters =
           , contestationPeriod = toChain contestationPeriod
           , version = 0
           , accumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromSnapshotUTxOs @Tx mempty Nothing Nothing
+          , headAdaOverhead = let Coin n = selectLovelace worstCaseMinLovelace in n
           }
 
   HeadParameters{contestationPeriod, parties} = parameters

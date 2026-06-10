@@ -6,6 +6,7 @@ module Hydra.Tx.Contract.Close.Healthy where
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (label)
 
+import Cardano.Api.UTxO qualified as UTxO
 import Hydra.Data.ContestationPeriod qualified as OnChain
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Plutus.Orphans ()
@@ -35,6 +36,13 @@ healthySeed = 42
 
 healthyUTxO :: UTxO
 healthyUTxO = genOneUTxOFor somePartyCardanoVerificationKey `generateWith` healthySeed
+
+-- | The headAdaOverhead for healthy close tests. The test head output has only
+-- tokens (0 lovelace), so this equals the negation of the total UTxO lovelace.
+healthyHeadAdaOverhead :: Integer
+healthyHeadAdaOverhead =
+  let Coin n = selectLovelace (UTxO.totalValue healthySplitUTxOInHead)
+   in negate n
 
 healthySplitUTxOInHead :: UTxO
 healthySplitUTxOToDecommit :: UTxO

@@ -66,6 +66,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
@@ -108,6 +109,12 @@ healthyCommitAppliedAccumulatorHash :: Head.Hash
 healthyCommitAppliedAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCommitAppliedSnapshot
 
+-- | Commit was applied: both healthySplitUTxOInHead and healthyDepositUTxO are in the head.
+healthyCommitAppliedHeadAdaOverhead :: Integer
+healthyCommitAppliedHeadAdaOverhead =
+  let Coin n = selectLovelace (UTxO.totalValue (healthySplitUTxOInHead <> healthyDepositUTxO))
+   in negate n
+
 healthyCommitAppliedConfirmedSnapshot :: ConfirmedSnapshot Tx
 healthyCommitAppliedConfirmedSnapshot = healthyConfirmedSnapshot healthyCommitAppliedSnapshot
 
@@ -121,6 +128,7 @@ healthyCommitAppliedOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCommitAppliedOpenVersion
       , accumulatorHash = healthyCommitAppliedAccumulatorHash
+      , headAdaOverhead = healthyCommitAppliedHeadAdaOverhead
       }
 
 -- | Healthy close transaction for the case of closing after a commit was applied.
@@ -196,6 +204,7 @@ data CloseMutation
   | MutateAccumulatorCommitment
   | MutateCloseSignatures
   | MutateCloseType
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseCommitUsedMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -298,6 +307,9 @@ genCloseCommitUsedMutation (tx, _utxo) =
               { signature = toPlutusSignatures $ signatures healthyCommitAppliedConfirmedSnapshot
               , accumulatorHash = healthyCommitAppliedAccumulatorHash
               }
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= healthyCommitAppliedHeadAdaOverhead)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

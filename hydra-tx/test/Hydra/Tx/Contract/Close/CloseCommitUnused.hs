@@ -27,6 +27,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthyContestationDeadline,
   healthyContestationPeriod,
   healthyContestationPeriodSeconds,
+  healthyHeadAdaOverhead,
   healthyOnChainParties,
   healthyOpenHeadTxIn,
   healthyOpenHeadTxOut,
@@ -59,6 +60,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
@@ -107,6 +109,7 @@ healthyCommitPendingOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCommitPendingSnapshotVersion
       , accumulatorHash = healthyCommitPendingAccumulatorHash
+      , headAdaOverhead = healthyHeadAdaOverhead
       }
 
 -- | Healthy close transaction for the case of closing with a pending (unused) commit.
@@ -175,6 +178,7 @@ data CloseMutation
   | MutateValueInOutput
   | MutateContestationPeriod
   | MutateAccumulatorCommitment
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseCommitUnusedMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -260,6 +264,9 @@ genCloseCommitUnusedMutation (tx, _utxo) =
     , SomeMutation (pure $ toErrorCode AccumulatorCommitmentHashMismatch) MutateAccumulatorCommitment . ChangeOutput 0 <$> do
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= healthyHeadAdaOverhead)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

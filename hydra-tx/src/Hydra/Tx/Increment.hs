@@ -81,6 +81,11 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
 
   incrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
 
+  prevHeadAdaOverhead =
+    case fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headOutput) of
+      Just (Head.Open Head.OpenDatum{headAdaOverhead}) -> headAdaOverhead
+      _ -> 0
+
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Open
@@ -91,6 +96,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
           , accumulatorHash = toBuiltin incrementAccumulatorHash
+          , headAdaOverhead = prevHeadAdaOverhead
           }
 
   depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)

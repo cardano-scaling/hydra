@@ -33,6 +33,7 @@ import Hydra.Tx.Contract.Close.Healthy (
   healthySignature,
   healthySplitUTxOInHead,
   healthySplitUTxOToDecommit,
+  healthyUTxO,
   somePartyCardanoVerificationKey,
  )
 import Hydra.Tx.Crypto (MultiSignature, toPlutusSignatures)
@@ -59,6 +60,7 @@ import Test.Hydra.Tx.Mutation (
   replaceContestationDeadline,
   replaceContestationPeriod,
   replaceContesters,
+  replaceHeadAdaOverhead,
   replaceHeadId,
   replaceParties,
   replacePolicyIdWith,
@@ -131,6 +133,13 @@ healthyCurrentAccumulatorHash :: Head.Hash
 healthyCurrentAccumulatorHash =
   toBuiltin $ Accumulator.getAccumulatorHash $ accumulator healthyCurrentSnapshot
 
+-- | Decommit is pending: decommitted UTxO is still in the head, so overhead
+-- is computed over both halves of healthyUTxO.
+healthyCloseUnusedHeadAdaOverhead :: Integer
+healthyCloseUnusedHeadAdaOverhead =
+  let Coin n = selectLovelace (UTxO.totalValue healthyUTxO)
+   in negate n
+
 healthyCurrentOpenDatum :: Head.State
 healthyCurrentOpenDatum =
   Head.Open
@@ -141,6 +150,7 @@ healthyCurrentOpenDatum =
       , headId = toPlutusCurrencySymbol Fixture.testPolicyId
       , version = toInteger healthyCurrentSnapshotVersion
       , accumulatorHash = healthyCurrentAccumulatorHash
+      , headAdaOverhead = healthyCloseUnusedHeadAdaOverhead
       }
 
 data CloseMutation
@@ -217,6 +227,7 @@ data CloseMutation
     -- commitment and verifies the multi-signature against it, so a wrong
     -- commitment makes the signature check fail.
     MutateAccumulatorCommitment
+  | MutateCloseHeadAdaOverhead
   deriving stock (Generic, Show, Enum, Bounded)
 
 genCloseCurrentMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -312,6 +323,9 @@ genCloseCurrentMutation (tx, _utxo) =
         -- signature check fails.
         let wrongCommitment = Accumulator.getAccumulatorCommitment (Accumulator.build ["wrong"])
         pure $ headTxOut & modifyInlineDatum (replaceAccumulatorCommitment wrongCommitment)
+    , SomeMutation (pure $ toErrorCode ChangedHeadAdaOverhead) MutateCloseHeadAdaOverhead . ChangeOutput 0 <$> do
+        wrongOverhead <- arbitrary `suchThat` (/= healthyCloseUnusedHeadAdaOverhead)
+        pure $ headTxOut & modifyInlineDatum (replaceHeadAdaOverhead wrongOverhead)
     ]
  where
   genOversizedTransactionValidity = do

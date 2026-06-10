@@ -78,6 +78,11 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
+  prevHeadAdaOverhead =
+    case fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headOutput) of
+      Just (Head.Open Head.OpenDatum{headAdaOverhead}) -> headAdaOverhead
+      _ -> 0
+
   headDatumAfter =
     mkTxOutDatumInline $
       Head.Open
@@ -88,6 +93,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , headId = headIdToCurrencySymbol headId
           , version = toInteger version + 1
           , accumulatorHash = toBuiltin decrementAccumulatorHash
+          , headAdaOverhead = prevHeadAdaOverhead
           }
 
   Snapshot{utxoToDecommit, number, version, accumulator} = snapshot
