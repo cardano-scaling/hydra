@@ -49,7 +49,6 @@ runServer port authoring path isFollowing initialState startCursor steps = do
 runMultiServer ::
   ( IsChainState tx
   , FromJSON (Input tx)
-  , FromJSON (StateEvent tx)
   , ToJSON (Input tx)
   , ToJSON (NodeState tx)
   , ToJSON (StateChanged tx)

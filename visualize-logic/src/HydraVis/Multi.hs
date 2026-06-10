@@ -18,7 +18,6 @@ module HydraVis.Multi (
 import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
-import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
@@ -27,7 +26,6 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic qualified as HL
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue), StateChanged)
-import Hydra.HeadLogic.StateEvent (StateEvent)
 import Hydra.Ledger (Ledger)
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
@@ -100,7 +98,6 @@ mkMultiModel specs =
 mkMultiApp ::
   ( IsChainState tx
   , FromJSON (Input tx)
-  , FromJSON (StateEvent tx)
   , ToJSON (Input tx)
   , ToJSON (NodeState tx)
   , ToJSON (StateChanged tx)

@@ -28,24 +28,26 @@ import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Lazy qualified as BSL
 import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Vector (Vector)
 import Data.Vector qualified as V
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Events (EventId)
-import Hydra.HeadLogic (update)
 import Hydra.HeadLogic qualified as HL
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged (..))
 import Hydra.HeadLogic.State qualified as HS
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
+import Hydra.Network (Host)
+import Hydra.Network qualified as Net
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.Environment qualified as Env
-import Hydra.Node.State (NodeState (..), initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), SyncedStatus (..), initialChainTime, syncedStatus)
 import Hydra.Tx.HeadParameters qualified as HP
-import Hydra.Tx.IsTx (IsTx, UTxOType)
+import Hydra.Tx.IsTx (UTxOType)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snap
@@ -96,6 +98,11 @@ data Model tx = Model
   -- logs are otherwise dominated by ticks.
   , playing :: Bool
   -- ^ Auto-advance the cursor once per 'playSub' tick.
+  , speedIdx :: Int
+  -- ^ Index into 'speedTable' controlling playback speed.
+  , playFrame :: Int
+  -- ^ Counts 'playSub' ticks since the last advance; used to slow playback
+  -- below the base tick rate (see 'speedTable').
   }
   deriving stock (Generic)
 
@@ -130,6 +137,7 @@ data Action tx
   | ApplyDraft
   | ToggleHideTicks
   | TogglePlay
+  | SetSpeed Int
   | -- | Fired by 'playSub' once per tick; the update handler decides whether
     -- to advance based on 'playing'.
     MaybeAdvance
@@ -160,6 +168,8 @@ mkModel authoring path isFollowing initialState startCursor steps =
         , ctx = authoring
         , hideTicks = hideT
         , playing = False
+        , speedIdx = defaultSpeedIdx
+        , playFrame = 0
         }
 
 mkApp ::
@@ -224,14 +234,9 @@ updateModel a m = case a of
   LoadPreset s -> noEff $ m{inputDraft = s, inputError = Nothing}
   ApplyDraft -> applyDraft m
   ToggleHideTicks -> noEff $ m{hideTicks = not (hideTicks m), cursor = 0}
-  TogglePlay -> noEff $ m{playing = not (playing m)}
-  MaybeAdvance ->
-    if playing m && cursor m < lastIndex m
-      then noEff $ m{cursor = cursor m + 1}
-      else
-        if playing m && cursor m >= lastIndex m
-          then noEff $ m{playing = False}
-          else noEff m
+  TogglePlay -> noEff $ m{playing = not (playing m), playFrame = 0}
+  SetSpeed i -> noEff $ m{speedIdx = clampSpeed i, playFrame = 0}
+  MaybeAdvance -> noEff (stepPlayback (lastIndex m) m)
  where
   clamp :: Model tx -> Int -> Int
   clamp model n = max 0 (min (lastIndex model) n)
@@ -250,15 +255,55 @@ isTickEvent e = case stateChanged e of
   _ -> False
 
 -- | A periodic tick that drives the Play button. Always installed; the
--- update handler checks 'playing' and decides whether to advance.
+-- update handler checks 'playing' and decides whether to advance. Ticks at the
+-- base rate; 'speedTable' slows playback below this by skipping ticks.
 playSub :: Sub (Action tx)
 playSub sink =
   liftIO $
     void $
       forkIO $
         forever $ do
-          threadDelay 0.6
+          threadDelay 0.2
           sink MaybeAdvance
+
+-- | Playback speeds: @(label, ticksPerStep, stride)@. With the 0.2s base tick,
+-- @ticksPerStep@ stretches the interval (for slow motion) and @stride@ jumps
+-- multiple events per step (for fast-forward).
+speedTable :: [(MisoString, Int, Int)]
+speedTable =
+  [ ("0.5x", 4, 1)
+  , ("1x", 2, 1)
+  , ("2x", 1, 1)
+  , ("4x", 1, 2)
+  , ("8x", 1, 4)
+  ]
+
+defaultSpeedIdx :: Int
+defaultSpeedIdx = 1
+
+clampSpeed :: Int -> Int
+clampSpeed = max 0 . min (length speedTable - 1)
+
+speedParams :: Int -> (Int, Int)
+speedParams i = case drop (clampSpeed i) speedTable of
+  ((_, period, stride) : _) -> (period, stride)
+  [] -> (1, 1)
+
+-- | One 'playSub' tick of playback: advance the cursor when enough ticks have
+-- elapsed for the current speed, stopping (and clearing 'playing') at the end.
+stepPlayback :: Int -> Model tx -> Model tx
+stepPlayback lastIndex m
+  | not (playing m) = m
+  | otherwise =
+      let (period, stride) = speedParams (speedIdx m)
+          frame = playFrame m + 1
+       in if frame < period
+            then m{playFrame = frame}
+            else
+              let next = cursor m + stride
+               in if next >= lastIndex
+                    then m{cursor = lastIndex, playing = False, playFrame = 0}
+                    else m{cursor = next, playFrame = 0}
 
 applyDraft ::
   (IsChainState tx, FromJSON (Input tx)) =>
@@ -307,7 +352,7 @@ applyInput env ledger input m =
         Just ne -> 1 + eventId (event (last ne))
       walltime =
         addUTCTime
-          (fromIntegral (V.length (history m)) * 1)
+          (fromIntegral (V.length (history m)))
           initialChainTime
       outcome :: Outcome tx
       outcome = HL.update env ledger walltime priorState input
@@ -330,11 +375,10 @@ applyInput env ledger input m =
         , inputDraft = if isNothing err then "" else inputDraft m
         }
  where
-  withIds startId t scs =
+  withIds startId t =
     zipWith
       (\i sc -> StateEvent{eventId = i, stateChanged = sc, time = t})
       [startId ..]
-      scs
 
 -- | Pure variant of the action handler used by multi-party views that don't
 -- want to thread 'Miso.Effect'. ApplyDraft falls through to 'applyInput' when
@@ -373,14 +417,9 @@ applyAction a m = case a of
         Left err -> m{inputError = Just (MS.ms ("parse error: " <> err))}
         Right input -> applyInput ctxEnvironment ctxLedger input m
   ToggleHideTicks -> m{hideTicks = not (hideTicks m), cursor = 0}
-  TogglePlay -> m{playing = not (playing m)}
-  MaybeAdvance ->
-    if playing m && cursor m < lastIndex
-      then m{cursor = cursor m + 1}
-      else
-        if playing m && cursor m >= lastIndex
-          then m{playing = False}
-          else m
+  TogglePlay -> m{playing = not (playing m), playFrame = 0}
+  SetSpeed i -> m{speedIdx = clampSpeed i, playFrame = 0}
+  MaybeAdvance -> stepPlayback lastIndex m
  where
   lastIndex = max 0 (V.length (visibleHistory m) - 1)
   clamp n = max 0 (min lastIndex n)
@@ -388,7 +427,7 @@ applyAction a m = case a of
 -- | Background poll loop. Reads any new rows from the SQLite file at a
 -- fixed cadence and dispatches them as 'AppendEvents'.
 followSub ::
-  (IsChainState tx, FromJSON (StateEvent tx)) =>
+  FromJSON (StateEvent tx) =>
   FilePath ->
   Maybe EventId ->
   Sub (Action tx)
@@ -423,6 +462,8 @@ viewModel m =
     , viewToolbar m
     , viewFlow m
     , viewPeers m
+    , viewSync m
+    , viewMessages m
     , viewSnapshot m
     , viewAuthoring m
     , viewEvent m
@@ -432,18 +473,40 @@ viewModel m =
 viewToolbar :: Model tx -> View (Action tx)
 viewToolbar m =
   div_
-    [styleInline_ "display: flex; gap: 0.5rem; align-items: center; margin-bottom: 1rem; flex-wrap: wrap;"]
-    [ button_ [onClick GoFirst] [text "|<"]
-    , button_ [onClick Prev] [text "<"]
-    , button_
-        [ onClick TogglePlay
-        , styleInline_ $
-            "padding: 0.25rem 0.6rem; "
-              <> if playing m
-                then "background: #ffd8d8; border: 1px solid #c33;"
-                else "background: #d8ffd8; border: 1px solid #393;"
-        ]
-        [text (if playing m then "Pause" else "Play")]
+    [styleInline_ "margin-bottom: 1rem;"]
+    [ div_
+        [styleInline_ "display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.4rem;"]
+        ( [ button_ [onClick GoFirst] [text "|<"]
+          , button_ [onClick Prev] [text "<"]
+          , button_
+              [ onClick TogglePlay
+              , styleInline_ $
+                  "padding: 0.25rem 0.6rem; "
+                    <> if playing m
+                      then "background: #ffd8d8; border: 1px solid #c33;"
+                      else "background: #d8ffd8; border: 1px solid #393;"
+              ]
+              [text (if playing m then "Pause" else "Play")]
+          , button_ [onClick Next] [text ">"]
+          , button_ [onClick GoLast] [text ">|"]
+          , span_ [styleInline_ "color: #888; margin-left: 0.5rem;"] [text "speed"]
+          ]
+            <> speedButtons
+            <> [ button_
+                  [ onClick ToggleHideTicks
+                  , styleInline_ $
+                      "margin-left: 0.5rem; padding: 0.25rem 0.6rem; "
+                        <> if hideTicks m
+                          then "background: #cce5ff; border: 1px solid #6ab;"
+                          else "background: #fff; border: 1px solid #ccc;"
+                  ]
+                  [text (if hideTicks m then "Show Ticks" else "Hide Ticks")]
+               , span_
+                  [styleInline_ "margin-left: auto; min-width: 7ch; text-align: right; font-variant-numeric: tabular-nums;"]
+                  [text $ ms (show oneBased :: Text) <> "/" <> ms (show totalSteps :: Text)]
+               ]
+        )
+    , viewTimeline m
     , input_
         [ type_ "range"
         , min_ "0"
@@ -451,32 +514,130 @@ viewToolbar m =
         , step_ "1"
         , value_ (ms (show (cursor m) :: Text))
         , onInput SetCursor
-        , styleInline_ "flex: 1; min-width: 12rem;"
+        , styleInline_ "width: 100%; box-sizing: border-box; margin: 0;"
         ]
-    , button_ [onClick Next] [text ">"]
-    , button_ [onClick GoLast] [text ">|"]
-    , button_
-        [ onClick ToggleHideTicks
-        , styleInline_ $
-            "padding: 0.25rem 0.6rem; "
-              <> if hideTicks m
-                then "background: #cce5ff; border: 1px solid #6ab;"
-                else "background: #fff; border: 1px solid #ccc;"
-        ]
-        [text (if hideTicks m then "Show Ticks" else "Hide Ticks")]
-    , span_
-        [styleInline_ "min-width: 7ch; text-align: right; font-variant-numeric: tabular-nums;"]
-        [ text $
-            ms (show oneBased :: Text)
-              <> "/"
-              <> ms (show totalSteps :: Text)
-        ]
+    , markerLegend
     ]
  where
   totalSteps :: Int
   totalSteps = V.length (visibleHistory m)
   oneBased :: Int
   oneBased = if totalSteps == 0 then 0 else cursor m + 1
+  speedButtons :: [View (Action tx)]
+  speedButtons =
+    [ button_
+      [ onClick (SetSpeed i)
+      , styleInline_ $
+          "padding: 0.15rem 0.4rem; font-size: 0.8rem; "
+            <> if i == speedIdx m
+              then "background: #cce5ff; border: 1px solid #6ab;"
+              else "background: #fff; border: 1px solid #ccc;"
+      ]
+      [text lbl]
+    | (i, (lbl, _, _)) <- zip [0 ..] speedTable
+    ]
+
+-- | Marker kinds surfaced as labelled lines on the timeline.
+data MarkerKind = MOpen | MIncrement | MDecrement | MClose | MFanout | MPeerUp | MPeerDown
+  deriving stock (Eq, Show)
+
+-- | Classify an event as a "big" timeline marker, if it is one.
+markerOf :: StateChanged tx -> Maybe MarkerKind
+markerOf = \case
+  HeadOpened{} -> Just MOpen
+  CommitFinalized{} -> Just MIncrement
+  DecommitFinalized{} -> Just MDecrement
+  HeadClosed{} -> Just MClose
+  HeadFannedOut{} -> Just MFanout
+  PeerConnected{} -> Just MPeerUp
+  PeerDisconnected{} -> Just MPeerDown
+  _ -> Nothing
+
+markerColor :: MarkerKind -> MisoString
+markerColor = \case
+  MOpen -> "#06c"
+  MIncrement -> "#393"
+  MDecrement -> "#c66"
+  MClose -> "#a33"
+  MFanout -> "#c83"
+  MPeerUp -> "#27a"
+  MPeerDown -> "#999"
+
+markerLabel :: MarkerKind -> MisoString
+markerLabel = \case
+  MOpen -> "open"
+  MIncrement -> "increment"
+  MDecrement -> "decrement"
+  MClose -> "close"
+  MFanout -> "fanout"
+  MPeerUp -> "peer joined"
+  MPeerDown -> "peer left"
+
+-- | The big events along the (Tick-filtered) timeline, by slider index.
+bigEvents :: Vector (HistoryStep tx) -> [(Int, MarkerKind)]
+bigEvents steps =
+  [(i, k) | (i, s) <- zip [0 ..] (V.toList steps), Just k <- [markerOf (stateChanged (event s))]]
+
+-- | A horizontal track above the slider with a coloured line at each big event
+-- and a blue marker at the current cursor, so notable moments are visible at a
+-- glance and line up with the slider below.
+viewTimeline :: Model tx -> View (Action tx)
+viewTimeline m =
+  let n = V.length (visibleHistory m)
+      xOf i = if n <= 1 then 0 else (i * 1000) `div` (n - 1)
+      markers = bigEvents (visibleHistory m)
+      cur = xOf (cursor m)
+   in Svg.svg_
+        [ SvgA.viewBox_ "0 0 1000 36"
+        , SvgA.width_ "100%"
+        , SvgA.preserveAspectRatio_ "none"
+        , styleInline_ "display: block; height: 34px;"
+        ]
+        ( Svg.rect_
+            [ SvgA.x_ "0"
+            , SvgA.y_ "14"
+            , SvgA.width_ "1000"
+            , SvgA.height_ "8"
+            , SvgA.fill_ "#eee"
+            ]
+            []
+            : [ Svg.line_
+                [ SvgA.x1_ (mInt (xOf i))
+                , SvgA.y1_ "2"
+                , SvgA.x2_ (mInt (xOf i))
+                , SvgA.y2_ "34"
+                , SvgA.stroke_ (markerColor k)
+                , SvgA.strokeWidth_ "2"
+                ]
+                []
+              | (i, k) <- markers
+              ]
+              <> [ Svg.line_
+                    [ SvgA.x1_ (mInt cur)
+                    , SvgA.y1_ "0"
+                    , SvgA.x2_ (mInt cur)
+                    , SvgA.y2_ "36"
+                    , SvgA.stroke_ "#06c"
+                    , SvgA.strokeWidth_ "3"
+                    ]
+                    []
+                 ]
+        )
+
+-- | Colour key for the timeline markers.
+markerLegend :: View (Action tx)
+markerLegend =
+  div_
+    [styleInline_ "display: flex; gap: 0.9rem; flex-wrap: wrap; margin-top: 0.35rem; font-size: 0.78rem; color: #555;"]
+    [ span_
+      [styleInline_ "display: inline-flex; align-items: center; gap: 0.3rem;"]
+      [ span_
+          [styleInline_ ("display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: " <> markerColor k <> ";")]
+          []
+      , text (markerLabel k)
+      ]
+    | k <- [MOpen, MIncrement, MDecrement, MClose, MFanout, MPeerUp, MPeerDown]
+    ]
 
 viewEvent :: ToJSON (StateChanged tx) => Model tx -> View (Action tx)
 viewEvent m = case currentStep m of
@@ -545,7 +706,7 @@ snapshotBody = \case
   headBalance snap =
     utxoSummaryView @tx (Snap.utxo snap) (Snap.utxoToCommit snap) (Snap.utxoToDecommit snap)
 
-seenSnapshotRows :: IsTx tx => HS.SeenSnapshot tx -> View (Action tx)
+seenSnapshotRows :: HS.SeenSnapshot tx -> View (Action tx)
 seenSnapshotRows = \case
   HS.NoSeenSnapshot ->
     row "in flight" "none"
@@ -676,8 +837,8 @@ summariseUtxo u = case Aeson.toJSON u of
   entryAddrLovelace = \case
     Aeson.Object eo -> do
       addr <- KM.lookup "address" eo >>= asText
-      let lov = fromMaybe 0 (KM.lookup "value" eo >>= asObject >>= KM.lookup "lovelace" >>= asInteger)
-      pure (addr, lov)
+      let love = fromMaybe 0 (KM.lookup "value" eo >>= asObject >>= KM.lookup "lovelace" >>= asInteger)
+      pure (addr, love)
     _ -> Nothing
   asText = \case Aeson.String t -> Just t; _ -> Nothing
   asObject = \case Aeson.Object o -> Just o; _ -> Nothing
@@ -726,7 +887,7 @@ allocationBlock xs =
         : map addrRow xs
     )
  where
-  addrRow (addr, lov) =
+  addrRow (addr, love) =
     div_
       [styleInline_ "display: flex; gap: 0.75rem; margin: 0.1rem 0 0.1rem 1rem;"]
       [ span_
@@ -734,7 +895,7 @@ allocationBlock xs =
           [text (ms (shortAddr addr))]
       , span_
           [styleInline_ "font-family: ui-monospace, monospace;"]
-          [text (ms (lovelaceText lov))]
+          [text (ms (lovelaceText love))]
       ]
 
 -- | Render lovelace with thousands separators alongside the ADA value.
@@ -774,6 +935,196 @@ jsonStringy :: ToJSON a => a -> Text
 jsonStringy x = case Aeson.toJSON x of
   Aeson.String t -> t
   other -> TE.decodeUtf8 (BSL.toStrict (Aeson.encode other))
+
+-- * Node sync
+
+-- | Show whether the node is caught up with the chain, the slot/time it last
+-- observed, and how far its clock has drifted, plus running counts of the
+-- chain/connectivity events seen up to the cursor.
+viewSync :: Model tx -> View (Action tx)
+viewSync m = case currentStep m of
+  Nothing -> div_ [] []
+  Just step ->
+    let counts = countActivity (historyUpToCursor m)
+        ns = stateAfter step
+        ChainPointTime{currentSlot = ChainSlot slot, currentChainTime, drift} =
+          chainPointTime ns
+        (statusText, statusColor) = case syncedStatus ns of
+          InSync -> ("in sync", "#2a7")
+          CatchingUp -> ("catching up", "#c83")
+     in div_
+          [styleInline_ panelStyle]
+          [ h2_ [] [text "node sync"]
+          , div_
+              [styleInline_ "display: flex; gap: 0.75rem; margin: 0.15rem 0;"]
+              [ span_ [styleInline_ "min-width: 12rem; color: #666;"] [text "status"]
+              , span_
+                  [styleInline_ ("font-weight: 600; color: " <> statusColor <> ";")]
+                  [text statusText]
+              ]
+          , row "current slot" (show slot)
+          , row "chain time" (show currentChainTime)
+          , row "clock drift" (show drift)
+          , div_
+              [styleInline_ "display: flex; gap: 0.75rem; margin: 0.15rem 0;"]
+              [ span_ [styleInline_ "min-width: 12rem; color: #666;"] [text "network"]
+              , let (t, col) = case acConnected counts of
+                      Just True -> ("connected", "#2a7")
+                      Just False -> ("not connected", "#a33")
+                      Nothing -> ("unknown", "#999")
+                 in span_ [styleInline_ ("font-weight: 600; color: " <> col <> ";")] [text t]
+              ]
+          , row "peers connected" (connectedPeersText (acConnectedPeers counts))
+          , row "ticks observed" (show (acTicks counts))
+          , row "rollbacks" (show (acRollbacks counts))
+          , row "sync transitions" (show (acSynced counts) <> " synced, " <> show (acUnsynced counts) <> " unsynced")
+          ]
+
+-- * Network messages
+
+-- | Network message activity, grouped by peer where the log records a sender.
+-- Raw network messages are not persisted; we count the 'StateChanged' each
+-- message produces when applied. Only @AckSn@ (-> 'PartySignedSnapshot')
+-- carries its sender, so that is the one we can attribute per peer; the rest
+-- (@ReqTx@, @ReqSn@, @ReqDec@) are shown as node-wide totals with a note.
+viewMessages :: Model tx -> View (Action tx)
+viewMessages m = case currentStep m of
+  Nothing -> div_ [] []
+  Just step ->
+    let c = countActivity (historyUpToCursor m)
+        parties = headParties (headState (stateAfter step))
+        peers = if null parties then Map.keys (acAckByParty c) else parties
+     in div_
+          [styleInline_ panelStyle]
+          [ h2_ [] [text "network messages"]
+          , div_
+              [styleInline_ "color: #888; font-size: 0.85rem; margin-bottom: 0.5rem;"]
+              [ text
+                  "Counted from the persisted state changes each message \
+                  \produces; raw sends are not logged. Only AckSn records its \
+                  \sender, so it is grouped per peer below; the rest are \
+                  \node-wide received counts."
+              ]
+          , span_ [styleInline_ "color: #666;"] [text "AckSn (snapshot signatures) by peer"]
+          , peerAcks peers (acAckByParty c)
+          , div_ [styleInline_ "margin-top: 0.6rem; color: #666;"] [text "node-wide (sender not recorded)"]
+          , msgRow "ReqTx" "received" (acReqTx c)
+          , msgRow "ReqSn" "sent (decided)" (acReqSnDecided c)
+          , msgRow "ReqSn" "received" (acReqSnRecv c)
+          , msgRow "ReqDec" "received" (acReqDec c)
+          , msgRow "(snapshots confirmed)" "" (acSnapConfirmed c)
+          ]
+ where
+  peerAcks [] _ = div_ [styleInline_ "margin-left: 1rem;"] [italic "no peers yet"]
+  peerAcks peers byParty =
+    div_
+      [styleInline_ "margin: 0.1rem 0 0.2rem 1rem;"]
+      [ div_
+        [styleInline_ "display: flex; gap: 0.75rem; margin: 0.1rem 0; align-items: baseline;"]
+        [ span_
+            [styleInline_ "min-width: 14rem; font-family: ui-monospace, monospace; color: #335;"]
+            [text (ms (shortParty p))]
+        , span_
+            [styleInline_ "font-family: ui-monospace, monospace; font-weight: 600;"]
+            [text (ms (show (Map.findWithDefault 0 p byParty) :: Text))]
+        ]
+      | p <- peers
+      ]
+  msgRow name dir n =
+    div_
+      [styleInline_ "display: flex; gap: 0.75rem; margin: 0.15rem 0 0.15rem 1rem; align-items: baseline;"]
+      [ span_
+          [styleInline_ "min-width: 8rem; font-family: ui-monospace, monospace; color: #335;"]
+          [text name]
+      , span_ [styleInline_ "min-width: 8rem; color: #888;"] [text dir]
+      , span_
+          [styleInline_ "font-family: ui-monospace, monospace; font-weight: 600;"]
+          [text (ms (show n :: Text))]
+      ]
+
+-- | Parties (peers) in the head, from the head parameters; empty before open.
+headParties :: HS.HeadState tx -> [Party]
+headParties = \case
+  HS.Open HS.OpenState{HS.parameters = ps} -> HP.parties ps
+  HS.Closed HS.ClosedState{HS.parameters = ps} -> HP.parties ps
+  HS.Idle _ -> []
+
+-- | Render the currently-connected peer set as @host:port@, comma separated.
+connectedPeersText :: Set Host -> Text
+connectedPeersText hs
+  | Set.null hs = "none"
+  | otherwise = T.intercalate ", " (hostText <$> Set.toList hs)
+
+hostText :: Host -> Text
+hostText h = Net.hostname h <> ":" <> show (Net.port h)
+
+-- | Running counts of chain/connectivity events and applied consensus
+-- messages, accumulated by walking the history up to the cursor.
+data ActivityCounts = ActivityCounts
+  { acTicks :: Int
+  , acRollbacks :: Int
+  , acSynced :: Int
+  , acUnsynced :: Int
+  , acConnected :: Maybe Bool
+  -- ^ Latest network connectivity seen: 'Just True' connected, 'Just False'
+  -- disconnected, 'Nothing' if no connectivity event observed yet.
+  , acConnectedPeers :: Set Host
+  -- ^ Peers currently connected (PeerConnected adds, PeerDisconnected removes).
+  , acReqTx :: Int
+  , acReqSnRecv :: Int
+  , acReqSnDecided :: Int
+  , acAckByParty :: Map Party Int
+  -- ^ AckSn signatures recorded, grouped by the signing party.
+  , acReqDec :: Int
+  , acSnapConfirmed :: Int
+  }
+
+emptyActivity :: ActivityCounts
+emptyActivity =
+  ActivityCounts
+    { acTicks = 0
+    , acRollbacks = 0
+    , acSynced = 0
+    , acUnsynced = 0
+    , acConnected = Nothing
+    , acConnectedPeers = mempty
+    , acReqTx = 0
+    , acReqSnRecv = 0
+    , acReqSnDecided = 0
+    , acAckByParty = mempty
+    , acReqDec = 0
+    , acSnapConfirmed = 0
+    }
+
+-- | The prefix of the *full* history (ticks included) up to and including the
+-- cursor's event. Counts derived from this stay correct even while ticks are
+-- hidden from the slider, which filters 'visibleHistory'.
+historyUpToCursor :: Model tx -> Vector (HistoryStep tx)
+historyUpToCursor m = case currentStep m of
+  Nothing -> V.empty
+  Just step ->
+    let eid = eventId (event step)
+     in V.takeWhile (\s -> eventId (event s) <= eid) (history m)
+
+countActivity :: Vector (HistoryStep tx) -> ActivityCounts
+countActivity = V.foldl' bump emptyActivity
+ where
+  bump c step = case stateChanged (event step) of
+    TickObserved{} -> c{acTicks = acTicks c + 1}
+    ChainRolledBack{} -> c{acRollbacks = acRollbacks c + 1}
+    NodeSynced{} -> c{acSynced = acSynced c + 1}
+    NodeUnsynced{} -> c{acUnsynced = acUnsynced c + 1}
+    NetworkConnected{} -> c{acConnected = Just True}
+    NetworkDisconnected{} -> c{acConnected = Just False}
+    PeerConnected{peer} -> c{acConnectedPeers = Set.insert peer (acConnectedPeers c)}
+    PeerDisconnected{peer} -> c{acConnectedPeers = Set.delete peer (acConnectedPeers c)}
+    TransactionReceived{} -> c{acReqTx = acReqTx c + 1}
+    SnapshotRequested{} -> c{acReqSnRecv = acReqSnRecv c + 1}
+    SnapshotRequestDecided{} -> c{acReqSnDecided = acReqSnDecided c + 1}
+    PartySignedSnapshot{party} -> c{acAckByParty = Map.insertWith (+) party 1 (acAckByParty c)}
+    DecommitRecorded{} -> c{acReqDec = acReqDec c + 1}
+    SnapshotConfirmed{} -> c{acSnapConfirmed = acSnapConfirmed c + 1}
+    _ -> c
 
 viewState :: ToJSON (NodeState tx) => Model tx -> View (Action tx)
 viewState m = case currentStep m of
