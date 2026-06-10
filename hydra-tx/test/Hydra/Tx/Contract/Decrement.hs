@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
+  changeMintedTokens,
   modifyInlineDatum,
   replaceParties,
   replaceSnapshotVersion,
@@ -22,6 +23,7 @@ import Hydra.Contract.DepositError (DepositError (..))
 import Hydra.Contract.Error (ToErrorCode (..))
 import Hydra.Contract.HeadError (HeadError (..))
 import Hydra.Contract.HeadState qualified as Head
+import Hydra.Contract.Util (UtilError (MintingOrBurningIsForbidden))
 import Hydra.Data.Party qualified as OnChain
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Plutus (depositValidatorScript)
@@ -47,6 +49,7 @@ import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, slotLength, systemStart, 
 import Test.Hydra.Tx.Gen (
   genAddressInEra,
   genForParty,
+  genMintedOrBurnedValue,
   genScriptRegistry,
   genUTxOSized,
   genValue,
@@ -199,6 +202,8 @@ data DecrementMutation
     -- Increment's mustPreserveValue summing every non-head script
     -- input.
     DecrementAddExtraDepositInput
+  | -- | Minting or burning of tokens should not be possible in decrement.
+    MutateTokenMintingOrBurning
   deriving stock (Generic, Show, Enum, Bounded)
 
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
@@ -276,6 +281,8 @@ genDecrementMutation (tx, _utxo) =
             , AddScript depositValidatorScript
             , ChangeValidityUpperBound (TxValidityUpperBound upperSlot)
             ]
+    , SomeMutation (pure $ toErrorCode MintingOrBurningIsForbidden) MutateTokenMintingOrBurning
+        <$> (changeMintedTokens tx =<< genMintedOrBurnedValue)
     ]
  where
   headTxOut = fromJust $ txOuts' tx !!? 0
