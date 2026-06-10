@@ -112,7 +112,7 @@ healthyCommitAppliedAccumulatorHash =
 -- | Commit was applied: both healthySplitUTxOInHead and healthyDepositUTxO are in the head.
 healthyCommitAppliedHeadAdaOverhead :: Integer
 healthyCommitAppliedHeadAdaOverhead =
-  let Coin n = selectLovelace (UTxO.totalValue (healthySplitUTxOInHead <> healthyDepositUTxO))
+  let Coin n = selectLovelace (UTxO.totalValue healthySplitUTxOInHead)
    in negate n
 
 healthyCommitAppliedConfirmedSnapshot :: ConfirmedSnapshot Tx

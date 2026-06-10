@@ -198,6 +198,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               spendableUTxO
               seedTxIn
               (fanout ctx spendableUTxO seedTxIn utxo utxoToCommit utxoToDecommit utxoForProof deadlineSlot)
+              utxoForProof
               fullUTxO
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
@@ -210,6 +211,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               spendableUTxO
               seedTxIn
               (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot)
+              utxoToDistribute
               utxoToDistribute
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
@@ -591,12 +593,14 @@ findFittingFanoutTx ::
   TxIn ->
   -- | Preferred tx to try first (FanoutTx or FinalPartialFanoutTx); Left skips straight to the loop
   Either e Tx ->
-  -- | Full UTxO for the partial-fanout fallback loop
+  -- | UTxO for the accumulator check in the partial-fanout fallback (matches the on-chain datum)
+  UTxO ->
+  -- | UTxOs to distribute in the partial-fanout fallback
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   m Tx
-findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred fullUTxO deadlineSlot =
+findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits} ctx spendableUTxO seedTxIn ePreferred proofUTxO fullUTxO deadlineSlot =
   findBest >>= either (const $ throwIO (FailedToConstructPartialFanoutTx @Tx)) pure
  where
   -- Try the preferred tx (full fanout or final partial fanout) first; only
@@ -610,7 +614,7 @@ findFittingFanoutTx tracer TinyWallet{evaluateScriptCosts, isTxWithinSizeLimits}
     tryChunk n = buildTx n >>= \tx -> bool Nothing (Just tx) <$> fits tx
 
   buildTx n =
-    either handleErr pure $ partialFanout ctx spendableUTxO seedTxIn n fullUTxO deadlineSlot
+    either handleErr pure $ partialFanout ctx spendableUTxO seedTxIn n proofUTxO fullUTxO deadlineSlot
    where
     handleErr err = do
       traceWith tracer PartialFanoutFailed{reason = show err}

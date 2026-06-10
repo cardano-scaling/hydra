@@ -550,12 +550,17 @@ partialFanout ::
   TxIn ->
   -- | Number of UTxOs to distribute in this step
   Int ->
-  -- | Full remaining UTxOs (will be split into distribute + new remaining)
+  -- | UTxO used to verify the on-chain accumulator commitment. For the first fanout
+  -- step this is utxoForProof (the snapshot's full set, including any decommit UTxOs
+  -- that may already have been removed from the head by a DecrementTx). For subsequent
+  -- FanoutProgress steps it equals remainingUTxO.
+  UTxO ->
+  -- | Remaining UTxOs to distribute (will be split into distribute + new remaining)
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   Either PartialFanoutError Tx
-partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo = do
+partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -564,8 +569,7 @@ partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo 
     Head.Closed closedDatum -> pure (Head.progressFromClosed closedDatum)
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  -- Guard against stale chain state: on-chain commitment must match remainingUTxO.
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum remainingUTxO
+  _fullAccumulator <- buildAndVerifyAccumulator progressDatum proofUTxO
   let allPairs = UTxO.toList remainingUTxO
       utxoToDistribute = UTxO.fromList (take chunkSize allPairs)
       rest = UTxO.fromList (drop chunkSize allPairs)
@@ -834,7 +838,7 @@ unsafePartialFanout ::
   SlotNo ->
   Tx
 unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo =
-  either (error . show) id $ partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO deadlineSlotNo
+  either (error . show) id $ partialFanout ctx spendableUTxO seedTxIn chunkSize remainingUTxO remainingUTxO deadlineSlotNo
 
 unsafeFinalPartialFanout ::
   HasCallStack =>

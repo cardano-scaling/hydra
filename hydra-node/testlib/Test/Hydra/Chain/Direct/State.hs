@@ -461,6 +461,32 @@ genClosedStateForFanout numParties = do
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0)
 
+-- | Generate a closed state where a decommit was applied on-chain before close,
+-- i.e. @ClosedState.version > snapshot.version@. The closed datum accumulator
+-- includes the decommit UTxOs; the distribution set (u0) excludes them.
+genClosedStateWithAppliedDecommit ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateWithAppliedDecommit numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (11, 18 :: Int)
+  u0 <- genUTxOAdaOnlyOfSize n
+  nDecommit <- choose (1, 3 :: Int)
+  decommitUTxO <- genUTxOAdaOnlyOfSize nDecommit
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let snapshotVersion = 0
+      openVersion = 1
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 Nothing (Just decommitUTxO) (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, decommitUTxO)
+
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.
 findFittingPartialChunk :: UTxO -> ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> (Int, Tx)

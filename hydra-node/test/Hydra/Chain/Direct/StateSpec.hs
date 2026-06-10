@@ -79,6 +79,7 @@ import Test.Hydra.Chain.Direct.State (
   genChainStateWithTx,
   genCloseTx,
   genClosedStateForFanout,
+  genClosedStateWithAppliedDecommit,
   genContestTx,
   genDecrementTx,
   genDepositTx,
@@ -252,9 +253,14 @@ spec = parallel $ do
     prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, _u0) ->
-          -- Pass empty UTxO so the accumulator commitment won't match
-          partialFanout ctx spendableUTxO seedTxIn 1 mempty deadlineSlotNo
+          -- Pass empty UTxO for both proof and distribution so the accumulator commitment won't match
+          partialFanout ctx spendableUTxO seedTxIn 1 mempty mempty deadlineSlotNo
             === Left StaleChainState
+    prop "succeeds when decommit was applied on-chain before close (snapshotVersion /= version)" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo
+            `shouldSatisfy` isRight
 
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
