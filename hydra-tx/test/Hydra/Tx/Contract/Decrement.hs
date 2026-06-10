@@ -39,7 +39,6 @@ import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.IsTx (IsTx (withoutUTxO))
 import Hydra.Tx.Party (Party, deriveParty, partyToChain)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Secret (Secret)
@@ -143,14 +142,6 @@ healthyAccumulator =
 
 healthyAccumulatorHash :: ByteString
 healthyAccumulatorHash = Accumulator.getAccumulatorHash healthyAccumulator
-
-splitDecommitUTxO :: UTxO -> (UTxO, UTxO)
-splitDecommitUTxO utxo =
-  case UTxO.toList utxo of
-    [] -> error "empty utxo in splitDecommitUTxO"
-    (decommit : _rest) ->
-      let decommitUTxO' = UTxO.fromList [decommit]
-       in (utxo `withoutUTxO` decommitUTxO', decommitUTxO')
 
 healthyContestationPeriod :: ContestationPeriod
 healthyContestationPeriod =

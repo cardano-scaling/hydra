@@ -572,8 +572,8 @@ partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadl
   _fullAccumulator <- buildAndVerifyAccumulator progressDatum proofUTxO
   let allPairs = UTxO.toList remainingUTxO
       utxoToDistribute = UTxO.fromList (take chunkSize allPairs)
-      rest = UTxO.fromList (drop chunkSize allPairs)
   when (UTxO.null utxoToDistribute) $ Left (CannotCreateProof "utxoToDistribute must not be empty")
+  let rest = UTxO.fromList (drop chunkSize allPairs)
   let remainingAccumulator = Accumulator.buildFromUTxO @Tx rest
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
