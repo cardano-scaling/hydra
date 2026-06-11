@@ -69,8 +69,21 @@ import System.Timeout qualified
 import Test.HUnit.Lang (formatFailureReason)
 import Text.Printf (printf)
 
-bench :: Int -> NominalDiffTime -> Bool -> Bool -> FilePath -> Dataset -> IO (Summary, SystemStats)
-bench startingNodeId timeoutSeconds incrementalOpsEnabled waitForTxValidEnabled workDir dataset = do
+-- | Behaviour toggles for a benchmark run, threaded from the CLI down into the
+-- scenario. Bundling these into a record avoids transposing the otherwise
+-- adjacent 'Bool' arguments at the call sites.
+data BenchRunOptions = BenchRunOptions
+  { incrementalOps :: Bool
+  -- ^ Exercise one interleaved incremental commit + decommit per client.
+  , waitForTxValid :: Bool
+  -- ^ Wait for each tx to confirm before posting the next (one in-flight tx
+  -- per client) instead of firing the whole queue as fast as it drains.
+  }
+  deriving stock (Eq, Show)
+
+bench :: Int -> NominalDiffTime -> BenchRunOptions -> FilePath -> Dataset -> IO (Summary, SystemStats)
+bench startingNodeId timeoutSeconds runOptions workDir dataset = do
+  let BenchRunOptions{incrementalOps} = runOptions
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -84,7 +97,7 @@ bench startingNodeId timeoutSeconds incrementalOpsEnabled waitForTxValidEnabled 
           let contestationPeriod = truncate $ 10 * blockTime
           let DirectOptions{nodeSocket = nodeSocket'} = directOpts
           putTextLn "Seeding network"
-          sideUTxOs <- seedNetwork opts dataset incrementalOpsEnabled (contramap FromFaucet tracer)
+          sideUTxOs <- seedNetwork opts dataset incrementalOps (contramap FromFaucet tracer)
           putTextLn "Publishing hydra scripts"
           hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
@@ -93,7 +106,7 @@ bench startingNodeId timeoutSeconds incrementalOpsEnabled waitForTxValidEnabled 
           putStrLn $ "Timing: " <> show timing
           withHydraCluster hydraTracer timing workDir nodeSocket' startingNodeId cardanoKeys hydraKeys hydraScriptsTxId $ \clients -> do
             waitForNodesConnected hydraTracer 20 clients
-            scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs waitForTxValidEnabled
+            scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs runOptions
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -103,12 +116,12 @@ benchDemo ::
   NominalDiffTime ->
   [Host] ->
   Maybe String ->
-  Bool ->
-  Bool ->
+  BenchRunOptions ->
   FilePath ->
   Dataset ->
   IO (Summary, SystemStats)
-benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incrementalOpsEnabled waitForTxValidEnabled workDir dataset@Dataset{clientDatasets} = do
+benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand runOptions workDir dataset@Dataset{clientDatasets} = do
+  let BenchRunOptions{incrementalOps} = runOptions
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo (BlockBuffering (Just 64000)) hdl "Test" $ \tracer ->
@@ -121,7 +134,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incremen
           Just (blockTime, directOpts) -> do
             let opts = Direct directOpts
             putTextLn "Seeding network"
-            sideUTxOs <- seedNetwork opts dataset incrementalOpsEnabled (contramap FromFaucet tracer)
+            sideUTxOs <- seedNetwork opts dataset incrementalOps (contramap FromFaucet tracer)
             (`finally` returnFaucetFunds tracer opts) $ do
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
@@ -130,7 +143,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand incremen
               withHydraClientConnections hydraTracer (hydraClients `zip` [1 ..]) [] $ \case
                 [] -> error "no hydra clients provided"
                 (leader : followers) ->
-                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand sideUTxOs waitForTxValidEnabled
+                  (,[]) <$> scenario hydraTracer timing opts workDir dataset (leader :| followers) pumbaCommand sideUTxOs runOptions
  where
   withHydraClientConnections ::
     Tracer IO HydraNodeLog ->
@@ -165,12 +178,10 @@ scenario ::
   -- | Optional pre-seeded side UTxOs, one per client dataset, used for
   -- interleaved incremental commit/decommit cycles. Empty list disables.
   [UTxO] ->
-  -- | When True, the submitter waits for each tx to confirm before posting
-  -- the next (one in-flight tx per client). When False, the submitter fires
-  -- all txs as fast as the queue can be drained.
-  Bool ->
+  BenchRunOptions ->
   IO Summary
-scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs waitForTxValidEnabled = do
+scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, description} nonEmptyClients pumbaCommand sideUTxOs runOptions = do
+  let BenchRunOptions{waitForTxValid} = runOptions
   let clusterSize = fromIntegral $ length clientDatasets
   let leader = head nonEmptyClients
       clients = toList nonEmptyClients
@@ -216,7 +227,7 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
               , ctxDecommitLock = decommitLock
               }
   (processedTransactions, snapshotsSeen, incrementalCommitTimes, incrementalDecommitTimes) <-
-    withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled
+    withPumba pumbaCommand $ processTransactions clients clientDatasets incrementalCtx waitForTxValid
 
   putTextLn "Closing the Head"
   send leader $ input "Close" []
@@ -259,7 +270,7 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       quantiles = makeQuantiles confTimes
       summaryTitle = fromMaybe "Baseline Scenario" title
       summaryDescription = fromMaybe defaultDescription description
-      (endToEndTps, snapshotTpsQuantiles, numberOfSnapshots) =
+      (endToEndTps, runWallClockSeconds, snapshotTpsQuantiles, numberOfSnapshots) =
         computeThroughput processedTransactions snapshotsSeen
 
   pure $
@@ -274,6 +285,7 @@ scenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descript
       , numberOfInvalidTxs
       , numberOfFanoutOutputs
       , endToEndTps
+      , runWallClockSeconds
       , snapshotTpsQuantiles
       , numberOfSnapshots
       , incrementalCommitTimes
@@ -760,31 +772,31 @@ analyze = \case
     Just (submittedAt, valid `diffUTCTime` submittedAt, conf `diffUTCTime` submittedAt)
   _ -> Nothing
 
--- | End-to-end TPS over the run plus quantiles of per-snapshot TPS.
+-- | Measured wall-clock span, end-to-end TPS over the run, and quantiles of
+-- per-snapshot TPS.
 --
--- End-to-end TPS divides the count of confirmed txs by the wall-clock window
--- from earliest submission to latest confirmation. Per-snapshot TPS is
--- derived for snapshots that confirmed at least one tx by dividing the tx
--- count by the gap to the previous observation (or the earliest submission
--- time for the first snapshot).
-computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> (Double, Vector Double, Int)
+-- The wall-clock span is the elapsed time from the earliest tx submission to
+-- the latest confirmation; end-to-end TPS is the confirmed tx count divided by
+-- that span. Per-snapshot TPS is derived for snapshots that confirmed at least
+-- one tx by dividing the tx count by the gap to the previous observation (or
+-- the earliest submission time for the first snapshot).
+computeThroughput :: Map.Map TxId Event -> Map.Map Scientific (UTCTime, Int) -> (Double, Double, Vector Double, Int)
 computeThroughput txs snapshots =
-  let submitted = mapMaybe submittedAtFor (Map.elems txs)
+  let submitted = map submittedAtFor (Map.elems txs)
       confirmed = mapMaybe confirmedAt (Map.elems txs)
       numberOfTxs = length confirmed
-      e2eTps = case (submitted, confirmed) of
-        (s : _, _ : _) ->
-          let span_ = realToFrac (List.maximum confirmed `diffUTCTime` List.minimum (s : submitted)) :: Double
-           in if span_ > 0 then fromIntegral numberOfTxs / span_ else 0
+      wallClockSeconds = case (submitted, confirmed) of
+        (_ : _, _ : _) -> realToFrac (List.maximum confirmed `diffUTCTime` List.minimum submitted) :: Double
         _ -> 0
+      e2eTps = if wallClockSeconds > 0 then fromIntegral numberOfTxs / wallClockSeconds else 0
       sortedSnapshots = sortOn fst (Map.toList snapshots)
       anchor = case submitted of
         [] -> Nothing
         _ -> Just (List.minimum submitted)
       perSnapshotRates = perSnapshotTps anchor sortedSnapshots
-   in (e2eTps, makeDoubleQuantiles perSnapshotRates, length sortedSnapshots)
+   in (e2eTps, wallClockSeconds, makeDoubleQuantiles perSnapshotRates, length sortedSnapshots)
  where
-  submittedAtFor Event{submittedAt} = Just submittedAt
+  submittedAtFor Event{submittedAt} = submittedAt
   perSnapshotTps :: Maybe UTCTime -> [(Scientific, (UTCTime, Int))] -> [Double]
   perSnapshotTps = go
    where

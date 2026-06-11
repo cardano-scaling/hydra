@@ -5,7 +5,7 @@ module Main where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Bench.EndToEnd (bench, benchDemo)
+import Bench.EndToEnd (BenchRunOptions (..), bench, benchDemo)
 import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, matrixMarkdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile)
@@ -28,7 +28,7 @@ main = do
     StandaloneOptions{outputDirectory, timeoutSeconds, startingNodeId, datasetFiles, incrementalOps, waitForTxValid} -> do
       datasets <- forM datasetFiles loadDataset
       putTextLn $ "Running benchmark with datasets: " <> show datasetFiles
-      let action = bench startingNodeId timeoutSeconds incrementalOps waitForTxValid
+      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
       results <- forM datasets $ \dataset ->
         withTempDir "bench-dataset" $ \dir -> do
           threadDelay 10
@@ -40,13 +40,13 @@ main = do
       workDir <- maybe (createTempDir "bench-demo") checkEmpty outputDirectory
       results <-
         runSingle dataset workDir $
-          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand False False
+          benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand BenchRunOptions{incrementalOps = False, waitForTxValid = False}
       summarizeResults outputDirectory [results]
       removeDirectoryRecursive workDir
     DatasetOptions{outputDirectory, timeoutSeconds, datasetUTxO, numberOfTxs, clusterSize, startingNodeId, incrementalOps, waitForTxValid} -> do
       (_, faucetSk) <- keysFor Faucet
       workDir <- maybe (createTempDir "bench-e2e") checkEmpty outputDirectory
-      let action = bench startingNodeId timeoutSeconds incrementalOps waitForTxValid
+      let action = bench startingNodeId timeoutSeconds BenchRunOptions{incrementalOps, waitForTxValid}
       dataset <- generate $ case datasetUTxO of
         Constant -> generateConstantUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
         Growing -> generateGrowingUTxODataset faucetSk (fromIntegral clusterSize) numberOfTxs
@@ -80,7 +80,7 @@ main = do
         saveDataset (cellDir </> "dataset.json") labelled
         threadDelay 10
         let nodeIdOffset = startingNodeId + i * fromIntegral (List.maximum clusterSizes)
-        let action = bench nodeIdOffset timeoutSeconds im wt
+        let action = bench nodeIdOffset timeoutSeconds BenchRunOptions{incrementalOps = im, waitForTxValid = wt}
         runSingle labelled cellDir action
       summarizeMatrixResults outputDirectory results
  where

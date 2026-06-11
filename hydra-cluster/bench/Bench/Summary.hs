@@ -33,6 +33,7 @@ data Summary = Summary
   , quantiles :: Vector Double
   , numberOfFanoutOutputs :: Int
   , endToEndTps :: Double
+  , runWallClockSeconds :: Double
   , snapshotTpsQuantiles :: Vector Double
   , numberOfSnapshots :: Int
   , incrementalCommitTimes :: [NominalDiffTime]
@@ -54,6 +55,7 @@ errorSummary Dataset{title, clientDatasets} (HUnitFailure sourceLocation reason)
     , quantiles = mempty
     , numberOfFanoutOutputs = 0
     , endToEndTps = 0
+    , runWallClockSeconds = 0
     , snapshotTpsQuantiles = mempty
     , numberOfSnapshots = 0
     , incrementalCommitTimes = []
@@ -263,8 +265,8 @@ comparisonTable summaries =
   , "## Summary across cells"
   , ""
   , "TPS columns are rates (transactions per second); _Wall clock (s)_ is the \
-    \matching elapsed time, computed as `Txs / End-to-end TPS`, so a row with \
-    \50 txs and 50.58 tx/s ran in about 1.0 s. Times are rounded to one decimal."
+    \measured elapsed time from the first tx submission to the last \
+    \confirmation. Times are rounded to one decimal."
   , ""
   , "| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Per-snapshot p50 TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
   , "| -- | -- | -- | -- | -- | -- | -- |"
@@ -273,7 +275,7 @@ comparisonTable summaries =
     <> [""]
  where
   row :: (Summary, SystemStats) -> Text
-  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, snapshotTpsQuantiles}, _)
+  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, runWallClockSeconds, snapshotTpsQuantiles}, _)
     | numberOfTxs == 0 =
         "| "
           <> summaryTitle
@@ -285,8 +287,8 @@ comparisonTable summaries =
                 then pack $ printf "%.2f" (snapshotTpsQuantiles ! 50)
                 else "n/a"
             wallClock =
-              if endToEndTps > 0
-                then oneDec (fromIntegral numberOfTxs / endToEndTps :: Double)
+              if runWallClockSeconds > 0
+                then oneDec runWallClockSeconds
                 else "n/a"
          in "| "
               <> summaryTitle
