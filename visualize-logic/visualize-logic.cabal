@@ -35,12 +35,14 @@ library
   import:          project-config
   hs-source-dirs:  src
   exposed-modules:
+    HydraVis.Compare
     HydraVis.History
     HydraVis.Multi
     HydraVis.Sample
     HydraVis.SampleDb
     HydraVis.Server
     HydraVis.Smoke
+    HydraVis.Trace
     HydraVis.UI
 
   other-modules:
@@ -73,6 +75,7 @@ executable hydra-vis
   main-is:        Main.hs
   hs-source-dirs: app
   build-depends:
+    , filepath
     , hydra-node
     , hydra-prelude
     , hydra-tx

@@ -8,6 +8,7 @@ module HydraVis.UI.Model (
   Action (..),
   AuthoringCtx (..),
   mkModel,
+  withTraceLog,
   lastSeenIn,
   visibleHistory,
   isTickEvent,
@@ -31,6 +32,7 @@ import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (NodeState)
 import HydraVis.History (HistoryStep (..))
+import HydraVis.Trace (TraceEntry)
 import Miso.String (MisoString)
 import Miso.Subscription.Keyboard (Arrows)
 
@@ -63,6 +65,9 @@ data Model tx = Model
   , playFrame :: Int
   -- ^ Counts 'playSub' ticks since the last advance; used to slow playback
   -- below the base tick rate (see 'speedTable').
+  , traceLog :: [TraceEntry]
+  -- ^ Optional node trace-log entries (from @--log@), correlated to the
+  -- cursor by wall-clock time to surface Wait reasons the event store omits.
   }
   deriving stock (Generic)
 
@@ -132,7 +137,12 @@ mkModel authoring path isFollowing initialState startCursor steps =
         , playing = False
         , speedIdx = defaultSpeedIdx
         , playFrame = 0
+        , traceLog = []
         }
+
+-- | Attach parsed node trace-log entries to a model (see "HydraVis.Trace").
+withTraceLog :: [TraceEntry] -> Model tx -> Model tx
+withTraceLog entries m = m{traceLog = entries}
 
 lastSeenIn :: Model tx -> Maybe EventId
 lastSeenIn m =
