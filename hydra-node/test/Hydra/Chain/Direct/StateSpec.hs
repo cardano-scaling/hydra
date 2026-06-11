@@ -490,8 +490,8 @@ forAllClose ::
   Property
 forAllClose action = do
   -- FIXME: we should not hardcode number of parties but generate it within bounds
-  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, st, _, tx, sn) ->
-    let utxo = getKnownUTxO st <> getKnownUTxO ctx
+  forAll (genCloseTx maximumNumberOfParties) $ \(ctx, _, utxo', tx, sn) ->
+    let utxo = utxo' <> getKnownUTxO ctx
      in action utxo tx
           & label (Prelude.head . Prelude.words . show $ sn)
 

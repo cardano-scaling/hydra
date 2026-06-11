@@ -21,6 +21,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   modifyTxOutValue,
+  negateValue,
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (maximumNumberOfParties)
