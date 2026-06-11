@@ -1490,16 +1490,20 @@ emitNextFanoutStep FreshFanout _ closedState =
                 , contestationDeadline
                 }
           }
-emitNextFanoutStep FanoutInProgress remaining ClosedState{headSeed, contestationDeadline} =
-  cause
-    OnChainEffect
-      { postChainTx =
-          FinalPartialFanoutTx
-            { utxoToDistribute = remaining
-            , headSeed
-            , contestationDeadline
-            }
-      }
+emitNextFanoutStep FanoutInProgress remaining closedState =
+  let ClosedState{confirmedSnapshot, headSeed, contestationDeadline} = closedState
+   in cause
+        OnChainEffect
+          { postChainTx =
+              FinalPartialFanoutTx
+                { utxoToDistribute = remaining
+                , -- Always use the snapshot's original full UTxO set so the chain
+                  -- layer can account for pre-settled elements in the KZG proof.
+                  utxoForProof = snapshotUTxO (getSnapshot confirmedSnapshot)
+                , headSeed
+                , contestationDeadline
+                }
+          }
 
 -- | Detect our view of the chain going out of sync and issue a 'NodeUnsynced'
 -- event when this is the case.

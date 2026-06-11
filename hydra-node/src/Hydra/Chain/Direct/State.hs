@@ -574,7 +574,12 @@ partialFanout ctx spendableUTxO seedTxIn chunkSize proofUTxO remainingUTxO deadl
       utxoToDistribute = UTxO.fromList (take chunkSize allPairs)
   when (UTxO.null utxoToDistribute) $ Left (CannotCreateProof "utxoToDistribute must not be empty")
   let rest = UTxO.fromList (drop chunkSize allPairs)
-  let remainingAccumulator = Accumulator.buildFromUTxO @Tx rest
+      -- Pre-settled elements are in proofUTxO (what the accumulator commits to)
+      -- but not in remainingUTxO (what we're distributing). They must stay in
+      -- the remaining accumulator so the on-chain split identity A = P_K * A'
+      -- holds at every step.
+      presettled = UTxO.difference proofUTxO remainingUTxO
+  let remainingAccumulator = Accumulator.buildFromUTxO @Tx (rest <> presettled)
   pure $ partialFanoutTx scriptRegistry utxoToDistribute headUTxO deadlineSlotNo progressDatum remainingAccumulator
  where
   ChainContext{scriptRegistry} = ctx
@@ -589,10 +594,14 @@ finalPartialFanout ::
   TxIn ->
   -- | All remaining UTxOs to distribute
   UTxO ->
+  -- | Full proof UTxO: snapshotUTxO that matches the original accumulator commitment.
+  -- May include pre-settled elements (e.g. decommit paid out before close) that are
+  -- not in utxoToDistribute but must be accounted for in the KZG proof.
+  UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   Either PartialFanoutError Tx
-finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = do
+finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute proofUTxO deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -600,11 +609,13 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo = 
   progressDatum <- case headState of
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum utxoToDistribute
+  let presettled = UTxO.difference proofUTxO utxoToDistribute
+  _fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettled)
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
       utxoToDistribute
+      presettled
       headUTxO
       deadlineSlotNo
       headTokenScript
@@ -853,7 +864,7 @@ unsafeFinalPartialFanout ::
   SlotNo ->
   Tx
 unsafeFinalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo =
-  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo
+  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute utxoToDistribute deadlineSlotNo
 
 unsafeObserveInit ::
   HasCallStack =>

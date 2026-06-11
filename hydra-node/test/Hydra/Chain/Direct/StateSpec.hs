@@ -289,7 +289,7 @@ spec = parallel $ do
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
           let fanoutProgressUTxO = utxoFromTx $ unsafePartialFanout ctx spendableUTxO seedTxIn 1 u0 deadlineSlotNo
            in -- Pass empty UTxO so the accumulator commitment won't match
-              case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty deadlineSlotNo of
+              case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty mempty deadlineSlotNo of
                 Left StaleChainState -> property True
                 other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
     prop "deposit UTxO from utxoToCommit (snapshotVersion < version) can be distributed in final partial fanout step" $
@@ -307,7 +307,7 @@ spec = parallel $ do
               evalUTxO = spendableUTxO <> getKnownUTxO ctx
               (_, partialTx) = findFittingPartialChunk evalUTxO ctx spendableUTxO seedTxIn fullUTxO deadlineSlotNo
               fanoutProgressUTxO = utxoFromTx partialTx
-           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO deadlineSlotNo
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO commitUTxO deadlineSlotNo
                 `shouldSatisfy` isRight
     prop "finalPartialFanout succeeds when snapshot UTxO has duplicate TxOut values" $
       forAll (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
@@ -315,7 +315,7 @@ spec = parallel $ do
           let partialTx = unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize u0WithDups deadlineSlotNo
               fanoutProgressUTxO = utxoFromTx partialTx
               remaining = UTxO.fromList (drop chunkSize (UTxO.toList u0WithDups))
-           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining deadlineSlotNo
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining remaining deadlineSlotNo
                 `shouldSatisfy` isRight
     prop "HeadLogic computes non-empty remaining UTxO when snapshot contains duplicate TxOut values" $
       forAllBlind (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $

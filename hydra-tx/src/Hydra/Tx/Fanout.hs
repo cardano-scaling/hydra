@@ -183,6 +183,11 @@ finalPartialFanoutTx ::
   ScriptRegistry ->
   -- | All remaining UTxOs to distribute in this final fanout
   UTxO ->
+  -- | Pre-settled UTxOs: elements committed to by the accumulator but already
+  -- paid out on-chain (e.g. via a DecrementTx before close). They are NOT
+  -- distributed here but must be included in the accumulator to satisfy the
+  -- on-chain KZG identity: A_current = P_distribute * commitment(presettled).
+  UTxO ->
   -- | Head state-machine output to spend
   (TxIn, TxOut CtxUTxO) ->
   -- | Contestation deadline as SlotNo, used to set lower tx validity bound.
@@ -190,7 +195,7 @@ finalPartialFanoutTx ::
   -- | Minting Policy script, made from initial seed
   PlutusScript ->
   Either Text Tx
-finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) deadlineSlotNo headTokenScript = do
+finalPartialFanoutTx scriptRegistry utxoToDistribute presettledUTxO (headInput, headOutput) deadlineSlotNo headTokenScript = do
   fanoutProof <- computeFanoutProof
   pure $
     unsafeBuildTransaction $
@@ -221,7 +226,9 @@ finalPartialFanoutTx scriptRegistry utxoToDistribute (headInput, headOutput) dea
         , crsRef = toPlutusTxOutRef crsScriptRef
         }
 
-  remainingAccumulator = Accumulator.buildFromUTxO @Tx utxoToDistribute
+  -- Accumulator for all elements the current FanoutProgressDatum commits to:
+  -- the UTxOs being distributed now PLUS any pre-settled ones already paid out.
+  remainingAccumulator = Accumulator.buildFromUTxO @Tx (utxoToDistribute <> presettledUTxO)
 
   computeFanoutProof = do
     let crs = Accumulator.crsG1Points $ Accumulator.requiredCRSPointCount remainingAccumulator

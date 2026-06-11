@@ -202,7 +202,7 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               fullUTxO
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
-          FinalPartialFanoutTx{utxoToDistribute, headSeed, contestationDeadline} -> do
+          FinalPartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} -> do
             (deadlineSlot, seedTxIn) <- resolveHeadInfo headSeed contestationDeadline
             findFittingFanoutTx
               tracer
@@ -210,8 +210,8 @@ mkChain tracer queryTimeHandle wallet ctx LocalChainState{getLatest} submitTx =
               ctx
               spendableUTxO
               seedTxIn
-              (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlot)
-              utxoToDistribute
+              (finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute utxoForProof deadlineSlot)
+              utxoForProof
               utxoToDistribute
               deadlineSlot
               >>= finalizeTx wallet ctx spendableUTxO mempty
