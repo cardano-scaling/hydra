@@ -268,6 +268,15 @@ spec = parallel $ do
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
           partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo
             `shouldSatisfy` isRight
+    prop "pre-settled decommit element: partial fanout tx validates on-chain" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          let proofUTxO = u0 <> decommitUTxO
+              fullUTxO = u0
+              evalUTxO = spendableUTxO <> getKnownUTxO ctx
+           in case partialFanout ctx spendableUTxO seedTxIn 1 proofUTxO fullUTxO deadlineSlotNo of
+                Left err -> counterexample ("partialFanout build failed: " <> show err) False
+                Right tx -> propTransactionEvaluates (tx, evalUTxO)
 
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
