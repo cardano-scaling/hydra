@@ -2061,9 +2061,9 @@ headIsFinalizedWith :: HeadId -> UTxO -> Value -> Maybe ()
 headIsFinalizedWith expectedHeadId expectedUTxO v = do
   guard $ v ^? key "tag" == Just "HeadIsFinalized"
   headId' <- v ^? key "headId" >>= parseMaybe parseJSON
-  finalizedOutputs <- v ^? key "finalizedUTxO" >>= parseMaybe parseJSON :: Maybe [CAPI.TxOut CAPI.CtxUTxO]
+  finalizedUTxO' <- v ^? key "finalizedUTxO" >>= parseMaybe parseJSON :: Maybe UTxO
   guard (headId' == expectedHeadId)
-  guard (all (`elem` finalizedOutputs) (UTxO.txOutputs expectedUTxO))
+  guard (all (`elem` UTxO.txOutputs finalizedUTxO') (UTxO.txOutputs expectedUTxO))
 
 expectErrorStatus ::
   -- | Expected http status code
