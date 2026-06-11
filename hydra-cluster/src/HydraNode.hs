@@ -48,6 +48,7 @@ import System.Process.Typed (
   createPipe,
   getStderr,
   proc,
+  setCloseFds,
   setStderr,
   setStdout,
   useHandleOpen,
@@ -557,6 +558,7 @@ withPreparedHydraNode tracer workDir hydraNodeId runOptions action =
           (proc "hydra-node" . toArgs $ runOptions)
             & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
+            & setCloseFds True
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
