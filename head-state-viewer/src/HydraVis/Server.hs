@@ -36,7 +36,7 @@ runServer ::
   IO ()
 runServer port authoring path isFollowing initialState startCursor steps traceEntries = do
   putTextLn $
-    "hydra-vis UI listening on http://localhost:"
+    "head-state-viewer UI listening on http://localhost:"
       <> show port
       <> " ("
       <> show (length steps)
@@ -62,7 +62,7 @@ runMultiServer ::
   IO ()
 runMultiServer port mm = do
   putTextLn $
-    "hydra-vis multi-party UI listening on http://localhost:" <> show port
+    "head-state-viewer multi-party UI listening on http://localhost:" <> show port
   JSaddle.run port (startApp (mkMultiApp mm))
 
 -- | Serve the multi-node comparison view from per-node event logs.
@@ -73,7 +73,7 @@ runCompareServer ::
   IO ()
 runCompareServer port nodes = do
   putTextLn $
-    "hydra-vis compare UI listening on http://localhost:"
+    "head-state-viewer compare UI listening on http://localhost:"
       <> show port
       <> " ("
       <> show (length nodes)

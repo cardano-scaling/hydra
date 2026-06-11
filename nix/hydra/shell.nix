@@ -156,13 +156,13 @@
         ];
       };
 
-      # Shell for driving the visualize-logic (hydra-vis) web UI with
+      # Shell for driving the head-state-viewer web UI with
       # Playwright: screenshots and click-through of the jsaddle-warp app,
       # whose DOM is built over a websocket and so cannot be captured by a
       # one-shot headless screenshot. Browsers come from the NixOS-patched
       # playwright-driver so nothing is downloaded at runtime.
-      uiShell = pkgs.mkShell {
-        name = "hydra-ui-shell";
+      headStateUIShell = pkgs.mkShell {
+        name = "hydra-head-state-ui-shell";
         buildInputs = [
           pkgs.nodejs
           cleanPkgs.playwright-test
@@ -189,7 +189,7 @@
         exes = exeShell;
         demo = demoShell;
         ci = ciShell;
-        ui = uiShell;
+        headStateUI = headStateUIShell;
       };
     };
 }

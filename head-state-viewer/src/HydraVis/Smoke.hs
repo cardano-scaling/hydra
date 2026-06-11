@@ -23,7 +23,7 @@ import HydraVis.Sample (
 
 runSmoke :: IO ()
 runSmoke = do
-  putTextLn "hydra-vis smoke test: stepping HeadLogic over sample script"
+  putTextLn "head-state-viewer smoke test: stepping HeadLogic over sample script"
   putTextLn $ "  party:  " <> show (party sampleEnvironment)
   putTextLn $ "  inputs: " <> show (length sampleScript)
   putTextLn ""

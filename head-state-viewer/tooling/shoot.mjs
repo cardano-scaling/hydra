@@ -1,14 +1,14 @@
-// Screenshot the hydra-vis web UI with Playwright.
+// Screenshot the head-state-viewer web UI with Playwright.
 //
 // The UI is a jsaddle-warp app: the served HTML is an empty shell and the DOM
 // is built over a websocket, so a one-shot `chromium --screenshot` captures a
 // blank page. Playwright holds the page open, waits for the real DOM, and can
 // drive the slider, so we get faithful frames to iterate on the design.
 //
-// Run inside `nix develop .#ui`:
-//   node visualize-logic/tooling/shoot.mjs [url] [outDir]
+// Run inside `nix develop .#headStateUI`:
+//   node head-state-viewer/tooling/shoot.mjs [url] [outDir]
 //
-// Defaults: url=http://localhost:8092/  outDir=/tmp/hydra-vis-shots
+// Defaults: url=http://localhost:8092/  outDir=/tmp/head-state-viewer-shots
 //
 // Captures: full page, plus a tight crop of the "state transitions" SVG at a
 // few slider positions so arrow placement is easy to eyeball across states.
@@ -23,7 +23,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const url = process.argv[2] ?? 'http://localhost:8092/';
-const outDir = process.argv[3] ?? '/tmp/hydra-vis-shots';
+const outDir = process.argv[3] ?? '/tmp/head-state-viewer-shots';
 
 await mkdir(outDir, { recursive: true });
 

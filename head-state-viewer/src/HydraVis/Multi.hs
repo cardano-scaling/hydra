@@ -208,7 +208,7 @@ viewMulti ::
 viewMulti m =
   div_
     [styleInline_ "font-family: system-ui, sans-serif; max-width: 1100px; margin: 1rem auto; padding: 0 1rem;"]
-    [ h1_ [] [text "hydra-vis (multi-party)"]
+    [ h1_ [] [text "head-state-viewer (multi-party)"]
     , partyTabs m
     , case Map.lookup (focus m) (partyModels m) of
         Nothing -> div_ [] [text "no party focused"]

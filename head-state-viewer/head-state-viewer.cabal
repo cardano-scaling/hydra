@@ -1,5 +1,5 @@
 cabal-version: 3.0
-name:          visualize-logic
+name:          head-state-viewer
 version:       0.22.4
 synopsis:      Interactive HeadLogic step-through visualizer
 author:        IOG
@@ -70,17 +70,17 @@ library
 
   ghc-options:     -haddock
 
-executable hydra-vis
+executable head-state-viewer
   import:         project-config
   main-is:        Main.hs
   hs-source-dirs: app
   build-depends:
     , filepath
+    , head-state-viewer
     , hydra-node
     , hydra-prelude
     , hydra-tx
     , hydra-tx:testlib
     , optparse-applicative
-    , visualize-logic
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
