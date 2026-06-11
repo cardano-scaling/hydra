@@ -357,7 +357,12 @@ genCloseTx numParties = do
   cctx <- pickChainContext ctx
   let cp = ctxContestationPeriod ctx
   (startSlot, pointInTime) <- genValidityBoundsFromContestationPeriod cp
-  let utxo = getKnownUTxO stOpen
+  -- genStOpen inflated the head by u0Value; adjust so the head holds exactly
+  -- headAdaOverhead + confirmedUTxOValue + decommitValue at close time.
+  let u0Value = UTxO.totalValue u0
+      confirmedUTxOValue = UTxO.totalValue confirmedUTxO
+      decommitValue = maybe mempty UTxO.totalValue utxoToDecommit
+  let utxo = UTxO.map (modifyTxOutValue (<> confirmedUTxOValue <> decommitValue <> negateValue u0Value)) $ getKnownUTxO stOpen
   pure (cctx, stOpen, utxo, unsafeClose cctx utxo headId (ctxHeadParameters ctx) version snapshot startSlot pointInTime, snapshot)
 
 genContestTx :: Gen (HydraContext, PointInTime, ClosedState, UTxO, Tx)
