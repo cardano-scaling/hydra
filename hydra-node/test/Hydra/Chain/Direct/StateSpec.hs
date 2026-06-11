@@ -76,10 +76,12 @@ import PlutusLedgerApi.V3 qualified as Plutus
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Chain.Direct.State (
   ChainTransition,
+  findFittingPartialChunk,
   genChainStateWithTx,
   genCloseTx,
   genClosedStateForFanout,
   genClosedStateWithAppliedDecommit,
+  genClosedStateWithPendingCommit,
   genContestTx,
   genDecrementTx,
   genDepositTx,
@@ -276,6 +278,23 @@ spec = parallel $ do
               case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty deadlineSlotNo of
                 Left StaleChainState -> property True
                 other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
+    prop "deposit UTxO from utxoToCommit (snapshotVersion < version) can be distributed in final partial fanout step" $
+      -- When snapshotVersion < version (IncrementTx confirmed after last snapshot),
+      -- computeFullFanoutUTxO includes utxoToCommit.  After a PartialFanoutTx distributes
+      -- all other outputs, FinalPartialFanoutTx must distribute the pending deposit.
+      -- This should SUCCEED; if StaleChainState is returned it indicates an accumulator
+      -- mismatch between the in-memory deposit UTxO and the on-chain commitment.
+      forAll (genClosedStateWithPendingCommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
+          -- fullUTxO = u0 ++ [commitUTxO]; commitUTxO sorts last (guaranteed by generator).
+          -- findFittingPartialChunk distributes the first n = UTxO.size(u0) outputs,
+          -- leaving commitUTxO as the sole remaining output.
+          let fullUTxO = u0 <> commitUTxO
+              evalUTxO = spendableUTxO <> getKnownUTxO ctx
+              (_, partialTx) = findFittingPartialChunk evalUTxO ctx spendableUTxO seedTxIn fullUTxO deadlineSlotNo
+              fanoutProgressUTxO = utxoFromTx partialTx
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO deadlineSlotNo
+                `shouldSatisfy` isRight
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =

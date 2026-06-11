@@ -4,7 +4,8 @@
 
 module Test.Hydra.Chain.Direct.State where
 
-import Hydra.Prelude hiding (init)
+import Data.List (last)
+import Hydra.Prelude hiding (init, last)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -492,6 +493,41 @@ genClosedStateWithAppliedDecommit numParties = do
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, decommitUTxO)
+
+-- | Generate a closed state where a commit (IncrementTx) was applied on-chain
+-- AFTER the last confirmed snapshot, i.e. @ClosedState.version > snapshot.version@.
+-- The closed datum accumulator includes both the snapshot UTxOs and the pending
+-- commit UTxO; the commit UTxO is NOT yet incorporated into the confirmed snapshot
+-- (it lives in 'utxoToCommit').  Returns @(ctx, closedState, spendableUTxO,
+-- deadlineSlotNo, u0, commitUTxO)@ where @commitUTxO@ is guaranteed to sort last
+-- among all fanout outputs so that a single @PartialFanoutTx@ can distribute @u0@
+-- and leave @commitUTxO@ as the sole remaining output for @FinalPartialFanoutTx@.
+genClosedStateWithPendingCommit ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateWithPendingCommit numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (5, 12 :: Int)
+  -- Generate n+1 UTxOs as one sorted pool; take the last as the pending deposit
+  -- so it is always the largest TxOutRef and therefore always the remaining output
+  -- after a PartialFanoutTx distributes the first n.
+  allUTxO <- genUTxOAdaOnlyOfSize (n + 1)
+  let sorted = UTxO.toList allUTxO
+      commitUTxO = UTxO.fromList [last sorted]
+      u0 = UTxO.fromList (take (length sorted - 1) sorted)
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let snapshotVersion = 0
+      openVersion = 1
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let u0Value = UTxO.totalValue u0 <> UTxO.totalValue commitUTxO
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, commitUTxO)
 
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.
