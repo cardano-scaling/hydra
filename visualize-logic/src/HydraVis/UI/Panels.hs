@@ -19,8 +19,6 @@ module HydraVis.UI.Panels (
 
 import Hydra.Prelude
 
-import Data.Aeson qualified as Aeson
-import Data.Aeson.KeyMap qualified as KM
 import Data.ByteString.Lazy qualified as BSL
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
@@ -45,7 +43,7 @@ import Hydra.Tx.Snapshot qualified as Snap
 import HydraVis.History (HistoryStep (..))
 import HydraVis.Trace (TraceEntry (..), TraceKind (..))
 import HydraVis.UI.Model (Action (..), AuthoringCtx (..), Model (..), currentStep, visibleHistory)
-import HydraVis.UI.Widgets (italic, jsonStringy, panelStyle, renderJson, row, shortParty)
+import HydraVis.UI.Widgets (UtxoSummary (..), datumText, fmtTime, italic, jsonStringy, lovelaceText, panelStyle, renderJson, row, shortAddr, shortParty, summariseUtxo)
 import Miso (View)
 import Miso.Html (button_, div_, h2_, onClick, onInput, span_, text, textarea_)
 import Miso.Html.Property (rows_, styleInline_, value_)
@@ -184,71 +182,6 @@ seenSnapshotRows = \case
         names = T.intercalate ", " (shortParty <$> Map.keys mp)
      in show n <> "  [" <> names <> "]"
 
--- | Per-output datum presence, to spot inline datums being dropped at fanout
--- (see #2569 / #1598).
-data DatumKind = KInline | KHash | KNone
-  deriving stock (Eq)
-
--- | A breakdown of a UTxO-ish value. Derived by walking its JSON so it works
--- for both a Cardano UTxO (object keyed by input, per-output @address@ /
--- @value.lovelace@ / @inlineDatum@ / @datumhash@) and the output-set arrays in
--- fanout events. A value-less ledger (e.g. SimpleTx, an array of ints) yields
--- 'usValued' False and only an entry count.
-data UtxoSummary = UtxoSummary
-  { usEntries :: Int
-  , usValued :: Bool
-  , usTotalLovelace :: Integer
-  , usByAddress :: [(Text, Integer)]
-  , usInline :: Int
-  , usDatumHash :: Int
-  , usPlain :: Int
-  }
-
-summariseUtxo :: ToJSON a => a -> UtxoSummary
-summariseUtxo = summariseJson . Aeson.toJSON
-
-summariseJson :: Aeson.Value -> UtxoSummary
-summariseJson v =
-  let entries = case v of
-        Aeson.Object o -> KM.elems o
-        Aeson.Array a -> V.toList a
-        _ -> []
-      outs = [o | Aeson.Object o <- entries]
-      perAddr = [pair | o <- outs, Just pair <- [addrLovelace o]]
-      byAddr = Map.toList (Map.fromListWith (+) perAddr)
-      kinds = map datumKind outs
-      kount k = length (filter (== k) kinds)
-   in UtxoSummary
-        { usEntries = length entries
-        , usValued = not (null outs)
-        , usTotalLovelace = sum (snd <$> perAddr)
-        , usByAddress = sortOn (negate . snd) byAddr
-        , usInline = kount KInline
-        , usDatumHash = kount KHash
-        , usPlain = kount KNone
-        }
- where
-  addrLovelace o = do
-    addr <- KM.lookup "address" o >>= asText
-    let love = fromMaybe 0 (KM.lookup "value" o >>= asObject >>= KM.lookup "lovelace" >>= asInteger)
-    pure (addr, love)
-  datumKind o
-    | present "inlineDatum" o = KInline
-    | present "datumhash" o = KHash
-    | otherwise = KNone
-  present k o = case KM.lookup k o of
-    Just Aeson.Null -> False
-    Just _ -> True
-    Nothing -> False
-  asText = \case Aeson.String t -> Just t; _ -> Nothing
-  asObject = \case Aeson.Object o -> Just o; _ -> Nothing
-  asInteger = \case Aeson.Number n -> Just (round n); _ -> Nothing
-
--- | Per-output datum tally, e.g. @"2 inline, 0 hash, 3 none"@.
-datumText :: UtxoSummary -> Text
-datumText s =
-  show (usInline s) <> " inline, " <> show (usDatumHash s) <> " hash, " <> show (usPlain s) <> " none"
-
 utxoSummaryView ::
   forall tx.
   ToJSON (UTxOType tx) =>
@@ -303,32 +236,6 @@ allocationBlock xs =
           [styleInline_ "font-family: ui-monospace, monospace;"]
           [text (ms (lovelaceText love))]
       ]
-
--- | Render lovelace with thousands separators alongside the ADA value.
-lovelaceText :: Integer -> Text
-lovelaceText n = commas n <> " lovelace (" <> adaText n <> " ADA)"
-
-adaText :: Integer -> Text
-adaText n =
-  let (q, r) = abs n `divMod` 1_000_000
-      frac = T.dropWhileEnd (== '0') (T.justifyRight 6 '0' (show r))
-      frac' = if T.null frac then "0" else frac
-   in (if n < 0 then "-" else "") <> commas q <> "." <> frac'
-
-commas :: Integer -> Text
-commas n =
-  let digits = show (abs n) :: Text
-      chunks = map T.reverse (chunk3 (T.reverse digits))
-   in (if n < 0 then "-" else "") <> T.intercalate "," (reverse chunks)
- where
-  chunk3 t
-    | T.null t = []
-    | otherwise = T.take 3 t : chunk3 (T.drop 3 t)
-
-shortAddr :: Text -> Text
-shortAddr a
-  | T.length a <= 24 = a
-  | otherwise = T.take 14 a <> "..." <> T.takeEnd 6 a
 
 -- * Fanout outputs
 
@@ -466,7 +373,7 @@ viewSync m = case currentStep m of
                   [text statusText]
               ]
           , row "current slot" (show slot)
-          , row "chain time" (show currentChainTime)
+          , row "chain time" (fmtTime currentChainTime)
           , row "clock drift" (show drift)
           , div_
               [styleInline_ "display: flex; gap: 0.75rem; margin: 0.15rem 0;"]
@@ -671,7 +578,7 @@ viewEvent m = case currentStep m of
               "eventId="
                 <> ms (show (eventId (event step)) :: Text)
                 <> " time="
-                <> ms (show (time (event step)) :: Text)
+                <> ms (fmtTime (time (event step)))
           ]
       , renderJson (stateChanged (event step))
       ]

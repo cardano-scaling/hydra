@@ -3,7 +3,7 @@
 -- | The transport toolbar: play/seek controls, a playback-speed selector and a
 -- marker track that draws a coloured line at each big event (open, increment,
 -- decrement, close, fanout, peer joined/left) aligned with the slider.
-module HydraVis.UI.Timeline (viewToolbar) where
+module HydraVis.UI.Timeline (viewToolbar, eventTimeline, markerLegend) where
 
 import Hydra.Prelude
 
@@ -57,7 +57,7 @@ viewToolbar m =
                   [text $ ms (show oneBased :: Text) <> "/" <> ms (show totalSteps :: Text)]
                ]
         )
-    , viewTimeline m
+    , eventTimeline (visibleHistory m) (cursor m)
     , input_
         [ type_ "range"
         , min_ "0"
@@ -132,18 +132,18 @@ bigEvents :: Vector (HistoryStep tx) -> [(Int, MarkerKind)]
 bigEvents steps =
   [(i, k) | (i, s) <- zip [0 ..] (V.toList steps), Just k <- [markerOf (stateChanged (event s))]]
 
--- | A horizontal track above the slider with a coloured line at each big event
--- and a blue marker at the current cursor, plus translucent bands over the
--- windows where a deposit or decommit is in-flight (so e.g. a @tx invalid@
--- marker landing inside a decommit band is obvious, cf. #1526). Aligns with the
--- slider below.
-viewTimeline :: Model tx -> View (Action tx)
-viewTimeline m =
-  let steps = visibleHistory m
-      n = V.length steps
+-- | A horizontal marker track: a coloured line at each big event, a blue line
+-- at @cursorIdx@, and translucent bands over the windows where a deposit or
+-- decommit is in-flight (so e.g. a @tx invalid@ marker landing inside a
+-- decommit band is obvious, cf. #1526). Polymorphic in the action type (it has
+-- no handlers), so it is reused by the single-node toolbar and the multi-node
+-- compare view (one track per node).
+eventTimeline :: Vector (HistoryStep tx) -> Int -> View action
+eventTimeline steps cursorIdx =
+  let n = V.length steps
       xOf i = if n <= 1 then 0 else (i * 1000) `div` (n - 1)
       markers = bigEvents steps
-      cur = xOf (cursor m)
+      cur = xOf cursorIdx
       bandRect col (lo, hi) =
         Svg.rect_
           [ SvgA.x_ (mInt (xOf lo))
@@ -155,8 +155,8 @@ viewTimeline m =
           ]
           []
       bands =
-        map (bandRect "#393") (pendingIntervals isDepositOpen isDepositClose steps)
-          <> map (bandRect "#c66") (pendingIntervals isDecommitOpen isDecommitClose steps)
+        map (bandRect "#94c") (pendingIntervals isDepositOpen isDepositClose steps)
+          <> map (bandRect "#0aa") (pendingIntervals isDecommitOpen isDecommitClose steps)
    in Svg.svg_
         [ SvgA.viewBox_ "0 0 1000 36"
         , SvgA.width_ "100%"
@@ -222,13 +222,13 @@ pendingIntervals opens closes steps = runs [i | (i, True) <- go (0 :: Int) (zip 
     | otherwise = (lo, hi) : grow y y ys
 
 -- | Colour key for the timeline markers and the pending bands.
-markerLegend :: View (Action tx)
+markerLegend :: View action
 markerLegend =
   div_
     [styleInline_ "display: flex; gap: 0.9rem; flex-wrap: wrap; margin-top: 0.35rem; font-size: 0.78rem; color: #555;"]
     ( [swatch (markerColor k) (markerLabel k) | k <- allMarkerKinds]
-        <> [ swatch "#393" "deposit pending"
-           , swatch "#c66" "decommit pending"
+        <> [ swatch "#94c" "deposit pending"
+           , swatch "#0aa" "decommit pending"
            ]
     )
  where
