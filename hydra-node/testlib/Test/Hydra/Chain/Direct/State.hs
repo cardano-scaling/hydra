@@ -4,8 +4,8 @@
 
 module Test.Hydra.Chain.Direct.State where
 
-import Data.List (last)
-import Hydra.Prelude hiding (init, last)
+import Data.List (head, last)
+import Hydra.Prelude hiding (head, init, last)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -528,6 +528,38 @@ genClosedStateWithPendingCommit numParties = do
   let stClosed = snd $ fromJust $ observeClose stOpen txClose
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, commitUTxO)
+
+-- | Like 'genClosedStateForFanout' but creates a snapshot UTxO where the last
+-- entry (by TxIn sort order) shares its TxOut value with the first entry.
+-- With @chunkSize = n - 1@, the partial fanout distributes all-but-last, leaving
+-- the duplicate-TxOut entry as the sole remaining output for @FinalPartialFanoutTx@.
+genClosedStateWithDuplicateTxOuts ::
+  Int ->
+  Gen (HydraContext, ChainContext, ClosedState, UTxO, SlotNo, UTxO, Int, ConfirmedSnapshot Tx)
+genClosedStateWithDuplicateTxOuts numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (3, 12 :: Int)
+  u0_base <- genUTxOAdaOnlyOfSize n
+  let entries = UTxO.toList u0_base
+      (_, firstTxOut) = head entries
+      (lastTxIn, _) = last entries
+      -- Replace the last entry's TxOut with a copy of the first entry's TxOut.
+      -- After sorting by TxIn, positions 0..n-2 have unique TxOuts, and
+      -- position n-1 (lastTxIn) has the same TxOut as position 0 — the duplicate.
+      u0WithDups = UTxO.fromList $ take (n - 1) entries ++ [(lastTxIn, firstTxOut)]
+      chunkSize = n - 1 -- distribute first n-1; duplicate stays in rest
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let version = 0
+  confirmed <- genConfirmedSnapshot headId version 1 u0WithDups Nothing Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  let u0Value = UTxO.totalValue u0WithDups
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) version confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (ctx, cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0WithDups, chunkSize, confirmed)
 
 -- | Find the largest chunk size for a partial fanout tx that evaluates within the
 -- full execution budget. Returns the chunk size used and the built transaction.

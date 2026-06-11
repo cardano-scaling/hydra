@@ -32,6 +32,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
 import Hydra.Chain (maximumNumberOfParties)
+import Hydra.Chain (PostChainTx (..))
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -45,10 +46,12 @@ import Hydra.Chain.Direct.State (
   finalPartialFanout,
   getKnownUTxO,
   initialize,
+  initialChainState,
   partialFanout,
   unsafeIncrement,
   unsafePartialFanout,
  )
+import Hydra.HeadLogic qualified as HL
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
@@ -69,6 +72,7 @@ import Hydra.Tx.Observe (
   observeHeadTx,
   observeIncrementTx,
   observeInitTx,
+  observePartialFanoutTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
 import Hydra.Tx.Utils (splitUTxO)
@@ -81,6 +85,7 @@ import Test.Hydra.Chain.Direct.State (
   genCloseTx,
   genClosedStateForFanout,
   genClosedStateWithAppliedDecommit,
+  genClosedStateWithDuplicateTxOuts,
   genClosedStateWithPendingCommit,
   genContestTx,
   genDecrementTx,
@@ -295,6 +300,47 @@ spec = parallel $ do
               fanoutProgressUTxO = utxoFromTx partialTx
            in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO deadlineSlotNo
                 `shouldSatisfy` isRight
+    prop "finalPartialFanout succeeds when snapshot UTxO has duplicate TxOut values" $
+      forAll (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
+        \(_hctx, ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0WithDups, chunkSize, _confirmed) ->
+          let partialTx = unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize u0WithDups deadlineSlotNo
+              fanoutProgressUTxO = utxoFromTx partialTx
+              remaining = UTxO.fromList (drop chunkSize (UTxO.toList u0WithDups))
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining deadlineSlotNo
+                `shouldSatisfy` isRight
+    prop "HeadLogic computes non-empty remaining UTxO when snapshot contains duplicate TxOut values" $
+      forAllBlind (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
+        \(hctx, cctx, stClosed, spendableUTxO, deadlineSlotNo, u0WithDups, chunkSize, confirmed) ->
+          let partialTx = unsafePartialFanout cctx spendableUTxO stClosed.seedTxIn chunkSize u0WithDups deadlineSlotNo
+              evalUTxO = spendableUTxO <> getKnownUTxO cctx
+           in case observePartialFanoutTx evalUTxO partialTx of
+                Nothing -> counterexample "observePartialFanoutTx returned Nothing" False
+                Just PartialFanoutObservation{distributedOutputs} ->
+                  let hlClosedState =
+                        HL.ClosedState
+                          { parameters = ctxHeadParameters hctx
+                          , confirmedSnapshot = confirmed
+                          , contestationDeadline = stClosed.contestationDeadline
+                          , readyToFanoutSent = False
+                          , chainState = initialChainState
+                          , headId = stClosed.headId
+                          , headSeed = txInToHeadSeed stClosed.seedTxIn
+                          , version = 0
+                          , remainingFanoutOutputs = Nothing
+                          , distributedFanoutOutputs = mempty
+                          }
+                      outcome = HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
+                      expectedRemaining = UTxO.fromList . drop chunkSize . UTxO.toList $ u0WithDups
+                      fanoutUTxOs =
+                        [ utxo
+                        | HL.OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute = utxo}} <-
+                            case outcome of
+                              HL.Continue{effects} -> effects
+                              _ -> []
+                        ]
+                   in counterexample
+                        ("Expected FinalPartialFanoutTx{utxoToDistribute = " <> show expectedRemaining <> "}")
+                        (fanoutUTxOs === [expectedRemaining])
 
 genInitTxMutation :: TxIn -> Tx -> Gen (Mutation, String, NotAnInitReason)
 genInitTxMutation seedInput tx =
