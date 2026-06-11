@@ -42,6 +42,7 @@
               hydra-tx.writeHieFiles = true;
               hydra-tui.writeHieFiles = true;
               hydraw.writeHieFiles = true;
+              head-state-viewer.writeHieFiles = true;
               hydra-node.dontStrip = false;
               hydra-tui.dontStrip = false;
               hydraw.dontStrip = false;

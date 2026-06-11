@@ -26,6 +26,7 @@ _: {
           hydra-test-utils
           hydra-tui
           hydraw
+          head-state-viewer
         ];
         inherit (pkgs) weeder;
         haskellType = "haskell.nix";

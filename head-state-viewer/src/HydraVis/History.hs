@@ -10,7 +10,6 @@
 -- node can keep writing) and replay the events in event-id order.
 module HydraVis.History (
   HistoryStep (..),
-  loadHistory,
   loadHistoryFor,
   buildHistory,
   loadEventsAfter,
@@ -21,7 +20,7 @@ import Hydra.Prelude
 
 import Data.Aeson qualified as Aeson
 import Data.Text.Encoding qualified as TE
-import Database.SQLite.Simple (FromRow (..), Only (..), SQLData (..), field, open, query, query_)
+import Database.SQLite.Simple (Only (..), SQLData (..), open, query, query_)
 import Database.SQLite.Simple qualified as SQL
 import Database.SQLite.Simple.FromField (FromField (..), ResultError (..), returnError)
 import Database.SQLite.Simple.Internal (Field (..))
@@ -30,7 +29,6 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.Events (EventId)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node.State (NodeState)
 
 -- | One entry in the scrub-able history: the persisted event and the
@@ -43,14 +41,6 @@ data HistoryStep tx = HistoryStep
 
 deriving stock instance (IsChainState tx, Eq (NodeState tx)) => Eq (HistoryStep tx)
 deriving stock instance (IsChainState tx, Show (NodeState tx)) => Show (HistoryStep tx)
-
--- | Convenience entry point hard-wired for 'SimpleTx'. Real (Cardano @Tx@)
--- support arrives in a later milestone.
-loadHistory ::
-  NodeState SimpleTx ->
-  FilePath ->
-  IO [HistoryStep SimpleTx]
-loadHistory = loadHistoryFor
 
 -- | Read every event row from the SQLite database at @path@, decode each as
 -- a @StateEvent tx@, and fold them through 'aggregateNodeState' starting from
@@ -89,9 +79,6 @@ instance FromField EventBlob where
     SQLBlob bs -> Ok (EventBlob bs)
     SQLText t -> Ok (EventBlob (TE.encodeUtf8 t))
     _ -> returnError ConversionFailed f "expected event_data to be BLOB or TEXT"
-
-instance FromRow EventBlob where
-  fromRow = field
 
 -- | Fold a list of 'StateEvent's through 'aggregateNodeState' to build the
 -- per-step history. Pure, exposed for testing.
