@@ -182,7 +182,7 @@ generateGrowingUTxODataset faucetSk nClients nTxs = do
 -- combined output. End-state has a single UTxO again.
 generateMixedUTxODataset ::
   -- | Faucet signing key
-  SigningKey PaymentKey ->
+  Secret (SigningKey PaymentKey) ->
   -- | Number of clients
   Int ->
   -- | Number of transactions
@@ -198,7 +198,7 @@ generateMixedUTxODataset faucetSk nClients nTxs = do
   pure
     Dataset
       { fundingTransaction
-      , hydraNodeKeys
+      , hydraNodeKeys = mkSecret <$> hydraNodeKeys
       , clientDatasets
       , title = Just "Mixed UTxO Scenario"
       , description =
@@ -221,7 +221,7 @@ generateMixedUTxODataset faucetSk nClients nTxs = do
           foldl' (genContractTx paymentKey vk) (afterGrow, []) [1 .. contractSteps]
     pure
       ClientDataset
-        { paymentKey
+        { paymentKey = mkSecret paymentKey
         , initialUTxO
         , txSequence = reverse growTxs ++ reverse contractTxs
         }
@@ -249,7 +249,7 @@ generateMixedUTxODataset faucetSk nClients nTxs = do
             error $ "mixed/grow: largest VK utxo (" <> show (txOutValue txOut) <> ") is too small to split off " <> show growChunk
         | otherwise ->
             let chunkValue = lovelaceToValue growChunk
-             in case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, chunkValue) sk of
+             in case mkSimpleTx (txIn, txOut) (mkVkAddress networkId vk, chunkValue) (mkSecret sk) of
                   Left err -> error $ "mixed/grow mkSimpleTx failed: " <> show err
                   Right tx ->
                     let remaining = UTxO.difference utxo (UTxO.singleton txIn txOut)

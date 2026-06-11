@@ -47,6 +47,7 @@ import Hydra.Network (Host)
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..))
 import Hydra.Tx (HeadId, txId)
 import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
+import Hydra.Tx.Secret (Secret)
 import HydraNode (
   HydraClient,
   apiHost,
@@ -507,7 +508,7 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
     ChainBackendOptions ->
     MVar () ->
     HydraClient ->
-    SigningKey PaymentKey ->
+    Secret (SigningKey PaymentKey) ->
     UTxO ->
     Int ->
     TBQueue IO Tx ->
