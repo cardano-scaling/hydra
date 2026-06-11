@@ -50,6 +50,10 @@ the state of a newly opened head.
   L2 UTxO after sideloading a snapshot, making the same UTxO spendable on both
   L1 and L2 simultaneously [#2629](https://github.com/cardano-scaling/hydra/issues/2629).
 
+- Add `mustNotMintOrBurn` guard to `Increment` and `Decrement` validator
+  transitions, consistent with all other head transitions
+  [#2697](https://github.com/cardano-scaling/hydra/issues/2697).
+
 ## [2.1.0] - 2026.05.13
 
 - Improved security for deposits

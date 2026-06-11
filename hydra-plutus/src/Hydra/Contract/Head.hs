@@ -129,7 +129,8 @@ checkIncrement ::
   IncrementRedeemer ->
   Bool
 checkIncrement ctx@ScriptContext{scriptContextTxInfo = txInfo} openBefore redeemer =
-  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+  mustNotMintOrBurn txInfo
+    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && mustPreserveValue
     && mustBeSignedByParticipant ctx prevHeadId
@@ -218,7 +219,8 @@ checkDecrement ::
   DecrementRedeemer ->
   Bool
 checkDecrement ctx openBefore redeemer =
-  mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
+  mustNotMintOrBurn txInfo
+    && mustNotChangeParameters (prevParties, nextParties) (prevCperiod, nextCperiod) (prevHeadId, nextHeadId)
     && mustIncreaseVersion
     && checkSnapshotSignature
     -- && mustPreserveValue
