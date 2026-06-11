@@ -537,6 +537,9 @@ UseDifferentSnapshotVersion :: DecrementMutation
 --   layer that can catch the redirected value -- via the analog of
 --   Increment's mustPreserveValue summing every non-head script input.
 DecrementAddExtraDepositInput :: DecrementMutation
+
+-- | Minting or burning of tokens should not be possible in decrement.
+MutateTokenMintingOrBurning :: DecrementMutation
 genDecrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 
 -- | Remove a random asset and quantity from headOutput by adding another
@@ -705,6 +708,9 @@ IncrementDifferentClaimRedeemer :: IncrementMutation
 -- | Add a second v_deposit input alongside an attacker-controlled output
 --   that redirects its value away from the head's continuation.
 IncrementAddExtraDepositInput :: IncrementMutation
+
+-- | Minting or burning of tokens should not be possible in increment.
+MutateTokenMintingOrBurning :: IncrementMutation
 genIncrementMutation :: (Tx, UTxO) -> Gen SomeMutation
 instance GHC.Enum.Bounded Hydra.Tx.Contract.Increment.IncrementMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.Increment.IncrementMutation

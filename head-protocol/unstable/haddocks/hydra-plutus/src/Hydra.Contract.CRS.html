@@ -51,37 +51,37 @@
 </span><span id="line-51"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
 </span><span id="line-52"></span><span id="checkMembershipPairing"><span class="annot"><span class="annottext">checkMembershipPairing :: BuiltinBLS12_381_G1_Element
 -&gt; BuiltinBLS12_381_G1_Element -&gt; CRSDatum -&gt; [Integer] -&gt; Bool
-</span><a href="Hydra.Contract.CRS.html#checkMembershipPairing"><span class="hs-identifier hs-var hs-var">checkMembershipPairing</span></a></span></span><span> </span><span id="local-6989586621679529772"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679529772"><span class="hs-identifier hs-var">commitment</span></a></span></span><span> </span><span id="local-6989586621679529773"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679529773"><span class="hs-identifier hs-var">proof</span></a></span></span><span> </span><span id="local-6989586621679529774"><span class="annot"><span class="annottext">CRSDatum
-</span><a href="#local-6989586621679529774"><span class="hs-identifier hs-var">crsG2</span></a></span></span><span> </span><span id="local-6989586621679529775"><span class="annot"><span class="annottext">[Integer]
-</span><a href="#local-6989586621679529775"><span class="hs-identifier hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.Contract.CRS.html#checkMembershipPairing"><span class="hs-identifier hs-var hs-var">checkMembershipPairing</span></a></span></span><span> </span><span id="local-6989586621679529884"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679529884"><span class="hs-identifier hs-var">commitment</span></a></span></span><span> </span><span id="local-6989586621679529885"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679529885"><span class="hs-identifier hs-var">proof</span></a></span></span><span> </span><span id="local-6989586621679529886"><span class="annot"><span class="annottext">CRSDatum
+</span><a href="#local-6989586621679529886"><span class="hs-identifier hs-var">crsG2</span></a></span></span><span> </span><span id="local-6989586621679529887"><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679529887"><span class="hs-identifier hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-53"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">CRSDatum
-</span><a href="#local-6989586621679529774"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679529886"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-54"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
-</span><span id="line-55"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679529776"><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
-</span><a href="#local-6989586621679529776"><span class="hs-identifier hs-var">g2</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">CRSDatum
+</span><span id="line-55"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679529888"><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679529888"><span class="hs-identifier hs-var">g2</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">CRSDatum
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-56"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_MlResult -&gt; BuiltinBLS12_381_MlResult -&gt; Bool
 </span><span class="hs-identifier hs-var">bls12_381_finalVerify</span></span><span>
 </span><span id="line-57"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
 -&gt; BuiltinBLS12_381_G2_Element -&gt; BuiltinBLS12_381_MlResult
 </span><span class="hs-identifier hs-var">bls12_381_millerLoop</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679529772"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
-</span><a href="#local-6989586621679529776"><span class="hs-identifier hs-var">g2</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679529884"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679529888"><span class="hs-identifier hs-var">g2</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-58"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
 -&gt; BuiltinBLS12_381_G2_Element -&gt; BuiltinBLS12_381_MlResult
 </span><span class="hs-identifier hs-var">bls12_381_millerLoop</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
-</span><a href="#local-6989586621679529773"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CRSDatum -&gt; ScalarPoly -&gt; BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679529885"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CRSDatum -&gt; ScalarPoly -&gt; BuiltinBLS12_381_G2_Element
 </span><span class="hs-identifier hs-var">getG2Commitment</span></span><span> </span><span class="annot"><span class="annottext">CRSDatum
-</span><a href="#local-6989586621679529774"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Scalar] -&gt; ScalarPoly
+</span><a href="#local-6989586621679529886"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Scalar] -&gt; ScalarPoly
 </span><span class="hs-identifier hs-var">getFinalPoly</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Integer -&gt; Scalar) -&gt; [Integer] -&gt; [Scalar]
 forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Scalar
 </span><span class="hs-identifier hs-var">mkScalar</span></span><span> </span><span class="annot"><span class="annottext">[Integer]
-</span><a href="#local-6989586621679529775"><span class="hs-identifier hs-var">ints</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679529887"><span class="hs-identifier hs-var">ints</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-59"></span><span>
 </span><span id="line-60"></span><span class="hs-comment">-- | Validator for the CRS reference script UTxO.</span><span>
 </span><span id="line-61"></span><span class="hs-comment">--</span><span>
@@ -108,11 +108,11 @@ forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><span id="line-77"></span><span id="crsValidatorScript"><span class="annot"><span class="annottext">crsValidatorScript :: CompiledCode ValidatorType
 </span><a href="Hydra.Contract.CRS.html#crsValidatorScript"><span class="hs-identifier hs-var hs-var">crsValidatorScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-78"></span><span>  </span><span class="hs-special">$$</span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.compile</span></span><span>
-</span><span id="line-79"></span><span>        </span><span class="hs-special">[||</span><span class="annot"><a href="#local-6989586621679529778"><span class="hs-identifier hs-type">wrap</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidator"><span class="hs-identifier hs-type">crsValidator</span></a></span><span class="hs-special">||]</span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-special">[||</span><span class="annot"><a href="#local-6989586621679529890"><span class="hs-identifier hs-type">wrap</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidator"><span class="hs-identifier hs-type">crsValidator</span></a></span><span class="hs-special">||]</span><span>
 </span><span id="line-80"></span><span>    </span><span class="hs-special">)</span><span>
 </span><span id="line-81"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621679529778"><span class="annot"><span class="annottext">wrap :: (CRSDatum -&gt; () -&gt; ScriptContext -&gt; Bool) -&gt; ValidatorType
-</span><a href="#local-6989586621679529778"><span class="hs-identifier hs-var hs-var">wrap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall datum redeemer.
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679529890"><span class="annot"><span class="annottext">wrap :: (CRSDatum -&gt; () -&gt; ScriptContext -&gt; Bool) -&gt; ValidatorType
+</span><a href="#local-6989586621679529890"><span class="hs-identifier hs-var hs-var">wrap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall datum redeemer.
 (UnsafeFromData datum, UnsafeFromData redeemer) =&gt;
 (datum -&gt; redeemer -&gt; ScriptContext -&gt; Bool) -&gt; ValidatorType
 </span><span class="hs-identifier hs-var">wrapValidator</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Contract.CRS.html#CRSDatum"><span class="hs-identifier hs-type">CRSDatum</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">)</span><span>
