@@ -11,7 +11,6 @@ module HydraVis.UI.Widgets (
   jsonText,
   jsonStringy,
   fmtTime,
-  shortText,
   shortParty,
   shortAddr,
   UtxoSummary (..),
@@ -85,11 +84,6 @@ fmtTime :: UTCTime -> Text
 fmtTime t =
   let s = show t
    in if T.isInfixOf "." s then T.takeWhile (/= '.') s <> " UTC" else s
-
-shortText :: Text -> Text
-shortText t
-  | T.length t <= 28 = t
-  | otherwise = T.take 24 t <> "..."
 
 shortParty :: Party -> Text
 shortParty p = T.take 16 (T.drop (T.length ("Party {vkey = \"" :: Text)) (show p))

@@ -44,7 +44,6 @@ data Effect tx
 deriving stock instance IsChainState tx => Eq (Effect tx)
 deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
-deriving anyclass instance IsChainState tx => FromJSON (Effect tx)
 
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
@@ -170,7 +169,6 @@ instance Semigroup (Outcome tx) where
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
-deriving anyclass instance IsChainState tx => FromJSON (Outcome tx)
 
 noop :: Outcome tx
 noop = Continue [] []
@@ -208,4 +206,3 @@ data WaitReason tx
 deriving stock instance IsTx tx => Eq (WaitReason tx)
 deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
-deriving anyclass instance IsTx tx => FromJSON (WaitReason tx)

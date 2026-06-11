@@ -16,6 +16,7 @@ _: {
       "hydra-tx"
       "hydra-tui"
       "hydraw"
+      "head-state-viewer"
     ];
   };
 }
