@@ -86,7 +86,7 @@ main = do
  where
   matrixCellTitle :: Word64 -> UTxOSize -> Bool -> Bool -> Text
   matrixCellTitle cs sh im wt =
-    "Cluster "
+    "Nodes="
       <> T.pack (show cs)
       <> ", "
       <> T.pack (show sh)

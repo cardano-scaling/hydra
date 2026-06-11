@@ -266,19 +266,17 @@ comparisonTable summaries =
     \matching elapsed time, computed as `Txs / End-to-end TPS`, so a row with \
     \50 txs and 50.58 tx/s ran in about 1.0 s. Times are rounded to one decimal."
   , ""
-  , "| Scenario | Nodes | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Per-snapshot p50 TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
-  , "| -- | -- | -- | -- | -- | -- | -- | -- |"
+  , "| Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Per-snapshot p50 TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |"
+  , "| -- | -- | -- | -- | -- | -- | -- |"
   ]
     <> map row summaries
     <> [""]
  where
   row :: (Summary, SystemStats) -> Text
-  row (Summary{clusterSize, numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, snapshotTpsQuantiles}, _)
+  row (Summary{numberOfTxs, summaryTitle, averageConfirmationTime, quantiles, endToEndTps, snapshotTpsQuantiles}, _)
     | numberOfTxs == 0 =
         "| "
           <> summaryTitle
-          <> " | "
-          <> show clusterSize
           <> " | 0 | n/a | n/a | n/a | n/a | n/a |"
     | otherwise =
         let p95Conf = if length quantiles == 100 then oneDec (quantiles ! 95) else "n/a"
@@ -292,8 +290,6 @@ comparisonTable summaries =
                 else "n/a"
          in "| "
               <> summaryTitle
-              <> " | "
-              <> show clusterSize
               <> " | "
               <> show numberOfTxs
               <> " | "
