@@ -10,7 +10,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Map.Strict qualified as Map
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
@@ -19,6 +18,7 @@ import Data.Aeson ((.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
@@ -194,7 +194,7 @@ instance IsTx Tx where
 
   removeOneOutputFromUTxO out (UTxO m) =
     case Map.toAscList (Map.filter (== out) m) of
-      []            -> UTxO m
+      [] -> UTxO m
       (txin, _) : _ -> UTxO (Map.delete txin m)
 
   -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.

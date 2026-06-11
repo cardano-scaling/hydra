@@ -1251,14 +1251,7 @@ components:
         headId:
           $ref: "api.yaml#/components/schemas/HeadId"
         finalizedUTxO:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/TxOut"
-          description: |
-            The set of transaction outputs distributed by the fanout.
-            Represented as an array of TxOut values (without TxIn spending
-            references, since intermediate partial fanout outputs have already
-            been posted on-chain).
+          $ref: "api.yaml#/components/schemas/UTxO"
         seq:
           $ref: "api.yaml#/components/schemas/SequenceNumber"
         timestamp:
@@ -3559,13 +3552,9 @@ components:
         remainingFanoutOutputs:
           oneOf:
             - type: "null"
-            - type: array
-              items:
-                $ref: "api.yaml#/components/schemas/TxOut"
+            - $ref: "api.yaml#/components/schemas/UTxO"
         distributedFanoutOutputs:
-          type: array
-          items:
-            $ref: "api.yaml#/components/schemas/TxOut"
+          $ref: "api.yaml#/components/schemas/UTxO"
 
     CoordinatedHeadState:
       type: object
