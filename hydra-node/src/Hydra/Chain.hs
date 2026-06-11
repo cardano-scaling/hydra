@@ -36,7 +36,6 @@ import Hydra.Tx (
   IsTx (..),
   SnapshotNumber,
   SnapshotVersion,
-  TxOutType,
   UTxOType,
  )
 import Hydra.Tx.OnChainId (OnChainId)
@@ -144,7 +143,7 @@ data OnChainTx tx
       , contestationDeadline :: UTCTime
       }
   | OnFanoutTx {headId :: HeadId, fanoutUTxO :: UTxOType tx}
-  | OnPartialFanoutTx {headId :: HeadId, distributedOutputs :: Set (TxOutType tx)}
+  | OnPartialFanoutTx {headId :: HeadId, distributedOutputs :: UTxOType tx}
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (OnChainTx tx)

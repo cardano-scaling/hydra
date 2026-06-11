@@ -10,6 +10,7 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Data.Map.Strict qualified as Map
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
@@ -107,6 +108,8 @@ class
   -- | Filter a UTxO set keeping only entries whose output value is in the given set.
   filterUTxOByOutputs :: UTxOType tx -> Set (TxOutType tx) -> UTxOType tx
 
+  removeOneOutputFromUTxO :: TxOutType tx -> UTxOType tx -> UTxOType tx
+
   -- | Convert a TxOut to a ByteString element for the accumulator.
   -- This serializes the TxOut in the same way as the on-chain code does.
   utxoToElement :: TxOutType tx -> ByteString
@@ -188,6 +191,11 @@ instance IsTx Tx where
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
 
   filterUTxOByOutputs utxo outputs = UTxO.filter (`Set.member` outputs) utxo
+
+  removeOneOutputFromUTxO out (UTxO m) =
+    case Map.toAscList (Map.filter (== out) m) of
+      []            -> UTxO m
+      (txin, _) : _ -> UTxO (Map.delete txin m)
 
   -- \| Convert a Cardano UTxO pair to a ByteString element using Plutus serialization.
   -- Uses sha2_256 (via hashTxOuts) because the haskell-accumulator library

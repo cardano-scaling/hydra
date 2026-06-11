@@ -151,7 +151,7 @@ instance StateModel WorldState where
     Close :: {party :: Party} -> Action WorldState ()
     -- NOTE: No records possible here as we would duplicate 'Party' fields with
     -- different return values.
-    Fanout :: Party -> Action WorldState (Set (TxOut CtxUTxO))
+    Fanout :: Party -> Action WorldState UTxO
     NewTx :: Party -> Payment -> Action WorldState Payment
     Wait :: DiffTime -> Action WorldState ()
     ObserveConfirmedTx :: Var Payment -> Action WorldState ()
@@ -496,7 +496,7 @@ instance
     case action of
       Fanout{} ->
         case hydraState st of
-          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (toList result)
+          Final{finalUTxO} -> sortTxOuts (toTxOuts finalUTxO) === sortTxOuts (snd <$> UTxO.toList result)
           _ -> pure False
       _ -> pure True
 
@@ -748,7 +748,7 @@ performClose party = do
     HeadIsClosed{} -> Just ()
     _ -> Nothing
 
-performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m (Set (TxOut CtxUTxO))
+performFanout :: (MonadThrow m, MonadAsync m, MonadDelay m) => Party -> RunMonad m UTxO
 performFanout party = do
   nodes <- gets nodes
   let thisNode = nodes ! party
@@ -756,7 +756,7 @@ performFanout party = do
   party `sendsInput` Input.Fanout
   findInOutput thisNode (100 :: Int)
  where
-  findInOutput :: (MonadDelay m, MonadThrow m) => TestHydraClient Tx m -> Int -> RunMonad m (Set (TxOut CtxUTxO))
+  findInOutput :: (MonadDelay m, MonadThrow m) => TestHydraClient Tx m -> Int -> RunMonad m UTxO
   findInOutput node n
     | n == 0 = failure "Failed to perform Fanout"
     | otherwise = do

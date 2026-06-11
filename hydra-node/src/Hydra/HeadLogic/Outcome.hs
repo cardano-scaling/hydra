@@ -23,7 +23,6 @@ import Hydra.Tx (
   SnapshotNumber,
   SnapshotVersion,
   TxIdType,
-  TxOutType,
   UTxOType,
  )
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
@@ -125,11 +124,11 @@ data StateChanged tx
   | HeadClosed {headId :: HeadId, snapshotNumber :: SnapshotNumber, chainState :: ChainStateType tx, contestationDeadline :: UTCTime}
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
-  | HeadFannedOut {headId :: HeadId, finalizedOutputs :: Set (TxOutType tx), chainState :: ChainStateType tx}
+  | HeadFannedOut {headId :: HeadId, finalizedOutputs :: UTxOType tx, chainState :: ChainStateType tx}
   | HeadPartialFannedOut
       { headId :: HeadId
-      , distributedOutputs :: Set (TxOutType tx)
-      , remainingOutputs :: Set (TxOutType tx)
+      , distributedOutputs :: UTxOType tx
+      , remainingOutputs :: UTxOType tx
       , chainState :: ChainStateType tx
       }
   | ChainRolledBack {chainState :: ChainStateType tx}

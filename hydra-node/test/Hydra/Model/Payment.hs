@@ -112,11 +112,8 @@ instance IsTx Payment where
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
      in second fromList <$> result
   applyTxTo tx utxo = applyTx utxo tx
-
-  -- For Payment, filter UTxO by keeping entries whose output is in the given set
   filterUTxOByOutputs utxo outputs = filter (`Set.member` outputs) utxo
-
-  -- For Payment, just use show for serialization (consistent with hashUTxO)
+  removeOneOutputFromUTxO = List.delete
   utxoToElement = encodeUtf8 . show @Text
 
 applyTx :: UTxOType Payment -> Payment -> UTxOType Payment

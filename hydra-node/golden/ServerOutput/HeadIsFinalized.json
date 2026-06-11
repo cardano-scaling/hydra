@@ -1,7 +1,7 @@
 {
     "samples": [
         {
-            "finalizedUTxO": [],
+            "finalizedUTxO": {},
             "headId": "00000000010100010001010100000100",
             "tag": "HeadIsFinalized"
         }

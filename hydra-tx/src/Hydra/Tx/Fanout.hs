@@ -4,7 +4,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.Set qualified as Set
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.MintAction (MintAction (..))
@@ -264,7 +263,7 @@ observeFanoutTx utxo tx = do
 
 data PartialFanoutObservation = PartialFanoutObservation
   { headId :: HeadId
-  , distributedOutputs :: Set (TxOut CtxUTxO)
+  , distributedOutputs :: UTxO
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -283,9 +282,12 @@ observePartialFanoutTx utxo tx = do
   findRedeemerSpending tx headInput
     >>= \case
       Head.PartialFanout{numberOfPartialOutputs} -> do
-        -- First output is the continuing head output, distributed outputs follow
         let numDistributed = fromIntegral numberOfPartialOutputs
-        let distributedOutputs = Set.fromList (toCtxUTxOTxOut <$> take numDistributed (drop 1 (txOuts' tx)))
+        let distributedOutputs =
+              UTxO.fromList $
+                zip
+                  (mkTxIn tx <$> [1 ..])
+                  (toCtxUTxOTxOut <$> take numDistributed (drop 1 (txOuts' tx)))
         pure PartialFanoutObservation{headId, distributedOutputs}
       _ -> Nothing
 
