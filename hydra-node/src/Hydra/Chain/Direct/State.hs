@@ -594,14 +594,13 @@ finalPartialFanout ::
   TxIn ->
   -- | All remaining UTxOs to distribute
   UTxO ->
-  -- | Full proof UTxO: snapshotUTxO that matches the original accumulator commitment.
-  -- May include pre-settled elements (e.g. decommit paid out before close) that are
-  -- not in utxoToDistribute but must be accounted for in the KZG proof.
+  -- | Pre-settled UTxO: elements in the snapshot accumulator that are never
+  -- distributed (e.g. a decommit UTxO paid out before close). mempty in normal case.
   UTxO ->
   -- | Contestation deadline as SlotNo
   SlotNo ->
   Either PartialFanoutError Tx
-finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute proofUTxO deadlineSlotNo = do
+finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute presettledUTxO deadlineSlotNo = do
   headUTxO <-
     UTxO.find (isScriptTxOut Head.validatorScript) (utxoOfThisHead (headPolicyId seedTxIn) spendableUTxO)
       ?> CannotFindHeadOutput
@@ -609,13 +608,12 @@ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute proofUTxO deadlin
   progressDatum <- case headState of
     Head.FanoutProgress d -> pure d
     _ -> Left WrongDatum
-  let presettled = UTxO.difference proofUTxO utxoToDistribute
-  _fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettled)
+  _fullAccumulator <- buildAndVerifyAccumulator progressDatum (utxoToDistribute <> presettledUTxO)
   first CannotCreateProof $
     finalPartialFanoutTx
       scriptRegistry
       utxoToDistribute
-      presettled
+      presettledUTxO
       headUTxO
       deadlineSlotNo
       headTokenScript
@@ -864,7 +862,7 @@ unsafeFinalPartialFanout ::
   SlotNo ->
   Tx
 unsafeFinalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute deadlineSlotNo =
-  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute utxoToDistribute deadlineSlotNo
+  either (error . show) id $ finalPartialFanout ctx spendableUTxO seedTxIn utxoToDistribute mempty deadlineSlotNo
 
 unsafeObserveInit ::
   HasCallStack =>

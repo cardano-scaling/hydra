@@ -91,7 +91,7 @@ data PostChainTx tx
       }
   | FinalPartialFanoutTx
       { utxoToDistribute :: UTxOType tx
-      , utxoForProof :: UTxOType tx
+      , presettledUTxO :: UTxOType tx
       , headSeed :: HeadSeed
       , contestationDeadline :: UTCTime
       }

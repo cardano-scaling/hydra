@@ -31,8 +31,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Cardano.Api.Pretty (renderTx, renderTxWithUTxO)
-import Hydra.Chain (maximumNumberOfParties)
-import Hydra.Chain (PostChainTx (..))
+import Hydra.Chain (PostChainTx (..), maximumNumberOfParties)
 import Hydra.Chain.Direct.State (
   ChainContext (..),
   ChainState (..),
@@ -45,15 +44,15 @@ import Hydra.Chain.Direct.State (
   ctxParticipants,
   finalPartialFanout,
   getKnownUTxO,
-  initialize,
   initialChainState,
+  initialize,
   partialFanout,
   unsafeIncrement,
   unsafePartialFanout,
  )
-import Hydra.HeadLogic qualified as HL
 import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Contract.HeadTokens qualified as HeadTokens
+import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (txInToHeadSeed)
@@ -87,6 +86,7 @@ import Test.Hydra.Chain.Direct.State (
   genClosedStateWithAppliedDecommit,
   genClosedStateWithDuplicateTxOuts,
   genClosedStateWithPendingCommit,
+  genClosedStateWithUnconfirmedCommit,
   genContestTx,
   genDecrementTx,
   genDepositTx,
@@ -257,65 +257,77 @@ spec = parallel $ do
               Left err ->
                 property False
                   & counterexample ("Evaluation failed within 90% budget: " <> show err)
-    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
+    prop "returns StaleChainState when UTxO does not match on-chain accumulator" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, _u0) ->
-          -- Pass empty UTxO for both proof and distribution so the accumulator commitment won't match
           partialFanout ctx spendableUTxO seedTxIn 1 mempty mempty deadlineSlotNo
             === Left StaleChainState
-    prop "succeeds when decommit was applied on-chain before close (snapshotVersion /= version)" $
+    prop "decommit paid out before close: batch tx can be built" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
           partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo
             `shouldSatisfy` isRight
-    prop "pre-settled decommit element: partial fanout tx validates on-chain" $
+    prop "decommit paid out before close: batch tx evaluates on-chain" $
       forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
-          let proofUTxO = u0 <> decommitUTxO
-              fullUTxO = u0
-              evalUTxO = spendableUTxO <> getKnownUTxO ctx
-           in case partialFanout ctx spendableUTxO seedTxIn 1 proofUTxO fullUTxO deadlineSlotNo of
+          let evalUTxO = spendableUTxO <> getKnownUTxO ctx
+           in case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo of
                 Left err -> counterexample ("partialFanout build failed: " <> show err) False
                 Right tx -> propTransactionEvaluates (tx, evalUTxO)
+    prop "pending deposit not confirmed on-chain: batch tx can be built" $
+      forAll (genClosedStateWithUnconfirmedCommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
+          partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo
+            `shouldSatisfy` isRight
 
   describe "finalPartialFanout" $ do
     propBelowSizeLimit maxTxSize forAllFinalPartialFanout
     propIsValid forAllFinalPartialFanout
-    prop "fails with StaleChainState when UTxO does not match on-chain accumulator" $
-      -- Use genClosedStateForFanout and build the fanoutProgressUTxO manually to
-      -- avoid eagerly evaluating the (potentially crashing) final fanout tx from
-      -- genFinalPartialFanoutTx.
+    prop "returns StaleChainState when UTxO does not match on-chain accumulator" $
       forAll (genClosedStateForFanout maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0) ->
           let fanoutProgressUTxO = utxoFromTx $ unsafePartialFanout ctx spendableUTxO seedTxIn 1 u0 deadlineSlotNo
-           in -- Pass empty UTxO so the accumulator commitment won't match
-              case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty mempty deadlineSlotNo of
+           in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn mempty mempty deadlineSlotNo of
                 Left StaleChainState -> property True
                 other -> counterexample ("expected Left StaleChainState, got: " <> either show (const "Right <Tx>") other) False
-    prop "deposit UTxO from utxoToCommit (snapshotVersion < version) can be distributed in final partial fanout step" $
-      -- When snapshotVersion < version (IncrementTx confirmed after last snapshot),
-      -- computeFullFanoutUTxO includes utxoToCommit.  After a PartialFanoutTx distributes
-      -- all other outputs, FinalPartialFanoutTx must distribute the pending deposit.
-      -- This should SUCCEED; if StaleChainState is returned it indicates an accumulator
-      -- mismatch between the in-memory deposit UTxO and the on-chain commitment.
+    prop "deposit confirmed on-chain before close: final batch distributes it" $
       forAll (genClosedStateWithPendingCommit maximumNumberOfParties) $
         \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
-          -- fullUTxO = u0 ++ [commitUTxO]; commitUTxO sorts last (guaranteed by generator).
-          -- findFittingPartialChunk distributes the first n = UTxO.size(u0) outputs,
-          -- leaving commitUTxO as the sole remaining output.
           let fullUTxO = u0 <> commitUTxO
               evalUTxO = spendableUTxO <> getKnownUTxO ctx
               (_, partialTx) = findFittingPartialChunk evalUTxO ctx spendableUTxO seedTxIn fullUTxO deadlineSlotNo
               fanoutProgressUTxO = utxoFromTx partialTx
-           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO commitUTxO deadlineSlotNo
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn commitUTxO mempty deadlineSlotNo
                 `shouldSatisfy` isRight
-    prop "finalPartialFanout succeeds when snapshot UTxO has duplicate TxOut values" $
+    prop "decommit paid out before close: final batch succeeds after initial batch" $
+      forAll (genClosedStateWithAppliedDecommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, decommitUTxO) ->
+          case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> decommitUTxO) u0 deadlineSlotNo of
+            Left err -> counterexample ("partialFanout failed: " <> show err) False
+            Right partialTx ->
+              let fanoutProgressUTxO = utxoFromTx partialTx
+                  remaining = UTxO.fromList (drop 1 (UTxO.toList u0))
+               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining decommitUTxO deadlineSlotNo of
+                    Left err -> counterexample ("finalPartialFanout failed: " <> show err) False
+                    Right _ -> property True
+    prop "pending deposit not confirmed on-chain: final batch succeeds after initial batch" $
+      forAll (genClosedStateWithUnconfirmedCommit maximumNumberOfParties) $
+        \(ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0, commitUTxO) ->
+          case partialFanout ctx spendableUTxO seedTxIn 1 (u0 <> commitUTxO) u0 deadlineSlotNo of
+            Left err -> counterexample ("partialFanout failed: " <> show err) False
+            Right partialTx ->
+              let fanoutProgressUTxO = utxoFromTx partialTx
+                  remaining = UTxO.fromList (drop 1 (UTxO.toList u0))
+               in case finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining commitUTxO deadlineSlotNo of
+                    Left err -> counterexample ("finalPartialFanout failed: " <> show err) False
+                    Right _ -> property True
+    prop "succeeds when snapshot UTxO has duplicate TxOut values" $
       forAll (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $
         \(_hctx, ctx, ClosedState{seedTxIn}, spendableUTxO, deadlineSlotNo, u0WithDups, chunkSize, _confirmed) ->
           let partialTx = unsafePartialFanout ctx spendableUTxO seedTxIn chunkSize u0WithDups deadlineSlotNo
               fanoutProgressUTxO = utxoFromTx partialTx
               remaining = UTxO.fromList (drop chunkSize (UTxO.toList u0WithDups))
-           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining remaining deadlineSlotNo
+           in finalPartialFanout ctx fanoutProgressUTxO seedTxIn remaining mempty deadlineSlotNo
                 `shouldSatisfy` isRight
     prop "HeadLogic computes non-empty remaining UTxO when snapshot contains duplicate TxOut values" $
       forAllBlind (genClosedStateWithDuplicateTxOuts maximumNumberOfParties) $

@@ -1870,7 +1870,7 @@ spec =
         -- as an error to the API client.
         let st = inClosedState threeParties
         now <- nowFromSlot st.chainPointTime.currentSlot
-        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, utxoForProof = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
+        let postTxError = ChainInput PostTxError{postChainTx = FinalPartialFanoutTx{utxoToDistribute = mempty, presettledUTxO = mempty, headSeed = testHeadSeed, contestationDeadline = arbitrary `generateWith` 42}, postTxError = StalePartialFanoutTx, failingTx = Nothing}
             outcome = update bobEnv ledger now st postTxError
         outcome `hasNoEffectSatisfying` \case
           ClientEffect{} -> True

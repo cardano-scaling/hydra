@@ -31,8 +31,8 @@ instance ArbitraryIsTx tx => Arbitrary (PostChainTx tx) where
       ContestTx <$> shrink headId <*> shrink headParameters <*> shrink openVersion <*> shrink contestingSnapshot
     FanoutTx{utxo, utxoToCommit, utxoToDecommit, utxoForProof, headSeed, contestationDeadline} ->
       FanoutTx <$> shrink utxo <*> shrink utxoToCommit <*> shrink utxoToDecommit <*> shrink utxoForProof <*> shrink headSeed <*> shrink contestationDeadline
-    FinalPartialFanoutTx{utxoToDistribute, utxoForProof, headSeed, contestationDeadline} ->
-      FinalPartialFanoutTx <$> shrink utxoToDistribute <*> shrink utxoForProof <*> shrink headSeed <*> shrink contestationDeadline
+    FinalPartialFanoutTx{utxoToDistribute, presettledUTxO, headSeed, contestationDeadline} ->
+      FinalPartialFanoutTx <$> shrink utxoToDistribute <*> shrink presettledUTxO <*> shrink headSeed <*> shrink contestationDeadline
 
 instance ArbitraryIsTx tx => Arbitrary (OnChainTx tx) where
   arbitrary = genericArbitrary

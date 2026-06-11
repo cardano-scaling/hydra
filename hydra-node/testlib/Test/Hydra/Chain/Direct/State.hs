@@ -529,6 +529,38 @@ genClosedStateWithPendingCommit numParties = do
   let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
   pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, commitUTxO)
 
+-- | Generate a closed state where a commit (IncrementTx) was snapshot-included
+-- but NOT yet confirmed on-chain, i.e. @ClosedState.version == snapshot.version@.
+-- The closed datum accumulator includes 'commitUTxO' (it is in 'snapshotUTxO') but
+-- 'computeFullFanoutUTxO' excludes it, so it is pre-settled (in accumulator, never
+-- distributed).  Returns @(ctx, closedState, spendableUTxO, deadlineSlotNo, u0,
+-- commitUTxO)@.
+genClosedStateWithUnconfirmedCommit ::
+  Int ->
+  Gen (ChainContext, ClosedState, UTxO, SlotNo, UTxO, UTxO)
+genClosedStateWithUnconfirmedCommit numParties = do
+  ctx <- genHydraContextFor numParties
+  n <- choose (5, 12 :: Int)
+  allUTxO <- genUTxOAdaOnlyOfSize (n + 1)
+  let sorted = UTxO.toList allUTxO
+      commitUTxO = UTxO.fromList [last sorted]
+      u0 = UTxO.fromList (take (length sorted - 1) sorted)
+  (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let snapshotVersion = 0
+      openVersion = 0 -- same as snapshotVersion: IncrementTx NOT confirmed
+  confirmed <- genConfirmedSnapshot headId snapshotVersion 1 u0 (Just commitUTxO) Nothing (ctxHydraSigningKeys ctx)
+  cctx <- pickChainContext ctx
+  let cp = ctxContestationPeriod ctx
+  (startSlot, closePointInTime) <- genValidityBoundsFromContestationPeriod cp
+  -- The deposit was never moved into the head (IncrementTx not confirmed),
+  -- so head value only contains u0.
+  let u0Value = UTxO.totalValue u0
+  let openUTxO = UTxO.map (modifyTxOutValue (<> u0Value)) $ getKnownUTxO stOpen
+  let txClose = unsafeClose cctx openUTxO headId (ctxHeadParameters ctx) openVersion confirmed startSlot closePointInTime
+  let stClosed = snd $ fromJust $ observeClose stOpen txClose
+  let deadlineSlotNo = slotNoFromUTCTime systemStart slotLength stClosed.contestationDeadline
+  pure (cctx, stClosed, getKnownUTxO stClosed, deadlineSlotNo, u0, commitUTxO)
+
 -- | Like 'genClosedStateForFanout' but creates a snapshot UTxO where the last
 -- entry (by TxIn sort order) shares its TxOut value with the first entry.
 -- With @chunkSize = n - 1@, the partial fanout distributes all-but-last, leaving

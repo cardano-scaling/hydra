@@ -1492,14 +1492,15 @@ emitNextFanoutStep FreshFanout _ closedState =
           }
 emitNextFanoutStep FanoutInProgress remaining closedState =
   let ClosedState{confirmedSnapshot, headSeed, contestationDeadline} = closedState
+      -- Pre-settled elements: in the snapshot accumulator but never distributed
+      -- (e.g. a decommit UTxO already paid out before close). mempty in normal case.
+      presettled = withoutUTxO (snapshotUTxO (getSnapshot confirmedSnapshot)) (computeFullFanoutUTxO closedState)
    in cause
         OnChainEffect
           { postChainTx =
               FinalPartialFanoutTx
                 { utxoToDistribute = remaining
-                , -- Always use the snapshot's original full UTxO set so the chain
-                  -- layer can account for pre-settled elements in the KZG proof.
-                  utxoForProof = snapshotUTxO (getSnapshot confirmedSnapshot)
+                , presettledUTxO = presettled
                 , headSeed
                 , contestationDeadline
                 }
