@@ -187,7 +187,7 @@ viewCompare m =
       summaries = [(lbl, maybe emptySummary (nodeSummary hist) curT) | (lbl, hist) <- cmNodes m]
    in div_
         [styleInline_ "font-family: system-ui, sans-serif; max-width: 1100px; margin: 1rem auto; padding: 0 1rem;"]
-        [ h1_ [] [text "hydra-vis - multi-node compare"]
+        [ h1_ [] [text "head-state-viewer - multi-node compare"]
         , toolbar n (cmCursor m) curT
         , timelines (cmNodes m) curT
         , table summaries

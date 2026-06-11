@@ -1,4 +1,4 @@
--- | hydra-vis: interactive HeadLogic visualizer.
+-- | head-state-viewer: interactive HeadLogic visualizer.
 --
 -- Modes:
 --

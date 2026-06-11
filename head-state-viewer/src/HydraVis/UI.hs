@@ -93,7 +93,7 @@ viewModel ::
 viewModel m =
   div_
     [styleInline_ "font-family: system-ui, sans-serif; max-width: 900px; margin: 1rem auto; padding: 0 1rem;"]
-    [ h1_ [] [text "hydra-vis"]
+    [ h1_ [] [text "head-state-viewer"]
     , viewToolbar m
     , viewStuckBanner m
     , viewWaitingBanner m
