@@ -16,6 +16,7 @@ module HydraVis.UI (
   AuthoringCtx (..),
   mkApp,
   mkModel,
+  withTraceLog,
   viewModel,
   applyAction,
   applyInputPure,
@@ -35,6 +36,7 @@ import HydraVis.UI.Model (
   Model (..),
   lastSeenIn,
   mkModel,
+  withTraceLog,
  )
 import HydraVis.UI.Panels (
   viewAuthoring,
@@ -46,6 +48,8 @@ import HydraVis.UI.Panels (
   viewState,
   viewStuckBanner,
   viewSync,
+  viewTrace,
+  viewWaitingBanner,
  )
 import HydraVis.UI.Timeline (viewToolbar)
 import HydraVis.UI.Update (applyAction, applyInputPure, followSub, playSub, updateModel)
@@ -92,10 +96,12 @@ viewModel m =
     [ h1_ [] [text "hydra-vis"]
     , viewToolbar m
     , viewStuckBanner m
+    , viewWaitingBanner m
     , viewFlow m
     , viewPeers m
     , viewSync m
     , viewMessages m
+    , viewTrace m
     , viewSnapshot m
     , viewFanout m
     , viewAuthoring m

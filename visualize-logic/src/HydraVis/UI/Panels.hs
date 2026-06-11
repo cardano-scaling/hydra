@@ -5,11 +5,13 @@
 -- event / node-state JSON plus the input-authoring form.
 module HydraVis.UI.Panels (
   viewStuckBanner,
+  viewWaitingBanner,
   viewPeers,
   viewSnapshot,
   viewFanout,
   viewSync,
   viewMessages,
+  viewTrace,
   viewEvent,
   viewState,
   viewAuthoring,
@@ -41,8 +43,9 @@ import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 import Hydra.Tx.Snapshot qualified as Snap
 import HydraVis.History (HistoryStep (..))
+import HydraVis.Trace (TraceEntry (..), TraceKind (..))
 import HydraVis.UI.Model (Action (..), AuthoringCtx (..), Model (..), currentStep, visibleHistory)
-import HydraVis.UI.Widgets (italic, jsonStringy, panelStyle, renderJson, row, shortParty, shortText)
+import HydraVis.UI.Widgets (italic, jsonStringy, panelStyle, renderJson, row, shortParty)
 import Miso (View)
 import Miso.Html (button_, div_, h2_, onClick, onInput, span_, text, textarea_)
 import Miso.Html.Property (rows_, styleInline_, value_)
@@ -77,7 +80,7 @@ peersBody mctx = \case
   openClosed ps hid =
     div_
       []
-      [ row "head id" (shortText (jsonStringy hid))
+      [ row "head id" (jsonStringy hid)
       , row "contestation period" (show (HP.contestationPeriod ps))
       , row "parties" (show (length (HP.parties ps)))
       , partyList me (HP.parties ps)
@@ -388,6 +391,53 @@ viewStuckBanner m = case currentStep m of
 
 stuckThreshold :: Int
 stuckThreshold = 12
+
+-- * Node trace (from --log)
+
+-- | Trace-log entries at or before the cursor's wall-clock time.
+traceUpToCursor :: Model tx -> [TraceEntry]
+traceUpToCursor m = case time . event <$> currentStep m of
+  Nothing -> []
+  Just t -> [e | e <- traceLog m, teTime e <= t]
+
+-- | A prominent banner when the node's latest head-logic outcome at the cursor
+-- is a Wait or Error - the thing the event store cannot show (#1374 / #1415).
+viewWaitingBanner :: Model tx -> View (Action tx)
+viewWaitingBanner m = case latestLogic of
+  Just (TWait reason) -> banner ("Node is waiting (trace log): " <> reason)
+  Just (TError err) -> banner ("Head-logic Error (trace log): " <> err)
+  _ -> div_ [] []
+ where
+  latestLogic = viaNonEmpty last [teKind e | e <- traceUpToCursor m, isLogic (teKind e)]
+  isLogic = \case TReliabilityFail -> False; _ -> True
+  banner t =
+    div_
+      [styleInline_ "border: 1px solid #c33; background: #fdecec; color: #a11; border-radius: 4px; padding: 0.5rem 0.75rem; margin-bottom: 1rem;"]
+      [text (ms t)]
+
+-- | Counts of the head-logic outcomes (and reliability failures) seen in the
+-- trace log up to the cursor, plus the latest wait/error reason. Hidden when
+-- no @--log@ was given.
+viewTrace :: Model tx -> View (Action tx)
+viewTrace m
+  | null (traceLog m) = div_ [] []
+  | otherwise =
+      let es = traceUpToCursor m
+          continues = length [() | TraceEntry{teKind = TContinue} <- es]
+          waits = length [() | TraceEntry{teKind = TWait _} <- es]
+          errors = length [() | TraceEntry{teKind = TError _} <- es]
+          relf = length [() | TraceEntry{teKind = TReliabilityFail} <- es]
+          lastReason = viaNonEmpty last [r | e <- es, Just r <- [reasonOf (teKind e)]]
+       in div_
+            [styleInline_ panelStyle]
+            ( [ h2_ [] [text "node trace (from --log)"]
+              , row "logic outcomes" (show continues <> " continue, " <> show waits <> " wait, " <> show errors <> " error")
+              , row "reliability failures" (show relf)
+              ]
+                <> [row "latest wait/error" r | Just r <- [lastReason]]
+            )
+ where
+  reasonOf = \case TWait r -> Just r; TError r -> Just r; _ -> Nothing
 
 -- * Node sync
 

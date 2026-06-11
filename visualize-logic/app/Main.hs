@@ -14,6 +14,8 @@ module Main where
 
 import Hydra.Prelude
 
+import System.FilePath (takeDirectory, takeFileName)
+
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.HeadLogic.StateEvent qualified
@@ -27,8 +29,9 @@ import HydraVis.History (loadEventsAfter, loadHistoryFor)
 import HydraVis.Multi (PartySpec (..), mkMultiModel)
 import HydraVis.Sample (sampleEnvironment, sampleLedger, sampleOnInitTx, sampleTick)
 import HydraVis.SampleDb (writeSampleDb)
-import HydraVis.Server (runMultiServer, runServer)
+import HydraVis.Server (runCompareServer, runMultiServer, runServer)
 import HydraVis.Smoke (runSmoke)
+import HydraVis.Trace (loadTraceLog)
 import HydraVis.UI (AuthoringCtx (..))
 import Options.Applicative (
   Parser,
@@ -72,6 +75,12 @@ data Mode
       , txKind :: TxKind
       , startAt :: Maybe Int
       , followFlag :: Bool
+      , logPath :: Maybe FilePath
+      }
+  | Compare
+      { port :: Int
+      , comparePaths :: [FilePath]
+      , txKind :: TxKind
       }
   deriving stock (Show)
 
@@ -108,7 +117,15 @@ modeParser =
                   <> help "Run a 3-party SimpleTx simulation UI on PORT"
               )
         )
-    <|> ( Serve
+    -- One combined parser for the serve / compare modes (sharing @--port@ and
+    -- @--simple@). Passing @--compare@ at least once selects the multi-node
+    -- comparison; otherwise it is the single-node serve. Folded into a single
+    -- 'Parser' to avoid the @<|>@ backtracking pitfalls of overlapping options.
+    <|> ( ( \port comparePaths source txKind startAt followFlag logPath ->
+              case comparePaths of
+                [] -> Serve{port, source, txKind, startAt, followFlag, logPath}
+                ps -> Compare{port, comparePaths = ps, txKind}
+          )
             <$> option
               auto
               ( long "port"
@@ -117,12 +134,19 @@ modeParser =
                   <> showDefault
                   <> help "Port to serve the UI on"
               )
+            <*> many
+              ( strOption
+                  ( long "compare"
+                      <> metavar "DB"
+                      <> help "Per-node SQLite event log; repeat once per node to compare them side by side"
+                  )
+              )
             <*> sourceParser
             <*> flag
               Cardano
               Simple
               ( long "simple"
-                  <> help "Interpret the database as SimpleTx (default: Cardano Tx)"
+                  <> help "Interpret the database(s) as SimpleTx (default: Cardano Tx)"
               )
             <*> optional
               ( option
@@ -135,6 +159,13 @@ modeParser =
             <*> switch
               ( long "follow"
                   <> help "Poll the event log for newly persisted rows (live mode)"
+              )
+            <*> optional
+              ( strOption
+                  ( long "log"
+                      <> metavar "PATH"
+                      <> help "Node JSON trace log; surfaces Wait reasons the event store omits"
+                  )
               )
         )
 
@@ -200,7 +231,7 @@ main = do
               , mkSpec carol carolSk [alice, bob]
               ]
       runMultiServer port mm
-    Serve{port, source, txKind = Simple, startAt, followFlag} -> do
+    Serve{port, source, txKind = Simple, startAt, followFlag, logPath} -> do
       let initial = initNodeState (SimpleChainState (ChainSlot 0))
           (path, steps0) = case source of
             NoSource -> (Nothing, pure [])
@@ -216,11 +247,27 @@ main = do
                     ]
                 }
       steps <- steps0
-      runServer port authoring path followFlag initial (fromMaybe 0 startAt) steps
-    Serve{port, source, txKind = Cardano, startAt, followFlag} -> do
+      traceEntries <- maybe (pure []) loadTraceLog logPath
+      runServer port authoring path followFlag initial (fromMaybe 0 startAt) steps traceEntries
+    Serve{port, source, txKind = Cardano, startAt, followFlag, logPath} -> do
       let initial = initNodeState ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
           (path, steps0) = case source of
             NoSource -> (Nothing, pure [])
             FromDb{dbPath} -> (Just dbPath, loadHistoryFor initial dbPath)
       steps <- steps0
-      runServer port Nothing path followFlag initial (fromMaybe 0 startAt) steps
+      traceEntries <- maybe (pure []) loadTraceLog logPath
+      runServer port Nothing path followFlag initial (fromMaybe 0 startAt) steps traceEntries
+    Compare{port, comparePaths, txKind = Cardano} -> do
+      let initial = initNodeState ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
+      nodes <- forM comparePaths $ \p -> (nodeLabel p,) <$> loadHistoryFor initial p
+      runCompareServer port nodes
+    Compare{port, comparePaths, txKind = Simple} -> do
+      let initial = initNodeState (SimpleChainState (ChainSlot 0))
+      nodes <- forM comparePaths $ \p -> (nodeLabel p,) <$> loadHistoryFor initial p
+      runCompareServer port nodes
+ where
+  -- Label a node db by its containing directory (the cluster writes
+  -- @state-N/hydra.db@), falling back to the file name.
+  nodeLabel p =
+    let d = takeFileName (takeDirectory p)
+     in toText (if null d || d == "." then takeFileName p else d)
