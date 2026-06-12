@@ -2,9 +2,16 @@ name: "Publish Docs"
 
 on:
   workflow_dispatch:
+  # NOTE: The `workflow_run` event only fires for runs on the repository's
+  # default branch (master). The `branches` filter can only narrow that set, it
+  # cannot make the event fire for `release`, so it can publish the unstable
+  # docs but never the stable ones. We therefore publish the stable docs on
+  # push to the `release` branch instead.
+  push:
+    branches: ["release"]
   workflow_run:
     workflows: ["CI"]
-    branches: ["master", "release"]
+    branches: ["master"]
     types:
       - completed
 
