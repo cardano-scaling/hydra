@@ -13,7 +13,7 @@ Please note that these results are approximate  as they are currently produced f
 
 :::
 
-_Generated at_  2026-04-02 15:30:19.522103851 UTC
+_Generated at_  2026-06-12 15:09:15.01454987 UTC
 
 
 ## Baseline Scenario
@@ -23,12 +23,17 @@ _Generated at_  2026-04-02 15:30:19.522103851 UTC
 | Number of nodes |  1 | 
 | -- | -- |
 | _Number of txs_ | 300 |
-| _Avg. Confirmation Time (ms)_ | 5.737073100 |
-| _P99_ | 9.869915279999992ms |
-| _P95_ | 8.321545650000001ms |
-| _P50_ | 5.2949535ms |
+| _Avg. Confirmation Time (ms)_ | 535.2 |
+| _P99_ | 559.1ms |
+| _P95_ | 559.0ms |
+| _P50_ | 540.5ms |
+| _End-to-end TPS_ | 531.16 tx/s |
+| _Snapshots observed_ | 4 |
+| _Per-snapshot TPS P50_ | 2362.40 tx/s |
+| _Per-snapshot TPS P95_ | 4674.29 tx/s |
+| _Per-snapshot TPS max_ | 4931.70 tx/s |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 1 |
+| _Fanout outputs_        | 0 |
       
 
 ## Three local nodes
@@ -38,10 +43,15 @@ _Generated at_  2026-04-02 15:30:19.522103851 UTC
 | Number of nodes |  3 | 
 | -- | -- |
 | _Number of txs_ | 900 |
-| _Avg. Confirmation Time (ms)_ | 46.662292906 |
-| _P99_ | 70.70087001999998ms |
-| _P95_ | 62.85787065ms |
-| _P50_ | 46.0096895ms |
+| _Avg. Confirmation Time (ms)_ | 2955.9 |
+| _P99_ | 3393.2ms |
+| _P95_ | 3392.3ms |
+| _P50_ | 3060.0ms |
+| _End-to-end TPS_ | 264.37 tx/s |
+| _Snapshots observed_ | 10 |
+| _Per-snapshot TPS P50_ | 624.83 tx/s |
+| _Per-snapshot TPS P95_ | 1738.13 tx/s |
+| _Per-snapshot TPS max_ | 1879.78 tx/s |
 | _Number of Invalid txs_ | 0 |
-| _Fanout outputs_        | 3 |
+| _Fanout outputs_        | 0 |
       

@@ -4,7 +4,34 @@
 
 -- | Hydra Plutus Contracts
 @package hydra-plutus
-@version 2.0.0
+@version 2.2.0
+
+module Hydra.Contract.CRS
+type CRSDatum = [BuiltinBLS12_381_G2_Element]
+
+-- | Core BLS pairing check shared by full fanout and partial fanout.
+--   
+--   Verifies the KZG membership pairing identity:
+--   
+--   <pre>
+--   e(commitment, G2) = e(proof, P_S(τ)·G2)
+--   </pre>
+--   
+--   Argument mapping:
+--   
+--   <ul>
+--   <li><tt>commitment</tt>: A(τ)·G1 — the accumulator commitment from the
+--   Closed datum</li>
+--   <li><tt>proof</tt>: Q(τ)·G1 — the quotient polynomial committed over
+--   G1, proving subset membership</li>
+--   <li><tt>crsG2</tt>: <tt>[G2, τ·G2, ...]</tt> — used on-chain to
+--   compute <tt>P_S(τ)·G2</tt> via MSM</li>
+--   <li><tt>ints</tt>: integer encodings of element hashes, defining
+--   <tt>P_S(X) = ∏(X − sᵢ)</tt></li>
+--   </ul>
+checkMembershipPairing :: BuiltinBLS12_381_G1_Element -> BuiltinBLS12_381_G1_Element -> CRSDatum -> [Integer] -> Bool
+crsValidatorScript :: CompiledCode ValidatorType
+validatorScript :: PlutusScript
 
 
 -- | Representation of a UTxO when committed / deposited into the Hydra
@@ -38,7 +65,7 @@ instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.Commit.Commit
 instance GHC.Classes.Ord Hydra.Contract.Commit.Commit
 instance GHC.Show.Show Hydra.Contract.Commit.Commit
 instance GHC.Classes.Eq Hydra.Contract.Commit.Commit
-instance PlutusTx.Eq.Eq Hydra.Contract.Commit.Commit
+instance PlutusTx.Eq.Class.Eq Hydra.Contract.Commit.Commit
 
 
 -- | The validator used to deposit and recover locked funds
@@ -46,7 +73,7 @@ module Hydra.Contract.Deposit
 data DepositRedeemer
 
 -- | Claims already deposited funds.
-Claim :: CurrencySymbol -> DepositRedeemer
+Claim :: DepositRedeemer
 
 -- | Recovers m number of deposited outputs.
 Recover :: Integer -> DepositRedeemer
@@ -126,7 +153,9 @@ DepositNoUpperBoundDefined :: DepositError
 DepositNoLowerBoundDefined :: DepositError
 DepositPeriodNotReached :: DepositError
 IncorrectDepositHash :: DepositError
-WrongHeadIdInDepositDatum :: DepositError
+DepositHeadInputNotFound :: DepositError
+HeadInputRedeemerNotFound :: DepositError
+HeadRedeemerNotIncrement :: DepositError
 instance GHC.Show.Show Hydra.Contract.DepositError.DepositError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.DepositError.DepositError
 
@@ -173,8 +202,8 @@ MustPushDeadline :: HeadError
 ContesterNotIncluded :: HeadError
 WrongNumberOfSigners :: HeadError
 SignerAlreadyContested :: HeadError
-FailedContestCurrent :: HeadError
-FailedContestUsedDec :: HeadError
+FailedContestUnused :: HeadError
+FailedContestUsed :: HeadError
 FanoutUTxOHashMismatch :: HeadError
 LowerBoundBeforeContestationDeadline :: HeadError
 FanoutNoLowerBoundDefined :: HeadError
@@ -183,13 +212,20 @@ FanoutUTxOToDecommitHashMismatch :: HeadError
 DepositNotSpent :: HeadError
 DepositInputNotFound :: HeadError
 HeadInputNotFound :: HeadError
-FailedContestUnusedDec :: HeadError
-FailedContestUnusedInc :: HeadError
-FailedContestUsedInc :: HeadError
-FailedCloseUnusedDec :: HeadError
-FailedCloseUsedDec :: HeadError
-FailedCloseUnusedInc :: HeadError
-FailedCloseUsedInc :: HeadError
+FailedCloseUnused :: HeadError
+FailedCloseUsed :: HeadError
+MissingCRSDatum :: HeadError
+MissingCRSRefInput :: HeadError
+PartialFanoutMembershipFailed :: HeadError
+PartialFanoutChangedParameters :: HeadError
+AccumulatorCommitmentHashMismatch :: HeadError
+FinalPartialFanoutMembershipFailed :: HeadError
+InvalidCRSRefScript :: HeadError
+FinalPartialFanoutZeroOutputs :: HeadError
+PartialFanoutZeroOutputs :: HeadError
+PartialFanoutCannotBeLastBatch :: HeadError
+ChangedHeadAdaOverhead :: HeadError
+InvalidCRSRefAddress :: HeadError
 instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.HeadError.HeadError
 
 module Hydra.Contract.HeadTokensError
@@ -223,6 +259,16 @@ instance PlutusTx.IsData.Class.ToData Hydra.Contract.MintAction.MintAction
 instance PlutusTx.IsData.Class.FromData Hydra.Contract.MintAction.MintAction
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.MintAction.MintAction
 
+module Hydra.Contract.UtilError
+data UtilError
+MintingOrBurningIsForbidden :: UtilError
+
+-- | Get the string literal from given error <tt>e</tt>. Use this with
+--   template haskell splices, e.g. $(errorCode MyError)
+errorCode :: ToErrorCode e => e -> Q Exp
+instance GHC.Show.Show Hydra.Contract.UtilError.UtilError
+instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.UtilError.UtilError
+
 module Hydra.Data.ContestationPeriod
 newtype ContestationPeriod
 UnsafeContestationPeriod :: DiffMilliSeconds -> ContestationPeriod
@@ -236,7 +282,7 @@ addContestationPeriod :: POSIXTime -> ContestationPeriod -> POSIXTime
 instance PlutusTx.IsData.Class.ToData Hydra.Data.ContestationPeriod.ContestationPeriod
 instance PlutusTx.IsData.Class.FromData Hydra.Data.ContestationPeriod.ContestationPeriod
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Data.ContestationPeriod.ContestationPeriod
-instance PlutusTx.Eq.Eq Hydra.Data.ContestationPeriod.ContestationPeriod
+instance PlutusTx.Eq.Class.Eq Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Num.Num Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Show.Show Hydra.Data.ContestationPeriod.ContestationPeriod
 instance GHC.Classes.Ord Hydra.Data.ContestationPeriod.ContestationPeriod
@@ -266,7 +312,7 @@ partyFromVerificationKeyBytes :: ByteString -> Party
 -- | Get the verification key bytes contained from an on-chain
 --   <a>Party</a>.
 partyToVerificationKeyBytes :: Party -> ByteString
-instance PlutusTx.Eq.Eq Hydra.Data.Party.Party
+instance PlutusTx.Eq.Class.Eq Hydra.Data.Party.Party
 instance GHC.Show.Show Hydra.Data.Party.Party
 instance GHC.Generics.Generic Hydra.Data.Party.Party
 instance GHC.Classes.Eq Hydra.Data.Party.Party
@@ -287,7 +333,7 @@ hasST :: CurrencySymbol -> Value -> Bool
 mustBurnAllHeadTokens :: MintValue -> CurrencySymbol -> [Party] -> Bool
 mustNotMintOrBurn :: TxInfo -> Bool
 
--- | Check whether own input and first output preserve value.
+-- | Check whether own input and first output preserve value exactly.
 mustPreserveHeadValue :: ScriptContext -> Bool
 
 -- | Hash a potentially unordered list of commits by sorting them,
@@ -310,14 +356,10 @@ hashPreSerializedCommits :: [Commit] -> BuiltinByteString
 --   meaningful <a>TxOut</a>).
 hashTxOuts :: [TxOut] -> BuiltinByteString
 compareRef :: TxOutRef -> TxOutRef -> Ordering
-data UtilError
-MintingOrBurningIsForbidden :: UtilError
 
 -- | Get the list of <a>TxOut</a> outputs of the pending transaction at a
 --   given script address.
 scriptOutputsAt :: ScriptHash -> TxInfo -> [(OutputDatum, Value)]
-instance GHC.Show.Show Hydra.Contract.Util.UtilError
-instance Hydra.Contract.Error.ToErrorCode Hydra.Contract.Util.UtilError
 
 module Hydra.Contract.HeadState
 type SnapshotNumber = Integer
@@ -327,7 +369,7 @@ type Signature = BuiltinByteString
 
 -- | Sub-type for the open state-machine state.
 data OpenDatum
-OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersion -> Hash -> OpenDatum
+OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersion -> Hash -> Integer -> OpenDatum
 
 -- | TODO: Spec?
 [$sel:headSeed:OpenDatum] :: OpenDatum -> TxOutRef
@@ -344,12 +386,17 @@ OpenDatum :: TxOutRef -> CurrencySymbol -> [Party] -> ContestationPeriod -> Snap
 -- | Spec: v
 [$sel:version:OpenDatum] :: OpenDatum -> SnapshotVersion
 
--- | Spec: η
-[$sel:utxoHash:OpenDatum] :: OpenDatum -> Hash
+-- | Digest of the accumulator hash for the last confirmed snapshot
+[$sel:accumulatorHash:OpenDatum] :: OpenDatum -> Hash
+
+-- | Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO
+--   overhead). Set once at init time and invariant for the head's
+--   lifetime.
+[$sel:headAdaOverhead:OpenDatum] :: OpenDatum -> Integer
 
 -- | Sub-type for the closed state-machine state.
 data ClosedDatum
-ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersion -> SnapshotNumber -> Hash -> Hash -> Hash -> [PubKeyHash] -> POSIXTime -> ClosedDatum
+ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersion -> SnapshotNumber -> [PubKeyHash] -> POSIXTime -> BuiltinBLS12_381_G1_Element -> Integer -> ClosedDatum
 
 -- | Spec: cid
 [$sel:headId:ClosedDatum] :: ClosedDatum -> CurrencySymbol
@@ -366,22 +413,41 @@ ClosedDatum :: CurrencySymbol -> [Party] -> ContestationPeriod -> SnapshotVersio
 -- | Spec: s
 [$sel:snapshotNumber:ClosedDatum] :: ClosedDatum -> SnapshotNumber
 
--- | Spec: η. Digest of snapshotted UTxO
-[$sel:utxoHash:ClosedDatum] :: ClosedDatum -> Hash
-[$sel:alphaUTxOHash:ClosedDatum] :: ClosedDatum -> Hash
-
--- | Spec: ηΔ. Digest of UTxO still to be distributed
-[$sel:omegaUTxOHash:ClosedDatum] :: ClosedDatum -> Hash
-
 -- | Spec: C
 [$sel:contesters:ClosedDatum] :: ClosedDatum -> [PubKeyHash]
 
 -- | Spec: tfinal
 [$sel:contestationDeadline:ClosedDatum] :: ClosedDatum -> POSIXTime
+
+-- | KZG commitment to the full UTxO set.
+[$sel:accumulatorCommitment:ClosedDatum] :: ClosedDatum -> BuiltinBLS12_381_G1_Element
+
+-- | Lovelace in the head UTxO not belonging to any L2 UTxO (min-UTxO
+--   overhead). Propagated unchanged from OpenDatum via Close.
+[$sel:headAdaOverhead:ClosedDatum] :: ClosedDatum -> Integer
+
+-- | Sub-type for intermediate partial fanout state. Carries only the
+--   fields needed for subsequent partial fanout steps.
+data FanoutProgressDatum
+FanoutProgressDatum :: CurrencySymbol -> [Party] -> POSIXTime -> BuiltinBLS12_381_G1_Element -> Integer -> FanoutProgressDatum
+[$sel:headId:FanoutProgressDatum] :: FanoutProgressDatum -> CurrencySymbol
+[$sel:parties:FanoutProgressDatum] :: FanoutProgressDatum -> [Party]
+[$sel:contestationDeadline:FanoutProgressDatum] :: FanoutProgressDatum -> POSIXTime
+[$sel:accumulatorCommitment:FanoutProgressDatum] :: FanoutProgressDatum -> BuiltinBLS12_381_G1_Element
+
+-- | Lovelace in the head UTxO not belonging to any L2 UTxO. Propagated
+--   from ClosedDatum.
+[$sel:headAdaOverhead:FanoutProgressDatum] :: FanoutProgressDatum -> Integer
+
+-- | Extract the fields needed for partial fanout steps from a ClosedDatum.
+--   Called both on-chain (in the validator dispatch) and off-chain (in tx
+--   building).
+progressFromClosed :: ClosedDatum -> FanoutProgressDatum
 data State
 Open :: OpenDatum -> State
 Closed :: ClosedDatum -> State
 Final :: State
+FanoutProgress :: FanoutProgressDatum -> State
 
 -- | Sub-type for close transition with auxiliary data as needed.
 data CloseRedeemer
@@ -391,82 +457,56 @@ CloseInitial :: CloseRedeemer
 
 -- | Any snapshot which doesn't contain anything to inc/decrement but
 --   snapshot number is higher than zero.
-CloseAny :: [Signature] -> CloseRedeemer
+CloseAny :: [Signature] -> Hash -> CloseRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
 
--- | Closing snapshot refers to the current state version
-CloseUnusedDec :: [Signature] -> CloseRedeemer
+-- | Digest of the accumulator hash
+[$sel:accumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
+
+-- | Closing snapshot refers to the current state version (pending inc/dec
+--   not yet applied)
+CloseUnused :: [Signature] -> Hash -> CloseRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
 
--- | Closing snapshot refers to the previous state version
-CloseUsedDec :: [Signature] -> Hash -> CloseRedeemer
+-- | Digest of the accumulator hash
+[$sel:accumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
+
+-- | Closing snapshot refers to the previous state version (pending inc/dec
+--   already applied)
+CloseUsed :: [Signature] -> Hash -> CloseRedeemer
 
 -- | Multi-signature of a snapshot ξ
 [$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
 
--- | UTxO which was already decommitted ηω
-[$sel:alreadyDecommittedUTxOHash:CloseInitial] :: CloseRedeemer -> Hash
-
--- | Closing snapshot refers to the current state version
-CloseUnusedInc :: [Signature] -> Hash -> CloseRedeemer
-
--- | Multi-signature of a snapshot ξ
-[$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
-
--- | UTxO which was signed but not committed ηα
-[$sel:alreadyCommittedUTxOHash:CloseInitial] :: CloseRedeemer -> Hash
-
--- | Closing snapshot refers to the previous state version
-CloseUsedInc :: [Signature] -> Hash -> CloseRedeemer
-
--- | Multi-signature of a snapshot ξ
-[$sel:signature:CloseInitial] :: CloseRedeemer -> [Signature]
-
--- | UTxO which was signed but not committed ηα
-[$sel:alreadyCommittedUTxOHash:CloseInitial] :: CloseRedeemer -> Hash
+-- | Digest of the accumulator hash
+[$sel:accumulatorHash:CloseInitial] :: CloseRedeemer -> Hash
 
 -- | Sub-type for contest transition with auxiliary data as needed.
 data ContestRedeemer
 
--- | Contesting snapshot refers to the current state version
-ContestCurrent :: [Signature] -> ContestRedeemer
+-- | Contesting snapshot refers to the current state version (inc/dec not
+--   yet applied, or no pending action)
+ContestUnused :: [Signature] -> Hash -> ContestRedeemer
 
 -- | Multi-signature of a snapshot ξ
-[$sel:signature:ContestCurrent] :: ContestRedeemer -> [Signature]
+[$sel:signature:ContestUnused] :: ContestRedeemer -> [Signature]
 
--- | Contesting snapshot refers to the previous state version
-ContestUsedDec :: [Signature] -> Hash -> ContestRedeemer
+-- | Digest of the accumulator hash
+[$sel:accumulatorHash:ContestUnused] :: ContestRedeemer -> Hash
 
--- | Multi-signature of a snapshot ξ
-[$sel:signature:ContestCurrent] :: ContestRedeemer -> [Signature]
-
--- | UTxO which was already decommitted ηω
-[$sel:alreadyDecommittedUTxOHash:ContestCurrent] :: ContestRedeemer -> Hash
-
--- | Redeemer to use when the decommit was not yet observed but we closed
---   the Head.
-ContestUnusedDec :: [Signature] -> ContestRedeemer
+-- | Contesting snapshot refers to the previous state version (pending
+--   inc/dec already applied)
+ContestUsed :: [Signature] -> Hash -> ContestRedeemer
 
 -- | Multi-signature of a snapshot ξ
-[$sel:signature:ContestCurrent] :: ContestRedeemer -> [Signature]
+[$sel:signature:ContestUnused] :: ContestRedeemer -> [Signature]
 
--- | Redeemer to use when the commit was not yet observed but we closed the
---   Head.
-ContestUnusedInc :: [Signature] -> Hash -> ContestRedeemer
-
--- | Multi-signature of a snapshot ξ
-[$sel:signature:ContestCurrent] :: ContestRedeemer -> [Signature]
-
--- | UTxO which was already committed ηα
-[$sel:alreadyCommittedUTxOHash:ContestCurrent] :: ContestRedeemer -> Hash
-ContestUsedInc :: [Signature] -> ContestRedeemer
-
--- | Multi-signature of a snapshot ξ
-[$sel:signature:ContestCurrent] :: ContestRedeemer -> [Signature]
+-- | Digest of the accumulator hash
+[$sel:accumulatorHash:ContestUnused] :: ContestRedeemer -> Hash
 
 -- | Sub-type for increment transition
 data IncrementRedeemer
@@ -488,16 +528,21 @@ DecrementRedeemer :: [Signature] -> SnapshotNumber -> Integer -> DecrementRedeem
 -- | Spec: m
 [$sel:numberOfDecommitOutputs:DecrementRedeemer] :: DecrementRedeemer -> Integer
 data Input
-CollectCom :: Input
 Increment :: IncrementRedeemer -> Input
 Decrement :: DecrementRedeemer -> Input
 Close :: CloseRedeemer -> Input
 Contest :: ContestRedeemer -> Input
-Abort :: Input
-Fanout :: Integer -> Integer -> Integer -> Input
-[$sel:numberOfFanoutOutputs:CollectCom] :: Input -> Integer
-[$sel:numberOfCommitOutputs:CollectCom] :: Input -> Integer
-[$sel:numberOfDecommitOutputs:CollectCom] :: Input -> Integer
+Fanout :: Integer -> BuiltinBLS12_381_G1_Element -> TxOutRef -> Input
+[$sel:numberOfFanoutOutputs:Increment] :: Input -> Integer
+[$sel:proof:Increment] :: Input -> BuiltinBLS12_381_G1_Element
+[$sel:crsRef:Increment] :: Input -> TxOutRef
+PartialFanout :: Integer -> TxOutRef -> Input
+[$sel:numberOfPartialOutputs:Increment] :: Input -> Integer
+[$sel:crsRef:Increment] :: Input -> TxOutRef
+FinalPartialFanout :: Integer -> BuiltinBLS12_381_G1_Element -> TxOutRef -> Input
+[$sel:numberOfPartialOutputs:Increment] :: Input -> Integer
+[$sel:proof:Increment] :: Input -> BuiltinBLS12_381_G1_Element
+[$sel:crsRef:Increment] :: Input -> TxOutRef
 instance PlutusTx.IsData.Class.ToData Hydra.Contract.HeadState.Input
 instance PlutusTx.IsData.Class.FromData Hydra.Contract.HeadState.Input
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.HeadState.Input
@@ -528,6 +573,11 @@ instance PlutusTx.IsData.Class.FromData Hydra.Contract.HeadState.State
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.HeadState.State
 instance GHC.Show.Show Hydra.Contract.HeadState.State
 instance GHC.Generics.Generic Hydra.Contract.HeadState.State
+instance PlutusTx.IsData.Class.ToData Hydra.Contract.HeadState.FanoutProgressDatum
+instance PlutusTx.IsData.Class.FromData Hydra.Contract.HeadState.FanoutProgressDatum
+instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.HeadState.FanoutProgressDatum
+instance GHC.Show.Show Hydra.Contract.HeadState.FanoutProgressDatum
+instance GHC.Generics.Generic Hydra.Contract.HeadState.FanoutProgressDatum
 instance PlutusTx.IsData.Class.ToData Hydra.Contract.HeadState.ClosedDatum
 instance PlutusTx.IsData.Class.FromData Hydra.Contract.HeadState.ClosedDatum
 instance PlutusTx.IsData.Class.UnsafeFromData Hydra.Contract.HeadState.ClosedDatum
@@ -542,11 +592,7 @@ instance GHC.Generics.Generic Hydra.Contract.HeadState.OpenDatum
 module Hydra.Contract.Head
 type DatumType = State
 type RedeemerType = Input
-headValidator :: State -> Input -> ScriptContext -> Bool
-
--- | Try to find the deposit datum in the input and if it is there return
---   the committed utxo
-depositDatum :: TxOut -> [Commit]
+headValidator :: ScriptHash -> State -> Input -> ScriptContext -> Bool
 
 -- | Verify a increment transaction.
 checkIncrement :: ScriptContext -> OpenDatum -> IncrementRedeemer -> Bool
@@ -554,14 +600,45 @@ checkIncrement :: ScriptContext -> OpenDatum -> IncrementRedeemer -> Bool
 -- | Verify a decrement transaction.
 checkDecrement :: ScriptContext -> OpenDatum -> DecrementRedeemer -> Bool
 
+-- | Check that the G1 commitment stored in the output datum is consistent
+--   with the hash that parties signed. Prevents a malicious closer from
+--   storing a wrong commitment while providing a valid signature over a
+--   correct hash.
+mustMatchAccumulatorCommitmentHash :: BuiltinBLS12_381_G1_Element -> Hash -> Bool
+
 -- | Verify a close transaction.
 checkClose :: ScriptContext -> OpenDatum -> CloseRedeemer -> Bool
 
 -- | Verify a contest transaction.
 checkContest :: ScriptContext -> ClosedDatum -> ContestRedeemer -> Bool
 
--- | Verify a fanout transaction.
-headIsFinalizedWith :: ScriptContext -> ClosedDatum -> Integer -> Integer -> Integer -> Bool
+-- | Verify a fanout transaction using a KZG membership proof. All
+--   distributed outputs are verified as members of the accumulator in a
+--   single proof.
+headIsFinalizedWith :: ScriptHash -> ScriptContext -> ClosedDatum -> Integer -> BuiltinBLS12_381_G1_Element -> TxOutRef -> Bool
+
+-- | Verify a partial fanout transaction. Transitions either Closed →
+--   FanoutProgress or FanoutProgress → FanoutProgress: distributes a
+--   subset of UTxOs and continues with a smaller FanoutProgressDatum.
+--   
+--   The continuing head output must be the first transaction output.
+--   Distributed UTxOs follow at indices [1 .. numberOfPartialOutputs].
+checkPartialFanout :: ScriptHash -> ScriptContext -> FanoutProgressDatum -> Integer -> TxOutRef -> Bool
+
+-- | Verify the final partial fanout transaction. Transitions
+--   FanoutProgress → Final: distributes all remaining UTxOs and burns all
+--   head tokens.
+--   
+--   Unlike intermediate steps, there is no continuing head output. All
+--   distributed UTxOs start at index 0. Tokens must be burned.
+--   
+--   Note: headId, parties, and contestationDeadline are not re-verified
+--   explicitly. headId and parties are validated implicitly by
+--   mustBurnAllHeadTokens (wrong values would target the wrong token set).
+--   contestationDeadline was locked in by earlier checkPartialFanout steps
+--   and is trustworthy from the on-chain datum.
+checkFinalPartialFanout :: ScriptHash -> ScriptContext -> FanoutProgressDatum -> Integer -> BuiltinBLS12_381_G1_Element -> TxOutRef -> Bool
+isG1Generator :: BuiltinBLS12_381_G1_Element -> Bool
 makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 
 -- | This is safe only because usually Head transaction only consume one
@@ -569,25 +646,50 @@ makeContestationDeadline :: ContestationPeriod -> ScriptContext -> POSIXTime
 getHeadInput :: ScriptContext -> TxInInfo
 getHeadAddress :: ScriptContext -> Address
 mustNotChangeParameters :: ([Party], [Party]) -> (ContestationPeriod, ContestationPeriod) -> (CurrencySymbol, CurrencySymbol) -> Bool
+mustPreserveHeadAdaOverhead :: Integer -> Integer -> Bool
 mustBeSignedByParticipant :: ScriptContext -> CurrencySymbol -> Bool
 findParticipationTokens :: CurrencySymbol -> Value -> [TokenName]
 headOutputDatum :: ScriptContext -> Datum
 getTxOutDatum :: TxOut -> Datum
 
 -- | Verify the multi-signature of a snapshot using given constituents
---   <a>ClosedDatum</a>, <a>ClosedDatum</a>, <tt>number</tt>,
---   <a>ClosedDatum</a> and <tt>utxoToDecommitHash</tt>. See
---   'SignableRepresentation Snapshot' for more details.
-verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> [Signature] -> Bool
+--   <a>FanoutProgressDatum</a>, <a>ClosedDatum</a>, <tt>number</tt>, and
+--   <a>ContestRedeemer</a>. See 'SignableRepresentation Snapshot' for more
+--   details.
+verifySnapshotSignature :: [Party] -> (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash) -> [Signature] -> Bool
 
 -- | Verify individual party signature of a snapshot. See
 --   'SignableRepresentation Snapshot' for more details.
-verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash, Hash, Hash) -> Party -> Signature -> Bool
+verifyPartySignature :: (CurrencySymbol, SnapshotVersion, SnapshotNumber, Hash) -> Party -> Signature -> Bool
+unappliedValidator :: CompiledCode (ScriptHash -> ValidatorType)
 compiledValidator :: CompiledCode ValidatorType
 validatorScript :: PlutusScript
 decodeHeadOutputClosedDatum :: ScriptContext -> ClosedDatum
+decodeHeadOutputFanoutProgressDatum :: ScriptContext -> FanoutProgressDatum
 decodeHeadOutputOpenDatum :: ScriptContext -> OpenDatum
-emptyHash :: Hash
+
+-- | Check that the lower validity bound of the transaction is strictly
+--   after the contestation deadline. Used by all three fanout paths.
+afterContestationDeadline :: TxInfo -> POSIXTime -> Bool
+
+-- | Find a CRS reference input by <a>TxOutRef</a> and decode its non-empty
+--   datum. Errors on missing input, undecoded datum, or empty CRS list.
+resolveCRS :: TxInfo -> TxOutRef -> (TxOut, CRSDatum)
+
+-- | Look up the CRS datum from a reference input and pass it to a
+--   continuation. Verifies that the reference input carries the expected
+--   CRS validator script hash.
+withCRSLookup :: ScriptHash -> TxInfo -> TxOutRef -> (CRSDatum -> Bool) -> Bool
+
+-- | Compute the accumulator scalar for each output in the list. Used by
+--   all three fanout validators (<a>headIsFinalizedWith</a>,
+--   <a>checkPartialFanout</a>, <a>checkFinalPartialFanout</a>) to produce
+--   subset scalars for <a>checkMembershipPairing</a>. Each scalar is
+--   blake2b_224(hashTxOuts [txOut]), which equals
+--   blake2b_224(sha2_256(serialised)) because <a>hashTxOuts</a> uses
+--   sha2_256 internally (matching what <a>addElement</a> computes
+--   off-chain).
+txOutsToSubsetScalars :: [TxOut] -> [Integer]
 
 
 -- | Minting policy for a single head tokens.
@@ -657,7 +759,7 @@ module Hydra.Contract
 
 -- | Information about relevant Hydra scripts.
 data HydraScriptCatalogue
-HydraScriptCatalogue :: ScriptHash -> Int -> ScriptHash -> Int -> ScriptHash -> Int -> HydraScriptCatalogue
+HydraScriptCatalogue :: ScriptHash -> Int -> ScriptHash -> Int -> ScriptHash -> Int -> ScriptHash -> Int -> HydraScriptCatalogue
 
 -- | Hash of the μHead minting script given some default parameters.
 [mintingScriptHash] :: HydraScriptCatalogue -> ScriptHash
@@ -668,6 +770,8 @@ HydraScriptCatalogue :: ScriptHash -> Int -> ScriptHash -> Int -> ScriptHash -> 
 [headScriptSize] :: HydraScriptCatalogue -> Int
 [depositScriptHash] :: HydraScriptCatalogue -> ScriptHash
 [depositScriptSize] :: HydraScriptCatalogue -> Int
+[crsScriptHash] :: HydraScriptCatalogue -> ScriptHash
+[crsScriptSize] :: HydraScriptCatalogue -> Int
 
 -- | Gather <a>HydraScriptCatalogue</a> from the current Hydra scripts.
 --   This is useful to determine changes in between version of

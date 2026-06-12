@@ -1,0 +1,337 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.TUI.Drawing.EventHistoryTab</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Brick</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Brick.Widgets.Border</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">borderWithLabel</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">hBorderWithLabel</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Brick.Widgets.List</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">BrickList</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.html"><span class="hs-identifier">Data.Time</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Format.Locale.html#defaultTimeLocale"><span class="hs-identifier">defaultTimeLocale</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Format.Format.Class.html#formatTime"><span class="hs-identifier">formatTime</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.html"><span class="hs-identifier">Data.Time.LocalTime</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.Internal.TimeZone.html#TimeZone"><span class="hs-identifier">TimeZone</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.Internal.LocalTime.html#utcToLocalTime"><span class="hs-identifier">utcToLocalTime</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html"><span class="hs-identifier">Hydra.TUI.Logging.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#EventHistoryFilter"><span class="hs-identifier">EventHistoryFilter</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier">LogMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#Severity"><span class="hs-identifier">Severity</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html"><span class="hs-identifier">Hydra.TUI.Model</span></a></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.TUI.Style.html"><span class="hs-identifier">Hydra.TUI.Style</span></a></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Lens.Micro</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-operator">(^.)</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-comment">-- | Render the Event History tab: a scrollable list of past log messages with</span><span>
+</span><span id="line-16"></span><span class="hs-comment">-- a detail pane showing the selected entry (summary or raw JSON).</span><span>
+</span><span id="line-17"></span><span class="annot"><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventHistoryTab"><span class="hs-identifier hs-type">drawEventHistoryTab</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#RootState"><span class="hs-identifier hs-type">RootState</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#Name"><span class="hs-identifier hs-type">Name</span></a></span><span>
+</span><span id="line-18"></span><span id="drawEventHistoryTab"><span class="annot"><span class="annottext">drawEventHistoryTab :: RootState -&gt; Widget Text
+</span><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventHistoryTab"><span class="hs-identifier hs-var hs-var">drawEventHistoryTab</span></a></span></span><span> </span><span id="local-6989586621679494736"><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679494736"><span class="hs-identifier hs-var">s</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="annottext">Widget Text -&gt; Widget Text -&gt; Widget Text
+forall n. Widget n -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">borderWithLabel</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#neutral"><span class="hs-identifier hs-var">neutral</span></a></span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679494740"><span class="hs-identifier hs-var">headerLabel</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><span class="annottext">[Widget Text] -&gt; Widget Text
+forall n. [Widget n] -&gt; Widget n
+</span><span class="hs-identifier hs-var">vBox</span></span><span>
+</span><span id="line-21"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Widget Text -&gt; Widget Text
+forall n. Int -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">vLimitPercent</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">50</span></span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; LogMessage -&gt; Widget Text)
+-&gt; Bool -&gt; GenericList Text Vector LogMessage -&gt; Widget Text
+forall (t :: * -&gt; *) n e.
+(Traversable t, Splittable t, Ord n, Show n) =&gt;
+(Bool -&gt; e -&gt; Widget n) -&gt; Bool -&gt; GenericList n t e -&gt; Widget n
+</span><span class="hs-identifier hs-var">BrickList.renderList</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TimeZone -&gt; Bool -&gt; LogMessage -&gt; Widget Text
+</span><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventListItem"><span class="hs-identifier hs-var">drawEventListItem</span></a></span><span> </span><span class="annot"><span class="annottext">TimeZone
+</span><a href="#local-6989586621679494745"><span class="hs-identifier hs-var">tz</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679494736"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+-&gt; Getting
+     (GenericList Text Vector LogMessage)
+     RootState
+     (GenericList Text Vector LogMessage)
+-&gt; GenericList Text Vector LogMessage
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (GenericList Text Vector LogMessage)
+  RootState
+  (GenericList Text Vector LogMessage)
+Lens' RootState (GenericList Text Vector LogMessage)
+</span><a href="Hydra.TUI.Model.html#eventHistoryListL"><span class="hs-identifier hs-var">eventHistoryListL</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Widget Text -&gt; Widget Text
+forall n. Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">hBorderWithLabel</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#neutral"><span class="hs-identifier hs-var">neutral</span></a></span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679494747"><span class="hs-identifier hs-var">detailLabel</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ViewportType -&gt; Widget Text -&gt; Widget Text
+forall n.
+(Ord n, Show n) =&gt;
+n -&gt; ViewportType -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">viewport</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;event-detail&quot;</span></span><span> </span><span class="annot"><span class="annottext">ViewportType
+</span><span class="hs-identifier hs-var">Vertical</span></span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-24"></span><span>          </span><span class="annot"><span class="annottext">Int -&gt; Widget Text -&gt; Widget Text
+forall n. Int -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">padLeftRight</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-25"></span><span>            </span><span class="annot"><span class="annottext">TimeZone -&gt; Bool -&gt; Maybe (Int, LogMessage) -&gt; Widget Text
+</span><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventDetail"><span class="hs-identifier hs-var">drawEventDetail</span></a></span><span> </span><span class="annot"><span class="annottext">TimeZone
+</span><a href="#local-6989586621679494745"><span class="hs-identifier hs-var">tz</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494752"><span class="hs-identifier hs-var">rawView</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">GenericList Text Vector LogMessage -&gt; Maybe (Int, LogMessage)
+forall (t :: * -&gt; *) e n.
+(Splittable t, Traversable t, Semigroup (t e)) =&gt;
+GenericList n t e -&gt; Maybe (Int, e)
+</span><span class="hs-identifier hs-var">BrickList.listSelectedElement</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679494736"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+-&gt; Getting
+     (GenericList Text Vector LogMessage)
+     RootState
+     (GenericList Text Vector LogMessage)
+-&gt; GenericList Text Vector LogMessage
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting
+  (GenericList Text Vector LogMessage)
+  RootState
+  (GenericList Text Vector LogMessage)
+Lens' RootState (GenericList Text Vector LogMessage)
+</span><a href="Hydra.TUI.Model.html#eventHistoryListL"><span class="hs-identifier hs-var">eventHistoryListL</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-27"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>  </span><span id="local-6989586621679494745"><span class="annot"><span class="annottext">tz :: TimeZone
+</span><a href="#local-6989586621679494745"><span class="hs-identifier hs-var hs-var">tz</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679494736"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting TimeZone RootState TimeZone -&gt; TimeZone
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting TimeZone RootState TimeZone
+Lens' RootState TimeZone
+</span><a href="Hydra.TUI.Model.html#timeZoneL"><span class="hs-identifier hs-var">timeZoneL</span></a></span><span>
+</span><span id="line-29"></span><span>  </span><span id="local-6989586621679494752"><span class="annot"><span class="annottext">rawView :: Bool
+</span><a href="#local-6989586621679494752"><span class="hs-identifier hs-var hs-var">rawView</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679494736"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState -&gt; Getting Bool RootState Bool -&gt; Bool
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting Bool RootState Bool
+Lens' RootState Bool
+</span><a href="Hydra.TUI.Model.html#eventDetailRawL"><span class="hs-identifier hs-var">eventDetailRawL</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span id="local-6989586621679494747"><span class="annot"><span class="annottext">detailLabel :: Text
+</span><a href="#local-6989586621679494747"><span class="hs-identifier hs-var hs-var">detailLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494752"><span class="hs-identifier hs-var">rawView</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; Detail (raw)  d:summary &quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; Detail  d:raw &quot;</span></span><span>
+</span><span id="line-31"></span><span>  </span><span id="local-6989586621679494740"><span class="annot"><span class="annottext">headerLabel :: Text
+</span><a href="#local-6989586621679494740"><span class="hs-identifier hs-var hs-var">headerLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">RootState
+</span><a href="#local-6989586621679494736"><span class="hs-identifier hs-var">s</span></a></span><span> </span><span class="annot"><span class="annottext">RootState
+-&gt; Getting EventHistoryFilter RootState EventHistoryFilter
+-&gt; EventHistoryFilter
+forall s a. s -&gt; Getting a s a -&gt; a
+</span><span class="hs-operator hs-var">^.</span></span><span> </span><span class="annot"><span class="annottext">Getting EventHistoryFilter RootState EventHistoryFilter
+Lens' RootState EventHistoryFilter
+</span><a href="Hydra.TUI.Model.html#eventHistoryFilterL"><span class="hs-identifier hs-var">eventHistoryFilterL</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">EventHistoryFilter
+</span><a href="Hydra.TUI.Logging.Types.html#ShowAll"><span class="hs-identifier hs-var">ShowAll</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; Event History &quot;</span></span><span>
+</span><span id="line-33"></span><span>    </span><span class="annot"><span class="annottext">EventHistoryFilter
+</span><a href="Hydra.TUI.Logging.Types.html#ErrorsOnly"><span class="hs-identifier hs-var">ErrorsOnly</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; Event History &#183; errors only (e:show all) &quot;</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- | Render a single log entry for display in event lists.</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- Also used by 'drawMainTab' for the recent-events strip.</span><span>
+</span><span id="line-37"></span><span class="annot"><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventListItem"><span class="hs-identifier hs-type">drawEventListItem</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.Internal.TimeZone.html#TimeZone"><span class="hs-identifier hs-type">TimeZone</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#Name"><span class="hs-identifier hs-type">Name</span></a></span><span>
+</span><span id="line-38"></span><span id="drawEventListItem"><span class="annot"><span class="annottext">drawEventListItem :: TimeZone -&gt; Bool -&gt; LogMessage -&gt; Widget Text
+</span><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventListItem"><span class="hs-identifier hs-var hs-var">drawEventListItem</span></a></span></span><span> </span><span id="local-6989586621679494759"><span class="annot"><span class="annottext">TimeZone
+</span><a href="#local-6989586621679494759"><span class="hs-identifier hs-var">tz</span></a></span></span><span> </span><span id="local-6989586621679494760"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494760"><span class="hs-identifier hs-var">selected</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span class="hs-special">{</span><span id="local-6989586621679494762"><span class="annot"><span class="annottext">Text
+message :: Text
+message :: LogMessage -&gt; Text
+</span><a href="#local-6989586621679494762"><span class="hs-identifier hs-var hs-var">message</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494764"><span class="annot"><span class="annottext">Severity
+severity :: Severity
+severity :: LogMessage -&gt; Severity
+</span><a href="#local-6989586621679494764"><span class="hs-identifier hs-var hs-var">severity</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494766"><span class="annot"><span class="annottext">UTCTime
+time :: UTCTime
+time :: LogMessage -&gt; UTCTime
+</span><a href="#local-6989586621679494766"><span class="hs-identifier hs-var hs-var">time</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679494768"><span class="annot"><span class="annottext">ts :: String
+</span><a href="#local-6989586621679494768"><span class="hs-identifier hs-var hs-var">ts</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TimeLocale -&gt; String -&gt; LocalTime -&gt; String
+forall t. FormatTime t =&gt; TimeLocale -&gt; String -&gt; t -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Format.Format.Class.html#formatTime"><span class="hs-identifier hs-var">formatTime</span></a></span><span> </span><span class="annot"><span class="annottext">TimeLocale
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Format.Locale.html#defaultTimeLocale"><span class="hs-identifier hs-var">defaultTimeLocale</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;%b %d %H:%M:%S&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TimeZone -&gt; UTCTime -&gt; LocalTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.Internal.LocalTime.html#utcToLocalTime"><span class="hs-identifier hs-var">utcToLocalTime</span></a></span><span> </span><span class="annot"><span class="annottext">TimeZone
+</span><a href="#local-6989586621679494759"><span class="hs-identifier hs-var">tz</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679494766"><span class="hs-identifier hs-var">time</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>      </span><span id="local-6989586621679494769"><span class="annot"><span class="annottext">line :: Widget Text
+</span><a href="#local-6989586621679494769"><span class="hs-identifier hs-var hs-var">line</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Widget Text
+forall n. String -&gt; Widget n
+</span><span class="hs-identifier hs-var">str</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679494768"><span class="hs-identifier hs-var">ts</span></a></span><span> </span><span class="annot"><span class="annottext">Widget Text -&gt; Widget Text -&gt; Widget Text
+forall n. Widget n -&gt; Widget n -&gt; Widget n
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;  &quot;</span></span><span> </span><span class="annot"><span class="annottext">Widget Text -&gt; Widget Text -&gt; Widget Text
+forall n. Widget n -&gt; Widget n -&gt; Widget n
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679494772"><span class="hs-identifier hs-var">severityIcon</span></a></span><span> </span><span class="annot"><span class="annottext">Widget Text -&gt; Widget Text -&gt; Widget Text
+forall n. Widget n -&gt; Widget n -&gt; Widget n
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;  &quot;</span></span><span> </span><span class="annot"><span class="annottext">Widget Text -&gt; Widget Text -&gt; Widget Text
+forall n. Widget n -&gt; Widget n -&gt; Widget n
+</span><span class="hs-operator hs-var">&lt;+&gt;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679494762"><span class="hs-identifier hs-var">message</span></a></span><span>
+</span><span id="line-41"></span><span>      </span><span id="local-6989586621679494773"><span class="annot"><span class="annottext">styled :: Widget Text
+</span><a href="#local-6989586621679494773"><span class="hs-identifier hs-var hs-var">styled</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Severity
+</span><a href="#local-6989586621679494764"><span class="hs-identifier hs-var">severity</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-42"></span><span>        </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Success"><span class="hs-identifier hs-var">Success</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#not"><span class="hs-identifier hs-var">not</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494760"><span class="hs-identifier hs-var">selected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#infoA"><span class="hs-identifier hs-var">infoA</span></a></span><span> </span><span class="annot"><span class="annottext">Widget Text
+</span><a href="#local-6989586621679494769"><span class="hs-identifier hs-var">line</span></a></span><span>
+</span><span id="line-43"></span><span>        </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Error"><span class="hs-identifier hs-var">Error</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#not"><span class="hs-identifier hs-var">not</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494760"><span class="hs-identifier hs-var">selected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#negative"><span class="hs-identifier hs-var">negative</span></a></span><span> </span><span class="annot"><span class="annottext">Widget Text
+</span><a href="#local-6989586621679494769"><span class="hs-identifier hs-var">line</span></a></span><span>
+</span><span id="line-44"></span><span>        </span><span class="annot"><span class="annottext">Severity
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Widget Text
+</span><a href="#local-6989586621679494769"><span class="hs-identifier hs-var">line</span></a></span><span>
+</span><span id="line-45"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494760"><span class="hs-identifier hs-var">selected</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><span class="hs-identifier hs-var">BrickList.listSelectedAttr</span></span><span> </span><span class="annot"><span class="annottext">Widget Text
+</span><a href="#local-6989586621679494773"><span class="hs-identifier hs-var">styled</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Widget Text
+</span><a href="#local-6989586621679494773"><span class="hs-identifier hs-var">styled</span></a></span><span>
+</span><span id="line-46"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-47"></span><span>  </span><span id="local-6989586621679494772"><span class="annot"><span class="annottext">severityIcon :: Text
+</span><a href="#local-6989586621679494772"><span class="hs-identifier hs-var hs-var">severityIcon</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Severity
+</span><a href="#local-6989586621679494764"><span class="hs-identifier hs-var">severity</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Success"><span class="hs-identifier hs-var">Success</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&#10003;&quot;</span></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Info"><span class="hs-identifier hs-var">Info</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&#183;&quot;</span></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Error"><span class="hs-identifier hs-var">Error</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;&#10007;&quot;</span></span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="annot"><span class="hs-comment">-- | Render the detail pane for a selected event, either as a summary or the raw JSON.</span></span><span>
+</span><span id="line-53"></span><span class="annot"><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventDetail"><span class="hs-identifier hs-type">drawEventDetail</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.Internal.TimeZone.html#TimeZone"><span class="hs-identifier hs-type">TimeZone</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Widget</span></span><span> </span><span class="annot"><a href="Hydra.TUI.Model.html#Name"><span class="hs-identifier hs-type">Name</span></a></span><span>
+</span><span id="line-54"></span><span id="drawEventDetail"><span class="annot"><span class="annottext">drawEventDetail :: TimeZone -&gt; Bool -&gt; Maybe (Int, LogMessage) -&gt; Widget Text
+</span><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventDetail"><span class="hs-identifier hs-var hs-var">drawEventDetail</span></a></span></span><span> </span><span class="annot"><span class="annottext">TimeZone
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">Maybe (Int, LogMessage)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="annot"><span class="annottext">AttrName
+</span><a href="Hydra.TUI.Style.html#neutral"><span class="hs-identifier hs-var">neutral</span></a></span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;No event selected.&quot;</span></span><span>
+</span><span id="line-55"></span><span class="annot"><a href="Hydra.TUI.Drawing.EventHistoryTab.html#drawEventDetail"><span class="hs-identifier hs-var">drawEventDetail</span></a></span><span> </span><span id="local-6989586621679494781"><span class="annot"><span class="annottext">TimeZone
+</span><a href="#local-6989586621679494781"><span class="hs-identifier hs-var">tz</span></a></span></span><span> </span><span id="local-6989586621679494782"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494782"><span class="hs-identifier hs-var">rawView</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.TUI.Logging.Types.html#LogMessage"><span class="hs-identifier hs-type">LogMessage</span></a></span><span class="hs-special">{</span><span id="local-6989586621679494783"><span class="annot"><span class="annottext">Text
+detail :: Text
+detail :: LogMessage -&gt; Text
+</span><a href="#local-6989586621679494783"><span class="hs-identifier hs-var hs-var">detail</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494785"><span class="annot"><span class="annottext">Severity
+severity :: LogMessage -&gt; Severity
+severity :: Severity
+</span><a href="Hydra.TUI.Logging.Types.html#severity"><span class="hs-identifier hs-var hs-var">severity</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494786"><span class="annot"><span class="annottext">UTCTime
+time :: LogMessage -&gt; UTCTime
+time :: UTCTime
+</span><a href="Hydra.TUI.Logging.Types.html#time"><span class="hs-identifier hs-var hs-var">time</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679494787"><span class="annot"><span class="annottext">Text
+rawJson :: Text
+rawJson :: LogMessage -&gt; Text
+</span><a href="#local-6989586621679494787"><span class="hs-identifier hs-var hs-var">rawJson</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">[Widget Text] -&gt; Widget Text
+forall n. [Widget n] -&gt; Widget n
+</span><span class="hs-identifier hs-var">vBox</span></span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">[Widget Text] -&gt; Widget Text
+forall n. [Widget n] -&gt; Widget n
+</span><span class="hs-identifier hs-var">hBox</span></span><span>
+</span><span id="line-58"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">AttrName -&gt; Widget Text -&gt; Widget Text
+forall n. AttrName -&gt; Widget n -&gt; Widget n
+</span><span class="hs-identifier hs-var">withAttr</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Severity -&gt; AttrName
+</span><a href="Hydra.TUI.Style.html#severityToAttr"><span class="hs-identifier hs-var">severityToAttr</span></a></span><span> </span><span class="annot"><span class="annottext">Severity
+</span><a href="#local-6989586621679494785"><span class="hs-identifier hs-var">severity</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Widget Text -&gt; Widget Text) -&gt; Widget Text -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Severity -&gt; Text
+</span><a href="#local-6989586621679494791"><span class="hs-identifier hs-var">severityLabel</span></a></span><span> </span><span class="annot"><span class="annottext">Severity
+</span><a href="#local-6989586621679494785"><span class="hs-identifier hs-var">severity</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;  &quot;</span></span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">String -&gt; Widget Text
+forall n. String -&gt; Widget n
+</span><span class="hs-identifier hs-var">str</span></span><span> </span><span class="annot"><span class="annottext">(String -&gt; Widget Text) -&gt; String -&gt; Widget Text
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TimeLocale -&gt; String -&gt; LocalTime -&gt; String
+forall t. FormatTime t =&gt; TimeLocale -&gt; String -&gt; t -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Format.Format.Class.html#formatTime"><span class="hs-identifier hs-var">formatTime</span></a></span><span> </span><span class="annot"><span class="annottext">TimeLocale
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Format.Locale.html#defaultTimeLocale"><span class="hs-identifier hs-var">defaultTimeLocale</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;%b %d %Y  %H:%M:%S&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TimeZone -&gt; UTCTime -&gt; LocalTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.LocalTime.Internal.LocalTime.html#utcToLocalTime"><span class="hs-identifier hs-var">utcToLocalTime</span></a></span><span> </span><span class="annot"><span class="annottext">TimeZone
+</span><a href="#local-6989586621679494781"><span class="hs-identifier hs-var">tz</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679494786"><span class="hs-identifier hs-var">time</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-62"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txt</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; &quot;</span></span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Widget Text
+</span><a href="#local-6989586621679494792"><span class="hs-identifier hs-var">body</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="hs-special">]</span><span>
+</span><span id="line-65"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621679494791"><span class="annot"><span class="annottext">severityLabel :: Severity -&gt; Text
+</span><a href="#local-6989586621679494791"><span class="hs-identifier hs-var hs-var">severityLabel</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Success"><span class="hs-identifier hs-var">Success</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Success&quot;</span></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Info"><span class="hs-identifier hs-var">Info</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Info&quot;</span></span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">Severity
+</span><a href="Hydra.TUI.Logging.Types.html#Error"><span class="hs-identifier hs-var">Error</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Error&quot;</span></span><span>
+</span><span id="line-70"></span><span>  </span><span id="local-6989586621679494792"><span class="annot"><span class="annottext">body :: Widget Text
+</span><a href="#local-6989586621679494792"><span class="hs-identifier hs-var hs-var">body</span></a></span></span><span>
+</span><span id="line-71"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679494782"><span class="hs-identifier hs-var">rawView</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txtWrap</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679494787"><span class="hs-identifier hs-var">rawJson</span></a></span><span>
+</span><span id="line-72"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Widget Text
+forall n. Text -&gt; Widget n
+</span><span class="hs-identifier hs-var">txtWrap</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679494783"><span class="hs-identifier hs-var">detail</span></a></span><span>
+</span><span id="line-73"></span></pre></body></html>

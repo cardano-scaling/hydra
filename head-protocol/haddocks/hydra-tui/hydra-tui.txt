@@ -4,17 +4,69 @@
 
 -- | TUI for managing a Hydra node
 @package hydra-tui
-@version 2.0.0
+@version 2.2.0
 
-module Hydra.TUI.Drawing.Utils
-drawHex :: SerialiseAsRawBytes a => a -> Widget n
-drawShow :: forall a n. Show a => a -> Widget n
-maybeWidget :: (a -> Widget n) -> Maybe a -> Widget n
-ellipsize :: Int -> Text -> Text
+module Hydra.TUI.Config
+data Theme
+DarkTheme :: Theme
+LightTheme :: Theme
+newtype TuiConfig
+TuiConfig :: Theme -> TuiConfig
+[theme] :: TuiConfig -> Theme
+
+-- | Default config used when no file is present or parsing fails.
+defaultConfig :: TuiConfig
+
+-- | Flip between dark and light themes.
+toggleTheme :: Theme -> Theme
+
+-- | Path to the persisted config:
+--   <tt>$XDG_CONFIG_HOME<i>hydra</i>tui-config.yaml</tt>.
+configFilePath :: IO FilePath
+
+-- | Load config from disk, falling back to <a>defaultConfig</a> on missing
+--   or unreadable files.
+readConfig :: IO TuiConfig
+
+-- | Persist the config to disk, creating the directory if necessary.
+--   Silently swallows IO errors so an unwritable config path never crashes
+--   the TUI.
+writeConfig :: TuiConfig -> IO ()
+
+-- | Parse the on-disk config text. Unrecognised content falls back to
+--   <a>defaultConfig</a>.
+parseConfig :: Text -> TuiConfig
+
+-- | Serialise the config to its on-disk text form.
+encodeConfig :: TuiConfig -> Text
+instance GHC.Show.Show Hydra.TUI.Config.Theme
+instance GHC.Classes.Eq Hydra.TUI.Config.Theme
+instance GHC.Show.Show Hydra.TUI.Config.TuiConfig
+instance GHC.Classes.Eq Hydra.TUI.Config.TuiConfig
 
 module Hydra.TUI.Forms
-utxoRadioField :: forall s e n. (s ~ (TxIn, TxOut CtxUTxO), n ~ Text) => Map TxIn (TxOut CtxUTxO) -> Form s e n
-depositIdRadioField :: forall s e n. (s ~ (TxId, TxIn, TxOut CtxUTxO), n ~ Text) => [(TxId, UTxO)] -> Form s e n
+
+-- | Render a UTxO entry as "txin#ix ↦ ₳ X.XXXXXX" for form labels. The
+--   TxIn is shortened to the last 10 characters of the hash plus its
+--   '#index' suffix.
+renderUTxOAsAda :: (TxIn, TxOut CtxUTxO) -> Text
+utxoRadioField :: forall s e n. (s ~ (TxIn, TxOut CtxUTxO), n ~ Text) => Map TxIn (TxOut CtxUTxO) -> Maybe (Form s e n)
+
+-- | Build a radio form for selecting one pending deposit (by <a>TxId</a>)
+--   to recover. The form yields just the <a>TxId</a> — the full UTxO
+--   breakdown is rendered separately in the recover detail panel (see
+--   <a>drawRecoverDetail</a>).
+depositIdRadioField :: forall s e n. (s ~ TxId, n ~ Text) => [(TxId, UTxO)] -> Maybe (Form s e n)
+
+-- | Like <a>depositIdRadioField</a>, but use <tt>desired</tt> as the
+--   initial selection if it is still present in the list (otherwise fall
+--   back to the first entry). Used when rebuilding the recovery form after
+--   the underlying <tt>pendingIncrements</tt> has changed.
+depositIdRadioFieldWith :: forall s e n. (s ~ TxId, n ~ Text) => Maybe TxId -> [(TxId, UTxO)] -> Maybe (Form s e n)
+
+-- | One-line summary of a pending deposit: shortened TxId plus the total
+--   lovelace across all its outputs.
+renderDepositSummary :: TxId -> UTxO -> Text
 confirmRadioField :: forall s e n. (s ~ Bool, n ~ Text) => Form s e n
 type LeftBracketChar = Char
 type CheckmarkChar = Char
@@ -28,18 +80,18 @@ Success :: Severity
 Info :: Severity
 Error :: Severity
 data LogMessage
-LogMessage :: Severity -> Text -> UTCTime -> LogMessage
+LogMessage :: Severity -> Text -> Text -> UTCTime -> Text -> LogMessage
 [severity] :: LogMessage -> Severity
 [message] :: LogMessage -> Text
+[detail] :: LogMessage -> Text
 [time] :: LogMessage -> UTCTime
-data LogVerbosity
-Short :: LogVerbosity
-Full :: LogVerbosity
-data LogState
-LogState :: [LogMessage] -> LogVerbosity -> LogState
+[rawJson] :: LogMessage -> Text
+data EventHistoryFilter
+ShowAll :: EventHistoryFilter
+ErrorsOnly :: EventHistoryFilter
+newtype LogState
+LogState :: [LogMessage] -> LogState
 [logMessages] :: LogState -> [LogMessage]
-[logVerbosity] :: LogState -> LogVerbosity
-logVerbosityL :: Lens' LogState LogVerbosity
 logMessagesL :: Lens' LogState [LogMessage]
 instance GHC.Generics.Generic Hydra.TUI.Logging.Types.Severity
 instance GHC.Show.Show Hydra.TUI.Logging.Types.Severity
@@ -47,14 +99,9 @@ instance GHC.Classes.Eq Hydra.TUI.Logging.Types.Severity
 instance GHC.Generics.Generic Hydra.TUI.Logging.Types.LogMessage
 instance GHC.Show.Show Hydra.TUI.Logging.Types.LogMessage
 instance GHC.Classes.Eq Hydra.TUI.Logging.Types.LogMessage
-instance GHC.Generics.Generic Hydra.TUI.Logging.Types.LogVerbosity
-instance GHC.Show.Show Hydra.TUI.Logging.Types.LogVerbosity
-instance GHC.Classes.Eq Hydra.TUI.Logging.Types.LogVerbosity
-
-module Hydra.TUI.Logging.Handlers
-report :: Severity -> UTCTime -> Text -> EventM n [LogMessage] ()
-info :: UTCTime -> Text -> EventM n [LogMessage] ()
-warn :: UTCTime -> Text -> EventM n [LogMessage] ()
+instance GHC.Generics.Generic Hydra.TUI.Logging.Types.EventHistoryFilter
+instance GHC.Show.Show Hydra.TUI.Logging.Types.EventHistoryFilter
+instance GHC.Classes.Eq Hydra.TUI.Logging.Types.EventHistoryFilter
 
 module Hydra.TUI.Style
 severityToAttr :: Severity -> AttrName
@@ -63,7 +110,79 @@ positive :: AttrName
 negative :: AttrName
 neutral :: AttrName
 own :: AttrName
-style :: s -> AttrMap
+activeTabA :: AttrName
+keyA :: AttrName
+pendingA :: AttrName
+headStateA :: AttrName
+actionDescA :: AttrName
+sectionHeaderA :: AttrName
+
+-- | Dark theme — optimised for dark terminal backgrounds. We deliberately
+--   use the bright ANSI palette for foreground colours so that text stays
+--   legible on a true-black background, where the dim variants (e.g. plain
+--   <tt>blue</tt> or <tt>brightBlack</tt>) blend into the background.
+darkStyle :: s -> AttrMap
+
+-- | Light theme — optimised for light terminal backgrounds.
+lightStyle :: s -> AttrMap
+
+module Hydra.TUI.Drawing.Utils
+
+-- | Render a <a>HeadId</a> as its hex-encoded bytes (matches the Main tab
+--   display).
+prettyHeadId :: HeadId -> Text
+
+-- | Render a <a>TxId</a> as its hex-encoded bytes (no quotes, no wrapper
+--   type).
+prettyTxId :: TxId -> Text
+drawHex :: SerialiseAsRawBytes a => a -> Widget n
+drawShow :: forall a n. Show a => a -> Widget n
+
+-- | Render a full address as text.
+drawAddress :: AddressInEra -> Widget n
+
+-- | Highlight the given address if it matches the own address.
+highlightOwnAddress :: AddressInEra -> AddressInEra -> Widget n
+
+-- | Render a UTxO map grouped by address, with ADA amounts and global
+--   1-based numbering across all entries (so users can confirm scrollable
+--   views are scrolling).
+drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
+
+-- | Render a single UTxO entry: index, last part of the TxIn, and ADA
+--   value. The TxIn is shortened to the last 10 characters of the hash
+--   plus its '#index' suffix, derived structurally so it stays correct if
+--   the rendering of <a>TxIn</a> ever changes width.
+drawUTxOEntryAda :: Int -> (TxIn, TxOut CtxUTxO) -> Widget n
+
+-- | Wrap a widget in a clickable, vertically scrollable viewport using a
+--   single name for both. The shared name lets the mouse-wheel handler
+--   (matching MouseDown on any clickable) target the corresponding
+--   viewport, and lets keyboard handlers scroll it by name too.
+scrollableViewport :: (Ord n, Show n) => n -> Widget n -> Widget n
+
+-- | Render a lovelace value as ADA with the ₳ symbol.
+renderAda :: Value -> Text
+
+-- | Format a time duration as "Xd Xh Xm Xs".
+renderTime :: (Ord t, Num t, FormatTime t) => t -> String
+
+-- | Animated spinner character cycling with wall-clock time.
+spinnerFrame :: UTCTime -> Text
+
+-- | Remaining contestation time, or a "ready to fan out" notice. Used by
+--   both the Main tab (head state panel) and the Funds tab (closed state).
+drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget n
+
+-- | Status message shown when the contestation period has passed and a
+--   fanout transaction can be submitted. Shared between the Main and Funds
+--   tabs so the wording matches.
+drawFanoutPossibleMessage :: Widget n
+
+-- | Status message shown when the head has been finalized, including the
+--   total ADA value of the distributed UTxO. Shared between the Main and
+--   Funds tabs so the wording matches.
+drawHeadFinalizedMessage :: UTxO -> Widget n
 
 module Hydra.TUI.Options
 data Options
@@ -97,11 +216,11 @@ ApiInvalidInput :: InvalidInput -> AllPossibleAPIMessages tx
 
 -- | Handle to interact with Hydra node
 data Client tx m
-Client :: (ClientInput tx -> m ()) -> SigningKey PaymentKey -> (UTxO -> m ()) -> (TxId -> m ()) -> Client tx m
+Client :: (ClientInput tx -> m ()) -> Secret (SigningKey PaymentKey) -> (UTxO -> m ()) -> (TxId -> m ()) -> Client tx m
 
 -- | Send some input to the server.
 [sendInput] :: Client tx m -> ClientInput tx -> m ()
-[sk] :: Client tx m -> SigningKey PaymentKey
+[sk] :: Client tx m -> Secret (SigningKey PaymentKey)
 [externalCommit] :: Client tx m -> UTxO -> m ()
 [recoverCommit] :: Client tx m -> TxId -> m ()
 
@@ -127,13 +246,52 @@ instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.Client.
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.Client.HydraEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Client.AllPossibleAPIMessages tx)
 
+module Hydra.TUI.RenderMessage
+
+-- | A fully-rendered API message, ready to be turned into a
+--   <a>LogMessage</a>. The three representations are kept separate so the
+--   TUI can show a short summary in lists, a structured detail view, and
+--   the raw JSON when the user toggles the detail pane.
+data RenderedMessage
+RenderedMessage :: Severity -> UTCTime -> Text -> Text -> Text -> RenderedMessage
+[$sel:rmSeverity:RenderedMessage] :: RenderedMessage -> Severity
+[$sel:rmTime:RenderedMessage] :: RenderedMessage -> UTCTime
+[$sel:rmSummary:RenderedMessage] :: RenderedMessage -> Text
+[$sel:rmDetail:RenderedMessage] :: RenderedMessage -> Text
+[$sel:rmRawJson:RenderedMessage] :: RenderedMessage -> Text
+
+-- | Render any API message into its three representations: summary,
+--   detail, raw JSON.
+renderMessage :: UTCTime -> AllPossibleAPIMessages Tx -> RenderedMessage
+
+-- | Convert a <a>RenderedMessage</a> to a <a>LogMessage</a>.
+toLogMessage :: RenderedMessage -> LogMessage
+
 module Hydra.TUI.Model
+
+-- | TUI-local event wrapper so we can inject async results alongside Hydra
+--   node events.
+data TUIEvent tx
+NodeEvent :: HydraEvent tx -> TUIEvent tx
+UTxOQueryResult :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
+L1UTxORefresh :: Map TxIn (TxOut CtxUTxO) -> TUIEvent tx
+TxBuildError :: Text -> TUIEvent tx
 data RootState
-RootState :: Host -> UTCTime -> ConnectedState -> LogState -> RootState
+RootState :: Host -> UTCTime -> TimeZone -> ConnectedState -> LogState -> ActiveTab -> Bool -> List Name LogMessage -> Maybe Text -> Maybe (Map TxIn (TxOut CtxUTxO)) -> ActiveTab -> Theme -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name) -> EventHistoryFilter -> RootState
 [$sel:nodeHost:RootState] :: RootState -> Host
 [$sel:now:RootState] :: RootState -> UTCTime
+[$sel:timeZone:RootState] :: RootState -> TimeZone
 [$sel:connectedState:RootState] :: RootState -> ConnectedState
 [$sel:logState:RootState] :: RootState -> LogState
+[$sel:activeTab:RootState] :: RootState -> ActiveTab
+[$sel:eventDetailRaw:RootState] :: RootState -> Bool
+[$sel:eventHistoryList:RootState] :: RootState -> List Name LogMessage
+[$sel:pendingAction:RootState] :: RootState -> Maybe Text
+[$sel:l1UTxO:RootState] :: RootState -> Maybe (Map TxIn (TxOut CtxUTxO))
+[$sel:previousTab:RootState] :: RootState -> ActiveTab
+[$sel:theme:RootState] :: RootState -> Theme
+[$sel:recoveryForm:RootState] :: RootState -> Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name)
+[$sel:eventHistoryFilter:RootState] :: RootState -> EventHistoryFilter
 
 -- | Connection to the hydra node.
 data ConnectedState
@@ -166,28 +324,27 @@ Connection :: IdentifiedState -> [(Host, PeerStatus)] -> Maybe NetworkState -> C
 [$sel:headState:Connection] :: Connection -> HeadState
 type UTxOCheckboxForm e n = Form (Map TxIn (TxOut CtxUTxO, Bool)) e n
 type UTxORadioFieldForm e n = Form (TxIn, TxOut CtxUTxO) e n
-type TxIdRadioFieldForm e n = Form (TxId, TxIn, TxOut CtxUTxO) e n
+type TxIdRadioFieldForm e n = Form TxId e n
 type ConfirmingRadioFieldForm e n = Form Bool e n
 data OpenScreen
 OpenHome :: OpenScreen
+LoadingUTxOForIncrement :: OpenScreen
 SelectingUTxO :: UTxORadioFieldForm (HydraEvent Tx) Name -> OpenScreen
 [$sel:selectingUTxOForm:OpenHome] :: OpenScreen -> UTxORadioFieldForm (HydraEvent Tx) Name
 SelectingUTxOToDecommit :: UTxORadioFieldForm (HydraEvent Tx) Name -> OpenScreen
 [$sel:selectingUTxOToDecommitForm:OpenHome] :: OpenScreen -> UTxORadioFieldForm (HydraEvent Tx) Name
 SelectingUTxOToIncrement :: UTxORadioFieldForm (HydraEvent Tx) Name -> OpenScreen
 [$sel:selectingUTxOToIncrementForm:OpenHome] :: OpenScreen -> UTxORadioFieldForm (HydraEvent Tx) Name
-SelectingDepositIdToRecover :: TxIdRadioFieldForm (HydraEvent Tx) Name -> OpenScreen
-[$sel:selectingDepositIdToRecoverForm:OpenHome] :: OpenScreen -> TxIdRadioFieldForm (HydraEvent Tx) Name
-EnteringAmount :: (TxIn, TxOut CtxUTxO) -> Form Integer (HydraEvent Tx) Name -> OpenScreen
+EnteringAmount :: (TxIn, TxOut CtxUTxO) -> Form Double (HydraEvent Tx) Name -> OpenScreen
 [$sel:utxoSelected:OpenHome] :: OpenScreen -> (TxIn, TxOut CtxUTxO)
-[$sel:enteringAmountForm:OpenHome] :: OpenScreen -> Form Integer (HydraEvent Tx) Name
-SelectingRecipient :: (TxIn, TxOut CtxUTxO) -> Integer -> Form SelectAddressItem (HydraEvent Tx) Name -> OpenScreen
+[$sel:enteringAmountForm:OpenHome] :: OpenScreen -> Form Double (HydraEvent Tx) Name
+SelectingRecipient :: (TxIn, TxOut CtxUTxO) -> Double -> Form SelectAddressItem (HydraEvent Tx) Name -> OpenScreen
 [$sel:utxoSelected:OpenHome] :: OpenScreen -> (TxIn, TxOut CtxUTxO)
-[$sel:amountEntered:OpenHome] :: OpenScreen -> Integer
+[$sel:amountEntered:OpenHome] :: OpenScreen -> Double
 [$sel:selectingRecipientForm:OpenHome] :: OpenScreen -> Form SelectAddressItem (HydraEvent Tx) Name
-EnteringRecipientAddress :: (TxIn, TxOut CtxUTxO) -> Integer -> Form AddressInEra (HydraEvent Tx) Name -> OpenScreen
+EnteringRecipientAddress :: (TxIn, TxOut CtxUTxO) -> Double -> Form AddressInEra (HydraEvent Tx) Name -> OpenScreen
 [$sel:utxoSelected:OpenHome] :: OpenScreen -> (TxIn, TxOut CtxUTxO)
-[$sel:amountEntered:OpenHome] :: OpenScreen -> Integer
+[$sel:amountEntered:OpenHome] :: OpenScreen -> Double
 [$sel:enteringRecipientAddressForm:OpenHome] :: OpenScreen -> Form AddressInEra (HydraEvent Tx) Name
 ConfirmingClose :: ConfirmingRadioFieldForm (HydraEvent Tx) Name -> OpenScreen
 [$sel:confirmingCloseForm:OpenHome] :: OpenScreen -> ConfirmingRadioFieldForm (HydraEvent Tx) Name
@@ -226,20 +383,34 @@ Closed :: ClosedState -> ActiveHeadState
 FanoutPossible :: ActiveHeadState
 Final :: ActiveHeadState
 type Name = Text
+data ActiveTab
+MainTab :: ActiveTab
+FundsTab :: ActiveTab
+EventHistoryTab :: ActiveTab
+ModalTab :: ActiveTab
 selectingUTxOToIncrementFormL :: Traversal' OpenScreen (UTxORadioFieldForm (HydraEvent Tx) Name)
 selectingUTxOToDecommitFormL :: Traversal' OpenScreen (UTxORadioFieldForm (HydraEvent Tx) Name)
 selectingUTxOFormL :: Traversal' OpenScreen (UTxORadioFieldForm (HydraEvent Tx) Name)
 selectingRecipientFormL :: Traversal' OpenScreen (Form SelectAddressItem (HydraEvent Tx) Name)
-selectingDepositIdToRecoverFormL :: Traversal' OpenScreen (TxIdRadioFieldForm (HydraEvent Tx) Name)
 enteringRecipientAddressFormL :: Traversal' OpenScreen (Form AddressInEra (HydraEvent Tx) Name)
-enteringAmountFormL :: Traversal' OpenScreen (Form Integer (HydraEvent Tx) Name)
+enteringAmountFormL :: Traversal' OpenScreen (Form Double (HydraEvent Tx) Name)
 confirmingCloseFormL :: Traversal' OpenScreen (ConfirmingRadioFieldForm (HydraEvent Tx) Name)
 openStateL :: Traversal' ActiveHeadState OpenScreen
 closedStateL :: Traversal' ActiveHeadState ClosedState
+timeZoneL :: Lens' RootState TimeZone
+themeL :: Lens' RootState Theme
+recoveryFormL :: Lens' RootState (Maybe (TxIdRadioFieldForm (HydraEvent Tx) Name))
+previousTabL :: Lens' RootState ActiveTab
+pendingActionL :: Lens' RootState (Maybe Text)
 nowL :: Lens' RootState UTCTime
 nodeHostL :: Lens' RootState Host
 logStateL :: Lens' RootState LogState
+l1UTxOL :: Lens' RootState (Maybe (Map TxIn (TxOut CtxUTxO)))
+eventHistoryListL :: Lens' RootState (List Name LogMessage)
+eventHistoryFilterL :: Lens' RootState EventHistoryFilter
+eventDetailRawL :: Lens' RootState Bool
 connectedStateL :: Lens' RootState ConnectedState
+activeTabL :: Lens' RootState ActiveTab
 connectionL :: Traversal' ConnectedState Connection
 peersL :: Lens' Connection [(Host, PeerStatus)]
 networkStateL :: Lens' Connection (Maybe NetworkState)
@@ -253,8 +424,11 @@ pendingIncrementsL :: Lens' ActiveLink [PendingIncrement]
 partiesL :: Lens' ActiveLink [Party]
 headIdL :: Lens' ActiveLink HeadId
 activeHeadStateL :: Lens' ActiveLink ActiveHeadState
-fullFeedbackViewportName :: Name
-shortFeedbackViewportName :: Name
+eventHistoryListName :: Name
+mainUTxOViewportName :: Name
+fundsL2ViewportName :: Name
+fundsL1ViewportName :: Name
+emptyEventHistoryList :: List Name LogMessage
 emptyConnection :: Connection
 newActiveLink :: [Party] -> HeadId -> ActiveLink
 isModalOpen :: RootState -> Bool
@@ -262,70 +436,201 @@ recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
 instance GHC.Show.Show Hydra.TUI.Model.SelectAddressItem
 instance GHC.Classes.Eq Hydra.TUI.Model.SelectAddressItem
 instance GHC.Show.Show Hydra.TUI.Model.PendingIncrementStatus
+instance GHC.Classes.Eq Hydra.TUI.Model.ActiveTab
 instance Prettyprinter.Internal.Pretty Hydra.TUI.Model.SelectAddressItem
 
+module Hydra.TUI.Drawing.EventHistoryTab
+
+-- | Render the Event History tab: a scrollable list of past log messages
+--   with a detail pane showing the selected entry (summary or raw JSON).
+drawEventHistoryTab :: RootState -> Widget Name
+
+-- | Render a single log entry for display in event lists. Also used by
+--   <tt>drawMainTab</tt> for the recent-events strip.
+drawEventListItem :: TimeZone -> Bool -> LogMessage -> Widget Name
+
+-- | Render the detail pane for a selected event, either as a summary or
+--   the raw JSON.
+drawEventDetail :: TimeZone -> Bool -> Maybe (Int, LogMessage) -> Widget Name
+
 module Hydra.TUI.Handlers
-handleEvent :: CardanoClient Era -> Client Tx IO -> BrickEvent Name (HydraEvent Tx) -> EventM Name RootState ()
+handleEvent :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> BrickEvent Name (TUIEvent Tx) -> EventM Name RootState ()
 handleTick :: HydraEvent Tx -> EventM Name RootState ()
 handleHydraEventsConnectedState :: HydraEvent Tx -> EventM Name ConnectedState ()
 handleHydraEventsConnection :: UTCTime -> HydraEvent Tx -> EventM Name Connection ()
 handleHydraEventsHeadState :: UTCTime -> HydraEvent Tx -> EventM Name HeadState ()
 handleHydraEventsActiveLink :: HydraEvent Tx -> EventM Name ActiveLink ()
-handleHydraEventsInfo :: HydraEvent Tx -> EventM Name [LogMessage] ()
-handleVtyEventsHeadState :: CardanoClient Era -> Client Tx IO -> Event -> EventM Name HeadState ()
-handleVtyEventsActiveLink :: CardanoClient Era -> Client Tx IO -> Event -> EventM Name ActiveLink ()
-handleVtyEventsActiveHeadState :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Event -> EventM Name ActiveHeadState ()
-handleVtyEventsOpen :: CardanoClient Era -> Client Tx IO -> UTxO -> [PendingIncrement] -> Event -> EventM Name OpenScreen ()
+handleHydraEventsLog :: UTCTime -> HydraEvent Tx -> EventM Name [LogMessage] ()
+handleVtyEventsHeadState :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> Event -> EventM Name HeadState ()
+handleVtyEventsActiveLink :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> Event -> EventM Name ActiveLink ()
+handleVtyEventsActiveHeadState :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> [PendingIncrement] -> Event -> EventM Name ActiveHeadState ()
+handleVtyEventsOpen :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> [PendingIncrement] -> Event -> EventM Name OpenScreen ()
 handleVtyEventsFanoutPossible :: Client Tx IO -> Event -> EventM Name s ()
 handleVtyEventsFinal :: Client Tx IO -> Event -> EventM Name s ()
-handleVtyEventsLogState :: Event -> EventM Name LogState ()
-scroll :: Direction -> EventM Name LogState ()
+handleVtyEventsScrollable :: Event -> EventM Name RootState ()
+syncEventHistoryList :: EventM Name RootState ()
+applyEventHistoryFilter :: EventHistoryFilter -> [LogMessage] -> [LogMessage]
+toggleEventHistoryFilter :: EventHistoryFilter -> EventHistoryFilter
 myAvailableUTxO :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Map TxIn (TxOut CtxUTxO)
-mkMyAddress :: CardanoClient Era -> Client Tx IO -> Address ShelleyAddr
+mkMyAddress :: CardanoClient -> Client Tx IO -> Address ShelleyAddr
+
+-- | Convert a user-entered ADA amount to lovelace. The TUI accepts amounts
+--   as <a>Double</a> for usability (typing decimals), so any precision
+--   finer than one lovelace is silently rounded. <a>Double</a> represents
+--   integers exactly up to 2^53 lovelace (~9e15), well above any realistic
+--   UTxO value, so the only practical loss is sub-lovelace fractional
+--   input from the user. The <a>min</a> clamp defends against
+--   floating-point overshoot of the form validator's upper bound.
+adaToLovelace :: Double -> Integer -> Integer
+setPendingAction :: Event -> EventM Name RootState ()
+
+-- | Read the current <a>OpenScreen</a>, if the head is currently
+--   <a>Open</a>.
+useOpenScreen :: EventM Name RootState (Maybe OpenScreen)
+
+-- | Mutate the current <a>OpenScreen</a>. No-op if the head isn't
+--   <a>Open</a>.
+zoomOpenScreen :: EventM Name OpenScreen () -> EventM Name RootState ()
+
+-- | Switch to the modal tab, remembering the currently-active tab so we
+--   can return to it later via <a>leaveModal</a>.
+enterModal :: EventM Name RootState ()
+
+-- | Return from the modal tab to whichever tab was active before.
+leaveModal :: EventM Name RootState ()
+
+-- | If the recovery modal is open, rebuild its form from the current
+--   <a>$sel:pendingIncrements:ActiveLink</a>. Keeps the user's selection
+--   if that deposit is still pending, otherwise falls back to the first
+--   entry. If the list is now empty (e.g. the selected deposit was
+--   finalized or recovered), close the modal and surface a message in the
+--   pending-action slot. Should be called after any node event that may
+--   mutate <a>$sel:pendingIncrements:ActiveLink</a>.
+refreshRecoveryForm :: EventM Name RootState ()
+
+-- | Run an IO action in a background thread, reporting any exception
+--   through the TUI's event channel as a <a>TxBuildError</a> (visible in
+--   the pending-action slot). <tt>cleanup</tt> events, if any, are written
+--   before the error so the TUI can reset transient loading state. Order
+--   matters — <a>TxBuildError</a> is written last so its message wins over
+--   anything <tt>cleanup</tt> might display.
+--   
+--   Forking is essential for any blocking call against the hydra-node or
+--   cardano-node: if the remote is unresponsive a synchronous call would
+--   block the brick event loop, leaving no way to press Esc or Ctrl-C.
+forkWithErrorReport :: BChan (TUIEvent Tx) -> Text -> [TUIEvent Tx] -> IO () -> IO ()
+
+-- | Query L1 UTxO at the given address in a background thread. On success,
+--   the result is wrapped via <tt>mkResult</tt> and written to the
+--   channel. On exception, an empty result is written first (so the TUI
+--   clears any loading-state spinner) followed by a <a>TxBuildError</a>
+--   with the real cause.
+queryL1UTxOAsync :: CardanoClient -> Address ShelleyAddr -> BChan (TUIEvent Tx) -> (Map TxIn (TxOut CtxUTxO) -> TUIEvent Tx) -> Text -> IO ()
+recoverCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> TxId -> IO ()
+externalCommitAsync :: Client Tx IO -> BChan (TUIEvent Tx) -> UTxO -> IO ()
+triggerL1Query :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
+triggerL1IfNeeded :: CardanoClient -> Client Tx IO -> BChan (TUIEvent Tx) -> EventM Name RootState ()
+cycleTab :: ActiveTab -> ActiveTab
+prevTab :: ActiveTab -> ActiveTab
+
+module Hydra.TUI.Drawing.MainTab
+
+-- | Render the Main tab: connection<i>network</i>chain status, peers, head
+--   parties, head state with UTxOs, and a strip of recent events.
+drawMainTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+
+-- | Render the API-connection status line (<a>Connected</a> / "Connecting
+--   to …").
+drawConnectedStatus :: RootState -> Widget n
+
+-- | Render the Hydra-network status line.
+drawNetworkState :: ConnectedState -> Widget n
+
+-- | Render the chain-sync status line ("In sync" / "Catching up").
+drawChainSyncedState :: ConnectedState -> Widget n
+
+-- | Render the peer list with per-peer connection state.
+drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
+
+-- | Render a single <a>Party</a> as its hex-encoded verification key with
+--   the given attribute.
+drawParty :: AttrName -> Party -> Widget n
+
+-- | Vertically stack a list of parties using the given renderer.
+drawParties :: (Party -> Widget n) -> [Party] -> Widget n
+
+-- | Render parties with the local party highlighted.
+drawPartiesWithOwnHighlighted :: Party -> [Party] -> Widget n
+
+module Hydra.TUI.Drawing.FundsTab
+
+-- | Render the Funds tab: the L2 head state (utxo, pending
+--   commits/decommits, active modal flow if any) above the L1 wallet
+--   refresh panel.
+drawFundsTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+
+-- | Render the L1 wallet panel: a spinner while the L1 query is in flight,
+--   otherwise the UTxO listing (or a placeholder when empty).
+drawL1WalletPanel :: Maybe (Map TxIn (TxOut CtxUTxO)) -> AddressInEra -> UTCTime -> Widget Name
+
+-- | The focus panel shows the active head state in detail. Used by both
+--   the Funds tab (L2 section) and the Modal tab.
+drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
+
+-- | Focus panel for an <a>Open</a> head: dispatches to home view or the
+--   active modal-form view.
+drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> [PendingIncrement] -> UTCTime -> OpenScreen -> Widget Name
+
+-- | Focus panel for a <a>Closed</a> head: contestation countdown, active
+--   UTxO, pending commits.
+drawFocusPanelClosed :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> ClosedState -> Widget Name
+
+-- | Focus panel when fanout is possible.
+drawFocusPanelFanout :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
+
+-- | Focus panel for a finalised head.
+drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> [PendingIncrement] -> UTCTime -> Widget Name
+
+-- | Shared "Pending commits" tail for the Funds tab's focus-panel variants
+--   (Closed, FanoutPossible, Final). Returns a list of widgets to be
+--   spliced into a surrounding <a>vBox</a>.
+drawPendingCommits :: AddressInEra -> [PendingIncrement] -> UTCTime -> [Widget Name]
+
+-- | Render the remaining time before a deposit becomes recoverable, or a
+--   "ready to recover" hint once the deadline has passed.
+drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
+
+-- | Render the list of pending deposit/increment entries with their
+--   status, UTxO outputs, and remaining deadline.
+drawPendingIncrement :: AddressInEra -> [PendingIncrement] -> UTCTime -> Widget Name
+
+-- | Render the recover modal: a radio list of pending deposit ids on top,
+--   and a detail panel for the currently-focused deposit (status,
+--   deadline, UTxO outputs) below. Keeps one selection per deposit instead
+--   of one per output.
+drawRecoverFormWithDetail :: AddressInEra -> Form TxId e Name -> [PendingIncrement] -> UTCTime -> Widget Name
+
+-- | Detail panel for one pending deposit: full TxId, current status,
+--   remaining time to the deposit deadline, and the per-output UTxO
+--   listing.
+drawRecoverDetail :: AddressInEra -> TxId -> [PendingIncrement] -> UTCTime -> Widget Name
 
 module Hydra.TUI.Drawing
 
--- | Main draw function
-draw :: CardanoClient Era -> Client Tx IO -> RootState -> [Widget Name]
-drawScreenShortLog :: CardanoClient Era -> Client Tx IO -> RootState -> [Widget Name]
-drawCommandPanel :: RootState -> Widget n
-drawScreenFullLog :: RootState -> [Widget Name]
-drawCommandList :: RootState -> Widget n
-drawLogCommandList :: LogVerbosity -> Widget n
-drawRemainingDepositDeadline :: UTCTime -> UTCTime -> Widget Name
-drawPendingIncrement :: AddressInEra -> [PendingIncrement] -> UTCTime -> Widget Name
-drawFocusPanelOpen :: NetworkId -> VerificationKey PaymentKey -> UTxO -> UTxO -> [PendingIncrement] -> UTCTime -> OpenScreen -> Widget Name
-drawFocusPanelClosed :: UTCTime -> ClosedState -> Widget Name
-drawFocusPanelFinal :: NetworkId -> VerificationKey PaymentKey -> UTxO -> Widget Name
-highlightOwnAddress :: AddressInEra -> AddressInEra -> Widget n
-drawFocusPanel :: NetworkId -> VerificationKey PaymentKey -> UTCTime -> Connection -> Widget Name
-drawRemainingContestationPeriod :: UTCTime -> UTCTime -> Widget Name
-drawPartiesWithOwnHighlighted :: Party -> [Party] -> Widget n
-drawUserFeedbackFull :: [LogMessage] -> Widget n
-drawUserFeedbackShort :: LogMessage -> Widget n
-drawParties :: (Party -> Widget n) -> [Party] -> Widget n
-drawHeadParticipants :: IdentifiedState -> [Party] -> Widget n
-drawIfConnected :: (Connection -> Widget n) -> ConnectedState -> Widget n
-drawIfActive :: (ActiveLink -> Widget n) -> HeadState -> Widget n
-drawNetworkState :: ConnectedState -> Widget n
-drawChainSyncedState :: ConnectedState -> Widget n
-drawPeers :: ConnectedState -> [(Host, PeerStatus)] -> Widget n
-drawHeadId :: HeadId -> Widget n
-drawMyAddress :: AddressInEra -> Widget n
-drawAddress :: AddressInEra -> Widget n
-drawMeIfIdentified :: IdentifiedState -> Widget n
-drawConnectedStatus :: RootState -> Widget n
-drawParty :: AttrName -> Party -> Widget n
-drawTUIVersion :: Version -> Widget n
-renderTime :: (Ord t, Num t, FormatTime t) => t -> String
-drawHeadState :: ConnectedState -> Widget n
-showHeadState :: HeadState -> String
-drawUTxO :: (AddressInEra -> Widget n) -> UTxO -> Widget n
+-- | Root draw function wiring together the tab bar, active tab, status
+--   bar, and action bar.
+draw :: CardanoClient -> Client Tx IO -> RootState -> [Widget Name]
+drawTabBar :: ActiveTab -> Text -> Text -> Widget n
+modalTabLabel :: RootState -> Text
+drawTab :: ActiveTab -> Text -> ActiveTab -> Widget n
+drawTabContent :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+drawModalTab :: CardanoClient -> Client Tx IO -> RootState -> Widget Name
+drawActionBar :: RootState -> Widget n
 
 module Hydra.TUI
 
 -- | Construct a <a>CardanoClient</a> handle.
-mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient Era
-mkBFClient :: NetworkId -> FilePath -> CardanoClient Era
+mkCardanoClient :: NetworkId -> SocketPath -> CardanoClient
+mkBFClient :: NetworkId -> FilePath -> CardanoClient
 runWithVty :: IO Vty -> Options -> IO RootState
 run :: Options -> IO RootState

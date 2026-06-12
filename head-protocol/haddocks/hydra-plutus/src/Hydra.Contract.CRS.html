@@ -1,0 +1,130 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE TemplateHaskell #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -fno-specialize #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:conservative-optimisation #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:defer-errors #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:optimize #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Contract.CRS</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><a href="Hydra.Contract.CRS.html#CRSDatum"><span class="hs-identifier">CRSDatum</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><a href="Hydra.Contract.CRS.html#checkMembershipPairing"><span class="hs-identifier">checkMembershipPairing</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidatorScript"><span class="hs-identifier">crsValidatorScript</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><a href="Hydra.Contract.CRS.html#validatorScript"><span class="hs-identifier">validatorScript</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-13"></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#filter"><span class="hs-identifier">filter</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldMap"><span class="hs-identifier">foldMap</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier">isJust</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#map"><span class="hs-identifier">map</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator">(&lt;$&gt;)</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator">(==)</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">PlutusScript</span></span><span class="hs-special">,</span><span> </span><span class="hs-keyword">pattern</span><span> </span><span class="annot"><span class="hs-identifier">PlutusScriptSerialised</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Plutus.Extras</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ValidatorType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">wrapValidator</span></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Plutus.Crypto.BlsUtils</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getFinalPoly</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getG2Commitment</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mkScalar</span></span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier">ScriptContext</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><span class="hs-identifier">serialiseCompiledCode</span></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CompiledCode</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">compile</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusTx.Builtins</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><span class="hs-identifier">BuiltinBLS12_381_G1_Element</span></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier">BuiltinBLS12_381_G2_Element</span></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><span class="hs-identifier">bls12_381_finalVerify</span></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier">bls12_381_millerLoop</span></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span class="hs-keyword">type</span><span> </span><span id="CRSDatum"><span class="annot"><a href="Hydra.Contract.CRS.html#CRSDatum"><span class="hs-identifier hs-var">CRSDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G2_Element</span></span><span class="hs-special">]</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- | Core BLS pairing check shared by full fanout and partial fanout.</span><span>
+</span><span id="line-34"></span><span class="hs-comment">--</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- Verifies the KZG membership pairing identity:</span><span>
+</span><span id="line-36"></span><span class="hs-comment">--</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- &gt; e(commitment, G2) = e(proof, P_S(&#964;)&#183;G2)</span><span>
+</span><span id="line-38"></span><span class="hs-comment">--</span><span>
+</span><span id="line-39"></span><span class="hs-comment">-- Argument mapping:</span><span>
+</span><span id="line-40"></span><span class="hs-comment">--</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- * @commitment@: A(&#964;)&#183;G1 &#8212; the accumulator commitment from the Closed datum</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- * @proof@: Q(&#964;)&#183;G1 &#8212; the quotient polynomial committed over G1, proving subset membership</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- * @crsG2@: @[G2, &#964;&#183;G2, ...]@ &#8212; used on-chain to compute @P_S(&#964;)&#183;G2@ via MSM</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- * @ints@: integer encodings of element hashes, defining @P_S(X) = &#8719;(X &#8722; s&#7522;)@</span><span>
+</span><span id="line-45"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.CRS.html#checkMembershipPairing"><span class="hs-pragma hs-type">checkMembershipPairing</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Hydra.Contract.CRS.html#checkMembershipPairing"><span class="hs-identifier hs-type">checkMembershipPairing</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G1_Element</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BuiltinBLS12_381_G1_Element</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-49"></span><span>  </span><span class="annot"><a href="Hydra.Contract.CRS.html#CRSDatum"><span class="hs-identifier hs-type">CRSDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-52"></span><span id="checkMembershipPairing"><span class="annot"><span class="annottext">checkMembershipPairing :: BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G1_Element -&gt; CRSDatum -&gt; [Integer] -&gt; Bool
+</span><a href="Hydra.Contract.CRS.html#checkMembershipPairing"><span class="hs-identifier hs-var hs-var">checkMembershipPairing</span></a></span></span><span> </span><span id="local-6989586621679518128"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679518128"><span class="hs-identifier hs-var">commitment</span></a></span></span><span> </span><span id="local-6989586621679518129"><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679518129"><span class="hs-identifier hs-var">proof</span></a></span></span><span> </span><span id="local-6989586621679518130"><span class="annot"><span class="annottext">CRSDatum
+</span><a href="#local-6989586621679518130"><span class="hs-identifier hs-var">crsG2</span></a></span></span><span> </span><span id="local-6989586621679518131"><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679518131"><span class="hs-identifier hs-var">ints</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">CRSDatum
+</span><a href="#local-6989586621679518130"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679518132"><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679518132"><span class="hs-identifier hs-var">g2</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">CRSDatum
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-56"></span><span>      </span><span class="annot"><span class="annottext">BuiltinBLS12_381_MlResult -&gt; BuiltinBLS12_381_MlResult -&gt; Bool
+</span><span class="hs-identifier hs-var">bls12_381_finalVerify</span></span><span>
+</span><span id="line-57"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G2_Element -&gt; BuiltinBLS12_381_MlResult
+</span><span class="hs-identifier hs-var">bls12_381_millerLoop</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679518128"><span class="hs-identifier hs-var">commitment</span></a></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G2_Element
+</span><a href="#local-6989586621679518132"><span class="hs-identifier hs-var">g2</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+-&gt; BuiltinBLS12_381_G2_Element -&gt; BuiltinBLS12_381_MlResult
+</span><span class="hs-identifier hs-var">bls12_381_millerLoop</span></span><span> </span><span class="annot"><span class="annottext">BuiltinBLS12_381_G1_Element
+</span><a href="#local-6989586621679518129"><span class="hs-identifier hs-var">proof</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CRSDatum -&gt; ScalarPoly -&gt; BuiltinBLS12_381_G2_Element
+</span><span class="hs-identifier hs-var">getG2Commitment</span></span><span> </span><span class="annot"><span class="annottext">CRSDatum
+</span><a href="#local-6989586621679518130"><span class="hs-identifier hs-var">crsG2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Scalar] -&gt; ScalarPoly
+</span><span class="hs-identifier hs-var">getFinalPoly</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Integer -&gt; Scalar) -&gt; [Integer] -&gt; [Scalar]
+forall a b. (a -&gt; b) -&gt; [a] -&gt; [b]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#fmap"><span class="hs-identifier hs-var">fmap</span></a></span><span> </span><span class="annot"><span class="annottext">Integer -&gt; Scalar
+</span><span class="hs-identifier hs-var">mkScalar</span></span><span> </span><span class="annot"><span class="annottext">[Integer]
+</span><a href="#local-6989586621679518131"><span class="hs-identifier hs-var">ints</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="hs-comment">-- | Validator for the CRS reference script UTxO.</span><span>
+</span><span id="line-61"></span><span class="hs-comment">--</span><span>
+</span><span id="line-62"></span><span class="hs-comment">-- This UTxO is published at an __AlwaysFails__ script address, meaning the</span><span>
+</span><span id="line-63"></span><span class="hs-comment">-- on-chain rules already make it unspendable &#8212; no transaction can ever</span><span>
+</span><span id="line-64"></span><span class="hs-comment">-- consume it regardless of what this validator returns.  Returning 'False'</span><span>
+</span><span id="line-65"></span><span class="hs-comment">-- here is therefore not strictly required, but it makes the intent</span><span>
+</span><span id="line-66"></span><span class="hs-comment">-- self-documenting: the CRS UTxO is a permanently locked datum carrier and</span><span>
+</span><span id="line-67"></span><span class="hs-comment">-- must never be spent.</span><span>
+</span><span id="line-68"></span><span class="hs-pragma">{-# INLINEABLE</span><span> </span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidator"><span class="hs-pragma hs-type">crsValidator</span></a></span><span> </span><span class="hs-pragma">#-}</span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidator"><span class="hs-identifier hs-type">crsValidator</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><a href="Hydra.Contract.CRS.html#CRSDatum"><span class="hs-identifier hs-type">CRSDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>  </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ScriptContext</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-74"></span><span id="crsValidator"><span class="annot"><span class="annottext">crsValidator :: CRSDatum -&gt; () -&gt; ScriptContext -&gt; Bool
+</span><a href="Hydra.Contract.CRS.html#crsValidator"><span class="hs-identifier hs-var hs-var">crsValidator</span></a></span></span><span> </span><span class="annot"><span class="annottext">CRSDatum
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">()
+</span><span class="hs-identifier">_</span></span><span> </span><span class="annot"><span class="annottext">ScriptContext
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-75"></span><span>
+</span><span id="line-76"></span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidatorScript"><span class="hs-identifier hs-type">crsValidatorScript</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">CompiledCode</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ValidatorType</span></span><span>
+</span><span id="line-77"></span><span id="crsValidatorScript"><span class="annot"><span class="annottext">crsValidatorScript :: CompiledCode ValidatorType
+</span><a href="Hydra.Contract.CRS.html#crsValidatorScript"><span class="hs-identifier hs-var hs-var">crsValidatorScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-78"></span><span>  </span><span class="hs-special">$$</span><span class="hs-special">(</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusTx.compile</span></span><span>
+</span><span id="line-79"></span><span>        </span><span class="hs-special">[||</span><span class="annot"><a href="#local-6989586621679518134"><span class="hs-identifier hs-type">wrap</span></a></span><span> </span><span class="annot"><a href="Hydra.Contract.CRS.html#crsValidator"><span class="hs-identifier hs-type">crsValidator</span></a></span><span class="hs-special">||]</span><span>
+</span><span id="line-80"></span><span>    </span><span class="hs-special">)</span><span>
+</span><span id="line-81"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679518134"><span class="annot"><span class="annottext">wrap :: (CRSDatum -&gt; () -&gt; ScriptContext -&gt; Bool) -&gt; ValidatorType
+</span><a href="#local-6989586621679518134"><span class="hs-identifier hs-var hs-var">wrap</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">forall datum redeemer.
+(UnsafeFromData datum, UnsafeFromData redeemer) =&gt;
+(datum -&gt; redeemer -&gt; ScriptContext -&gt; Bool) -&gt; ValidatorType
+</span><span class="hs-identifier hs-var">wrapValidator</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Contract.CRS.html#CRSDatum"><span class="hs-identifier hs-type">CRSDatum</span></a></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="annot"><a href="Hydra.Contract.CRS.html#validatorScript"><span class="hs-identifier hs-type">validatorScript</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">PlutusScript</span></span><span>
+</span><span id="line-85"></span><span id="validatorScript"><span class="annot"><span class="annottext">validatorScript :: PlutusScript
+</span><a href="Hydra.Contract.CRS.html#validatorScript"><span class="hs-identifier hs-var hs-var">validatorScript</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ShortByteString -&gt; PlutusScript
+</span><span class="hs-identifier hs-var">PlutusScriptSerialised</span></span><span> </span><span class="annot"><span class="annottext">(ShortByteString -&gt; PlutusScript)
+-&gt; ShortByteString -&gt; PlutusScript
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CompiledCode ValidatorType -&gt; ShortByteString
+forall a. CompiledCode a -&gt; ShortByteString
+</span><span class="hs-identifier hs-var">serialiseCompiledCode</span></span><span> </span><span class="annot"><span class="annottext">CompiledCode ValidatorType
+</span><a href="Hydra.Contract.CRS.html#crsValidatorScript"><span class="hs-identifier hs-var">crsValidatorScript</span></a></span><span>
+</span><span id="line-86"></span></pre></body></html>

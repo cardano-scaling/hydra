@@ -5,7 +5,7 @@
 -- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 2.0.0
+@version 2.2.0
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.
@@ -23,9 +23,9 @@ module Hydra.Cluster.Fixture
 alice :: Party
 bob :: Party
 carol :: Party
-aliceSk :: SigningKey HydraKey
-bobSk :: SigningKey HydraKey
-carolSk :: SigningKey HydraKey
+aliceSk :: Secret (SigningKey HydraKey)
+bobSk :: Secret (SigningKey HydraKey)
+carolSk :: Secret (SigningKey HydraKey)
 aliceVk :: VerificationKey HydraKey
 bobVk :: VerificationKey HydraKey
 carolVk :: VerificationKey HydraKey
@@ -145,12 +145,14 @@ module Hydra.Cluster.Util
 --   package's data path.
 readConfigFile :: FilePath -> IO ByteString
 
--- | Get the "well-known" keys for given actor.
-keysFor :: Actor -> IO (VerificationKey PaymentKey, SigningKey PaymentKey)
+-- | Get the "well-known" keys for given actor. The signing key is
+--   <a>Secret</a>-wrapped so callers cannot accidentally log or serialise
+--   it.
+keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 
--- | Create and save new signing key at the provided path. NOTE: Uses
---   <tt>TextEnvelope</tt> format.
-createAndSaveSigningKey :: FilePath -> IO (SigningKey PaymentKey)
+-- | Create and save new signing key at the provided path, returning the
+--   key <a>Secret</a>-wrapped. NOTE: Uses <tt>TextEnvelope</tt> format.
+createAndSaveSigningKey :: FilePath -> IO (Secret (SigningKey PaymentKey))
 
 -- | Expected time between blocks (on average)
 type BlockTime = NominalDiffTime
@@ -178,8 +180,8 @@ mkTestTiming' :: Int -> BlockTime -> Timing
 depositTimeout :: Timing -> NominalDiffTime
 
 -- | Create a (test) chain config for a given actor.
-chainConfigFor :: ChainBackend backend => HasCallStack => Actor -> FilePath -> backend -> [TxId] -> [Actor] -> Timing -> IO ChainConfig
-chainConfigFor' :: ChainBackend backend => HasCallStack => Actor -> FilePath -> backend -> [TxId] -> [Actor] -> ContestationPeriod -> DepositPeriod -> IO ChainConfig
+chainConfigFor :: HasCallStack => Actor -> FilePath -> ChainBackendOptions -> [TxId] -> [Actor] -> Timing -> IO ChainConfig
+chainConfigFor' :: HasCallStack => Actor -> FilePath -> ChainBackendOptions -> [TxId] -> [Actor] -> ContestationPeriod -> DepositPeriod -> IO ChainConfig
 modifyConfig :: (CardanoChainConfig -> CardanoChainConfig) -> ChainConfig -> ChainConfig
 setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
 instance GHC.Show.Show Hydra.Cluster.Util.Timing
@@ -197,34 +199,34 @@ TraceResourceExhaustedHandled :: Text -> FaucetLog
 ReturnedFunds :: Coin -> FaucetLog
 [$sel:returnAmount:TraceResourceExhaustedHandled] :: FaucetLog -> Coin
 SubmitTxError :: Text -> FaucetLog
-delayBF :: (MonadDelay m, ChainBackend backend) => backend -> m ()
-seedFromFaucet :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> IO UTxO
+delayBF :: MonadDelay m => ChainBackendOptions -> m ()
+seedFromFaucet :: ChainBackendOptions -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> IO UTxO
 
 -- | Create a specially marked "seed" UTXO containing requested
 --   <a>Value</a> by redeeming funds available to the well-known faucet.
-seedFromFaucetWithMinting :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
-findFaucetUTxO :: ChainBackend backend => NetworkId -> backend -> Coin -> IO UTxO
+seedFromFaucetWithMinting :: ChainBackendOptions -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> Maybe PlutusScript -> IO UTxO
+findFaucetUTxO :: NetworkId -> ChainBackendOptions -> Coin -> IO UTxO
 seedFromFaucetBlockfrost :: BlockfrostOptions -> VerificationKey PaymentKey -> Coin -> BlockfrostClientT IO UTxO
 findUTxO :: MonadIO m => UTxO Era -> Lovelace -> m (UTxO Era)
 
 -- | Like <a>seedFromFaucet</a>, but without returning the seeded
 --   <a>UTxO</a>.
-seedFromFaucet_ :: ChainBackend backend => backend -> VerificationKey PaymentKey -> Coin -> Tracer IO FaucetLog -> IO ()
+seedFromFaucet_ :: ChainBackendOptions -> VerificationKey PaymentKey -> Coin -> Tracer IO FaucetLog -> IO ()
 
 -- | Return the remaining funds to the faucet
-returnFundsToFaucet :: ChainBackend backend => Tracer IO FaucetLog -> backend -> Actor -> IO ()
-returnFundsToFaucet' :: ChainBackend backend => Tracer IO FaucetLog -> backend -> SigningKey PaymentKey -> IO Coin
-createOutputAtAddress :: ChainBackend backend => NetworkId -> backend -> AddressInEra -> TxOutDatum CtxTx -> Value -> IO (TxIn, TxOut CtxUTxO)
+returnFundsToFaucet :: Tracer IO FaucetLog -> ChainBackendOptions -> Actor -> IO ()
+returnFundsToFaucet' :: Tracer IO FaucetLog -> ChainBackendOptions -> Secret (SigningKey PaymentKey) -> IO Coin
+createOutputAtAddress :: NetworkId -> ChainBackendOptions -> AddressInEra -> TxOutDatum CtxTx -> Value -> IO (TxIn, TxOut CtxUTxO)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
-retryOnExceptions :: (MonadCatch m, MonadDelay m, ChainBackend backend) => Tracer m FaucetLog -> backend -> m a -> m a
+retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> ChainBackendOptions -> m a -> m a
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing
 --   them.
 --   
 --   The key of the given Actor is used to pay for fees in required
 --   transactions, it is expected to have sufficient funds.
-publishHydraScriptsAs :: ChainBackend backend => backend -> Actor -> IO [TxId]
+publishHydraScriptsAs :: ChainBackendOptions -> Actor -> IO [TxId]
 
 -- | Like <a>publishHydraScriptsAs</a>, but caches the resulting
 --   <a>TxId</a>s to a file in the given directory. On subsequent calls,
@@ -232,7 +234,7 @@ publishHydraScriptsAs :: ChainBackend backend => backend -> Actor -> IO [TxId]
 --   <a>queryScriptRegistry</a>) and reused if still valid. This avoids
 --   re-publishing identical scripts on every test run, saving funds and
 --   time especially on public testnets.
-publishOrReuseHydraScripts :: ChainBackend backend => backend -> Actor -> FilePath -> IO [TxId]
+publishOrReuseHydraScripts :: ChainBackendOptions -> Actor -> FilePath -> IO [TxId]
 instance GHC.Show.Show Hydra.Cluster.Faucet.FaucetException
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Cluster.Faucet.FaucetLog
 instance GHC.Generics.Generic Hydra.Cluster.Faucet.FaucetLog
@@ -249,17 +251,17 @@ networkId :: NetworkId
 --   <tt>HydraNode</tt>s. A dataset can optionally have a <a>title</a> and
 --   <a>description</a> which will be used to report results.
 data Dataset
-Dataset :: Tx -> [SigningKey PaymentKey] -> [ClientDataset] -> Maybe Text -> Maybe Text -> Dataset
+Dataset :: Tx -> [Secret (SigningKey PaymentKey)] -> [ClientDataset] -> Maybe Text -> Maybe Text -> Dataset
 [fundingTransaction] :: Dataset -> Tx
 
 -- | Cardano signing keys that will hold fuel.
-[hydraNodeKeys] :: Dataset -> [SigningKey PaymentKey]
+[hydraNodeKeys] :: Dataset -> [Secret (SigningKey PaymentKey)]
 [clientDatasets] :: Dataset -> [ClientDataset]
 [title] :: Dataset -> Maybe Text
 [description] :: Dataset -> Maybe Text
 data ClientDataset
-ClientDataset :: SigningKey PaymentKey -> UTxO -> [Tx] -> ClientDataset
-[paymentKey] :: ClientDataset -> SigningKey PaymentKey
+ClientDataset :: Secret (SigningKey PaymentKey) -> UTxO -> [Tx] -> ClientDataset
+[paymentKey] :: ClientDataset -> Secret (SigningKey PaymentKey)
 [initialUTxO] :: ClientDataset -> UTxO
 [txSequence] :: ClientDataset -> [Tx]
 
@@ -268,14 +270,28 @@ ClientDataset :: SigningKey PaymentKey -> UTxO -> [Tx] -> ClientDataset
 --   funds of the devnet (See <a>availableInitialFunds</a> and
 --   'genesis-shelley.json'). Then for a given number of clients a number
 --   of transactions are generated.
-generateConstantUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
-generateGrowingUTxODataset :: SigningKey PaymentKey -> Int -> Int -> Gen Dataset
+generateConstantUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Gen Dataset
+generateGrowingUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Gen Dataset
+
+-- | Generate a <a>Dataset</a> that grows the head's UTxO set for the first
+--   half of the tx sequence and contracts it again for the second half.
+--   Phase 1 reuses the same per-tx pattern as
+--   <a>generateGrowingUTxODataset</a> (1-in -&gt; 2-out via
+--   <a>mkSimpleTx</a> with reduced output value). Phase 2 issues 2-in
+--   -&gt; 1-out merges that consume two previously created outputs and
+--   produce a single combined output. End-state has a single UTxO again.
+generateMixedUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Gen Dataset
+
+-- | Build a zero-fee 2-in 1-out transaction that merges two of a sender's
+--   own outputs into one. Used by the Mixed generator to contract the UTxO
+--   set.
+mkMergeTx :: NetworkId -> SigningKey PaymentKey -> (TxIn, TxOut CtxUTxO) -> (TxIn, TxOut CtxUTxO) -> Either TxBodyError Tx
 
 -- | Generate a <a>Dataset</a> from an already running network by querying
 --   available funds of the well-known 'faucet.sk' and assuming the
 --   hydra-nodes we connect to have fuel available. Then for a given number
 --   of clients a number of transactions are generated.
-generateDemoUTxODataset :: NetworkId -> SocketPath -> SigningKey PaymentKey -> Int -> Int -> IO Dataset
+generateDemoUTxODataset :: NetworkId -> SocketPath -> Secret (SigningKey PaymentKey) -> Int -> Int -> IO Dataset
 withInitialUTxO :: SigningKey PaymentKey -> Tx -> UTxO
 genClientFunds :: [SigningKey PaymentKey] -> Integer -> Gen [(VerificationKey PaymentKey, Coin)]
 generateClientDataset :: NetworkId -> Tx -> Int -> SigningKey PaymentKey -> Gen ClientDataset
@@ -347,6 +363,9 @@ MsgSynchronizing :: Centi -> NominalDiffTime -> NominalDiffTime -> NominalDiffTi
 [$sel:targetTime:MsgNodeCmdSpec] :: NodeLog -> NominalDiffTime
 MsgQueryGenesisParametersFailed :: Text -> NodeLog
 [$sel:err:MsgNodeCmdSpec] :: NodeLog -> Text
+MsgPortBindRetry :: Port -> Int -> NodeLog
+[$sel:failedPort:MsgNodeCmdSpec] :: NodeLog -> Port
+[$sel:remainingAttempts:MsgNodeCmdSpec] :: NodeLog -> Int
 type Port = Int
 newtype NodeId
 NodeId :: Int -> NodeId
@@ -399,18 +418,30 @@ getCardanoNodeVersion :: IO String
 -- | Tries to find an communicate with an existing cardano-node running in
 --   given work directory. NOTE: This is using the default node socket name
 --   as defined by <a>defaultCardanoNodeArgs</a>.
-findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe (NominalDiffTime, DirectBackend))
+findRunningCardanoNode :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> IO (Maybe (NominalDiffTime, DirectOptions))
 
 -- | Tries to find an communicate with an existing cardano-node running in
 --   given network id and socket path.
-findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe (NominalDiffTime, DirectBackend))
+findRunningCardanoNode' :: Tracer IO NodeLog -> NetworkId -> SocketPath -> IO (Maybe (NominalDiffTime, DirectOptions))
+
+-- | Run a backend action using the given <a>ChainBackendOptions</a>.
+runBackend :: ChainBackendOptions -> (forall m. (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) => m a) -> IO a
 
 -- | Start a single cardano-node devnet using the config from config/ and
 --   credentials from config<i>credentials</i>. Only the <tt>Faucet</tt>
 --   actor will receive "initialFunds". Use <tt>seedFromFaucet</tt> to
 --   distribute funds other wallets.
-withCardanoNodeDevnet :: Tracer IO NodeLog -> FilePath -> (NominalDiffTime -> DirectBackend -> IO a) -> IO a
-withBlockfrostBackend :: Tracer IO EndToEndLog -> FilePath -> (NominalDiffTime -> BlockfrostBackend -> IO a) -> IO a
+--   
+--   <tt>randomUnusedTCPPorts</tt> must close its sentinel socket before
+--   returning the port, leaving a small window in which another process
+--   can grab the same ephemeral port before cardano-node binds it (see the
+--   NOTE in <a>Ports</a>). When that happens cardano-node dies on startup
+--   with <tt>bind: Address already in use</tt>. Detect that one specific
+--   failure and retry with a freshly allocated port; everything else is
+--   rethrown unchanged.
+withCardanoNodeDevnet :: Tracer IO NodeLog -> FilePath -> (NominalDiffTime -> DirectOptions -> IO a) -> IO a
+portBindMaxAttempts :: Int
+withBlockfrostBackend :: Tracer IO EndToEndLog -> FilePath -> (NominalDiffTime -> ChainBackendOptions -> IO a) -> IO a
 
 -- | Find the given file in the current directory or its parents.
 --   
@@ -418,32 +449,28 @@ withBlockfrostBackend :: Tracer IO EndToEndLog -> FilePath -> (NominalDiffTime -
 --   the specified file exists there. If not found, it recursively checks
 --   the parent directories up to the given maximum depth.
 findFileStartingAtDirectory :: Int -> FilePath -> IO FilePath
-withBackend :: forall a. Tracer IO EndToEndLog -> FilePath -> (forall backend. ChainBackend backend => NominalDiffTime -> backend -> IO a) -> IO a
+withBackend :: forall a. Tracer IO EndToEndLog -> FilePath -> (NominalDiffTime -> ChainBackendOptions -> IO a) -> IO a
 
 -- | Like <a>withBackend</a>, but also publishes (or reuses cached) Hydra
 --   scripts. On public testnets the cache file is stored in the persistent
 --   <tt>HYDRA_WORK_DIR</tt>, so scripts are published once and reused
 --   across test runs. On local devnet, the per-test <a>NodeLog</a> is
 --   used, so scripts are always published fresh.
-withHydraScriptsAndBackendRunning :: forall a. Tracer IO EndToEndLog -> FilePath -> (forall backend. ChainBackend backend => backend -> [TxId] -> IO a) -> IO a
+withHydraScriptsAndBackendRunning :: forall a. Tracer IO EndToEndLog -> FilePath -> (ChainBackendOptions -> [TxId] -> IO a) -> IO a
 
 -- | Run a cardano-node as normal network participant on a known network.
-withCardanoNodeOnKnownNetwork :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> (NominalDiffTime -> DirectBackend -> IO a) -> IO a
+withCardanoNodeOnKnownNetwork :: Tracer IO NodeLog -> FilePath -> KnownNetwork -> (NominalDiffTime -> DirectOptions -> IO a) -> IO a
 
 -- | Setup the cardano-node to run a local devnet producing blocks. This
 --   copies the appropriate files and prepares <a>CardanoNodeArgs</a> for
 --   <a>withCardanoNode</a>.
 setupCardanoDevnet :: FilePath -> IO CardanoNodeArgs
-withCardanoNode :: Tracer IO NodeLog -> FilePath -> CardanoNodeArgs -> (NominalDiffTime -> DirectBackend -> IO a) -> IO a
+withCardanoNode :: Tracer IO NodeLog -> FilePath -> CardanoNodeArgs -> (NominalDiffTime -> DirectOptions -> IO a) -> IO a
 getShelleyGenesisBlockTime :: Value -> NominalDiffTime
-
--- | Compute the block time (expected time between blocks) given a slot
---   length as diff time and active slot coefficient.
-computeBlockTime :: NominalDiffTime -> Rational -> NominalDiffTime
 
 -- | Wait until the node is fully caught up with the network. This can take
 --   a while!
-waitForFullySynchronized :: ChainBackend backend => Tracer IO NodeLog -> backend -> IO ()
+waitForFullySynchronized :: Tracer IO NodeLog -> ChainBackendOptions -> IO ()
 
 -- | Wait for the node socket file to become available.
 waitForSocket :: SocketPath -> IO ()
@@ -496,11 +523,43 @@ instance GHC.Show.Show CardanoNode.ProcessHasExited
 
 module HydraNode
 data HydraClient
-HydraClient :: Int -> Host -> Connection -> Tracer IO HydraNodeLog -> HydraClient
+HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraNodeLog -> HydraClient
 [$sel:hydraNodeId:HydraClient] :: HydraClient -> Int
 [$sel:apiHost:HydraClient] :: HydraClient -> Host
+
+-- | Port the hydra-node exposes Prometheus metrics on, if enabled.
+[$sel:monitoringPort:HydraClient] :: HydraClient -> Maybe PortNumber
 [$sel:connection:HydraClient] :: HydraClient -> Connection
 [$sel:tracer:HydraClient] :: HydraClient -> Tracer IO HydraNodeLog
+
+-- | The three ports a hydra-node binds: API, peer-to-peer listen, and the
+--   optional Prometheus monitoring endpoint. Callers allocate these via
+--   <a>allocateHydraNodePorts</a> (or pre-allocate a full cluster) and
+--   thread them through <a>prepareHydraNode</a> / <a>withHydraNode</a>.
+data HydraNodePorts
+HydraNodePorts :: PortNumber -> PortNumber -> PortNumber -> HydraNodePorts
+[$sel:apiPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+[$sel:listenPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+[$sel:monitoringPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+
+-- | Allocate ports for every node in a cluster up front. The returned map
+--   must be passed to every <a>prepareHydraNode</a> / <a>withHydraNode</a>
+--   call for nodes in this cluster so peers can be addressed correctly.
+--   
+--   Listen ports are taken via <a>randomUnusedTCPPortsWithDerived</a> so
+--   each listen port's derived etcd <i>client</i> port —
+--   <a>peerPortToClientPort</a> — is actually held bound at allocation
+--   time. That defends against two failure modes: an unrelated process on
+--   the host occupying the derived port (which a plain
+--   <a>randomUnusedTCPPorts</a> would not catch and which explodes as
+--   <tt>EADDRINUSE</tt> the moment etcd starts), and an unlucky draw where
+--   the derived port lands on top of another node's api/monitoring port
+--   (which used to make the GRPC client talk to Warp instead of etcd).
+--   
+--   Api and monitoring ports are then acquired in a second batch and
+--   checked to be disjoint from both the listen ports and the derived
+--   client ports; on collision we retry that second batch.
+allocateHydraNodePortsFor :: [Int] -> IO (Map Int HydraNodePorts)
 
 -- | Get the protocol-parameters from the hydra-node.
 getProtocolParameters :: HydraClient -> IO (PParams LedgerEra)
@@ -528,7 +587,12 @@ postDecommit :: HydraClient -> Tx -> IO ()
 
 -- | Prepare <a>RunOptions</a> to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
-prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (Value -> Value) -> IO RunOptions
+--   
+--   The <tt>nodePorts</tt> map must contain an entry for this
+--   <tt>hydraNodeId</tt> and for every peer this node should connect to.
+--   Use <a>allocateHydraNodePortsFor</a> to build it for a cluster, or
+--   <a>allocateHydraNodePorts</a> + a singleton map for a standalone node.
+prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (Value -> Value) -> IO RunOptions
 
 -- | Helper to make it easy to obtain a commit tx using some wallet utxo
 requestCommitTx :: HydraClient -> UTxO -> IO Tx
@@ -551,25 +615,41 @@ waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 -- | Wait up to some time for an API server output to match the given
 --   predicate.
 waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
-withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, SigningKey PaymentKey)] -> [SigningKey HydraKey] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
+withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
+withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] -> [Secret (SigningKey HydraKey)] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node just like <a>withHydraNode</a>; but before running
 --   any action, observe a <tt>Greetings</tt> message with the node in sync
 --   first. NOTE that importantly, any messages seen BEFORE we observe this
 --   will be lost; i.e. unobservable by subsequent <a>waitFor</a>s.
-withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+--   
+--   See <a>prepareHydraNode</a> for how to build the port map.
+withHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config and catching up with chain backend/.
-withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+withHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
 
 -- | Run a hydra-node with given <a>RunOptions</a>.
 withPreparedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> FilePath -> Int -> RunOptions -> (HydraClient -> IO a) -> IO a
 
+-- | Convenience: run a single hydra-node with no peers and freshly
+--   allocated dynamic ports. Equivalent to <a>withHydraNode</a> with a
+--   singleton port map.
+withSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+
+-- | Convenience: <a>withHydraNodeCatchingUp</a> for a single node with
+--   freshly allocated dynamic ports.
+withSoloHydraNodeCatchingUp :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+
 -- | Run a hydra-node with given <a>ChainConfig</a> and using the config
 --   from config/, but, importantly, do NOT wait for the sync status to be
 --   reported.
-withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> SigningKey HydraKey -> [VerificationKey HydraKey] -> [Int] -> (HydraClient -> IO a) -> IO a
+withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (HydraClient -> IO a) -> IO a
+
+-- | Convenience: <a>withUnsyncedHydraNode</a> for a single node with
+--   freshly allocated dynamic ports.
+withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
 waitNext :: HasCallStack => HydraClient -> IO Value
 setupBFDelay :: NominalDiffTime -> IO NominalDiffTime
 
@@ -583,11 +663,26 @@ waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [Hydr
 waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO ()
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
 
+-- | Allocate three unused TCP ports from the OS for a single hydra-node.
+allocateHydraNodePorts :: IO HydraNodePorts
+
+-- | Process-global cache mapping each <tt>(workDir, nodeId)</tt> to its
+--   allocated ports. The cache exists because restart-style tests
+--   (re-running <a>withSoloHydraNode</a> or similar against the same
+--   <tt>workDir</tt>) depend on etcd's persistent cluster state, which is
+--   keyed by the listen URL. If a restart picked fresh ports, etcd would
+--   refuse to start.
+soloHydraNodePortsCache :: IORef (Map (FilePath, Int) HydraNodePorts)
+
+-- | Allocate ports for a single hydra-node, memoizing the result for the
+--   given <tt>(workDir, nodeId)</tt> so that subsequent calls reuse the
+--   same ports.
+soloHydraNodePortsFor :: FilePath -> Int -> IO HydraNodePorts
+
 -- | Prepare protocol-parameters to run a hydra-node with given
 --   <a>ChainConfig</a> and using the config from config/.
 preparePParams :: ChainConfig -> FilePath -> (Value -> Value) -> IO FilePath
-withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> (HydraClient -> IO a) -> IO a
-withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe String -> (HydraClient -> IO a) -> IO a
+withConnectionToNodeHost :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> Maybe String -> (HydraClient -> IO a) -> IO a
 data HydraNodeLog
 HydraNodeCommandSpec :: Text -> HydraNodeLog
 [$sel:cmd:HydraNodeCommandSpec] :: HydraNodeLog -> Text
@@ -604,117 +699,125 @@ ReceivedMessage :: Int -> Value -> HydraNodeLog
 [$sel:message:HydraNodeCommandSpec] :: HydraNodeLog -> Value
 EndWaiting :: Int -> HydraNodeLog
 [$sel:nodeId:HydraNodeCommandSpec] :: HydraNodeLog -> Int
+instance GHC.Classes.Eq HydraNode.HydraNodePorts
+instance GHC.Show.Show HydraNode.HydraNodePorts
 
 module Hydra.Cluster.Scenarios
-oneOfThreeNodesStopsForAWhile :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-
--- | Return the remaining funds to the faucet
-returnFundsToFaucet :: ChainBackend backend => Tracer IO EndToEndLog -> backend -> Actor -> IO ()
+oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 headIsOpenWith :: Set Party -> Value -> Maybe HeadId
-restartedNodeCanObserveCommitTx :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-resumeFromLatestKnownPoint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-restartedNodeCanClose :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
 
 -- | Refuel given <a>Actor</a> with given <tt>Lovelace</tt> if current
 --   marked UTxO is below that amount.
-refuelIfNeeded :: ChainBackend backend => Tracer IO EndToEndLog -> backend -> Actor -> Coin -> IO ()
-nodeReObservesOnChainTxs :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+refuelIfNeeded :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> Coin -> IO ()
 
--- | Get the base URL for HTTP API calls to a hydra-node.
+-- | Return the remaining funds to the faucet
+returnFundsToFaucet :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> IO ()
+restartedNodeCanObserveCommitTx :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+resumeFromLatestKnownPoint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+restartedNodeCanClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+nodeReObservesOnChainTxs :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Get the base URL for HTTP API calls to a hydra-node, using the actual
+--   API port the node was started on (allocated dynamically by
+--   <tt>allocateHydraNodePorts</tt>).
 hydraNodeBaseUrl :: HydraClient -> String
 headIsFinalizedWith :: HeadId -> UTxO -> Value -> Maybe ()
 
 -- | Step through the full life cycle of a Hydra Head with only a single
 --   participant. This scenario is also used by the smoke test run via the
 --   `hydra-cluster` executable.
-singlePartyHeadFullLifeCycle :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+singlePartyHeadFullLifeCycle :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | An <a>Option</a> carrying a hydra-node's actual API port. Use to set
+--   the port in a <a>req</a> call.
+hydraApiPort :: HydraClient -> Option scheme
 
 -- | Open a Hydra Head with only a single participant but some arbitrary
 --   UTxO committed.
-singlePartyOpenAHead :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> Maybe (Positive Natural) -> (HydraClient -> SigningKey PaymentKey -> HeadId -> IO a) -> IO a
+singlePartyOpenAHead :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> Maybe (Positive Natural) -> (HydraClient -> Secret (SigningKey PaymentKey) -> HeadId -> IO a) -> IO a
 
 -- | Single hydra-node where the deposit is done using some wallet UTxO.
-canDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-singlePartyUsesScriptOnL2 :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+singlePartyUsesScriptOnL2 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Compute the integrity hash of a transaction using a list of plutus
 --   languages.
-recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx txera -> Tx txera
+recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx TopTx txera -> Tx TopTx txera
 
 -- | Open a head and run a script using <tt>Rewarding</tt> script purpose
 --   and a zero lovelace withdrawal.
-singlePartyUsesWithdrawZeroTrick :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canDepositScriptBlueprint :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-persistenceCanLoadWithNothingCommitted :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+singlePartyUsesWithdrawZeroTrick :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canDepositScriptBlueprint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+persistenceCanLoadWithNothingCommitted :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Initialize open and close a head on a real network and ensure
 --   contestation period longer than the time horizon is possible. For this
 --   it is enough that we can close a head and not wait for the deadline.
-canCloseWithLongContestationPeriod :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canSubmitTransactionThroughAPI :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canCloseWithLongContestationPeriod :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canSubmitTransactionThroughAPI :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 expectErrorStatus :: Int -> Maybe ByteString -> HttpException -> Bool
 
 -- | Three hydra nodes open a head and we assert that none of them sees
 --   errors. This was particularly misleading when everyone tries to post
 --   the collect transaction concurrently.
-threeNodesNoErrorsOnOpen :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+threeNodesNoErrorsOnOpen :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Hydra nodes ABC run on ABC cluster and connect to each other. Hydra
 --   nodes BC shut down. Hydra nodes BC run on BC cluster and connect to
 --   each other. Hydra nodes BC shut down. Hydra nodes BC run and connect
 --   ABC cluster again.
-nodeCanSupportMultipleEtcdClusters :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+nodeCanSupportMultipleEtcdClusters :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Two hydra node setup where Alice is wrongly configured to use Carol's
 --   cardano keys instead of Bob's which will prevent him to be notified
 --   the <tt>HeadIsInitializing</tt> but he should still receive some
 --   notification.
-initWithWrongKeys :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> backend -> [TxId] -> IO ()
-startWithWrongPeers :: ChainBackend backend => FilePath -> Tracer IO EndToEndLog -> backend -> [TxId] -> IO ()
+initWithWrongKeys :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
+startWithWrongPeers :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a a two participant head, deposit funds to it and distribute them
 --   on fanout.
-canDepositConcurrently :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-rejectDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canDepositConcurrently :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+rejectDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a single participant head and deposit part of a UTxO, with the
 --   remainder returned to a change address. This exercises the
 --   <tt>changeAddress</tt> balancing path in the deposit blueprint API.
-canDepositPartially :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canDepositPartially :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a a single participant head, deposit and then recover it.
-canRecoverDeposit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a single-participant head, perform 3 deposits, and then: 1. Close
 --   the head and recover deposit #1 2. Fanout the head and recover deposit
 --   #2 3. Open a new head and recover deposit #3
-canRecoverDepositInAnyState :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canRecoverDepositInAnyState :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a two-participant head, stop one node so deposits stay pending,
 --   then verify that GET /commits lists them. Recovery is covered by
 --   canRecoverDeposit.
-canSeePendingDeposits :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a a single participant head with some UTxO and incrementally
 --   decommit it.
-canDecommit :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canDecommit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Integration test for the SideLoadSnapshot API: open a single-party
 --   head, deposit UTxO, side-load the deposit snapshot, then spend the
 --   deposited UTxO. This exercises the real Cardano ledger and network to
 --   ensure the API inputs and outputs are wired up correctly. The
 --   consensus-resumption logic is covered by the BehaviorSpec unit tests.
-canSideLoadSnapshot :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-canResumeOnMemberAlreadyBootstrapped :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
-waitsForChainInSyncAndSecure :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+canSideLoadSnapshot :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+canResumeOnMemberAlreadyBootstrapped :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+waitsForChainInSyncAndSecure :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Three hydra nodes open a head and we assert that none of them sees
 --   errors if a party is duplicated.
-threeNodesWithMirrorParty :: ChainBackend backend => Tracer IO EndToEndLog -> FilePath -> backend -> [TxId] -> IO ()
+threeNodesWithMirrorParty :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Respend all outputs owned by a given key in the head every
 --   <tt>delay</tt> seconds, for <tt>numTimes</tt> times.
-respendNTimes :: HasCallStack => HydraClient -> SigningKey PaymentKey -> DiffTime -> Int -> IO ()
+respendNTimes :: HasCallStack => HydraClient -> Secret (SigningKey PaymentKey) -> DiffTime -> Int -> IO ()
 data EndToEndLog
 ClusterOptions :: Options -> EndToEndLog
 [$sel:options:ClusterOptions] :: EndToEndLog -> Options
@@ -738,3 +841,145 @@ UsingHydraScriptsAt :: [TxId] -> EndToEndLog
 [$sel:hydraScriptsTxId:ClusterOptions] :: EndToEndLog -> [TxId]
 CreatedKey :: FilePath -> EndToEndLog
 [$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+
+
+-- | End-to-end regression tests for the deposit-stealing class of bugs.
+module Hydra.Cluster.SecurityScenarios
+
+-- | Regression test for the standalone-Claim deposit-stealing attack.
+--   
+--   A third party submits a standalone tx that spends a pending deposit
+--   UTxO with the <tt>Claim</tt> redeemer, redirecting the value to their
+--   own address. The tx has no Head input at all, so the deposit
+--   validator's <tt>Claim</tt> branch fails on <tt>list.find</tt> with
+--   <tt>DepositHeadInputNotFound</tt> (D06).
+cannotStealDepositWithoutHeadInput :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | The attacker mints a counterfeit token of asset name
+--   <tt>HydraHeadV2</tt> under a permissive minting policy they control,
+--   locks it in their own wallet, and uses that UTxO as bait alongside a
+--   victim deposit. The deposit validator's <tt>Claim</tt> branch searches
+--   the inputs for a UTxO that carries the real head's policy id; the
+--   counterfeit token's policy id does not match, so the validator fails
+--   with <tt>DepositHeadInputNotFound</tt> (D06).
+cannotStealDepositWithCounterfeitHeadToken :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Place a deposit of <tt>amount</tt> lovelace from a fresh wallet into
+--   the head managed by <tt>n1</tt>. Returns the wallet's verification key
+--   (so its balance can be queried later) and the deposit transaction id.
+placeVictimDeposit :: Tracer IO EndToEndLog -> ChainBackendOptions -> HydraClient -> Timing -> Integer -> IO (VerificationKey PaymentKey, TxId)
+
+-- | Encapsulates the moving parts of an attempted-steal transaction.
+data AttemptArgs
+AttemptArgs :: Tracer IO EndToEndLog -> ChainBackendOptions -> TxIn -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))] -> TxIn -> [TxOut CtxTx] -> SigningKey PaymentKey -> AddressInEra -> UTxO -> String -> AttemptArgs
+[$sel:tracer:AttemptArgs] :: AttemptArgs -> Tracer IO EndToEndLog
+[$sel:opts:AttemptArgs] :: AttemptArgs -> ChainBackendOptions
+
+-- | Diagnostic / naming hook for the "primary" deposit being attacked.
+[$sel:depositTxIn:AttemptArgs] :: AttemptArgs -> TxIn
+
+-- | Deposit-script UTxOs being attacked. The first entry is wired up as a
+--   Claim-witnessed input by the helper; additional deposit inputs (for
+--   amplification cases) must be passed through
+--   <a>$sel:extraInputs:AttemptArgs</a> with their own deposit-script
+--   witness. TODO: This may not need to be alist, and should be more
+--   simply a <a>UTxO</a> type.
+[$sel:depositTxOuts:AttemptArgs] :: AttemptArgs -> [(TxIn, TxOut CtxUTxO)]
+
+-- | Additional non-deposit-script inputs (key witnesses or extra deposit
+--   script witnesses for amplification cases).
+[$sel:extraInputs:AttemptArgs] :: AttemptArgs -> [(TxIn, BuildTxWith BuildTx (Witness WitCtxTxIn))]
+[$sel:collateralIn:AttemptArgs] :: AttemptArgs -> TxIn
+[$sel:extraOutputs:AttemptArgs] :: AttemptArgs -> [TxOut CtxTx]
+[$sel:attackerSk:AttemptArgs] :: AttemptArgs -> SigningKey PaymentKey
+[$sel:attackerAddr:AttemptArgs] :: AttemptArgs -> AddressInEra
+[$sel:spendable:AttemptArgs] :: AttemptArgs -> UTxO
+
+-- | Plutus error trace (e.g. <tt><a>D06</a></tt>) expected on the
+--   autobalancer's <a>Left</a>. The build error must contain this trace;
+--   any other <a>Left</a> (insufficient ada for fees, integrity-hash
+--   mismatch, era hiccup, ...) is treated as a test failure rather than
+--   success.
+[$sel:expectedTrace:AttemptArgs] :: AttemptArgs -> String
+
+-- | Build a steal transaction and assert the autobalancer rejects it
+--   specifically because the deposit validator failed with
+--   <a>expectedTrace</a>. Any other <a>Left</a> (insufficient ada,
+--   integrity hash mismatch, era issue, ...) is treated as a test failure.
+attemptStealAndAssertRejected :: AttemptArgs -> IO ()
+requireSingletonUTxO :: HasCallStack => String -> UTxO -> IO (TxIn, TxOut CtxUTxO)
+assertDepositStillLocked :: ChainBackendOptions -> TxId -> Value -> IO ()
+assertWalletLovelace :: ChainBackendOptions -> VerificationKey PaymentKey -> Integer -> IO ()
+
+-- | A malicious participant of a head constructs an Increment-shaped
+--   transaction that consumes the head's ST + the redeemer-specified
+--   deposit + ANOTHER pending deposit for the same head, and routes the
+--   extra deposit's value to attacker-controlled outputs.
+--   
+--   Setup: 1-party head (Alice). Two unrelated depositors (V1 and V2) each
+--   deposit funds for Alice's head. Alice (the malicious participant)
+--   constructs an Increment that claims V1's deposit (which is in the
+--   snapshot Alice signs) but ALSO consumes V2's deposit and routes its
+--   value to a Kate address. The head validator's
+--   <tt>mustPreserveValue</tt> sums every non-head input and requires
+--   <tt>head_in + Σ non-head inputs == head_out</tt>, so V2's value
+--   escaping to Kate makes the equation fail and the tx is rejected with
+--   <tt>HeadValueIsNotPreserved</tt> (H4).
+cannotRedirectExtraDepositDuringIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Like <a>placeVictimDeposit</a> but does not wait for the hydra-node to
+--   emit <tt>CommitRecorded</tt>. The caller is expected to exit the
+--   <tt>withHydraNode</tt> bracket promptly so the node cannot submit its
+--   own honest Increment for the deposit.
+placeVictimDepositNoWait :: Tracer IO EndToEndLog -> ChainBackendOptions -> HydraClient -> Integer -> IO (VerificationKey PaymentKey, TxId)
+
+-- | Poll the chain for a UTxO at the given TxIn until it appears. Times
+--   out after ~30 seconds.
+waitForOnChainUTxO :: ChainBackendOptions -> TxIn -> IO UTxO
+
+-- | Locate the head's continuation UTxO at v_head address, identified by
+--   its state token policy id matching the head id.
+findHeadContinuationUTxO :: ChainBackendOptions -> NetworkId -> HeadId -> IO (TxIn, TxOut CtxUTxO, OpenDatum)
+
+-- | Read the <tt>[Commit]</tt> list from a deposit-script UTxO's inline
+--   datum.
+readDepositCommits :: TxOut CtxUTxO -> IO [Commit]
+
+-- | A malicious head participant closes the head with a transaction that
+--   ALSO spends a foreign deposit input, padding the closed-state
+--   continuation's value with the deposit's value (mustPreserveHeadValue
+--   uses <tt>geq</tt>, so head_out &gt; head_in is allowed). After the
+--   contestation deadline they fanout the absorbed value to their own
+--   address. The deposit validator's <tt>head_output_is_open</tt> check
+--   requires the head's continuation datum to be the Open state, so Close
+--   <i> Contest </i> Fanout transitions cannot absorb deposits and the tx
+--   is rejected with <tt>HeadOutputNotOpen</tt> (D06).
+--   
+--   The test uses the simplest of the close redeemers,
+--   <a>CloseInitial</a>, which doesn't require an off-chain snapshot
+--   signature: just snapshotNumber = 0 and utxoHash = the open's
+--   initialUtxoHash.
+cannotAbsorbDepositDuringClose :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | The malicious snapshot leader places their own SMALL deposit alongside
+--   a much LARGER unrelated victim deposit, then constructs an Increment
+--   that claims their own small deposit (which is in the snapshot they
+--   sign) but ALSO consumes the victim's larger deposit and routes its
+--   value to a leader-controlled wallet ("their own pocket") rather than
+--   to the head.
+--   
+--   Compared to <a>cannotRedirectExtraDepositDuringIncrement</a> (two
+--   unrelated depositors, redirection to a third party), this captures the
+--   threat model where the leader benefits *directly* and uses their own
+--   honest deposit as cover ("I was just incrementing my deposit"). The
+--   asymmetric amounts (small honest, large stolen) make the economic
+--   motive explicit.
+--   
+--   The on-chain defense is the same: the head validator's
+--   <tt>mustPreserveValue</tt> sums every non-head input and requires
+--   <tt>head_in + Σ non-head inputs == head_out</tt>. With the victim's
+--   value routed to a non-Head output, the equation fails and the tx is
+--   rejected with <tt>HeadValueIsNotPreserved</tt> (H4).
+--   
+--   TODO: This could move into the MutationSpec or the TraceSpec.
+cannotStealLargerDepositDuringOwnIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
